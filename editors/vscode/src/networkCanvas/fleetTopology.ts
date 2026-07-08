@@ -42,6 +42,8 @@ export interface FleetTopologyRuntime {
   health: string;
   detail: string;
   endpoints: FleetTopologyEndpoint[];
+  source?: string;
+  last_seen_ms?: number;
 }
 
 export interface FleetTopologyEndpoint {
@@ -58,16 +60,31 @@ export interface FleetTopologyEndpoint {
     last_seen_ms?: number;
     rtt_ms?: number;
   };
+  connector?: FleetTopologyConnectorStatus;
   // Non-secret config params for this endpoint (schema_version 3, from `comm topology`),
   // used to pre-fill the editable inspector with the device's current settings.
   params?: Record<string, unknown>;
   owned: boolean;
   supports_test: boolean;
+  source?: string;
   // v4 (§10.2): per-protocol intent + fieldbus slaves (EtherCAT segment children).
   category?: string;
   profile?: string;
   display_name?: string;
   children?: FleetTopologySlave[];
+}
+
+export interface FleetTopologyConnectorStatus {
+  connector_id: string;
+  state: string;
+  health: string;
+  confidence: string;
+  point_counts: {
+    total: number;
+    good: number;
+    degraded: number;
+    unavailable: number;
+  };
 }
 
 // v4 (§10.2): one slave/module on a fieldbus segment (EtherCAT terminal), from `comm topology`.
@@ -194,16 +211,116 @@ function mergeHost(hostsById: Map<string, FleetTopologyHost>, host: FleetTopolog
     });
     return;
   }
-  // Same host reported by another runtime → union its runtimes + containers by id.
-  existing.runtimes = unionById(existing.runtimes, host.runtimes ?? [], (r) => r.runtime_id);
+  // Same host reported by another runtime/source → keep the first source's scalar facts, but
+  // merge same-runtime children so live topology does not hide configured endpoints that need a
+  // restart before the runtime reports them.
+  existing.runtimes = mergeRuntimes(existing.runtimes, host.runtimes ?? []);
   for (const container of host.containers ?? []) {
     const match = existing.containers.find((c) => c.container_id === container.container_id);
     if (match) {
-      match.runtimes = unionById(match.runtimes, container.runtimes ?? [], (r) => r.runtime_id);
+      match.runtimes = mergeRuntimes(match.runtimes, container.runtimes ?? []);
     } else {
       existing.containers.push({ ...container, runtimes: [...(container.runtimes ?? [])] });
     }
   }
+}
+
+function mergeRuntimes(
+  base: FleetTopologyRuntime[],
+  extra: FleetTopologyRuntime[]
+): FleetTopologyRuntime[] {
+  const out = [...base];
+  const byId = new Map(out.map((runtime) => [runtime.runtime_id, runtime]));
+  for (const runtime of extra) {
+    const existing = byId.get(runtime.runtime_id) ?? out.find((candidate) =>
+      isLiveRuntimeWithProjectOverlay(candidate, runtime)
+    );
+    if (!existing) {
+      out.push(runtime);
+      byId.set(runtime.runtime_id, runtime);
+      continue;
+    }
+    existing.endpoints = mergeRuntimeEndpoints(existing.endpoints ?? [], runtime.endpoints ?? []);
+    byId.set(runtime.runtime_id, existing);
+  }
+  return out;
+}
+
+function isLiveRuntimeWithProjectOverlay(
+  existing: FleetTopologyRuntime,
+  candidate: FleetTopologyRuntime
+): boolean {
+  return (
+    existing.source === "self" &&
+    candidate.source === "config" &&
+    (existing.health === "connected" || existing.health === "simulate") &&
+    candidate.health === "configured_policy" &&
+    /project files/i.test(candidate.detail)
+  );
+}
+
+function mergeRuntimeEndpoints(
+  base: FleetTopologyEndpoint[],
+  extra: FleetTopologyEndpoint[]
+): FleetTopologyEndpoint[] {
+  const out = [...base];
+  const byId = new Map(out.map((endpoint) => [endpoint.id, endpoint]));
+  for (const endpoint of extra) {
+    const existing = byId.get(endpoint.id) ?? out.find((candidate) =>
+      isLiveEndpointWithProjectOverlay(candidate, endpoint)
+    );
+    if (!existing) {
+      out.push(endpoint);
+      byId.set(endpoint.id, endpoint);
+      continue;
+    }
+    Object.assign(existing, mergeEndpointData(existing, endpoint));
+    byId.set(endpoint.id, existing);
+  }
+  return out;
+}
+
+function isLiveEndpointWithProjectOverlay(
+  existing: FleetTopologyEndpoint,
+  candidate: FleetTopologyEndpoint
+): boolean {
+  return (
+    SINGLETON_PROJECT_OVERLAY_PROTOCOLS.has(existing.protocol) &&
+    existing.protocol === candidate.protocol &&
+    (candidate.source === "config" || candidate.health === "configured_policy")
+  );
+}
+
+const SINGLETON_PROJECT_OVERLAY_PROTOCOLS = new Set([
+  "simulated",
+  "loopback",
+  "ads",
+  "opcua_client",
+  "opcua",
+  "ads_server",
+  "web",
+  "discovery",
+  "mesh",
+  "openot",
+  "runtime_cloud",
+  "realtime_t0",
+]);
+
+function mergeEndpointData(
+  existing: FleetTopologyEndpoint,
+  incoming: FleetTopologyEndpoint
+): FleetTopologyEndpoint {
+  return {
+    ...existing,
+    params: existing.params ?? incoming.params,
+    connector: existing.connector ?? incoming.connector,
+    children:
+      existing.children && existing.children.length > 0
+        ? existing.children
+        : incoming.children,
+    supports_test: existing.supports_test || incoming.supports_test,
+    owned: existing.owned || incoming.owned,
+  };
 }
 
 function unionById<T>(base: T[], extra: T[], key: (item: T) => string): T[] {

@@ -5,6 +5,7 @@ import {
   isAssignableIdentifier,
   localName,
 } from "./stNaming";
+import { rewriteDirectIoInFunctionBlock } from "./directIo";
 
 interface ActionTarget {
   address: string;
@@ -417,5 +418,5 @@ export function generateStateChartCompanionFunctionBlock(
   output.push(...body);
   output.push("END_FUNCTION_BLOCK");
 
-  return output.join("\n");
+  return rewriteDirectIoInFunctionBlock(output.join("\n")).source;
 }

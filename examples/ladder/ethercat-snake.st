@@ -9,97 +9,117 @@
 *)
 
 FUNCTION_BLOCK FB_ethercat_snake_LADDER
+VAR_EXTERNAL
+  StartTrigger : BOOL;
+  Step0Active : BOOL;
+  Step1Active : BOOL;
+  Step2Active : BOOL;
+  Step3Active : BOOL;
+  Step4Active : BOOL;
+  Step5Active : BOOL;
+  Step6Active : BOOL;
+  Step7Active : BOOL;
+  Led0Output : BOOL;
+  Led1Output : BOOL;
+  Led2Output : BOOL;
+  Led3Output : BOOL;
+  Led4Output : BOOL;
+  Led5Output : BOOL;
+  Led6Output : BOOL;
+  Led7Output : BOOL;
+END_VAR
+
 (* Network 0: rung_step0_set *)
-IF %MX0.0 AND NOT (%MX1.0) THEN
-  %MX1.0 := TRUE;
+IF StartTrigger AND NOT (Step0Active) THEN
+  Step0Active := TRUE;
 END_IF;
 
 (* Network 1: rung_step0_output *)
-%QX0.0 := %MX1.0;
+Led0Output := Step0Active;
 
 (* Network 2: rung_step1_set *)
-IF %MX1.0 AND NOT (%MX2.0) THEN
-  %MX2.0 := TRUE;
+IF Step0Active AND NOT (Step1Active) THEN
+  Step1Active := TRUE;
 END_IF;
-IF %MX1.0 AND NOT (%MX2.0) THEN
-  %MX1.0 := FALSE;
+IF Step0Active AND NOT (Step1Active) THEN
+  Step0Active := FALSE;
 END_IF;
 
 (* Network 3: rung_step1_output *)
-%QX0.1 := %MX2.0;
+Led1Output := Step1Active;
 
 (* Network 4: rung_step2_set *)
-IF %MX2.0 AND NOT (%MX3.0) THEN
-  %MX3.0 := TRUE;
+IF Step1Active AND NOT (Step2Active) THEN
+  Step2Active := TRUE;
 END_IF;
-IF %MX2.0 AND NOT (%MX3.0) THEN
-  %MX2.0 := FALSE;
+IF Step1Active AND NOT (Step2Active) THEN
+  Step1Active := FALSE;
 END_IF;
 
 (* Network 5: rung_step2_output *)
-%QX0.2 := %MX3.0;
+Led2Output := Step2Active;
 
 (* Network 6: rung_step3_set *)
-IF %MX3.0 AND NOT (%MX4.0) THEN
-  %MX4.0 := TRUE;
+IF Step2Active AND NOT (Step3Active) THEN
+  Step3Active := TRUE;
 END_IF;
-IF %MX3.0 AND NOT (%MX4.0) THEN
-  %MX3.0 := FALSE;
+IF Step2Active AND NOT (Step3Active) THEN
+  Step2Active := FALSE;
 END_IF;
 
 (* Network 7: rung_step3_output *)
-%QX0.3 := %MX4.0;
+Led3Output := Step3Active;
 
 (* Network 8: rung_step4_set *)
-IF %MX4.0 AND NOT (%MX5.0) THEN
-  %MX5.0 := TRUE;
+IF Step3Active AND NOT (Step4Active) THEN
+  Step4Active := TRUE;
 END_IF;
-IF %MX4.0 AND NOT (%MX5.0) THEN
-  %MX4.0 := FALSE;
+IF Step3Active AND NOT (Step4Active) THEN
+  Step3Active := FALSE;
 END_IF;
 
 (* Network 9: rung_step4_output *)
-%QX0.4 := %MX5.0;
+Led4Output := Step4Active;
 
 (* Network 10: rung_step5_set *)
-IF %MX5.0 AND NOT (%MX6.0) THEN
-  %MX6.0 := TRUE;
+IF Step4Active AND NOT (Step5Active) THEN
+  Step5Active := TRUE;
 END_IF;
-IF %MX5.0 AND NOT (%MX6.0) THEN
-  %MX5.0 := FALSE;
+IF Step4Active AND NOT (Step5Active) THEN
+  Step4Active := FALSE;
 END_IF;
 
 (* Network 11: rung_step5_output *)
-%QX0.5 := %MX6.0;
+Led5Output := Step5Active;
 
 (* Network 12: rung_step6_set *)
-IF %MX6.0 AND NOT (%MX7.0) THEN
-  %MX7.0 := TRUE;
+IF Step5Active AND NOT (Step6Active) THEN
+  Step6Active := TRUE;
 END_IF;
-IF %MX6.0 AND NOT (%MX7.0) THEN
-  %MX6.0 := FALSE;
+IF Step5Active AND NOT (Step6Active) THEN
+  Step5Active := FALSE;
 END_IF;
 
 (* Network 13: rung_step6_output *)
-%QX0.6 := %MX7.0;
+Led6Output := Step6Active;
 
 (* Network 14: rung_step7_set *)
-IF %MX7.0 AND NOT (%MX8.0) THEN
-  %MX8.0 := TRUE;
+IF Step6Active AND NOT (Step7Active) THEN
+  Step7Active := TRUE;
 END_IF;
-IF %MX7.0 AND NOT (%MX8.0) THEN
-  %MX7.0 := FALSE;
+IF Step6Active AND NOT (Step7Active) THEN
+  Step6Active := FALSE;
 END_IF;
 
 (* Network 15: rung_step7_output *)
-%QX0.7 := %MX8.0;
+Led7Output := Step7Active;
 
 (* Network 16: rung_restart *)
-IF %MX8.0 AND NOT (%MX1.0) THEN
-  %MX1.0 := TRUE;
+IF Step7Active AND NOT (Step0Active) THEN
+  Step0Active := TRUE;
 END_IF;
-IF %MX8.0 AND NOT (%MX1.0) THEN
-  %MX8.0 := FALSE;
+IF Step7Active AND NOT (Step0Active) THEN
+  Step7Active := FALSE;
 END_IF;
 
 END_FUNCTION_BLOCK

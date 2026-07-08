@@ -1,0 +1,58 @@
+{
+  "case_id": "cfm_scheduler_task_interval_001",
+  "category": "scheduler",
+  "cycles": 4,
+  "description": "Periodic task interval scheduling is deterministic under scripted virtual time.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "count": {
+          "type": "INT",
+          "value": 0
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "count": {
+          "type": "INT",
+          "value": 1
+        }
+      },
+      "runtime_time_nanos": 10000000
+    },
+    {
+      "cycle": 3,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "count": {
+          "type": "INT",
+          "value": 2
+        }
+      },
+      "runtime_time_nanos": 20000000
+    },
+    {
+      "cycle": 4,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "count": {
+          "type": "INT",
+          "value": 3
+        }
+      },
+      "runtime_time_nanos": 30000000
+    }
+  ],
+  "version": 1
+}

@@ -195,9 +195,9 @@ suite("LSP integration (VS Code)", function () {
     const serverPath = process.env.ST_LSP_TEST_SERVER ?? "";
     assert.ok(serverPath.length > 0, "ST_LSP_TEST_SERVER is not set.");
     await vscode.workspace
-      .getConfiguration("trust-lsp")
+      .getConfiguration("trust")
       .update(
-        "server.path",
+        "languageServer.executablePath",
         serverPath,
         vscode.ConfigurationTarget.Workspace
       );

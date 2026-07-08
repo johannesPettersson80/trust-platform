@@ -30,7 +30,8 @@ trust-dev agent serve --project ./my-plc
 ```
 
 `trust-runtime agent serve` is a deprecated forwarding alias during the
-product/workbench split.
+product/workbench split. It will not be removed before 2026-10-05, and removal
+requires a separate behavior-change release note.
 
 ## Commit
 
@@ -45,7 +46,8 @@ Primary options:
 - `--dry-run`
 
 `trust-runtime commit` is a deprecated forwarding alias during the
-product/workbench split.
+product/workbench split. It will not be removed before 2026-10-05, and removal
+requires a separate behavior-change release note.
 
 ## Docs
 
@@ -60,7 +62,8 @@ Primary options:
 - `--format`
 
 `trust-runtime docs` is a deprecated forwarding alias during the
-product/workbench split.
+product/workbench split. It will not be removed before 2026-10-05, and removal
+requires a separate behavior-change release note.
 
 ## Test
 
@@ -78,7 +81,8 @@ Primary options:
 - `--ci`
 
 `trust-runtime test` is a deprecated forwarding alias during the
-product/workbench split.
+product/workbench split. It will not be removed before 2026-10-05, and removal
+requires a separate behavior-change release note.
 
 ## Related
 

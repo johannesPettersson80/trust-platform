@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 const DEFAULT_RUNTIME_INCLUDE_GLOBS = ["**/*.{st,ST,pou,POU}"];
@@ -42,7 +43,7 @@ export function buildRuntimeSourceOptions(
 export function runtimeSourceOptionsForTarget(
   target?: vscode.Uri
 ): RuntimeSourceOptions {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const folder = target
     ? vscode.workspace.getWorkspaceFolder(target)
     : vscode.workspace.workspaceFolders?.[0];

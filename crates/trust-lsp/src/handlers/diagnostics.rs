@@ -1,9 +1,12 @@
 //! Diagnostics publishing helpers.
 
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use tower_lsp::jsonrpc::{Error as JsonRpcError, ErrorCode, Result as JsonRpcResult};
 use tower_lsp::lsp_types::{
     CodeDescription, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
     DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportResult,
@@ -18,9 +21,13 @@ use tower_lsp::Client;
 use trust_hir::db::FileId;
 use trust_hir::symbols::SymbolKind;
 use trust_hir::DiagnosticSeverity as HirSeverity;
+#[cfg(test)]
 use trust_runtime::bundle_builder::resolve_sources_root;
+#[cfg(test)]
 use trust_runtime::debug::DebugSnapshot;
+#[cfg(test)]
 use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
+#[cfg(test)]
 use trust_runtime::hmi::{self as runtime_hmi, HmiSourceRef};
 use trust_syntax::parser::parse;
 
@@ -39,33 +46,79 @@ pub(crate) async fn publish_diagnostics(
     file_id: FileId,
 ) {
     let request_ticket = state.begin_semantic_request();
-    let diagnostics =
-        collect_diagnostics_with_ticket(state, uri, content, file_id, Some(request_ticket));
-    let content_hash = hash_content(content);
-    let diagnostic_hash = hash_diagnostics(&diagnostics);
-    let _ = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
+    let Some(diagnostics) =
+        publish_diagnostics_items_with_ticket(state, uri, content, file_id, request_ticket)
+    else {
+        return;
+    };
 
     client
         .publish_diagnostics(uri.clone(), diagnostics, None)
         .await;
 }
 
+fn publish_diagnostics_items_with_ticket(
+    state: &ServerState,
+    uri: &Url,
+    content: &str,
+    file_id: FileId,
+    request_ticket: u64,
+) -> Option<Vec<Diagnostic>> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
+    let diagnostics =
+        collect_diagnostics_with_ticket(state, uri, content, file_id, Some(request_ticket));
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
+    let content_hash = hash_content(content);
+    let diagnostic_hash = hash_diagnostics(&diagnostics);
+    let _ = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
+    Some(diagnostics)
+}
+
+#[cfg(test)]
+pub(crate) fn publish_diagnostics_items_with_ticket_for_tests(
+    state: &ServerState,
+    uri: &Url,
+    content: &str,
+    file_id: FileId,
+    request_ticket: u64,
+) -> Option<Vec<Diagnostic>> {
+    publish_diagnostics_items_with_ticket(state, uri, content, file_id, request_ticket)
+}
+
+#[cfg(test)]
 pub(crate) fn document_diagnostic(
     state: &ServerState,
     params: DocumentDiagnosticParams,
 ) -> DocumentDiagnosticReportResult {
+    document_diagnostic_result(state, params).unwrap_or_else(|_| empty_document_diagnostic_report())
+}
+
+pub(crate) fn document_diagnostic_result(
+    state: &ServerState,
+    params: DocumentDiagnosticParams,
+) -> JsonRpcResult<DocumentDiagnosticReportResult> {
     let request_ticket = state.begin_semantic_request();
+    document_diagnostic_result_with_ticket(state, params, request_ticket)
+}
+
+fn document_diagnostic_result_with_ticket(
+    state: &ServerState,
+    params: DocumentDiagnosticParams,
+    request_ticket: u64,
+) -> JsonRpcResult<DocumentDiagnosticReportResult> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return Err(content_modified_error());
+    }
+
     let uri = params.text_document.uri;
     let Some(doc) = state.ensure_document(&uri) else {
-        return DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
-            RelatedFullDocumentDiagnosticReport {
-                related_documents: None,
-                full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                    result_id: None,
-                    items: Vec::new(),
-                },
-            },
-        ));
+        return Ok(empty_document_diagnostic_report());
     };
 
     let diagnostics = collect_diagnostics_with_ticket(
@@ -75,6 +128,10 @@ pub(crate) fn document_diagnostic(
         doc.file_id,
         Some(request_ticket),
     );
+    if state.semantic_request_cancelled(request_ticket) {
+        return Err(content_modified_error());
+    }
+
     let content_hash = hash_content(&doc.content);
     let diagnostic_hash = hash_diagnostics(&diagnostics);
     let result_id = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
@@ -84,25 +141,50 @@ pub(crate) fn document_diagnostic(
         .as_ref()
         .is_some_and(|previous| previous == &result_id)
     {
-        return DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Unchanged(
-            RelatedUnchangedDocumentDiagnosticReport {
+        return Ok(DocumentDiagnosticReportResult::Report(
+            DocumentDiagnosticReport::Unchanged(RelatedUnchangedDocumentDiagnosticReport {
                 related_documents: None,
                 unchanged_document_diagnostic_report: UnchangedDocumentDiagnosticReport {
                     result_id,
                 },
-            },
+            }),
         ));
     }
 
-    DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
-        RelatedFullDocumentDiagnosticReport {
+    Ok(DocumentDiagnosticReportResult::Report(
+        DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
             related_documents: None,
             full_document_diagnostic_report: FullDocumentDiagnosticReport {
                 result_id: Some(result_id),
                 items: diagnostics,
             },
+        }),
+    ))
+}
+
+fn empty_document_diagnostic_report() -> DocumentDiagnosticReportResult {
+    DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
+        RelatedFullDocumentDiagnosticReport {
+            related_documents: None,
+            full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                result_id: None,
+                items: Vec::new(),
+            },
         },
     ))
+}
+
+fn content_modified_error() -> JsonRpcError {
+    JsonRpcError::new(ErrorCode::ContentModified)
+}
+
+#[cfg(test)]
+pub(crate) fn document_diagnostic_result_with_ticket_for_tests(
+    state: &ServerState,
+    params: DocumentDiagnosticParams,
+    request_ticket: u64,
+) -> JsonRpcResult<DocumentDiagnosticReportResult> {
+    document_diagnostic_result_with_ticket(state, params, request_ticket)
 }
 
 pub(crate) fn workspace_diagnostic(

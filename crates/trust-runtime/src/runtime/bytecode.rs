@@ -76,17 +76,20 @@ impl Runtime {
         &mut self,
         resource: &crate::bytecode::ResourceMetadata,
     ) -> Result<(), error::RuntimeError> {
-        self.io.resize(
+        for task in &resource.tasks {
+            self.validate_task(task)?;
+        }
+
+        self.io.try_resize(
             resource.process_image.inputs,
             resource.process_image.outputs,
             resource.process_image.memory,
-        );
+        )?;
 
         self.tasks.clear();
         self.task_state.clear();
 
         for task in &resource.tasks {
-            self.validate_task(task)?;
             self.register_task(task.clone());
         }
         let _ = self.ensure_background_thread_id();

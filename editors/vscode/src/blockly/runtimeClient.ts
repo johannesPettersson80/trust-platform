@@ -1,3 +1,5 @@
+import { getTrustConfiguration } from "../configuration";
+
 /**
  * Client for communicating with trust-runtime control endpoint
  * Sends I/O write commands for hardware execution from Blockly programs
@@ -296,7 +298,7 @@ export class RuntimeClient {
  * Get runtime configuration from workspace settings
  */
 export function getRuntimeConfig(): RuntimeConfig {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   
   return {
     controlEndpoint: config.get("runtime.controlEndpoint") || "unix:///tmp/trust-debug.sock",

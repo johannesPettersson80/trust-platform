@@ -1,4 +1,6 @@
 import { execFile } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "../binary";
@@ -41,6 +43,123 @@ function runJson<T>(
       }
     );
   });
+}
+
+interface JsonCommandResult<T> {
+  ok: boolean;
+  value?: T;
+  message?: string;
+}
+
+function runJsonCommand<T>(
+  binary: string,
+  args: string[],
+  cwd?: string
+): Promise<JsonCommandResult<T>> {
+  return new Promise((resolve) => {
+    execFile(
+      binary,
+      args,
+      { cwd, timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          resolve({
+            ok: false,
+            message:
+              stderr.trim() ||
+              stdout.trim() ||
+              (error instanceof Error ? error.message : String(error)),
+          });
+          return;
+        }
+        try {
+          resolve({ ok: true, value: JSON.parse(stdout) as T });
+        } catch (parseError) {
+          resolve({
+            ok: false,
+            message:
+              parseError instanceof Error
+                ? parseError.message
+                : String(parseError),
+          });
+        }
+      }
+    );
+  });
+}
+
+function stringField(
+  value: Record<string, unknown>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const raw = value[key];
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      return raw.trim();
+    }
+  }
+  return undefined;
+}
+
+function numberField(value: Record<string, unknown>, key: string): number | undefined {
+  const raw = value[key];
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+}
+
+function upsertTomlKey(section: string, key: string, value: string): string {
+  const re = new RegExp(`^${key}\\s*=.*$`, "m");
+  if (re.test(section)) {
+    return section.replace(re, `${key} = ${value}`);
+  }
+  return `${section.trimEnd()}\n${key} = ${value}\n`;
+}
+
+export function ensureAdsRuntimeEnabled(
+  projectDir: string,
+  configPath = "ads.toml"
+): { ok: true; changed: boolean; runtimeTomlPath: string } | { ok: false; message: string } {
+  const runtimeTomlPath = path.join(projectDir, "runtime.toml");
+  if (!fs.existsSync(runtimeTomlPath)) {
+    return {
+      ok: false,
+      message: "ADS tag import wrote the selected tags, but runtime.toml is missing so ADS cannot be enabled automatically.",
+    };
+  }
+
+  const before = fs.readFileSync(runtimeTomlPath, "utf8");
+  const sectionHeader = "[runtime.ads]";
+  let after = before;
+  const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sectionRe = new RegExp(`(^${escapedHeader}\\s*$)([\\s\\S]*?)(?=^\\[|\\s*$)`, "m");
+  const match = sectionRe.exec(before);
+  if (match) {
+    let section = `${match[1]}${match[2]}`;
+    section = upsertTomlKey(section, "enabled", "true");
+    section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
+    if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
+      section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
+    }
+    after = `${before.slice(0, match.index)}${section}${before.slice(match.index + match[0].length)}`;
+  } else {
+    const suffix = before.endsWith("\n") ? "\n" : "\n\n";
+    after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
+  }
+
+  if (after !== before) {
+    fs.writeFileSync(runtimeTomlPath, after);
+  }
+  return { ok: true, changed: after !== before, runtimeTomlPath };
+}
+
+export async function openGeneratedAdsDocuments(report: AdsImportSymbolsReport): Promise<void> {
+  if (!report.generated_path || !path.isAbsolute(report.generated_path)) {
+    return;
+  }
+  try {
+    await vscode.workspace.openTextDocument(vscode.Uri.file(report.generated_path));
+  } catch {
+    // The import itself succeeded; this only accelerates LSP/index refresh for the generated ST.
+  }
 }
 
 // Static protocol catalog (no project, no server).
@@ -105,7 +224,7 @@ export interface DiscoverCandidate {
   id: string;
   label: string;
   source: string; // scan | mdns | ads_broadcast | ethercat_bus | opcua_endpoint
-  confidence: string; // observed | configured | manual
+  confidence: string; // confirmed | likely | port_reachable | unavailable
   protocol: string;
   params: Record<string, unknown>;
   warnings?: string[];
@@ -156,6 +275,125 @@ export interface BrowseSymbolsResponse {
   // endpoint_unreachable | browse_denied | unsupported_security_profile. Drives the recovery action.
   error?: { code: string; message: string };
   tree: SymbolNode[];
+}
+
+export interface AdsImportSymbolsReport {
+  applied?: boolean;
+  ads_toml_path: string;
+  snapshot_path: string;
+  generated_path: string;
+  connection_name: string;
+  candidate_count: number;
+  selected_count: number;
+  ads_toml_bytes: number;
+  snapshot_bytes: number;
+  generated_bytes: number;
+  dry_run: boolean;
+  lifecycle_effect?: string;
+  message?: string;
+}
+
+export interface OfflineAdsImportSymbolsResult {
+  applied: boolean;
+  selected_count?: number;
+  candidate_count?: number;
+  lifecycle_effect?: "restart_required";
+  message: string;
+  report?: AdsImportSymbolsReport;
+}
+
+function adsSymbolName(selectionKey: string): string {
+  return selectionKey.startsWith("ads:symbol:")
+    ? selectionKey.slice("ads:symbol:".length)
+    : selectionKey;
+}
+
+export async function offlineAdsImportSymbols(
+  context: vscode.ExtensionContext,
+  projectDir: string,
+  target: Record<string, unknown>,
+  symbols: string[],
+  writable: boolean
+): Promise<OfflineAdsImportSymbolsResult> {
+  const host = stringField(target, "host", "ip");
+  if (!host) {
+    return {
+      applied: false,
+      message: "ADS tag import needs a target host.",
+    };
+  }
+  if (writable) {
+    return {
+      applied: false,
+      message:
+        "Write-enabled ADS imports need a running runtime so truST can apply the explicit write acknowledgement.",
+    };
+  }
+  const normalizedSymbols = symbols.map(adsSymbolName).filter(Boolean);
+  if (normalizedSymbols.length === 0) {
+    return {
+      applied: false,
+      message: "Select at least one ADS symbol to import.",
+    };
+  }
+
+  const connectionName = stringField(target, "name") ?? "ads_import";
+  const args = [
+    "ads",
+    "import-symbols",
+    "--target",
+    host,
+    "--connection",
+    connectionName,
+    "--out",
+    path.join(projectDir, "ads.toml"),
+    "--gen",
+    path.join(projectDir, "src", "generated", "ads_generated.st"),
+    "--force",
+    "--json",
+  ];
+  const targetNetId = stringField(target, "target_net_id", "ams_net_id");
+  if (targetNetId) {
+    args.push("--target-net-id", targetNetId);
+  }
+  const amsPort = numberField(target, "ams_port");
+  if (amsPort) {
+    args.push("--ams-port", String(amsPort));
+  }
+  for (const symbol of normalizedSymbols) {
+    args.push("--include", symbol);
+  }
+
+  const result = await runJsonCommand<AdsImportSymbolsReport>(
+    runtimeBinary(context),
+    args,
+    projectDir
+  );
+  if (!result.ok || !result.value) {
+    return {
+      applied: false,
+      message: result.message ?? "ADS tag import failed.",
+    };
+  }
+  const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
+  if (!runtimeConfig.ok) {
+    return {
+      applied: false,
+      message: runtimeConfig.message,
+      report: result.value,
+    };
+  }
+  await openGeneratedAdsDocuments(result.value);
+  return {
+    applied: true,
+    lifecycle_effect: "restart_required",
+    selected_count: result.value.selected_count,
+    candidate_count: result.value.candidate_count,
+    message: `Added ${result.value.selected_count} ADS tag${
+      result.value.selected_count === 1 ? "" : "s"
+    }. Restart the runtime to use the generated ST symbols.`,
+    report: result.value,
+  };
 }
 
 export async function offlineBrowseSymbols(

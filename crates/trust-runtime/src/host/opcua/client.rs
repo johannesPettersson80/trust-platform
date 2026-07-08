@@ -45,6 +45,7 @@ impl OpcUaClientErrorCode {
 pub enum OpcUaClientConnectionState {
     Disabled,
     Configured,
+    Connecting,
     Connected,
     Reconnecting,
     Stale,
@@ -55,6 +56,8 @@ pub enum OpcUaClientConnectionState {
 pub struct OpcUaClientPointStatus {
     pub var: SmolStr,
     pub node_id: String,
+    pub data_type: OpcUaDataType,
+    pub access: OpcUaClientPointAccess,
     pub state: OpcUaClientConnectionState,
     pub last_seen_ms: Option<u64>,
     pub value: Option<Value>,
@@ -318,7 +321,9 @@ pub fn read_opcua_client_point_values(
 
     let mut mapped = Vec::with_capacity(points.len());
     for (point, data_value) in points.iter().zip(values) {
-        let status = data_value.status.unwrap_or(::opcua::types::StatusCode::Good);
+        let status = data_value
+            .status
+            .unwrap_or(::opcua::types::StatusCode::Good);
         if !status.is_good() {
             return Err(RuntimeError::ControlError(
                 format!("OPC UA node '{}' read returned {status}", point.node_id).into(),
@@ -331,8 +336,11 @@ pub fn read_opcua_client_point_values(
         })?;
         let variant = from_wire_variant(&variant).ok_or_else(|| {
             RuntimeError::ControlError(
-                format!("OPC UA node '{}' returned unsupported value {variant:?}", point.node_id)
-                    .into(),
+                format!(
+                    "OPC UA node '{}' returned unsupported value {variant:?}",
+                    point.node_id
+                )
+                .into(),
             )
         })?;
         mapped.push((
@@ -372,7 +380,11 @@ pub fn write_opcua_client_point_values(
         .map(|(point, value)| {
             let mapped = map_iec_value(value).ok_or_else(|| {
                 RuntimeError::ControlError(
-                    format!("OPC UA point '{}' has unsupported value {value:?}", point.var).into(),
+                    format!(
+                        "OPC UA point '{}' has unsupported value {value:?}",
+                        point.var
+                    )
+                    .into(),
                 )
             })?;
             if mapped.data_type != point.data_type {
@@ -462,7 +474,8 @@ fn connect_opcua_client_session(
         // so promote rejected certificates before retrying the secure connection.
         promote_rejected_opcua_client_server_certificates()?;
     }
-    let mut client = build_opcua_client(application_name, application_uri, trust_server_certificate)?;
+    let mut client =
+        build_opcua_client(application_name, application_uri, trust_server_certificate)?;
     let endpoints = client
         .get_server_endpoints_from_url(endpoint_url)
         .map_err(opcua_status_error)?;
@@ -508,16 +521,10 @@ fn endpoint_info_from_wire(
             .as_ref()
             .map_or((false, false), |tokens| {
                 let anonymous = tokens.iter().any(|token| {
-                    matches!(
-                        token.token_type,
-                        ::opcua::types::UserTokenType::Anonymous
-                    )
+                    matches!(token.token_type, ::opcua::types::UserTokenType::Anonymous)
                 });
                 let username = tokens.iter().any(|token| {
-                    matches!(
-                        token.token_type,
-                        ::opcua::types::UserTokenType::UserName
-                    )
+                    matches!(token.token_type, ::opcua::types::UserTokenType::UserName)
                 });
                 (anonymous, username)
             });
@@ -550,9 +557,8 @@ fn browse_children(
             browse_direction: ::opcua::types::BrowseDirection::Forward,
             reference_type_id: ::opcua::types::ReferenceTypeId::HierarchicalReferences.into(),
             include_subtypes: true,
-            node_class_mask: (
-                ::opcua::types::NodeClassMask::OBJECT | ::opcua::types::NodeClassMask::VARIABLE
-            )
+            node_class_mask: (::opcua::types::NodeClassMask::OBJECT
+                | ::opcua::types::NodeClassMask::VARIABLE)
                 .bits(),
             result_mask: ::opcua::types::BrowseDescriptionResultMask::all().bits(),
         }])
@@ -711,9 +717,8 @@ fn security_mode_from_wire(
 
 #[cfg(feature = "opcua-wire")]
 fn parse_node_id(text: &str) -> Result<::opcua::types::NodeId, RuntimeError> {
-    text.parse::<::opcua::types::NodeId>().map_err(|_| {
-        RuntimeError::ControlError(format!("invalid OPC UA node id '{text}'").into())
-    })
+    text.parse::<::opcua::types::NodeId>()
+        .map_err(|_| RuntimeError::ControlError(format!("invalid OPC UA node id '{text}'").into()))
 }
 
 fn value_from_opcua_variant(
@@ -750,8 +755,11 @@ fn collect_certificate_files(
     }
     let entries = std::fs::read_dir(root).map_err(|err| {
         RuntimeError::ControlError(
-            format!("failed to read OPC UA trusted certificate directory {}: {err}", root.display())
-                .into(),
+            format!(
+                "failed to read OPC UA trusted certificate directory {}: {err}",
+                root.display()
+            )
+            .into(),
         )
     })?;
     for entry in entries {
@@ -768,7 +776,10 @@ fn collect_certificate_files(
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
             continue;
         };
-        if !matches!(extension.to_ascii_lowercase().as_str(), "der" | "pem" | "crt") {
+        if !matches!(
+            extension.to_ascii_lowercase().as_str(),
+            "der" | "pem" | "crt"
+        ) {
             continue;
         }
         let file_name = path
@@ -787,8 +798,7 @@ fn classify_opcua_client_error_message(message: &str) -> OpcUaClientErrorCode {
         || lower.contains("badcertificaterevoked")
         || lower.contains("badcertificatetimeinvalid")
         || lower.contains("badcertificate")
-        || lower.contains("certificate")
-            && (lower.contains("untrusted") || lower.contains("trust"))
+        || lower.contains("certificate") && (lower.contains("untrusted") || lower.contains("trust"))
     {
         return OpcUaClientErrorCode::CertUntrusted;
     }

@@ -13,6 +13,7 @@ use super::super::core::Runtime;
 use super::call::VM_LOCAL_SENTINEL_FRAME_ID;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
+use super::type_policy::{normalize_vm_value_for_ref, normalize_vm_value_for_type};
 use super::{materialize_borrowed_value, VmModule, VmRef};
 
 pub(super) fn load_ref(
@@ -126,6 +127,7 @@ pub(super) fn store_ref(
         .refs
         .get(ref_idx as usize)
         .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+    let value = normalize_vm_value_for_ref(module, ref_idx, value).map_err(VmTrap::Runtime)?;
 
     match reference {
         VmRef::Global { offset, path } if path.is_empty() => {
@@ -341,6 +343,7 @@ pub(super) fn dynamic_load_ref(
 
 pub(super) fn dynamic_store_ref(
     runtime: &mut Runtime,
+    module: &VmModule,
     frames: &mut FrameStack,
     reference: &ValueRef,
     value: Value,
@@ -352,6 +355,8 @@ pub(super) fn dynamic_store_ref(
         let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
         return write_vm_local_ref(frame, reference.offset, &reference.path, value);
     }
+    let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+    let value = normalize_dynamic_store_value(module, frame, reference, value)?;
     if runtime.storage_mut().write_by_ref_ref(reference, value) {
         Ok(())
     } else {
@@ -385,6 +390,34 @@ fn write_vm_local_ref(
     } else {
         Err(VmTrap::NullReference)
     }
+}
+
+fn normalize_dynamic_store_value(
+    module: &VmModule,
+    frame: &VmFrame,
+    reference: &ValueRef,
+    value: Value,
+) -> Result<Value, VmTrap> {
+    let Some(type_idx) = dynamic_ref_type(module, frame, reference) else {
+        return Ok(value);
+    };
+    normalize_vm_value_for_type(module, type_idx, value).map_err(VmTrap::Runtime)
+}
+
+fn dynamic_ref_type(module: &VmModule, frame: &VmFrame, reference: &ValueRef) -> Option<u32> {
+    for (ref_idx, candidate) in module.refs.iter().enumerate() {
+        let Some(type_idx) = module.ref_type(ref_idx as u32) else {
+            continue;
+        };
+        let (location, offset, path) = runtime_access_target(candidate, frame).ok()?;
+        if location == reference.location
+            && offset == reference.offset
+            && path == reference.path.as_slice()
+        {
+            return Some(type_idx);
+        }
+    }
+    None
 }
 
 pub(super) fn index_to_i64(value: Value) -> Result<i64, VmTrap> {

@@ -1,0 +1,9 @@
+{
+  "candidates": [],
+  "origin": "this_host",
+  "protocol": "ethercat",
+  "schema_version": 1,
+  "warnings": [
+    "EtherCAT discovery must run from the runtime host that owns the fieldbus adapter."
+  ]
+}

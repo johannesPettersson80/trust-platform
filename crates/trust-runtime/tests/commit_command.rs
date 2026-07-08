@@ -161,6 +161,8 @@ fn trust_runtime_commit_alias_forwards_to_trust_dev_with_deprecation_warning() {
     assert!(stdout.contains("main.st"));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("deprecated"));
+    assert!(stderr.contains("removed no earlier than 2026-10-05"));
+    assert!(stderr.contains("separate behavior-change release"));
     assert!(stderr.contains("trust-dev commit"));
 
     let _ = std::fs::remove_dir_all(repo);

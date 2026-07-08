@@ -115,7 +115,7 @@ impl TokenKind {
             Self::Eq | Self::Neq | Self::Lt | Self::LtEq | Self::Gt | Self::GtEq => (7, 8),
             Self::Plus | Self::Minus => (9, 10),
             Self::Star | Self::Slash | Self::KwMod => (11, 12),
-            Self::Power => (14, 13), // Right associative
+            Self::Power => (13, 14),
             _ => return None,
         })
     }

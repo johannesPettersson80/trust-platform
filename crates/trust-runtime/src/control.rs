@@ -8,6 +8,7 @@ mod auth;
 mod breakpoint_handlers;
 mod comm_handlers;
 mod config_handlers;
+mod connectors_handlers;
 mod debug_handlers;
 mod fleet_handlers;
 mod handlers;

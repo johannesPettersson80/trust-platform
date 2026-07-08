@@ -1,0 +1,6 @@
+id = "cfm_scheduler_task_interval_001"
+category = "scheduler"
+description = "Periodic task interval scheduling is deterministic under scripted virtual time."
+cycles = 4
+advance_ms = [0, 10, 10, 10]
+watch_globals = ["count"]

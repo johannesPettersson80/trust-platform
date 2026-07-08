@@ -96,6 +96,45 @@ END_TEST_PROGRAM
 }
 
 #[test]
+fn load_sources_finds_mixed_case_extensions_under_literal_glob_chars() {
+    let root = unique_temp_dir("discovery-[literal-root]");
+    std::fs::create_dir_all(root.join("Nested")).expect("create source tree");
+    std::fs::write(
+        root.join("Motor.St"),
+        "TEST_PROGRAM MotorCase\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write mixed-case st file");
+    std::fs::write(
+        root.join("Nested").join("Library.Pou"),
+        "TEST_PROGRAM LibraryCase\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write mixed-case pou file");
+    std::fs::write(
+        root.join("Ignored.txt"),
+        "TEST_PROGRAM Ignored\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write ignored file");
+
+    let sources = load_sources(&root).expect("load sources");
+    let mut names = sources
+        .iter()
+        .map(|source| {
+            source
+                .path
+                .file_name()
+                .expect("file name")
+                .to_string_lossy()
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    names.sort();
+
+    assert_eq!(names, vec!["Library.Pou", "Motor.St"]);
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn execution_reports_assertion_failure_for_test_program() {
     let sources = vec![LoadedSource {
         path: PathBuf::from("tests.st"),

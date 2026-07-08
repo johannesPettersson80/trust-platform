@@ -32,6 +32,7 @@ pub(super) fn open_document(
         docs.insert(uri, doc);
     }
 
+    invalidate_project_caches(state);
     file_id
 }
 
@@ -95,6 +96,7 @@ fn index_document_impl(
     if enforce_budget_after_index {
         enforce_memory_budget(state);
     }
+    invalidate_project_caches(state);
     Some(file_id)
 }
 
@@ -113,13 +115,45 @@ pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, cont
         doc.is_open = true;
         doc.file_id = file_id;
         touch_document(doc, access);
+        invalidate_project_caches(state);
     }
 }
 
 pub(super) fn close_document(state: &ServerState, uri: &Url) {
-    if let Some(doc) = state.documents.write().get_mut(uri) {
-        doc.is_open = false;
+    if !state.documents.read().contains_key(uri) {
+        return;
     }
+
+    if let Some(path) = uri_to_path(uri) {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            let key = source_key_for_uri(uri);
+            let file_id = {
+                let mut project = state.project.write();
+                project.set_source_text(key, content.clone())
+            };
+            let access = next_document_access(state);
+            if let Some(doc) = state.documents.write().get_mut(uri) {
+                doc.version = 0;
+                doc.content = content;
+                doc.is_open = false;
+                doc.file_id = file_id;
+                touch_document(doc, access);
+            }
+            invalidate_project_caches(state);
+            enforce_memory_budget(state);
+            return;
+        }
+    }
+
+    let key = source_key_for_uri(uri);
+    if state.documents.write().remove(uri).is_some() {
+        state.semantic_tokens.write().remove(uri);
+        state.diagnostics.write().remove(uri);
+        let mut project = state.project.write();
+        project.remove_source(&key);
+        invalidate_project_caches(state);
+    }
+
     enforce_memory_budget(state);
 }
 
@@ -130,6 +164,7 @@ pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> 
     state.diagnostics.write().remove(uri);
     let mut project = state.project.write();
     project.remove_source(&key);
+    invalidate_project_caches(state);
     Some(doc.file_id)
 }
 
@@ -149,6 +184,7 @@ pub(super) fn rename_document(state: &ServerState, old_uri: &Url, new_uri: &Url)
     doc.uri = new_uri.clone();
     doc.file_id = file_id;
     docs.insert(new_uri.clone(), doc);
+    invalidate_project_caches(state);
     Some(file_id)
 }
 
@@ -228,6 +264,10 @@ fn touch_document(doc: &mut Document, access: u64) {
     doc.content_bytes = doc.content.len();
 }
 
+fn invalidate_project_caches(state: &ServerState) {
+    state.bump_document_generation();
+}
+
 fn enforce_memory_budget(state: &ServerState) {
     let Some(config) = state.primary_workspace_config() else {
         return;
@@ -271,6 +311,17 @@ fn enforce_memory_budget(state: &ServerState) {
         remaining = remaining.saturating_sub(size);
     }
     for uri in to_evict {
-        let _ = remove_document(state, &uri);
+        evict_document_text(state, &uri);
+    }
+}
+
+fn evict_document_text(state: &ServerState, uri: &Url) {
+    if state.documents.write().remove(uri).is_some() {
+        state.semantic_tokens.write().remove(uri);
+        state.diagnostics.write().remove(uri);
+        // Intentionally keep the salsa project source. Memory-budget eviction
+        // drops cached document text only; semantic availability is restored
+        // from the already-indexed project source until an actual delete event
+        // calls `remove_document`.
     }
 }

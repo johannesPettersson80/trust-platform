@@ -1,0 +1,5 @@
+id = "cfm_nested_values_matrix_struct_001"
+category = "nested_values"
+description = "Nested STRUCT and ARRAY field/index paths remain deterministic."
+cycles = 2
+watch_globals = ["matrix", "observed"]

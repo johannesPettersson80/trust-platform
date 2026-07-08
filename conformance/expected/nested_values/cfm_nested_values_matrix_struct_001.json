@@ -1,0 +1,216 @@
+{
+  "case_id": "cfm_nested_values_matrix_struct_001",
+  "category": "nested_values",
+  "cycles": 2,
+  "description": "Nested STRUCT and ARRAY field/index paths remain deterministic.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "matrix": {
+          "fields": {
+            "rows": {
+              "dimensions": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "elements": [
+                {
+                  "fields": {
+                    "cells": {
+                      "dimensions": [
+                        [
+                          0,
+                          1
+                        ]
+                      ],
+                      "elements": [
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        },
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        }
+                      ],
+                      "type": "ARRAY"
+                    }
+                  },
+                  "type": "STRUCT",
+                  "type_name": "Row"
+                },
+                {
+                  "fields": {
+                    "cells": {
+                      "dimensions": [
+                        [
+                          0,
+                          1
+                        ]
+                      ],
+                      "elements": [
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 42
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        },
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        }
+                      ],
+                      "type": "ARRAY"
+                    }
+                  },
+                  "type": "STRUCT",
+                  "type_name": "Row"
+                }
+              ],
+              "type": "ARRAY"
+            }
+          },
+          "type": "STRUCT",
+          "type_name": "Matrix"
+        },
+        "observed": {
+          "type": "DINT",
+          "value": 42
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "matrix": {
+          "fields": {
+            "rows": {
+              "dimensions": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "elements": [
+                {
+                  "fields": {
+                    "cells": {
+                      "dimensions": [
+                        [
+                          0,
+                          1
+                        ]
+                      ],
+                      "elements": [
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        },
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        }
+                      ],
+                      "type": "ARRAY"
+                    }
+                  },
+                  "type": "STRUCT",
+                  "type_name": "Row"
+                },
+                {
+                  "fields": {
+                    "cells": {
+                      "dimensions": [
+                        [
+                          0,
+                          1
+                        ]
+                      ],
+                      "elements": [
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 42
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        },
+                        {
+                          "fields": {
+                            "value": {
+                              "type": "DINT",
+                              "value": 0
+                            }
+                          },
+                          "type": "STRUCT",
+                          "type_name": "Cell"
+                        }
+                      ],
+                      "type": "ARRAY"
+                    }
+                  },
+                  "type": "STRUCT",
+                  "type_name": "Row"
+                }
+              ],
+              "type": "ARRAY"
+            }
+          },
+          "type": "STRUCT",
+          "type_name": "Matrix"
+        },
+        "observed": {
+          "type": "DINT",
+          "value": 42
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

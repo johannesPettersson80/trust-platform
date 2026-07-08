@@ -73,9 +73,9 @@ OpenPLC regression coverage is enforced in runtime tests:
 - `crates/trust-runtime/tests/plcopen_migration.rs`
 - `crates/trust-runtime/tests/plcopen_command.rs`
 
-The test fixture is:
+The synthetic OpenPLC-family regression fixture is:
 
-- `crates/trust-runtime/tests/fixtures/plcopen/openplc.xml`
+- `crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml`
 
 ## Related Documents
 

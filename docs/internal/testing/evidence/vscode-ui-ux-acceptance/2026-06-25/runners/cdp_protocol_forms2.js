@@ -13,14 +13,14 @@ const jsonDir=process.env.TRUST_UX_JSON_DIR?path.resolve(process.env.TRUST_UX_JS
 const workspace=path.join(runDir,"project"), testsDir=path.join(runDir,"tests"), userDataDir=path.join(runDir,"ud"), extensionsDir=path.join(runDir,"ed");
 fs.rmSync(runDir,{recursive:true,force:true}); fs.mkdirSync(outDir,{recursive:true}); fs.mkdirSync(jsonDir,{recursive:true}); fs.mkdirSync(testsDir,{recursive:true});
 fs.cpSync(path.join(repo,"examples/network_canvas_demo"), workspace, {recursive:true});
-fs.mkdirSync(path.join(userDataDir,"User"),{recursive:true});fs.writeFileSync(path.join(userDataDir,"User","settings.json"),JSON.stringify({"window.titleBarStyle":"native","window.commandCenter":false,"chat.commandCenter.enabled":false,"workbench.layoutControl.enabled":false,"workbench.startupEditor":"none","workbench.tips.enabled":false,"telemetry.telemetryLevel":"off","update.mode":"none"}));
+fs.mkdirSync(path.join(userDataDir,"User"),{recursive:true});fs.writeFileSync(path.join(userDataDir,"User","settings.json"),JSON.stringify({"window.titleBarStyle":"native","window.commandCenter":false,"chat.commandCenter.enabled":false,"workbench.layoutControl.enabled":false,"workbench.startupEditor":"none","workbench.tips.enabled":false,"telemetry.telemetryLevel":"off","update.mode":"none","workbench.colorTheme":"Default Dark Modern"}));
 const codeDir=fs.readdirSync(path.join(ext,".vscode-test")).find(d=>d.startsWith("vscode-linux-arm64-"))||fs.readdirSync(path.join(ext,".vscode-test")).find(d=>d.startsWith("vscode-linux-x64-"));
 const codeBin=path.join(ext,".vscode-test",codeDir,"code");
 const PROTOS=[
-  ["mesh","ADV-01-mesh-zenoh"],
-  ["openot","ADV-02-openot"],
-  ["realtime t0","ADV-03-realtime-t0"],
-  ["runtime cloud","ADV-04-runtime-cloud"]
+  ["mesh","ADV-01-mesh-zenoh","Mesh"],
+  ["openot","ADV-02-openot","OpenOT"],
+  ["realtime t0","ADV-03-realtime-t0","Realtime"],
+  ["runtime cloud","ADV-04-runtime-cloud","Federation"]
 ];
 fs.writeFileSync(path.join(testsDir,"index.js"),`
 	const path=require("path"),fs=require("fs"),http=require("http"),cp=require("child_process"),vscode=require("vscode");
@@ -59,17 +59,25 @@ suite("protocol-forms2",function(){this.timeout(220000);test("run",async functio
   const sid=at.result&&at.result.sessionId;
   await conn.send("Runtime.enable",{},sid);
   async function evalInner(body){const expr="(function(){try{var f=document.querySelector('iframe');var d=f&&f.contentDocument;if(!d)return 'NO_INNER_DOC';"+body+"}catch(e){return 'ERR:'+e.message;}})()";const ev=await conn.send("Runtime.evaluate",{expression:expr,returnByValue:true},sid);return ev&&ev.result&&ev.result.result&&ev.result.result.value;}
-  async function clickText(sub){return await evalInner("var s="+JSON.stringify(sub.toLowerCase())+";var b=[...d.querySelectorAll('button,[role=button]')].find(function(x){return ((x.textContent||x.getAttribute('aria-label')||'').toLowerCase()).indexOf(s)>=0;});if(!b)return 'NOT_FOUND:'+s;b.click();return 'CLICKED:'+(b.textContent||'').trim().slice(0,28);");}
+  async function clickText(sub){return await evalInner("var s="+JSON.stringify(sub.toLowerCase())+";var compact=s.replace(/\\\\s+/g,'');var b=[...d.querySelectorAll('button,[role=button]')].find(function(x){var text=((x.textContent||x.getAttribute('aria-label')||'').toLowerCase()).replace(/\\\\s+/g,' ').trim();var tight=text.replace(/\\\\s+/g,'');return text.indexOf(s)>=0||tight.indexOf(compact)>=0;});if(!b)return 'NOT_FOUND:'+s;b.click();return 'CLICKED:'+(b.textContent||b.getAttribute('aria-label')||'').trim().slice(0,48);");}
+  async function waitForText(sub,timeoutMs){const start=Date.now();let text='';while(Date.now()-start<timeoutMs){text=String(await evalInner("return (d.body&&d.body.innerText||'').replace(/\\\\s+/g,' ').trim();")||'');if(text.toLowerCase().indexOf(String(sub).toLowerCase())>=0)return text;await sleep(350);}throw new Error('Timed out waiting for '+sub+': '+text.slice(0,1600));}
+  async function openAddPicker(){const clicked=await clickText("+ Add"); await sleep(1000); await waitForText("Add device or connection",10000); return clicked;}
+  async function setProfile(value){return await evalInner("var value="+JSON.stringify(value)+";var selects=[...d.querySelectorAll('select')];var profile=selects.find(function(s){return (s.closest('label,div,section,fieldset')||s.parentElement||s).textContent.toLowerCase().indexOf('profile')>=0;})||selects[0];if(!profile)return 'NO_PROFILE_SELECT';var setter=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;setter.call(profile,value);profile.dispatchEvent(new Event('input',{bubbles:true}));profile.dispatchEvent(new Event('change',{bubbles:true}));return 'PROFILE_SET:'+profile.value;");}
   async function scrollPickerBottom(){return await evalInner("var el=d.querySelector('[data-testid=add-picker-list]');if(!el)return 'NO_PICKER_LIST';el.scrollTop=el.scrollHeight;return 'SCROLLED:'+el.scrollTop;");}
   log.steps.push({s:"edit",v:await clickText("edit")}); await sleep(1000);
   let capturedAdvancedPicker=false;
-  for(const [pick,name] of PROTOS){
-    const a=await clickText("+add"); await sleep(1500);
+  for(const [pick,name,configuredLabel] of PROTOS){
+    const a=await openAddPicker(); await sleep(500);
     const advanced=await clickText("show advanced integrations"); await sleep(900);
     if(!capturedAdvancedPicker){log.steps.push({s:"scroll-advanced",v:await scrollPickerBottom()}); await sleep(700); shot("ADV-00-advanced-picker-expanded"); capturedAdvancedPicker=true;}
     const p=await clickText(pick); await sleep(1800);
-    shot(name); log.steps.push({proto:name,add:a,advanced,pick:p});
-    await clickText("✕"); await sleep(1100);
+    const configuredInput=pick==="runtime cloud"?await setProfile("plant"):"";
+    if(configuredInput) await sleep(600);
+    shot(name);
+    const save=await clickText("save"); await sleep(2500);
+    const configuredText=await waitForText(configuredLabel,10000);
+    shot(name+"-configured-only");
+    log.steps.push({proto:name,add:a,advanced,pick:p,configuredInput,save,configuredLabel,configuredText:configuredText.slice(0,1200)});
   }
   conn.close();
   fs.writeFileSync(path.join(jsonDir,"ADV-01-04-forms-proof.json"),JSON.stringify(log,null,2));

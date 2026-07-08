@@ -28,6 +28,9 @@ include!("contracts.rs");
 include!("mapping.rs");
 include!("wire.rs");
 include!("client.rs");
+include!("client_cache.rs");
+include!("client_bridge.rs");
+include!("client_worker.rs");
 
 #[cfg(test)]
 mod tests;

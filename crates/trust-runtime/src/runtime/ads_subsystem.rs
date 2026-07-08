@@ -204,6 +204,7 @@ fn ads_status_summary(overall: AdsStatusOverall) -> String {
     match overall {
         AdsStatusOverall::Healthy => "ADS connections healthy.".to_string(),
         AdsStatusOverall::Degraded => "One or more ADS connections are degraded.".to_string(),
+        AdsStatusOverall::NotReady => "ADS is not ready.".to_string(),
         AdsStatusOverall::Faulted => "One or more ADS connections are faulted.".to_string(),
         AdsStatusOverall::Disabled => "ADS is not configured.".to_string(),
         AdsStatusOverall::Unknown => "ADS status is unknown.".to_string(),

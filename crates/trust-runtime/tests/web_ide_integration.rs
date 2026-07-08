@@ -253,12 +253,51 @@ fn request_json(
     }
 }
 
+fn post_raw_json(url: &str, body: &str, headers: &[(&str, &str)]) -> (u16, Value) {
+    let mut request = ureq::post(url).header("Content-Type", "application/json");
+    for &(name, value) in headers {
+        request = request.header(name, value);
+    }
+    let mut response = request
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .send(body)
+        .unwrap_or_else(|err| panic!("request failed: {err}"));
+    let status = response.status().as_u16();
+    let body = response
+        .body_mut()
+        .read_to_string()
+        .expect("read response body");
+    let json = serde_json::from_str(&body).unwrap_or_else(|_| json!({}));
+    (status, json)
+}
+
 fn make_project(name: &str) -> PathBuf {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
     let root = std::env::temp_dir().join(format!("trust-runtime-web-ide-{name}-{stamp}"));
+    std::fs::create_dir_all(&root).expect("create project dir");
+    std::fs::write(
+        root.join("main.st"),
+        "PROGRAM Main\nVAR\nCounter : INT := 1;\nEND_VAR\nEND_PROGRAM\n",
+    )
+    .expect("write source");
+    root
+}
+
+fn make_project_in_current_dir(name: &str) -> PathBuf {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::current_dir()
+        .expect("current dir")
+        .join("target")
+        .join("trust-runtime-web-ide")
+        .join(format!("{name}-{stamp}"));
     std::fs::create_dir_all(&root).expect("create project dir");
     std::fs::write(
         root.join("main.st"),

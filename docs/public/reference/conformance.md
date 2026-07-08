@@ -13,6 +13,16 @@ marketing text.
 
 --8<-- "conformance/README.md:3"
 
+## Public Proof Surface
+
+The current CI conformance gate runs the suite twice, normalizes timestamps and
+durations, diffs the summaries, validates the summary contract, and uploads both
+machine-readable JSON and human-readable Markdown reports as CI artifacts.
+
+The committed `conformance/expected/` artifacts are the runtime baseline.
+Generated files under `conformance/reports/` are not part of the public docs
+source; use CI artifacts for run reports.
+
 ## Related
 
 - [Benchmarks](benchmarks.md)

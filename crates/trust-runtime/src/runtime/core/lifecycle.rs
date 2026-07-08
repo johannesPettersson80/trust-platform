@@ -169,6 +169,11 @@ impl Runtime {
         self.io.set_safe_state(safe_state);
     }
 
+    /// Apply configured safe-state outputs without recording a runtime fault.
+    pub fn apply_io_safe_state(&mut self) -> Result<(), error::RuntimeError> {
+        self.io.apply_safe_state()
+    }
+
     /// Attach a metrics sink for runtime statistics.
     pub fn set_metrics_sink(&mut self, metrics: std::sync::Arc<std::sync::Mutex<RuntimeMetrics>>) {
         self.metrics.set_sink(metrics);
@@ -189,6 +194,21 @@ impl Runtime {
     pub fn watchdog_timeout(&mut self) -> error::RuntimeError {
         let err = error::RuntimeError::WatchdogTimeout;
         self.apply_fault(err, self.watchdog.decision())
+    }
+
+    /// Record a contained resource-cycle panic as a visible runtime fault.
+    pub fn resource_panic(
+        &mut self,
+        message: impl Into<smol_str::SmolStr>,
+    ) -> error::RuntimeError {
+        let err = error::RuntimeError::ResourcePanic(message.into());
+        self.apply_fault(
+            err,
+            FaultDecision {
+                action: FaultAction::Halt,
+                apply_safe_state: true,
+            },
+        )
     }
 
     /// Record a scripted simulation fault.

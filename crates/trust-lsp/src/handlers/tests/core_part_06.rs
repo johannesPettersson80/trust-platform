@@ -75,6 +75,84 @@ END_PROGRAM
     );
 }
 
+#[tokio::test(flavor = "current_thread")]
+pub(super) async fn lsp_references_partial_result_token_returns_empty_final_response() {
+    let source = r#"
+PROGRAM Main
+VAR
+    Speed : INT;
+END_VAR
+Speed := Speed + 1;
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let client = test_client();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///partial-refs.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::ReferenceParams {
+        text_document_position: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: position_at(source, "Speed : INT"),
+        },
+        context: tower_lsp::lsp_types::ReferenceContext {
+            include_declaration: true,
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: tower_lsp::lsp_types::PartialResultParams {
+            partial_result_token: Some(tower_lsp::lsp_types::ProgressToken::String(
+                "refs-partial".to_string(),
+            )),
+        },
+    };
+
+    let final_result = references_with_progress(&client, &state, params)
+        .await
+        .expect("references final result");
+    assert!(
+        final_result.is_empty(),
+        "when partial results are streamed, the final references response must be empty, got {} items",
+        final_result.len()
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+pub(super) async fn lsp_workspace_symbols_partial_result_token_returns_empty_final_response() {
+    let source = r#"
+FUNCTION_BLOCK Pump
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    pump : Pump;
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let client = test_client();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///partial-symbols.st").unwrap();
+    state.open_document(uri, 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::WorkspaceSymbolParams {
+        query: "".to_string(),
+        work_done_progress_params: Default::default(),
+        partial_result_params: tower_lsp::lsp_types::PartialResultParams {
+            partial_result_token: Some(tower_lsp::lsp_types::ProgressToken::String(
+                "symbols-partial".to_string(),
+            )),
+        },
+    };
+
+    let final_result = workspace_symbol_with_progress(&client, &state, params)
+        .await
+        .expect("workspace symbol final result");
+    assert!(
+        final_result.is_empty(),
+        "when partial results are streamed, the final workspace-symbol response must be empty, got {} items",
+        final_result.len()
+    );
+}
+
 #[test]
 pub(super) fn lsp_workspace_symbols_respect_root_visibility_and_priority() {
     let source = r#"
@@ -236,4 +314,44 @@ END_PROGRAM
         }
         _ => panic!("expected semantic tokens delta response"),
     }
+}
+
+#[test]
+pub(super) fn lsp_semantic_tokens_use_utf16_start_and_length_after_supplementary_scalar() {
+    let source = "😀 (* 😀 *) speed\n";
+    let comment_start = source.find("(*").expect("comment start");
+    let comment_end = source.find("*)").expect("comment end") + "*)".len();
+    let speed_start = source.find("speed").expect("speed start");
+
+    let tokens = vec![
+        trust_ide::SemanticToken::new(
+            text_size::TextRange::new(
+                text_size::TextSize::from(comment_start as u32),
+                text_size::TextSize::from(comment_end as u32),
+            ),
+            trust_ide::SemanticTokenType::Comment,
+        ),
+        trust_ide::SemanticToken::new(
+            text_size::TextRange::new(
+                text_size::TextSize::from(speed_start as u32),
+                text_size::TextSize::from((speed_start + "speed".len()) as u32),
+            ),
+            trust_ide::SemanticTokenType::Variable,
+        ),
+    ];
+
+    let data = super::super::lsp_utils::semantic_tokens_to_lsp(source, tokens, 0, 0);
+    assert_eq!(data.len(), 2);
+    assert_eq!(data[0].delta_line, 0);
+    assert_eq!(
+        data[0].delta_start,
+        utf16_position_at(source, "(*").character
+    );
+    assert_eq!(data[0].length, utf16_len("(* 😀 *)"));
+    assert_eq!(data[1].delta_line, 0);
+    assert_eq!(
+        data[1].delta_start,
+        utf16_position_at(source, "speed").character - utf16_position_at(source, "(*").character
+    );
+    assert_eq!(data[1].length, utf16_len("speed"));
 }

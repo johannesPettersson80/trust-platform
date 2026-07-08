@@ -29,6 +29,8 @@ pub mod bundle_template;
 pub mod bytecode;
 /// Runtime bundle configuration.
 pub mod config;
+/// Shared runtime connector status contracts.
+pub mod connectors;
 /// Control server and protocol.
 pub mod control;
 pub(crate) mod datetime {

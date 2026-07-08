@@ -21,7 +21,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
     component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
-    component "host/ads/diagnostics.rs\nversioned JSON schema" as diagnosticsSchema
+    component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
     component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
 }
 

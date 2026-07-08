@@ -1,13 +1,6 @@
 fn load_sources(root: &Path) -> anyhow::Result<Vec<LoadedSource>> {
     let mut paths = BTreeSet::new();
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
-    for pattern in patterns {
-        for entry in glob::glob(&format!("{}/{}", root.display(), pattern))
-            .with_context(|| format!("invalid glob pattern for '{}'", root.display()))?
-        {
-            paths.insert(entry?);
-        }
-    }
+    collect_source_paths(root, &mut paths)?;
 
     let mut sources = Vec::with_capacity(paths.len());
     for path in paths {
@@ -16,6 +9,34 @@ fn load_sources(root: &Path) -> anyhow::Result<Vec<LoadedSource>> {
         sources.push(LoadedSource { path, text });
     }
     Ok(sources)
+}
+
+fn collect_source_paths(root: &Path, paths: &mut BTreeSet<PathBuf>) -> anyhow::Result<()> {
+    for entry in
+        std::fs::read_dir(root).with_context(|| format!("failed to read '{}'", root.display()))?
+    {
+        let entry =
+            entry.with_context(|| format!("failed to read entry in '{}'", root.display()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("failed to read file type for '{}'", path.display()))?;
+        if file_type.is_dir() {
+            collect_source_paths(&path, paths)?;
+        } else if file_type.is_file() && is_st_source_path(&path) {
+            paths.insert(path);
+        }
+    }
+    Ok(())
+}
+
+fn is_st_source_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            let extension = extension.to_ascii_lowercase();
+            extension == "st" || extension == "pou"
+        })
 }
 
 fn discover_tests(sources: &[LoadedSource]) -> Vec<DiscoveredTest> {
@@ -135,4 +156,3 @@ fn source_line_for_offset(text: &str, byte_offset: usize) -> Option<String> {
         Some(line.to_string())
     }
 }
-

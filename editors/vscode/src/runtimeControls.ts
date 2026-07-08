@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -16,6 +17,7 @@ import {
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
+import { workspaceHasReadableTrustProject } from "./workspaceProject";
 
 // §UX (reset 2026-06-22) — the status bar is PASSIVE. It shows the ACTIVE runtime's honest state and,
 // on click, reveals the truST sidebar. It contributes NO Start/Stop command: there is exactly ONE
@@ -80,7 +82,7 @@ async function statusText(
   context: vscode.ExtensionContext,
   snapshot: RuntimeLifecycleSnapshot
 ): Promise<string> {
-  if (!(await workspaceHasTrustProject())) {
+  if (!(await workspaceHasReadableTrustProject())) {
     return "$(circle-outline) truST: No project";
   }
   if (snapshot.status.runtimeState === "connected") {
@@ -109,18 +111,6 @@ function connectedEndpointLabel(endpoint: string): string {
     return "runtime";
   }
   return remoteLabelFromEndpoint(trimmed);
-}
-
-async function workspaceHasTrustProject(): Promise<boolean> {
-  if (!vscode.workspace.workspaceFolders?.length) {
-    return false;
-  }
-  const found = await vscode.workspace.findFiles(
-    "**/trust-lsp.toml",
-    "**/node_modules/**",
-    1
-  );
-  return found.length > 0;
 }
 
 function selectedStatusText(selected: SelectedRuntime): string {
@@ -156,9 +146,7 @@ function statusTargetLabel(selected: SelectedRuntime): string {
 
 function readRemotes(): RemoteRuntime[] {
   const endpoints =
-    vscode.workspace
-      .getConfiguration("trust-lsp")
-      .get<string[]>("runtime.fleetEndpoints", []) ?? [];
+    getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
   const seen = new Set<string>();
   const remotes: RemoteRuntime[] = [];
   for (const raw of endpoints) {

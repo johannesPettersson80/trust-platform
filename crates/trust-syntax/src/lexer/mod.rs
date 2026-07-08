@@ -8,7 +8,6 @@ mod tokens;
 pub use tokens::TokenKind;
 
 use logos::Logos;
-use std::collections::VecDeque;
 use text_size::{TextRange, TextSize};
 
 /// A token produced by the lexer.
@@ -47,7 +46,6 @@ impl Token {
 pub struct Lexer<'src> {
     inner: logos::Lexer<'src, TokenKind>,
     source: &'src str,
-    pending: VecDeque<Token>,
 }
 
 impl<'src> Lexer<'src> {
@@ -57,7 +55,6 @@ impl<'src> Lexer<'src> {
         Self {
             inner: TokenKind::lexer(source),
             source,
-            pending: VecDeque::new(),
         }
     }
 
@@ -78,10 +75,6 @@ impl<'src> Iterator for Lexer<'src> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(token) = self.pending.pop_front() {
-            return Some(token);
-        }
-
         let kind = self.inner.next()?;
         let span = self.inner.span();
 
@@ -90,53 +83,6 @@ impl<'src> Iterator for Lexer<'src> {
             TextSize::from(span.start as u32),
             TextSize::from(span.end as u32),
         );
-
-        if kind == TokenKind::IntLiteral {
-            let text = &self.source[span.start..span.end];
-            if text.ends_with('.') && span.end > span.start + 1 {
-                let dot_start = span.end - 1;
-                let int_range = TextRange::new(
-                    TextSize::from(span.start as u32),
-                    TextSize::from(dot_start as u32),
-                );
-                self.pending
-                    .push_back(Token::new(TokenKind::IntLiteral, int_range));
-
-                if let Some(next_kind) = self.inner.next() {
-                    let next_span = self.inner.span();
-                    let next_kind = next_kind.unwrap_or(TokenKind::Error);
-                    if next_kind == TokenKind::Dot && next_span.start == span.end {
-                        let dotdot_range = TextRange::new(
-                            TextSize::from(dot_start as u32),
-                            TextSize::from(next_span.end as u32),
-                        );
-                        self.pending
-                            .push_back(Token::new(TokenKind::DotDot, dotdot_range));
-                    } else {
-                        let dot_range = TextRange::new(
-                            TextSize::from(dot_start as u32),
-                            TextSize::from(span.end as u32),
-                        );
-                        let next_range = TextRange::new(
-                            TextSize::from(next_span.start as u32),
-                            TextSize::from(next_span.end as u32),
-                        );
-                        self.pending
-                            .push_back(Token::new(TokenKind::Dot, dot_range));
-                        self.pending.push_back(Token::new(next_kind, next_range));
-                    }
-                } else {
-                    let dot_range = TextRange::new(
-                        TextSize::from(dot_start as u32),
-                        TextSize::from(span.end as u32),
-                    );
-                    self.pending
-                        .push_back(Token::new(TokenKind::Dot, dot_range));
-                }
-
-                return self.pending.pop_front();
-            }
-        }
 
         Some(Token::new(kind, range))
     }

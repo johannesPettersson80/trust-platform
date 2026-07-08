@@ -1,11 +1,11 @@
 # Conformance Naming Rules
 
-Deliverable 1 requires deterministic naming for cases, expected artifacts, and
-summary reports.
+The conformance suite requires deterministic naming for cases, expected
+artifacts, and summary reports.
 
-## Frozen Category Names
+## Category Names
 
-Only these category directory names are valid in MVP:
+Valid v1 category directory names:
 
 - `timers`
 - `edges`
@@ -13,6 +13,19 @@ Only these category directory names are valid in MVP:
 - `init_reset`
 - `arithmetic`
 - `memory_map`
+
+Valid v2 category directory names also include:
+
+- `strings`
+- `arrays`
+- `structs`
+- `enums`
+- `nested_values`
+- `oop_dispatch`
+- `references`
+- `retain_matrix`
+- `scheduler`
+- `comms_determinism`
 
 ## Case ID Format
 
@@ -32,7 +45,7 @@ Rules:
 Regex:
 
 ```text
-^cfm_(timers|edges|scan_cycle|init_reset|arithmetic|memory_map)_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{3}$
+^cfm_(timers|edges|scan_cycle|init_reset|arithmetic|memory_map|strings|arrays|structs|enums|nested_values|oop_dispatch|references|retain_matrix|scheduler|comms_determinism)_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{3}$
 ```
 
 ## Case Folder and Files
@@ -61,7 +74,7 @@ conformance/expected/<category>/<case_id>.json
 Generated summary reports go to:
 
 ```text
-conformance/reports/<timestamp>_<runner>_summary.json
+target/conformance/<timestamp>_<runner>_summary.json
 ```
 
 Timestamp format is UTC basic ISO-like:
@@ -75,3 +88,6 @@ Example:
 ```text
 20260210T120000Z_trust-runtime_summary.json
 ```
+
+`conformance/reports/` is reserved for local ignored/generated output and keeps
+only `.gitkeep` in Git.

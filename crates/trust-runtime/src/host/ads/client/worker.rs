@@ -177,6 +177,8 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         if self.symbol_version == Some(current) {
             return Ok(false);
         }
+        self.transport.disconnect().map_err(AdsBridgeError::from)?;
+        self.transport.connect().map_err(AdsBridgeError::from)?;
         self.validate_online_and_resolve_handles(now_ms)?;
         Ok(true)
     }

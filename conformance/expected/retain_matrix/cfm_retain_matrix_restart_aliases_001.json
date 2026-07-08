@@ -1,0 +1,130 @@
+{
+  "case_id": "cfm_retain_matrix_restart_aliases_001",
+  "category": "retain_matrix",
+  "cycles": 6,
+  "description": "Cold, warm, hot, fault, and download restart labels map to deterministic retain behavior.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 2
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 3,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 4
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 4,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 5
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 5,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 2
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 6,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "non_retained": {
+          "type": "INT",
+          "value": 3
+        },
+        "retained": {
+          "type": "INT",
+          "value": 2
+        },
+        "unspecified": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

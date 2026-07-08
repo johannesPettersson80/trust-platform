@@ -197,6 +197,7 @@ impl DebugSession {
         let compile = CompileSession::from_sources(source_files);
         let mut runtime = compile.build_runtime()?;
         apply_project_io_config(&mut runtime, &path, &self.source_options)?;
+        apply_project_ads_config(&mut runtime, &path, &self.source_options)?;
         runtime.set_debug_control(self.control.clone());
         runtime
             .apply_retain_snapshot(&retained)

@@ -28,7 +28,8 @@
   `trust-dev commit`, `trust-dev docs`, and `trust-dev test` own the project
   commit, ST API documentation, and ST test workflows, while the matching
   `trust-runtime` commands remain deprecated forwarding aliases during the
-  product/workbench CLI split.
+  product/workbench CLI split. Those aliases will not be removed before
+  2026-10-05, and removal requires a separate behavior-change release note.
 - MQTT I/O now has explicit TLS/mTLS configuration: `tls = true` requires a CA
   trust file, optional client certificate/key files enable mTLS, `mqtts://` and
   `ssl://` broker schemes imply TLS, and remote plaintext MQTT remains gated by

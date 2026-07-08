@@ -77,9 +77,9 @@ const proof = {
   journey: "J-17",
   workflow: "Browse ADS tags and use them in a program",
   project,
-  rows: ["ADSC-02", "ADSC-03", "ADSC-05", "ADSC-06", "ADSC-07", "IOMAP-02", "ST-02", "RUN-01"],
+  rows_proven: ["ADSC-02", "ADSC-03", "ADSC-05", "ADSC-06", "ADSC-07", "IOMAP-02", "ST-02", "RUN-01"],
+  rows_not_fully_proven: ["ADSC-01", "ADSC-04", "RUN-04", "LV-02", "ERR-12"],
   steps: [],
-  hardware_gated_rows: ["ADSC-01", "ADSC-04 live success", "RUN-04", "LV-02"],
 };
 
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
@@ -153,6 +153,7 @@ async function evalInner(conn, sid, body) {
   return result && result.result && result.result.result && result.result.result.value;
 }
 async function screenshot(conn, pageSid, name) {
+  await sleep(350);
   const captured = await conn.send("Page.captureScreenshot", { format: "png", fromSurface: true }, pageSid);
   const data = captured && captured.result && captured.result.data;
   assert.ok(data, "expected screenshot data for " + name);
@@ -233,6 +234,12 @@ suite("ads-client-program", function() {
       const browseText = await waitForText(conn, webSid, "No ADS route|StaticRoutes|Manual TwinCAT route steps|Download PowerShell", "ADS route recovery", 65000);
       proof.routeRecoveryText = browseText.slice(0, 2500);
       await screenshot(conn, pageSid, "ADSC-02-route-missing-recovery");
+      const createRoute = await clickButton(conn, webSid, "Create route");
+      proof.steps.push({ step: "click Create route", result: createRoute });
+      assert.ok(createRoute.clicked, "could not click Create route: " + JSON.stringify(createRoute));
+      const createRouteText = await waitForText(conn, webSid, "Automatic route creation|Administrator|TwinCAT computer", "ADS create route result");
+      proof.createRouteText = createRouteText.slice(0, 2500);
+      await screenshot(conn, pageSid, "ADSC-03-create-route-admin-needed");
 
       await vscode.commands.executeCommand("workbench.action.closeEditorsInOtherGroups").catch(() => undefined);
       const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(project, "src", "main.st")));

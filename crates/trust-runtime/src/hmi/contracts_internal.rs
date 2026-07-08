@@ -45,6 +45,7 @@ pub enum HmiWriteBinding {
 pub struct HmiWritePoint {
     pub id: String,
     pub path: String,
+    pub data_type: String,
     pub binding: HmiWriteBinding,
 }
 

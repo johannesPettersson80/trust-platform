@@ -206,6 +206,7 @@ fn bind_vm_call_arguments_rejects_too_many_positional_arguments() {
         "DoWork",
         vec![VmParamMeta {
             name: SmolStr::new("IN"),
+            type_id: 0,
             direction: 0,
             default_const_idx: None,
         }],
@@ -239,16 +240,19 @@ fn bind_vm_call_arguments_keeps_omitted_middle_named_input_as_null() {
         vec![
             VmParamMeta {
                 name: SmolStr::new("A"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },
             VmParamMeta {
                 name: SmolStr::new("B"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },
             VmParamMeta {
                 name: SmolStr::new("C"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },

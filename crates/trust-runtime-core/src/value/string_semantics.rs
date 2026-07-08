@@ -11,6 +11,15 @@ pub fn string_element_count(text: &str) -> usize {
     text.chars().count()
 }
 
+pub fn truncate_string_elements(text: &str, max_len: u32) -> String {
+    let max_len = max_len as usize;
+    if string_element_count(text) <= max_len {
+        text.to_string()
+    } else {
+        string_left(text, max_len as i64)
+    }
+}
+
 pub fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeError> {
     if index < 1 {
         return Err(RuntimeError::IndexOutOfBounds {

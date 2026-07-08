@@ -29,16 +29,3 @@ pub(crate) fn git_repo_root(root: &Path) -> Option<PathBuf> {
         Some(PathBuf::from(text))
     }
 }
-
-pub(crate) fn git_output(root: &Path, args: &[&str]) -> anyhow::Result<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
-        .output()?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("git {} failed: {}", args.join(" "), stderr.trim());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}

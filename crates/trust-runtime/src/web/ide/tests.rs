@@ -12,6 +12,17 @@ fn project_dir(name: &str) -> PathBuf {
     path
 }
 
+fn project_dir_in_current_dir(name: &str) -> PathBuf {
+    let path = std::env::current_dir()
+        .expect("current dir")
+        .join("target")
+        .join("trust-runtime-web-ide")
+        .join(format!("{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&path);
+    std::fs::create_dir_all(&path).expect("create project dir");
+    path
+}
+
 fn write_source(project: &Path, rel: &str, content: &str) {
     let path = project.join(rel);
     if let Some(parent) = path.parent() {
@@ -476,8 +487,8 @@ fn workspace_search_respects_include_and_exclude_globs() {
 
 #[test]
 fn project_selection_and_switch_flow_updates_active_root() {
-    let project_a = project_dir("project-switch-a");
-    let project_b = project_dir("project-switch-b");
+    let project_a = project_dir_in_current_dir("project-switch-a");
+    let project_b = project_dir_in_current_dir("project-switch-b");
     write_source(&project_a, "main.st", "PROGRAM Main\nEND_PROGRAM\n");
     write_source(&project_b, "alt.st", "PROGRAM Alt\nEND_PROGRAM\n");
 

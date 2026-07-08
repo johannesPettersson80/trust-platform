@@ -354,7 +354,7 @@ pub(super) fn build_runtime_from_source_files(
         ensure_wildcards_resolved(&wildcards)?;
     }
 
-    resize_process_image_from_bindings(&mut runtime);
+    resize_process_image_from_bindings(&mut runtime)?;
     init_function_static_locals(&mut runtime)?;
     let _ = runtime.ensure_background_thread_id();
 
@@ -371,7 +371,7 @@ pub(super) fn build_runtime_from_source_files(
     Ok(runtime)
 }
 
-fn resize_process_image_from_bindings(runtime: &mut Runtime) {
+fn resize_process_image_from_bindings(runtime: &mut Runtime) -> Result<(), CompileError> {
     let mut inputs = runtime.io().inputs().len();
     let mut outputs = runtime.io().outputs().len();
     let mut memory = runtime.io().memory().len();
@@ -396,7 +396,10 @@ fn resize_process_image_from_bindings(runtime: &mut Runtime) {
         }
     }
 
-    runtime.io_mut().resize(inputs, outputs, memory);
+    runtime
+        .io_mut()
+        .try_resize(inputs, outputs, memory)
+        .map_err(|err| CompileError::new(err.to_string()))
 }
 
 fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError> {

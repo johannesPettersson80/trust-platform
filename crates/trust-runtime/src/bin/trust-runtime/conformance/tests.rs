@@ -9,9 +9,39 @@ mod tests {
             "cfm_memory_map_sync_word_123",
             "memory_map"
         ));
+        assert!(is_valid_case_id(
+            "cfm_comms_determinism_connector_projection_001",
+            "comms_determinism"
+        ));
         assert!(!is_valid_case_id("CFM_timers_ton_sequence_001", "timers"));
         assert!(!is_valid_case_id("cfm_timers_ton_sequence_01", "timers"));
         assert!(!is_valid_case_id("cfm_edges_case_001", "timers"));
+    }
+
+    #[test]
+    fn summary_contract_remains_v1_for_legacy_category_only_suites() {
+        let cases = vec![CaseDefinition {
+            id: "cfm_timers_ton_sequence_001".to_string(),
+            category: "timers".to_string(),
+            dir: PathBuf::new(),
+            manifest: CaseManifest::default(),
+        }];
+        let contract = summary_contract_for_cases(&cases);
+        assert_eq!(contract.version, 1);
+        assert_eq!(contract.profile, "trust-conformance-v1");
+    }
+
+    #[test]
+    fn summary_contract_moves_to_v2_for_expanded_categories() {
+        let cases = vec![CaseDefinition {
+            id: "cfm_strings_literal_len_001".to_string(),
+            category: "strings".to_string(),
+            dir: PathBuf::new(),
+            manifest: CaseManifest::default(),
+        }];
+        let contract = summary_contract_for_cases(&cases);
+        assert_eq!(contract.version, 2);
+        assert_eq!(contract.profile, "trust-conformance-v2");
     }
 
     #[test]

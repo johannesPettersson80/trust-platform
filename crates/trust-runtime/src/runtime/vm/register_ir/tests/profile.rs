@@ -130,6 +130,7 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),
         method_table_by_owner: HashMap::new(),
+        ref_types: HashMap::new(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };

@@ -1,6 +1,12 @@
-fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn apply_bundle_runtime_overrides(
+    runtime: &mut Runtime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     if bundle.runtime.bundle_version != 1 {
-        anyhow::bail!("unsupported bundle version {}", bundle.runtime.bundle_version);
+        anyhow::bail!(
+            "unsupported bundle version {}",
+            bundle.runtime.bundle_version
+        );
     }
 
     runtime.set_watchdog_policy(bundle.runtime.watchdog);
@@ -38,7 +44,8 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
         }
     }
 
-    if let Err(err) = runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))
+    if let Err(err) =
+        runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))
     {
         anyhow::bail!(
             "failed to apply bytecode metadata: {err} (project folder may require sources)"
@@ -63,28 +70,55 @@ fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::R
 #[cfg(not(feature = "ads-wire"))]
 fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     if bundle.runtime.ads.enabled {
-        anyhow::bail!("runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'");
+        anyhow::bail!(
+            "runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'"
+        );
     }
     Ok(())
 }
 
 #[cfg(feature = "opcua-wire")]
 fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    start_opcua_client_runtime_with_factory(runtime, bundle, |_connection| {
+        Ok(trust_runtime::opcua::OpcUaWireClientTransport::new())
+    })
+}
+
+#[cfg(feature = "opcua-wire")]
+fn start_opcua_client_runtime_with_factory<T, F>(
+    runtime: &mut Runtime,
+    bundle: &RuntimeBundle,
+    mut transport_factory: F,
+) -> anyhow::Result<()>
+where
+    T: trust_runtime::opcua::OpcUaClientTransport + Send + 'static,
+    F: FnMut(&trust_runtime::opcua::OpcUaClientConnectionConfig) -> anyhow::Result<T>,
+{
     if !bundle.runtime.opcua_client.enabled {
         return Ok(());
     }
     let Some(config) = bundle.opcua_client.as_ref() else {
         anyhow::bail!("runtime.opcua_client.enabled=true but no OPC UA client config was loaded");
     };
-    runtime
-        .configure_opcua_client(config)
-        .map_err(anyhow::Error::from)?;
+    runtime.reset_opcua_client_connections()?;
     runtime.set_opcua_client_deployed_config_hash(bundle.opcua_client_config_hash.clone());
+    let worker_tick_interval = std::time::Duration::from_millis(
+        u64::try_from(bundle.runtime.opcua_client.poll_interval.as_millis()).unwrap_or(20),
+    );
+    for connection in &config.connections {
+        let transport = transport_factory(connection)?;
+        runtime
+            .start_opcua_client_connection(connection, transport, worker_tick_interval)
+            .map_err(anyhow::Error::from)?;
+    }
     Ok(())
 }
 
 #[cfg(not(feature = "opcua-wire"))]
-fn start_opcua_client_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_opcua_client_runtime(
+    _runtime: &mut Runtime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     if bundle.runtime.opcua_client.enabled {
         anyhow::bail!(
             "runtime.opcua_client.enabled=true requires trust-runtime built with feature 'opcua-wire'"

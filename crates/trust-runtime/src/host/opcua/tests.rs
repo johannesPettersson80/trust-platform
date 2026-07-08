@@ -1,5 +1,6 @@
 use super::*;
 use crate::value::{EnumValue, Value};
+use smol_str::SmolStr;
 use std::sync::Mutex;
 
 static OPCUA_CLIENT_PKI_ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -185,4 +186,544 @@ fn opcua_client_rejected_security_policy_during_login_prompts_for_auth() {
         classify_opcua_client_browse_error(&error),
         OpcUaClientErrorCode::AuthRequired
     );
+}
+
+#[test]
+fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    assert_eq!(worker.transport().connect_count, 1);
+    assert_eq!(worker.transport().subscribe_count, 1);
+
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(22.5), 10);
+    worker.tick(10).expect("drain update");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(0.0)),
+        "worker callbacks must not mutate runtime storage mid-scan"
+    );
+
+    bridge
+        .apply_inputs(runtime.storage_mut(), 11)
+        .expect("apply input");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(22.5))
+    );
+
+    worker.tick(20).expect("second worker tick");
+    bridge
+        .apply_inputs(runtime.storage_mut(), 21)
+        .expect("second scan");
+    assert_eq!(
+        worker.transport().connect_count,
+        1,
+        "scan-cycle reads must reuse the persistent session"
+    );
+}
+
+#[test]
+fn persistent_worker_batches_writes_without_reconnecting_per_write() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_setpoint",
+        "ns=2;i=3",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::ReadWrite,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(10.0), 10);
+    worker.tick(10).expect("drain baseline");
+    bridge
+        .apply_inputs(runtime.storage_mut(), 11)
+        .expect("apply baseline");
+
+    write_global(&mut runtime, "line1_setpoint", Value::Real(31.0));
+    bridge
+        .capture_outputs(runtime.storage_mut(), 12)
+        .expect("queue first write");
+    assert_eq!(
+        bridge.pending_write("line1_setpoint"),
+        Some(Value::Real(31.0))
+    );
+    worker.tick(12).expect("publish first write");
+    assert_eq!(bridge.pending_write("line1_setpoint"), None);
+    assert_eq!(worker.transport().write_batches.len(), 1);
+    assert_eq!(
+        worker.transport().write_batches[0],
+        vec![("line1_setpoint".into(), Value::Real(31.0))]
+    );
+
+    write_global(&mut runtime, "line1_setpoint", Value::Real(44.0));
+    bridge
+        .capture_outputs(runtime.storage_mut(), 13)
+        .expect("queue second write");
+    worker.tick(13).expect("publish second write");
+
+    assert_eq!(worker.transport().connect_count, 1);
+    assert_eq!(worker.transport().write_batches.len(), 2);
+}
+
+#[test]
+fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_setpoint",
+        "ns=2;i=3",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::ReadWrite,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let transport = MockOpcUaClientTransport {
+        write_error: Some(OpcUaClientBridgeError::validation(
+            "OPC UA node 'ns=2;i=3' write returned BadUserAccessDenied",
+        )),
+        ..Default::default()
+    };
+    let (mut bridge, mut worker) =
+        OpcUaClientBridge::with_transport(connection, transport, bindings).expect("bridge");
+
+    worker.tick(0).expect("connect");
+    write_global(&mut runtime, "line1_setpoint", Value::Real(31.0));
+    bridge
+        .capture_outputs(runtime.storage_mut(), 12)
+        .expect("queue write");
+    assert_eq!(
+        bridge.pending_write("line1_setpoint"),
+        Some(Value::Real(31.0))
+    );
+
+    worker
+        .tick(12)
+        .expect("write rejection handled as point quality");
+
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+    assert_eq!(bridge.pending_write("line1_setpoint"), None);
+    assert_eq!(worker.transport().connect_count, 1);
+    assert_eq!(worker.transport().disconnect_count, 0);
+    let status = bridge
+        .snapshot()
+        .point_statuses
+        .into_iter()
+        .find(|status| status.var == "line1_setpoint")
+        .expect("point status");
+    assert_eq!(status.state, OpcUaClientConnectionState::Faulted);
+    assert!(
+        status.detail.contains("BadUserAccessDenied"),
+        "unexpected status detail: {}",
+        status.detail
+    );
+}
+
+#[test]
+fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let mut connection = opcua_connection(vec![point.clone()]);
+    connection.timeout_ms = 50;
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+
+    worker.tick(60).expect("stale timeout");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Stale);
+
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(12.0), 61);
+    worker.tick(61).expect("recover from subscription update");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+    bridge
+        .apply_inputs(runtime.storage_mut(), 62)
+        .expect("apply recovered value");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(12.0))
+    );
+}
+
+#[test]
+fn persistent_worker_reconnects_after_session_loss_without_scan_thread_io() {
+    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, &[point]);
+    let (bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    worker
+        .transport_mut()
+        .emit_connection_status(false, 100, "session lost");
+    worker.tick(100).expect("drain disconnect");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Reconnecting);
+    assert_eq!(worker.transport().connect_count, 1);
+
+    worker.tick(1_000).expect("backoff waits");
+    assert_eq!(worker.transport().connect_count, 1);
+
+    worker.tick(2_101).expect("reconnect after backoff");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+    assert_eq!(worker.transport().connect_count, 2);
+}
+
+#[test]
+fn persistent_worker_recreates_subscription_after_server_restart() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("initial connect");
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(18.0), 10);
+    worker.tick(10).expect("initial subscription update");
+    bridge
+        .apply_inputs(runtime.storage_mut(), 11)
+        .expect("apply initial value");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(18.0))
+    );
+
+    worker
+        .transport_mut()
+        .emit_connection_status(false, 100, "server restart");
+    worker.tick(100).expect("detect restart");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Reconnecting);
+    assert_eq!(worker.transport().subscribe_count, 1);
+
+    worker.tick(2_101).expect("reconnect after restart");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+    assert_eq!(worker.transport().connect_count, 2);
+    assert_eq!(
+        worker.transport().subscribe_count,
+        2,
+        "read subscriptions must be recreated after reconnect"
+    );
+
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(19.0), 2_110);
+    worker
+        .tick(2_110)
+        .expect("post-restart subscription update");
+    bridge
+        .apply_inputs(runtime.storage_mut(), 2_111)
+        .expect("apply post-restart value");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(19.0))
+    );
+}
+
+#[test]
+fn persistent_worker_uses_recovery_hook_to_reestablish_subscriptions() {
+    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point.clone()]);
+    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::recovering(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("initial connect");
+    worker
+        .transport_mut()
+        .emit_connection_status(false, 100, "server restart");
+    worker.tick(100).expect("detect restart");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Reconnecting);
+
+    worker.tick(2_101).expect("recover subscriptions");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
+    assert_eq!(
+        worker.transport().connect_count,
+        1,
+        "recovery hook should avoid a new session when transport can recover"
+    );
+    assert_eq!(worker.transport().subscribe_count, 1);
+    assert_eq!(worker.transport().recover_count, 1);
+    assert!(
+        bridge
+            .snapshot()
+            .detail
+            .contains("transferred subscriptions with send_initial_values=true"),
+        "{}",
+        bridge.snapshot().detail
+    );
+
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(21.0), 2_110);
+    worker
+        .tick(2_110)
+        .expect("post-recovery subscription update");
+    bridge
+        .apply_inputs(runtime.storage_mut(), 2_111)
+        .expect("apply post-recovery value");
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(21.0))
+    );
+}
+
+#[test]
+fn connected_detail_reports_timeout_negotiation_or_documented_gap() {
+    let negotiated = session_detail(2, 100, Some(250), None);
+    assert!(
+        negotiated.contains("requested stale timeout 100 ms"),
+        "{negotiated}"
+    );
+    assert!(
+        negotiated.contains("revised session timeout 250 ms"),
+        "{negotiated}"
+    );
+
+    let hidden = session_detail(2, 100, None, None);
+    assert!(
+        hidden.contains("revised session timeout is not exposed by opcua 0.12"),
+        "{hidden}"
+    );
+    assert!(
+        hidden.contains("using configured stale timeout 100 ms"),
+        "{hidden}"
+    );
+}
+
+#[derive(Default)]
+struct MockOpcUaClientTransport {
+    connect_count: usize,
+    subscribe_count: usize,
+    recover_count: usize,
+    recover_succeeds: bool,
+    disconnect_count: usize,
+    write_batches: Vec<Vec<(SmolStr, Value)>>,
+    write_error: Option<OpcUaClientBridgeError>,
+    sink: Option<OpcUaClientEventSink>,
+}
+
+impl MockOpcUaClientTransport {
+    fn recovering() -> Self {
+        Self {
+            recover_succeeds: true,
+            ..Self::default()
+        }
+    }
+
+    fn emit_sample(&mut self, point: &OpcUaClientPointConfig, value: Value, now_ms: u64) {
+        let sink = self.sink.as_ref().expect("event sink");
+        assert!(sink.publish_sample(OpcUaClientSample {
+            var: point.var.clone(),
+            node_id: point.node_id.clone(),
+            data_type: point.data_type,
+            access: point.access,
+            value: Some(value),
+            state: OpcUaClientConnectionState::Connected,
+            last_seen_ms: Some(now_ms),
+            detail: "mock subscription update".to_string(),
+        }));
+    }
+
+    fn emit_connection_status(&mut self, connected: bool, now_ms: u64, detail: &str) {
+        let sink = self.sink.as_ref().expect("event sink");
+        assert!(sink.publish_connection_status(connected, now_ms, detail));
+    }
+}
+
+impl OpcUaClientTransport for MockOpcUaClientTransport {
+    fn connect(
+        &mut self,
+        connection: &OpcUaClientConnectionConfig,
+        sink: OpcUaClientEventSink,
+    ) -> Result<OpcUaClientSessionInfo, OpcUaClientBridgeError> {
+        self.connect_count += 1;
+        self.sink = Some(sink);
+        Ok(OpcUaClientSessionInfo {
+            requested_timeout_ms: connection.timeout_ms,
+            revised_timeout_ms: Some(connection.timeout_ms),
+            recovery_detail: None,
+        })
+    }
+
+    fn subscribe_read_points(
+        &mut self,
+        points: &[OpcUaClientPointConfig],
+        _sink: OpcUaClientEventSink,
+    ) -> Result<(), OpcUaClientBridgeError> {
+        if !points.is_empty() {
+            self.subscribe_count += 1;
+        }
+        Ok(())
+    }
+
+    fn write_values(
+        &mut self,
+        values: &[(OpcUaClientPointConfig, Value)],
+    ) -> Result<(), OpcUaClientBridgeError> {
+        if let Some(error) = self.write_error.clone() {
+            return Err(error);
+        }
+        self.write_batches.push(
+            values
+                .iter()
+                .map(|(point, value)| (point.var.clone(), value.clone()))
+                .collect(),
+        );
+        Ok(())
+    }
+
+    fn recover_after_disconnect(
+        &mut self,
+        connection: &OpcUaClientConnectionConfig,
+        _read_points: &[OpcUaClientPointConfig],
+        sink: OpcUaClientEventSink,
+    ) -> Result<Option<OpcUaClientSessionInfo>, OpcUaClientBridgeError> {
+        self.recover_count += 1;
+        if !self.recover_succeeds {
+            return Ok(None);
+        }
+        self.sink = Some(sink);
+        Ok(Some(OpcUaClientSessionInfo {
+            requested_timeout_ms: connection.timeout_ms,
+            revised_timeout_ms: Some(connection.timeout_ms),
+            recovery_detail: Some(
+                "mock reconnect transferred subscriptions with send_initial_values=true and replayed available notifications",
+            ),
+        }))
+    }
+
+    fn disconnect(&mut self) -> Result<(), OpcUaClientBridgeError> {
+        self.disconnect_count += 1;
+        Ok(())
+    }
+}
+
+fn runtime_with_opcua_globals(globals: Vec<(&str, Value)>) -> crate::Runtime {
+    let mut runtime = crate::Runtime::new();
+    for (name, value) in globals {
+        runtime.storage_mut().set_global(SmolStr::new(name), value);
+    }
+    runtime
+}
+
+fn opcua_connection(points: Vec<OpcUaClientPointConfig>) -> OpcUaClientConnectionConfig {
+    OpcUaClientConnectionConfig {
+        name: SmolStr::new("line1"),
+        endpoint_url: "opc.tcp://127.0.0.1:4840/trust".to_string(),
+        security: OpcUaSecurityProfile {
+            policy: OpcUaSecurityPolicy::None,
+            mode: OpcUaMessageSecurityMode::None,
+            allow_anonymous: true,
+        },
+        auth: OpcUaClientAuthConfig::Anonymous,
+        trust_server_certificate: true,
+        poll_interval_ms: 10,
+        timeout_ms: 100,
+        points,
+    }
+}
+
+fn opcua_point(
+    var: &str,
+    node_id: &str,
+    data_type: OpcUaDataType,
+    access: OpcUaClientPointAccess,
+) -> OpcUaClientPointConfig {
+    OpcUaClientPointConfig {
+        var: SmolStr::new(var),
+        node_id: node_id.to_string(),
+        data_type,
+        access,
+    }
+}
+
+fn opcua_bindings(
+    runtime: &crate::Runtime,
+    points: &[OpcUaClientPointConfig],
+) -> Vec<OpcUaClientBinding> {
+    points
+        .iter()
+        .map(|point| OpcUaClientBinding {
+            point: point.clone(),
+            reference: runtime
+                .storage()
+                .ref_for_global(point.var.as_str())
+                .expect("global ref"),
+        })
+        .collect()
+}
+
+fn write_global(runtime: &mut crate::Runtime, name: &str, value: Value) {
+    let reference = runtime.storage().ref_for_global(name).expect("global ref");
+    assert!(runtime.storage_mut().write_by_ref(reference, value));
 }

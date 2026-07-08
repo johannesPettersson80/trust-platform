@@ -1,0 +1,5 @@
+id = "cfm_oop_dispatch_interface_super_001"
+category = "oop_dispatch"
+description = "METHOD calls, interface dispatch, EXTENDS override, and SUPER dispatch."
+cycles = 2
+watch_globals = ["out_iface", "out_direct", "out_override", "out_super"]

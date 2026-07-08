@@ -7,7 +7,7 @@
 //! - =, <>, <, <=, >, >= (7-8)
 //! - +, - (9-10)
 //! - *, /, MOD (11-12)
-//! - ** (14-13, right associative)
+//! - ** (13-14)
 //! - NOT, unary +/- (15)
 
 use crate::lexer::TokenKind;
@@ -408,6 +408,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::RParen) {
             self.bump();
+        } else {
+            self.error("expected )");
         }
 
         self.finish_node();

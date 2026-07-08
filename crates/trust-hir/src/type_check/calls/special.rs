@@ -36,6 +36,21 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         if let Some(resolved) = self.checker.resolve().resolve_lvalue_root(expr) {
             if let Some(symbol) = self.checker.symbols.get(resolved.id) {
+                if let Some(current_id) = self.checker.current_pou_symbol {
+                    if resolved.id == current_id
+                        && matches!(
+                            symbol.kind,
+                            SymbolKind::Function { .. } | SymbolKind::Method { .. }
+                        )
+                    {
+                        return self.checker.diagnostic_type_outcome(
+                            DiagnosticCode::InvalidOperation,
+                            expr.text_range(),
+                            "REF cannot take a reference to a function or method return variable",
+                        );
+                    }
+                }
+
                 if matches!(
                     symbol.kind,
                     SymbolKind::Variable {

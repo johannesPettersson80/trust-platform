@@ -26,9 +26,19 @@ const themeKey = process.env.VIS_THEME || "light";
 const requestedWidth = Number(process.env.VIS_WIDTH || "0");
 const requestedHeight = Number(process.env.VIS_HEIGHT || "0");
 const themes = {
-  dark: { name: "Default Dark Modern", suffix: "dark" },
-  light: { name: "Default Light Modern", suffix: "light" },
-  hc: { name: "Default High Contrast", suffix: "high-contrast" },
+  dark: { names: ["Dark Modern", "Default Dark Modern"], suffix: "dark", expectedKinds: ["Dark"] },
+  light: { names: ["Light Modern", "Default Light Modern"], suffix: "light", expectedKinds: ["Light"] },
+  hc: {
+    names: [
+      "Default High Contrast",
+      "Dark High Contrast",
+      "hc-dark",
+      "High Contrast",
+      "hc-black"
+    ],
+    suffix: "high-contrast",
+    expectedKinds: ["HighContrast"]
+  },
 };
 const theme = themes[themeKey];
 if (!theme) {
@@ -121,11 +131,13 @@ fs.writeFileSync(
     "workbench.layoutControl.enabled": false,
     "workbench.startupEditor": "none",
     "workbench.tips.enabled": false,
+    "window.autoDetectHighContrast": themeKey === "hc",
+    "workbench.preferredHighContrastColorTheme": "Default High Contrast",
     "telemetry.telemetryLevel": "off",
     "update.mode": "none",
     "git.enabled": false,
     "git.openRepositoryInParentFolders": "never",
-    "workbench.colorTheme": theme.name,
+    "workbench.colorTheme": theme.names[0],
   })
 );
 
@@ -176,6 +188,12 @@ const SHOT = {
   ladder: "VIS-03-ladder-" + suffix,
   blockly: "VIS-04-blockly-" + suffix,
   invalid: "VIS-06-invalid-model-" + suffix,
+  focus: {
+    sfc: "VIS-01-sfc-focus-" + suffix,
+    statechart: "VIS-02-statechart-focus-" + suffix,
+    ladder: "VIS-03-ladder-focus-" + suffix,
+    blockly: "VIS-04-blockly-focus-" + suffix,
+  },
 };
 const ATTACH_TEXT = {
   sfc: "SFC editor",
@@ -371,26 +389,83 @@ async function openDevicesAndConnections() {
   await sleep(6500);
 }
 
+async function focusFirstVisualControl(conn, sessionId, kind) {
+  const raw = await evalIn(
+    conn,
+    sessionId,
+    "var wantedKind=" + JSON.stringify(kind) + ";function visible(el){if(!el)return false;var s=w.getComputedStyle(el);var r=el.getBoundingClientRect();return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&!el.disabled&&el.getAttribute('aria-disabled')!=='true';}function label(el){return (el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent||el.value||el.tagName||'').replace(/\\s+/g,' ').trim();}function css(el){if(!el)return null;var s=w.getComputedStyle(el);return {outlineStyle:s.outlineStyle,outlineWidth:s.outlineWidth,outlineColor:s.outlineColor,outlineOffset:s.outlineOffset,boxShadow:s.boxShadow,borderColor:s.borderColor};}var selectors='button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex=\\\"-1\\\"]),a[href],[role=\\\"button\\\"]';var candidates=[...d.querySelectorAll(selectors)].filter(visible);var inspectorCandidates=candidates.filter(function(el){return Boolean(el.closest('.trust-inspector,.trust-product-header,.react-flow__controls,.blocklyToolboxDiv'));});var target=(inspectorCandidates[0]||candidates[0]||null);if(wantedKind==='blockly'){target=candidates.find(function(el){return el.tagName==='BUTTON'&&Boolean(el.closest('.trust-inspector'));})||target;}if(target){target.scrollIntoView({block:'center',inline:'nearest'});try{target.focus({preventScroll:false,focusVisible:true});}catch(_){target.focus();}}var active=d.activeElement;var style=css(active);var outlineWidth=style?parseFloat(style.outlineWidth||'0'):0;var hasVisibleFocus=Boolean(active&&active!==d.body&&((style&&style.outlineStyle&&style.outlineStyle!=='none'&&outlineWidth>0)||(style&&style.boxShadow&&style.boxShadow!=='none')));return JSON.stringify({kind:wantedKind,count:candidates.length,order:candidates.slice(0,12).map(function(el){return {tag:el.tagName.toLowerCase(),label:label(el),className:String(el.className||'').slice(0,120)};}),active:active&&active!==d.body?{tag:active.tagName.toLowerCase(),label:label(active),className:String(active.className||'').slice(0,120),focused:active===d.activeElement,focusVisible:active.matches&&active.matches(':focus-visible'),style:style,hasVisibleFocus:hasVisibleFocus}:null});"
+  );
+  const proof = JSON.parse(raw);
+  if (!proof.active || !proof.active.hasVisibleFocus) {
+    throw new Error("VIS focus-visible proof failed for " + kind + ": " + raw);
+  }
+  return proof;
+}
+
+async function blurVisualFocus(conn, sessionId) {
+  await evalIn(
+    conn,
+    sessionId,
+    "var active=d.activeElement;if(active&&active.blur){active.blur();}if(d.body){d.body.setAttribute('tabindex','-1');try{d.body.focus({preventScroll:true});}catch(_){d.body.focus();}}return true;"
+  );
+}
+
 suite("vis-theme", function () {
   this.timeout(240000);
 
   test("captures visual editor theme parity", async function () {
-    const log = { theme: ${JSON.stringify(theme)}, baselineClick: undefined, baseline: undefined, styles: [], comparisons: [] };
-    const ext = vscode.extensions.getExtension("trust-platform.trust-lsp");
-    if (ext) {
-      await ext.activate();
-    }
-    await vscode.workspace
-      .getConfiguration("workbench")
-      .update("colorTheme", ${JSON.stringify(theme.name)}, vscode.ConfigurationTarget.Global);
-    await sleep(2500);
-    log.appliedTheme = vscode.workspace
-      .getConfiguration("workbench")
-      .get("colorTheme");
-    if (log.appliedTheme !== ${JSON.stringify(theme.name)}) {
-      throw new Error("VIS theme runner failed to apply requested theme: " + JSON.stringify(log));
-    }
-    await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
+	    const log = { theme: ${JSON.stringify(theme)}, baselineClick: undefined, baseline: undefined, styles: [], comparisons: [], focus: [] };
+	    const ext = vscode.extensions.getExtension("trust-platform.trust-lsp");
+	    if (ext) {
+	      await ext.activate();
+	    }
+	    const requestedThemeNames = ${JSON.stringify(theme.names)};
+	    const expectedThemeKinds = ${JSON.stringify(theme.expectedKinds)};
+	    function themeKindName(kind) {
+	      for (const [name, value] of Object.entries(vscode.ColorThemeKind)) {
+	        if (value === kind) {
+	          return name;
+	        }
+	      }
+	      return String(kind);
+	    }
+	    function contributedThemes() {
+	      return vscode.extensions.all.flatMap((extension) => {
+	        const themes = extension.packageJSON && extension.packageJSON.contributes && extension.packageJSON.contributes.themes;
+	        if (!Array.isArray(themes)) {
+	          return [];
+	        }
+	        return themes.map((entry) => ({
+	          extension: extension.id,
+	          id: entry.id,
+	          label: entry.label,
+	          uiTheme: entry.uiTheme,
+	          path: entry.path
+	        }));
+	      });
+	    }
+	    async function applyRequestedTheme() {
+	      const attempts = [];
+	      const finals = [];
+	      for (const name of requestedThemeNames) {
+	        await vscode.workspace
+	          .getConfiguration("workbench")
+	          .update("colorTheme", name, vscode.ConfigurationTarget.Global);
+	        for (let i = 0; i < 8; i += 1) {
+	          await sleep(250);
+	          const actualKind = themeKindName(vscode.window.activeColorTheme.kind);
+	          const configured = vscode.workspace.getConfiguration("workbench").get("colorTheme");
+	          attempts.push({ name, configured, actualKind });
+	          if (expectedThemeKinds.includes(actualKind)) {
+	            return { name, configured, actualKind, attempts };
+	          }
+	        }
+	        finals.push(attempts[attempts.length - 1]);
+	      }
+	      throw new Error("VIS theme runner failed to activate requested theme kind: " + JSON.stringify({ expectedThemeKinds, requestedThemeNames, finals, availableThemes: contributedThemes().filter((entry) => /contrast|hc/i.test([entry.id, entry.label, entry.uiTheme].join(" "))) }));
+	    }
+	    log.appliedTheme = await applyRequestedTheme();
+	    await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
     await vscode.commands.executeCommand("workbench.action.closePanel");
 
     const version = await httpJson("/json/version");
@@ -473,7 +548,7 @@ suite("vis-theme", function () {
       const style = await evalIn(
         conn,
         sid,
-        "var title=d.querySelector('.trust-inspector__title');var header=d.querySelector('.trust-inspector__header');var sectionTitle=d.querySelector('.trust-section__title');var inspector=d.querySelector('.trust-inspector');var button=d.querySelector('.trust-button');var controls=d.querySelector('.react-flow__controls');var controlsButton=controls&&controls.querySelector('button');var root=w.getComputedStyle(d.documentElement);function css(el){if(!el)return null;var s=w.getComputedStyle(el);return {color:s.color,backgroundColor:s.backgroundColor,borderColor:s.borderColor,fontWeight:s.fontWeight,fontSize:s.fontSize,textTransform:s.textTransform,padding:s.padding,borderLeftColor:s.borderLeftColor,borderBottomColor:s.borderBottomColor,width:s.width,height:s.height};}function text(el){return el?(el.textContent||'').trim():null;}var privateSelectors=['.ladder-tools-panel__button','.ladder-tools-panel__section-title','.blockly-tools-panel','.blockly-tools-panel__button'];var privateChromeCount=privateSelectors.reduce(function(total,sel){return total+d.querySelectorAll(sel).length;},0);var allText=(d.body&&d.body.innerText||'').replace(/\\s+/g,' ').trim();var allTitles=[...d.querySelectorAll('.trust-inspector__title,strong,h1,h2,h3')].map(text).filter(Boolean);return JSON.stringify({kind:" + JSON.stringify(kind) + ",roleText:{title:text(title),sectionTitle:text(sectionTitle),button:text(button),panelText:text(inspector),allTitles:allTitles,forbiddenEditorTools:/\\bEditor tools\\b/i.test(allText)},header:css(header),titleText:text(title),title:css(title),sectionTitle:css(sectionTitle),inspector:css(inspector),button:css(button),controls:css(controls),controlsButton:css(controlsButton),privateChromeCount:privateChromeCount,tokens:{trustText:root.getPropertyValue('--trust-text').trim(),trustOverlay:root.getPropertyValue('--trust-overlay').trim(),trustBorder:root.getPropertyValue('--trust-border').trim()}});"
+        "var title=d.querySelector('.trust-inspector__title');var header=d.querySelector('.trust-inspector__header');var sectionTitle=d.querySelector('.trust-section__title');var inspector=d.querySelector('.trust-inspector');var button=d.querySelector('.trust-button');var controls=d.querySelector('.react-flow__controls');var controlsButton=controls&&controls.querySelector('button');var root=w.getComputedStyle(d.documentElement);function css(el){if(!el)return null;var s=w.getComputedStyle(el);return {color:s.color,backgroundColor:s.backgroundColor,borderColor:s.borderColor,fontWeight:s.fontWeight,fontSize:s.fontSize,textTransform:s.textTransform,padding:s.padding,borderLeftColor:s.borderLeftColor,borderBottomColor:s.borderBottomColor,width:s.width,height:s.height};}function text(el){return el?(el.textContent||'').trim():null;}var privateSelectors=['.ladder-tools-panel__button','.ladder-tools-panel__section-title','.blockly-tools-panel','.blockly-tools-panel__button'];var privateChromeCount=privateSelectors.reduce(function(total,sel){return total+d.querySelectorAll(sel).length;},0);var allText=(d.body&&d.body.innerText||'').replace(/\\s+/g,' ').trim();var allTitles=[...d.querySelectorAll('.trust-inspector__title,strong,h1,h2,h3')].map(text).filter(Boolean);var themeProbe={htmlClass:d.documentElement.className,bodyClass:d.body&&d.body.className,htmlAttrs:[...d.documentElement.attributes].map(function(a){return [a.name,a.value];}),bodyAttrs:d.body?[...d.body.attributes].map(function(a){return [a.name,a.value];}):[]};return JSON.stringify({kind:" + JSON.stringify(kind) + ",themeProbe:themeProbe,roleText:{title:text(title),sectionTitle:text(sectionTitle),button:text(button),panelText:text(inspector),allTitles:allTitles,forbiddenEditorTools:/\\bEditor tools\\b/i.test(allText)},header:css(header),titleText:text(title),title:css(title),sectionTitle:css(sectionTitle),inspector:css(inspector),button:css(button),controls:css(controls),controlsButton:css(controlsButton),privateChromeCount:privateChromeCount,tokens:{trustText:root.getPropertyValue('--trust-text').trim(),trustOverlay:root.getPropertyValue('--trust-overlay').trim(),trustBorder:root.getPropertyValue('--trust-border').trim()}});"
       );
       const parsed = JSON.parse(style);
       if (kind === "blockly") {
@@ -535,7 +610,12 @@ suite("vis-theme", function () {
             parsed.controlsButton.width === log.baseline.add.controlsButton.width &&
             parsed.controlsButton.height === log.baseline.add.controlsButton.height),
       });
+      await blurVisualFocus(conn, sid);
       screenshot(SHOT[kind]);
+      const focusProof = await focusFirstVisualControl(conn, sid, kind);
+      log.focus.push(focusProof);
+      await sleep(250);
+      screenshot(SHOT.focus[kind]);
     }
 
     await openEditor("invalid");
@@ -543,7 +623,7 @@ suite("vis-theme", function () {
     const invalid = await evalIn(
       conn,
       sid,
-      "function css(el){if(!el)return null;var s=w.getComputedStyle(el);return {color:s.color,backgroundColor:s.backgroundColor,borderColor:s.borderColor,borderTopColor:s.borderTopColor,borderRightColor:s.borderRightColor,borderBottomColor:s.borderBottomColor,borderLeftColor:s.borderLeftColor,fontWeight:s.fontWeight,fontSize:s.fontSize,textTransform:s.textTransform,padding:s.padding,boxShadow:s.boxShadow};}function resolveColor(value){var probe=d.createElement('span');probe.style.color=value;probe.style.position='absolute';probe.style.left='-9999px';probe.textContent='x';d.body.appendChild(probe);var resolved=w.getComputedStyle(probe).color;probe.remove();return resolved;}function token(name){var raw=root.getPropertyValue(name).trim();return resolveColor(raw)||raw;}function eq(a,b){return String(a||'').trim()===String(b||'').trim();}var root=w.getComputedStyle(d.body||d.documentElement);var text=(d.body&&d.body.innerText||'').slice(0,1000);var header=d.querySelector('.trust-product-header');var brand=d.querySelector('.trust-product-brand');var surface=d.querySelector('.trust-product-brand__surface');var meta=d.querySelector('.trust-product-header__meta');var shell=d.querySelector('.trust-product-shell');var workspace=d.querySelector('.trust-product-workspace');var alert=d.querySelector('[role=alert]');var card=alert&&alert.firstElementChild;var title=card&&card.querySelector('h2');var bodyText=card&&card.querySelector('p');var detail=card&&card.querySelector('code');var h=css(header),sh=css(shell),ws=css(workspace),a=css(alert),c=css(card),ti=css(title),bt=css(bodyText),de=css(detail);var tokens={trustCanvas:token('--trust-canvas'),trustSurface:token('--trust-surface'),trustText:token('--trust-text'),trustTextMuted:token('--trust-text-muted'),trustBorder:token('--trust-border'),trustDanger:token('--trust-danger')};var mismatches=[];function requireRole(flag,actual,expected){if(!flag)mismatches.push({actual:actual,expected:expected});}requireRole(Boolean(header),'missing product header','present');requireRole(Boolean(brand&&surface),'missing product brand/surface','present');requireRole((surface&&surface.textContent||'').trim()==='Statechart editor',(surface&&surface.textContent||'').trim(),'Statechart editor');requireRole((meta&&meta.textContent||'').trim()==='State machine diagram',(meta&&meta.textContent||'').trim(),'State machine diagram');requireRole(Boolean(alert),'missing alert region','present');requireRole(Boolean(card),'missing error card','present');requireRole(eq(sh&&sh.backgroundColor,tokens.trustCanvas),sh&&sh.backgroundColor,tokens.trustCanvas);requireRole(eq(sh&&sh.color,tokens.trustText),sh&&sh.color,tokens.trustText);requireRole(eq(h&&h.backgroundColor,tokens.trustSurface),h&&h.backgroundColor,tokens.trustSurface);requireRole(eq(h&&h.borderBottomColor,tokens.trustBorder),h&&h.borderBottomColor,tokens.trustBorder);requireRole(eq(a&&a.backgroundColor,tokens.trustCanvas),a&&a.backgroundColor,tokens.trustCanvas);requireRole(eq(a&&a.color,tokens.trustText),a&&a.color,tokens.trustText);requireRole(eq(c&&c.backgroundColor,tokens.trustSurface),c&&c.backgroundColor,tokens.trustSurface);requireRole(eq(c&&c.borderTopColor,tokens.trustDanger)&&eq(c&&c.borderRightColor,tokens.trustDanger)&&eq(c&&c.borderBottomColor,tokens.trustDanger)&&eq(c&&c.borderLeftColor,tokens.trustDanger),c&&[c.borderTopColor,c.borderRightColor,c.borderBottomColor,c.borderLeftColor].join('/'),tokens.trustDanger);requireRole(eq(ti&&ti.color,tokens.trustDanger),ti&&ti.color,tokens.trustDanger);requireRole(eq(bt&&bt.color,tokens.trustText),bt&&bt.color,tokens.trustText);requireRole(eq(de&&de.color,tokens.trustTextMuted),de&&de.color,tokens.trustTextMuted);return JSON.stringify({kind:'invalid',messageShown:text.indexOf('Could not open this statechart')>=0,recoveryShown:text.indexOf('Fix the JSON')>=0,rawDumpShown:/TypeError|SyntaxError|stack trace|Editor Error/.test(text),headerBrandPresent:Boolean(header&&brand&&surface),surfaceTitlePresent:(surface&&surface.textContent||'').trim()==='Statechart editor',headerMetaPresent:(meta&&meta.textContent||'').trim()==='State machine diagram',shellUsesTrustCanvas:eq(sh&&sh.backgroundColor,tokens.trustCanvas)&&eq(sh&&sh.color,tokens.trustText),headerUsesTrustSurface:eq(h&&h.backgroundColor,tokens.trustSurface)&&eq(h&&h.borderBottomColor,tokens.trustBorder),alertUsesTrustCanvas:eq(a&&a.backgroundColor,tokens.trustCanvas)&&eq(a&&a.color,tokens.trustText),cardUsesTrustSurface:eq(c&&c.backgroundColor,tokens.trustSurface),cardUsesTrustDangerBorder:eq(c&&c.borderTopColor,tokens.trustDanger)&&eq(c&&c.borderRightColor,tokens.trustDanger)&&eq(c&&c.borderBottomColor,tokens.trustDanger)&&eq(c&&c.borderLeftColor,tokens.trustDanger),titleUsesTrustDanger:eq(ti&&ti.color,tokens.trustDanger),bodyUsesTrustText:eq(bt&&bt.color,tokens.trustText),detailUsesTrustTextMuted:eq(de&&de.color,tokens.trustTextMuted),roleOk:mismatches.length===0,mismatches:mismatches,styles:{header:h,shell:sh,workspace:ws,alert:a,card:c,title:ti,bodyText:bt,detail:de},tokens:tokens});"
+      "function css(el){if(!el)return null;var s=w.getComputedStyle(el);return {color:s.color,backgroundColor:s.backgroundColor,borderColor:s.borderColor,borderTopColor:s.borderTopColor,borderRightColor:s.borderRightColor,borderBottomColor:s.borderBottomColor,borderLeftColor:s.borderLeftColor,fontWeight:s.fontWeight,fontSize:s.fontSize,textTransform:s.textTransform,padding:s.padding,boxShadow:s.boxShadow};}function resolveCss(property,value){var probe=d.createElement('span');probe.style[property]=value;probe.style.position='absolute';probe.style.left='-9999px';probe.textContent='x';d.body.appendChild(probe);var resolved=w.getComputedStyle(probe)[property];probe.remove();return resolved;}function token(name,property){var raw=root.getPropertyValue(name).trim();return resolveCss(property,raw)||raw;}function eq(a,b){return String(a||'').trim()===String(b||'').trim();}var root=w.getComputedStyle(d.body||d.documentElement);var text=(d.body&&d.body.innerText||'').slice(0,1000);var header=d.querySelector('.trust-product-header');var brand=d.querySelector('.trust-product-brand');var surface=d.querySelector('.trust-product-brand__surface');var meta=d.querySelector('.trust-product-header__meta');var shell=d.querySelector('.trust-product-shell');var workspace=d.querySelector('.trust-product-workspace');var alert=d.querySelector('[role=alert]');var card=alert&&alert.firstElementChild;var title=card&&card.querySelector('h2');var bodyText=card&&card.querySelector('p');var detail=card&&card.querySelector('code');var h=css(header),sh=css(shell),ws=css(workspace),a=css(alert),c=css(card),ti=css(title),bt=css(bodyText),de=css(detail);var tokens={trustCanvas:token('--trust-canvas','backgroundColor'),trustSurface:token('--trust-surface','backgroundColor'),trustText:token('--trust-text','color'),trustTextMuted:token('--trust-text-muted','color'),trustBorder:token('--trust-border','borderTopColor'),trustDanger:token('--trust-danger','color')};var mismatches=[];function requireRole(flag,actual,expected){if(!flag)mismatches.push({actual:actual,expected:expected});}requireRole(Boolean(header),'missing product header','present');requireRole(Boolean(brand&&surface),'missing product brand/surface','present');requireRole((surface&&surface.textContent||'').trim()==='Statechart editor',(surface&&surface.textContent||'').trim(),'Statechart editor');requireRole((meta&&meta.textContent||'').trim()==='State machine diagram',(meta&&meta.textContent||'').trim(),'State machine diagram');requireRole(Boolean(alert),'missing alert region','present');requireRole(Boolean(card),'missing error card','present');requireRole(eq(sh&&sh.backgroundColor,tokens.trustCanvas),sh&&sh.backgroundColor,tokens.trustCanvas);requireRole(eq(sh&&sh.color,tokens.trustText),sh&&sh.color,tokens.trustText);requireRole(eq(h&&h.backgroundColor,tokens.trustSurface),h&&h.backgroundColor,tokens.trustSurface);requireRole(eq(h&&h.borderBottomColor,tokens.trustBorder),h&&h.borderBottomColor,tokens.trustBorder);requireRole(eq(a&&a.backgroundColor,tokens.trustCanvas),a&&a.backgroundColor,tokens.trustCanvas);requireRole(eq(a&&a.color,tokens.trustText),a&&a.color,tokens.trustText);requireRole(eq(c&&c.backgroundColor,tokens.trustSurface),c&&c.backgroundColor,tokens.trustSurface);requireRole(eq(c&&c.borderTopColor,tokens.trustDanger)&&eq(c&&c.borderRightColor,tokens.trustDanger)&&eq(c&&c.borderBottomColor,tokens.trustDanger)&&eq(c&&c.borderLeftColor,tokens.trustDanger),c&&[c.borderTopColor,c.borderRightColor,c.borderBottomColor,c.borderLeftColor].join('/'),tokens.trustDanger);requireRole(eq(ti&&ti.color,tokens.trustDanger),ti&&ti.color,tokens.trustDanger);requireRole(eq(bt&&bt.color,tokens.trustText),bt&&bt.color,tokens.trustText);requireRole(eq(de&&de.color,tokens.trustTextMuted),de&&de.color,tokens.trustTextMuted);return JSON.stringify({kind:'invalid',messageShown:text.indexOf('Could not open this statechart')>=0,recoveryShown:text.indexOf('Fix the JSON')>=0,rawDumpShown:/TypeError|SyntaxError|stack trace|Editor Error/.test(text),headerBrandPresent:Boolean(header&&brand&&surface),surfaceTitlePresent:(surface&&surface.textContent||'').trim()==='Statechart editor',headerMetaPresent:(meta&&meta.textContent||'').trim()==='State machine diagram',shellUsesTrustCanvas:eq(sh&&sh.backgroundColor,tokens.trustCanvas)&&eq(sh&&sh.color,tokens.trustText),headerUsesTrustSurface:eq(h&&h.backgroundColor,tokens.trustSurface)&&eq(h&&h.borderBottomColor,tokens.trustBorder),alertUsesTrustCanvas:eq(a&&a.backgroundColor,tokens.trustCanvas)&&eq(a&&a.color,tokens.trustText),cardUsesTrustSurface:eq(c&&c.backgroundColor,tokens.trustSurface),cardUsesTrustDangerBorder:eq(c&&c.borderTopColor,tokens.trustDanger)&&eq(c&&c.borderRightColor,tokens.trustDanger)&&eq(c&&c.borderBottomColor,tokens.trustDanger)&&eq(c&&c.borderLeftColor,tokens.trustDanger),titleUsesTrustDanger:eq(ti&&ti.color,tokens.trustDanger),bodyUsesTrustText:eq(bt&&bt.color,tokens.trustText),detailUsesTrustTextMuted:eq(de&&de.color,tokens.trustTextMuted),roleOk:mismatches.length===0,mismatches:mismatches,styles:{header:h,shell:sh,workspace:ws,alert:a,card:c,title:ti,bodyText:bt,detail:de},tokens:tokens});"
     );
     log.invalid = JSON.parse(invalid);
     const invalidOk =
@@ -626,9 +706,10 @@ async function main() {
       "--ozone-platform=x11",
       "--disable-gpu",
       "--use-gl=angle",
-      "--use-angle=swiftshader",
-      "--in-process-gpu",
-      "--no-sandbox",
+	      "--use-angle=swiftshader",
+	      "--in-process-gpu",
+	      ...(themeKey === "hc" ? ["--force-high-contrast"] : []),
+	      "--no-sandbox",
       "--user-data-dir=" + path.join(outDir, "ud"),
       "--extensions-dir=" + path.join(outDir, "ed"),
       "--disable-workspace-trust",

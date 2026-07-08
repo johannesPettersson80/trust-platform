@@ -1,3 +1,4 @@
+import { affectsTrustConfiguration, getTrustConfiguration } from "../configuration";
 import * as vscode from "vscode";
 
 interface VisualEditorBinding {
@@ -20,9 +21,10 @@ function viewTypeForUri(uri: vscode.Uri): string | undefined {
 }
 
 function isVisualAutoOpenEnabled(): boolean {
-  return vscode.workspace
-    .getConfiguration("trust-lsp")
-    .get<boolean>("visual.autoOpenCustomEditors", true);
+  return getTrustConfiguration().get<boolean>(
+    "visual.autoOpenCustomEditors",
+    true
+  );
 }
 
 function isAlreadyOpenWithViewType(uri: vscode.Uri, viewType: string): boolean {
@@ -111,7 +113,7 @@ export function registerVisualCustomEditorAutoOpen(): vscode.Disposable {
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
-        event.affectsConfiguration("trust-lsp.visual.autoOpenCustomEditors") &&
+        affectsTrustConfiguration(event, "visual.autoOpenCustomEditors") &&
         isVisualAutoOpenEnabled()
       ) {
         openVisibleEditors();

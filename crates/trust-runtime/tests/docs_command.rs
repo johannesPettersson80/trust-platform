@@ -126,6 +126,8 @@ END_PROGRAM
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("trust-runtime docs"));
     assert!(stderr.contains("trust-dev docs"));
+    assert!(stderr.contains("removed no earlier than 2026-10-05"));
+    assert!(stderr.contains("separate behavior-change release"));
     assert!(out_dir.join("api.md").exists());
 
     let _ = std::fs::remove_dir_all(project);

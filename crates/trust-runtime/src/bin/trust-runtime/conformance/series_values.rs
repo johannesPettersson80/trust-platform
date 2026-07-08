@@ -47,7 +47,12 @@ fn parse_restart_mode(mode: &str) -> anyhow::Result<RestartMode> {
     match mode.to_ascii_lowercase().as_str() {
         "cold" => Ok(RestartMode::Cold),
         "warm" => Ok(RestartMode::Warm),
-        _ => bail!("unsupported restart mode '{mode}', expected warm|cold"),
+        // The runtime currently has cold/warm execution primitives. The
+        // conformance matrix keeps the industrial labels explicit and maps
+        // them to their implemented retain behavior.
+        "hot" | "fault" => Ok(RestartMode::Warm),
+        "download" => Ok(RestartMode::Cold),
+        _ => bail!("unsupported restart mode '{mode}', expected warm|cold|hot|fault|download"),
     }
 }
 

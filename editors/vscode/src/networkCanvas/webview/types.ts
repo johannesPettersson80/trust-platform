@@ -20,6 +20,19 @@ export interface NCFieldSlave {
   detail?: string;
 }
 
+export interface NCConnectorStatus {
+  connector_id: string;
+  state: string;
+  health: string;
+  confidence: string;
+  point_counts: {
+    total: number;
+    good: number;
+    degraded: number;
+    unavailable: number;
+  };
+}
+
 export interface NCEndpoint {
   id: string;
   kind: string;
@@ -34,6 +47,7 @@ export interface NCEndpoint {
     last_seen_ms?: number;
     rtt_ms?: number;
   };
+  connector?: NCConnectorStatus;
   params?: Record<string, unknown>;
   // v4 (§10.2)
   category?: string;
@@ -163,6 +177,7 @@ export interface EndpointNodeData extends Record<string, unknown> {
     last_seen_ms?: number;
     rtt_ms?: number;
   };
+  connector?: NCConnectorStatus;
   params?: Record<string, unknown>;
   // v4 (§10.2)
   category?: string;

@@ -90,6 +90,20 @@ pub struct WatchdogPolicy {
     pub action: WatchdogAction,
 }
 
+impl WatchdogPolicy {
+    /// Normalize a policy before runtime use.
+    ///
+    /// A disabled watchdog may carry a zero timeout. An enabled watchdog may not:
+    /// zero creates an always-expired deadline and can brick the scan loop.
+    #[must_use]
+    pub fn normalized_for_runtime(mut self) -> Self {
+        if self.enabled && self.timeout.as_nanos() <= 0 {
+            self.timeout = Duration::from_millis(1);
+        }
+        self
+    }
+}
+
 /// Normalized fault action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FaultAction {
@@ -181,7 +195,7 @@ impl WatchdogSubsystem {
 
     /// Replace the active watchdog policy.
     pub fn set_policy(&mut self, policy: WatchdogPolicy) {
-        self.policy = policy;
+        self.policy = policy.normalized_for_runtime();
     }
 
     /// Return the active watchdog policy.
@@ -361,6 +375,21 @@ mod tests {
                 action: WatchdogAction::SafeHalt,
             }
         );
+    }
+
+    #[test]
+    fn enabled_watchdog_policy_normalizes_zero_timeout() {
+        let policy = WatchdogPolicy {
+            enabled: true,
+            timeout: Duration::ZERO,
+            action: WatchdogAction::Halt,
+        }
+        .normalized_for_runtime();
+
+        assert_eq!(policy.timeout, Duration::from_millis(1));
+
+        let disabled = WatchdogPolicy::default().normalized_for_runtime();
+        assert_eq!(disabled.timeout, Duration::ZERO);
     }
 
     #[test]

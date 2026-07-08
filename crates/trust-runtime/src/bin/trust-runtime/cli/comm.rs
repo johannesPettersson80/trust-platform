@@ -40,6 +40,10 @@ pub enum CommAction {
         json: bool,
     },
     /// Discover communication targets and return setup-form parameters.
+    ///
+    /// Discovery confidence is explicit: `confirmed` means protocol proof,
+    /// `likely` means a protocol-shaped rejection, and `port_reachable` means
+    /// only TCP reachability was observed.
     Discover {
         /// Communication protocol id, for example ads, discovery, or modbus-tcp.
         #[arg(long)]
@@ -59,6 +63,15 @@ pub enum CommAction {
         /// Timeout budget in milliseconds.
         #[arg(long = "timeout-ms")]
         timeout_ms: Option<u64>,
+        /// Modbus unit id used for protocol discovery probes.
+        #[arg(long = "unit-id")]
+        unit_id: Option<u8>,
+        /// Optional Modbus holding-register address for an explicit safe read probe.
+        #[arg(long = "probe-read-address")]
+        probe_read_address: Option<u16>,
+        /// Optional Modbus safe read quantity, defaults to 1 when --probe-read-address is set.
+        #[arg(long = "probe-read-quantity")]
+        probe_read_quantity: Option<u16>,
         /// Passive/read-only discovery. Active write probes are never used.
         #[arg(long, default_value_t = true, action = ArgAction::Set)]
         passive: bool,

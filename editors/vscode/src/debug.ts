@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
+import { getTrustConfiguration } from "./configuration";
 import { localSimControl } from "./simControl";
 import {
   __testCreateDefaultConfigurationAuto,
@@ -111,6 +112,29 @@ function canConnectToTcpEndpoint(host: string, port: number): Promise<boolean> {
     socket.once("error", () => finish(false));
     socket.setTimeout(300, () => finish(false));
   });
+}
+
+function remoteAttachDebugSessionName(endpoint: string | undefined): string {
+  const label = shortDebugEndpointLabel(endpoint);
+  return label ? `truST Remote (${label})` : "truST Remote";
+}
+
+function shortDebugEndpointLabel(endpoint: string | undefined): string {
+  const text = endpoint?.trim();
+  if (!text) {
+    return "";
+  }
+  if (text.startsWith("tcp://")) {
+    try {
+      return new URL(text).host || text;
+    } catch {
+      return text;
+    }
+  }
+  if (text.startsWith("unix://")) {
+    return "local control socket";
+  }
+  return text;
 }
 
 function withTimeout<T>(
@@ -366,14 +390,14 @@ async function ensureAdapterCommand(
     void vscode.window
       .showErrorMessage(
         `Structured Text debug adapter not found at '${command}'. ` +
-          `Install the extension from the Marketplace or set trust-lsp.debug.adapter.path.`,
+          `Install the extension from the Marketplace or set trust.debugAdapter.executablePath.`,
         "Open Settings"
       )
       .then((choice) => {
         if (choice === "Open Settings") {
           void vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "trust-lsp.debug.adapter.path"
+            "trust.debugAdapter.executablePath"
           );
         }
       });
@@ -406,7 +430,7 @@ class StructuredTextDebugAdapterFactory
   createDebugAdapterDescriptor(
     _session: vscode.DebugSession
   ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-    const config = vscode.workspace.getConfiguration("trust-lsp");
+    const config = getTrustConfiguration();
     debugChannel().appendLine("createDebugAdapterDescriptor called");
     return ensureAdapterCommand(config, this.context).then((command) => {
       if (!command) {
@@ -828,7 +852,7 @@ export function registerDebugAdapter(
       const config: vscode.DebugConfiguration = {
         type: DEBUG_TYPE,
         request: "attach",
-        name: "Attach Structured Text",
+        name: remoteAttachDebugSessionName(controlConfig.endpoint),
         endpoint: controlConfig.endpoint,
         authToken: controlConfig.authToken,
         internalConsoleOptions: "neverOpen",

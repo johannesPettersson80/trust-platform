@@ -1,0 +1,5 @@
+id = "cfm_references_ref_to_deref_write_001"
+category = "references"
+description = "REF_TO initialization, dereference read, and dereference write."
+cycles = 2
+watch_globals = ["target", "observed", "after_write"]

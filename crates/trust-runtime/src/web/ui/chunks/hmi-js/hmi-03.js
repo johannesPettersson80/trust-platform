@@ -37,7 +37,9 @@ async function init() {
     renderSchema(response.result);
     await refreshDescriptorModel();
     await refreshActivePage({ forceValues: true });
+    await refreshConnectorStatus();
     ensurePollingLoop();
+    ensureConnectorPollingLoop();
     connectWebSocketTransport();
   } catch (error) {
     setEmptyMessage(`HMI unavailable: ${error}`);

@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "./configuration";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
@@ -14,7 +15,7 @@ export function getBinaryPath(
   binaryName: string,
   configKey: string
 ): string {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const configuredRaw = (config.get<string>(configKey) ?? "").trim();
 
   // 1. User-configured path takes precedence

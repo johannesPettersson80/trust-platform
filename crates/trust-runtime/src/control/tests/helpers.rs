@@ -100,6 +100,21 @@ fn hmi_test_state_with_ads_status(
     source: &str,
     ads_status: crate::ads::diagnostics::AdsStatusReport,
 ) -> ControlState {
+    hmi_test_state_with_status_reports(source, ads_status, disabled_opcua_client_status())
+}
+
+fn hmi_test_state_with_opcua_client_status(
+    source: &str,
+    opcua_status: crate::opcua::OpcUaClientStatusReport,
+) -> ControlState {
+    hmi_test_state_with_status_reports(source, disabled_ads_status(), opcua_status)
+}
+
+fn hmi_test_state_with_status_reports(
+    source: &str,
+    ads_status: crate::ads::diagnostics::AdsStatusReport,
+    opcua_status: crate::opcua::OpcUaClientStatusReport,
+) -> ControlState {
     let mut harness = TestHarness::from_source(source).expect("build harness");
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
@@ -127,11 +142,7 @@ fn hmi_test_state_with_ads_status(
                     let _ = respond_to.send(ads_status.clone());
                 }
                 ResourceCommand::OpcUaClientStatus { respond_to } => {
-                    let _ = respond_to.send(crate::opcua::OpcUaClientStatusReport {
-                        enabled: false,
-                        deployed_config_hash: None,
-                        connections: Vec::new(),
-                    });
+                    let _ = respond_to.send(opcua_status.clone());
                 }
                 ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
                     let _ = respond_to.send(None);
@@ -204,6 +215,14 @@ fn disabled_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
         deployed_ads_config_hash: None,
         connections: Vec::new(),
         summary: "ADS is not configured.".to_string(),
+    }
+}
+
+fn disabled_opcua_client_status() -> crate::opcua::OpcUaClientStatusReport {
+    crate::opcua::OpcUaClientStatusReport {
+        enabled: false,
+        deployed_config_hash: None,
+        connections: Vec::new(),
     }
 }
 

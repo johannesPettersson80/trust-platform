@@ -113,3 +113,21 @@ fn web_ide_security_and_path_traversal_contract() {
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn pair_claim_rejects_oversized_json_body() {
+    let project = make_project("pair-claim-body-limit");
+    let state = control_state(source_fixture(), ControlMode::Production, None);
+    let base = start_test_server(state, project.clone(), WebAuthMode::Local);
+    let oversized = format!("{{\"code\":\"{}\"}}", "A".repeat(1_100_000));
+
+    let (status, body) = post_raw_json(&format!("{base}/api/pair/claim"), &oversized, &[]);
+
+    assert_eq!(status, 413);
+    assert!(body
+        .get("error")
+        .and_then(Value::as_str)
+        .is_some_and(|message| message.contains("maximum size")));
+
+    let _ = std::fs::remove_dir_all(project);
+}

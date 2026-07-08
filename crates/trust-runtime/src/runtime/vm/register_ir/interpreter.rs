@@ -138,7 +138,7 @@ pub(super) fn execute_register_block_interpreted(
                     remaining_register_reads,
                     *value,
                 )?;
-                dynamic_store_ref(runtime, frames, &reference, value)
+                dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Move { src, dest } => {
@@ -350,7 +350,7 @@ pub(super) fn execute_register_block_interpreted(
                     remaining_register_reads,
                     *value,
                 )?;
-                dynamic_store_ref(runtime, frames, &reference, value)
+                dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Unary { op, src, dest } => {

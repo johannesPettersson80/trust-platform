@@ -341,8 +341,14 @@ function Canvas() {
     if (!focusTargetId || !nodes.some((node) => node.id === focusTargetId)) {
       return;
     }
-    void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 });
-    setFocusTargetId(undefined);
+    const timers = [0, 120, 360].map((delay) =>
+      setTimeout(() => void fitView({ duration: 220, padding: 0.2, maxZoom: 1.2 }), delay)
+    );
+    const clearTimer = setTimeout(() => setFocusTargetId(undefined), 420);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(clearTimer);
+    };
   }, [focusTargetId, nodes, fitView]);
 
   // Fit when the graph node IDENTITY changes — first paint, a structural host swap, or child endpoints
@@ -361,7 +367,10 @@ function Canvas() {
       if (focusTargetId) {
         return;
       }
-      void fitView({ padding: 0.2, duration: 300 });
+      const timers = [0, 140, 420].map((delay) =>
+        setTimeout(() => void fitView({ padding: 0.2, duration: 220 }), delay)
+      );
+      return () => timers.forEach(clearTimeout);
     }
   }, [nodes, fitView, focusTargetId]);
 
@@ -435,7 +444,7 @@ function Canvas() {
       const rootRect = root.getBoundingClientRect();
       const nodeEls = Array.from(root.querySelectorAll<HTMLElement>(".react-flow__node"));
       if (!nodeEls.length) {
-        return true;
+        return nodeCountRef.current === 0;
       }
       return nodeEls.some((nodeEl) => {
         const rect = nodeEl.getBoundingClientRect();
@@ -768,6 +777,30 @@ function Canvas() {
     const id = setTimeout(() => void fitView({ padding: 0.2, duration: 320 }), 80);
     return () => clearTimeout(id);
   }, [activeDrawerW, fitView]);
+
+  // Discovery results can materially change the right drawer content while the reserved drawer
+  // width is unchanged. Re-fit after those result/progress updates so the canvas cannot be left
+  // showing only a populated summary over an empty viewport.
+  useEffect(() => {
+    if (!discoverOpen || nodeCountRef.current === 0) {
+      return;
+    }
+    const id = setTimeout(() => void fitView({ padding: 0.2, duration: 220 }), 120);
+    return () => clearTimeout(id);
+  }, [discoverOpen, discoverResults.length, discoverProgress.length, discoverScanning, fitView]);
+
+  // Browse/add-tag flows close the right drawer and then refresh the graph from persisted config.
+  // Fit after both transitions so an imported endpoint cannot leave the summary populated while
+  // the actual nodes are off-screen or hidden behind the previous drawer geometry.
+  useEffect(() => {
+    if (nodeCountRef.current === 0) {
+      return;
+    }
+    const timers = [140, 460].map((delay) =>
+      setTimeout(() => void fitView({ padding: 0.2, duration: 240 }), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [browseTags, browseTree?.length, browseLoading, applyResultSignature, built.nodes.length, fitView]);
 
   const toolbarBtn = (
     active: boolean,

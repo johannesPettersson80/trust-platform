@@ -1,0 +1,14 @@
+{
+  "url": "http://127.0.0.1:37153/hmi",
+  "summary": {
+    "connectorState": "connectors: ready 1 · not-ready 1",
+    "connectorHealthState": "health: ok 1 · unknown 1",
+    "connectorProofState": "proof: confirmed 1 · tcp-only 1",
+    "pointQualityState": "points: good 2 · issue 2",
+    "connectorProofTitle": "DiscoveryConfidence: confirmed=1, tcp-only=1"
+  },
+  "consoleLines": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: WebSocket connection to 'ws://127.0.0.1:37153/ws/hmi' failed: Error during WebSocket handshake: Unexpected response code: 404"
+  ]
+}

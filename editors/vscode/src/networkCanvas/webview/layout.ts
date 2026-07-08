@@ -230,6 +230,7 @@ export function buildGraph(
           health: ep.health,
           dimmed: Boolean(ep.dimmed),
           live: ep.live,
+          connector: ep.connector,
           params: ep.params,
           category: ep.category,
           profile: ep.profile,

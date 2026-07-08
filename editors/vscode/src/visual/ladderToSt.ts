@@ -23,6 +23,7 @@ import {
   isDirectAddress,
   isAssignableIdentifier,
   localName,
+  sanitizeIdentifier,
 } from "./stNaming";
 
 interface LocalDeclaration {
@@ -33,6 +34,18 @@ interface LocalDeclaration {
 }
 
 interface ExternalDeclaration {
+  name: string;
+  type: string;
+}
+
+export interface LadderRuntimeGlobalDeclaration {
+  name: string;
+  type: string;
+  address?: string;
+  initialValue?: unknown;
+}
+
+interface DirectAddressAlias {
   name: string;
   type: string;
 }
@@ -69,6 +82,137 @@ function isString(value: unknown): value is string {
 
 function isSimpleIdentifier(value: string): boolean {
   return SIMPLE_IDENTIFIER.test(value.trim());
+}
+
+function normalizedDirectAddress(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || !isDirectAddress(trimmed)) {
+    return undefined;
+  }
+  return trimmed.toUpperCase();
+}
+
+function directAddressSymbolName(address: string): string {
+  const suffix = address.toUpperCase().replace(/^%/, "");
+  return sanitizeIdentifier(`ld_io_${suffix}`, "ld_io_address");
+}
+
+function typeForDirectAddress(address: string, fallback = "BOOL"): string {
+  const size = normalizedDirectAddress(address)?.match(/^%[IQM]([XBWDL])/)?.[1];
+  if (size === "X") {
+    return "BOOL";
+  }
+  if (size === "B") {
+    return "BYTE";
+  }
+  if (size === "W") {
+    return "INT";
+  }
+  if (size === "D") {
+    return "DINT";
+  }
+  if (size === "L") {
+    return "LINT";
+  }
+  return fallback;
+}
+
+function addDirectAddressUse(
+  uses: Map<string, string>,
+  value: string | undefined,
+  fallbackType: string
+): void {
+  const address = normalizedDirectAddress(value);
+  if (!address || uses.has(address)) {
+    return;
+  }
+  uses.set(address, typeForDirectAddress(address, fallbackType));
+}
+
+function collectDirectAddressUses(program: LadderProgram): Map<string, string> {
+  const uses = new Map<string, string>();
+  for (const network of program.networks) {
+    for (const node of network.nodes) {
+      if (node.type === "contact") {
+        addDirectAddressUse(uses, node.variable, "BOOL");
+      } else if (node.type === "coil") {
+        addDirectAddressUse(uses, node.variable, "BOOL");
+      } else if (node.type === "timer") {
+        addDirectAddressUse(uses, node.input, "BOOL");
+        addDirectAddressUse(uses, node.qOutput, "BOOL");
+        addDirectAddressUse(uses, node.etOutput, "TIME");
+      } else if (node.type === "counter") {
+        addDirectAddressUse(uses, node.input, "BOOL");
+        addDirectAddressUse(uses, node.qOutput, "BOOL");
+        addDirectAddressUse(uses, node.cvOutput, "INT");
+      } else if (node.type === "compare") {
+        addDirectAddressUse(uses, node.left, "DINT");
+        addDirectAddressUse(uses, node.right, "DINT");
+      } else if (node.type === "math") {
+        addDirectAddressUse(uses, node.left, "REAL");
+        addDirectAddressUse(uses, node.right, "REAL");
+        addDirectAddressUse(uses, node.output, "REAL");
+      }
+    }
+  }
+  return uses;
+}
+
+function uniqueGeneratedName(baseName: string, emitted: Set<string>): string {
+  if (!emitted.has(baseName)) {
+    return baseName;
+  }
+  let suffix = 2;
+  while (emitted.has(`${baseName}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseName}_${suffix}`;
+}
+
+export function collectLadderRuntimeGlobalDeclarations(
+  program: LadderProgram
+): LadderRuntimeGlobalDeclaration[] {
+  const declarations: LadderRuntimeGlobalDeclaration[] = [];
+  const emitted = new Set<string>();
+  const explicitByAddress = new Map<string, DirectAddressAlias>();
+
+  for (const variable of program.variables) {
+    if (variable.scope === "local") {
+      continue;
+    }
+
+    const name = variable.name.trim();
+    if (!isSimpleIdentifier(name) || emitted.has(name)) {
+      continue;
+    }
+
+    const type = variable.type || "BOOL";
+    const address = normalizedDirectAddress(variable.address);
+    declarations.push({
+      name,
+      type,
+      address,
+      initialValue: variable.initialValue,
+    });
+    emitted.add(name);
+
+    if (address) {
+      explicitByAddress.set(address, { name, type });
+    }
+  }
+
+  for (const [address, fallbackType] of collectDirectAddressUses(program)) {
+    if (explicitByAddress.has(address)) {
+      continue;
+    }
+    const name = uniqueGeneratedName(directAddressSymbolName(address), emitted);
+    const type = typeForDirectAddress(address, fallbackType);
+    declarations.push({ name, type, address });
+    emitted.add(name);
+    explicitByAddress.set(address, { name, type });
+  }
+
+  return declarations;
 }
 
 function defaultScope(scope: LadderProgram["variables"][number]["scope"]): "local" | "global" {
@@ -436,8 +580,11 @@ function compareNodesDeterministic(left: LadderNode, right: LadderNode): number 
   return left.id.localeCompare(right.id);
 }
 
-function contactExpression(contact: Contact): string {
-  const source = contact.variable.trim() || "FALSE";
+function contactExpression(
+  contact: Contact,
+  symbolForValue: (value: string, fallbackType?: string) => string
+): string {
+  const source = symbolForValue(contact.variable, "BOOL") || "FALSE";
   if (contact.contactType === "NC") {
     return `NOT (${source})`;
   }
@@ -594,7 +741,10 @@ function joinWithAnd(left: string, right: string): string {
   return `${leftExpr} AND ${rightExpr}`;
 }
 
-function nodePowerExpressions(network: Network): Map<string, string> {
+function nodePowerExpressions(
+  network: Network,
+  symbolForValue: (value: string, fallbackType?: string) => string
+): Map<string, string> {
   const topology = buildNetworkTopology(network);
   const order = topologicalOrder(topology);
   const outgoing = new Map<string, string>();
@@ -612,7 +762,7 @@ function nodePowerExpressions(network: Network): Map<string, string> {
     incoming.set(node.id, incomingExpr);
 
     if (node.type === "contact") {
-      outgoing.set(node.id, joinWithAnd(incomingExpr, contactExpression(node)));
+      outgoing.set(node.id, joinWithAnd(incomingExpr, contactExpression(node, symbolForValue)));
       continue;
     }
     // Coils/FBs/topology nodes pass incoming power through.
@@ -690,6 +840,8 @@ export function generateLadderCompanionFunctionBlock(
   const externalDeclByName = new Map<string, ExternalDeclaration>();
   const localScopeSymbols = new Set<string>();
   const declaredSymbols = new Set<string>();
+  const runtimeGlobals = collectLadderRuntimeGlobalDeclarations(program);
+  const directAddressAliases = new Map<string, DirectAddressAlias>();
 
   for (const variable of program.variables) {
     const name = variable.name.trim();
@@ -720,15 +872,32 @@ export function generateLadderCompanionFunctionBlock(
       });
       continue;
     }
-    if (localScopeSymbols.has(name) || externalDeclByName.has(name)) {
+  }
+
+  for (const declaration of runtimeGlobals) {
+    if (localScopeSymbols.has(declaration.name) || externalDeclByName.has(declaration.name)) {
       continue;
     }
-    externalDeclByName.set(name, {
-      name,
-      type: typeName,
+    externalDeclByName.set(declaration.name, {
+      name: declaration.name,
+      type: declaration.type,
     });
-    declaredSymbols.add(name);
+    declaredSymbols.add(declaration.name);
+    if (declaration.address) {
+      directAddressAliases.set(declaration.address, {
+        name: declaration.name,
+        type: declaration.type,
+      });
+    }
   }
+
+  const symbolForValue = (value: string, _fallbackType = "BOOL"): string => {
+    const address = normalizedDirectAddress(value);
+    if (!address) {
+      return value.trim();
+    }
+    return directAddressAliases.get(address)?.name ?? value.trim();
+  };
 
   const ensureTimerVar = (timer: Timer): string => {
     const key = timer.instance.trim() || timer.id;
@@ -770,7 +939,7 @@ export function generateLadderCompanionFunctionBlock(
   const lines: string[] = [];
 
   for (const network of orderedNetworks) {
-    const powerByNode = nodePowerExpressions(network);
+    const powerByNode = nodePowerExpressions(network, symbolForValue);
     const nodes = sortedNodes(network);
 
     const contacts: Contact[] = [];
@@ -800,32 +969,33 @@ export function generateLadderCompanionFunctionBlock(
 
     for (const contact of contacts) {
       validateDeclaredSymbol(
-        contact.variable,
+        symbolForValue(contact.variable, "BOOL"),
         `contact '${contact.id}'`,
         declaredSymbols
       );
     }
 
     for (const coil of coils) {
-      validateDeclaredSymbol(coil.variable, `coil '${coil.id}'`, declaredSymbols);
+      const coilTarget = symbolForValue(coil.variable, "BOOL");
+      validateDeclaredSymbol(coilTarget, `coil '${coil.id}'`, declaredSymbols);
       const powerExpr = powerByNode.get(coil.id) ?? "FALSE";
-      if (!isAssignableIdentifier(coil.variable)) {
+      if (!isAssignableIdentifier(coilTarget)) {
         lines.push(
           `(* Skipped coil '${coil.id}' due to non-assignable target: ${coil.variable} *)`
         );
         continue;
       }
       if (coil.coilType === "NORMAL") {
-        lines.push(`${coil.variable} := ${powerExpr};`);
+        lines.push(`${coilTarget} := ${powerExpr};`);
       } else if (coil.coilType === "NEGATED") {
-        lines.push(`${coil.variable} := NOT (${powerExpr});`);
+        lines.push(`${coilTarget} := NOT (${powerExpr});`);
       } else if (coil.coilType === "SET") {
         lines.push(`IF ${powerExpr} THEN`);
-        lines.push(`${INDENT}${coil.variable} := TRUE;`);
+        lines.push(`${INDENT}${coilTarget} := TRUE;`);
         lines.push("END_IF;");
       } else if (coil.coilType === "RESET") {
         lines.push(`IF ${powerExpr} THEN`);
-        lines.push(`${INDENT}${coil.variable} := FALSE;`);
+        lines.push(`${INDENT}${coilTarget} := FALSE;`);
         lines.push("END_IF;");
       } else {
         throw new Error(`Unsupported coilType '${String(coil.coilType)}'.`);
@@ -835,22 +1005,26 @@ export function generateLadderCompanionFunctionBlock(
     for (const timer of timers) {
       const timerVar = ensureTimerVar(timer);
       const powerExpr = powerByNode.get(timer.id) ?? "FALSE";
-      const inputExpr = timer.input?.trim() ? timer.input.trim() : powerExpr;
+      const inputExpr = timer.input?.trim()
+        ? symbolForValue(timer.input, "BOOL")
+        : powerExpr;
       validateDeclaredSymbol(inputExpr, `timer '${timer.id}' input`, declaredSymbols);
       lines.push(`${timerVar}(IN := ${inputExpr}, ${timerCallInput(timer)});`);
 
+      const qOutput = timer.qOutput.trim();
       const qTarget =
-        timer.qOutput.trim() && isAssignableIdentifier(timer.qOutput)
-          ? timer.qOutput.trim()
+        qOutput && isAssignableIdentifier(qOutput)
+          ? symbolForValue(qOutput, "BOOL")
           : ensureLocal(
               localName("ld_timer_q", timer.instance || timer.id),
               "BOOL",
               `Timer Q output for ${timer.id}`
             );
       validateDeclaredSymbol(qTarget, `timer '${timer.id}' Q output`, declaredSymbols);
+      const etOutput = timer.etOutput.trim();
       const etTarget =
-        timer.etOutput.trim() && isAssignableIdentifier(timer.etOutput)
-          ? timer.etOutput.trim()
+        etOutput && isAssignableIdentifier(etOutput)
+          ? symbolForValue(etOutput, "TIME")
           : ensureLocal(
               localName("ld_timer_et", timer.instance || timer.id),
               "TIME",
@@ -865,7 +1039,9 @@ export function generateLadderCompanionFunctionBlock(
       const counterVar = ensureCounterVar(counter);
       const pv = Math.max(0, Math.round(counter.preset));
       const powerExpr = powerByNode.get(counter.id) ?? "FALSE";
-      const inputExpr = counter.input?.trim() ? counter.input.trim() : powerExpr;
+      const inputExpr = counter.input?.trim()
+        ? symbolForValue(counter.input, "BOOL")
+        : powerExpr;
       validateDeclaredSymbol(
         inputExpr,
         `counter '${counter.id}' input`,
@@ -886,9 +1062,10 @@ export function generateLadderCompanionFunctionBlock(
         );
       }
 
+      const qOutput = counter.qOutput.trim();
       const qTarget =
-        counter.qOutput.trim() && isAssignableIdentifier(counter.qOutput)
-          ? counter.qOutput.trim()
+        qOutput && isAssignableIdentifier(qOutput)
+          ? symbolForValue(qOutput, "BOOL")
           : ensureLocal(
               localName("ld_counter_q", counter.instance || counter.id),
               "BOOL",
@@ -899,9 +1076,10 @@ export function generateLadderCompanionFunctionBlock(
         `counter '${counter.id}' Q output`,
         declaredSymbols
       );
+      const cvOutput = counter.cvOutput.trim();
       const cvTarget =
-        counter.cvOutput.trim() && isAssignableIdentifier(counter.cvOutput)
-          ? counter.cvOutput.trim()
+        cvOutput && isAssignableIdentifier(cvOutput)
+          ? symbolForValue(cvOutput, "INT")
           : ensureLocal(
               localName("ld_counter_cv", counter.instance || counter.id),
               "INT",
@@ -918,8 +1096,8 @@ export function generateLadderCompanionFunctionBlock(
 
     for (const compare of compares) {
       const powerExpr = powerByNode.get(compare.id) ?? "FALSE";
-      const left = asOperandExpression(compare.left);
-      const right = asOperandExpression(compare.right);
+      const left = asOperandExpression(symbolForValue(compare.left, "DINT"));
+      const right = asOperandExpression(symbolForValue(compare.right, "DINT"));
       validateDeclaredSymbol(left, `compare '${compare.id}' left operand`, declaredSymbols);
       validateDeclaredSymbol(
         right,
@@ -940,13 +1118,14 @@ export function generateLadderCompanionFunctionBlock(
 
     for (const math of maths) {
       const powerExpr = powerByNode.get(math.id) ?? "FALSE";
-      const left = asOperandExpression(math.left);
-      const right = asOperandExpression(math.right);
+      const left = asOperandExpression(symbolForValue(math.left, "REAL"));
+      const right = asOperandExpression(symbolForValue(math.right, "REAL"));
       validateDeclaredSymbol(left, `math '${math.id}' left operand`, declaredSymbols);
       validateDeclaredSymbol(right, `math '${math.id}' right operand`, declaredSymbols);
       const operator = mathOperator(math.op);
-      const target = isAssignableIdentifier(math.output)
-        ? math.output
+      const mathOutput = symbolForValue(math.output, "REAL");
+      const target = isAssignableIdentifier(mathOutput)
+        ? mathOutput
         : ensureLocal(
             localName("ld_math_out", math.id),
             "REAL",

@@ -1,6 +1,12 @@
 import React, { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { BusNode } from "./BusNode";
+import {
+  connectorConnectionLabel,
+  connectorHealthLabel,
+  connectorSignalsSummary,
+  discoveryConfidenceLabel,
+} from "./connectorPresentation";
 import { useEditMode, type AddSlotRequest } from "./editMode";
 import { protocolBadgeLabel, protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
@@ -417,6 +423,18 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
 });
 RuntimeNode.displayName = "RuntimeNode";
 
+function connectorRows(d: EndpointNodeData): Array<[string, string]> {
+  if (!d.connector) {
+    return [];
+  }
+  return [
+    ["Connection", connectorConnectionLabel(d.connector.state)],
+    ["Health", connectorHealthLabel(d.connector.health)],
+    ["Verification", discoveryConfidenceLabel(d.connector.confidence)],
+    ["Signals", connectorSignalsSummary(d.connector.point_counts)],
+  ];
+}
+
 // Layout (app-icon style): protocol name on top, role in a coloured band below.
 export const EndpointNode = memo(({ data }: NodeProps) => {
   const d = data as EndpointNodeData;
@@ -452,7 +470,13 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.name}
-          rows={[["protocol", protocolName(d.protocol)], ["role", d.role], ["health", d.health], ["detail", d.detail]]}
+          rows={[
+            ["protocol", protocolName(d.protocol)],
+            ["role", d.role],
+            ["health", d.health],
+            ...connectorRows(d),
+            ["detail", d.detail],
+          ]}
         />
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}

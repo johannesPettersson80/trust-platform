@@ -45,6 +45,18 @@ type Pkg = {
   scripts?: Record<string, string>;
 };
 
+type ConfigurationContribution = {
+  title?: string;
+  properties?: Record<
+    string,
+    {
+      title?: string;
+      description?: string;
+      markdownDescription?: string;
+    }
+  >;
+};
+
 function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
 }
@@ -330,6 +342,17 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
         !source.includes("[c.protocol, c.source, c.confidence]"),
       "Discover results must display user-facing protocol names, not raw ids such as modbus_tcp/discovery"
     );
+    assert.ok(
+      source.includes("discoverySourceLabel(c.source)") &&
+        !source.includes("[protocolName(c.protocol), c.source"),
+      "Discover results must display user-facing source labels, not raw ids such as tcp_connect"
+    );
+    assert.ok(
+      source.includes("discoveryConfidenceLabel(c.confidence)") &&
+        !source.includes('"port reachable"') &&
+        !source.includes('"tcp-only"'),
+      "Discover results must use the shared user-facing confidence label, not private wording"
+    );
 	    assert.ok(
 	      source.includes('overflowWrap: "anywhere"'),
 	      "runtime discovery endpoint detail must wrap instead of clipping the control endpoint"
@@ -473,6 +496,12 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     };
   }
 
+  function readWorkspaceSettings(dir: string): Record<string, unknown> {
+    return JSON.parse(
+      fs.readFileSync(path.join(dir, ".vscode", "settings.json"), "utf8")
+    ) as Record<string, unknown>;
+  }
+
   test("the manifest parses and ships the curated starters", () => {
     const ids = manifestEntries().map((entry) => entry.id);
     for (const id of [
@@ -495,6 +524,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         "runtime.toml",
         "io.toml",
         path.join(".vscode", "launch.json"),
+        path.join(".vscode", "settings.json"),
         path.join("src", "Main.st"),
       ]) {
         assert.ok(
@@ -532,6 +562,18 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
+  test("every bundled example hides the native debug status selector", () => {
+    for (const entry of manifestEntries()) {
+      const dir = path.join(EXAMPLES_DIR, entry.path);
+      const settings = readWorkspaceSettings(dir);
+      assert.strictEqual(
+        settings["debug.showInStatusBar"],
+        "never",
+        `example '${entry.id}' must keep the truST sidebar as the single run/debug control surface`
+      );
+    }
+  });
+
   test("new project scaffolding writes the same native debug configuration", () => {
     const source = readSrc("newProject.ts");
     assert.ok(
@@ -539,8 +581,33 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         source.includes('"name": "truST Simulator"') &&
         source.includes('"program": "\\${workspaceFolder}/src/config.st"') &&
         source.includes('vscode.Uri.joinPath(targetUri, ".vscode")') &&
-        source.includes('vscode.Uri.joinPath(vscodeUri, "launch.json")'),
-      "Create project must write .vscode/launch.json so VS Code does not show No Configurations"
+        source.includes('vscode.Uri.joinPath(vscodeUri, "launch.json")') &&
+        source.includes('const VSCODE_SETTINGS_SOURCE = `') &&
+        source.includes('"debug.showInStatusBar": "never"') &&
+        source.includes('vscode.Uri.joinPath(vscodeUri, "settings.json")'),
+      "Create project must write launch.json plus settings.json so VS Code has a debugger but does not show a second debug status selector"
+    );
+  });
+
+  test("journey batch strips raw helper PNG output before validation", () => {
+    const runner = fs.readFileSync(
+      path.join(
+        workspaceRoot(),
+        "docs",
+        "internal",
+        "testing",
+        "evidence",
+        "vscode-ui-ux-acceptance",
+        "2026-06-25",
+        "runners",
+        "run-all-journeys-batch.js"
+      ),
+      "utf8"
+    );
+    assert.ok(
+      runner.includes("pngHygiene.stripTree(journeyRoot)") &&
+        runner.includes("including diagnostic runner-output copies"),
+      "journey batch must strip all PNGs, not only reviewer-facing screenshots-raw"
     );
   });
 
@@ -2301,13 +2368,19 @@ suite("R4 — runtime auth tokens in SecretStorage (security)", () => {
     }
   });
 
-  test("the legacy plaintext token setting is marked legacy + points to the secret store", () => {
+  test("legacy plaintext token setting is not contributed to native Settings", () => {
     const pkg = fs.readFileSync(path.join(extensionRoot(), "package.json"), "utf8");
-    const idx = pkg.indexOf("trust-lsp.runtime.controlAuthToken");
-    assert.ok(idx >= 0, "the setting still exists (as a fallback)");
-    const block = pkg.slice(idx, idx + 400);
-    assert.ok(/legacy/i.test(block), "setting description must flag it as legacy");
-    assert.ok(/secret store/i.test(block), "setting must point users to the secret store");
+    assert.ok(
+      !pkg.includes("trust-lsp.runtime.controlAuthToken"),
+      "legacy plaintext token setting remains code fallback only and must not appear in native Settings"
+    );
+    assert.ok(
+      pkg.includes("trust.runtime.authTokenFallback") &&
+        /legacy/i.test(pkg) &&
+        /fallback/i.test(pkg) &&
+        /secret store/i.test(pkg),
+      "canonical token fallback setting must explain that SecretStorage is the normal path"
+    );
   });
 });
 
@@ -2392,6 +2465,32 @@ suite("Phase 8 — Compile (authoritative project validation)", () => {
       !String(newDiagram?.group || "").startsWith("navigation"),
       "New diagram must stay in the view-title overflow, not as an unexplained second icon"
     );
+  });
+
+  test("native Settings contribution uses product-language setting keys and titles", () => {
+    const configuration = loadPackageJson().contributes
+      ?.configuration as ConfigurationContribution;
+    assert.strictEqual(configuration.title, "truST");
+    const properties = configuration.properties ?? {};
+    assert.ok(Object.keys(properties).length > 0, "expected contributed settings");
+    for (const [key, property] of Object.entries(properties)) {
+      assert.ok(
+        !key.startsWith("trust-lsp."),
+        `${key} must not render under the backend Trust-lsp heading in native Settings`
+      );
+      assert.ok(
+        key.startsWith("trust."),
+        `${key} must use the product-language trust.* Settings prefix`
+      );
+      assert.ok(property.title, `${key} must define a user-facing title`);
+      assert.ok(
+        !/trust-lsp/i.test(property.title ?? ""),
+        `${key} title must not expose the internal trust-lsp setting prefix`
+      );
+    }
+    assert.strictEqual(properties["trust.runtime.executablePath"]?.title, "Runtime executable path");
+    assert.strictEqual(properties["trust.debugAdapter.executablePath"]?.title, "Debug adapter path");
+    assert.strictEqual(properties["trust.testRunner.executablePath"]?.title, "Test runner path");
   });
 
   test("action row has a real narrow-width collapse rule", () => {
@@ -3638,6 +3737,30 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("ADS route recovery stays in the Browse pane and exposes Create route", () => {
+    const browse = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
+    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    assert.ok(
+      browse.includes("routeCreateAttempted") &&
+        />\s*Create route\s*<\/button>/.test(browse) &&
+        !browse.includes("artifacts.length === 0 && <button onClick={onCreateRoute}"),
+      "ADS missing-route recovery must always expose a visible Create route action, even when generated route artifacts exist"
+    );
+    assert.ok(
+      browse.includes("const routeWarningText = routeCreateAttempted") &&
+        browse.includes("Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse.") &&
+        browse.includes("Automatic route creation is not available from this canvas in this build.") &&
+        /Run the\s+generated PowerShell as Administrator on the TwinCAT computer/.test(browse) &&
+        browse.includes("TwinCAT needs a route back to truST."),
+      "Create route must explain the admin/manual TwinCAT route requirement in the fixed warning strip and Browse pane"
+    );
+    assert.ok(
+      !panel.includes("ADS panel's route doctor") &&
+        panel.includes("Run the generated ADS route PowerShell as Administrator on the TwinCAT computer"),
+      "the Create route handler must not send users to a retired ADS panel"
+    );
+  });
+
   test("OPC UA browse auth warnings have an inline credential recovery action", () => {
     const browse = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
     const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
@@ -3670,6 +3793,33 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         app.includes("Array.isArray(connections)") &&
         app.includes("connections[0]"),
       "ADS and OPC UA client browse must pass one connection target, not the whole endpoint section"
+    );
+  });
+
+  test("ADS Add tags can import into a stopped project", () => {
+    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const offline = readSrc("networkCanvas/offlineComm.ts");
+    assert.ok(
+      panel.includes("offlineAdsImportSymbols") &&
+        panel.includes('protocol === "ads"') &&
+        panel.includes("!activeRuntimeTarget") &&
+        panel.includes("refreshNetworkCanvasPanel()"),
+      "ADS Add tags must fall back to a local import path when no runtime control endpoint is reachable"
+    );
+    assert.ok(
+      offline.includes("offlineAdsImportSymbols") &&
+        offline.includes('"ads"') &&
+        offline.includes('"import-symbols"') &&
+        offline.includes('"--include"') &&
+        offline.includes('"--force"') &&
+        offline.includes("Restart the runtime to use the generated ST symbols."),
+      "the stopped-project fallback must use the existing deterministic ADS import-symbols pipeline"
+    );
+    assert.ok(
+      offline.includes("export async function openGeneratedAdsDocuments") &&
+        panel.includes("openGeneratedAdsDocuments(report)") &&
+        panel.includes('ads.import_symbols.apply'),
+      "live ADS Add tags must open the generated ST artifact so editor diagnostics can refresh against imported symbols"
     );
   });
 

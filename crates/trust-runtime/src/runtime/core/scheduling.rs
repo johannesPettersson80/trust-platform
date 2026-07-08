@@ -97,6 +97,14 @@ impl Runtime {
         self.current_time = time;
     }
 
+    /// Reset task timing state to a new baseline time after a live scheduler restart.
+    pub(crate) fn reset_task_timing(&mut self, current_time: Duration) {
+        self.current_time = current_time;
+        for state in self.task_state.values_mut() {
+            *state = TaskState::new(current_time);
+        }
+    }
+
     /// Return whether the resource is currently faulted.
     #[must_use]
     pub fn faulted(&self) -> bool {

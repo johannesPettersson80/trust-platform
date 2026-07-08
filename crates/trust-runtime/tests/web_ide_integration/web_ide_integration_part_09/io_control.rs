@@ -22,7 +22,7 @@ fn unified_shell_ide_io_config_route_tracks_active_workspace() {
     let (_, session) = request_json(
         "POST",
         &format!("{base}/api/ide/session"),
-        Some(json!({ "role": "viewer" })),
+        Some(json!({ "role": "editor" })),
         &[],
     );
     let token = session["result"]["token"]

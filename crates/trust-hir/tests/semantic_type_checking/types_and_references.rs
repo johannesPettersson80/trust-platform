@@ -435,6 +435,25 @@ END_PROGRAM
     );
 }
 
+fn check_has_error_message(source: &str, expected: DiagnosticCode, message_fragment: &str) {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    let diagnostics = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == expected && diagnostic.message.contains(message_fragment)
+        }),
+        "expected {expected:?} containing {message_fragment:?}, got {diagnostics:?}"
+    );
+}
+
 #[test]
 fn test_ref_rejects_function_local_variable() {
     check_has_error(
@@ -449,6 +468,52 @@ FUNCTION Foo : INT
 END_FUNCTION
 "#,
         DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-005"]
+fn test_ref_rejects_function_return_variable() {
+    check_has_error_message(
+        r#"
+VAR_GLOBAL
+    gr : REF_TO INT;
+END_VAR
+
+FUNCTION Leak : INT
+VAR_EXTERNAL
+    gr : REF_TO INT;
+END_VAR
+Leak := 42;
+gr := REF(Leak);
+END_FUNCTION
+"#,
+        DiagnosticCode::InvalidOperation,
+        "REF cannot take a reference to a function or method return variable",
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-005"]
+fn test_ref_rejects_method_return_variable() {
+    check_has_error_message(
+        r#"
+VAR_GLOBAL
+    gr : REF_TO INT;
+END_VAR
+
+CLASS Holder
+    METHOD PUBLIC Leak : INT
+    VAR_EXTERNAL
+        gr : REF_TO INT;
+    END_VAR
+    Leak := 42;
+    gr := REF(Leak);
+    END_METHOD
+END_CLASS
+"#,
+        DiagnosticCode::InvalidOperation,
+        "REF cannot take a reference to a function or method return variable",
     );
 }
 

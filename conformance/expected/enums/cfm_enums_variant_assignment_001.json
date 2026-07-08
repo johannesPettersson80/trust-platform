@@ -1,0 +1,46 @@
+{
+  "case_id": "cfm_enums_variant_assignment_001",
+  "category": "enums",
+  "cycles": 2,
+  "description": "ENUM typed initializers, unqualified variant assignment, and comparison.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "is_running": {
+          "type": "BOOL",
+          "value": true
+        },
+        "state": {
+          "numeric": 1,
+          "type": "ENUM",
+          "type_name": "Phase",
+          "variant": "RUNNING"
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "is_running": {
+          "type": "BOOL",
+          "value": true
+        },
+        "state": {
+          "numeric": 1,
+          "type": "ENUM",
+          "type_name": "Phase",
+          "variant": "RUNNING"
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

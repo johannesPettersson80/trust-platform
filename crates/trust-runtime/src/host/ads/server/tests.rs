@@ -20,8 +20,8 @@ use crate::scheduler::{ResourceControl, ResourceState, StdClock};
 use crate::value::{ArrayValue, Duration, Value};
 
 use super::{
-    build_runtime_symbol_snapshot, descriptor_for_value, run_ads_server_doctor,
-    AdsServerClientConfig, AdsServerClientPolicy, AdsServerDoctorInput,
+    build_ads_server_status_report, build_runtime_symbol_snapshot, descriptor_for_value,
+    run_ads_server_doctor, AdsServerClientConfig, AdsServerClientPolicy, AdsServerDoctorInput,
     AdsServerExternalClientEvidence, AdsServerRuntimeAuditSink, AdsServerRuntimeConfig,
     AdsServerRuntimeWritePort, AdsServerSourcePin, AdsServerSymbolSource, AdsServerValuePublisher,
 };
@@ -517,12 +517,16 @@ fn lifecycle_refreshes_symbols_without_rebinding_ads_socket() {
 }
 
 #[test]
-fn lifecycle_fails_closed_when_enabled_without_snapshot() {
+fn lifecycle_starts_not_ready_without_snapshot_and_refreshes_when_snapshot_appears() {
     let mut config = config(false);
     config.listen = Some(SmolStr::new("127.0.0.1"));
     config.ams_net_id = Some(AmsNetId::new("127.0.0.1.1.1"));
+    config.clients = vec![AdsServerClientConfig {
+        ams_net_id: AmsNetId::new("5.23.91.12.1.1"),
+        source: AdsServerSourcePin::Cidr(SmolStr::new("127.0.0.0/8")),
+    }];
 
-    let error = match super::lifecycle::start_ads_server_runtime_on_port(
+    let mut server = super::lifecycle::start_ads_server_runtime_on_port(
         "RESOURCE",
         &config,
         DebugControl::new(),
@@ -530,12 +534,39 @@ fn lifecycle_fails_closed_when_enabled_without_snapshot() {
         Arc::new(|| None),
         None,
         0,
-    ) {
-        Ok(_) => panic!("missing snapshot must fail"),
-        Err(error) => error,
-    };
+    )
+    .expect("missing snapshot should degrade, not fail")
+    .expect("server enabled");
 
-    assert!(error.to_string().contains("no runtime snapshot"));
+    assert_eq!(server.symbol_count(), 0);
+    let not_ready = build_ads_server_status_report(&config, None, Some(&server));
+    assert_eq!(
+        not_ready.overall,
+        crate::ads::diagnostics::AdsStatusOverall::NotReady
+    );
+    assert_eq!(
+        not_ready.connections[0].state,
+        crate::ads::diagnostics::AdsConnectionStatusState::NotReady
+    );
+    assert!(not_ready.summary.contains("not ready"));
+
+    let next = snapshot([("setpoint", Value::Real(0.0))]);
+    server
+        .refresh_symbols(&config, &next)
+        .expect("refresh symbols after snapshot appears");
+    let symbols = build_runtime_symbol_snapshot(&config, &next).expect("symbol snapshot");
+    let ready = build_ads_server_status_report(&config, Some(&symbols), Some(&server));
+
+    assert_eq!(server.symbol_count(), 1);
+    assert_eq!(
+        ready.overall,
+        crate::ads::diagnostics::AdsStatusOverall::Healthy
+    );
+    assert_eq!(
+        ready.connections[0].state,
+        crate::ads::diagnostics::AdsConnectionStatusState::Connected
+    );
+    server.shutdown();
 }
 
 #[test]

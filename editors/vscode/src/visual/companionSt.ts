@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "../configuration";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
@@ -5,6 +6,7 @@ import {
   parseBlocklyWorkspaceText,
 } from "./blocklyToSt";
 import {
+  collectLadderRuntimeGlobalDeclarations,
   generateLadderCompanionFunctionBlock,
   parseLadderProgramText,
 } from "./ladderToSt";
@@ -16,10 +18,9 @@ import {
   generateSfcCompanionFunctionBlock,
   parseSfcWorkspaceText,
 } from "./sfcToSt";
+import { collectDirectIoDeclarationsFromText } from "./directIo";
 import {
   fbNameForSource,
-  isAssignableIdentifier,
-  isDirectAddress,
   sanitizeIdentifier,
 } from "./stNaming";
 
@@ -44,15 +45,17 @@ function baseNameWithoutVisualSuffix(fileName: string): string {
 }
 
 function autoGenerateEnabled(uri: vscode.Uri): boolean {
-  return vscode.workspace
-    .getConfiguration("trust-lsp", uri)
-    .get<boolean>("visual.autoGenerateStCompanion", true);
+  return getTrustConfiguration(uri).get<boolean>(
+    "visual.autoGenerateStCompanion",
+    true
+  );
 }
 
 export function openCompanionOnCreateEnabled(uri: vscode.Uri): boolean {
-  return vscode.workspace
-    .getConfiguration("trust-lsp", uri)
-    .get<boolean>("visual.openStCompanionOnCreate", true);
+  return getTrustConfiguration(uri).get<boolean>(
+    "visual.openStCompanionOnCreate",
+    true
+  );
 }
 
 export function visualSourceKindFor(
@@ -127,13 +130,13 @@ export function generateVisualRuntimeEntrySource(
     `PLC_PRG_${baseId}`,
     "PLC_PRG_VISUAL"
   );
-  const ladderGlobals =
-    sourceKind === "ladder" && typeof sourceText === "string"
-      ? ladderRuntimeGlobalDeclarations(sourceText)
+  const visualGlobals =
+    typeof sourceText === "string"
+      ? visualRuntimeGlobalDeclarations(sourceKind, sourceText)
       : [];
   const runtimeGlobals = [
     `  ${fbInstanceName} : ${fbType};`,
-    ...ladderGlobals,
+    ...visualGlobals,
   ];
 
   const output = [
@@ -239,8 +242,7 @@ export async function writeVisualRuntimeEntryFile(
   sourceKind: VisualSourceKind
 ): Promise<vscode.Uri> {
   const target = visualRuntimeEntryUriFor(sourceUri);
-  const sourceText =
-    sourceKind === "ladder" ? await readSourceText(sourceUri) : undefined;
+  const sourceText = await readSourceText(sourceUri);
   const content = generateVisualRuntimeEntrySource(
     sourceUri,
     sourceKind,
@@ -329,39 +331,33 @@ function ladderRuntimeGlobalDeclarations(sourceText: string): string[] {
     return [];
   }
 
-  const declarations: string[] = [];
-  const emitted = new Set<string>();
-
-  for (const variable of program.variables) {
-    if (variable.scope === "local") {
-      continue;
-    }
-
-    const name = variable.name.trim();
-    if (!name || !isAssignableIdentifier(name) || name.includes(".")) {
-      continue;
-    }
-    if (emitted.has(name)) {
-      continue;
-    }
-
-    const stType = variable.type || "BOOL";
-    const address = variable.address?.trim();
-    const addressClause =
-      address && isDirectAddress(address) ? ` AT ${address}` : "";
+  return collectLadderRuntimeGlobalDeclarations(program).map((declaration) => {
+    const addressClause = declaration.address ? ` AT ${declaration.address}` : "";
     const initialLiteral = literalForLadderInitialValue(
-      stType,
-      variable.initialValue
+      declaration.type,
+      declaration.initialValue
     );
     const initialClause = initialLiteral ? ` := ${initialLiteral}` : "";
 
-    declarations.push(
-      `  ${name}${addressClause} : ${stType}${initialClause};`
-    );
-    emitted.add(name);
-  }
+    return `  ${declaration.name}${addressClause} : ${declaration.type}${initialClause};`;
+  });
+}
 
-  return declarations;
+function directIoRuntimeGlobalDeclarations(sourceText: string): string[] {
+  return collectDirectIoDeclarationsFromText(sourceText).map(
+    (declaration) =>
+      `  ${declaration.name} AT ${declaration.address} : ${declaration.type};`
+  );
+}
+
+function visualRuntimeGlobalDeclarations(
+  sourceKind: VisualSourceKind,
+  sourceText: string
+): string[] {
+  if (sourceKind === "ladder") {
+    return ladderRuntimeGlobalDeclarations(sourceText);
+  }
+  return directIoRuntimeGlobalDeclarations(sourceText);
 }
 
 export async function syncVisualRuntimeEntryFromUri(

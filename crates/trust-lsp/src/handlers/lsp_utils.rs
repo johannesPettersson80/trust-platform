@@ -14,7 +14,8 @@ use trust_ide::rename::RenameResult;
 use crate::state::{uri_to_path, ServerState};
 
 pub(crate) fn offset_to_position(content: &str, offset: u32) -> Position {
-    let (line, col) = offset_to_line_col(content, offset);
+    let index = LineIndex::new(content);
+    let (line, col) = index.offset_to_line_col(offset as usize);
     Position {
         line,
         character: col,
@@ -22,50 +23,102 @@ pub(crate) fn offset_to_position(content: &str, offset: u32) -> Position {
 }
 
 pub(crate) fn offset_to_line_col(content: &str, offset: u32) -> (u32, u32) {
-    let offset = offset as usize;
-    let mut line = 0u32;
-    let mut col = 0u32;
-
-    for (i, c) in content.char_indices() {
-        if i >= offset {
-            break;
-        }
-        if c == '\n' {
-            line += 1;
-            col = 0;
-        } else {
-            col += 1;
-        }
-    }
-
-    (line, col)
+    let index = LineIndex::new(content);
+    index.offset_to_line_col(offset as usize)
 }
 
 pub(crate) fn position_to_offset(content: &str, position: Position) -> Option<u32> {
-    let mut line = 0u32;
-    let mut col = 0u32;
+    let index = LineIndex::new(content);
+    index
+        .position_to_offset(position)
+        .map(|offset| offset as u32)
+}
 
-    for (i, c) in content.char_indices() {
-        if line == position.line && col == position.character {
-            return Some(i as u32);
-        }
-        if c == '\n' {
-            if line == position.line {
-                // Position is at end of this line
-                return Some(i as u32);
+#[derive(Debug)]
+struct LineIndex<'a> {
+    content: &'a str,
+    line_starts: Vec<usize>,
+}
+
+impl<'a> LineIndex<'a> {
+    fn new(content: &'a str) -> Self {
+        let mut line_starts = vec![0];
+        for (idx, ch) in content.char_indices() {
+            if ch == '\n' {
+                line_starts.push(idx + ch.len_utf8());
             }
-            line += 1;
-            col = 0;
-        } else {
-            col += 1;
+        }
+        Self {
+            content,
+            line_starts,
         }
     }
 
-    // Position is at end of file
-    if line == position.line {
-        Some(content.len() as u32)
-    } else {
-        None
+    fn offset_to_line_col(&self, offset: usize) -> (u32, u32) {
+        let offset = self.clamp_to_char_boundary(offset);
+        let line_idx = self
+            .line_starts
+            .partition_point(|start| *start <= offset)
+            .saturating_sub(1);
+        let line_start = self.line_starts[line_idx];
+        let character = self.content[line_start..offset].encode_utf16().count() as u32;
+        (line_idx as u32, character)
+    }
+
+    fn position_to_offset(&self, position: Position) -> Option<usize> {
+        let line_idx = position.line as usize;
+        let line_start = *self.line_starts.get(line_idx)?;
+        let line_end = self.line_end_without_newline(line_idx);
+        let target = position.character;
+        let mut character = 0u32;
+        for (relative, ch) in self.content[line_start..line_end].char_indices() {
+            if character == target {
+                return Some(line_start + relative);
+            }
+            let next = character + ch.len_utf16() as u32;
+            if target < next {
+                return Some(line_start + relative);
+            }
+            character = next;
+        }
+        Some(line_end)
+    }
+
+    fn utf16_len_between(&self, start: usize, end: usize) -> u32 {
+        let start = self.clamp_to_char_boundary(start);
+        let end = self.clamp_to_char_boundary(end);
+        if end <= start {
+            return 0;
+        }
+        self.content[start..end].encode_utf16().count() as u32
+    }
+
+    fn line_end_without_newline(&self, line_idx: usize) -> usize {
+        let line_start = self
+            .line_starts
+            .get(line_idx)
+            .copied()
+            .unwrap_or(self.content.len());
+        let mut end = self
+            .line_starts
+            .get(line_idx + 1)
+            .copied()
+            .unwrap_or(self.content.len());
+        if end > line_start && self.content.as_bytes().get(end - 1) == Some(&b'\n') {
+            end -= 1;
+        }
+        if end > line_start && self.content.as_bytes().get(end - 1) == Some(&b'\r') {
+            end -= 1;
+        }
+        end
+    }
+
+    fn clamp_to_char_boundary(&self, offset: usize) -> usize {
+        let mut offset = offset.min(self.content.len());
+        while offset > 0 && !self.content.is_char_boundary(offset) {
+            offset -= 1;
+        }
+        offset
     }
 }
 
@@ -78,12 +131,13 @@ pub(crate) fn semantic_tokens_to_lsp(
     let mut data = Vec::new();
     let mut prev_line = origin_line;
     let mut prev_start = origin_col;
+    let index = LineIndex::new(content);
 
     for token in tokens {
-        let start = token.range.start();
-        let end = token.range.end();
-        let (line, col) = offset_to_line_col(content, start.into());
-        let length = u32::from(end) - u32::from(start);
+        let start = u32::from(token.range.start()) as usize;
+        let end = u32::from(token.range.end()) as usize;
+        let (line, col) = index.offset_to_line_col(start);
+        let length = index.utf16_len_between(start, end);
 
         let token_type = match token.token_type {
             trust_ide::SemanticTokenType::Keyword => 0,
@@ -338,4 +392,18 @@ pub(crate) fn symbol_container_name(symbols: &SymbolTable, symbol: &Symbol) -> O
         .parent
         .and_then(|parent_id| symbols.get(parent_id))
         .map(|parent| parent.name.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eof_position_after_trailing_newline_round_trips_to_content_len() {
+        let source = "PROGRAM Test\nEND_PROGRAM\n";
+        let eof = offset_to_position(source, source.len() as u32);
+
+        assert_eq!(eof, Position::new(2, 0));
+        assert_eq!(position_to_offset(source, eof), Some(source.len() as u32));
+    }
 }

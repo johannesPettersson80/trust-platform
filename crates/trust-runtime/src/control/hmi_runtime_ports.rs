@@ -88,7 +88,12 @@ pub(super) fn queue_hmi_runtime_write_port(
     let template = crate::hmi::resolve_write_value_template(&point, &snapshot).ok_or_else(|| {
         format!("hmi.write target '{}' is currently unavailable", point.id)
     })?;
-    let value = parse_hmi_write_value(requested_value, &template)
+    let value = parse_hmi_write_value(
+        requested_value,
+        &template,
+        bounded_string_capacity(point.data_type.as_str()),
+        bounded_subrange(point.data_type.as_str()),
+    )
         .ok_or_else(|| format!("invalid hmi.write value for target '{}'", point.id))?;
 
     match &point.binding {

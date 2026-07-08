@@ -72,9 +72,14 @@ pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
         return Err(RuntimeError::TypeMismatch);
     }
     let cleaned: String = trimmed.chars().filter(|c| *c != '_').collect();
-    cleaned
+    let value = cleaned
         .parse::<f64>()
-        .map_err(|_| RuntimeError::TypeMismatch)
+        .map_err(|_| RuntimeError::TypeMismatch)?;
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(RuntimeError::Overflow)
+    }
 }
 
 pub(super) fn convert_to_char(value: &Value, dst: TypeId) -> Result<Value, RuntimeError> {

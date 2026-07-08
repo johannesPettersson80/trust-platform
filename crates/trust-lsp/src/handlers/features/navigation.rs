@@ -69,6 +69,9 @@ pub fn prepare_rename(
     super::core_impl::prepare_rename(state, params)
 }
 
-pub fn rename(state: &ServerState, params: RenameParams) -> Option<WorkspaceEdit> {
+pub fn rename(
+    state: &ServerState,
+    params: RenameParams,
+) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
     super::core_impl::rename(state, params)
 }

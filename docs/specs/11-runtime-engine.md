@@ -223,6 +223,15 @@ pub trait IoDriver: Send {
 
 Multiple drivers may be composed (e.g., fieldbus + simulated I/O). The resource scheduler owns the driver(s) and invokes them at cycle boundaries.
 
+Process-image drivers must keep scan-cycle methods bounded. Drivers with
+blocking wire protocols may own background workers, but the `IoDriver` boundary
+remains the cycle handoff: `read_inputs` copies the latest worker snapshot or
+returns the configured policy result, and `write_outputs` hands off the latest
+desired output without waiting for protocol round trips. Worker health is
+projected through the existing `IoDriverHealth` surface rather than a parallel
+status model. Output handoff is level/latest-value semantics for `%Q`, not an
+edge or pulse delivery guarantee.
+
 Driver error handling is configurable per driver:
 - `fault`: return an error and fault the resource.
 - `warn`: keep the resource running; driver health becomes **degraded**.
@@ -233,17 +242,51 @@ Driver health is exposed via `ctl status` and the TUI.
 **Built-in drivers**
 
 1. **Modbus/TCP**
-- Uses **input registers** (0x04) for input image.
-- Uses **holding registers** (0x10) for output image.
+- Default profile uses **input registers** (FC04) for input image.
+- Default profile uses **multiple holding-register writes** (FC16) for output image.
+- Explicit `io.toml` options can select `read_coils` (FC01),
+  `read_discrete_inputs` (FC02), `read_holding_registers` (FC03),
+  `read_input_registers` (FC04), `write_single_coil` (FC05),
+  `write_single_register` (FC06), `write_multiple_coils` (FC15), or
+  `write_multiple_registers` (FC16).
+- Optional `input_points` and `output_points` map individual coil/register
+  addresses to process-image offsets with `bool`, `u16`, `i16`, `u32`, `i32`,
+  or `f32` types, linear `scale`/`offset`, and Modbus `byte_order`/`word_order`.
 - Register payloads are big‑endian (high byte first).
+- Coil payloads are Modbus-packed with the first process-image bit in the
+  least-significant bit of the first byte.
+- Point-map numeric values are stored in the runtime process image as
+  little-endian bytes after scaling so `%IW`/`%ID` bindings read the same value
+  that the map produced.
 - Register quantity is derived from the process image size (`ceil(bytes / 2)`).
+- Runtime exchange is worker-backed: scan-cycle reads/writes use bounded
+  snapshot/handoff state while Modbus TCP connect/read/write round trips happen
+  on the Modbus worker.
 
 2. **MQTT (baseline profile)**
 - Topic bridge between broker payloads and process image bytes.
 - `topic_in` payload bytes are copied into `%I` at cycle start.
 - `%Q` output bytes are published to `topic_out` at cycle end.
+- Optional `input_points` and `output_points` map typed scalar MQTT topics to
+  process-image offsets with `bool`, `u16`, `i16`, `u32`, `i32`, or `f32`
+  values, `text`/`json`/`binary_le`/`binary_be` payloads, and linear
+  `scale`/`offset`.
+- Numeric typed point values are stored in the runtime process image as
+  little-endian bytes; binary MQTT payload endianness applies only to the MQTT
+  payload.
+- Optional Sparkplug B outbound node profile for typed `output_points`:
+  `namespace = "spBv1.0"`, `spec_version = "3.0.0"`, required `group_id`, and
+  required `edge_node_id`.
+- Sparkplug mode publishes NBIRTH on MQTT session establishment, configures
+  NDEATH as the MQTT last will, and publishes NDATA scalar metric payloads for
+  typed output points.
+- Runtime exchange is worker-backed: broker connect/poll/publish and
+  reconnection happen on the MQTT worker, while scan-cycle reads/writes use
+  bounded snapshot/handoff state.
 - Reconnection is non-blocking; runtime cycle remains deterministic.
 - Security baseline rejects insecure remote brokers unless explicitly overridden.
+- Sparkplug B non-goals in this profile: command subscriptions, device-level
+  DBIRTH/DDATA topics, metric aliases, templates, and store-and-forward.
 
 3. **EtherCAT (backend v1)**
 - Driver name: `ethercat`.

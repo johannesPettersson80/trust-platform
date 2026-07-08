@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-platform.dev/schemas/conformance-summary-v2.schema.json",
+  "title": "truST Conformance Summary v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "profile",
+    "generated_at_utc",
+    "ordering",
+    "runtime",
+    "summary",
+    "results"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 2
+    },
+    "profile": {
+      "type": "string",
+      "const": "trust-conformance-v2"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ordering": {
+      "type": "string",
+      "const": "case_id_asc"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "passed",
+        "failed",
+        "errors",
+        "skipped"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "category",
+        "status",
+        "expected_ref"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^cfm_(timers|edges|scan_cycle|init_reset|arithmetic|memory_map|strings|arrays|structs|enums|nested_values|oop_dispatch|references|retain_matrix|scheduler|comms_determinism)_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{3}$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "timers",
+            "edges",
+            "scan_cycle",
+            "init_reset",
+            "arithmetic",
+            "memory_map",
+            "strings",
+            "arrays",
+            "structs",
+            "enums",
+            "nested_values",
+            "oop_dispatch",
+            "references",
+            "retain_matrix",
+            "scheduler",
+            "comms_determinism"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "error",
+            "skipped"
+          ]
+        },
+        "expected_ref": {
+          "type": "string",
+          "pattern": "^expected\\/(timers|edges|scan_cycle|init_reset|arithmetic|memory_map|strings|arrays|structs|enums|nested_values|oop_dispatch|references|retain_matrix|scheduler|comms_determinism)\\/cfm_[a-z0-9_]+\\.json$"
+        },
+        "actual_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "expected_missing",
+                "expected_mismatch",
+                "expected_read_error",
+                "expected_write_error",
+                "case_execution_error"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "details": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

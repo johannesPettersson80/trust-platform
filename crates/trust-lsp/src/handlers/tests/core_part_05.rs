@@ -348,6 +348,293 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk() {
+    let root = temp_dir("trustlsp-didclose-disk-reload");
+    let add_path = root.join("Add.st");
+    let main_path = root.join("Main.st");
+    let add_on_disk = r#"
+FUNCTION Add : INT
+VAR_INPUT
+    A : INT;
+    B : INT;
+END_VAR
+    Add := A + B;
+END_FUNCTION
+"#;
+    let add_unsaved = r#"
+FUNCTION Add : INT
+VAR_INPUT
+    A : INT;
+END_VAR
+    Add := A;
+END_FUNCTION
+"#;
+    let main = r#"
+PROGRAM Main
+VAR
+    Result : INT;
+END_VAR
+    Result := Add(1, 2);
+END_PROGRAM
+"#;
+    std::fs::write(&add_path, add_on_disk).expect("write disk dependency");
+    std::fs::write(&main_path, main).expect("write main");
+
+    let state = ServerState::new();
+    let client = test_client();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    let add_uri = tower_lsp::lsp_types::Url::from_file_path(&add_path).expect("add uri");
+    let main_uri = tower_lsp::lsp_types::Url::from_file_path(&main_path).expect("main uri");
+
+    runtime.block_on(async {
+        did_open(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidOpenTextDocumentParams {
+                text_document: tower_lsp::lsp_types::TextDocumentItem {
+                    uri: add_uri.clone(),
+                    language_id: "st".to_string(),
+                    version: 1,
+                    text: add_on_disk.to_string(),
+                },
+            },
+        )
+        .await;
+        did_open(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidOpenTextDocumentParams {
+                text_document: tower_lsp::lsp_types::TextDocumentItem {
+                    uri: main_uri.clone(),
+                    language_id: "st".to_string(),
+                    version: 1,
+                    text: main.to_string(),
+                },
+            },
+        )
+        .await;
+        did_change(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidChangeTextDocumentParams {
+                text_document: tower_lsp::lsp_types::VersionedTextDocumentIdentifier {
+                    uri: add_uri.clone(),
+                    version: 2,
+                },
+                content_changes: vec![tower_lsp::lsp_types::TextDocumentContentChangeEvent {
+                    range: None,
+                    range_length: None,
+                    text: add_unsaved.to_string(),
+                }],
+            },
+        )
+        .await;
+    });
+
+    let unsaved_items = full_document_diagnostics(&state, main_uri.clone());
+    assert!(
+        unsaved_items
+            .iter()
+            .any(|diag| diag.message.contains("arguments")),
+        "sanity check: unsaved dependency edit should affect dependent diagnostics, got {:?}",
+        diagnostic_messages(&unsaved_items)
+    );
+
+    runtime.block_on(async {
+        did_close(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidCloseTextDocumentParams {
+                text_document: tower_lsp::lsp_types::TextDocumentIdentifier {
+                    uri: add_uri.clone(),
+                },
+            },
+        )
+        .await;
+    });
+
+    let after_close_items = full_document_diagnostics(&state, main_uri);
+    assert!(
+        after_close_items
+            .iter()
+            .all(|diag| !diag.message.contains("arguments")),
+        "didClose without save must discard the unsaved dependency signature and restore disk semantics, got {:?}",
+        diagnostic_messages(&after_close_items)
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+pub(super) fn lsp_memory_budget_eviction_keeps_closed_dependency_semantically_indexed() {
+    let root = temp_dir("trustlsp-memory-budget-semantics");
+    let config_path = root.join("trust-lsp.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[indexing]
+memory_budget_mb = 1
+evict_to_percent = 75
+"#,
+    )
+    .expect("write config");
+
+    let padding = format!("(* {} *)", "A".repeat(600_000));
+    let motor_source = format!(
+        r#"
+FUNCTION_BLOCK Motor
+END_FUNCTION_BLOCK
+{padding}
+"#
+    );
+    let main_source = format!(
+        r#"
+PROGRAM Main
+VAR
+    fb : Motor;
+END_VAR
+    fb();
+END_PROGRAM
+{padding}
+"#
+    );
+    let motor_path = root.join("Motor.st");
+    let main_path = root.join("Main.st");
+    std::fs::write(&motor_path, &motor_source).expect("write motor");
+    std::fs::write(&main_path, &main_source).expect("write main");
+
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
+    state.set_workspace_config(root_uri, ProjectConfig::load(&root));
+    let motor_uri = tower_lsp::lsp_types::Url::from_file_path(&motor_path).expect("motor uri");
+    let main_uri = tower_lsp::lsp_types::Url::from_file_path(&main_path).expect("main uri");
+
+    state.index_document(motor_uri.clone(), motor_source);
+    state.index_document(main_uri.clone(), main_source);
+    assert!(
+        state.get_document(&motor_uri).is_none(),
+        "test fixture should evict the older closed document from the text cache"
+    );
+
+    let diagnostics = full_document_diagnostics(&state, main_uri);
+    let errors = diagnostics
+        .iter()
+        .filter(|diag| diag.severity == Some(tower_lsp::lsp_types::DiagnosticSeverity::ERROR))
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "evicting closed text must not remove the dependency from semantic project sources, got {:?}",
+        diagnostic_messages(&diagnostics)
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+pub(super) fn lsp_hmi_toml_diagnostics_use_open_source_buffers() {
+    let root = temp_dir("trustlsp-hmi-open-buffer-diagnostics");
+    let source_path = root.join("src/main.st");
+    let hmi_path = root.join("hmi/overview.toml");
+    std::fs::create_dir_all(source_path.parent().expect("source parent")).expect("create src");
+    std::fs::create_dir_all(hmi_path.parent().expect("hmi parent")).expect("create hmi");
+
+    let disk_source = r#"
+PROGRAM Main
+VAR_OUTPUT
+    speed : REAL;
+END_VAR
+END_PROGRAM
+"#;
+    let open_source = r#"
+PROGRAM Main
+VAR_OUTPUT
+    speed : REAL;
+    velocity : REAL;
+END_VAR
+END_PROGRAM
+"#;
+    let page = r#"
+title = "Overview"
+kind = "dashboard"
+
+[[section]]
+title = "Main"
+
+[[section.widget]]
+type = "gauge"
+bind = "Main.velocity"
+"#;
+    std::fs::write(&source_path, disk_source).expect("write disk source");
+    std::fs::write(&hmi_path, page).expect("write hmi page");
+
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
+    state.set_workspace_config(root_uri, ProjectConfig::load(&root));
+    let source_uri = tower_lsp::lsp_types::Url::from_file_path(&source_path).expect("source uri");
+    let hmi_uri = tower_lsp::lsp_types::Url::from_file_path(&hmi_path).expect("hmi uri");
+    state.open_document(source_uri, 1, open_source.to_string());
+    state.open_document(hmi_uri.clone(), 1, page.to_string());
+
+    let diagnostics = full_document_diagnostics(&state, hmi_uri);
+    assert!(
+        diagnostics.iter().all(|diag| {
+            !(diag.message.contains("unknown binding path")
+                && diag.message.contains("Main.velocity"))
+        }),
+        "HMI diagnostics must validate against open ST buffers before disk snapshots, got {:?}",
+        diagnostic_messages(&diagnostics)
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+pub(super) fn lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile() {
+    let root = temp_dir("trustlsp-hmi-local-property-diagnostics");
+    let hmi_path = root.join("hmi/overview.toml");
+    std::fs::create_dir_all(hmi_path.parent().expect("hmi parent")).expect("create hmi");
+
+    let page = r#"
+title = "Overview"
+kind = "dashboard"
+
+[[section]]
+title = "Main"
+
+[[section.widget]]
+type = "gauge"
+bind = "Main.speed"
+min = 10
+max = 1
+"#;
+    std::fs::write(&hmi_path, page).expect("write hmi page");
+
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
+    state.set_workspace_config(root_uri, ProjectConfig::load(&root));
+    let hmi_uri = tower_lsp::lsp_types::Url::from_file_path(&hmi_path).expect("hmi uri");
+    state.open_document(hmi_uri.clone(), 1, page.to_string());
+
+    let diagnostics = full_document_diagnostics(&state, hmi_uri);
+    assert!(
+        diagnostics.iter().any(|diag| {
+            matches!(
+                diag.code.as_ref(),
+                Some(tower_lsp::lsp_types::NumberOrString::String(code))
+                    if code == "HMI_INVALID_WIDGET_PROPERTIES"
+            )
+        }),
+        "local HMI widget-property diagnostics must not depend on runtime compilation, got {:?}",
+        diagnostic_messages(&diagnostics)
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
 pub(super) fn lsp_will_rename_files_updates_pou_name() {
     let source_decl = r#"
 FUNCTION_BLOCK OldName
@@ -378,4 +665,33 @@ END_PROGRAM
     let ref_edits = changes.get(&ref_uri).expect("reference edits");
     assert!(decl_edits.iter().any(|edit| edit.new_text == "NewName"));
     assert!(ref_edits.iter().any(|edit| edit.new_text == "NewName"));
+}
+
+fn full_document_diagnostics(
+    state: &ServerState,
+    uri: tower_lsp::lsp_types::Url,
+) -> Vec<tower_lsp::lsp_types::Diagnostic> {
+    let report = document_diagnostic(
+        state,
+        tower_lsp::lsp_types::DocumentDiagnosticParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+    );
+    match report {
+        tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(
+            tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full),
+        ) => full.full_document_diagnostic_report.items,
+        other => panic!("expected full document diagnostic report, got {other:?}"),
+    }
+}
+
+fn diagnostic_messages(diagnostics: &[tower_lsp::lsp_types::Diagnostic]) -> Vec<String> {
+    diagnostics
+        .iter()
+        .map(|diag| diag.message.clone())
+        .collect()
 }

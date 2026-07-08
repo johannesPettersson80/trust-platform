@@ -1,0 +1,55 @@
+id = "cfm_comms_determinism_connector_projection_001"
+category = "comms_determinism"
+kind = "connector_status_trace"
+description = "Simulated connector status transitions project to the shared connector contract without live sockets."
+
+[[connector_status_steps]]
+source = "ads_connection"
+state = "connected"
+expected_state = "ready"
+expected_health = "ok"
+
+[[connector_status_steps]]
+source = "ads_status"
+state = "connected"
+degraded_points = 2
+expected_state = "degraded"
+expected_health = "degraded"
+
+[[connector_status_steps]]
+source = "opcua_client"
+state = "connecting"
+expected_state = "reconnecting"
+expected_health = "degraded"
+
+[[connector_status_steps]]
+source = "opcua_server"
+state = "no_snapshot"
+expected_state = "not_ready"
+expected_health = "unknown"
+
+[[connector_status_steps]]
+source = "mqtt_session"
+state = "connected_stale"
+expected_state = "stale"
+expected_health = "degraded"
+
+[[connector_status_steps]]
+source = "modbus"
+state = "protocol_error"
+expected_state = "degraded"
+expected_health = "degraded"
+
+[[connector_status_steps]]
+source = "ethercat"
+state = "reconnecting"
+expected_state = "reconnecting"
+expected_health = "degraded"
+
+[[connector_status_steps]]
+source = "io_driver"
+state = "faulted"
+error_policy = "warn"
+detail = "scripted IO driver failure"
+expected_state = "degraded"
+expected_health = "degraded"

@@ -11,9 +11,10 @@ use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use crate::util::{
-    field_declaration_ranges, ident_token_in_name, is_type_name_node, is_type_symbol_kind,
-    qualified_name_from_field_expr, resolve_target_at_position_with_context,
-    resolve_type_symbol_at_node, scope_at_position, FieldTarget, IdeContext, ResolvedTarget,
+    contains_ascii_case_insensitive, field_declaration_ranges, ident_token_in_name,
+    is_type_name_node, is_type_symbol_kind, qualified_name_from_field_expr,
+    resolve_target_at_position_with_context, resolve_type_symbol_at_node, scope_at_position,
+    FieldTarget, IdeContext, ResolvedTarget,
 };
 
 /// A reference to a symbol.
@@ -67,7 +68,12 @@ pub fn find_references(
                     return Vec::new();
                 };
                 if is_type_symbol_kind(&target_symbol.kind) {
-                    find_type_references_across_project(db, identity, options)
+                    find_type_references_across_project(
+                        db,
+                        identity,
+                        target_symbol.name.clone(),
+                        options,
+                    )
                 } else {
                     find_references_to_symbol_across_project(
                         db,
@@ -82,6 +88,58 @@ pub fn find_references(
     }
 
     Vec::new()
+}
+
+/// Finds references to the symbol at the given position within the same file.
+pub fn find_references_in_file(
+    db: &Database,
+    file_id: FileId,
+    position: TextSize,
+    options: FindReferencesOptions,
+) -> Vec<Reference> {
+    let context = IdeContext::new(db, file_id);
+
+    let Some(target) = resolve_target_at_position_with_context(
+        db,
+        file_id,
+        position,
+        &context.source,
+        &context.root,
+        &context.symbols,
+    ) else {
+        return Vec::new();
+    };
+
+    match target {
+        ResolvedTarget::Symbol(symbol_id) => {
+            let Some(identity) = symbol_identity(&context.symbols, symbol_id, file_id) else {
+                return Vec::new();
+            };
+            let Some(target_symbol) = context.symbols.get(symbol_id) else {
+                return Vec::new();
+            };
+            if is_type_symbol_kind(&target_symbol.kind) {
+                find_type_references_in_file_by_identity(db, file_id, identity, &target_symbol.name)
+            } else {
+                let mut references = Vec::new();
+                if options.include_declaration && identity.file_id == file_id {
+                    if let Some(reference) = declaration_reference(db, identity) {
+                        references.push(reference);
+                    }
+                }
+                references.extend(find_references_to_symbol_in_file_by_identity(
+                    db,
+                    file_id,
+                    identity,
+                    &target_symbol.name,
+                ));
+                references
+            }
+        }
+        ResolvedTarget::Field(field) => {
+            find_references_to_field_in_file(db, file_id, &field, options)
+        }
+    }
 }
 
 fn find_references_to_symbol_across_project(
@@ -116,6 +174,9 @@ fn find_references_to_symbol_in_file_by_identity(
     target_name: &SmolStr,
 ) -> Vec<Reference> {
     let source = db.source_text(file_id);
+    if !contains_ascii_case_insensitive(&source, target_name) {
+        return Vec::new();
+    }
     let parsed = parse(&source);
     let root = parsed.syntax();
     let symbols = db.file_symbols_with_project(file_id);
@@ -184,6 +245,7 @@ fn find_references_to_symbol_in_file_by_identity(
 fn find_type_references_across_project(
     db: &Database,
     identity: SymbolIdentity,
+    target_name: SmolStr,
     options: FindReferencesOptions,
 ) -> Vec<Reference> {
     let mut references = Vec::new();
@@ -198,6 +260,7 @@ fn find_type_references_across_project(
             db,
             other_file_id,
             identity,
+            &target_name,
         ));
     }
 
@@ -208,8 +271,12 @@ fn find_type_references_in_file_by_identity(
     db: &Database,
     file_id: FileId,
     identity: SymbolIdentity,
+    target_name: &SmolStr,
 ) -> Vec<Reference> {
     let source = db.source_text(file_id);
+    if !contains_ascii_case_insensitive(&source, target_name) {
+        return Vec::new();
+    }
     let parsed = parse(&source);
     let root = parsed.syntax();
     let symbols = db.file_symbols_with_project(file_id);
@@ -383,6 +450,9 @@ pub(crate) fn find_references_to_field(
 
     for other_file_id in db.file_ids() {
         let source = db.source_text(other_file_id);
+        if !contains_ascii_case_insensitive(&source, &target.name) {
+            continue;
+        }
         let parsed = parse(&source);
         let root = parsed.syntax();
         let symbols = db.file_symbols_with_project(other_file_id);
@@ -399,6 +469,23 @@ pub(crate) fn find_references_to_field(
     }
 
     references
+}
+
+fn find_references_to_field_in_file(
+    db: &Database,
+    file_id: FileId,
+    target: &FieldTarget,
+    options: FindReferencesOptions,
+) -> Vec<Reference> {
+    let source = db.source_text(file_id);
+    if !contains_ascii_case_insensitive(&source, &target.name) {
+        return Vec::new();
+    }
+    let parsed = parse(&source);
+    let root = parsed.syntax();
+    let symbols = db.file_symbols_with_project(file_id);
+
+    find_references_to_field_in_context(db, file_id, target, options, &source, &root, &symbols)
 }
 
 fn find_references_to_field_in_context(

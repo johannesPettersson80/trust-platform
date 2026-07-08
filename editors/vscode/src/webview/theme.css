@@ -203,6 +203,78 @@ body[data-vscode-theme-kind="vscode-high-contrast-light"] {
     --trust-shadow: none;
     --trust-shadow-overlay: none;
   }
+
+  body.vscode-high-contrast,
+  body[data-vscode-theme-kind="vscode-high-contrast"] {
+    forced-color-adjust: none;
+    --trust-canvas: #000000;
+    --trust-surface: #000000;
+    --trust-surface-raised: #000000;
+    --trust-overlay: #000000;
+    --trust-text: var(--vscode-foreground, #ffffff);
+    --trust-text-muted: var(--vscode-descriptionForeground, #cccccc);
+    --trust-text-subtle: var(--vscode-disabledForeground, #cccccc);
+    --trust-border: var(--vscode-contrastBorder, var(--vscode-focusBorder, #f38518));
+    --trust-border-subtle: var(--trust-border);
+    --trust-accent: var(--vscode-focusBorder, #f38518);
+    --trust-action-primary-bg: var(--vscode-button-background, #000000);
+    --trust-action-primary-hover-bg: var(--vscode-button-hoverBackground, #000000);
+    --trust-action-primary-fg: var(--vscode-button-foreground, #ffffff);
+    --trust-input-bg: #000000;
+    --trust-input-border: var(--trust-border);
+    --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
+    --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 42%, transparent);
+    --trust-role-host-bg: #000000;
+    --trust-role-runtime-bg: #000000;
+    --trust-role-endpoint-bg: #000000;
+    --trust-role-external-bg: #000000;
+    --trust-role-host-border: var(--trust-protocol-blue);
+    --trust-role-runtime-border: var(--trust-protocol-green);
+    --trust-role-external-border: var(--trust-protocol-orange);
+    --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
+    --trust-rail: var(--trust-text);
+    --trust-ladder-wire: var(--trust-text);
+    --trust-ladder-body: #000000;
+    --trust-ladder-text: var(--trust-text);
+    --trust-shadow: none;
+    --trust-shadow-overlay: none;
+  }
+
+  body.vscode-high-contrast-light,
+  body[data-vscode-theme-kind="vscode-high-contrast-light"] {
+    forced-color-adjust: none;
+    --trust-canvas: #ffffff;
+    --trust-surface: #ffffff;
+    --trust-surface-raised: #ffffff;
+    --trust-overlay: #ffffff;
+    --trust-text: var(--vscode-foreground, #000000);
+    --trust-text-muted: var(--vscode-descriptionForeground, #292929);
+    --trust-text-subtle: var(--vscode-disabledForeground, #515151);
+    --trust-border: var(--vscode-contrastBorder, var(--vscode-focusBorder, #0f4a85));
+    --trust-border-subtle: var(--trust-border);
+    --trust-accent: var(--vscode-focusBorder, #0f4a85);
+    --trust-action-primary-bg: var(--vscode-button-background, #ffffff);
+    --trust-action-primary-hover-bg: var(--vscode-button-hoverBackground, #f2f2f2);
+    --trust-action-primary-fg: var(--vscode-button-foreground, #000000);
+    --trust-input-bg: #ffffff;
+    --trust-input-border: var(--trust-border);
+    --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 24%, transparent);
+    --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 36%, transparent);
+    --trust-role-host-bg: #ffffff;
+    --trust-role-runtime-bg: #ffffff;
+    --trust-role-endpoint-bg: #ffffff;
+    --trust-role-external-bg: #ffffff;
+    --trust-role-host-border: var(--trust-protocol-blue);
+    --trust-role-runtime-border: var(--trust-protocol-green);
+    --trust-role-external-border: var(--trust-protocol-orange);
+    --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
+    --trust-rail: var(--trust-text);
+    --trust-ladder-wire: var(--trust-text);
+    --trust-ladder-body: #ffffff;
+    --trust-ladder-text: var(--trust-text);
+    --trust-shadow: none;
+    --trust-shadow-overlay: none;
+  }
 }
 
 body {

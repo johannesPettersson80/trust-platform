@@ -63,6 +63,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2

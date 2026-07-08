@@ -40,7 +40,7 @@ The README must contain these sections, in this order:
     shape is overkill
 11. **Integration map** — Markdown table of `%I/%Q/%M` bindings, comms list,
     OPC UA exposed records
-12. **Run** — exact `trust-runtime test` commands for both projects
+12. **Run** — exact `trust-dev test` commands for both projects
 
 ## Style Rules
 
@@ -153,8 +153,8 @@ OPC UA exposed records (from `runtime.toml`): `<list of names>`.
 ## Run
 
 \`\`\`bash
-trust-runtime test --project examples/OSCAT/<slug>/non-oop
-trust-runtime test --project examples/OSCAT/<slug>/oop
+trust-dev test --project examples/OSCAT/<slug>/non-oop
+trust-dev test --project examples/OSCAT/<slug>/oop
 \`\`\`
 ```
 

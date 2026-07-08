@@ -15,6 +15,8 @@ fn hmi_dashboard_routes_render_without_manual_layout() {
     assert!(hmi_html.contains("id=\"hmiGroups\""));
     assert!(hmi_html.contains("id=\"pageSidebar\""));
     assert!(hmi_html.contains("class=\"pill status-chip\""));
+    assert!(hmi_html.contains("id=\"connectorSummaryState\""));
+    assert!(!hmi_html.contains("id=\"connectorProofState\""));
     assert!(hmi_html.contains("class=\"action-link hmi-action\""));
     assert!(
         hmi_html
@@ -33,6 +35,8 @@ fn hmi_dashboard_routes_render_without_manual_layout() {
     assert!(hmi_js.contains("hmi.trends.get"));
     assert!(hmi_js.contains("hmi.alarms.get"));
     assert!(hmi_js.contains("hmi.alarm.ack"));
+    assert!(hmi_js.contains("connectors.status"));
+    assert!(hmi_js.contains("updateConnectorStatusSummary"));
     assert!(hmi_js.contains("connectWebSocketTransport"));
     assert!(hmi_js.contains("/ws/hmi"));
     assert!(hmi_js.contains("hmi.values.delta"));
@@ -71,6 +75,7 @@ fn hmi_dashboard_routes_render_without_manual_layout() {
     assert!(hmi_css.contains("@media (max-width: 680px)"));
     assert!(hmi_css.contains("@media (max-width: 1024px)"));
     assert!(hmi_css.contains(".status-chip"));
+    assert!(hmi_css.contains(".connector-chip"));
     assert!(hmi_css.contains("cursor: default"));
     assert!(hmi_css.contains(".action-link:focus-visible"));
     assert!(hmi_css.contains("box-shadow: var(--shadow-sm)"));

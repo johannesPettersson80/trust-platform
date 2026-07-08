@@ -3352,10 +3352,12 @@ dependencies = [
 [[package]]
 name = "open-ot-carriage"
 version = "0.1.0"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
 
 [[package]]
 name = "open-ot-conformance"
 version = "0.1.0"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
 dependencies = [
  "open-ot-carriage",
  "open-ot-shm",
@@ -3364,6 +3366,7 @@ dependencies = [
 [[package]]
 name = "open-ot-definition"
 version = "0.1.0"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
 dependencies = [
  "open-ot-carriage",
  "serde",
@@ -3375,6 +3378,7 @@ dependencies = [
 [[package]]
 name = "open-ot-document"
 version = "0.1.0"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
 dependencies = [
  "open-ot-carriage",
  "open-ot-definition",
@@ -3385,6 +3389,7 @@ dependencies = [
 [[package]]
 name = "open-ot-shm"
 version = "0.1.0"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
 dependencies = [
  "memmap2",
  "open-ot-carriage",
@@ -5781,7 +5786,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "serde",
  "serde_json",
@@ -5790,14 +5795,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5812,7 +5817,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5831,7 +5836,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "boxcar",
  "insta",
@@ -5849,7 +5854,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5862,7 +5867,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5889,7 +5894,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5902,7 +5907,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "ads",
  "anyhow",
@@ -5944,6 +5949,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "signal-hook",
  "smol_str",
  "text-size",
  "time",
@@ -5970,7 +5976,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5981,7 +5987,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5992,7 +5998,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "rowan",
  "serde",
@@ -7283,7 +7289,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.28"
+version = "0.24.29"
 dependencies = [
  "anyhow",
  "serde",

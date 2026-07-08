@@ -50,6 +50,11 @@ const LAUNCH_JSON_SOURCE = `{
 }
 `;
 
+const VSCODE_SETTINGS_SOURCE = `{
+  "debug.showInStatusBar": "never"
+}
+`;
+
 // §0.5.15: a runnable simulator project = src/Main.st + trust-lsp.toml + runtime.toml + io.toml. The
 // simulator (trust-debug) runs from trust-lsp.toml; runtime.toml + io.toml let Devices & Connections load
 // the OFFLINE topology immediately (read by the bundled trust-runtime — phase 0 packaging) with simulated
@@ -236,6 +241,10 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(vscodeUri, "launch.json"),
     Buffer.from(LAUNCH_JSON_SOURCE)
+  );
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(vscodeUri, "settings.json"),
+    Buffer.from(VSCODE_SETTINGS_SOURCE)
   );
 }
 

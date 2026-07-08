@@ -109,7 +109,7 @@ ST tests:
 
 ### 2. Example ST Fixtures
 
-Add a Rust driver that runs `trust-runtime test --project` for every new
+Add a Rust driver that runs `trust-dev test --project` for every new
 example pair. The ST assertions live inside each example.
 
 Target 49 comparison pairs: 27 industrial pattern pairs, 20 compact

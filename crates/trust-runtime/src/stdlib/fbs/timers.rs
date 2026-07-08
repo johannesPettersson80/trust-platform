@@ -146,9 +146,16 @@ impl Tp {
                 self.et = pt;
             }
         }
+        if !input && !self.active {
+            self.et = Duration::ZERO;
+        }
         self.q = self.active;
         self.prev_in = input;
-        let et = if self.active { self.et } else { Duration::ZERO };
+        let et = if self.active || input {
+            self.et
+        } else {
+            Duration::ZERO
+        };
         TimerOutput { q: self.q, et }
     }
 }

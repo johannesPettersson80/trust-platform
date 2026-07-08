@@ -153,6 +153,27 @@ pub struct AdsServerSymbolSource {
 }
 
 impl AdsServerSymbolSource {
+    /// Builds an empty symbol source for an enabled server that has not
+    /// received a runtime snapshot yet.
+    ///
+    /// # Errors
+    ///
+    /// Returns a runtime configuration error when empty symbol publication fails.
+    pub fn empty(config: &AdsServerRuntimeConfig) -> Result<Self, RuntimeError> {
+        let snapshot = build_server_symbol_snapshot(
+            route_name(config),
+            Vec::new(),
+            DEFAULT_SERVER_SYMBOL_INDEX_GROUP,
+        )
+        .map_err(symbol_error)?;
+        let mut counter = SymbolVersionCounter::new();
+        counter.observe_snapshot(&snapshot).map_err(symbol_error)?;
+        Ok(Self {
+            snapshot: Arc::new(RwLock::new(Arc::new(snapshot))),
+            counter: Arc::new(Mutex::new(counter)),
+        })
+    }
+
     /// Builds a symbol source from a runtime snapshot.
     ///
     /// # Errors

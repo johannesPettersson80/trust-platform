@@ -4,6 +4,16 @@
 *)
 
 FUNCTION_BLOCK FB_snake_simple_v2_BLOCKLY
+VAR_EXTERNAL
+  ld_io_QX0_0 : BOOL;
+  ld_io_QX0_1 : BOOL;
+  ld_io_QX0_2 : BOOL;
+  ld_io_QX0_3 : BOOL;
+  ld_io_QX0_4 : BOOL;
+  ld_io_QX0_5 : BOOL;
+  ld_io_QX0_6 : BOOL;
+  ld_io_QX0_7 : BOOL;
+END_VAR
 
 VAR
   position : INT;
@@ -15,14 +25,14 @@ END_VAR
 position := 0;
 direction := 1;
 WHILE TRUE DO
-  %QX0.0 := (position = 0);
-  %QX0.1 := (position = 1);
-  %QX0.2 := (position = 2);
-  %QX0.3 := (position = 3);
-  %QX0.4 := (position = 4);
-  %QX0.5 := (position = 5);
-  %QX0.6 := (position = 6);
-  %QX0.7 := (position = 7);
+  ld_io_QX0_0 := (position = 0);
+  ld_io_QX0_1 := (position = 1);
+  ld_io_QX0_2 := (position = 2);
+  ld_io_QX0_3 := (position = 3);
+  ld_io_QX0_4 := (position = 4);
+  ld_io_QX0_5 := (position = 5);
+  ld_io_QX0_6 := (position = 6);
+  ld_io_QX0_7 := (position = 7);
   IF (direction = 1) THEN
     position := (position + 1);
     IF (position > 7) THEN

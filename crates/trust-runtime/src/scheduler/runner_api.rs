@@ -76,6 +76,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         &mut self.runtime
     }
 
+    /// Restart the runtime while preserving the runner's live clock baseline.
+    pub fn restart(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
+        self.runtime.restart(mode)?;
+        let now = scaled_time(self.clock.now(), self.time_scale);
+        self.runtime.reset_task_timing(now);
+        Ok(())
+    }
+
     /// Execute one cycle using the current clock time.
     pub fn tick(&mut self) -> Result<(), RuntimeError> {
         let now = self.clock.now();
@@ -111,20 +119,18 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
         let builder = thread::Builder::new().name(name.into());
+        let thread_init_hook = runner.thread_init_hook.clone();
         let join = builder
             .spawn(move || {
-                if let Some(hook) = runner.thread_init_hook.as_ref() {
-                    if let Err(err) = hook() {
-                        *last_error_thread.lock().expect("resource error poisoned") =
-                            Some(err.clone());
-                        *state_thread.lock().expect("resource state poisoned") =
-                            ResourceState::Faulted;
-                        let _ = id_tx.send(Err(err));
-                        return;
-                    }
-                }
-                let _ = id_tx.send(Ok(thread::current().id()));
-                run_resource_loop(runner, stop_thread, state_thread, last_error_thread);
+                run_guarded_resource_thread(
+                    thread_init_hook,
+                    id_tx,
+                    state_thread.clone(),
+                    last_error_thread.clone(),
+                    move || {
+                        run_resource_loop(runner, stop_thread, state_thread, last_error_thread);
+                    },
+                );
             })
             .map_err(|err| RuntimeError::ThreadSpawn(err.to_string().into()))?;
 
@@ -169,25 +175,23 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
         let builder = thread::Builder::new().name(name.into());
+        let thread_init_hook = runner.thread_init_hook.clone();
         let join = builder
             .spawn(move || {
-                if let Some(hook) = runner.thread_init_hook.as_ref() {
-                    if let Err(err) = hook() {
-                        *last_error_thread.lock().expect("resource error poisoned") =
-                            Some(err.clone());
-                        *state_thread.lock().expect("resource state poisoned") =
-                            ResourceState::Faulted;
-                        let _ = id_tx.send(Err(err));
-                        return;
-                    }
-                }
-                let _ = id_tx.send(Ok(thread::current().id()));
-                run_resource_loop_with_shared(
-                    runner,
-                    stop_thread,
-                    state_thread,
-                    last_error_thread,
-                    shared_thread,
+                run_guarded_resource_thread(
+                    thread_init_hook,
+                    id_tx,
+                    state_thread.clone(),
+                    last_error_thread.clone(),
+                    move || {
+                        run_resource_loop_with_shared(
+                            runner,
+                            stop_thread,
+                            state_thread,
+                            last_error_thread,
+                            shared_thread,
+                        );
+                    },
                 );
             })
             .map_err(|err| RuntimeError::ThreadSpawn(err.to_string().into()))?;
@@ -210,5 +214,33 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
         })
+    }
+}
+
+fn run_guarded_resource_thread(
+    thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
+    id_tx: std::sync::mpsc::Sender<Result<thread::ThreadId, RuntimeError>>,
+    state: Arc<Mutex<ResourceState>>,
+    last_error: Arc<Mutex<Option<RuntimeError>>>,
+    body: impl FnOnce(),
+) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if let Some(hook) = thread_init_hook.as_ref() {
+            if let Err(err) = hook() {
+                set_last_error(&last_error, err.clone());
+                set_resource_state(&state, ResourceState::Faulted);
+                let _ = id_tx.send(Err(err));
+                return;
+            }
+        }
+        let _ = id_tx.send(Ok(thread::current().id()));
+        body();
+    }));
+
+    if let Err(payload) = result {
+        let err = RuntimeError::ResourcePanic(panic_payload_message(payload));
+        set_last_error(&last_error, err.clone());
+        set_resource_state(&state, ResourceState::Faulted);
+        let _ = id_tx.send(Err(err));
     }
 }

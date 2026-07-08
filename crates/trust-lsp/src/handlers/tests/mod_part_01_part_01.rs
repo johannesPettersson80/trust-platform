@@ -434,7 +434,7 @@ path = "vendor"
         new_name: "counter".to_string(),
         work_done_progress_params: Default::default(),
     };
-    let rename_result = rename(&state, rename_params);
+    let rename_result = rename(&state, rename_params).expect("rename response");
 
     let prepare_rename_result = prepare_rename(
         &state,

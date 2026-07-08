@@ -211,11 +211,13 @@ fn bind_vm_function_block_arguments_supports_mixed_out_and_inout_rebinding() {
     let (module, pou_id) = manual_vm_function_block_module(vec![
         VmParamMeta {
             name: SmolStr::new("OUT"),
+            type_id: 0,
             direction: 1,
             default_const_idx: None,
         },
         VmParamMeta {
             name: SmolStr::new("ACC"),
+            type_id: 0,
             direction: 2,
             default_const_idx: None,
         },
@@ -246,6 +248,7 @@ fn bind_vm_function_block_arguments_preserves_omitted_input_field() {
         .set_instance_var(instance, "IN", Value::DInt(41)));
     let (module, pou_id) = manual_vm_function_block_module(vec![VmParamMeta {
         name: SmolStr::new("IN"),
+        type_id: 0,
         direction: 0,
         default_const_idx: None,
     }]);
@@ -282,11 +285,13 @@ fn bind_vm_function_block_arguments_accepts_exact_positional_and_rejects_extra()
     let (module, pou_id) = manual_vm_function_block_module(vec![
         VmParamMeta {
             name: SmolStr::new("IN"),
+            type_id: 0,
             direction: 0,
             default_const_idx: None,
         },
         VmParamMeta {
             name: SmolStr::new("OUT"),
+            type_id: 0,
             direction: 1,
             default_const_idx: None,
         },
@@ -335,11 +340,13 @@ fn bind_vm_call_arguments_accepts_exact_positional_and_rejects_extra() {
         vec![
             VmParamMeta {
                 name: SmolStr::new("A"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },
             VmParamMeta {
                 name: SmolStr::new("B"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },
@@ -388,11 +395,13 @@ fn bind_vm_call_arguments_allows_omitted_trailing_positional_input() {
         vec![
             VmParamMeta {
                 name: SmolStr::new("A"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },
             VmParamMeta {
                 name: SmolStr::new("B"),
+                type_id: 0,
                 direction: 0,
                 default_const_idx: None,
             },

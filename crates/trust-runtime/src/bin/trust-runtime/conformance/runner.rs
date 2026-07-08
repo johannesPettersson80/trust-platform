@@ -132,9 +132,10 @@ pub fn run_conformance(
         results.push(summary_result);
     }
 
+    let summary_contract = summary_contract_for_cases(&cases);
     let summary = SummaryOutput {
-        version: 1,
-        profile: PROFILE_NAME.to_string(),
+        version: summary_contract.version,
+        profile: summary_contract.profile.to_string(),
         generated_at_utc: timestamp.rfc3339,
         ordering: "case_id_asc".to_string(),
         runtime: RuntimeSummaryMeta {
@@ -170,4 +171,15 @@ pub fn run_conformance(
         );
     }
     Ok(())
+}
+
+fn summary_contract_for_cases(cases: &[CaseDefinition]) -> SummaryContract {
+    if cases
+        .iter()
+        .all(|case| V1_CATEGORIES.contains(&case.category.as_str()))
+    {
+        SummaryContract::v1()
+    } else {
+        SummaryContract::v2()
+    }
 }

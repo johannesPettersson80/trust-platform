@@ -772,15 +772,15 @@ fn active_read_state_step(active: &ActiveAdsDeviceSnapshot) -> DoctorStep {
             "Live ADS worker is connected.",
         )
         .with_evidence("connection_state", "connected"),
-        AdsConnectionStatusState::Reconnecting | AdsConnectionStatusState::Stale => {
-            DoctorStep::new(
-                DoctorStepId::ReadState,
-                "PLC runtime state",
-                DoctorStepStatus::Warn,
-                format!("Live ADS worker is {:?}.", active.state),
-            )
-            .with_evidence("connection_state", format!("{:?}", active.state))
-        }
+        AdsConnectionStatusState::Reconnecting
+        | AdsConnectionStatusState::NotReady
+        | AdsConnectionStatusState::Stale => DoctorStep::new(
+            DoctorStepId::ReadState,
+            "PLC runtime state",
+            DoctorStepStatus::Warn,
+            format!("Live ADS worker is {:?}.", active.state),
+        )
+        .with_evidence("connection_state", format!("{:?}", active.state)),
         AdsConnectionStatusState::Faulted => {
             let mut step = DoctorStep::new(
                 DoctorStepId::ReadState,

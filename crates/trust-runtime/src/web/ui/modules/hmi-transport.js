@@ -14,6 +14,27 @@ async function apiControl(type, params) {
   return response.json();
 }
 
+async function refreshConnectorStatus() {
+  try {
+    const response = await apiControl('connectors.status');
+    if (!response.ok) {
+      throw new Error(response.error || 'connectors.status request failed');
+    }
+    updateConnectorStatusSummary(response.result || {});
+  } catch (error) {
+    markConnectorStatusUnavailable(error);
+  }
+}
+
+function ensureConnectorPollingLoop() {
+  if (state.connectorPollHandle !== null) {
+    return;
+  }
+  state.connectorPollHandle = window.setInterval(() => {
+    void refreshConnectorStatus();
+  }, CONNECTOR_POLL_MS);
+}
+
 function ensurePollingLoop() {
   if (state.pollHandle !== null) {
     return;

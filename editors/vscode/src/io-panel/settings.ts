@@ -1,9 +1,10 @@
+import { getTrustConfiguration } from "../configuration";
 import * as vscode from "vscode";
 
 import { SettingsPayload } from "./types";
 
 export function collectSettingsSnapshot(): SettingsPayload {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   return {
     serverPath: config.get<string>("server.path") ?? "",
     traceServer: config.get<string>("trace.server") ?? "off",
@@ -26,7 +27,7 @@ export async function applySettingsUpdate(
   if (!payload) {
     return;
   }
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const settingsUpdates: Array<{ key: string; value: unknown }> = [
     { key: "server.path", value: payload.serverPath?.trim() || undefined },
     { key: "trace.server", value: payload.traceServer?.trim() || "off" },

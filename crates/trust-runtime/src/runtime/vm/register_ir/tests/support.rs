@@ -83,6 +83,7 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
             pou_params: HashMap::new(),
             pou_has_return_slot: HashSet::new(),
             method_table_by_owner: HashMap::new(),
+            ref_types: HashMap::new(),
             debug_map: super::super::debug_map::VmDebugMap::default(),
             instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
         },

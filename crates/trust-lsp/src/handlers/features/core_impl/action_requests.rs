@@ -1,4 +1,5 @@
 use super::*;
+use tower_lsp::jsonrpc::{Error, ErrorCode, Result as JsonRpcResult};
 
 pub fn code_action(state: &ServerState, params: CodeActionParams) -> Option<CodeActionResponse> {
     let request_ticket = state.begin_semantic_request();
@@ -479,7 +480,7 @@ fn var_decl_at_offset(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode>
     find_var_decl_for_range(root, TextRange::new(offset, offset))
 }
 
-pub fn rename(state: &ServerState, params: RenameParams) -> Option<WorkspaceEdit> {
+pub fn rename(state: &ServerState, params: RenameParams) -> JsonRpcResult<Option<WorkspaceEdit>> {
     let request_ticket = state.begin_semantic_request();
     rename_with_ticket(state, params, request_ticket)
 }
@@ -488,56 +489,91 @@ fn rename_with_ticket(
     state: &ServerState,
     params: RenameParams,
     request_ticket: u64,
-) -> Option<WorkspaceEdit> {
+) -> JsonRpcResult<Option<WorkspaceEdit>> {
     if state.semantic_request_cancelled(request_ticket) {
-        return None;
+        return Ok(None);
     }
 
     let uri = &params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
     let new_name = &params.new_name;
 
-    let doc = state.get_document(uri)?;
-    let offset = position_to_offset(&doc.content, position)?;
+    let Some(doc) = state.get_document(uri) else {
+        return Ok(None);
+    };
+    let Some(offset) = position_to_offset(&doc.content, position) else {
+        return Ok(None);
+    };
 
     if state.semantic_request_cancelled(request_ticket) {
-        return None;
+        return Ok(None);
     }
 
     let result = state
-        .with_database(|db| trust_ide::rename(db, doc.file_id, TextSize::from(offset), new_name))?;
+        .with_database(|db| {
+            trust_ide::rename::rename_checked(db, doc.file_id, TextSize::from(offset), new_name)
+        })
+        .map_err(rename_error_to_response)?;
 
     if state.semantic_request_cancelled(request_ticket) {
-        return None;
+        return Ok(None);
     }
 
     let file_rename = maybe_rename_pou_file(state, doc.file_id, TextSize::from(offset), new_name);
 
     if state.semantic_request_cancelled(request_ticket) {
-        return None;
+        return Ok(None);
     }
 
-    let changes = rename_result_to_changes(state, result)?;
+    let Some(changes) = rename_result_to_changes(state, result) else {
+        return Ok(None);
+    };
 
     if state.semantic_request_cancelled(request_ticket) {
-        return None;
+        return Ok(None);
     }
 
     if let Some(rename_op) = file_rename {
         let mut document_changes = changes_to_document_operations(state, changes);
         document_changes.push(DocumentChangeOperation::Op(ResourceOp::Rename(rename_op)));
-        return Some(WorkspaceEdit {
+        return Ok(Some(WorkspaceEdit {
             changes: None,
             document_changes: Some(DocumentChanges::Operations(document_changes)),
             change_annotations: None,
-        });
+        }));
     }
 
-    Some(WorkspaceEdit {
+    Ok(Some(WorkspaceEdit {
         changes: Some(changes),
         document_changes: None,
         change_annotations: None,
-    })
+    }))
+}
+
+fn rename_error_to_response(error: trust_ide::rename::RenameError) -> Error {
+    Error {
+        code: ErrorCode::InvalidParams,
+        message: error.to_string().into(),
+        data: Some(json!({
+            "reason": rename_error_reason(&error),
+        })),
+    }
+}
+
+fn rename_error_reason(error: &trust_ide::rename::RenameError) -> &'static str {
+    match error {
+        trust_ide::rename::RenameError::NoTarget => "no_target",
+        trust_ide::rename::RenameError::InvalidIdentifier { .. } => "invalid_identifier",
+        trust_ide::rename::RenameError::ReservedKeyword { .. } => "reserved_keyword",
+        trust_ide::rename::RenameError::UnsupportedNamespaceRename { .. } => {
+            "unsupported_namespace_rename"
+        }
+        trust_ide::rename::RenameError::DeclaringScopeConflict { .. } => "declaring_scope_conflict",
+        trust_ide::rename::RenameError::CrossFileImportedSymbolConflict { .. } => {
+            "cross_file_imported_symbol_conflict"
+        }
+        trust_ide::rename::RenameError::ReferenceSiteRebind { .. } => "reference_site_rebind",
+    }
 }
 
 fn changes_to_document_operations(

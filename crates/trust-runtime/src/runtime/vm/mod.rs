@@ -4,7 +4,7 @@ use smol_str::SmolStr;
 
 use crate::bytecode::{
     BytecodeModule, PouKind, RefEntry, RefLocation, RefTable, SectionData, SectionId, StringTable,
-    TypeTable,
+    TypeTable, VarMeta,
 };
 use crate::error::RuntimeError;
 use crate::memory::IoArea;
@@ -25,6 +25,7 @@ mod frames;
 mod local_init;
 mod register_ir;
 mod stack;
+mod type_policy;
 
 // VM module ownership notes (Phase B):
 // - dispatch: instruction pointer loop + opcode routing + debug-hook emission.
@@ -86,6 +87,7 @@ pub(super) struct VmModule {
     pou_params: HashMap<u32, Vec<VmParamMeta>>,
     pou_has_return_slot: HashSet<u32>,
     method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>>,
+    ref_types: HashMap<u32, u32>,
     debug_map: debug_map::VmDebugMap,
     pub(super) instruction_budget: usize,
 }
@@ -143,12 +145,14 @@ impl VmModule {
             .map(call::preparse_native_symbol_spec)
             .collect::<Vec<_>>();
 
+        let var_meta = match module.section(SectionId::VarMeta) {
+            Some(SectionData::VarMeta(meta)) => Some(meta),
+            _ => None,
+        };
+        let ref_types = build_ref_type_map(var_meta);
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
-            match module.section(SectionId::VarMeta) {
-                Some(SectionData::VarMeta(meta)) => Some(meta),
-                _ => None,
-            },
+            var_meta,
             match module.section(SectionId::DebugStringTable) {
                 Some(SectionData::DebugStringTable(table)) => Some(table),
                 _ => None,
@@ -221,6 +225,7 @@ impl VmModule {
                     })?;
                 params.push(VmParamMeta {
                     name: param_name,
+                    type_id: param.type_id,
                     direction: param.direction,
                     default_const_idx: param.default_const_idx,
                 });
@@ -276,6 +281,7 @@ impl VmModule {
             pou_params,
             pou_has_return_slot,
             method_table_by_owner,
+            ref_types,
             debug_map,
             instruction_budget: DEFAULT_INSTRUCTION_BUDGET,
         })
@@ -295,6 +301,10 @@ impl VmModule {
 
     pub(super) fn pou_has_return_slot(&self, id: u32) -> bool {
         self.pou_has_return_slot.contains(&id)
+    }
+
+    pub(super) fn ref_type(&self, ref_idx: u32) -> Option<u32> {
+        self.ref_types.get(&ref_idx).copied()
     }
 
     pub(super) fn resolve_method_pou_id_uppercase(
@@ -322,6 +332,17 @@ impl VmModule {
     }
 }
 
+fn build_ref_type_map(var_meta: Option<&VarMeta>) -> HashMap<u32, u32> {
+    let Some(var_meta) = var_meta else {
+        return HashMap::new();
+    };
+    var_meta
+        .entries
+        .iter()
+        .map(|entry| (entry.ref_idx, entry.type_id))
+        .collect()
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct VmPouEntry {
     pub(super) name: SmolStr,
@@ -335,6 +356,7 @@ pub(super) struct VmPouEntry {
 #[derive(Debug, Clone)]
 pub(super) struct VmParamMeta {
     pub(super) name: SmolStr,
+    pub(super) type_id: u32,
     pub(super) direction: u8,
     pub(super) default_const_idx: Option<u32>,
 }
@@ -489,5 +511,36 @@ mod tests {
         }];
 
         assert_eq!(infer_primary_instance_owner(&entry, &code, &refs), Some(42));
+    }
+
+    #[test]
+    fn infer_primary_instance_owner_returns_none_for_ambiguous_owners() {
+        let mut code = vec![0x20];
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.push(0x20);
+        code.extend_from_slice(&1_u32.to_le_bytes());
+
+        let entry = VmPouEntry {
+            name: SmolStr::new("Main"),
+            code_start: 0,
+            code_end: code.len(),
+            local_ref_start: 0,
+            local_ref_count: 0,
+            primary_instance_owner: None,
+        };
+        let refs = vec![
+            VmRef::Instance {
+                owner_instance_id: 42,
+                offset: 0,
+                path: RefPath::new(),
+            },
+            VmRef::Instance {
+                owner_instance_id: 77,
+                offset: 0,
+                path: RefPath::new(),
+            },
+        ];
+
+        assert_eq!(infer_primary_instance_owner(&entry, &code, &refs), None);
     }
 }

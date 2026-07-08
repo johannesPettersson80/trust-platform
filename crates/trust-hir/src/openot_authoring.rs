@@ -396,7 +396,57 @@ pub fn collect_openot_attribute_diagnostics(root: &SyntaxNode) -> Vec<Diagnostic
     {
         diagnostics.extend(validate_local_openot_references(&program));
     }
+    diagnostics.extend(validate_explicit_sourceid_ownership(root));
     diagnostics
+}
+
+fn validate_explicit_sourceid_ownership(root: &SyntaxNode) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut by_id = BTreeMap::<u32, (String, TextRange)>::new();
+    let mut reported = BTreeSet::<u32>::new();
+    for program in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::Program)
+    {
+        let program_name = program_name(&program).unwrap_or_else(|| "<unknown>".to_string());
+        for var_decl in program
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarDecl)
+        {
+            let attrs = parse_attribute_map_from_node(&var_decl);
+            if attrs.kind().is_none() {
+                continue;
+            }
+            let Some(entry) = last_entry(&attrs, "sourceid") else {
+                continue;
+            };
+            let Ok(source_id) = entry.value.parse::<u32>() else {
+                continue;
+            };
+            if let Some((existing_program, _)) = by_id.get(&source_id) {
+                if existing_program != &program_name && reported.insert(source_id) {
+                    diagnostics.push(openot_error(
+                        entry.range,
+                        format!(
+                            "OpenOT sourceid {source_id} is used by both '{existing_program}' and '{program_name}'; use distinct sourceid values for distinct PROGRAM sources"
+                        ),
+                    ));
+                }
+            } else {
+                by_id.insert(source_id, (program_name.clone(), entry.range));
+            }
+        }
+    }
+    diagnostics
+}
+
+fn program_name(program: &SyntaxNode) -> Option<String> {
+    program
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .and_then(|node| name_info(&node))
+        .map(|name| name.text)
+        .filter(|name| !name.is_empty())
 }
 
 fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {

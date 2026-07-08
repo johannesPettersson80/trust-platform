@@ -4,6 +4,7 @@ fn bind_vm_function_block_arguments_skips_omitted_out_without_field_resolution()
     let instance = runtime.storage.create_instance("FB");
     let (module, pou_id) = manual_vm_function_block_module(vec![VmParamMeta {
         name: SmolStr::new("OUT"),
+        type_id: 0,
         direction: 1,
         default_const_idx: None,
     }]);
@@ -28,6 +29,7 @@ fn bind_vm_function_block_arguments_skips_omitted_inout_without_field_resolution
     let instance = runtime.storage.create_instance("FB");
     let (module, pou_id) = manual_vm_function_block_module(vec![VmParamMeta {
         name: SmolStr::new("ACC"),
+        type_id: 0,
         direction: 2,
         default_const_idx: None,
     }]);

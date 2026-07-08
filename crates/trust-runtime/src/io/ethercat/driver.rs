@@ -79,7 +79,7 @@ impl EthercatIoDriver {
                 self.health = IoDriverHealth::Degraded {
                     error: message.clone(),
                 };
-                Err(RuntimeError::IoTransport(message))
+                Ok(())
             }
         }
     }
@@ -180,7 +180,7 @@ fn build_bus(config: &EthercatConfig) -> Result<Box<dyn EthercatBus>, RuntimeErr
     {
         match EthercrabBus::new(config) {
             Ok(bus) => Ok(Box::new(bus)),
-            Err(error) => Ok(Box::new(DeferredEthercrabBus::from_initial_error(
+            Err(error) => Ok(Box::new(UnavailableEthercrabBus::from_initial_error(
                 config, error,
             ))),
         }
@@ -204,101 +204,44 @@ fn build_bus(config: &EthercatConfig) -> Result<Box<dyn EthercatBus>, RuntimeErr
 }
 
 #[cfg(all(feature = "ethercat-wire", unix))]
-struct DeferredEthercrabBus {
+struct UnavailableEthercrabBus {
     config: EthercatConfig,
-    bus: Option<EthercrabBus>,
-    last_error: Option<SmolStr>,
-    next_retry_at: Instant,
-    retry_backoff: StdDuration,
+    error: SmolStr,
 }
 
 #[cfg(all(feature = "ethercat-wire", unix))]
-impl DeferredEthercrabBus {
-    const INITIAL_BACKOFF: StdDuration = StdDuration::from_millis(250);
-    const MAX_BACKOFF: StdDuration = StdDuration::from_secs(5);
-
+impl UnavailableEthercrabBus {
     fn from_initial_error(config: &EthercatConfig, error: RuntimeError) -> Self {
-        let mut deferred = Self {
+        Self {
             config: config.clone(),
-            bus: None,
-            last_error: None,
-            next_retry_at: Instant::now(),
-            retry_backoff: Self::INITIAL_BACKOFF,
-        };
-        deferred.register_error(error);
-        deferred
-    }
-
-    fn register_error(&mut self, error: RuntimeError) {
-        self.last_error = Some(SmolStr::new(error.to_string()));
-        self.bus = None;
-        self.next_retry_at = Instant::now() + self.retry_backoff;
-        self.retry_backoff = self
-            .retry_backoff
-            .saturating_mul(2)
-            .min(Self::MAX_BACKOFF);
-    }
-
-    fn open_bus_if_due(&mut self) -> Result<(), RuntimeError> {
-        if self.bus.is_some() {
-            return Ok(());
-        }
-        if Instant::now() < self.next_retry_at {
-            let wait_ms = self
-                .next_retry_at
-                .saturating_duration_since(Instant::now())
-                .as_millis();
-            let reason = self
-                .last_error
-                .clone()
-                .unwrap_or_else(|| SmolStr::new("adapter unavailable"));
-            return Err(RuntimeError::IoDriver(
-                format!(
-                    "ethercat transport '{}' unavailable (retry in {}ms): {}",
-                    self.config.adapter, wait_ms, reason
-                )
-                .into(),
-            ));
-        }
-        match EthercrabBus::new(&self.config) {
-            Ok(bus) => {
-                self.bus = Some(bus);
-                self.last_error = None;
-                self.retry_backoff = Self::INITIAL_BACKOFF;
-                Ok(())
-            }
-            Err(error) => {
-                self.register_error(error.clone());
-                Err(error)
-            }
+            error: SmolStr::new(error.to_string()),
         }
     }
 
-    fn with_bus<T>(
-        &mut self,
-        operation: impl FnOnce(&mut EthercrabBus) -> Result<T, RuntimeError>,
-    ) -> Result<T, RuntimeError> {
-        self.open_bus_if_due()?;
-        let result = operation(self.bus.as_mut().expect("bus exists after open"));
-        if let Err(error) = result {
-            self.register_error(error.clone());
-            return Err(error);
-        }
-        Ok(result.expect("handled error above"))
+    fn unavailable(&self) -> RuntimeError {
+        RuntimeError::IoDriver(
+            format!(
+                "ethercat hardware unavailable until driver rebuild for '{}': {}",
+                self.config.adapter, self.error
+            )
+            .into(),
+        )
     }
 }
 
 #[cfg(all(feature = "ethercat-wire", unix))]
-impl EthercatBus for DeferredEthercrabBus {
-    fn discover(&mut self, config: &EthercatConfig) -> Result<EthercatDiscovery, RuntimeError> {
-        self.with_bus(|bus| bus.discover(config))
+impl EthercatBus for UnavailableEthercrabBus {
+    fn discover(&mut self, _config: &EthercatConfig) -> Result<EthercatDiscovery, RuntimeError> {
+        Err(self.unavailable())
     }
 
     fn read_inputs(&mut self, bytes: usize) -> Result<Vec<u8>, RuntimeError> {
-        self.with_bus(|bus| bus.read_inputs(bytes))
+        let _ = bytes;
+        Err(self.unavailable())
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
-        self.with_bus(|bus| bus.write_outputs(outputs))
+        let _ = outputs;
+        Err(self.unavailable())
     }
 }

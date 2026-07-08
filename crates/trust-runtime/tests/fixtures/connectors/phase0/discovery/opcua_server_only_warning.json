@@ -1,0 +1,9 @@
+{
+  "candidates": [],
+  "origin": "this_host",
+  "protocol": "opcua",
+  "schema_version": 1,
+  "warnings": [
+    "OPC UA discovery is not exposed here because truST currently provides OPC UA server setup, not an OPC UA client writer."
+  ]
+}

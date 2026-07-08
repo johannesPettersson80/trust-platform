@@ -1,6 +1,6 @@
 type PlcopenRuntimeAction = "import" | "export";
 
-const RUNTIME_PATH_SETTING = "trust-lsp.runtime.cli.path";
+const RUNTIME_PATH_SETTING = "trust.runtime.executablePath";
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();

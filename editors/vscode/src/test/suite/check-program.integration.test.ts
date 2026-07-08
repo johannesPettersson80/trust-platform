@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CHECK_PROGRAM_COMMAND } from "../../checkProgram";
+import { getTrustConfiguration } from "../../configuration";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -30,6 +31,26 @@ async function waitForDiagnostics(
   );
 }
 
+async function captureWarningMessages<T>(
+  run: () => Thenable<T> | Promise<T>
+): Promise<{ result: T; messages: string[] }> {
+  const windowLike = vscode.window as unknown as {
+    showWarningMessage: (...args: unknown[]) => Thenable<unknown>;
+  };
+  const original = windowLike.showWarningMessage;
+  const messages: string[] = [];
+  windowLike.showWarningMessage = (async (message: unknown) => {
+    messages.push(String(message));
+    return undefined;
+  }) as (...args: unknown[]) => Thenable<unknown>;
+  try {
+    const result = await run();
+    return { result, messages };
+  } finally {
+    windowLike.showWarningMessage = original;
+  }
+}
+
 suite("Compile diagnostics integration (VS Code)", function () {
   this.timeout(30000);
 
@@ -45,9 +66,9 @@ suite("Compile diagnostics integration (VS Code)", function () {
     const runtimeBin = process.env.ST_RUNTIME_TEST_BIN;
     if (runtimeBin && runtimeBin.trim().length > 0) {
       await vscode.workspace
-        .getConfiguration("trust-lsp")
+        .getConfiguration("trust")
         .update(
-          "runtime.cli.path",
+          "runtime.executablePath",
           runtimeBin,
           vscode.ConfigurationTarget.Workspace
         );
@@ -102,5 +123,77 @@ suite("Compile diagnostics integration (VS Code)", function () {
     );
     assert.ok(runtimeDiagnostic, "Expected a runtime.toml config diagnostic.");
     assert.strictEqual(runtimeDiagnostic?.source, "truST");
+  });
+
+  test("Compile reports an actionable missing runtime binary", async () => {
+    const config = getTrustConfiguration();
+    const previous = config.get<string>("runtime.executablePath") ?? "";
+    await config.update(
+      "runtime.executablePath",
+      "/tmp/trust-runtime-does-not-exist",
+      vscode.ConfigurationTarget.Workspace
+    );
+    try {
+      const { result, messages } = await captureWarningMessages(() =>
+        vscode.commands.executeCommand(CHECK_PROGRAM_COMMAND)
+      );
+      assert.strictEqual(result, undefined);
+      assert.ok(
+        messages.some((message) =>
+          message.includes("Missing trust-runtime")
+        ),
+        `Expected missing-runtime guidance, got: ${messages.join(" | ")}`
+      );
+      assert.ok(
+        messages.some((message) => message.includes("Runtime path")),
+        `Expected runtime setting hint, got: ${messages.join(" | ")}`
+      );
+    } finally {
+      await config.update(
+        "runtime.executablePath",
+        previous || undefined,
+        vscode.ConfigurationTarget.Workspace
+      );
+    }
+  });
+
+  test("Compile reports an actionable runtime report version mismatch", async () => {
+    const config = getTrustConfiguration();
+    const previous = config.get<string>("runtime.executablePath") ?? "";
+    const fakeRuntime = path.join(
+      os.tmpdir(),
+      `trust-runtime-version-mismatch-${process.pid}.sh`
+    );
+    fs.writeFileSync(
+      fakeRuntime,
+      '#!/usr/bin/env sh\nprintf \'{"version":99,"command":"check","ok":true,"status":"ok","errors":0,"warnings":0,"issues":[],"source_count":1}\\n\'\n'
+    );
+    fs.chmodSync(fakeRuntime, 0o755);
+    await config.update(
+      "runtime.executablePath",
+      fakeRuntime,
+      vscode.ConfigurationTarget.Workspace
+    );
+    try {
+      const { result, messages } = await captureWarningMessages(() =>
+        vscode.commands.executeCommand(CHECK_PROGRAM_COMMAND)
+      );
+      assert.strictEqual(result, undefined);
+      assert.ok(
+        messages.some((message) => message.includes("Runtime mismatch v99")),
+        `Expected version mismatch guidance, got: ${messages.join(" | ")}`
+      );
+      assert.ok(
+        messages.some((message) => message.includes("Update truST")),
+        `Expected update/reinstall guidance, got: ${messages.join(" | ")}`
+      );
+    } finally {
+      await config.update(
+        "runtime.executablePath",
+        previous || undefined,
+        vscode.ConfigurationTarget.Workspace
+      );
+      fs.rmSync(fakeRuntime, { force: true });
+    }
   });
 });

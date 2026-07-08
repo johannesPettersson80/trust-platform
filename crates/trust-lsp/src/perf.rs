@@ -2,7 +2,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::handlers::{completion, document_diagnostic, hover, index_workspace, rename};
+    use crate::handlers::{
+        completion, document_diagnostic, document_highlight, goto_definition, hover,
+        incoming_calls, index_workspace, prepare_call_hierarchy, references, rename,
+        semantic_tokens_full,
+    };
     use crate::state::ServerState;
     use crate::test_support::test_client;
     #[cfg(all(target_os = "linux", feature = "perf_alloc_metrics"))]
@@ -18,8 +22,11 @@ mod tests {
     use std::sync::OnceLock;
     use std::time::{Duration, Instant};
     use tower_lsp::lsp_types::{
-        CompletionParams, DocumentDiagnosticParams, HoverParams, Position, RenameParams,
-        TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceSymbolParams,
+        CallHierarchyIncomingCallsParams, CallHierarchyPrepareParams, CompletionParams,
+        DocumentDiagnosticParams, DocumentHighlightParams, GotoDefinitionParams, HoverParams,
+        Position, ReferenceContext, ReferenceParams, RenameParams, SemanticTokensParams,
+        SemanticTokensResult, TextDocumentIdentifier, TextDocumentPositionParams,
+        WorkspaceSymbolParams,
     };
 
     #[cfg(all(target_os = "linux", feature = "perf_alloc_metrics"))]
@@ -103,6 +110,13 @@ mod tests {
             .unwrap_or(default)
     }
 
+    fn env_f64(name: &str, default: f64) -> f64 {
+        env::var(name)
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(default)
+    }
+
     fn avg_duration(iterations: usize, mut f: impl FnMut()) -> Duration {
         let iterations = iterations.max(1);
         let start = Instant::now();
@@ -111,6 +125,18 @@ mod tests {
         }
         let total = start.elapsed();
         Duration::from_nanos((total.as_nanos() / iterations as u128) as u64)
+    }
+
+    fn median_duration(iterations: usize, mut f: impl FnMut()) -> Duration {
+        let iterations = iterations.max(1);
+        let mut durations = Vec::with_capacity(iterations);
+        for _ in 0..iterations {
+            let start = Instant::now();
+            f();
+            durations.push(start.elapsed());
+        }
+        durations.sort_unstable();
+        durations[durations.len() / 2]
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {
@@ -212,6 +238,177 @@ mod tests {
             "PROGRAM Main\nVAR\n    counter : INT;\nEND_VAR\ncounter := counter + {};\ncounter := coun\nEND_PROGRAM\n",
             tick % 1000
         )
+    }
+
+    fn workspace_cost_state(file_count: usize) -> (ServerState, tower_lsp::lsp_types::Url, String) {
+        assert!(file_count >= 3);
+        let state = ServerState::new();
+        let main_source = workspace_cost_main_source();
+        let main_uri = tower_lsp::lsp_types::Url::parse("file:///perf/workspace/Main.st").unwrap();
+        state.open_document(main_uri.clone(), 1, main_source.clone());
+        for idx in 1..(file_count - 1) {
+            let uri =
+                tower_lsp::lsp_types::Url::parse(&format!("file:///perf/workspace/Filler{idx}.st"))
+                    .unwrap();
+            state.open_document(uri, 1, workspace_cost_filler_source(idx));
+        }
+        let type_uri =
+            tower_lsp::lsp_types::Url::parse("file:///perf/workspace/PacketTypes.st").unwrap();
+        state.open_document(type_uri, 1, workspace_cost_packet_type_source());
+        (state, main_uri, main_source)
+    }
+
+    fn workspace_cost_main_source() -> String {
+        r#"
+VAR_GLOBAL
+    Speed : INT;
+END_VAR
+
+FUNCTION Target : INT
+Target := 1;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    p : Packet;
+    r : INT;
+END_VAR
+r := Speed + 1;
+p.value := 1;
+r := Target();
+END_PROGRAM
+"#
+        .to_string()
+    }
+
+    fn workspace_cost_filler_source(idx: usize) -> String {
+        format!(
+            r#"
+FUNCTION Caller{idx} : INT
+Caller{idx} := Target();
+END_FUNCTION
+
+PROGRAM Filler{idx}
+VAR
+    x : INT;
+END_VAR
+x := Caller{idx}();
+END_PROGRAM
+"#
+        )
+    }
+
+    fn workspace_cost_packet_type_source() -> String {
+        r#"
+TYPE
+    Packet : STRUCT
+        value : INT;
+    END_STRUCT;
+END_TYPE
+"#
+        .to_string()
+    }
+
+    fn semantic_scaling_source(var_count: usize) -> String {
+        let mut source = String::from("PROGRAM Main\nVAR\n");
+        for idx in 0..var_count {
+            source.push_str(&format!("    value_{idx:05} : INT;\n"));
+        }
+        source.push_str("END_VAR\n");
+        for idx in 0..var_count {
+            source.push_str(&format!("value_{idx:05} := value_{idx:05} + 1;\n"));
+        }
+        source.push_str("END_PROGRAM\n");
+        source
+    }
+
+    fn duration_ratio(small: Duration, large: Duration) -> f64 {
+        large.as_secs_f64() / small.as_secs_f64().max(0.000_001)
+    }
+
+    fn assert_ratio_within(name: &str, small: Duration, large: Duration, max_ratio: f64) {
+        let ratio = duration_ratio(small, large);
+        assert!(
+            ratio <= max_ratio,
+            "{name} ratio {ratio:.2} exceeded budget {max_ratio:.2}; small={small:?}, large={large:?}"
+        );
+    }
+
+    #[derive(Clone, Copy)]
+    struct WorkspaceNavigationTimings {
+        references: Duration,
+        field_goto: Duration,
+        call_hierarchy: Duration,
+    }
+
+    fn workspace_navigation_timings(file_count: usize) -> WorkspaceNavigationTimings {
+        let (state, main_uri, main_source) = workspace_cost_state(file_count);
+
+        let references_params = ReferenceParams {
+            text_document_position: TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier {
+                    uri: main_uri.clone(),
+                },
+                position: position_at(&main_source, "Speed + 1"),
+            },
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+            context: ReferenceContext {
+                include_declaration: true,
+            },
+        };
+        let references = median_duration(3, || {
+            let locations = references(&state, references_params.clone()).expect("references");
+            assert!(locations.len() >= 2);
+        });
+
+        let field_goto_params = GotoDefinitionParams {
+            text_document_position_params: TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier {
+                    uri: main_uri.clone(),
+                },
+                position: position_at(&main_source, "value := 1"),
+            },
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+        let field_goto = median_duration(3, || {
+            let definition =
+                goto_definition(&state, field_goto_params.clone()).expect("field definition");
+            assert!(matches!(
+                definition,
+                tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(_)
+            ));
+        });
+
+        let prepare_params = CallHierarchyPrepareParams {
+            text_document_position_params: TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier { uri: main_uri },
+                position: position_at(&main_source, "Target : INT"),
+            },
+            work_done_progress_params: Default::default(),
+        };
+        let items =
+            prepare_call_hierarchy(&state, prepare_params).expect("prepare call hierarchy target");
+        let item = items
+            .into_iter()
+            .next()
+            .expect("call hierarchy item for Target");
+        let incoming_params = CallHierarchyIncomingCallsParams {
+            item,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+        let call_hierarchy = median_duration(3, || {
+            let incoming = incoming_calls(&state, incoming_params.clone()).expect("incoming calls");
+            assert!(!incoming.is_empty());
+        });
+
+        WorkspaceNavigationTimings {
+            references,
+            field_goto,
+            call_hierarchy,
+        }
     }
 
     #[test]
@@ -409,6 +606,151 @@ END_PROGRAM
             "workspace/symbol avg {:?} exceeded budget {}ms",
             avg,
             budget_ms
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_semantic_tokens_scaling_budget() {
+        let small_vars = env_usize("ST_LSP_PERF_SEMANTIC_SMALL_VARS", 200);
+        let large_vars = env_usize("ST_LSP_PERF_SEMANTIC_LARGE_VARS", 1_200);
+        let max_multiplier = env_f64("ST_LSP_PERF_SEMANTIC_TOKEN_RATIO_MULTIPLIER", 2.0);
+        let small_source = semantic_scaling_source(small_vars);
+        let large_source = semantic_scaling_source(large_vars);
+
+        let small = {
+            let (state, uri) = perf_state(&small_source);
+            let params = SemanticTokensParams {
+                text_document: TextDocumentIdentifier { uri },
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            };
+            let start = Instant::now();
+            let result = semantic_tokens_full(&state, params).expect("small semantic tokens");
+            let elapsed = start.elapsed();
+            let SemanticTokensResult::Tokens(tokens) = result else {
+                panic!("expected full semantic tokens");
+            };
+            (elapsed, tokens.data.len() / 5, small_source.lines().count())
+        };
+
+        let large = {
+            let (state, uri) = perf_state(&large_source);
+            let params = SemanticTokensParams {
+                text_document: TextDocumentIdentifier { uri },
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            };
+            let start = Instant::now();
+            let result = semantic_tokens_full(&state, params).expect("large semantic tokens");
+            let elapsed = start.elapsed();
+            let SemanticTokensResult::Tokens(tokens) = result else {
+                panic!("expected full semantic tokens");
+            };
+            (elapsed, tokens.data.len() / 5, large_source.lines().count())
+        };
+
+        let token_ratio = large.1 as f64 / small.1.max(1) as f64;
+        let line_ratio = large.2 as f64 / small.2.max(1) as f64;
+        let max_ratio = token_ratio.max(line_ratio) * max_multiplier;
+        println!(
+            "perf_semantic_tokens_scaling_budget small_vars={small_vars} large_vars={large_vars} small_ms={:.2} large_ms={:.2} small_tokens={} large_tokens={} token_ratio={token_ratio:.2} line_ratio={line_ratio:.2} max_ratio={max_ratio:.2}",
+            small.0.as_secs_f64() * 1000.0,
+            large.0.as_secs_f64() * 1000.0,
+            small.1,
+            large.1
+        );
+        assert_ratio_within("semantic tokens", small.0, large.0, max_ratio);
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_document_highlight_scaling_budget() {
+        let small_files = env_usize("ST_LSP_PERF_WORKSPACE_SMALL_FILES", 8);
+        let large_files = env_usize("ST_LSP_PERF_WORKSPACE_LARGE_FILES", 160);
+        let max_ratio = env_f64("ST_LSP_PERF_DOCUMENT_HIGHLIGHT_MAX_RATIO", 4.0);
+
+        let small = {
+            let (state, uri, source) = workspace_cost_state(small_files);
+            let params = DocumentHighlightParams {
+                text_document_position_params: TextDocumentPositionParams {
+                    text_document: TextDocumentIdentifier { uri },
+                    position: position_at(&source, "Speed + 1"),
+                },
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            };
+            median_duration(3, || {
+                let highlights =
+                    document_highlight(&state, params.clone()).expect("small document highlight");
+                assert!(highlights.len() >= 2);
+            })
+        };
+
+        let large = {
+            let (state, uri, source) = workspace_cost_state(large_files);
+            let params = DocumentHighlightParams {
+                text_document_position_params: TextDocumentPositionParams {
+                    text_document: TextDocumentIdentifier { uri },
+                    position: position_at(&source, "Speed + 1"),
+                },
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            };
+            median_duration(3, || {
+                let highlights =
+                    document_highlight(&state, params.clone()).expect("large document highlight");
+                assert!(highlights.len() >= 2);
+            })
+        };
+
+        println!(
+            "perf_document_highlight_scaling_budget small_files={small_files} large_files={large_files} small_ms={:.2} large_ms={:.2} ratio={:.2} max_ratio={max_ratio:.2}",
+            small.as_secs_f64() * 1000.0,
+            large.as_secs_f64() * 1000.0,
+            duration_ratio(small, large)
+        );
+        assert_ratio_within("document highlight", small, large, max_ratio);
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_workspace_navigation_scaling_budget() {
+        let small_files = env_usize("ST_LSP_PERF_WORKSPACE_SMALL_FILES", 8);
+        let large_files = env_usize("ST_LSP_PERF_WORKSPACE_LARGE_FILES", 160);
+        let references_max_ratio = env_f64("ST_LSP_PERF_REFERENCES_MAX_RATIO", 8.0);
+        let field_goto_max_ratio = env_f64("ST_LSP_PERF_FIELD_GOTO_MAX_RATIO", 8.0);
+        let call_hierarchy_max_ratio = env_f64("ST_LSP_PERF_CALL_HIERARCHY_MAX_RATIO", 8.0);
+
+        let small = workspace_navigation_timings(small_files);
+        let large = workspace_navigation_timings(large_files);
+
+        println!(
+            "perf_workspace_navigation_scaling_budget small_files={small_files} large_files={large_files} references_small_ms={:.2} references_large_ms={:.2} field_goto_small_ms={:.2} field_goto_large_ms={:.2} call_hierarchy_small_ms={:.2} call_hierarchy_large_ms={:.2}",
+            small.references.as_secs_f64() * 1000.0,
+            large.references.as_secs_f64() * 1000.0,
+            small.field_goto.as_secs_f64() * 1000.0,
+            large.field_goto.as_secs_f64() * 1000.0,
+            small.call_hierarchy.as_secs_f64() * 1000.0,
+            large.call_hierarchy.as_secs_f64() * 1000.0
+        );
+        assert_ratio_within(
+            "references",
+            small.references,
+            large.references,
+            references_max_ratio,
+        );
+        assert_ratio_within(
+            "field goto-definition",
+            small.field_goto,
+            large.field_goto,
+            field_goto_max_ratio,
+        );
+        assert_ratio_within(
+            "call hierarchy",
+            small.call_hierarchy,
+            large.call_hierarchy,
+            call_hierarchy_max_ratio,
         );
     }
 

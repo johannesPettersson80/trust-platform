@@ -1,3 +1,5 @@
+import { getTrustConfiguration } from "../configuration";
+
 /**
  * Client for communicating with trust-runtime control endpoint
  * Sends I/O write commands for hardware execution
@@ -284,7 +286,7 @@ export class RuntimeClient {
 export async function getRuntimeConfig(workspaceFolder?: vscode.WorkspaceFolder): Promise<RuntimeConfig | null> {
   // Try to get from VS Code settings if workspace is available
   if (workspaceFolder) {
-    const config = vscode.workspace.getConfiguration("trust-lsp", workspaceFolder.uri);
+    const config = getTrustConfiguration(workspaceFolder.uri);
     
     const endpoint = config.get<string>("runtime.controlEndpoint");
     const token = config.get<string>("runtime.controlAuthToken");

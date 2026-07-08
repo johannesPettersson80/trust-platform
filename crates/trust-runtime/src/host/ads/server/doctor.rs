@@ -765,6 +765,8 @@ pub fn build_ads_server_status_report(
         AdsStatusOverall::Disabled
     } else if runtime.is_some() && point_count > 0 && !config.clients.is_empty() {
         AdsStatusOverall::Healthy
+    } else if runtime.is_some() {
+        AdsStatusOverall::NotReady
     } else {
         AdsStatusOverall::Faulted
     };
@@ -779,6 +781,7 @@ pub fn build_ads_server_status_report(
             target: None,
             state: match state {
                 AdsStatusOverall::Healthy => AdsConnectionStatusState::Connected,
+                AdsStatusOverall::NotReady => AdsConnectionStatusState::NotReady,
                 AdsStatusOverall::Disabled => AdsConnectionStatusState::Disabled,
                 AdsStatusOverall::Faulted => AdsConnectionStatusState::Faulted,
                 AdsStatusOverall::Degraded => AdsConnectionStatusState::Stale,
@@ -792,6 +795,9 @@ pub fn build_ads_server_status_report(
         }],
         summary: match state {
             AdsStatusOverall::Healthy => "ADS server is listening and serving symbols.".to_string(),
+            AdsStatusOverall::NotReady => {
+                "ADS server is listening but not ready to serve symbols.".to_string()
+            }
             AdsStatusOverall::Disabled => "ADS server is disabled.".to_string(),
             _ => "ADS server is not ready.".to_string(),
         },

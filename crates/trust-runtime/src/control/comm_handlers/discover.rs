@@ -1,10 +1,13 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::super::{ControlResponse, ControlState};
+use super::discovery_probe::{
+    probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
+};
 
 const DISCOVER_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_TIMEOUT_MS: u64 = 150;
@@ -32,6 +35,9 @@ struct DiscoverScope {
     host: Option<String>,
     adapter: Option<String>,
     timeout_ms: Option<u64>,
+    unit_id: Option<u8>,
+    probe_read_address: Option<u16>,
+    probe_read_quantity: Option<u16>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,25 +153,33 @@ fn discover_modbus(
     }
     if targets.len() > 32 {
         warnings.push(format!(
-            "Scanning {} hosts with connect-only Modbus probes; this may take a moment.",
+            "Scanning {} hosts with Modbus protocol probes; this may take a moment.",
             targets.len()
         ));
     }
 
+    let probe = modbus_discovery_probe(scope)?;
     let mut candidates = Vec::new();
     for target in targets {
-        if TcpStream::connect_timeout(&target, timeout).is_ok() {
+        if let Some(outcome) = probe_modbus_tcp(target, timeout, probe) {
             let address = target.to_string();
+            let mut params = json!({
+                "address": address,
+                "unit_id": probe.unit_id,
+                "probe_source": outcome.source,
+                "probe_detail": outcome.detail,
+            });
+            if let Some(safe_read) = probe.safe_read {
+                params["probe_read_address"] = json!(safe_read.address);
+                params["probe_read_quantity"] = json!(safe_read.quantity);
+            }
             candidates.push(DiscoverCandidate {
                 id: format!("modbus:{address}"),
                 label: address.clone(),
-                source: "scan",
-                confidence: "observed",
-                params: json!({
-                    "address": address,
-                    "unit_id": 1,
-                }),
-                warnings: Vec::new(),
+                source: outcome.source,
+                confidence: outcome.confidence,
+                params,
+                warnings: outcome.warnings,
             });
         }
     }
@@ -182,19 +196,21 @@ fn discover_mqtt(
     let timeout = timeout(scope);
     let mut candidates = Vec::new();
     for target in targets {
-        if TcpStream::connect_timeout(&target, timeout).is_ok() {
+        if let Some(outcome) = probe_mqtt(target, timeout) {
             let broker = target.to_string();
             candidates.push(DiscoverCandidate {
                 id: format!("mqtt:{}", sanitize_id(broker.as_str())),
                 label: format!("MQTT broker {broker}"),
-                source: "tcp_connect",
-                confidence: "observed",
+                source: outcome.source,
+                confidence: outcome.confidence,
                 params: json!({
                     "broker": broker,
                     "tls": target.port() == MQTTS_PORT,
                     "allow_insecure_remote": target.port() != MQTTS_PORT && !target.ip().is_loopback(),
+                    "auth_required": outcome.auth_required,
+                    "probe_detail": outcome.detail,
                 }),
-                warnings: Vec::new(),
+                warnings: outcome.warnings,
             });
         }
     }
@@ -203,6 +219,32 @@ fn discover_mqtt(
             .push("No MQTT broker accepted a TCP connection at the requested target.".to_string());
     }
     Ok(candidates)
+}
+
+fn modbus_discovery_probe(scope: &DiscoverScope) -> Result<ModbusDiscoveryProbe, String> {
+    let safe_read = match (scope.probe_read_address, scope.probe_read_quantity) {
+        (Some(address), quantity) => {
+            let quantity = quantity.unwrap_or(1);
+            if quantity == 0 || quantity > 125 {
+                return Err(
+                    "Modbus discovery scope.probe_read_quantity must be between 1 and 125"
+                        .to_string(),
+                );
+            }
+            Some(ModbusSafeReadProbe { address, quantity })
+        }
+        (None, Some(_)) => {
+            return Err(
+                "Modbus discovery scope.probe_read_address is required when scope.probe_read_quantity is set"
+                    .to_string(),
+            );
+        }
+        (None, None) => None,
+    };
+    Ok(ModbusDiscoveryProbe {
+        unit_id: scope.unit_id.unwrap_or(1),
+        safe_read,
+    })
 }
 
 fn discover_opcua_client(
@@ -815,219 +857,5 @@ fn now_ns() -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::Read;
-    use std::net::TcpListener;
-    use std::thread;
-
-    use super::*;
-
-    #[test]
-    fn modbus_discovery_reports_only_connected_hosts() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test listener");
-        let addr = listener.local_addr().expect("listener addr");
-        let handle = thread::spawn(move || {
-            let _ = listener.accept().map(|(mut stream, _)| {
-                let mut buffer = [0u8; 1];
-                let _ = stream.read(&mut buffer);
-            });
-        });
-
-        let value = discover_value(
-            json!({
-                "protocol": "modbus_tcp",
-                "scope": { "host": addr.to_string(), "timeout_ms": 250 },
-                "origin": "this_host",
-                "passive": true
-            }),
-            None,
-        )
-        .expect("discover value");
-        let candidates = value
-            .get("candidates")
-            .and_then(Value::as_array)
-            .expect("candidates");
-        assert_eq!(candidates.len(), 1);
-        let expected = addr.to_string();
-        assert_eq!(
-            candidates[0]
-                .get("params")
-                .and_then(|params| params.get("address"))
-                .and_then(Value::as_str),
-            Some(expected.as_str())
-        );
-        handle.join().expect("join listener");
-    }
-
-    #[test]
-    fn modbus_discovery_rejects_large_cidr() {
-        let error = discover_value(
-            json!({
-                "protocol": "modbus_tcp",
-                "scope": { "cidr": "10.0.0.0/16" },
-                "origin": "this_host"
-            }),
-            None,
-        )
-        .expect_err("large scan must be rejected");
-        assert!(error.contains("/24 or tighter"), "{error}");
-    }
-
-    #[test]
-    fn known_unimplemented_protocol_returns_warning_not_error() {
-        let value = discover_value(
-            json!({
-                "protocol": "openot",
-                "scope": {},
-                "origin": "runtime"
-            }),
-            None,
-        )
-        .expect("known deferred protocol must not hard-error");
-        assert_eq!(
-            value
-                .pointer("/candidates")
-                .and_then(Value::as_array)
-                .map(Vec::len),
-            Some(0)
-        );
-        let warning = value
-            .pointer("/warnings/0")
-            .and_then(Value::as_str)
-            .expect("warning");
-        assert!(warning.contains("OpenOT discovery is not available yet"));
-    }
-
-    #[test]
-    fn ethercat_discovery_requires_runtime_origin() {
-        let value = discover_value(
-            json!({
-                "protocol": "ethercat",
-                "scope": { "adapter": "eth0" },
-                "origin": "this_host"
-            }),
-            None,
-        )
-        .expect("runtime-only scan reports warning");
-        assert_eq!(
-            value
-                .pointer("/candidates")
-                .and_then(Value::as_array)
-                .map(Vec::len),
-            Some(0)
-        );
-        let warning = value
-            .pointer("/warnings/0")
-            .and_then(Value::as_str)
-            .expect("warning");
-        assert!(warning.contains("runtime host"));
-    }
-
-    #[test]
-    fn opcua_discovery_is_server_only_warning() {
-        let value = discover_value(
-            json!({
-                "protocol": "opcua",
-                "scope": { "host": "127.0.0.1:4840" },
-                "origin": "this_host"
-            }),
-            None,
-        )
-        .expect("opcua server-only warning");
-        assert_eq!(
-            value
-                .pointer("/candidates")
-                .and_then(Value::as_array)
-                .map(Vec::len),
-            Some(0)
-        );
-        let warning = value
-            .pointer("/warnings/0")
-            .and_then(Value::as_str)
-            .expect("warning");
-        assert!(warning.contains("OPC UA server setup"));
-    }
-
-    #[test]
-    fn unknown_protocol_still_errors() {
-        let error = discover_value(
-            json!({
-                "protocol": "made_up_protocol",
-                "scope": {},
-                "origin": "this_host"
-            }),
-            None,
-        )
-        .expect_err("unknown protocol should fail");
-        assert!(
-            error.contains("does not know protocol 'made_up_protocol'"),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn targeted_mqtt_discovery_reports_tcp_listener() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test listener");
-        let addr = listener.local_addr().expect("listener addr");
-        let handle = thread::spawn(move || {
-            let _ = listener.accept().map(|(mut stream, _)| {
-                let mut buffer = [0u8; 1];
-                let _ = stream.read(&mut buffer);
-            });
-        });
-
-        let value = discover_value(
-            json!({
-                "protocol": "mqtt",
-                "scope": { "host": addr.to_string(), "timeout_ms": 250 },
-                "origin": "this_host",
-                "passive": true
-            }),
-            None,
-        )
-        .expect("discover value");
-        let expected_broker = addr.to_string();
-        assert_eq!(
-            value
-                .pointer("/candidates/0/params/broker")
-                .and_then(Value::as_str),
-            Some(expected_broker.as_str())
-        );
-        handle.join().expect("join listener");
-    }
-
-    #[test]
-    fn runtime_ethercat_discovery_reports_mock_bus_modules() {
-        let value = discover_value(
-            json!({
-                "protocol": "ethercat",
-                "scope": { "adapter": "mock" },
-                "origin": "runtime",
-                "passive": true
-            }),
-            None,
-        )
-        .expect("ethercat mock discovery");
-        let candidates = value
-            .pointer("/candidates")
-            .and_then(Value::as_array)
-            .expect("candidates");
-        assert!(
-            candidates.iter().any(|candidate| candidate
-                .pointer("/params/model")
-                .and_then(Value::as_str)
-                == Some("EL1008")),
-            "mock EtherCAT bus should expose configured/discovered modules: {value}"
-        );
-        assert_eq!(
-            candidates
-                .iter()
-                .find(|candidate| {
-                    candidate.pointer("/params/model").and_then(Value::as_str) == Some("EL1008")
-                })
-                .and_then(|candidate| candidate.get("source"))
-                .and_then(Value::as_str),
-            Some("ethercat_bus")
-        );
-    }
-}
+#[path = "discover_tests.rs"]
+mod discover_tests;

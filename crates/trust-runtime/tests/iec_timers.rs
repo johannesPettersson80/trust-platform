@@ -59,7 +59,7 @@ fn timing_diagrams() {
     harness.assert_eq("q_tof", Value::Bool(true));
     harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(false));
-    harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
+    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
 
     // Falling edge at t = 15ms.
     harness.set_input("in_ton", false);

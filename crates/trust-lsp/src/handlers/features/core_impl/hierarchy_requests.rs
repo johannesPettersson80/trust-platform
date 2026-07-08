@@ -1,4 +1,5 @@
 use super::*;
+use std::fmt::Write as _;
 
 pub fn code_lens(state: &ServerState, params: CodeLensParams) -> Option<Vec<CodeLens>> {
     let uri = &params.text_document.uri;
@@ -106,6 +107,16 @@ pub fn incoming_calls(
 ) -> Option<Vec<CallHierarchyIncomingCall>> {
     let item = call_hierarchy_item_from_lsp(state, &params.item)?;
     let allowed_files = call_hierarchy_allowed_files(state, &params.item.uri);
+    let cache_key = call_hierarchy_cache_key(
+        "incoming",
+        state.document_generation(),
+        &item,
+        allowed_files.as_ref(),
+    );
+    if let Some(cached) = state.cached_call_hierarchy_incoming(&cache_key) {
+        return Some(cached);
+    }
+
     let incoming = state
         .with_database(|db| trust_ide::incoming_calls_in_files(db, &item, allowed_files.as_ref()));
 
@@ -127,6 +138,7 @@ pub fn incoming_calls(
         });
     }
 
+    state.store_call_hierarchy_incoming(cache_key, result.clone());
     Some(result)
 }
 
@@ -137,6 +149,16 @@ pub fn outgoing_calls(
     let item = call_hierarchy_item_from_lsp(state, &params.item)?;
     let (_caller_uri, caller_content) = file_info_for_file_id(state, item.file_id)?;
     let allowed_files = call_hierarchy_allowed_files(state, &params.item.uri);
+    let cache_key = call_hierarchy_cache_key(
+        "outgoing",
+        state.document_generation(),
+        &item,
+        allowed_files.as_ref(),
+    );
+    if let Some(cached) = state.cached_call_hierarchy_outgoing(&cache_key) {
+        return Some(cached);
+    }
+
     let outgoing = state
         .with_database(|db| trust_ide::outgoing_calls_in_files(db, &item, allowed_files.as_ref()));
 
@@ -157,7 +179,28 @@ pub fn outgoing_calls(
         });
     }
 
+    state.store_call_hierarchy_outgoing(cache_key, result.clone());
     Some(result)
+}
+
+fn call_hierarchy_cache_key(
+    prefix: &str,
+    generation: u64,
+    item: &trust_ide::CallHierarchyItem,
+    allowed_files: Option<&FxHashSet<trust_hir::db::FileId>>,
+) -> String {
+    let mut key = format!(
+        "{prefix}:{generation}:{}:{}",
+        item.file_id.0, item.symbol_id.0
+    );
+    if let Some(files) = allowed_files {
+        let mut ids = files.iter().map(|file_id| file_id.0).collect::<Vec<_>>();
+        ids.sort_unstable();
+        for id in ids {
+            let _ = write!(key, ":{id}");
+        }
+    }
+    key
 }
 
 pub fn prepare_type_hierarchy(

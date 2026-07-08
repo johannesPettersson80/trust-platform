@@ -88,7 +88,16 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
             _ => Err(RuntimeError::TypeMismatch),
         },
         TypeId::REAL => match value {
-            Value::DWord(word) => Ok(Value::Real(f32::from_bits(word))),
+            Value::DWord(word) => {
+                let value = f32::from_bits(word);
+                if value.is_finite() {
+                    Ok(Value::Real(value))
+                } else {
+                    Err(RuntimeError::IoDriver(
+                        "typed REAL process-image value must be finite".into(),
+                    ))
+                }
+            }
             _ => Err(RuntimeError::TypeMismatch),
         },
         TypeId::TIME => match value {
@@ -114,7 +123,16 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
             _ => Err(RuntimeError::TypeMismatch),
         },
         TypeId::LREAL => match value {
-            Value::LWord(word) => Ok(Value::LReal(f64::from_bits(word))),
+            Value::LWord(word) => {
+                let value = f64::from_bits(word);
+                if value.is_finite() {
+                    Ok(Value::LReal(value))
+                } else {
+                    Err(RuntimeError::IoDriver(
+                        "typed LREAL process-image value must be finite".into(),
+                    ))
+                }
+            }
             _ => Err(RuntimeError::TypeMismatch),
         },
         _ => Err(RuntimeError::TypeMismatch),

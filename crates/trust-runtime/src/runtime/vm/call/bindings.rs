@@ -3,13 +3,15 @@ use smol_str::SmolStr;
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
 use crate::value::{
-    materialize_value_path, read_value_path_borrowed, write_value_path, Value, ValueRef,
+    materialize_value_path, normalize_assignment_for_target, read_value_path_borrowed,
+    write_value_path, Value, ValueRef,
 };
 
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::super::register_ir::{RegisterCallOpKind, RegisterValueOpKind};
 use super::super::stack::OperandStack;
+use super::super::type_policy::normalize_vm_value_for_type;
 use super::super::{materialize_borrowed_value, VmModule, VmNativeArgSpec};
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
 
@@ -230,6 +232,10 @@ impl VmFbFieldBinding {
         runtime: &mut super::super::super::core::Runtime,
         value: Value,
     ) -> bool {
+        let value = match self.read(runtime) {
+            Some(target) => normalize_assignment_for_target(target, value),
+            None => value,
+        };
         match self {
             Self::Direct {
                 instance_id,
@@ -542,6 +548,8 @@ pub(super) fn bind_vm_function_block_arguments(
                         }
                     }
                 };
+                let value = normalize_vm_value_for_type(module, param.type_id, value)
+                    .map_err(VmTrap::Runtime)?;
                 if !field_binding.write(runtime, value) {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
@@ -560,6 +568,8 @@ pub(super) fn bind_vm_function_block_arguments(
                 };
                 let target = require_output_target(arg)?;
                 let value = target.read(runtime, caller_frame)?;
+                let value = normalize_vm_value_for_type(module, param.type_id, value)
+                    .map_err(VmTrap::Runtime)?;
                 if !field_binding.write(runtime, value) {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
@@ -682,7 +692,8 @@ pub(super) fn bind_vm_call_arguments(
                         }
                     }
                 };
-                locals[slot] = value;
+                locals[slot] = normalize_vm_value_for_type(module, param.type_id, value)
+                    .map_err(VmTrap::Runtime)?;
             }
             1 => {
                 locals[slot] = Value::Null;
@@ -706,7 +717,9 @@ pub(super) fn bind_vm_call_arguments(
                     return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
                 };
                 let target = VmWriteTarget::from_reference(reference);
-                locals[slot] = target.read(runtime, caller_frame)?;
+                let value = target.read(runtime, caller_frame)?;
+                locals[slot] = normalize_vm_value_for_type(module, param.type_id, value)
+                    .map_err(VmTrap::Runtime)?;
                 out_bindings.push(VmOutBinding { slot, target });
             }
             other => {

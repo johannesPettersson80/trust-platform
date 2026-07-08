@@ -1,0 +1,5 @@
+id = "cfm_strings_slice_concat_001"
+category = "strings"
+description = "STRING indexing, LEN, and CONCAT are deterministic across scans."
+cycles = 2
+watch_globals = ["text", "second", "length", "combined"]

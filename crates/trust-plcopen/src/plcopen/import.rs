@@ -105,7 +105,6 @@ pub fn import_xml_to_project_with_options(
             .unwrap_or_else(|| format!("unnamed_{discovered_pous}"));
         let pou_type_raw = attribute_ci(pou, "pouType").or_else(|| attribute_ci(pou, "type"));
         let resolved_pou_type = pou_type_raw.as_deref().and_then(PlcopenPouType::from_xml);
-        let st_body = extract_st_body(pou);
 
         let Some(name) = pou_name else {
             warnings.push("skipping <pou> without name attribute".to_string());
@@ -191,6 +190,41 @@ pub fn import_xml_to_project_with_options(
                 "Review promoted POU kind for semantic parity with the source vendor model",
             ));
         }
+
+        let non_st_body_diagnostics = collect_non_st_body_diagnostics(pou);
+        if !non_st_body_diagnostics.is_empty() {
+            let body_kinds = non_st_body_diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.kind.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            warnings.push(format!(
+                "skipping pou '{}': unsupported non-ST body ({body_kinds})",
+                name
+            ));
+            for diagnostic in non_st_body_diagnostics {
+                unsupported_nodes.push(diagnostic.node.clone());
+                unsupported_diagnostics.push(unsupported_diagnostic(
+                    diagnostic.code,
+                    "error",
+                    diagnostic.node,
+                    diagnostic.message,
+                    Some(name.clone()),
+                    diagnostic.action,
+                ));
+            }
+            loss_warnings += 1;
+            migration_entries.push(PlcopenMigrationEntry {
+                name,
+                pou_type_raw: Some(pou_type_raw),
+                resolved_pou_type: Some(pou_type.as_xml().to_string()),
+                status: "skipped".to_string(),
+                reason: Some(format!("unsupported non-ST body: {body_kinds}")),
+            });
+            continue;
+        }
+
+        let st_body = extract_st_body(pou);
 
         let Some(reconstructed_source) = synthesize_import_pou_source(
             root,

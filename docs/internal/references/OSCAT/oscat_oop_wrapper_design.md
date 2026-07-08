@@ -1163,11 +1163,11 @@ fn fixture_path(name: &str) -> PathBuf {
 }
 
 fn assert_trust_runtime_test_passes(project: PathBuf) {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-dev"))
         .args(["test", "--project"])
         .arg(&project)
         .output()
-        .expect("run trust-runtime test");
+        .expect("run trust-dev test");
 
     assert!(
         output.status.success(),
@@ -1218,7 +1218,7 @@ pump network, plus compact polymorphism and composition showcases.
 Each example should pass its Structured Text tests:
 
 ```bash
-trust-runtime test --project examples/<example-name>
+trust-dev test --project examples/<example-name>
 ```
 
 ## Acceptance Gates

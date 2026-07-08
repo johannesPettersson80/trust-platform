@@ -1,7 +1,8 @@
 use crate::debug::SourceLocation;
 use crate::program_model::{property_setter_method_name, ArgValue, CallArg, CaseLabel, Expr, Stmt};
 use crate::value::Value;
-use trust_hir::TypeId;
+use smol_str::SmolStr;
+use trust_hir::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
@@ -97,6 +98,7 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
         Some(type_id) => resolve_initializer_enum_variant(&exprs[1], value, type_id, ctx)?,
         None => value,
     };
+    let value = bound_string_assignment_expr(value, target_type, ctx);
     let location = stmt_location(node, ctx);
     if let Some(property_name) = property_setter {
         let field_parts = direct_expr_children(&exprs[0]);
@@ -129,6 +131,48 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
             value,
             location,
         })
+    }
+}
+
+fn bound_string_assignment_expr(
+    value: Expr,
+    target_type: Option<TypeId>,
+    ctx: &LoweringContext<'_>,
+) -> Expr {
+    let Some(type_id) = target_type else {
+        return value;
+    };
+    let Some(max_len) = bounded_string_len(type_id, ctx) else {
+        return value;
+    };
+    Expr::Call {
+        target: Box::new(Expr::Name(SmolStr::new("__TRUST_LIMIT_STRING"))),
+        args: vec![
+            CallArg {
+                name: None,
+                value: ArgValue::Expr(value),
+            },
+            CallArg {
+                name: None,
+                value: ArgValue::Expr(Expr::Literal(Value::LInt(i64::from(max_len)))),
+            },
+        ],
+    }
+}
+
+fn bounded_string_len(type_id: TypeId, ctx: &LoweringContext<'_>) -> Option<u32> {
+    let mut current = type_id;
+    loop {
+        match ctx.registry.get(current)? {
+            Type::Alias { target, .. } => current = *target,
+            Type::String {
+                max_len: Some(max_len),
+            }
+            | Type::WString {
+                max_len: Some(max_len),
+            } => return Some(*max_len),
+            _ => return None,
+        }
     }
 }
 

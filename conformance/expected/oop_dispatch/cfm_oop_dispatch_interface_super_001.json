@@ -1,0 +1,58 @@
+{
+  "case_id": "cfm_oop_dispatch_interface_super_001",
+  "category": "oop_dispatch",
+  "cycles": 2,
+  "description": "METHOD calls, interface dispatch, EXTENDS override, and SUPER dispatch.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "out_direct": {
+          "type": "INT",
+          "value": 3
+        },
+        "out_iface": {
+          "type": "INT",
+          "value": 1
+        },
+        "out_override": {
+          "type": "INT",
+          "value": 13
+        },
+        "out_super": {
+          "type": "INT",
+          "value": 10
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "out_direct": {
+          "type": "INT",
+          "value": 6
+        },
+        "out_iface": {
+          "type": "INT",
+          "value": 4
+        },
+        "out_override": {
+          "type": "INT",
+          "value": 13
+        },
+        "out_super": {
+          "type": "INT",
+          "value": 10
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

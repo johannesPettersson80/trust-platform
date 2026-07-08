@@ -1,3 +1,5 @@
+import { getTrustConfiguration } from "../../configuration";
+
 // Responsibility: focused LM tools module with a single concern.
 import * as path from "path";
 import * as vscode from "vscode";
@@ -123,9 +125,9 @@ export class STHmiValidateTool extends LspToolBase {
       }
     }
 
-    const pollMs = vscode.workspace
-      .getConfiguration("trust-lsp", vscode.Uri.file(snapshot.rootPath))
-      .get<number>("hmi.pollIntervalMs", 500);
+    const pollMs = getTrustConfiguration(
+      vscode.Uri.file(snapshot.rootPath)
+    ).get<number>("hmi.pollIntervalMs", 500);
     if (pollMs < 50) {
       checks.push({
         code: "HMI_VALIDATE_POLL_INTERVAL_TOO_LOW",

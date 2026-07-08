@@ -1,4 +1,4 @@
-use crate::io::IoAddress;
+use crate::io::{validate_process_image_address, IoAddress};
 use serde_json::json;
 
 use super::types::{IoAddressParams, IoSnapshotJson, IoWriteParams};
@@ -45,6 +45,9 @@ pub(super) fn handle_io_write(
         Ok(addr) => addr,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
+    if let Err(err) = validate_process_image_address(&address) {
+        return ControlResponse::error(id, err.to_string());
+    }
     let value = match parse_value(&params.value) {
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
@@ -69,6 +72,9 @@ pub(super) fn handle_io_force(
         Ok(addr) => addr,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
+    if let Err(err) = validate_process_image_address(&address) {
+        return ControlResponse::error(id, err.to_string());
+    }
     let value = match parse_value(&params.value) {
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),

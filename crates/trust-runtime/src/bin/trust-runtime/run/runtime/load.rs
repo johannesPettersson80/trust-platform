@@ -7,8 +7,7 @@ fn load_runtime(
 
     if let Some(project_path) = project {
         let bundle = RuntimeBundle::load(&project_path)?;
-        let sources_path = resolve_sources_root(bundle.root.as_path(), None)?;
-        let sources = load_sources(&sources_path)?;
+        let sources = load_project_bundle_sources(bundle.root.as_path())?;
         let runtime = compile_runtime_from_sources(&sources)?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
@@ -73,4 +72,23 @@ fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runt
         .apply_bytecode_bytes(&bytecode, None)
         .map_err(anyhow::Error::from)?;
     Ok(runtime)
+}
+
+fn load_project_bundle_sources(bundle_root: &Path) -> anyhow::Result<SourceRegistry> {
+    let files = trust_runtime::bundle_builder::collect_project_source_files(bundle_root, None)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, source)| {
+            let path = source
+                .path
+                .map(PathBuf::from)
+                .unwrap_or_else(|| bundle_root.join(format!("__source_{index}.st")));
+            SourceFile {
+                id: u32::try_from(index).unwrap_or(u32::MAX),
+                path,
+                text: source.text,
+            }
+        })
+        .collect();
+    Ok(SourceRegistry::new(files))
 }

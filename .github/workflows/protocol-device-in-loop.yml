@@ -1,0 +1,78 @@
+name: Protocol Device-In-The-Loop
+
+on:
+  schedule:
+    - cron: '43 3 * * *'
+  workflow_dispatch:
+    inputs:
+      require_hardware:
+        description: "Fail when a protocol target is not configured"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: ""
+
+jobs:
+  protocol-device-in-loop:
+    name: Protocol Device-In-The-Loop
+    runs-on: ${{ vars.TRUST_DIT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build trust-runtime
+        run: cargo build -p trust-runtime
+
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts/device-in-the-loop
+
+      - name: Run protocol device-in-the-loop gates
+        env:
+          OUT_DIR: artifacts/device-in-the-loop
+          TRUST_DIT_REQUIRE_HARDWARE: ${{ github.event.inputs.require_hardware || 'false' }}
+          TRUST_DIT_ETHERCAT_ADAPTER: ${{ vars.TRUST_DIT_ETHERCAT_ADAPTER }}
+          TRUST_DIT_ETHERCAT_PARAMS_TOML: ${{ vars.TRUST_DIT_ETHERCAT_PARAMS_TOML }}
+          TRUST_DIT_ADS_TARGET: ${{ vars.TRUST_DIT_ADS_TARGET }}
+          TRUST_DIT_ADS_TARGET_NET_ID: ${{ vars.TRUST_DIT_ADS_TARGET_NET_ID }}
+          TRUST_DIT_ADS_AMS_PORT: ${{ vars.TRUST_DIT_ADS_AMS_PORT }}
+          TRUST_DIT_ADS_WRITE_SYMBOL: ${{ vars.TRUST_DIT_ADS_WRITE_SYMBOL }}
+          TRUST_DIT_ADS_WRITE_TYPE: ${{ vars.TRUST_DIT_ADS_WRITE_TYPE }}
+          TRUST_DIT_ADS_WRITE_VALUE: ${{ vars.TRUST_DIT_ADS_WRITE_VALUE }}
+          TRUST_DIT_ADS_REQUIRE_PRODUCTION_READY: ${{ vars.TRUST_DIT_ADS_REQUIRE_PRODUCTION_READY }}
+          TRUST_DIT_MODBUS_HOST: ${{ vars.TRUST_DIT_MODBUS_HOST }}
+          TRUST_DIT_MODBUS_UNIT_ID: ${{ vars.TRUST_DIT_MODBUS_UNIT_ID }}
+          TRUST_DIT_MODBUS_TIMEOUT_MS: ${{ vars.TRUST_DIT_MODBUS_TIMEOUT_MS }}
+          TRUST_DIT_MODBUS_PROBE_READ_ADDRESS: ${{ vars.TRUST_DIT_MODBUS_PROBE_READ_ADDRESS }}
+          TRUST_DIT_MODBUS_PROBE_READ_QUANTITY: ${{ vars.TRUST_DIT_MODBUS_PROBE_READ_QUANTITY }}
+          TRUST_DIT_MQTT_BROKER: ${{ vars.TRUST_DIT_MQTT_BROKER }}
+          TRUST_DIT_MQTT_TOPIC: ${{ vars.TRUST_DIT_MQTT_TOPIC }}
+          TRUST_DIT_MQTT_RECONNECT_CYCLES: ${{ vars.TRUST_DIT_MQTT_RECONNECT_CYCLES }}
+          TRUST_DIT_MQTT_USERNAME: ${{ vars.TRUST_DIT_MQTT_USERNAME }}
+          TRUST_DIT_MQTT_PASSWORD: ${{ secrets.TRUST_DIT_MQTT_PASSWORD }}
+          TRUST_DIT_MQTT_TLS: ${{ vars.TRUST_DIT_MQTT_TLS }}
+          TRUST_DIT_MQTT_TLS_CA_PATH: ${{ vars.TRUST_DIT_MQTT_TLS_CA_PATH }}
+          TRUST_DIT_MQTT_TLS_CLIENT_CERT_PATH: ${{ vars.TRUST_DIT_MQTT_TLS_CLIENT_CERT_PATH }}
+          TRUST_DIT_MQTT_TLS_CLIENT_KEY_PATH: ${{ secrets.TRUST_DIT_MQTT_TLS_CLIENT_KEY_PATH }}
+          TRUST_DIT_MQTT_TLS_ALPN: ${{ vars.TRUST_DIT_MQTT_TLS_ALPN }}
+        run: scripts/runtime_device_in_loop_gate.sh
+
+      - name: Upload protocol device-in-loop artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: protocol-device-in-loop-${{ github.run_id }}
+          path: artifacts/device-in-the-loop/

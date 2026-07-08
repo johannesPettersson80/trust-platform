@@ -1,0 +1,62 @@
+{
+  "case_id": "cfm_structs_initializer_field_update_001",
+  "category": "structs",
+  "cycles": 2,
+  "description": "STRUCT initializer values, field reads, and field writes.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "cfg": {
+          "fields": {
+            "cyl": {
+              "type": "INT",
+              "value": 5
+            },
+            "ext": {
+              "type": "BOOL",
+              "value": true
+            }
+          },
+          "type": "STRUCT",
+          "type_name": "StepCfg"
+        },
+        "observed": {
+          "type": "INT",
+          "value": 4
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "cfg": {
+          "fields": {
+            "cyl": {
+              "type": "INT",
+              "value": 6
+            },
+            "ext": {
+              "type": "BOOL",
+              "value": true
+            }
+          },
+          "type": "STRUCT",
+          "type_name": "StepCfg"
+        },
+        "observed": {
+          "type": "INT",
+          "value": 5
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

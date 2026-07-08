@@ -44,8 +44,13 @@ impl IoSubsystem {
         (interface, drivers)
     }
 
-    pub(super) fn resize(&mut self, inputs: usize, outputs: usize, memory: usize) {
-        self.interface.resize(inputs, outputs, memory);
+    pub(super) fn try_resize(
+        &mut self,
+        inputs: usize,
+        outputs: usize,
+        memory: usize,
+    ) -> Result<(), RuntimeError> {
+        self.interface.try_resize(inputs, outputs, memory)
     }
 
     pub(super) fn add_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {

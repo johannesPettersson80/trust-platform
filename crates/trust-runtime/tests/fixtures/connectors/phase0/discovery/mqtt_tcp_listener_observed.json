@@ -1,0 +1,23 @@
+{
+  "candidates": [
+    {
+      "confidence": "port_reachable",
+      "id": "mqtt:$SANITIZED_ADDR",
+      "label": "MQTT broker $ADDR",
+      "params": {
+        "allow_insecure_remote": false,
+        "auth_required": false,
+        "broker": "$ADDR",
+        "probe_detail": "TCP connection succeeded, but MQTT CONNACK was not received.",
+        "tls": false
+      },
+      "source": "tcp_connect",
+      "warnings": [
+        "Only TCP reachability was observed; no MQTT CONNACK was received."
+      ]
+    }
+  ],
+  "origin": "this_host",
+  "protocol": "mqtt",
+  "schema_version": 1
+}

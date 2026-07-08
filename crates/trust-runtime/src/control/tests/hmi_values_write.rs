@@ -432,7 +432,11 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     assert!(engineer_audit.ok);
 
     let writes = state.debug.drain_var_writes();
-    assert_eq!(writes.len(), 1, "engineer write should queue one PLC tag write");
+    assert_eq!(
+        writes.len(),
+        1,
+        "engineer write should queue one PLC tag write"
+    );
     assert_eq!(writes[0].value, Value::Bool(true));
     match &writes[0].target {
         PendingVarTarget::Instance(_, name) => assert_eq!(name.as_str(), "run"),
@@ -612,6 +616,145 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/run'")
     );
     assert!(state.debug.drain_var_writes().is_empty());
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn hmi_write_rejects_overlong_bounded_string() {
+    let source = r#"
+PROGRAM Main
+VAR
+    label : STRING[3] := 'OK';
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("hmi-write-string-bound");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/label"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+
+    let response = handle_request_value(
+        json!({
+            "id": 74,
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/label",
+                "value": "TOOLONG"
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(!response.ok, "overlong hmi.write must be rejected");
+    assert_eq!(
+        response.error.as_deref(),
+        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/label'")
+    );
+    assert!(state.debug.drain_var_writes().is_empty());
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
+fn hmi_write_rejects_out_of_range_subrange_value() {
+    let source = r#"
+PROGRAM Main
+VAR
+    limited : INT(0..10) := INT#0;
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("hmi-write-subrange-bound");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/limited"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+
+    let response = handle_request_value(
+        json!({
+            "id": 76,
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/limited",
+                "value": 100
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        !response.ok,
+        "out-of-range subrange hmi.write must be rejected before queueing"
+    );
+    assert_eq!(
+        response.error.as_deref(),
+        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/limited'")
+    );
+    assert!(
+        state.debug.drain_var_writes().is_empty(),
+        "rejected subrange hmi.write must not queue a debug write"
+    );
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn hmi_write_rejects_non_finite_real_text() {
+    let source = r#"
+PROGRAM Main
+VAR
+    setpoint : REAL := 1.0;
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("hmi-write-real-finite");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/setpoint"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+
+    let response = handle_request_value(
+        json!({
+            "id": 75,
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/setpoint",
+                "value": "NaN"
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(!response.ok, "non-finite hmi.write must be rejected");
+    assert_eq!(
+        response.error.as_deref(),
+        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/setpoint'")
+    );
+    assert!(state.debug.drain_var_writes().is_empty());
+
     fs::remove_dir_all(root).ok();
 }
 

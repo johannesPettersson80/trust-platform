@@ -247,6 +247,13 @@ pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {
             65535,
             "MQTT keepalive in seconds.",
         ),
+        enum_field(
+            "on_error",
+            "On error",
+            "fault",
+            vec!["fault", "warn", "ignore"],
+            "Runtime behavior when the MQTT broker is unreachable or no fresh message is available.",
+        ),
         advanced(optional(field(
             "tls_ca_path",
             "TLS CA path",

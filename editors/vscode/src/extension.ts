@@ -1,3 +1,4 @@
+import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 import {
   LanguageClient,
@@ -60,7 +61,7 @@ function sendServerConfig(target: LanguageClient | undefined): void {
   if (!target) {
     return;
   }
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   void target.sendNotification("workspace/didChangeConfiguration", {
     settings: { "trust-lsp": config },
   });
@@ -138,7 +139,7 @@ function startClientWithRetry(
           if (selection === "Open Settings") {
             void vscode.commands.executeCommand(
               "workbench.action.openSettings",
-              "trust-lsp.server.path"
+              "trust.languageServer.executablePath"
             );
             return;
           }
@@ -153,7 +154,7 @@ function startClientWithRetry(
         });
       if (isNotFound) {
         client?.outputChannel?.appendLine(
-          "truST LSP could not find the trust-lsp binary. In dev mode, build it and copy into editors/vscode/bin, or set trust-lsp.server.path."
+          "truST LSP could not find the language server binary. In dev mode, build it and copy into editors/vscode/bin, or set trust.languageServer.executablePath."
         );
       }
     }
@@ -193,7 +194,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerVisualCompanionSync());
   registerStTestIntegration(context);
   registerLibraryCodeActions(context);
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   showIecDiagnosticRefs = readIecDiagnosticsSetting(config);
   const command = resolveServerCommand(context);
 
@@ -280,25 +281,23 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("trust-lsp")) {
+      if (affectsTrustConfiguration(event)) {
         sendServerConfig(client);
       }
-      if (event.affectsConfiguration("trust-lsp.trace.server")) {
-        const updated = vscode.workspace
-          .getConfiguration("trust-lsp")
-          .get<string>("trace.server");
+      if (affectsTrustConfiguration(event, "trace.server")) {
+        const updated = getTrustConfiguration().get<string>("trace.server");
         if (client) {
           void client.setTrace(traceFromConfig(updated));
         }
       }
-      if (event.affectsConfiguration("trust-lsp.server.path")) {
+      if (affectsTrustConfiguration(event, "server.path")) {
         vscode.window.showInformationMessage(
-          "trust-lsp.server.path changed. Reload VS Code to restart the language server."
+          "Language server path changed. Reload VS Code to restart the truST language server."
         );
       }
-      if (event.affectsConfiguration("trust-lsp.diagnostics.showIecReferences")) {
+      if (affectsTrustConfiguration(event, "diagnostics.showIecReferences")) {
         showIecDiagnosticRefs = readIecDiagnosticsSetting(
-          vscode.workspace.getConfiguration("trust-lsp")
+          getTrustConfiguration()
         );
       }
     })

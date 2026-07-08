@@ -6,10 +6,48 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.28`
+Target release: `v0.24.29`
 
 ### Added
 
+- trust-runtime: added a Viewer-gated `connectors.status` control surface that
+  projects process-image I/O driver health and ADS client/server status into
+  the shared connector status schema without changing the existing
+  `status.io_drivers`, `ads.status`, or `ads.server.status` JSON contracts.
+- trust-runtime/vscode: Browser HMI and Devices & Connections now consume the
+  shared connector status and discovery-confidence contract while presenting it
+  with user-facing labels: HMI summarizes connections in one compact header
+  chip, and Network Canvas/Discover use Connection, Health, Verification, and
+  Signals wording instead of backend connector/proof terminology.
+- vscode: Generated truST projects and bundled examples now hide VS Code's
+  native debug-status selector so the truST sidebar remains the single visible
+  run/debug control surface while keeping the native simulator launch
+  configuration available.
+- vscode/trust-debug: Devices & Connections can add browsed ADS tags to a
+  stopped project through the same deterministic `ads import-symbols` pipeline,
+  and simulator/debug launches now load the project's ADS configuration so the
+  generated `_quality` globals prove the live TwinCAT read path in Live Values.
+- trust-runtime: Modbus TCP I/O can now explicitly select FC01/FC02/FC03 input
+  reads and FC05/FC06/FC15/FC16 output writes through `input_function` and
+  `output_function`, and can use optional per-point maps with bool/u16/i16/u32/
+  i32/f32 types, scaling, byte order, and word order while preserving the
+  existing FC04 input-register and FC16 multiple-register default profile.
+- trust-runtime: MQTT I/O can now use optional typed per-point topic maps with
+  bool/u16/i16/u32/i32/f32 values, text/JSON/binary payload formats, and linear
+  scaling while preserving the existing raw `topic_in`/`topic_out` byte bridge.
+- trust-runtime: MQTT typed output points can opt into a bounded Sparkplug B
+  outbound node profile (`spBv1.0`, Sparkplug 3.0.0) that publishes NBIRTH,
+  configures NDEATH as the MQTT last will, and emits NDATA metric payloads with
+  Tahu-compatible scalar protobuf encoding.
+- trust-runtime: added an ignored protocol device-in-the-loop gate for lab
+  EtherCAT, ADS, Modbus, and MQTT targets, including explicit skip artifacts,
+  hardware-required failure mode, nightly/manual workflow wiring, and JSON
+  evidence for topology, discovery, doctor, and broker interop runs.
+- trust-runtime: expanded the deterministic conformance suite to v2 with
+  strings, arrays, structs, enums, nested values, OOP dispatch, `REF_TO`,
+  retain/reset matrix, scheduler, and simulated connector-status determinism
+  categories; CI now validates both summary schemas and uploads JSON plus
+  human-readable conformance reports as artifacts.
 - vscode: added the Libraries surface under Project for reusable ST libraries,
   including packaged OSCAT and PLCopen Motion curated choices, vendored
   per-project dependencies, local-folder and Git add flows, expandable
@@ -185,6 +223,9 @@ Target release: `v0.24.28`
 
 ### Changed
 
+- testing: world-smoke transform-handoff lint now audits the split runtime
+  world-arm modules while preserving the single scene-transform handoff and
+  workpiece-joint ownership boundaries.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
@@ -224,6 +265,10 @@ Target release: `v0.24.28`
 - Public docs, CI templates, flake probes, and terminal capture scripts now
   point ST test and ST documentation workflows at `trust-dev test` and
   `trust-dev docs`.
+- `trust-runtime test`, `trust-runtime docs`, `trust-runtime commit`, and
+  `trust-runtime agent serve` warnings now include the `trust-dev` canonical
+  command and a removal-not-before date of 2026-10-05; actual alias removal
+  requires a separate behavior-change release note.
 - Local Rust test recipes now use the `mold` linker on Linux when it is
   installed, `just test-all` and CI no longer run `complete_program` twice, and
   `just test-hir-fast` provides a focused HIR refactor loop before the final
@@ -265,6 +310,147 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- build/source: `trust-runtime` now uses pinned public Git dependencies for the
+  OpenOT Rust crates, so fresh clones and GitHub source archives can build
+  without a pre-existing sibling `../open-ot-ref` checkout; the source-build
+  guide now documents that the checkout script is only needed for OpenOT IEC
+  examples and tests that read the ST source package.
+- vscode: Ladder visual editor right pane now matches the other visual editors'
+  empty-property treatment and no longer repeats passive Rungs/Pan guidance that
+  is already shown in the status bar.
+- vscode: Statechart visual editor now keeps added states and transition labels
+  inside the visible canvas at normal sidebar widths and keeps animation CSS out
+  of node text.
+- examples: the OpenOT multi-program example now includes a simulated `io.toml`
+  so the normal project Compile/Run workflow can validate and launch it.
+- vscode: native Settings now contributes product-language `trust.*` setting
+  keys with legacy `trust-lsp.*` fallback, so first-user Settings labels no
+  longer render under the internal `Trust-lsp` heading.
+- vscode: Compile now distinguishes missing `trust-runtime` binaries from
+  incompatible runtime check-report versions, with short product-language
+  recovery text for Runtime path/update actions.
+- vscode: the truST sidebar now treats unreadable project manifests as a
+  repair/no-project state instead of showing Target/Compile/Start controls for a
+  project that cannot load.
+- trust-plcopen: PLCopen import now accepts Structured Text POUs that include
+  benign body-level metadata such as `addData`, while still rejecting graphical
+  or unknown non-ST bodies with named diagnostics.
+- trust-syntax: ST exponentiation now follows IEC 61131-3 Ed.3 Table 71
+  left-to-right equal-precedence evaluation, and unclosed function-call
+  argument lists now report the missing `)` diagnostic.
+- trust-dev: `trust-dev test` now discovers `.st` and `.pou` files with
+  mixed-case extensions under literal project paths containing glob
+  metacharacters, and `trust-dev commit` now uses OS-safe scoped git pathspecs
+  so unrelated pre-staged files outside the PLC project are not committed.
+- vscode: the MQTT Add form now exposes the runtime `On error` policy so users
+  can choose scan-tolerant `warn` handling for local broker startup instead of
+  editing `io.toml` by hand for the successful MQTT use-in-ST path.
+- trust-ide/trust-lsp: rename now exposes structured refusal reasons and rejects
+  unsafe renames that would capture references through local shadows or create
+  imported-symbol origin conflicts instead of returning behavior-changing edit
+  sets or silent no-op protocol responses.
+- trust-lsp: references and workspace-symbol requests that stream partial
+  results now return an empty final response instead of duplicating the
+  streamed locations or symbols in the final payload.
+- trust-lsp: cancelled diagnostics requests now fail closed at the protocol
+  boundary: pull diagnostics return `ContentModified`, and push diagnostics
+  skip publication instead of transiently clearing real errors with an empty
+  successful diagnostics set.
+- trust-lsp: inline runtime values now bound runtime-control connect/read/write
+  waits and return an empty inline-value result on timeout or transport failure
+  instead of parking an LSP worker on a silent endpoint.
+- trust-lsp: LSP position handling now advertises UTF-16 and maps hover ranges,
+  incremental edits, diagnostics, refactor edits, and semantic-token
+  start/length fields through UTF-16 code units so supplementary-plane
+  characters no longer desynchronize editor buffers.
+- trust-lsp: EOF positions on documents that end with a newline now round-trip
+  through the line index without panicking, fixing inline-value requests whose
+  range ends at the final empty line.
+- trust-lsp: HMI TOML pull diagnostics no longer compile a runtime from
+  disk-only ST sources, so open buffers are not contradicted by stale
+  `unknown binding path` warnings; the pull path now keeps cheap TOML parse and
+  local widget-property diagnostics only.
+- trust-ide/trust-lsp: semantic tokens, document highlight, references,
+  struct-field go-to-definition, and call hierarchy now avoid repeated
+  syntax-tree and whole-workspace scans on interactive paths, keeping
+  large-workspace editor requests bounded by the new perf locks.
+- trust-runtime: VM process-image stores and function/function-block parameter
+  copy-in now materialize HIR-legal numeric and bit-string widening into the
+  declared target tag, so assigning `INT` values into `REAL`/`DINT` storage no
+  longer leaves narrow runtime tags that compute integer division or overflow at
+  the wrong width; bytecode VM function-block `STRING[n]` input and in-out
+  parameter copy-in now also honors the declared bound instead of storing
+  over-length strings in the FB instance.
+- trust-runtime: runtime writes to declared subrange storage now fail visibly
+  instead of committing out-of-range values across bytecode VM assignment,
+  function-block/function parameter copy-in, dynamic `REF` writes, HMI/control
+  writes, and retain reload.
+- trust-runtime: bytecode encoding now rejects manually-mutated `VAR_ACCESS`
+  bindings that shadow globals, matching the source-level HIR diagnostics
+  instead of silently rebinding bare global names to access-map targets.
+- trust-runtime/trust-hir: OpenOT authoring now reports explicit `sourceid`
+  ownership collisions consistently in HIR and runtime validation, and
+  `CompileSession` fails closed on OpenOT instrumentation validation errors
+  instead of building bytecode from uninstrumented source with zero telemetry.
+- trust-lsp: closing an unsaved file-backed dependency now restores disk truth
+  for cross-file analysis, memory-budget eviction no longer removes closed
+  files from the semantic project, and the persistent index cache verifies disk
+  content before accepting same-size/same-second metadata hits.
+- ci/build: Unix runtime signal-shutdown helpers and their unit-test fixtures
+  are now cfg-gated so Windows warning-deny and pre-push `trust-lsp` test
+  compile checks do not fail on unused Unix-only signal code.
+- trust-hir/runtime: `REF()` now rejects function and method return variables
+  before lowering, preventing source programs from persisting frame-local return
+  slot references into longer-lived storage.
+- trust-runtime: bytecode validation now rejects crafted modules that persist
+  frame-local reference values into longer-lived storage or mix multiple baked
+  instance owners in one POU body, and catches operand-stack underflow,
+  non-empty POU exit stacks, known BOOL operands to arithmetic opcodes, and
+  incompatible constant stores to typed `STORE_REF` targets, invalid parameter
+  direction metadata, and expression arguments bound to target-only `OUT`/
+  `IN_OUT` parameters, legacy `CALL` opcode bodies, and inconsistent operand
+  stack depths at control-flow joins before malformed bytecode can be loaded or
+  executed.
+- trust-runtime: bytecode lowering now fails closed for unsupported statement
+  paths instead of silently emitting `NOP`; label-only statements remain the
+  explicit no-op path.
+- vscode: visual ST companions and runtime wrappers now map raw visual-editor
+  direct I/O operands through generated `AT` globals instead of emitting raw
+  `%I`/`%Q`/`%M` references inside function-block bodies, so the bundled visual
+  examples keep compiling under the fail-closed bytecode lowering contract.
+- trust-runtime: hardened scheduler and process-image failure handling so
+  resource-cycle panics become visible faults instead of silently killing the
+  scan thread, enabled watchdog policies arm VM execution deadlines and reject
+  zero-timeout scan bricking, Modbus/EtherCAT/MQTT non-fault I/O policies
+  degrade health without faulting the resource, requested stops apply safe
+  outputs and surface retain-save failures, and direct process-image writes are
+  capped at a 16 MiB per-area limit.
+- trust-runtime: moved Modbus TCP and MQTT wire/broker waits behind
+  protocol-owned workers so scan-cycle `read_inputs` and `write_outputs` use
+  bounded snapshot/handoff state instead of blocking on delayed protocol
+  responses, reconnect backoff, or missing fresh broker payloads.
+- trust-runtime: bounded EtherCAT hardware construction failures after the
+  ethercrab `PduStorage` split boundary so a missing/unavailable adapter reports
+  a terminal driver-rebuild-required state instead of repeatedly allocating
+  storage during deferred retry windows.
+- trust-runtime: tightened runtime correctness boundaries by preserving TP
+  elapsed time at pulse expiry, enforcing bounded `STRING[n]` ingress for
+  assignments, retain reload, HMI writes, and process-image writes, rejecting
+  non-finite REAL/LREAL ingress through HMI, string conversion, raw typed I/O,
+  Modbus maps, and MQTT maps, releasing ADS notifications across symbol-version
+  refresh/drop paths, treating rejected OPC UA point writes as point faults
+  without reconnect churn, and validating online-change task metadata before
+  resizing process images.
+- ci: restored OpenOT sibling checkout in the Nightly Reliability and HMI Long
+  Soak workflows so path dependencies resolve in long-running reliability
+  gates again.
+- ci/release: pinned OpenOT checkout, added release tag/CI preflight,
+  changelog-backed release bodies, SHA256 checksums, cargo-deny/cargo-audit
+  supply-chain gates, and conformance/architecture-safety coverage in the
+  release gate report.
+- docs/tooling: made `AGENTS.md`, `CLAUDE.md`, and repo skills the shared
+  versioned agent rule source, added Claude/Codex permission guardrails, and
+  fixed stale HMI and IEC instruction paths.
 - vscode: the Libraries symbol browser now searches and pages through the full
   library symbol list, shows declaration detail for the selected symbol, and
   can insert or copy a declaration snippet instead of rendering a capped list
@@ -387,8 +573,12 @@ Target release: `v0.24.28`
   warning treatment instead of the danger treatment.
 - vscode: shared webview theme tokens now handle VS Code High Contrast and
   High Contrast Light explicitly, so visual editors, Devices & Connections,
-  and other product webviews no longer render as a dark/navy island under
-  high-contrast captures.
+  and other product webviews no longer render as dark/navy or white forced-colors
+  islands under high-contrast captures.
+- vscode: Devices & Connections now keeps simulator-mode topologies under one
+  `Simulator` runtime and refits populated remote/auth-failure graphs, so the
+  canvas, summary, and status bar no longer contradict each other during GPIO
+  scans or token-error recovery.
 - vscode: the extension test runner and development binary resolver now honor
   `CARGO_TARGET_DIR` when locating built `trust-lsp`, `trust-runtime`, and
   `trust-debug` binaries, keeping isolated remote-builder gates aligned with
@@ -403,6 +593,9 @@ Target release: `v0.24.28`
 - trust-runtime/vscode: Live Values snapshots now come from one final
   post-logic runtime scan with per-snapshot force markers and a visible scan
   number, preventing stale rows from being decorated with newer force state.
+- trust-debug/vscode: running-simulation updates now suppress pre-scan reload
+  I/O events and the conveyor example no longer overlaps bit and word outputs,
+  keeping Live Values update evidence logically consistent.
 - vscode: Live Values now auto-expires short success feedback such as released
   forces while leaving standing-state banners, including active forces and
   permission-denied guidance, visible until the state changes.
@@ -419,6 +612,11 @@ Target release: `v0.24.28`
   the runtime snapshot, so REAL, TIME, and fixed-length STRING rows render as
   typed values instead of raw DWORDs/bytes and local writes accept `1.5`,
   `T#250ms`, and text values.
+- testing: VS Code UX evidence PNG hygiene now strips color/text/time chunks and
+  hashes decoded pixels, so duplicate screenshots cannot bypass review by
+  differing only in PNG metadata. The runtime I/O cycle snapshot test now
+  asserts the post-output-commit snapshot contract with a bounded timeout
+  instead of hanging broad gates when a snapshot is missing.
 - vscode: Live Values now explains program-driven outputs and memory rows in
   the panel and on disabled Write controls, pointing users to Force for
   simulation overrides instead of leaving greyed actions unexplained.

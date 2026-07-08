@@ -2,7 +2,9 @@
 
 `trust-runtime` is the main operator/runtime CLI for truST. Developer and
 automation workbench commands are moving to `trust-dev`; deprecated
-`trust-runtime` aliases remain during the migration window.
+`trust-runtime` aliases remain during the migration window and will not be
+removed before 2026-10-05. Removing them requires a separate behavior-change
+release note.
 
 ![Top-level `trust-runtime --help`](../../assets/images/terminal/runtime-help.gif)
 
@@ -63,7 +65,8 @@ Primary options:
 Usage: trust-runtime test [OPTIONS]
 ```
 
-This forwards to `trust-dev test` and prints a deprecation warning.
+This forwards to `trust-dev test` and prints a deprecation warning with the
+2026-10-05 removal-not-before date.
 
 Primary options:
 
@@ -80,7 +83,8 @@ Primary options:
 Usage: trust-runtime docs [OPTIONS]
 ```
 
-This forwards to `trust-dev docs` and prints a deprecation warning.
+This forwards to `trust-dev docs` and prints a deprecation warning with the
+2026-10-05 removal-not-before date.
 
 Primary options:
 
@@ -98,7 +102,8 @@ Compatibility subcommand:
 
 - `serve`
 
-This forwards to `trust-dev agent serve` and prints a deprecation warning.
+This forwards to `trust-dev agent serve` and prints a deprecation warning with
+the 2026-10-05 removal-not-before date.
 
 ### HMI
 
@@ -277,7 +282,8 @@ trust-dev agent serve --project ./my-plc
 ```
 
 `trust-runtime agent serve --project ./my-plc` remains a compatibility alias
-during the product/workbench split.
+during the product/workbench split. It will not be removed before 2026-10-05,
+and removal requires a separate behavior-change release note.
 
 ![`trust-dev agent serve --help`](../../assets/images/terminal/agent-serve-help.gif)
 

@@ -1,4 +1,5 @@
 use std::sync::mpsc;
+use std::time::Duration as StdDuration;
 use trust_runtime::eval::expr::{Expr, LValue};
 use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::io::{IoAddress, IoSnapshotValue};
@@ -57,7 +58,7 @@ fn io_read_write_order() {
 }
 
 #[test]
-fn io_snapshots_emitted_at_cycle_bounds() {
+fn io_snapshot_emitted_after_cycle_output_commit() {
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("in", Value::Bool(false));
     runtime.storage_mut().set_global("out", Value::Bool(false));
@@ -110,37 +111,31 @@ fn io_snapshots_emitted_at_cycle_bounds() {
 
     runtime.execute_cycle().unwrap();
 
-    let first = rx.recv().expect("first snapshot");
-    let second = rx.recv().expect("second snapshot");
-    assert!(rx.try_recv().is_err());
+    let snapshot = rx
+        .recv_timeout(StdDuration::from_secs(1))
+        .expect("post-cycle I/O snapshot");
+    assert!(
+        rx.try_recv().is_err(),
+        "only one post-cycle snapshot is expected"
+    );
 
-    let first_in = first
+    let snapshot_in = snapshot
         .inputs
         .iter()
         .find(|entry| entry.name.as_deref() == Some("in"))
         .expect("input entry");
-    match &first_in.value {
+    match &snapshot_in.value {
         IoSnapshotValue::Value(Value::Bool(true)) => {}
         other => panic!("unexpected input snapshot: {other:?}"),
     }
 
-    let first_out = first
+    let snapshot_out = snapshot
         .outputs
         .iter()
         .find(|entry| entry.name.as_deref() == Some("out"))
         .expect("output entry");
-    match &first_out.value {
-        IoSnapshotValue::Value(Value::Bool(false)) => {}
-        other => panic!("unexpected output snapshot before exec: {other:?}"),
-    }
-
-    let second_out = second
-        .outputs
-        .iter()
-        .find(|entry| entry.name.as_deref() == Some("out"))
-        .expect("output entry");
-    match &second_out.value {
+    match &snapshot_out.value {
         IoSnapshotValue::Value(Value::Bool(true)) => {}
-        other => panic!("unexpected output snapshot after exec: {other:?}"),
+        other => panic!("unexpected output snapshot after output commit: {other:?}"),
     }
 }

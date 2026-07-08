@@ -59,7 +59,7 @@ impl IndexCache {
     pub(crate) fn content_for_path(&self, path: &Path) -> Option<&str> {
         let key = cache_key(path);
         let entry = self.entries.get(&key)?;
-        if entry.matches_metadata(path) {
+        if entry.matches_disk(path) {
             Some(entry.content.as_str())
         } else {
             None
@@ -101,11 +101,17 @@ impl IndexCache {
 }
 
 impl CacheEntry {
-    fn matches_metadata(&self, path: &Path) -> bool {
+    fn matches_disk(&self, path: &Path) -> bool {
         let Some((size, mtime)) = metadata_signature(path) else {
             return false;
         };
-        self.size == size && self.mtime == mtime
+        if self.size != size || self.mtime != mtime {
+            return false;
+        }
+        let Ok(current) = fs::read_to_string(path) else {
+            return false;
+        };
+        hash_content(&current) == self.hash
     }
 }
 
@@ -134,7 +140,7 @@ fn hash_content(content: &str) -> u64 {
 mod tests {
     use super::*;
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     fn temp_dir(prefix: &str) -> std::path::PathBuf {
         let stamp = SystemTime::now()
@@ -174,5 +180,59 @@ mod tests {
         assert!(cache.content_for_path(&file_path).is_none());
 
         fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn cache_rejects_same_size_same_second_mtime_collision() {
+        let root = temp_dir("trustlsp-index-cache-metadata-collision");
+        let cache_dir = root.join(".trust-lsp/index-cache");
+        let file_path = root.join("Lib.st");
+        let initial = "FUNCTION Add : INT\n    Add := 1;\nEND_FUNCTION\n";
+        let edited = "FUNCTION Mul : INT\n    Mul := 1;\nEND_FUNCTION\n";
+        assert_eq!(
+            initial.len(),
+            edited.len(),
+            "fixture must preserve file size"
+        );
+
+        let timestamp = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        fs::write(&file_path, initial).expect("write initial file");
+        set_modified_time(&file_path, timestamp);
+        let initial_signature = metadata_signature(&file_path).expect("initial metadata");
+
+        let mut cache = IndexCache::load_or_default(&cache_dir);
+        cache.update_from_content(&file_path, initial.to_string());
+        cache.save(&cache_dir).expect("save cache");
+        let cache = IndexCache::load_or_default(&cache_dir);
+        assert_eq!(
+            cache.content_for_path(&file_path),
+            Some(initial),
+            "warm cache should return the original content"
+        );
+
+        fs::write(&file_path, edited).expect("write edited file");
+        set_modified_time(&file_path, timestamp);
+        let edited_signature = metadata_signature(&file_path).expect("edited metadata");
+        assert_eq!(
+            initial_signature, edited_signature,
+            "fixture must collide on the cache metadata signature"
+        );
+
+        let cache = IndexCache::load_or_default(&cache_dir);
+        assert!(
+            cache.content_for_path(&file_path).is_none(),
+            "cache lookup must reject stale content when disk content changed under identical size/mtime metadata"
+        );
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    fn set_modified_time(path: &Path, modified: SystemTime) {
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .open(path)
+            .expect("open file for mtime update");
+        let times = fs::FileTimes::new().set_modified(modified);
+        file.set_times(times).expect("set modified time");
     }
 }

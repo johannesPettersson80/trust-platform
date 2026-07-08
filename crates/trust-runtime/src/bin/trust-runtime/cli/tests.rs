@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Parser;
+    use clap::{CommandFactory, Parser};
 
     #[test]
     fn parse_build_ci_flag() {
@@ -56,6 +56,19 @@ mod tests {
             Command::Test { ci, .. } => assert!(ci),
             other => panic!("expected test command, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn runtime_help_names_trust_dev_workbench_commands_and_removal_window() {
+        let mut help = Vec::new();
+        Cli::command()
+            .write_long_help(&mut help)
+            .expect("render trust-runtime help");
+        let text = String::from_utf8(help).expect("help is utf-8");
+
+        assert!(text.contains("Workbench commands:"));
+        assert!(text.contains("use trust-dev test/docs/commit/agent serve"));
+        assert!(text.contains("no earlier than 2026-10-05"));
     }
 
     #[test]
@@ -659,6 +672,12 @@ mod tests {
             "192.168.1.0/24",
             "--timeout-ms",
             "250",
+            "--unit-id",
+            "17",
+            "--probe-read-address",
+            "400",
+            "--probe-read-quantity",
+            "2",
             "--json",
         ]);
         match cli.command.expect("command") {
@@ -670,6 +689,9 @@ mod tests {
                     host,
                     adapter,
                     timeout_ms,
+                    unit_id,
+                    probe_read_address,
+                    probe_read_quantity,
                     passive,
                     json,
                 } => {
@@ -679,6 +701,9 @@ mod tests {
                     assert!(host.is_none());
                     assert!(adapter.is_none());
                     assert_eq!(timeout_ms, Some(250));
+                    assert_eq!(unit_id, Some(17));
+                    assert_eq!(probe_read_address, Some(400));
+                    assert_eq!(probe_read_quantity, Some(2));
                     assert!(passive);
                     assert!(json);
                 }
@@ -1308,13 +1333,7 @@ mod tests {
 
     #[test]
     fn parse_agent_serve_command() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "agent",
-            "serve",
-            "--project",
-            "workspace",
-        ]);
+        let cli = Cli::parse_from(["trust-runtime", "agent", "serve", "--project", "workspace"]);
         match cli.command.expect("command") {
             Command::Agent { action } => match action {
                 AgentAction::Serve { project } => {
@@ -1521,5 +1540,4 @@ mod tests {
             other => panic!("expected bench command, got {other:?}"),
         }
     }
-
 }

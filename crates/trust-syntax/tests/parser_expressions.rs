@@ -20,6 +20,24 @@ fn sizeof_children_kinds(source: &str) -> Vec<SyntaxKind> {
         .collect()
 }
 
+fn compact_text(node: &SyntaxNode) -> String {
+    node.text()
+        .to_string()
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect()
+}
+
+fn binary_expr_with_compact_text(source: &str, expected: &str) -> SyntaxNode {
+    let parsed = parse(source);
+    assert!(parsed.ok(), "parse errors: {:?}", parsed.errors());
+    parsed
+        .syntax()
+        .descendants()
+        .find(|node| node.kind() == SyntaxKind::BinaryExpr && compact_text(node) == expected)
+        .unwrap_or_else(|| panic!("missing BinaryExpr with compact text {expected}"))
+}
+
 // Expressions
 #[test]
 // IEC 61131-3 Ed.3 Table 71 (arithmetic operators)
@@ -65,6 +83,48 @@ END_PROGRAM"#
 }
 
 #[test]
+fn exponentiation_is_left_associative_per_iec_table_71() {
+    let expr = binary_expr_with_compact_text(
+        r#"PROGRAM Test
+    z := 2 ** 3 ** 2;
+END_PROGRAM"#,
+        "2**3**2",
+    );
+    let children = expr.children().collect::<Vec<_>>();
+
+    assert_eq!(
+        children.first().map(SyntaxNode::kind),
+        Some(SyntaxKind::BinaryExpr),
+        "outer power expression should group the left operand first: {expr:#?}"
+    );
+    assert_eq!(compact_text(&children[0]), "2**3");
+}
+
+#[test]
+fn unary_minus_binds_tighter_than_exponentiation_per_iec_table_71() {
+    let parsed = parse(
+        r#"PROGRAM Test
+    z := -2 ** 2;
+END_PROGRAM"#,
+    );
+    assert!(parsed.ok(), "parse errors: {:?}", parsed.errors());
+
+    let expr = parsed
+        .syntax()
+        .descendants()
+        .find(|node| node.kind() == SyntaxKind::BinaryExpr && compact_text(node) == "-2**2")
+        .expect("outer expression should be exponentiation with unary left operand");
+    let children = expr.children().collect::<Vec<_>>();
+
+    assert!(
+        children
+            .iter()
+            .any(|child| child.kind() == SyntaxKind::UnaryExpr && compact_text(child) == "-2"),
+        "IEC Table 71 gives unary minus higher precedence than exponentiation: {expr:#?}"
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Table 71 (unary operators)
 fn test_unary_operators() {
     insta::assert_snapshot!(snapshot_parse(
@@ -85,6 +145,25 @@ fn test_function_call() {
     y := Add(a := 1, b := 2);
 END_PROGRAM"#
     ));
+}
+
+#[test]
+fn unclosed_call_argument_list_reports_missing_rparen() {
+    let parsed = parse(
+        r#"PROGRAM Test
+    x := MyFunc(1, 2;
+END_PROGRAM"#,
+    );
+
+    assert!(!parsed.ok(), "missing call ')' should be a parse error");
+    assert!(
+        parsed
+            .errors()
+            .iter()
+            .any(|error| error.message == "expected )"),
+        "expected missing ')' diagnostic, got {:?}",
+        parsed.errors()
+    );
 }
 
 #[test]

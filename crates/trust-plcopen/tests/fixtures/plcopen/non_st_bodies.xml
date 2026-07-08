@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="truST synthetic regression" productName="non-ST body rejection" />
+  <types>
+    <pous>
+      <pou name="FbdPump" pouType="program">
+        <body>
+          <FBD>
+            <network>
+              <block localId="1" typeName="TON" />
+            </network>
+          </FBD>
+        </body>
+      </pou>
+      <pou name="LadderPump" pouType="program">
+        <body>
+          <LD>
+            <leftPowerRail localId="1" />
+            <coil localId="2" variable="Pump" />
+          </LD>
+        </body>
+      </pou>
+      <pou name="Sequence" pouType="program">
+        <body>
+          <SFC>
+            <step localId="1" name="Init" />
+          </SFC>
+        </body>
+      </pou>
+      <pou name="VendorGraph" pouType="program">
+        <body>
+          <vendorGraph>
+            <label>This text must never be scraped into ST.</label>
+          </vendorGraph>
+        </body>
+      </pou>
+    </pous>
+  </types>
+</project>

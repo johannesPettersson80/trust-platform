@@ -2476,8 +2476,6 @@ export function LadderEditor() {
           <ElementPropertiesPanel
             selectedElement={selectedElement}
             selectedElementData={selectedElementData}
-            activeRungIndex={activeRungIndex}
-            networkCount={program.networks.length}
             gridSize={GRID_SIZE}
             onUpdateSelectedElement={updateSelectedElement}
             onRemoveSelectedElement={removeSelectedElement}

@@ -150,6 +150,21 @@ mod tests {
     }
 
     #[test]
+    fn apply_content_changes_uses_utf16_columns_after_supplementary_scalar() {
+        let original = "😀x := 1;\n";
+        let change = TextDocumentContentChangeEvent {
+            range: Some(Range {
+                start: Position::new(0, 2),
+                end: Position::new(0, 3),
+            }),
+            range_length: None,
+            text: "y".to_string(),
+        };
+        let updated = apply_content_changes(original, &[change]).expect("apply change");
+        assert_eq!(updated, "😀y := 1;\n");
+    }
+
+    #[test]
     fn apply_content_changes_full_sync() {
         let original = "x := 1;\n";
         let change = TextDocumentContentChangeEvent {

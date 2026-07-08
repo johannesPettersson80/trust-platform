@@ -46,7 +46,6 @@ fn legacy_v1_count_snapshot_bytes(value: i32) -> Vec<u8> {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_store_rejects_trailing_garbage() {
     let path = temp_path("trailing");
     let _ = std::fs::remove_file(&path);
@@ -69,7 +68,6 @@ fn retain_store_rejects_trailing_garbage() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_store_rejects_payload_mutation() {
     let path = temp_path("mutation");
     let _ = std::fs::remove_file(&path);
@@ -105,7 +103,6 @@ fn retain_store_loads_legacy_v1_snapshot() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_orphan_global_emits_runtime_event() {
     let source = r#"
 VAR_GLOBAL RETAIN
@@ -135,7 +132,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_scalar_widening_migrates_with_runtime_event() {
     let source = r#"
 VAR_GLOBAL RETAIN
@@ -164,7 +160,64 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn retain_bounded_string_is_canonicalized_on_load() {
+    let source = r#"
+VAR_GLOBAL RETAIN
+    label : STRING[3] := 'OK';
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let debug = harness.runtime_mut().enable_debug();
+    let mut snapshot = RetainSnapshot::default();
+    snapshot.insert("label", Value::String("TOO-LONG".into()));
+
+    harness
+        .runtime_mut()
+        .apply_retain_snapshot(&snapshot)
+        .expect("overlong bounded STRING retain value should be canonicalized");
+
+    assert_eq!(
+        harness.get_output("label"),
+        Some(Value::String("TOO".into()))
+    );
+    let events = debug.drain_runtime_events();
+    assert!(
+        events
+            .iter()
+            .any(|event| format!("{event:?}").contains("RetainMigrationApplied")),
+        "expected retain migration event, got {events:?}"
+    );
+}
+
+#[test]
+fn retain_subrange_rejects_out_of_range_value_on_load() {
+    let source = r#"
+VAR_GLOBAL RETAIN
+    limited : INT(0..10) := INT#0;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let mut snapshot = RetainSnapshot::default();
+    snapshot.insert("limited", Value::Int(100));
+
+    let err = harness
+        .runtime_mut()
+        .apply_retain_snapshot(&snapshot)
+        .expect_err("out-of-range subrange retain value must be rejected");
+    assert!(
+        err.to_string().contains("outside declared subrange 0..10"),
+        "expected subrange retain rejection, got {err}"
+    );
+    assert_eq!(harness.get_output("limited"), Some(Value::Int(0)));
+}
+
+#[test]
 fn retain_struct_added_field_uses_declared_default_with_migration_event() {
     let source = r#"
 TYPE HolderT : STRUCT
@@ -202,7 +255,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_struct_removed_field_drops_with_migration_event() {
     let source = r#"
 TYPE HolderT : STRUCT

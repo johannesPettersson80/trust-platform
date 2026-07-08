@@ -22,6 +22,8 @@ pub struct MockAdsTransport {
     subscription_ids_by_point: BTreeMap<String, u32>,
     notifications: Vec<AdsNotificationSample>,
     sumup_read_batches: usize,
+    disconnect_count: usize,
+    subscribe_count: usize,
 }
 
 impl MockAdsTransport {
@@ -38,6 +40,8 @@ impl MockAdsTransport {
             subscription_ids_by_point: BTreeMap::new(),
             notifications: Vec::new(),
             sumup_read_batches: 0,
+            disconnect_count: 0,
+            subscribe_count: 0,
         }
     }
 
@@ -95,6 +99,14 @@ impl MockAdsTransport {
     pub fn sumup_read_batches(&self) -> usize {
         self.sumup_read_batches
     }
+
+    pub fn disconnect_count(&self) -> usize {
+        self.disconnect_count
+    }
+
+    pub fn subscribe_count(&self) -> usize {
+        self.subscribe_count
+    }
 }
 
 impl AdsTransport for MockAdsTransport {
@@ -104,6 +116,7 @@ impl AdsTransport for MockAdsTransport {
     }
 
     fn disconnect(&mut self) -> Result<(), AdsTransportError> {
+        self.disconnect_count = self.disconnect_count.saturating_add(1);
         self.connected = false;
         self.subscription_ids_by_point.clear();
         self.notifications.clear();
@@ -198,6 +211,7 @@ impl AdsTransport for MockAdsTransport {
         request: AdsSubscribeRequest,
     ) -> Result<AdsSubscription, AdsTransportError> {
         self.require_connected()?;
+        self.subscribe_count = self.subscribe_count.saturating_add(1);
         let subscription_id = self.next_subscription;
         self.next_subscription = self.next_subscription.saturating_add(1);
         self.subscription_ids_by_point

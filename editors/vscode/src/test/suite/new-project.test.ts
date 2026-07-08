@@ -23,6 +23,17 @@ async function pathExists(uri: vscode.Uri): Promise<boolean> {
   }
 }
 
+async function deleteTreeIfExists(uri: vscode.Uri): Promise<void> {
+  try {
+    await vscode.workspace.fs.delete(uri, {
+      recursive: true,
+      useTrash: false,
+    });
+  } catch {
+    // Test cleanup only.
+  }
+}
+
 async function readText(uri: vscode.Uri): Promise<string> {
   const data = await vscode.workspace.fs.readFile(uri);
   return Buffer.from(data).toString("utf8");
@@ -208,6 +219,7 @@ suite("New project command (VS Code)", function () {
       /driver\s*=\s*"simulated"/.test(ioToml),
       "io.toml must default to the simulated driver (runs with no hardware)."
     );
+    await deleteTreeIfExists(targetUri);
   });
 
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
@@ -296,6 +308,7 @@ suite("New project command (VS Code)", function () {
       await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")),
       true
     );
+    await deleteTreeIfExists(targetUri);
   });
 
   test("generated ST parses cleanly and TOML is usable by build", async function () {

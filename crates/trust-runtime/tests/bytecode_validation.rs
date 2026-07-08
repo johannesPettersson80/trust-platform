@@ -1,7 +1,10 @@
 mod bytecode_helpers;
 
 use bytecode_helpers::{base_module, module_with_debug};
-use trust_runtime::bytecode::{BytecodeError, BytecodeModule, SectionData, SectionId};
+use trust_runtime::bytecode::{
+    BytecodeError, BytecodeModule, ConstEntry, SectionData, SectionId, TypeData, TypeEntry,
+    TypeKind,
+};
 
 #[test]
 fn opcode_validation() {
@@ -51,15 +54,43 @@ fn validator_rejects_unsupported_runtime_opcodes_before_dispatch() {
 #[test]
 fn opcode_validation_extended() {
     let mut module = base_module();
+    if let Some(SectionData::TypeTable(types)) = module.section_mut(SectionId::TypeTable) {
+        types.entries.push(TypeEntry {
+            kind: TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 8,
+                max_length: 0,
+            },
+        });
+        types.offsets = vec![12, 24];
+    }
+    if let Some(SectionData::ConstPool(pool)) = module.section_mut(SectionId::ConstPool) {
+        pool.entries.push(ConstEntry {
+            type_id: 1,
+            payload: 2_i32.to_le_bytes().to_vec(),
+        });
+    }
+    let mut code_len = 0;
     if let Some(SectionData::PouBodies(bodies)) = module.section_mut(SectionId::PouBodies) {
-        let mut code = vec![0x25, 0x31, 0x32, 0x33, 0x4C, 0x09];
+        let mut code = vec![0x25, 0x10];
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.extend_from_slice(&[0x31, 0x32, 0x12, 0x25, 0x10]);
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.extend_from_slice(&[0x33, 0x10]);
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.push(0x10);
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.extend_from_slice(&[0x4C, 0x12, 0x09]);
         code.extend_from_slice(&0_u32.to_le_bytes());
         code.extend_from_slice(&0_u32.to_le_bytes());
         code.extend_from_slice(&0_u32.to_le_bytes());
+        code.push(0x12);
+        code_len = code.len() as u32;
         *bodies = code;
     }
     if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
-        index.entries[0].code_length = 18;
+        index.entries[0].code_length = code_len;
     }
     let bytes = module.encode().expect("encode");
     let decoded = BytecodeModule::decode(&bytes).expect("decode");

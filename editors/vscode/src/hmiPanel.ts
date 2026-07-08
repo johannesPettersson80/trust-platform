@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { affectsTrustConfiguration } from "./configuration";
 import { isHmiSchemaResult, isHmiValuesResult, isRecord } from "./hmi-panel/contracts";
 import {
   applyLayoutOverrides,
@@ -104,13 +105,13 @@ export function registerHmiPanel(context: vscode.ExtensionContext): void {
         return;
       }
       if (
-        event.affectsConfiguration("trust-lsp.runtime.controlEndpoint") ||
-        event.affectsConfiguration("trust-lsp.runtime.controlAuthToken") ||
-        event.affectsConfiguration("trust-lsp.runtime.controlEndpointEnabled")
+        affectsTrustConfiguration(event, "runtime.controlEndpoint") ||
+        affectsTrustConfiguration(event, "runtime.controlAuthToken") ||
+        affectsTrustConfiguration(event, "runtime.controlEndpointEnabled")
       ) {
         void refreshSchema();
       }
-      if (event.affectsConfiguration("trust-lsp.hmi.pollIntervalMs")) {
+      if (affectsTrustConfiguration(event, "hmi.pollIntervalMs")) {
         startPolling();
       }
     })

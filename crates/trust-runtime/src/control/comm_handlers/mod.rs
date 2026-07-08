@@ -12,6 +12,7 @@ mod apply;
 mod browse_symbols;
 mod contract;
 mod discover;
+mod discovery_probe;
 mod probe;
 mod schema;
 
@@ -231,7 +232,9 @@ fn ads_client_capability(status: Option<&AdsStatusReport>) -> RuntimeCapabilityS
     let configured = !matches!(status.overall, AdsStatusOverall::Disabled);
     let health = match status.overall {
         AdsStatusOverall::Healthy => CommHealth::Connected,
-        AdsStatusOverall::Degraded | AdsStatusOverall::Unknown => CommHealth::Degraded,
+        AdsStatusOverall::Degraded | AdsStatusOverall::NotReady | AdsStatusOverall::Unknown => {
+            CommHealth::Degraded
+        }
         AdsStatusOverall::Faulted => CommHealth::Error,
         AdsStatusOverall::Disabled => CommHealth::NotConfigured,
     };

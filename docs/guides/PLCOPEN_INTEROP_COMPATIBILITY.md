@@ -14,7 +14,8 @@ multi-vendor export adapters).
   - `trust-runtime plcopen import --input <file> [--project <dir>] [--json]`
 - Product decision for this phase:
   - ST-only PLCopen project support.
-  - FBD/LD/SFC graphical network bodies are out of scope.
+  - FBD/LD/SFC graphical network bodies are out of scope and are rejected
+    before any source file is emitted.
 
 ## Compatibility Matrix
 
@@ -32,7 +33,7 @@ multi-vendor export adapters).
 | Vendor ecosystem migration heuristics | partial | Advisory signal only; not semantic equivalence. |
 | Vendor library shim normalization | partial | Selected aliases are mapped to IEC FB names during import; each mapping is reported. |
 | Multi-vendor export adapters (`--target ab|siemens|schneider`) | partial | Exports PLCopen XML + target diagnostics/manual-step report; Siemens target also emits direct `.scl` source bundle; native vendor project package generation is out of scope in v1. |
-| Graphical bodies (FBD/LD/SFC) | unsupported | ST-complete contract remains ST-only by product decision. |
+| Graphical bodies (FBD/LD/SFC) | unsupported | ST-complete contract remains ST-only by product decision. Import rejects these bodies with named diagnostics instead of scraping XML text into ST. |
 | Vendor AOI/library internal semantics | unsupported | Advanced behavior remains manual migration work beyond symbol-level shims. |
 
 ## Export Adapter Contract (Deliverable 7)
@@ -107,6 +108,16 @@ equivalence on target runtimes.
   - `notes`
 - Per-POU migration entries (`entries`) with `status` and `reason`.
 
+Non-ST POU body diagnostics are fail-closed:
+
+- `PLCO215`: unsupported FBD graphical body.
+- `PLCO216`: unsupported LD graphical body.
+- `PLCO217`: unsupported SFC graphical body.
+- `PLCO218`: unknown non-ST body element.
+
+When one of these diagnostics is emitted, the POU is skipped and no ST source is
+synthesized from the graphical or unknown XML payload.
+
 ## CODESYS ST Fixture Pack and Parity Gate
 
 Deliverable 5 includes deterministic CODESYS ST fixture packs for
@@ -123,6 +134,12 @@ Deliverable 5 includes deterministic CODESYS ST fixture packs for
 
 The parity test enforces deterministic import/export signature stability for
 supported ST-project structures and fails CI on schema-drift regressions.
+
+The vendor-family PLCopen fixtures in
+`crates/trust-runtime/tests/fixtures/plcopen/synthetic-*.xml` are synthetic,
+IP-clean regression fixtures. They are not real exports from vendor tools.
+Real CODESYS and TwinCAT export fixtures must be generated from scratch demo
+projects and recorded with provenance before they are added to this corpus.
 
 ## Supported Ecosystem Detection (Advisory)
 

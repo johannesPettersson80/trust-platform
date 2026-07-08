@@ -102,8 +102,11 @@ slot = 2
         driver.read_inputs(&mut inputs).expect("read");
         driver
             .write_outputs(&[0x01])
-            .expect_err("warn policy should report write failure");
-        assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
+            .expect("warn policy should degrade without failing the cycle");
+        let IoDriverHealth::Degraded { error } = driver.health() else {
+            panic!("warn policy should degrade health after write failure");
+        };
+        assert!(error.contains("mock ethercat write failure"));
     }
 
     #[cfg(all(feature = "ethercat-wire", unix))]

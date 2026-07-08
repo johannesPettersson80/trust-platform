@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::MemoryLocation;
 use alloc::vec;
 #[cfg(feature = "hir")]
 use trust_hir::types::StructField;
@@ -172,6 +173,54 @@ fn struct_value_clone_and_equality_preserve_field_identity() {
     );
     assert_eq!(cloned.field("x"), Some(&Value::Int(1)));
     assert_eq!(cloned.field("y"), Some(&Value::Bool(true)));
+}
+
+#[test]
+fn normalize_assignment_materializes_safe_numeric_widening_tags() {
+    assert_eq!(
+        normalize_assignment_for_target(&Value::DInt(0), Value::Int(200)),
+        Value::DInt(200)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::Real(0.0), Value::Int(1)),
+        Value::Real(1.0)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::LReal(0.0), Value::Real(1.25)),
+        Value::LReal(1.25)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::UDInt(0), Value::UInt(7)),
+        Value::UDInt(7)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::DWord(0), Value::Word(16)),
+        Value::DWord(16)
+    );
+}
+
+#[test]
+fn normalize_assignment_preserves_null_reference_and_leaves_non_widening_values() {
+    assert_eq!(
+        normalize_assignment_for_target(&Value::Reference(Some(dummy_ref())), Value::Null),
+        Value::Reference(None)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::Int(0), Value::DInt(32_000)),
+        Value::DInt(32_000)
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::Bool(false), Value::Int(1)),
+        Value::Int(1)
+    );
+}
+
+fn dummy_ref() -> ValueRef {
+    ValueRef {
+        location: MemoryLocation::Global,
+        offset: 0,
+        path: Vec::new(),
+    }
 }
 
 #[cfg(feature = "hir")]

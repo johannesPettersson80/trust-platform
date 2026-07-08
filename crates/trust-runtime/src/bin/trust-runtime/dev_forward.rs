@@ -6,6 +6,8 @@ use std::process::Command;
 
 use anyhow::Context;
 
+pub(crate) const WORKBENCH_ALIAS_REMOVAL_NOT_BEFORE: &str = "2026-10-05";
+
 pub(crate) fn run_trust_dev_with_warning(
     command_name: &str,
     args: Vec<OsString>,
@@ -13,7 +15,7 @@ pub(crate) fn run_trust_dev_with_warning(
     eprintln!(
         "{}",
         crate::style::warning(format!(
-            "Warning: `trust-runtime {command_name}` is deprecated. Use `trust-dev {command_name}` instead."
+            "Warning: `trust-runtime {command_name}` is deprecated and will be removed no earlier than {WORKBENCH_ALIAS_REMOVAL_NOT_BEFORE} in a separate behavior-change release. Use `trust-dev {command_name}` instead."
         ))
     );
 

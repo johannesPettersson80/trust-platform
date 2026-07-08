@@ -5,7 +5,7 @@
     about = "Structured Text runtime CLI",
     infer_subcommands = true,
     arg_required_else_help = false,
-    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime check --project ./my-plc --json # check sources/config without writing bytecode\n  trust-runtime comm topology --project ./my-plc --json # inspect offline comm topology\n  trust-runtime comm discover --protocol ads --json # find communication targets from this host\n  trust-runtime fleet runtime add --fleet-root ./fleet --name cell1 --json # scaffold sibling runtime\n  trust-runtime play --project ./my-plc # compatibility"
+    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime check --project ./my-plc --json # check sources/config without writing bytecode\n  trust-runtime comm topology --project ./my-plc --json # inspect offline comm topology\n  trust-runtime comm discover --protocol ads --json # find communication targets from this host\n  trust-runtime fleet runtime add --fleet-root ./fleet --name cell1 --json # scaffold sibling runtime\n  trust-runtime play --project ./my-plc # compatibility\n\nWorkbench commands:\n  use trust-dev test/docs/commit/agent serve. Deprecated trust-runtime aliases remain only until the removal window, no earlier than 2026-10-05."
 )]
 pub struct Cli {
     /// Show verbose startup details.
@@ -143,7 +143,7 @@ pub enum Command {
         ci: bool,
     },
     /// Deprecated alias for `trust-dev test`.
-    #[command(after_help = "Examples:\n  trust-dev test --project ./my-plc\n  trust-runtime test --project ./my-plc")]
+    #[command(after_help = "Canonical:\n  trust-dev test --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime test --project ./my-plc")]
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -165,7 +165,7 @@ pub enum Command {
         ci: bool,
     },
     /// Deprecated alias for `trust-dev docs`.
-    #[command(after_help = "Examples:\n  trust-dev docs --project ./my-plc\n  trust-runtime docs --project ./my-plc")]
+    #[command(after_help = "Canonical:\n  trust-dev docs --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime docs --project ./my-plc")]
     Docs {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -269,7 +269,7 @@ pub enum Command {
     },
     /// Deprecated alias for `trust-dev agent serve`.
     #[command(
-        after_help = "Examples:\n  trust-dev agent serve --project ./my-plc\n  trust-runtime agent serve --project ./my-plc"
+        after_help = "Canonical:\n  trust-dev agent serve --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime agent serve --project ./my-plc"
     )]
     Agent {
         #[command(subcommand)]
@@ -285,7 +285,8 @@ pub enum Command {
         #[arg(long)]
         start: bool,
     },
-    /// Commit project changes with a human-friendly summary.
+    /// Deprecated alias for `trust-dev commit`.
+    #[command(after_help = "Canonical:\n  trust-dev commit --project .\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime commit --project .")]
     Commit {
         /// Project folder directory (defaults to current directory).
         #[arg(long = "project", alias = "bundle")]

@@ -55,10 +55,11 @@ base64 = "0.22"
 rand = "0.10"
 ureq = "3"
 sha2 = "0.10"
+signal-hook = "0.3.18"
 rustls = "0.23"
 tiverse-mmap = "1.0"
 region = "3.0"
-open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
+open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 opcua = { version = "0.12", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
 crossbeam-channel = { workspace = true, optional = true }
@@ -66,14 +67,15 @@ tokio = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 ethercrab = { version = "0.6", optional = true }
-# Local S4b development dependency. The shared builder must keep
-# ../open-ot-ref checked out at rev >= 7b5f500; a git/vendor dep is a follow-up.
-open-ot-carriage = { path = "../../../open-ot-ref/crates/carriage" }
-open-ot-shm = { path = "../../../open-ot-ref/crates/open-ot-shm" }
+# OpenOT Rust crates are pinned so fresh source builds do not need a sibling
+# checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
+# sources and conformance fixtures that are not Cargo crates.
+open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
+open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
 [target.'cfg(unix)'.dev-dependencies]
-open-ot-conformance = { path = "../../../open-ot-ref/crates/conformance" }
-open-ot-document = { path = "../../../open-ot-ref/crates/document" }
+open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
+open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gpio-cdev = "0.6"

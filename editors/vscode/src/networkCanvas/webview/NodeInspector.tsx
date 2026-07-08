@@ -209,9 +209,9 @@ function connectionSummary(value: unknown): string {
         .map((point) => pointMapping(point as Record<string, unknown>))
         .filter(Boolean);
       const head = [name, endpoint].filter(Boolean).join(" · ");
-      return mappings.length === 0 ? head : `${head} — ${mappings.join("; ")}`;
+      return mappings.length === 0 ? head : `${head}\n${mappings.map((mapping) => `- ${mapping}`).join("\n")}`;
     })
-    .join("; ");
+    .join("\n");
 }
 
 function parseArrayValue(raw: unknown, value: string): unknown[] {
@@ -742,12 +742,15 @@ function SummaryView({
         {shown.length === 0 ? (
           <p className="trust-empty" style={{ padding: 0, textAlign: "left" }}>No further details.</p>
         ) : (
-          shown.map(([k, v]) => (
-            <div key={k} style={{ display: "grid", gridTemplateColumns: "132px 1fr", gap: 10, fontSize: 12, lineHeight: 1.55, marginBottom: 7 }}>
+          shown.map(([k, v]) => {
+            const longValue = k === "Connections" && String(v).includes("\n");
+            return (
+            <div key={k} style={{ display: "grid", gridTemplateColumns: longValue ? "1fr" : "132px 1fr", gap: longValue ? 4 : 10, fontSize: 12, lineHeight: 1.55, marginBottom: longValue ? 12 : 7 }}>
               <span style={{ color: t.textMuted, overflowWrap: "anywhere" }}>{k}</span>
-              <span style={{ color: t.text, overflowWrap: "anywhere" }}>{v}</span>
+              <span style={{ color: t.text, overflowWrap: "anywhere", whiteSpace: longValue ? "pre-line" : undefined }}>{v}</span>
             </div>
-          ))
+            );
+          })
         )}
       </div>
       {/* Pinned between the scroll body and the footer so the result message is never

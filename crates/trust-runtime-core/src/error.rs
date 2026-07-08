@@ -79,6 +79,17 @@ pub enum RuntimeError {
     #[error("array index {index} out of bounds [{lower}..{upper}]")]
     IndexOutOfBounds { index: i64, lower: i64, upper: i64 },
 
+    /// Value outside a declared subrange.
+    #[error("value {value} outside declared subrange {lower}..{upper}")]
+    SubrangeViolation {
+        /// Actual runtime value.
+        value: i128,
+        /// Inclusive lower bound.
+        lower: i128,
+        /// Inclusive upper bound.
+        upper: i128,
+    },
+
     /// Null reference dereference.
     #[error("null reference dereference")]
     NullReference,
@@ -110,6 +121,10 @@ pub enum RuntimeError {
     /// Resource is faulted and cannot execute.
     #[error("resource faulted")]
     ResourceFaulted,
+
+    /// Resource cycle panicked inside scheduler-managed execution.
+    #[error("resource panic '{0}'")]
+    ResourcePanic(SmolStr),
 
     /// I/O driver error.
     #[error("i/o driver error '{0}'")]
@@ -157,6 +172,15 @@ pub enum RuntimeError {
     /// Watchdog timeout.
     #[error("watchdog timeout")]
     WatchdogTimeout,
+
+    /// Automatic restart policy exhausted its bounded retry budget.
+    #[error("automatic restart limit exceeded after {attempts} attempts: {reason}")]
+    RestartLimitExceeded {
+        /// Automatic restart attempts made before escalation.
+        attempts: u32,
+        /// Root fault that kept triggering restart.
+        reason: SmolStr,
+    },
 
     /// Safe-state output application failed while handling a root fault.
     #[error("safe-state failed after '{root}': {error}")]

@@ -40,6 +40,7 @@ pub(crate) fn required_role_for_control_request(
         | "events"
         | "faults"
         | "config.get"
+        | "connectors.status"
         | "ads.discover"
         | "ads.identity"
         | "ads.doctor.status"
@@ -229,6 +230,64 @@ mod tests {
         assert_eq!(
             required_role_for_control_request("comm.browse_symbols", Some(&live)),
             AccessRole::Engineer
+        );
+    }
+
+    #[test]
+    fn connectors_status_requires_viewer_role() {
+        assert_eq!(
+            required_role_for_control_request("connectors.status", None),
+            AccessRole::Viewer
+        );
+    }
+
+    #[test]
+    fn ads_connector_status_and_ads_mutations_keep_role_boundaries() {
+        assert_eq!(
+            required_role_for_control_request("connectors.status", None),
+            AccessRole::Viewer
+        );
+        assert_eq!(
+            required_role_for_control_request("ads.route_add", None),
+            AccessRole::Admin
+        );
+        assert_eq!(
+            required_role_for_control_request("ads.route_remove", None),
+            AccessRole::Admin
+        );
+        assert_eq!(
+            required_role_for_control_request(
+                "ads.doctor",
+                Some(&json!({ "writes_enabled": true }))
+            ),
+            AccessRole::Engineer
+        );
+        assert_eq!(
+            required_role_for_control_request(
+                "ads.import_symbols.apply",
+                Some(&json!({
+                    "connection_name": "line1",
+                    "target": {
+                        "ip": "192.168.10.5",
+                        "ams_net_id": "5.23.91.12.1.1",
+                        "ams_port": 851
+                    }
+                }))
+            ),
+            AccessRole::Engineer
+        );
+        assert_eq!(
+            required_role_for_control_request(
+                "ads.import_symbols.apply",
+                Some(&json!({
+                    "connection_name": "line1",
+                    "snapshot": {
+                        "route_name": "line1",
+                        "symbols": []
+                    }
+                }))
+            ),
+            AccessRole::Viewer
         );
     }
 }

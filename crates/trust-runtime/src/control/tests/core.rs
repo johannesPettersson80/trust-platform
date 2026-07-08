@@ -33,7 +33,10 @@ END_PROGRAM
         response.error
     );
     let result = response.result.expect("breakpoint result");
-    assert_eq!(result.get("file_id").and_then(serde_json::Value::as_u64), Some(1));
+    assert_eq!(
+        result.get("file_id").and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
 }
 
 #[test]
@@ -103,19 +106,35 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(simulated.ok, "simulated comm.test failed: {:?}", simulated.error);
+    assert!(
+        simulated.ok,
+        "simulated comm.test failed: {:?}",
+        simulated.error
+    );
     let result = simulated.result.expect("simulated result");
-    assert_eq!(result.get("supported").and_then(serde_json::Value::as_bool), Some(true));
-    assert_eq!(result.get("ok").and_then(serde_json::Value::as_bool), Some(true));
+    assert_eq!(
+        result.get("supported").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result.get("ok").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
 
     let missing_address = handle_request_value(
         json!({"id": 52, "type": "comm.test", "params": { "protocol": "modbus_tcp", "params": {} }}),
         &state,
         None,
     );
-    assert!(missing_address.ok, "field-error result should be structured");
+    assert!(
+        missing_address.ok,
+        "field-error result should be structured"
+    );
     let result = missing_address.result.expect("missing-address result");
-    assert_eq!(result.get("ok").and_then(serde_json::Value::as_bool), Some(false));
+    assert_eq!(
+        result.get("ok").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
     assert!(result
         .get("field_errors")
         .and_then(serde_json::Value::as_array)
@@ -141,14 +160,18 @@ END_PROGRAM
         &state,
         Some("10.0.0.20:50200"),
     );
-    assert!(blocked_secret.ok, "secret block result should be structured");
-    let result = blocked_secret.result.expect("blocked secret result");
-    assert_eq!(result.get("ok").and_then(serde_json::Value::as_bool), Some(false));
     assert!(
-        !serde_json::to_string(&result)
-            .expect("result json")
-            .contains("do-not-log")
+        blocked_secret.ok,
+        "secret block result should be structured"
     );
+    let result = blocked_secret.result.expect("blocked secret result");
+    assert_eq!(
+        result.get("ok").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert!(!serde_json::to_string(&result)
+        .expect("result json")
+        .contains("do-not-log"));
 
     for protocol in [
         "opcua",
@@ -164,7 +187,10 @@ END_PROGRAM
             &state,
             None,
         );
-        assert!(response.ok, "unsupported protocol result should be structured: {protocol}");
+        assert!(
+            response.ok,
+            "unsupported protocol result should be structured: {protocol}"
+        );
         let result = response.result.expect("unsupported protocol result");
         assert_eq!(
             result.get("supported").and_then(serde_json::Value::as_bool),
@@ -195,13 +221,21 @@ END_PROGRAM
 
     assert!(response.ok, "comm.schema failed: {:?}", response.error);
     let result = response.result.expect("schema result");
-    assert_eq!(result.pointer("/schema_version").and_then(serde_json::Value::as_u64), Some(4));
+    assert_eq!(
+        result
+            .pointer("/schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
     let protocols = result
         .get("protocols")
         .and_then(serde_json::Value::as_array)
         .expect("protocols");
     assert_eq!(protocols.len(), 1);
-    assert_eq!(protocols[0].get("id").and_then(serde_json::Value::as_str), Some("mqtt"));
+    assert_eq!(
+        protocols[0].get("id").and_then(serde_json::Value::as_str),
+        Some("mqtt")
+    );
     let fields = protocols[0]
         .get("fields")
         .and_then(serde_json::Value::as_array)
@@ -210,8 +244,13 @@ END_PROGRAM
         .iter()
         .find(|field| field.get("id").and_then(serde_json::Value::as_str) == Some("password"))
         .expect("password field");
-    assert_eq!(password.get("secret").and_then(serde_json::Value::as_bool), Some(true));
-    assert!(password.get("default").is_some_and(serde_json::Value::is_null));
+    assert_eq!(
+        password.get("secret").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(password
+        .get("default")
+        .is_some_and(serde_json::Value::is_null));
     assert!(
         !serde_json::to_string(&result)
             .expect("schema json")
@@ -224,7 +263,11 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(simulated.ok, "comm.schema simulated failed: {:?}", simulated.error);
+    assert!(
+        simulated.ok,
+        "comm.schema simulated failed: {:?}",
+        simulated.error
+    );
     let result = simulated.result.expect("simulated schema result");
     let fields = result
         .pointer("/protocols/0/fields")
@@ -295,7 +338,11 @@ END_PROGRAM
         None,
     );
 
-    assert!(response.ok, "comm.schema opcua failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "comm.schema opcua failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("schema result");
     let protocols = result
         .get("protocols")
@@ -303,7 +350,10 @@ END_PROGRAM
         .expect("protocols");
     assert_eq!(protocols.len(), 1);
     let opcua = &protocols[0];
-    assert_eq!(opcua.get("id").and_then(serde_json::Value::as_str), Some("opcua"));
+    assert_eq!(
+        opcua.get("id").and_then(serde_json::Value::as_str),
+        Some("opcua")
+    );
     assert_eq!(
         opcua.get("apply_mode").and_then(serde_json::Value::as_str),
         Some("file")
@@ -375,11 +425,20 @@ END_PROGRAM
         None,
     );
 
-    assert!(response.ok, "runtime file apply failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "runtime file apply failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("runtime file result");
-    assert_eq!(result.get("applied").and_then(serde_json::Value::as_bool), Some(true));
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("restart_required")
     );
     assert!(result.get("snippet").is_none_or(serde_json::Value::is_null));
@@ -389,11 +448,9 @@ END_PROGRAM
     assert!(runtime_text.contains("password = \"must-not-return\""));
     crate::config::validate_runtime_toml_text(&runtime_text)
         .expect("written runtime.toml should validate");
-    assert!(
-        !serde_json::to_string(&result)
-            .expect("result json")
-            .contains("must-not-return")
-    );
+    assert!(!serde_json::to_string(&result)
+        .expect("result json")
+        .contains("must-not-return"));
 }
 
 #[test]
@@ -433,10 +490,15 @@ END_PROGRAM
         Some("10.0.0.20:50200"),
     );
 
-    assert!(response.ok, "blocked runtime file result should be structured");
+    assert!(
+        response.ok,
+        "blocked runtime file result should be structured"
+    );
     let result = response.result.expect("blocked result");
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("blocked")
     );
     let text = serde_json::to_string(&result).expect("result json");
@@ -476,9 +538,14 @@ END_PROGRAM
     );
     assert!(invalid.ok, "validation response should be structured");
     let result = invalid.result.expect("invalid apply result");
-    assert_eq!(result.get("applied").and_then(serde_json::Value::as_bool), Some(false));
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("blocked")
     );
     let fields = result
@@ -491,7 +558,10 @@ END_PROGRAM
     assert!(fields
         .iter()
         .any(|error| error.get("field").and_then(serde_json::Value::as_str) == Some("unit_id")));
-    assert!(!root.join("io.toml").exists(), "invalid dry-run must not write");
+    assert!(
+        !root.join("io.toml").exists(),
+        "invalid dry-run must not write"
+    );
 
     let valid = handle_request_value(
         json!({
@@ -516,11 +586,16 @@ END_PROGRAM
     assert!(valid.ok, "valid dry-run failed: {:?}", valid.error);
     let result = valid.result.expect("valid apply result");
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("validate_only")
     );
     assert!(result.get("snippet").is_none_or(serde_json::Value::is_null));
-    assert!(!root.join("io.toml").exists(), "dry-run must not write io.toml");
+    assert!(
+        !root.join("io.toml").exists(),
+        "dry-run must not write io.toml"
+    );
 
     let modbus_hostname = handle_request_value(
         json!({
@@ -542,7 +617,10 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(modbus_hostname.ok, "hostname rejection should be structured");
+    assert!(
+        modbus_hostname.ok,
+        "hostname rejection should be structured"
+    );
     let result = modbus_hostname.result.expect("modbus hostname result");
     assert!(result
         .get("field_errors")
@@ -571,10 +649,16 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(mqtt_hostname.ok, "mqtt hostname dry-run failed: {:?}", mqtt_hostname.error);
+    assert!(
+        mqtt_hostname.ok,
+        "mqtt hostname dry-run failed: {:?}",
+        mqtt_hostname.error
+    );
     let result = mqtt_hostname.result.expect("mqtt hostname result");
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("validate_only")
     );
 
@@ -684,9 +768,9 @@ END_PROGRAM
         .expect("simulated field errors");
     for field_id in ["input_count", "scan_period_ms", "mode"] {
         assert!(
-            fields
-                .iter()
-                .any(|error| error.get("field").and_then(serde_json::Value::as_str) == Some(field_id)),
+            fields.iter().any(
+                |error| error.get("field").and_then(serde_json::Value::as_str) == Some(field_id)
+            ),
             "missing simulated validation error for {field_id}"
         );
     }
@@ -704,9 +788,9 @@ END_PROGRAM
     let mut state = hmi_test_state(source);
     let root = temp_dir("comm-apply-write");
     set_hmi_project_root(&mut state, &root);
-	    write_file(
-	        &root.join("io.toml"),
-	        r#"
+    write_file(
+        &root.join("io.toml"),
+        r#"
 # existing plant I/O note must survive comm.apply edits
 [io]
 safe_state = [{ address = "%QX0.0", value = "FALSE" }]
@@ -740,18 +824,29 @@ params = {}
 
     assert!(response.ok, "comm.apply failed: {:?}", response.error);
     let result = response.result.expect("apply result");
-    assert_eq!(result.get("applied").and_then(serde_json::Value::as_bool), Some(true));
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("restart_required")
     );
-	    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
-	    assert!(
-	        text.contains("existing plant I/O note"),
-	        "toml_edit writer should preserve surrounding comments: {text}"
-	    );
-	    assert!(text.contains("loopback"), "unrelated loopback instance should remain: {text}");
-    assert!(text.contains("modbus-tcp"), "modbus instance should be written: {text}");
+    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+    assert!(
+        text.contains("existing plant I/O note"),
+        "toml_edit writer should preserve surrounding comments: {text}"
+    );
+    assert!(
+        text.contains("loopback"),
+        "unrelated loopback instance should remain: {text}"
+    );
+    assert!(
+        text.contains("modbus-tcp"),
+        "modbus instance should be written: {text}"
+    );
     assert!(text.contains("127.0.0.1:1502"));
     crate::config::validate_io_toml_text(&text).expect("written io.toml should validate");
 }
@@ -958,7 +1053,11 @@ END_PROGRAM
             None,
         );
 
-        assert!(response.ok, "{case} result should be structured: {:?}", response.error);
+        assert!(
+            response.ok,
+            "{case} result should be structured: {:?}",
+            response.error
+        );
         let result = response.result.expect("apply result");
         assert_eq!(
             result.get("applied").and_then(serde_json::Value::as_bool),
@@ -1020,12 +1119,13 @@ params = {}
         Some("validate_only")
     );
     assert!(
-        result
-            .get("snippet")
-            .is_none_or(serde_json::Value::is_null),
+        result.get("snippet").is_none_or(serde_json::Value::is_null),
         "removing the last driver must not return invalid empty io.toml"
     );
-    assert!(root.join("io.toml").exists(), "dry-run must not remove io.toml");
+    assert!(
+        root.join("io.toml").exists(),
+        "dry-run must not remove io.toml"
+    );
 
     let remove = handle_request_value(
         json!({
@@ -1143,10 +1243,7 @@ on_error = "warn"
     let endpoint = endpoints
         .iter()
         .find(|endpoint| {
-            endpoint
-                .get("protocol")
-                .and_then(serde_json::Value::as_str)
-                == Some("modbus_tcp")
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("modbus_tcp")
         })
         .expect("disabled modbus endpoint remains visible");
     assert_eq!(
@@ -1553,13 +1650,18 @@ END_PROGRAM
     assert!(blocked.ok, "blocked result should be structured");
     let result = blocked.result.expect("blocked result");
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("blocked")
     );
     let text = serde_json::to_string(&result).expect("result json");
     assert!(text.contains("Secret fields cannot be sent"));
     assert!(!text.contains("top-password-value"));
-    assert!(!root.join("io.toml").exists(), "blocked secret apply must not write");
+    assert!(
+        !root.join("io.toml").exists(),
+        "blocked secret apply must not write"
+    );
 
     let trusted = handle_request_value(
         json!({
@@ -1585,7 +1687,9 @@ END_PROGRAM
     assert!(trusted.ok, "trusted dry-run failed: {:?}", trusted.error);
     let result = trusted.result.expect("trusted result");
     assert_eq!(
-        result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
+        result
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
         Some("validate_only")
     );
 }
@@ -1623,7 +1727,10 @@ END_PROGRAM
         &state,
         Some("10.0.0.20:50200"),
     );
-    assert!(!denied.ok, "remote viewer should not be allowed to mutate config");
+    assert!(
+        !denied.ok,
+        "remote viewer should not be allowed to mutate config"
+    );
     let audit = audit_rx
         .recv_timeout(std::time::Duration::from_secs(2))
         .expect("denied audit");
@@ -1640,11 +1747,9 @@ END_PROGRAM
             .and_then(serde_json::Value::as_bool),
         Some(true)
     );
-    assert!(
-        !serde_json::to_string(&details)
-            .expect("audit details json")
-            .contains("super-secret")
-    );
+    assert!(!serde_json::to_string(&details)
+        .expect("audit details json")
+        .contains("super-secret"));
 
     let accepted = handle_request_value(
         json!({
@@ -1692,11 +1797,9 @@ END_PROGRAM
             .and_then(serde_json::Value::as_bool),
         Some(true)
     );
-    assert!(
-        !serde_json::to_string(&details)
-            .expect("accepted audit details json")
-            .contains("accepted-secret")
-    );
+    assert!(!serde_json::to_string(&details)
+        .expect("accepted audit details json")
+        .contains("accepted-secret"));
 }
 
 #[test]
@@ -1722,7 +1825,9 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
             .is_some_and(Vec::is_empty)
     }));
     assert!(
-        protocols.iter().all(|protocol| protocol.get("profiles").is_none()),
+        protocols
+            .iter()
+            .all(|protocol| protocol.get("profiles").is_none()),
         "offline comm schema must not expose rejected device archetype profiles"
     );
 
@@ -1808,7 +1913,10 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
         modbus.get("detail").and_then(serde_json::Value::as_str),
         Some("Configured in io.toml; runtime is not running.")
     );
-    assert!(modbus.get("live").is_none(), "offline topology must not invent live values");
+    assert!(
+        modbus.get("live").is_none(),
+        "offline topology must not invent live values"
+    );
     assert_eq!(
         modbus
             .get("params")
@@ -1865,14 +1973,16 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
             .and_then(serde_json::Value::as_bool),
         Some(true)
     );
-    assert!(opcua_apply.get("snippet").is_none_or(serde_json::Value::is_null));
+    assert!(opcua_apply
+        .get("snippet")
+        .is_none_or(serde_json::Value::is_null));
     let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
     assert!(runtime_text.contains("[runtime.opcua]"));
     crate::config::validate_runtime_toml_text(&runtime_text)
         .expect("offline runtime.toml validates after comm.apply");
 
-    let topology =
-        crate::control::offline_fleet_topology_json(&root).expect("offline fleet topology with opcua");
+    let topology = crate::control::offline_fleet_topology_json(&root)
+        .expect("offline fleet topology with opcua");
     let endpoints = topology
         .pointer("/hosts/0/runtimes/0/endpoints")
         .and_then(serde_json::Value::as_array)
@@ -2041,14 +2151,14 @@ fn offline_comm_apply_writes_ads_runtime_and_ads_toml() {
         .expect("endpoints");
     assert!(endpoints.iter().any(|endpoint| {
         endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads")
-            && endpoint
-                .get("health")
-                .and_then(serde_json::Value::as_str)
+            && endpoint.get("health").and_then(serde_json::Value::as_str)
                 == Some("configured_policy")
     }));
     let ads_endpoint = endpoints
         .iter()
-        .find(|endpoint| endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads"))
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads")
+        })
         .expect("ADS endpoint");
     let points = ads_endpoint
         .pointer("/params/connections/0/points")
@@ -2156,26 +2266,17 @@ source_ip = "192.168.10.50"
     let ads_server = endpoints
         .iter()
         .find(|endpoint| {
-            endpoint.get("protocol").and_then(serde_json::Value::as_str)
-                == Some("ads_server")
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads_server")
         })
         .expect("ADS server endpoint");
-    let clients = ads_server
-        .pointer("/params/clients")
+    let clients_summary = ads_server
+        .pointer("/params/clients_summary")
         .and_then(serde_json::Value::as_array)
-        .expect("ADS server clients");
-    assert_eq!(clients.len(), 1);
+        .expect("ADS server clients summary");
+    assert_eq!(clients_summary.len(), 1);
     assert_eq!(
-        clients[0]
-            .get("ams_net_id")
-            .and_then(serde_json::Value::as_str),
-        Some("5.23.91.12.1.1")
-    );
-    assert_eq!(
-        clients[0]
-            .get("source_ip")
-            .and_then(serde_json::Value::as_str),
-        Some("192.168.10.50")
+        clients_summary[0].as_str(),
+        Some("5.23.91.12.1.1 (from 192.168.10.50)")
     );
 
     let apply = crate::control::offline_comm_apply_json(
@@ -2281,20 +2382,15 @@ fn offline_comm_apply_writes_opcua_client_runtime_and_sidecar() {
     let opcua_client = endpoints
         .iter()
         .find(|endpoint| {
-            endpoint.get("protocol").and_then(serde_json::Value::as_str)
-                == Some("opcua_client")
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("opcua_client")
         })
         .expect("opcua client endpoint");
     assert_eq!(
-        opcua_client
-            .get("kind")
-            .and_then(serde_json::Value::as_str),
+        opcua_client.get("kind").and_then(serde_json::Value::as_str),
         Some("peer")
     );
     assert_eq!(
-        opcua_client
-            .get("role")
-            .and_then(serde_json::Value::as_str),
+        opcua_client.get("role").and_then(serde_json::Value::as_str),
         Some("client")
     );
     assert_eq!(
@@ -2314,8 +2410,7 @@ fn offline_comm_apply_writes_opcua_client_runtime_and_sidecar() {
     assert!(links.iter().any(|link| {
         link.get("protocol").and_then(serde_json::Value::as_str) == Some("opcua_client")
             && link.get("role").and_then(serde_json::Value::as_str) == Some("client")
-            && link.get("status").and_then(serde_json::Value::as_str)
-                == Some("configured_policy")
+            && link.get("status").and_then(serde_json::Value::as_str) == Some("configured_policy")
     }));
     let external = topology
         .get("external")
@@ -2361,6 +2456,54 @@ fn offline_comm_apply_writes_opcua_client_runtime_and_sidecar() {
 }
 
 #[test]
+fn offline_topology_includes_configured_openot_endpoint() {
+    let root = temp_dir("offline-openot-topology");
+    let runtime_toml =
+        crate::bundle_template::render_runtime_toml(&SmolStr::new("offline-line"), 10).replace(
+            "[runtime.openot]\nenabled = false",
+            "[runtime.openot]\nenabled = true",
+        );
+    write_file(&root.join("runtime.toml"), &runtime_toml);
+    write_file(
+        &root.join("io.toml"),
+        "[io]\ndriver = \"simulated\"\nparams = {}\n",
+    );
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline fleet topology");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    let openot = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("openot")
+        })
+        .expect("OpenOT endpoint");
+
+    assert_eq!(
+        openot.get("health").and_then(serde_json::Value::as_str),
+        Some("configured_policy")
+    );
+    assert_eq!(
+        openot.get("role").and_then(serde_json::Value::as_str),
+        Some("evidence")
+    );
+    assert!(
+        openot.get("live").is_none(),
+        "configured-only OpenOT endpoint must not fake live evidence"
+    );
+    assert_eq!(
+        openot
+            .get("params")
+            .and_then(|params| params.get("path"))
+            .and_then(serde_json::Value::as_str),
+        Some("openot.shm")
+    );
+}
+
+#[test]
 fn comm_capabilities_control_request_reports_stable_protocol_statuses() {
     let source = r#"
 PROGRAM Main
@@ -2371,7 +2514,8 @@ END_PROGRAM
 "#;
     let state = hmi_test_state(source);
 
-    let response = handle_request_value(json!({"id": 43, "type": "comm.capabilities"}), &state, None);
+    let response =
+        handle_request_value(json!({"id": 43, "type": "comm.capabilities"}), &state, None);
 
     assert!(
         response.ok,
@@ -2399,7 +2543,9 @@ END_PROGRAM
     };
 
     assert_eq!(
-        by_id("ads").get("health").and_then(serde_json::Value::as_str),
+        by_id("ads")
+            .get("health")
+            .and_then(serde_json::Value::as_str),
         Some(if cfg!(feature = "ads-wire") {
             "not_configured"
         } else {
@@ -2511,17 +2657,13 @@ END_PROGRAM
 
         let capability = capabilities
             .iter()
-            .find(|capability| {
-                capability.get("id").and_then(serde_json::Value::as_str) == Some(id)
-            })
+            .find(|capability| capability.get("id").and_then(serde_json::Value::as_str) == Some(id))
             .unwrap_or_else(|| panic!("missing capability for default schema protocol {id}"));
         if !capability_platform_matches_this_runtime(capability) {
             continue;
         }
         assert_eq!(
-            capability
-                .get("built")
-                .and_then(serde_json::Value::as_bool),
+            capability.get("built").and_then(serde_json::Value::as_bool),
             Some(true),
             "default schema protocol {id} must be built in the official default runtime"
         );
@@ -2618,8 +2760,7 @@ fn apply_runtime_config_to_control_settings(
     settings.opcua.publish_interval_ms = runtime.opcua.publish_interval_ms;
     settings.opcua.max_nodes = runtime.opcua.max_nodes;
     settings.opcua.expose = runtime.opcua.expose.clone();
-    settings.opcua.security_policy =
-        SmolStr::new(runtime.opcua.security.policy.as_config_value());
+    settings.opcua.security_policy = SmolStr::new(runtime.opcua.security.policy.as_config_value());
     settings.opcua.security_mode = SmolStr::new(runtime.opcua.security.mode.as_config_value());
     settings.opcua.allow_anonymous = runtime.opcua.security.allow_anonymous;
     settings.opcua.username_set = runtime.opcua.username.is_some();
@@ -2683,43 +2824,38 @@ END_PROGRAM
     state
         .web_listener_bound
         .store(true, std::sync::atomic::Ordering::Relaxed);
-    *state.mesh_topology.lock().expect("mesh topology lock") =
-        Some(crate::mesh::MeshTopologyEvidence::for_test(
-            true,
-            &["peer-runtime"],
-            now_ns,
-        ));
-    state.discovery.replace_entries(vec![crate::discovery::DiscoveryEntry {
-        id: SmolStr::new("peer-runtime-1234"),
-        name: SmolStr::new("peer-runtime"),
-        addresses: vec!["10.0.0.2".parse::<std::net::IpAddr>().unwrap()],
-        web_port: Some(8080),
-        web_tls: false,
-        mesh_port: Some(7447),
-        control: Some(SmolStr::new("tcp://10.0.0.2:9900")),
-        host_group: Some(SmolStr::new("cell-a")),
-        last_seen_ns: now_ns,
-    }]);
+    *state.mesh_topology.lock().expect("mesh topology lock") = Some(
+        crate::mesh::MeshTopologyEvidence::for_test(true, &["peer-runtime"], now_ns),
+    );
     state
-        .io_health
-        .lock()
-        .expect("io health lock")
-        .extend([
-            crate::io::IoDriverStatus {
-                name: SmolStr::new("modbus-tcp"),
-                health: crate::io::IoDriverHealth::Ok,
+        .discovery
+        .replace_entries(vec![crate::discovery::DiscoveryEntry {
+            id: SmolStr::new("peer-runtime-1234"),
+            name: SmolStr::new("peer-runtime"),
+            addresses: vec!["10.0.0.2".parse::<std::net::IpAddr>().unwrap()],
+            web_port: Some(8080),
+            web_tls: false,
+            mesh_port: Some(7447),
+            control: Some(SmolStr::new("tcp://10.0.0.2:9900")),
+            host_group: Some(SmolStr::new("cell-a")),
+            last_seen_ns: now_ns,
+        }]);
+    state.io_health.lock().expect("io health lock").extend([
+        crate::io::IoDriverStatus {
+            name: SmolStr::new("modbus-tcp"),
+            health: crate::io::IoDriverHealth::Ok,
+        },
+        crate::io::IoDriverStatus {
+            name: SmolStr::new("ethercat"),
+            health: crate::io::IoDriverHealth::Ok,
+        },
+        crate::io::IoDriverStatus {
+            name: SmolStr::new("mqtt"),
+            health: crate::io::IoDriverHealth::Degraded {
+                error: SmolStr::new("broker slow"),
             },
-            crate::io::IoDriverStatus {
-                name: SmolStr::new("ethercat"),
-                health: crate::io::IoDriverHealth::Ok,
-            },
-            crate::io::IoDriverStatus {
-                name: SmolStr::new("mqtt"),
-                health: crate::io::IoDriverHealth::Degraded {
-                    error: SmolStr::new("broker slow"),
-                },
-            },
-        ]);
+        },
+    ]);
     *state.io_snapshot.lock().expect("io snapshot lock") = Some(crate::io::IoSnapshot {
         scan: Some(42),
         forced: Vec::new(),
@@ -2931,8 +3067,7 @@ END_PROGRAM
     assert!(links.iter().any(|link| {
         link.get("protocol").and_then(serde_json::Value::as_str) == Some("ethercat")
             && link.get("role").and_then(serde_json::Value::as_str) == Some("master")
-            && link.get("to").and_then(serde_json::Value::as_str)
-                == Some("external:ethercat:eth0")
+            && link.get("to").and_then(serde_json::Value::as_str) == Some("external:ethercat:eth0")
             && link.get("status").and_then(serde_json::Value::as_str) == Some("connected")
             && link.get("detail").is_none()
     }));
@@ -2960,8 +3095,7 @@ END_PROGRAM
         .and_then(serde_json::Value::as_array)
         .expect("external array");
     assert!(external.iter().any(|node| {
-        node.get("id").and_then(serde_json::Value::as_str)
-            == Some("external:modbus:127.0.0.1:1502")
+        node.get("id").and_then(serde_json::Value::as_str) == Some("external:modbus:127.0.0.1:1502")
             && node.get("kind").and_then(serde_json::Value::as_str) == Some("device")
     }));
     assert!(external.iter().any(|node| {
@@ -2969,8 +3103,7 @@ END_PROGRAM
             && node.get("kind").and_then(serde_json::Value::as_str) == Some("fieldbus")
     }));
     assert!(external.iter().any(|node| {
-        node.get("id").and_then(serde_json::Value::as_str)
-            == Some("external:ads:5.23.91.12.1.1")
+        node.get("id").and_then(serde_json::Value::as_str) == Some("external:ads:5.23.91.12.1.1")
             && node.get("kind").and_then(serde_json::Value::as_str) == Some("plc")
             && node.get("name").and_then(serde_json::Value::as_str)
                 == Some("TwinCAT 5.23.91.12.1.1")
@@ -2982,7 +3115,9 @@ END_PROGRAM
         .expect("discovered array");
     assert_eq!(discovered.len(), 1);
     assert_eq!(
-        discovered[0].get("name").and_then(serde_json::Value::as_str),
+        discovered[0]
+            .get("name")
+            .and_then(serde_json::Value::as_str),
         Some("peer-runtime")
     );
 
@@ -3006,8 +3141,11 @@ END_PROGRAM
         .canonicalize()
         .expect("network canvas demo path");
     let project_root = temp_dir("fleet-topology-role-counterparts");
-    fs::copy(demo_root.join("runtime.toml"), project_root.join("runtime.toml"))
-        .expect("copy runtime.toml");
+    fs::copy(
+        demo_root.join("runtime.toml"),
+        project_root.join("runtime.toml"),
+    )
+    .expect("copy runtime.toml");
     write_file(
         &project_root.join("io.toml"),
         r#"
@@ -3023,10 +3161,14 @@ name = "ethercat"
 params = { adapter = "eth1", timeout_ms = 250, cycle_warn_ms = 5, on_error = "fault", modules = [{ model = "EK1100", slot = 0, channels = 1 }, { model = "EL1008", slot = 1, channels = 8 }] }
 "#,
     );
-    let runtime_config =
-        crate::config::RuntimeConfig::load(project_root.join("runtime.toml")).expect("runtime.toml");
+    let runtime_config = crate::config::RuntimeConfig::load(project_root.join("runtime.toml"))
+        .expect("runtime.toml");
     let io = crate::config::IoConfig::load(project_root.join("io.toml")).expect("io.toml");
-    assert_eq!(io.drivers.len(), 2, "test project should expose the two I/O drivers");
+    assert_eq!(
+        io.drivers.len(),
+        2,
+        "test project should expose the two I/O drivers"
+    );
     apply_runtime_config_to_control_settings(&mut state, &runtime_config);
     {
         let mut settings = state.settings.lock().expect("settings lock");
@@ -3138,8 +3280,7 @@ params = { adapter = "eth1", timeout_ms = 250, cycle_warn_ms = 5, on_error = "fa
     assert!(links.iter().any(|link| {
         link.get("protocol").and_then(serde_json::Value::as_str) == Some("ethercat")
             && link.get("role").and_then(serde_json::Value::as_str) == Some("master")
-            && link.get("to").and_then(serde_json::Value::as_str)
-                == Some("external:ethercat:eth1")
+            && link.get("to").and_then(serde_json::Value::as_str) == Some("external:ethercat:eth1")
     }));
 
     let external = result
@@ -3550,11 +3691,7 @@ END_PROGRAM
         );
         assert!(status.ok, "ads.doctor.status failed: {:?}", status.error);
         let result = status.result.expect("job status");
-        if result
-            .get("state")
-            .and_then(serde_json::Value::as_str)
-            == Some("failed")
-        {
+        if result.get("state").and_then(serde_json::Value::as_str) == Some("failed") {
             final_status = Some(result);
             break;
         }
@@ -3637,9 +3774,7 @@ END_PROGRAM
     let targets = result.as_array().expect("discovery results");
     assert_eq!(targets.len(), 1);
     assert_eq!(
-        targets[0]
-            .get("source")
-            .and_then(serde_json::Value::as_str),
+        targets[0].get("source").and_then(serde_json::Value::as_str),
         Some("manual")
     );
     assert_eq!(
@@ -3771,9 +3906,7 @@ END_PROGRAM
         Some("127.0.0.1")
     );
     assert_eq!(
-        result
-            .get("ams_net_id")
-            .and_then(serde_json::Value::as_str),
+        result.get("ams_net_id").and_then(serde_json::Value::as_str),
         Some("127.0.0.1.1.1")
     );
     assert_eq!(
@@ -3873,18 +4006,23 @@ END_PROGRAM
 #[test]
 fn ads_server_status_control_request_returns_server_surface() {
     let state = hmi_test_state(ads_server_runtime_source());
-    *state.ads_server_config.lock().expect("ads server config") =
-        Some(ads_server_runtime_config());
+    *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
-    let response = handle_request_value(json!({"id": 44, "type": "ads.server.status"}), &state, None);
+    let response =
+        handle_request_value(json!({"id": 44, "type": "ads.server.status"}), &state, None);
 
-    assert!(response.ok, "ads.server.status failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "ads.server.status failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("ads.server.status result");
-    assert_eq!(result.get("role").and_then(serde_json::Value::as_str), Some("server"));
     assert_eq!(
-        result
-            .get("ams_net_id")
-            .and_then(serde_json::Value::as_str),
+        result.get("role").and_then(serde_json::Value::as_str),
+        Some("server")
+    );
+    assert_eq!(
+        result.get("ams_net_id").and_then(serde_json::Value::as_str),
         Some("127.0.0.1.1.1")
     );
     assert_eq!(
@@ -3905,12 +4043,19 @@ fn ads_server_status_control_request_returns_server_surface() {
 #[test]
 fn ads_server_symbols_control_request_returns_exposed_snapshot() {
     let state = hmi_test_state(ads_server_runtime_source());
-    *state.ads_server_config.lock().expect("ads server config") =
-        Some(ads_server_runtime_config());
+    *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
-    let response = handle_request_value(json!({"id": 45, "type": "ads.server.symbols"}), &state, None);
+    let response = handle_request_value(
+        json!({"id": 45, "type": "ads.server.symbols"}),
+        &state,
+        None,
+    );
 
-    assert!(response.ok, "ads.server.symbols failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "ads.server.symbols failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("ads.server.symbols result");
     assert_eq!(
         result
@@ -3942,7 +4087,11 @@ END_PROGRAM
         None,
     );
 
-    assert!(response.ok, "ads.server.route_plan failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "ads.server.route_plan failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("ads.server.route_plan result");
     let manual = result
         .get("artifacts")
@@ -3950,10 +4099,7 @@ END_PROGRAM
         .expect("artifacts")
         .iter()
         .find(|artifact| {
-            artifact
-                .get("kind")
-                .and_then(serde_json::Value::as_str)
-                == Some("manual_steps")
+            artifact.get("kind").and_then(serde_json::Value::as_str) == Some("manual_steps")
         })
         .and_then(|artifact| artifact.get("content"))
         .and_then(serde_json::Value::as_str)
@@ -3966,8 +4112,7 @@ END_PROGRAM
 #[test]
 fn ads_server_doctor_control_request_returns_server_report_without_external_proof() {
     let state = hmi_test_state(ads_server_runtime_source());
-    *state.ads_server_config.lock().expect("ads server config") =
-        Some(ads_server_runtime_config());
+    *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response = handle_request_value(
         json!({
@@ -3979,30 +4124,34 @@ fn ads_server_doctor_control_request_returns_server_report_without_external_proo
         None,
     );
 
-    assert!(response.ok, "ads.server.doctor failed: {:?}", response.error);
+    assert!(
+        response.ok,
+        "ads.server.doctor failed: {:?}",
+        response.error
+    );
     let result = response.result.expect("ads.server.doctor result");
-    assert_eq!(result.get("role").and_then(serde_json::Value::as_str), Some("server"));
+    assert_eq!(
+        result.get("role").and_then(serde_json::Value::as_str),
+        Some("server")
+    );
     assert_eq!(
         result
             .get("production_ready")
             .and_then(serde_json::Value::as_bool),
         Some(false)
     );
-    assert!(
-        !result
-            .get("evidence")
-            .and_then(|evidence| evidence.get("external_client_verified"))
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false)
-    );
+    assert!(!result
+        .get("evidence")
+        .and_then(|evidence| evidence.get("external_client_verified"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false));
 }
 
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming() {
     let state = hmi_test_state(ads_server_runtime_source());
-    *state.ads_server_config.lock().expect("ads server config") =
-        Some(ads_server_runtime_config());
+    *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let doctor = handle_request_value(
         json!({
@@ -4063,14 +4212,61 @@ fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming
             .and_then(serde_json::Value::as_str),
         Some("external_client_verified")
     );
+
+    let topology = handle_request_value(
+        json!({
+            "id": 149,
+            "type": "fleet.topology",
+        }),
+        &state,
+        None,
+    );
+    assert!(topology.ok, "fleet.topology failed: {:?}", topology.error);
+    let topology = topology.result.expect("topology result");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("runtime endpoints");
+    let ads_server = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads_server")
+        })
+        .expect("ADS server endpoint");
+    let live_value = ads_server
+        .pointer("/live/value")
+        .expect("ADS server live value");
+    assert_eq!(
+        live_value
+            .get("external_client_verified")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        live_value
+            .get("external_client_kind")
+            .and_then(serde_json::Value::as_str),
+        Some("pyads")
+    );
+    assert_eq!(
+        live_value
+            .get("external_client_name")
+            .and_then(serde_json::Value::as_str),
+        Some("ci-pyads")
+    );
+    assert_eq!(
+        live_value
+            .get("proof_status")
+            .and_then(serde_json::Value::as_str),
+        Some("external_client_verified")
+    );
 }
 
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_doctor_start_and_status_use_job_poll_surface() {
     let state = hmi_test_state(ads_server_runtime_source());
-    *state.ads_server_config.lock().expect("ads server config") =
-        Some(ads_server_runtime_config());
+    *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let start = handle_request_value(
         json!({
@@ -4081,7 +4277,11 @@ fn ads_server_doctor_start_and_status_use_job_poll_surface() {
         &state,
         None,
     );
-    assert!(start.ok, "ads.server.doctor.start failed: {:?}", start.error);
+    assert!(
+        start.ok,
+        "ads.server.doctor.start failed: {:?}",
+        start.error
+    );
     let job_id = start
         .result
         .as_ref()
@@ -4102,7 +4302,11 @@ fn ads_server_doctor_start_and_status_use_job_poll_surface() {
             &state,
             None,
         );
-        assert!(status.ok, "ads.server.doctor.status failed: {:?}", status.error);
+        assert!(
+            status.ok,
+            "ads.server.doctor.status failed: {:?}",
+            status.error
+        );
         let result = status.result.expect("job status");
         if result.get("state").and_then(serde_json::Value::as_str) != Some("running") {
             final_status = Some(result);
@@ -4254,7 +4458,11 @@ END_PROGRAM
     });
 
     let next_read = handle_request_value(json!({"id": 43, "type": "io.read"}), &state, None);
-    assert!(next_read.ok, "io.read should succeed: {:?}", next_read.error);
+    assert!(
+        next_read.ok,
+        "io.read should succeed: {:?}",
+        next_read.error
+    );
     let forced = next_read
         .result
         .as_ref()
@@ -4264,7 +4472,11 @@ END_PROGRAM
         .and_then(|outputs| outputs.first())
         .and_then(|entry| entry.get("forced"))
         .and_then(serde_json::Value::as_bool);
-    assert_eq!(forced, Some(true), "scan #8 should carry its own force mark: {next_read:?}");
+    assert_eq!(
+        forced,
+        Some(true),
+        "scan #8 should carry its own force mark: {next_read:?}"
+    );
 
     let release = handle_request_value(
         json!({
@@ -4275,11 +4487,85 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(
-        release.ok,
-        "io.unforce should succeed: {:?}",
-        release.error
-    );
+    assert!(release.ok, "io.unforce should succeed: {:?}", release.error);
+}
+
+#[test]
+fn io_write_rejects_process_image_addresses_above_area_cap() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    for (id, address) in [
+        (50, "%IB16777216"),
+        (51, "%QB16777216"),
+        (52, "%MB16777216"),
+    ] {
+        let response = handle_request_value(
+            json!({
+                "id": id,
+                "type": "io.write",
+                "params": { "address": address, "value": "0" }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            !response.ok,
+            "io.write should reject oversized {address}: {response:?}"
+        );
+        assert!(
+            response
+                .error
+                .as_deref()
+                .is_some_and(|error| error.contains("process image area limit")),
+            "expected process image cap error for {address}, got {response:?}"
+        );
+    }
+}
+
+#[test]
+fn io_force_rejects_process_image_addresses_above_area_cap() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    for (id, address) in [
+        (60, "%IB16777216"),
+        (61, "%QB16777216"),
+        (62, "%MB16777216"),
+    ] {
+        let response = handle_request_value(
+            json!({
+                "id": id,
+                "type": "io.force",
+                "params": { "address": address, "value": "0" }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            !response.ok,
+            "io.force should reject oversized {address}: {response:?}"
+        );
+        assert!(
+            response
+                .error
+                .as_deref()
+                .is_some_and(|error| error.contains("process image area limit")),
+            "expected process image cap error for {address}, got {response:?}"
+        );
+    }
 }
 
 #[test]
@@ -4341,7 +4627,11 @@ END_PROGRAM
         .expect("status execution_backend_source");
 
     let config_get = handle_request_value(json!({"id": 32, "type": "config.get"}), &state, None);
-    assert!(config_get.ok, "config.get should succeed: {:?}", config_get.error);
+    assert!(
+        config_get.ok,
+        "config.get should succeed: {:?}",
+        config_get.error
+    );
     let config_result = config_get.result.expect("config.get result");
     let config_backend = config_result
         .get("runtime.execution_backend")
@@ -4379,7 +4669,11 @@ END_PROGRAM
         metrics.record_cycle(Duration::from_millis(12));
         metrics.record_overrun(&SmolStr::new("Main"), 2);
         metrics.record_fault();
-        metrics.record_call("function_block", &SmolStr::new("Pump"), Duration::from_millis(4));
+        metrics.record_call(
+            "function_block",
+            &SmolStr::new("Pump"),
+            Duration::from_millis(4),
+        );
     }
     {
         let mut realtime = state.realtime_status.lock().expect("realtime status lock");
@@ -4402,22 +4696,18 @@ END_PROGRAM
         realtime.warnings = vec![SmolStr::new("rt warning")];
         realtime.errors = vec![SmolStr::new("rt error")];
     }
-    state
-        .io_health
-        .lock()
-        .expect("io health lock")
-        .extend([
-            crate::io::IoDriverStatus {
-                name: SmolStr::new("fieldbus"),
-                health: crate::io::IoDriverHealth::Ok,
+    state.io_health.lock().expect("io health lock").extend([
+        crate::io::IoDriverStatus {
+            name: SmolStr::new("fieldbus"),
+            health: crate::io::IoDriverHealth::Ok,
+        },
+        crate::io::IoDriverStatus {
+            name: SmolStr::new("simulated"),
+            health: crate::io::IoDriverHealth::Degraded {
+                error: SmolStr::new("slow cycle"),
             },
-            crate::io::IoDriverStatus {
-                name: SmolStr::new("simulated"),
-                health: crate::io::IoDriverHealth::Degraded {
-                    error: SmolStr::new("slow cycle"),
-                },
-            },
-        ]);
+        },
+    ]);
 
     let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
@@ -4436,7 +4726,9 @@ END_PROGRAM
         Some("RESOURCE")
     );
     assert_eq!(
-        result.get("control_mode").and_then(serde_json::Value::as_str),
+        result
+            .get("control_mode")
+            .and_then(serde_json::Value::as_str),
         Some("debug")
     );
     assert_eq!(
@@ -4558,15 +4850,21 @@ END_PROGRAM
         .expect("io driver statuses");
     assert_eq!(io_drivers.len(), 2);
     assert_eq!(
-        io_drivers[0].get("status").and_then(serde_json::Value::as_str),
+        io_drivers[0]
+            .get("status")
+            .and_then(serde_json::Value::as_str),
         Some("ok")
     );
     assert_eq!(
-        io_drivers[1].get("status").and_then(serde_json::Value::as_str),
+        io_drivers[1]
+            .get("status")
+            .and_then(serde_json::Value::as_str),
         Some("degraded")
     );
     assert_eq!(
-        io_drivers[1].get("error").and_then(serde_json::Value::as_str),
+        io_drivers[1]
+            .get("error")
+            .and_then(serde_json::Value::as_str),
         Some("slow cycle")
     );
 }
@@ -4666,6 +4964,22 @@ END_PROGRAM
         .as_deref()
         .unwrap_or_default()
         .contains("invalid config value for 'web.enabled': expected boolean"));
+
+    let invalid_watchdog_timeout = handle_request_value(
+        json!({
+            "id": 211,
+            "type": "config.set",
+            "params": { "watchdog.timeout_ms": 0 }
+        }),
+        &state,
+        None,
+    );
+    assert!(!invalid_watchdog_timeout.ok);
+    assert!(invalid_watchdog_timeout
+        .error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("invalid config value for 'watchdog.timeout_ms': must be >= 1"));
 
     let valid_extended_transport = handle_request_value(
         json!({
@@ -4815,7 +5129,11 @@ END_PROGRAM
     );
 
     let config_get = handle_request_value(json!({"id": 27, "type": "config.get"}), &state, None);
-    assert!(config_get.ok, "config.get should succeed: {:?}", config_get.error);
+    assert!(
+        config_get.ok,
+        "config.get should succeed: {:?}",
+        config_get.error
+    );
     let config_result = config_get.result.expect("config.get result");
     assert_eq!(
         config_result
@@ -4922,7 +5240,9 @@ END_PROGRAM
         .and_then(|value| value.get("access"))
         .expect("viewer access capabilities");
     assert_eq!(
-        viewer_access.get("role").and_then(serde_json::Value::as_str),
+        viewer_access
+            .get("role")
+            .and_then(serde_json::Value::as_str),
         Some("viewer")
     );
     assert_eq!(

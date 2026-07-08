@@ -67,9 +67,9 @@ function adsEndpoint(params?: Record<string, unknown>): string {
   ].filter(Boolean).join(" · ");
 }
 
-function connectedClients(live: unknown): string {
+function liveValue(live: unknown): Record<string, unknown> | undefined {
   if (!isRecord(live)) {
-    return "No live client evidence";
+    return undefined;
   }
   const raw = live.value;
   let value = raw;
@@ -81,6 +81,14 @@ function connectedClients(live: unknown): string {
     }
   }
   if (!isRecord(value) || value.connected_clients === undefined) {
+    return isRecord(value) ? value : undefined;
+  }
+  return value;
+}
+
+function connectedClients(live: unknown): string {
+  const value = liveValue(live);
+  if (!value || value.connected_clients === undefined) {
     return "No live client evidence";
   }
   const count = Number(value.connected_clients);
@@ -88,6 +96,28 @@ function connectedClients(live: unknown): string {
     return "No live client evidence";
   }
   return `${count} client${count === 1 ? "" : "s"} connected`;
+}
+
+function verification(live: unknown): string {
+  const value = liveValue(live);
+  if (!value) {
+    return "No external client verified";
+  }
+  const proofStatus = str(value.proof_status);
+  const verified = value.external_client_verified === true || proofStatus === "external_client_verified" || proofStatus === "production_ready";
+  if (!verified) {
+    if (proofStatus === "self_test_available" || value.connected_clients !== undefined) {
+      return "Self-test available; no external client verified";
+    }
+    return "No external client verified";
+  }
+  const kind = str(value.external_client_kind).trim();
+  const name = str(value.external_client_name).trim();
+  const label = [kind, name].filter(Boolean).join(" ");
+  if (proofStatus === "production_ready") {
+    return label ? `Production verified by ${label}` : "Production verified by external client";
+  }
+  return label ? `Verified by ${label}` : "Verified by external client";
 }
 
 export function serverEndpointSummaryRows(
@@ -104,6 +134,7 @@ export function serverEndpointSummaryRows(
     return [
       ...(endpoint ? [{ label: "Server endpoint", value: endpoint }] : []),
       { label: "Connected clients", value: connectedClients(live) },
+      { label: "Verification", value: verification(live) },
     ];
   }
   return [];

@@ -140,6 +140,7 @@ fn vm_validator_accepts_local_path_ref_for_pou_owned_local_slot() {
 
     let mut body = vec![0x20];
     body.extend_from_slice(&path_ref_idx.to_le_bytes());
+    body.push(0x12);
     body.push(0x06);
     let new_offset =
         if let Some(SectionData::PouBodies(code)) = module.section_mut(SectionId::PouBodies) {
@@ -278,4 +279,3 @@ fn vm_validator_rejects_unsupported_call_method_opcode() {
 
     assert_apply_invalid_bytecode_contains(&module, "unsupported runtime opcode CALL_METHOD");
 }
-

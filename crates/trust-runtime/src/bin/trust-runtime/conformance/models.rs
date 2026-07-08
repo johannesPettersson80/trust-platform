@@ -1,5 +1,7 @@
-const PROFILE_NAME: &str = "trust-conformance-v1";
-const CATEGORIES: [&str; 6] = [
+const V1_PROFILE_NAME: &str = "trust-conformance-v1";
+const V2_PROFILE_NAME: &str = "trust-conformance-v2";
+
+const V1_CATEGORIES: [&str; 6] = [
     "timers",
     "edges",
     "scan_cycle",
@@ -8,12 +10,54 @@ const CATEGORIES: [&str; 6] = [
     "memory_map",
 ];
 
+const CATEGORIES: [&str; 16] = [
+    "timers",
+    "edges",
+    "scan_cycle",
+    "init_reset",
+    "arithmetic",
+    "memory_map",
+    "strings",
+    "arrays",
+    "structs",
+    "enums",
+    "nested_values",
+    "oop_dispatch",
+    "references",
+    "retain_matrix",
+    "scheduler",
+    "comms_determinism",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SummaryContract {
+    version: u32,
+    profile: &'static str,
+}
+
+impl SummaryContract {
+    const fn v1() -> Self {
+        Self {
+            version: 1,
+            profile: V1_PROFILE_NAME,
+        }
+    }
+
+    const fn v2() -> Self {
+        Self {
+            version: 2,
+            profile: V2_PROFILE_NAME,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 enum CaseKind {
     #[default]
     Runtime,
     CompileError,
+    ConnectorStatusTrace,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -21,6 +65,18 @@ enum CaseKind {
 struct RestartDirective {
     before_cycle: u32,
     mode: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+struct ConnectorStatusTraceStep {
+    source: String,
+    state: String,
+    degraded_points: usize,
+    error_policy: Option<String>,
+    expected_state: Option<String>,
+    expected_health: Option<String>,
+    detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -38,6 +94,7 @@ struct CaseManifest {
     input_series: BTreeMap<String, Vec<String>>,
     direct_input_series: BTreeMap<String, Vec<String>>,
     restarts: Vec<RestartDirective>,
+    connector_status_steps: Vec<ConnectorStatusTraceStep>,
 }
 
 #[derive(Debug, Clone)]

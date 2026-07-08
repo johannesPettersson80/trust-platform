@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -62,7 +63,7 @@ export async function resolveRuntimeTarget(
   resource?: vscode.Uri,
   deps: RuntimeTargetDeps = {}
 ): Promise<RuntimeTarget> {
-  const config = vscode.workspace.getConfiguration("trust-lsp", resource);
+  const config = getTrustConfiguration(resource);
   const endpoint = config.get<string>("runtime.controlEndpoint", "");
   return await resolveRuntimeTargetFromSettings(
     {

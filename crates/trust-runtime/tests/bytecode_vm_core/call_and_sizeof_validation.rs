@@ -40,12 +40,7 @@ fn vm_rejects_invalid_call_native_method_missing_receiver_payload() {
     let mut module = bytecode_module_from_source(source).expect("compile module");
     patch_first_call_native_arg_count(&mut module, 0);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(
-        &cycle.errors,
-        "vm invalid CALL_NATIVE payload: arg_count smaller than native receiver arity",
-    );
+    assert_apply_invalid_bytecode_contains(&module, "POU body leaves values on operand stack");
 }
 
 #[test]
@@ -87,6 +82,7 @@ fn vm_rejects_load_dynamic_with_non_reference_operand() {
     body.push(0x20);
     body.extend_from_slice(&0_u32.to_le_bytes());
     body.push(0x32);
+    body.push(0x12);
     body.push(0x06);
     replace_main_body(&mut module, &body);
 
@@ -135,9 +131,10 @@ fn vm_rejects_legacy_sizeof_value_opcode_with_empty_stack() {
     ];
     replace_main_body(&mut module, &body);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(&cycle.errors, "vm operand stack underflow");
+    assert_apply_invalid_bytecode_contains(
+        &module,
+        "operand stack underflow while decoding opcode 0x61",
+    );
 }
 
 #[test]
@@ -179,4 +176,3 @@ fn vm_rejects_sizeof_type_with_excessive_non_cyclic_alias_depth() {
     let cycle = harness.cycle();
     assert_invalid_bytecode_contains(&cycle.errors, "SIZEOF type nesting exceeds max depth");
 }
-

@@ -1,6 +1,8 @@
 use smol_str::SmolStr;
 
-use crate::value::{default_value_for_type_id, DateTimeProfile, StructValue, Value};
+use crate::value::{
+    default_value_for_type_id, truncate_string_elements, DateTimeProfile, StructValue, Value,
+};
 use indexmap::IndexMap;
 use trust_hir::types::{StructField, TypeRegistry, UnionVariant};
 use trust_hir::{Type, TypeId};
@@ -56,6 +58,24 @@ fn coerce_initializer_value_to_runtime_type(
                 return coerce_value_to_type(value, *target);
             };
             coerce_initializer_value_to_runtime_type(value, target_ty, *target, registry, profile)
+        }
+        Type::String { max_len } => {
+            let value = coerce_string(value, TypeId::STRING)?;
+            match (max_len, value) {
+                (Some(max_len), Value::String(text)) => Ok(Value::String(
+                    truncate_string_elements(text.as_str(), *max_len).into(),
+                )),
+                (_, value) => Ok(value),
+            }
+        }
+        Type::WString { max_len } => {
+            let value = coerce_string(value, TypeId::WSTRING)?;
+            match (max_len, value) {
+                (Some(max_len), Value::WString(text)) => {
+                    Ok(Value::WString(truncate_string_elements(&text, *max_len)))
+                }
+                (_, value) => Ok(value),
+            }
         }
         Type::Array {
             element,

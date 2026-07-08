@@ -1,0 +1,12 @@
+CONFIGURATION Conf
+TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Inst WITH Fast : MainProg;
+END_CONFIGURATION
+
+PROGRAM MainProg
+VAR
+    count : INT := INT#0;
+END_VAR
+
+count := count + INT#1;
+END_PROGRAM

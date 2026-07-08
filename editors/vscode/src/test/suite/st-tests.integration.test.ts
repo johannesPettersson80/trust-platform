@@ -57,9 +57,9 @@ suite("ST test workflow integration (VS Code)", function () {
     const runtimeBin = process.env.ST_RUNTIME_TEST_BIN;
     if (runtimeBin && runtimeBin.trim().length > 0) {
       await vscode.workspace
-        .getConfiguration("trust-lsp")
+        .getConfiguration("trust")
         .update(
-          "runtime.cli.path",
+          "runtime.executablePath",
           runtimeBin,
           vscode.ConfigurationTarget.Workspace
         );
@@ -67,9 +67,9 @@ suite("ST test workflow integration (VS Code)", function () {
     const devBin = process.env.ST_DEV_TEST_BIN;
     if (devBin && devBin.trim().length > 0) {
       await vscode.workspace
-        .getConfiguration("trust-lsp")
+        .getConfiguration("trust")
         .update(
-          "dev.cli.path",
+          "testRunner.executablePath",
           devBin,
           vscode.ConfigurationTarget.Workspace
         );

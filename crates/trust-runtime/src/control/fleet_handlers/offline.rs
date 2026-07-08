@@ -281,6 +281,34 @@ fn offline_service_endpoints(
             source: Some("config".to_string()),
         });
     }
+    if runtime.openot.enabled {
+        endpoints.push(FleetEndpoint {
+            id: endpoint_id(runtime_id, "openot"),
+            kind: "service".to_string(),
+            protocol: "openot".to_string(),
+            name: "OpenOT".to_string(),
+            address: Some(runtime.openot.path.display().to_string()),
+            role: Some("evidence".to_string()),
+            health: "configured_policy".to_string(),
+            detail:
+                "OpenOT evidence output is configured; no evidence is published until a runtime reports one."
+                    .to_string(),
+            live: None,
+            params: Some(json!({
+                "enabled": runtime.openot.enabled,
+                "path": runtime.openot.path.display().to_string(),
+                "capacity": runtime.openot.capacity,
+                "fence_mode": runtime.openot.fence_mode.as_str(),
+                "allow_unfenced_for_proof": runtime.openot.allow_unfenced_for_proof,
+                "source": runtime.openot.source.as_str(),
+                "producer_instances": runtime.openot.producer_instances.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            })),
+            children: Vec::new(),
+            owned: true,
+            supports_test: false,
+            source: Some("config".to_string()),
+        });
+    }
     if runtime_cloud_configured(settings) {
         endpoints.push(FleetEndpoint {
             id: endpoint_id(runtime_id, "runtime_cloud"),

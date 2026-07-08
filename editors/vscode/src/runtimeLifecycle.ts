@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
@@ -112,10 +113,10 @@ class RuntimeLifecycleService {
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (
-          event.affectsConfiguration("trust-lsp.runtime.controlEndpoint") ||
-          event.affectsConfiguration("trust-lsp.runtime.controlEndpointEnabled") ||
-          event.affectsConfiguration("trust-lsp.runtime.inlineValuesEnabled") ||
-          event.affectsConfiguration("trust-lsp.runtime.mode")
+          affectsTrustConfiguration(event, "runtime.controlEndpoint") ||
+          affectsTrustConfiguration(event, "runtime.controlEndpointEnabled") ||
+          affectsTrustConfiguration(event, "runtime.inlineValuesEnabled") ||
+          affectsTrustConfiguration(event, "runtime.mode")
         ) {
           this.emitChanged();
         }
@@ -230,7 +231,7 @@ class RuntimeLifecycleService {
   async setRuntimeMode(mode: unknown): Promise<void> {
     const normalized = mode === "online" ? "online" : "simulate";
     const target = this.runtimeConfigTarget();
-    const config = vscode.workspace.getConfiguration("trust-lsp", target);
+    const config = getTrustConfiguration(target);
     await config.update("runtime.mode", normalized, this.runtimeConfigScope(target));
     this.emitChanged();
   }
@@ -258,7 +259,7 @@ class RuntimeLifecycleService {
       };
     }
     const target = this.runtimeConfigTarget();
-    const config = vscode.workspace.getConfiguration("trust-lsp", target);
+    const config = getTrustConfiguration(target);
     const scope = this.runtimeConfigScope(target);
     await config.update("runtime.controlEndpoint", trimmed, scope);
     await config.update("runtime.controlEndpointEnabled", true, scope);
@@ -351,7 +352,7 @@ class RuntimeLifecycleService {
     const snapshot = await this.snapshot();
     if (snapshot.status.runtimeState === "connected") {
       const target = this.runtimeConfigTarget();
-      const config = vscode.workspace.getConfiguration("trust-lsp", target);
+      const config = getTrustConfiguration(target);
       await config.update(
         "runtime.controlEndpointEnabled",
         false,
@@ -369,7 +370,7 @@ class RuntimeLifecycleService {
     targetLabel?: string
   ): Promise<RuntimeLifecycleResult> {
     const target = this.runtimeConfigTarget();
-    const config = vscode.workspace.getConfiguration("trust-lsp", target);
+    const config = getTrustConfiguration(target);
     if (!status.endpointConfigured) {
       return {
         ok: false,
@@ -446,7 +447,7 @@ class RuntimeLifecycleService {
     const debugConfig: vscode.DebugConfiguration = {
       type: DEBUG_TYPE,
       request: "attach",
-      name: "Attach Structured Text",
+      name: remoteDebugSessionName(targetLabel, status.endpoint),
       endpoint: status.endpoint,
       authToken: authToken || undefined,
       targetLabel,
@@ -643,6 +644,14 @@ function runtimeNotReachableMessage(endpoint: string): string {
     return "Local runtime is stopped. Start it to connect.";
   }
   return `Runtime is not reachable at ${shortRuntimeEndpointLabel(endpoint)}.`;
+}
+
+function remoteDebugSessionName(
+  targetLabel: string | undefined,
+  endpoint: string
+): string {
+  const label = targetLabel?.trim() || shortRuntimeEndpointLabel(endpoint);
+  return label ? `truST Remote (${label})` : "truST Remote";
 }
 
 function shortRuntimeEndpointLabel(endpoint: string): string {

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
+import { getTrustConfiguration } from "../configuration";
 import { debugChannel } from "../debug/configuration";
 import type { CommCapabilitiesResponse } from "../communication/capability";
 import type {
@@ -42,11 +43,15 @@ import {
   disconnectManagedRuntimeAfterStop,
 } from "../managedRuntimeSession";
 import {
-  fetchAndMergeFleetTopologies,
   fetchFleetTopology,
   mergeFleetTopologies,
   type FleetTopologyResponse,
 } from "./fleetTopology";
+import {
+  fetchConnectorStatus,
+  fetchAndMergeFleetTopologiesWithConnectorStatus,
+  mergeConnectorStatusIntoTopology,
+} from "./connectorsStatus";
 import {
   buildNetworkCanvasModel,
   isNetworkCanvasStage,
@@ -59,12 +64,16 @@ import {
 } from "./model";
 import { buildCanvasGraph } from "./graphData";
 import {
+  ensureAdsRuntimeEnabled,
+  offlineAdsImportSymbols,
   offlineBrowseSymbols,
   offlineCommApply,
   offlineCommDiscover,
   offlineCommSchema,
   offlineCommTopology,
   offlineFleetRuntimeAdd,
+  openGeneratedAdsDocuments,
+  type AdsImportSymbolsReport,
   type DiscoverCandidate,
 } from "./offlineComm";
 import { buildExposeApplyParams } from "./exposeConfig";
@@ -264,12 +273,16 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
     }
     try {
       // The local primary's own live topology (real status). Peers are resolved separately below.
-      const liveTopology = await fetchFleetTopology(runtime);
+      const liveTopology = mergeConnectorStatusIntoTopology(
+        await fetchFleetTopology(runtime),
+        await fetchConnectorStatus(runtime).catch(() => undefined)
+      );
       if (liveTopology) {
-        // Keep the project-file topology as a stopped/configured overlay when the selected
-        // runtime comes online. Replacing it with the live report made sibling runtimes vanish
-        // during managed Start, so the canvas appeared to morph instead of showing state changes.
-        lastTopology = offlineTopology
+        // Keep the project-file topology as a configured overlay when the selected runtime comes
+        // online. Live topology owns real state; offline topology contributes configured endpoints
+        // that may require restart before the runtime reports them.
+        const shouldPreserveProjectOverlay = offlineTopology !== undefined;
+        lastTopology = shouldPreserveProjectOverlay
           ? mergeFleetTopologies([liveTopology, offlineTopology])
           : liveTopology;
       }
@@ -290,7 +303,7 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
       (target) => target.endpoint && target.endpoint !== runtime.endpoint
     );
     if (peers.length > 0) {
-      peerTopology = await fetchAndMergeFleetTopologies(peers);
+      peerTopology = await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
     }
   } catch {
     // Peers are best-effort; the local view still renders without them.
@@ -448,7 +461,7 @@ function workspaceConfigResource(): vscode.Uri | undefined {
 }
 
 function trustConfig(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration("trust-lsp", workspaceConfigResource());
+  return getTrustConfiguration(workspaceConfigResource());
 }
 
 // Add-runtime (§0.4): scaffold a sibling runtime PROJECT via `trust-runtime fleet runtime add`
@@ -742,9 +755,9 @@ async function handleAddEthercatChannels(message: Record<string, unknown>): Prom
 }
 
 // §0.5 ADS "Add tags": write the selected symbols through the existing ADS import pipeline
-// (ads.toml points + cached snapshot + generated ST) via the ads.import_symbols.apply control verb.
-// Control-only (needs a reachable runtime with a project_root); a LIVE symbol upload needs an
-// ads-wire runtime, so the default build returns an honest error here.
+// (ads.toml points + cached snapshot + generated ST). Prefer a reachable runtime's
+// ads.import_symbols.apply control verb; otherwise use the same deterministic local CLI import
+// from the extension host so a stopped project can still complete the authoring flow.
 async function handleAddTags(message: Record<string, unknown>): Promise<void> {
   const paths = Array.isArray(message.paths)
     ? message.paths.filter((p): p is string => typeof p === "string")
@@ -752,11 +765,36 @@ async function handleAddTags(message: Record<string, unknown>): Promise<void> {
   if (paths.length === 0) {
     return;
   }
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!projectDir) {
+    await vscode.window.showWarningMessage(
+      "Add tags needs an open project so truST can write ads.toml and generated ST."
+    );
+    return;
+  }
   if (
     !activeRuntimeTarget ||
     activeRuntimeTarget.status !== "online_reachable" ||
     !activeRuntimeTarget.endpoint
   ) {
+    const protocol = typeof message.protocol === "string" ? message.protocol : "";
+    if (protocol === "ads" && extensionContext && projectDir) {
+      const src = isRecord(message.target) ? message.target : {};
+      const report = await offlineAdsImportSymbols(
+        extensionContext,
+        projectDir,
+        src,
+        paths,
+        Boolean(message.writable)
+      );
+      if (report.applied) {
+        await vscode.window.showInformationMessage(report.message);
+        await refreshNetworkCanvasPanel();
+      } else {
+        await vscode.window.showWarningMessage(`Could not add ADS tags: ${report.message}`);
+      }
+      return;
+    }
     await vscode.window.showWarningMessage(
       "Add tags needs a reachable runtime — it writes ads.toml + the generated ST through the runtime's ADS import pipeline."
     );
@@ -774,11 +812,7 @@ async function handleAddTags(message: Record<string, unknown>): Promise<void> {
   const connectionName =
     typeof src.name === "string" && src.name.trim().length > 0 ? src.name : "ads_import";
   try {
-    const report = await sendRuntimeControlRequest<{
-      applied?: boolean;
-      selected_count?: number;
-      message?: string;
-    }>(
+    const report = await sendRuntimeControlRequest<AdsImportSymbolsReport>(
       activeRuntimeTarget.endpoint,
       activeRuntimeTarget.authToken,
       "ads.import_symbols.apply",
@@ -791,7 +825,16 @@ async function handleAddTags(message: Record<string, unknown>): Promise<void> {
       { timeoutMs: 20_000 }
     );
     if (report?.applied) {
+      const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
+      if (!runtimeConfig.ok) {
+        await vscode.window.showWarningMessage(
+          `Added ADS tags, but ADS runtime was not enabled automatically: ${runtimeConfig.message}`
+        );
+        await refreshNetworkCanvasPanel();
+        return;
+      }
       const count = report.selected_count ?? paths.length;
+      await openGeneratedAdsDocuments(report);
       await vscode.window.showInformationMessage(
         `Added ${countLabel(count, "ADS tag")}. Restart the runtime to apply the generated ST symbols.`
       );
@@ -918,10 +961,10 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       await handleBrowseSymbols(message);
       break;
     case "createRoute":
-      // ads.route_add exists (Admin), but the create-route flow needs an ads-wire runtime + the
-      // route_plan from a live browse — not wireable from this offline build yet.
+      // The browse pane owns the visible recovery instructions. Keep this notification aligned with
+      // that in-canvas flow; do not send users to retired ADS panels.
       await vscode.window.showInformationMessage(
-        "Add the ADS route from the ADS panel's route doctor (needs an ads-wire runtime); the canvas will browse symbols once the route is accepted."
+        "Run the generated ADS route PowerShell as Administrator on the TwinCAT computer, then reopen Browse."
       );
       break;
     case "addTags":

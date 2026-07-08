@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "../../configuration";
 import * as assert from "assert";
 import * as vscode from "vscode";
 
@@ -302,7 +303,7 @@ suite("PLCopen import command (VS Code)", function () {
     );
     const targetUri = vscode.Uri.joinPath(fixturesRoot, "missing-runtime-target");
 
-    const config = vscode.workspace.getConfiguration("trust-lsp");
+    const config = getTrustConfiguration();
     const previousRuntimePath =
       config.get<string>("runtime.cli.path") ?? "";
     const previousEnvRuntime = process.env.ST_RUNTIME_TEST_BIN;
@@ -339,7 +340,7 @@ suite("PLCopen import command (VS Code)", function () {
       );
       assert.ok(
         messages.some((message) =>
-          message.includes("trust-lsp.runtime.cli.path")
+          message.includes("trust.runtime.executablePath")
         ),
         `Expected runtime path setting hint, got: ${messages.join(" | ")}`
       );

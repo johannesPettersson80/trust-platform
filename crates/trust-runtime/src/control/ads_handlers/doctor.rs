@@ -77,7 +77,10 @@ impl AdsDoctorJobStore {
         self.jobs.get(job_id).cloned()
     }
 
-    pub(super) fn latest_completed_report(&self, role: DoctorRole) -> Option<DoctorReport> {
+    pub(in crate::control) fn latest_completed_report(
+        &self,
+        role: DoctorRole,
+    ) -> Option<DoctorReport> {
         self.jobs
             .iter()
             .filter_map(|(job_id, status)| {

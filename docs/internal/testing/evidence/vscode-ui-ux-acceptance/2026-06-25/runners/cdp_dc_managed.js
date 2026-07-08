@@ -37,7 +37,7 @@ function shot(name,accepted){const raw=path.join(outDir,name+".raw.png"),dest=pa
     pngHygiene.stripPngFile(raw);
     try{cp.execFileSync("/usr/bin/convert",[raw,"-strip","-bordercolor","black","-border","1","-trim","+repage",dest],{stdio:"ignore",env});}catch(e){fs.copyFileSync(raw,dest);}
     pngHygiene.stripPngFile(dest);
-    if(accepted){fs.copyFileSync(dest,path.join(screenshotsDir,accepted+".png"));}
+    if(accepted){pngHygiene.copyPngStripped(dest,path.join(screenshotsDir,accepted+".png"));}
   }catch(e){fs.writeFileSync(path.join(outDir,name+".err.txt"),String(e&&e.message||e));}}
 function cdp(wsUrl){return new Promise((resolve,reject)=>{const ws=new WebSocket(wsUrl);let id=0;const pending=new Map();
   ws.on("message",d=>{const m=JSON.parse(d.toString());if(m.id&&pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});

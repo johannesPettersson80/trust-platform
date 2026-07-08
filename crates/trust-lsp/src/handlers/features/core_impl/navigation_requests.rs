@@ -192,8 +192,9 @@ pub async fn references_with_progress(
     send_work_done_begin(client, &work_done_token, "Finding references", None).await;
     let result = references(state, params);
 
+    let streamed_partials = partial_token.is_some();
     if let Some(locations) = result.as_ref() {
-        if partial_token.is_some() {
+        if streamed_partials {
             let total = locations.len().max(1);
             let mut emitted = 0usize;
             for chunk in locations.chunks(PARTIAL_CHUNK_SIZE) {
@@ -218,7 +219,11 @@ pub async fn references_with_progress(
         Some(format!("Found {count} reference(s)")),
     )
     .await;
-    result
+    if streamed_partials {
+        result.map(|_| Vec::new())
+    } else {
+        result
+    }
 }
 
 pub fn document_highlight(
@@ -232,7 +237,7 @@ pub fn document_highlight(
     let offset = position_to_offset(&doc.content, position)?;
 
     let references = state.with_database(|db| {
-        trust_ide::find_references(
+        trust_ide::references::find_references_in_file(
             db,
             doc.file_id,
             TextSize::from(offset),

@@ -2,6 +2,7 @@ import {
   BlocklyEngine,
   type BlocklyWorkspace,
 } from "../blockly/blocklyEngine";
+import { rewriteDirectIoInFunctionBlock } from "./directIo";
 import { fbNameForSource } from "./stNaming";
 
 function isBlocklyWorkspace(value: unknown): value is BlocklyWorkspace {
@@ -43,5 +44,6 @@ export function generateBlocklyCompanionFunctionBlock(
         ]
       : [];
 
-  return [...warnings, generated.structuredText].join("\n");
+  const rewritten = rewriteDirectIoInFunctionBlock(generated.structuredText);
+  return [...warnings, rewritten.source].join("\n");
 }

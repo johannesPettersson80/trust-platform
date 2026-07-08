@@ -75,22 +75,11 @@ pub(super) fn handle_ops_route(
         return OpsRouteOutcome::Handled;
     }
     if *method == Method::Post && url == "/api/pair/claim" {
-        let mut body = String::new();
-        if request.as_reader().read_to_string(&mut body).is_err() {
-            let response =
-                Response::from_string(json!({ "ok": false, "error": "invalid body" }).to_string())
-                    .with_status_code(StatusCode(400));
-            let _ = request.respond(response);
-            return OpsRouteOutcome::Handled;
-        }
-        let payload: serde_json::Value = match serde_json::from_str(&body) {
+        let payload: serde_json::Value = match read_json_body(&mut request, MAX_JSON_REQUEST_BYTES)
+        {
             Ok(value) => value,
-            Err(_) => {
-                let response = Response::from_string(
-                    json!({ "ok": false, "error": "invalid json" }).to_string(),
-                )
-                .with_status_code(StatusCode(400));
-                let _ = request.respond(response);
+            Err(error) => {
+                let _ = request.respond(json_body_error_response(error));
                 return OpsRouteOutcome::Handled;
             }
         };

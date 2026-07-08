@@ -62,6 +62,11 @@ note right of state
     documents: RwLock<FxHashMap<Url, Document>>
     project: RwLock<Project>
     workspace_folders: RwLock<Vec<Url>>
+    document_generation: AtomicU64
+    call_hierarchy caches: RwLock<FxHashMap<...>>
+
+    Document mutations bump generation
+    and invalidate call-hierarchy caches.
 end note
 
 ' ============================================================
@@ -200,6 +205,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Watchdog" as watchdog
     component "Control Server\n(IPC)" as controlServer
     component "Communication Control Handlers\n(control/comm_handlers/*)" as commControlHandlers
+    component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
     component "ADS Setup Routes\n/api/ads/* + /setup/ads" as adsWebRoutes
@@ -216,7 +222,8 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "ADS Client Integration\n(host/ads + runtime subsystem + CLI)" as adsClient
     component "ADS Server Integration\n(host/ads/server + control/web/CLI)" as adsServerIntegration
     component "ADS Onboarding Engine\n(host/ads/onboarding/*)" as adsOnboarding
-    component "ADS Diagnostics Schema\n(host/ads/diagnostics.rs)" as adsDiagnostics
+    component "ADS Diagnostics Schema\n(host/ads/diagnostics.rs + diagnostics/*)" as adsDiagnostics
+    component "OpenOT Authoring\n(openot_authoring/*)" as openotAuthoring
     component "ADS Generated Globals\n(src/generated/ads_generated.st)" as adsGenerated
     component "MQTT Driver\n(TCP/TLS/mTLS)" as mqttDriver
 
@@ -240,9 +247,11 @@ package "trust-runtime crate" as struntime #LightYellow {
     runtime --> evalCtx
     runtime --> initSvc
     runtime --> stdlib
+    runtime --> openotAuthoring : authoring validation /\ndefinition rendering
     runtime --> debug
     runtime --> watchdog
     runtime --> adsClient : scan-boundary\ncache apply/capture
+    controlServer --> fleetControlHandlers : fleet.topology
     harness --> runtime
     harness --> adsGenerated : compiles generated ST
     harness --> hirInitCatalog : imports source/default handles
@@ -410,6 +419,10 @@ legend right
 
     **IDE Path (Analysis):**
     Source → trust-syntax → trust-hir → trust-ide → trust-lsp → Client
+
+    **Editor Request Cache:**
+    didOpen/didChange/didClose/watch events → generation bump →
+    invalidate call hierarchy responses in ServerState.
 
     **Execution Path:**
     Source → trust-hir → harness → trust-runtime → trust-debug → DAP Client

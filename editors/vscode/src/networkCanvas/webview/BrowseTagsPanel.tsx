@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import { nodeKey, type OpcuaErrorView } from "./opcuaClientModel";
 import { t, tint } from "./theme";
@@ -45,6 +45,23 @@ export function BrowseTagsPanel({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [allowWrites, setAllowWrites] = useState(false);
+  const [routeCreateAttempted, setRouteCreateAttempted] = useState(false);
+  const allowWritesRef = useRef(false);
+
+  const setAllowWritesChecked = (checked: boolean) => {
+    allowWritesRef.current = checked;
+    setAllowWrites(checked);
+  };
+
+  useEffect(() => {
+    allowWritesRef.current = allowWrites;
+  }, [allowWrites]);
+
+  useEffect(() => {
+    if (!routeMissing) {
+      setRouteCreateAttempted(false);
+    }
+  }, [routeMissing]);
 
   // `selected` holds stable node keys (nodeKey: node_id ?? id ?? path), never the display path, so
   // two leaves sharing a path can't be conflated.
@@ -114,6 +131,11 @@ export function BrowseTagsPanel({
                 ? "Select at least one symbol to add."
                 : undefined;
   const writeToggleDisabled = routeMissing || Boolean(error) || loading || tree === undefined || tree.length === 0;
+  const routeWarningText = routeCreateAttempted
+    ? artifacts.length
+      ? "Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse."
+      : "Route needs TwinCAT administrator access. Create the route on the TwinCAT computer, then reopen Browse."
+    : "Warning: No ADS route to the TwinCAT system. Add the route, then browse again.";
 
   const accessLabel = (n: SymbolNode): string =>
     n.writable === true ? "read/write" : n.writable === false ? "read-only" : "";
@@ -155,8 +177,16 @@ export function BrowseTagsPanel({
 
       {routeMissing && (
         <div style={WARNING_BAR}>
-          <span style={WARNING_TEXT}>Warning: No ADS route to the TwinCAT system. Add the route, then browse again.</span>
-          {artifacts.length === 0 && <button onClick={onCreateRoute} style={ROUTEBTN}>Create route</button>}
+          <span style={WARNING_TEXT}>{routeWarningText}</span>
+          <button
+            onClick={() => {
+              setRouteCreateAttempted(true);
+              onCreateRoute();
+            }}
+            style={ROUTEBTN}
+          >
+            Create route
+          </button>
         </div>
       )}
 
@@ -182,6 +212,13 @@ export function BrowseTagsPanel({
         {routeMissing ? (
           artifacts.length ? (
             <div style={{ padding: "2px 4px" }}>
+              {routeCreateAttempted && (
+                <div style={ROUTE_RESULT}>
+                  Automatic route creation is not available from this canvas in this build. Run the
+                  generated PowerShell as Administrator on the TwinCAT computer, or copy the static
+                  route values below, then reopen Browse.
+                </div>
+              )}
               <p style={{ fontSize: 11.5, color: "var(--vscode-foreground, #cfd6e0)", margin: "4px 6px 10px", lineHeight: 1.5 }}>
                 TwinCAT needs a route back to truST. Run one of these on the TwinCAT computer, then reopen Browse.
               </p>
@@ -196,7 +233,15 @@ export function BrowseTagsPanel({
               ))}
             </div>
           ) : (
-            <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load the symbol table.</p>
+            <>
+              {routeCreateAttempted && (
+                <div style={ROUTE_RESULT}>
+                  Route creation needs TwinCAT administrator access. Create the route on the
+                  TwinCAT computer, then reopen Browse to load the symbol table.
+                </div>
+              )}
+              <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load the symbol table.</p>
+            </>
           )
         ) : loading ? (
           <p style={EMPTY}>Loading symbols…</p>
@@ -226,15 +271,23 @@ export function BrowseTagsPanel({
           }}
         >
           <input
+            data-role="allow-writes"
             type="checkbox"
             checked={allowWrites}
             disabled={writeToggleDisabled}
-            onChange={(e) => setAllowWrites(e.target.checked)}
+            onChange={(e) => setAllowWritesChecked(e.target.checked)}
           />
           Allow writes (default: read-only)
         </label>
         <button
-          onClick={() => onAddTags(selectedAddKeys, allowWrites)}
+          onClick={(event) => {
+            const visibleAllowWrites =
+              event.currentTarget
+                .closest("aside")
+                ?.querySelector<HTMLInputElement>('input[data-role="allow-writes"]')
+                ?.checked ?? allowWritesRef.current;
+            onAddTags(selectedAddKeys, visibleAllowWrites);
+          }}
           disabled={Boolean(addDisabledReason)}
           title={addDisabledReason}
           className={addDisabledReason ? "trust-button" : "trust-button trust-button--primary"}
@@ -291,6 +344,7 @@ const WARNING_BAR: React.CSSProperties = {
 };
 const WARNING_TEXT: React.CSSProperties = { flex: 1, fontSize: 11.5, color: t.warn };
 const ROUTEBTN: React.CSSProperties = { flex: "none", border: `1px solid ${t.warn}`, background: tint(t.warn, 0.16), color: t.warn, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" };
+const ROUTE_RESULT: React.CSSProperties = { border: `1px solid ${tint(t.warn, 0.5)}`, borderRadius: 8, margin: "0 4px 10px", padding: "8px 10px", background: tint(t.warn, 0.1), color: "var(--vscode-foreground, #eef1f5)", fontSize: 11.5, lineHeight: 1.45 };
 const ARTCARD: React.CSSProperties = { border: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", borderRadius: 8, padding: "9px 10px", margin: "0 4px 9px", background: "var(--vscode-editor-background, rgba(13,16,22,.7))" };
 const ARTPRE: React.CSSProperties = { margin: 0, maxHeight: 150, overflow: "auto", background: "var(--vscode-editor-background, #0c0f15)", border: "1px solid var(--vscode-editorWidget-border, #20262f)", borderRadius: 6, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "var(--vscode-foreground, #c4ccd8)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace, monospace" };
 const COPYBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--trust-accent)", background: "var(--trust-selected-bg)", color: "var(--trust-text)", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" };

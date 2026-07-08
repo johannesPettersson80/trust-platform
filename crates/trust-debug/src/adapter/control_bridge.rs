@@ -95,7 +95,7 @@ impl DebugControlServer {
         });
         trust_runtime::control::spawn_hmi_descriptor_watcher(state.clone());
         let server = ControlServer::start(endpoint, state.clone())?;
-        let drain = spawn_command_drain(cmd_rx, debug);
+        let drain = spawn_command_drain(cmd_rx, debug, session.runtime_handle());
         Ok(Self {
             server,
             _drain: drain,
@@ -170,6 +170,7 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
 fn spawn_command_drain(
     rx: std::sync::mpsc::Receiver<ResourceCommand>,
     debug: DebugControl,
+    runtime: Arc<Mutex<trust_runtime::Runtime>>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         while let Ok(command) = rx.recv() {
@@ -187,16 +188,11 @@ fn spawn_command_drain(
                     let _ = respond_to.send(debug.snapshot().unwrap_or_else(empty_debug_snapshot));
                 }
                 ResourceCommand::AdsStatus { respond_to } => {
-                    let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
-                        schema_version:
-                            trust_runtime::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
-                        role: trust_runtime::ads::diagnostics::DoctorRole::Client,
-                        overall: trust_runtime::ads::diagnostics::AdsStatusOverall::Disabled,
-                        runtime_identity_hash: None,
-                        deployed_ads_config_hash: None,
-                        connections: Vec::new(),
-                        summary: "ADS is not configured for this debug session.".to_string(),
-                    });
+                    let report = runtime
+                        .lock()
+                        .map(|runtime| runtime.ads_status_report())
+                        .unwrap_or_else(|_| disabled_ads_status("ADS status unavailable."));
+                    let _ = respond_to.send(report);
                 }
                 ResourceCommand::OpcUaClientStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::opcua::OpcUaClientStatusReport {
@@ -205,8 +201,15 @@ fn spawn_command_drain(
                         connections: Vec::new(),
                     });
                 }
-                ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
-                    let _ = respond_to.send(None);
+                ResourceCommand::ActiveAdsDevice {
+                    target,
+                    local,
+                    respond_to,
+                } => {
+                    let snapshot = runtime.lock().ok().and_then(|runtime| {
+                        runtime.active_ads_device_snapshot(&target, local.as_ref())
+                    });
+                    let _ = respond_to.send(snapshot);
                 }
                 ResourceCommand::Pause
                 | ResourceCommand::Resume
@@ -217,6 +220,18 @@ fn spawn_command_drain(
             }
         }
     })
+}
+
+fn disabled_ads_status(summary: &str) -> trust_runtime::ads::diagnostics::AdsStatusReport {
+    trust_runtime::ads::diagnostics::AdsStatusReport {
+        schema_version: trust_runtime::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
+        role: trust_runtime::ads::diagnostics::DoctorRole::Client,
+        overall: trust_runtime::ads::diagnostics::AdsStatusOverall::Disabled,
+        runtime_identity_hash: None,
+        deployed_ads_config_hash: None,
+        connections: Vec::new(),
+        summary: summary.to_string(),
+    }
 }
 
 fn empty_debug_snapshot() -> DebugSnapshot {

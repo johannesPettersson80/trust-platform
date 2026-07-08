@@ -66,7 +66,7 @@ fn timer_variants() {
     harness.assert_eq("q_tof", Value::Bool(true));
     harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(false));
-    harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
+    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
     harness.assert_eq("q_ton_l", Value::Bool(true));
     harness.assert_eq("et_ton_l", Value::LTime(Duration::from_millis(10)));
 

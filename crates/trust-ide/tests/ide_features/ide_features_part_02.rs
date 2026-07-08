@@ -233,3 +233,77 @@ END_PROGRAM
         "Should rename declaration and usage"
     );
 }
+
+#[test]
+fn test_rename_refuses_shadow_capture_with_named_reason() {
+    let source = r#"
+VAR_GLOBAL
+    Speed : INT;
+END_VAR
+
+PROGRAM Main
+VAR
+    Temp : INT;
+END_VAR
+Temp := Speed + 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : INT").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, file, pos, "Temp")
+        .expect_err("rename must refuse reference-site shadow capture");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::ReferenceSiteRebind { .. }
+        ),
+        "expected ReferenceSiteRebind, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_from_imported_use_checks_origin_conflicts_with_named_reason() {
+    let globals_source = r#"
+VAR_GLOBAL
+    Speed : INT;
+    Limit : INT;
+END_VAR
+"#;
+    let main_source = r#"
+PROGRAM Main
+VAR
+    Value : INT;
+END_VAR
+Value := Speed;
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let globals_file = FileId(0);
+    let main_file = FileId(1);
+    db.set_source_text(globals_file, globals_source.to_string());
+    db.set_source_text(main_file, main_source.to_string());
+
+    let origin_pos = TextSize::from(globals_source.find("Speed : INT").unwrap() as u32);
+    let origin_err = trust_ide::rename::rename_checked(&db, globals_file, origin_pos, "Limit")
+        .expect_err("origin-file rename must refuse duplicate global name");
+    assert!(
+        matches!(
+            origin_err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected DeclaringScopeConflict from origin file, got {origin_err:?}"
+    );
+
+    let imported_use_pos = TextSize::from(main_source.find("Speed;").unwrap() as u32);
+    let imported_err = trust_ide::rename::rename_checked(&db, main_file, imported_use_pos, "Limit")
+        .expect_err("rename from imported use must still check origin conflicts");
+    assert!(
+        matches!(
+            imported_err,
+            trust_ide::rename::RenameError::CrossFileImportedSymbolConflict { .. }
+        ),
+        "expected CrossFileImportedSymbolConflict from imported use, got {imported_err:?}"
+    );
+}

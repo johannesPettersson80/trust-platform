@@ -90,6 +90,41 @@ END_PROGRAM
 }
 
 #[test]
+fn encoder_preserves_label_only_statement_as_explicit_nop() {
+    let source = r#"
+PROGRAM Main
+L1: ;
+END_PROGRAM
+"#;
+
+    let module = bytecode_module_from_source(source).unwrap();
+    module.validate().unwrap();
+
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(table)) => table,
+        other => panic!("expected STRING_TABLE, got {other:?}"),
+    };
+    let pou_index = match module.section(SectionId::PouIndex) {
+        Some(SectionData::PouIndex(index)) => index,
+        other => panic!("expected POU_INDEX, got {other:?}"),
+    };
+    let bodies = match module.section(SectionId::PouBodies) {
+        Some(SectionData::PouBodies(bodies)) => bodies,
+        other => panic!("expected POU_BODIES, got {other:?}"),
+    };
+    let main = pou_index
+        .entries
+        .iter()
+        .find(|entry| {
+            entry.kind == PouKind::Program && lookup_string(strings, entry.name_idx) == "Main"
+        })
+        .expect("Main program entry");
+    let start = main.code_offset as usize;
+    let end = start + main.code_length as usize;
+    assert_eq!(&bodies[start..end], &[0x00]);
+}
+
+#[test]
 fn encoder_emits_control_flow_jumps() {
     let source = r#"
 PROGRAM Main

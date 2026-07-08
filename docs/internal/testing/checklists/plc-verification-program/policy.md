@@ -1,0 +1,366 @@
+# Verification Program Policy
+
+This document owns the rules of the truST PLC verification program. It should
+stay stable and readable. Machine-readable schema details live in
+`metadata-model.md`; implementation rows live in `implementation-board.md`.
+
+## Scope
+
+This program designs a verification control plane. It does not itself fix a
+runtime, compiler, IDE, protocol, or UI bug.
+
+In scope:
+
+- repo-owned verification taxonomy,
+- machine-readable invariant and suite metadata,
+- specification source and gap inventory,
+- existing test/gate catalog,
+- generated reports that expose proof gaps,
+- rules for test authoring, refactoring, evidence, and release truth.
+
+Out of scope for the planning board:
+
+- moving existing tests into a new tree,
+- rewriting `just test-all`,
+- adding runtime/compiler/LSP behavior,
+- expanding public conformance claims before release/docs gates exist,
+- treating line count, coverage percentage, or test count as safety proof.
+
+## Stop Gates
+
+- [x] `VERIF-STOP-001` External review gate is cleared before implementation:
+  give `fable-review-brief.md` and this document set to Fable or another senior
+  reviewer and fold in required edits before any implementation row starts.
+- [ ] `VERIF-STOP-002` No existing tests are moved or renamed until the catalog
+  proves the destination, owning suite, and runner command. First slices add
+  metadata and reports around current tests.
+- [ ] `VERIF-STOP-003` No broad local Rust gates on slow local hardware. Use
+  targeted local/static checks only; broad validation runs on `trust-builder`
+  following repo rules.
+- [ ] `VERIF-STOP-004` No safety claim may be closed by source inspection alone.
+  Source inspection can open an invariant or test gap. Dangerous behavior claims
+  need dynamic proof, a source-only exception with rationale, or a hardware/lab
+  blocker.
+- [ ] `VERIF-STOP-005` No VM/eval/engine parity result may be the only oracle for
+  IEC semantics. Shared wrong behavior is a known failure mode.
+- [ ] `VERIF-STOP-006` No hardware protocol claim ships as verified unless the
+  hardware-lab suite has passed on real hardware or the public claim is labelled
+  preview/unverified.
+- [ ] `VERIF-STOP-007` No release checklist may treat generated reports under
+  `target/` as durable evidence. Release proof must name CI artifacts, dated
+  evidence files, or public release objects.
+- [ ] `VERIF-STOP-008` No new verifier, catalog generator, architecture doctor,
+  mutation runner, or gate logic is appended to an already-large mixed-purpose
+  file. Add per-slice modules or scripts.
+- [ ] `VERIF-STOP-009` No public docs page may claim state-of-the-art
+  conformance until a public summary, known-gaps page, and release artifact path
+  are reviewed.
+- [ ] `VERIF-STOP-010` Do not hide ignored tests. Every ignored test must be
+  classified as `red_protective`, `lab_required`, `perf_soak`, `manual`,
+  `flaky_quarantined`, `obsolete`, or `unknown`, with owner and unblock
+  condition.
+- [ ] `VERIF-STOP-011` Test/proof comes before product code for every
+  safety-relevant change. Bug fixes and new behavior require a failing or
+  protective test before implementation. Refactor-only work requires
+  behavior-lock tests before editing. Uncertain claims require debug/reproduce
+  evidence before the test is written.
+- [ ] `VERIF-STOP-012` Do not update Codex skills or repo agent instructions to
+  mandate this workflow until the verification program is implemented and
+  validated. Before implementation, skills may point to this document set as a
+  draft only.
+- [ ] `VERIF-STOP-013` Do not invent expected behavior inside a test when the
+  product/specification contract is missing or ambiguous. Mark the invariant
+  `spec_gap`, record the question, update the owning specification or decision
+  document first, then write the test against that decision.
+- [ ] `VERIF-STOP-014` Do not begin meaningful test-to-claim mapping or new test
+  creation for an area until that area's specification sources have been
+  inventoried. Mechanical test discovery may scan files, but proof mapping
+  starts from known specification/oracle sources.
+- [ ] `VERIF-STOP-015` Durable evidence must be one of: a committed repo file, a
+  CI artifact with named workflow/run and retention, or a public release object.
+  A path that `git check-ignore` matches fails metadata validation and cannot be
+  used as durable evidence.
+
+## Vocabulary
+
+Invariant:
+
+- A product truth that must not regress.
+- Examples: safe outputs are applied on deliberate stop; REF to a function
+  return cannot escape a call frame; rename cannot change the binding target of
+  a reference.
+
+Specification source:
+
+- A document, standard, decision record, public claim, hardware observation, or
+  external reference that states expected behavior or creates a proof
+  obligation.
+
+Spec gap:
+
+- A missing, ambiguous, stale, conflicting, or unavailable specification source
+  that prevents a correct test oracle from being written.
+
+Oracle:
+
+- The authority for expected behavior.
+- Allowed oracles: IEC/spec text, truST design contract, public protocol spec,
+  safety checklist, hardware observation, external PLC comparison, reviewed
+  product decision, or documented deviation.
+- Disallowed sole oracle: another truST engine produced the same result.
+
+Harness:
+
+- Executable mechanism that checks one or more invariants: Rust test,
+  conformance runner, cargo-fuzz target, Playwright script, VS Code extension
+  test, hardware lab script, mutation shard, Miri/Loom run.
+
+Gate:
+
+- A suite that must pass for a milestone: `veryquick`, `pr`, `nightly`,
+  `release`, `hardware_lab`.
+
+Evidence:
+
+- Durable record that a gate or proof was run against a named commit, platform,
+  command, and environment.
+- Durable means committed repo file, named CI artifact with retention, or public
+  release object. Machine-local ignored paths are not durable evidence.
+
+Protective red test:
+
+- A test that documents known unsafe current behavior but remains ignored until
+  its implementation slice starts. It must have a checklist row and unblock
+  condition.
+
+Proof levels:
+
+- `S0`: Source-only suspicion. Cannot close a safety claim.
+- `S1`: Source trace with line-level mechanism. Opens a test/design row.
+- `D1`: Dynamic reproduction or lab observation. Can justify a failing test.
+- `T1`: Failing or protective test exists and targets the reproduced behavior.
+- `D2`: Design decision recorded, including owner and blast radius.
+- `I1`: Implementation complete.
+- `G1`: Targeted green proof.
+- `G2`: Broad remote gate proof.
+- `R1`: Release/public proof, if applicable.
+
+## Code Change Discipline
+
+After this verification program is implemented, every code change must be
+routed through invariant/test discipline before production code changes land.
+
+Default order:
+
+1. Define or update the invariant/claim.
+2. If the claim is uncertain, debug or reproduce first.
+3. Choose the oracle.
+4. Add the failing, protective, or behavior-lock test.
+5. Capture the red/protective result when behavior should change.
+6. Implement the smallest production change.
+7. Run targeted green proof.
+8. Run the required suite tier.
+9. Update verification metadata, checklist row, and evidence.
+
+Allowed variants:
+
+- Bug fix: failing regression test first.
+- New feature: acceptance/contract test first; it should fail because behavior
+  is missing.
+- Safety/runtime/protocol/compiler semantic fix: debug/reproduce first, then
+  failing/protective test, then implementation.
+- Refactor-only: behavior-lock tests may already pass; capture them before
+  editing and prove no behavior delta after editing.
+- Docs-only or metadata-only: no runtime red test is required, but schema,
+  link, or checklist validation must pass.
+- Hardware-only claim: if hardware cannot be run, keep the row `unproven`,
+  `blocked`, or `deferred`; do not mark the claim fixed.
+
+Disallowed shortcuts:
+
+- No small fix without a mapped invariant or existing test that actually proves
+  the behavior.
+- No source-only proof for safety-critical runtime behavior.
+- No broad refactor whose only proof is `just test-all`.
+- No parity-only proof where both paths can share the same bug.
+- No UI-visible behavior change without extension/browser/journey proof or an
+  explicit non-UI classification.
+
+## Specification Completeness
+
+The verification program must improve specifications as well as tests. When a
+test author cannot state expected behavior from a written oracle, the result is
+a spec gap, not a normal missing-test gap.
+
+Every safety-relevant invariant must answer:
+
+- What exact behavior does the spec require?
+- Which source defines it: IEC text, protocol standard, truST design contract,
+  public docs, reviewed deviation, hardware observation, or release contract?
+- What are the allowed boundaries, defaults, lifecycle states, and error cases?
+- What should happen on malformed input, timeout, cancellation, restart,
+  permission failure, resource exhaustion, or unsupported hardware?
+- What visible status or diagnostic is emitted when behavior cannot complete
+  safely?
+
+Spec gap classes:
+
+- `missing_behavior`
+- `ambiguous_behavior`
+- `conflicting_sources`
+- `missing_boundary`
+- `missing_error_model`
+- `missing_lifecycle`
+- `missing_persistence`
+- `missing_security`
+- `missing_hardware_contract`
+- `missing_ui_contract`
+- `external_source_unavailable`
+
+Spec gap workflow:
+
+1. Mark the invariant `spec_gap`.
+2. Add a `verification/spec-gaps.toml` entry.
+3. Do not write a test that invents a product decision.
+4. Resolve the gap by updating the owning document:
+   `docs/specs/**`, `docs/IEC_DECISIONS.md`, `docs/IEC_DEVIATIONS.md`,
+   `docs/PLCOPEN_DECISIONS.md`, `docs/PLCOPEN_DEVIATIONS.md`,
+   `docs/internal/architecture/**`, public docs, or protocol/lab contract.
+5. Change the invariant `spec.status` to `specified`, record the oracle ref, and
+   only then write the test.
+6. If the chosen behavior is a deliberate deviation from IEC/protocol/vendor
+   behavior, record the deviation and make the test name explicit.
+
+## Existing Test Refactor Policy
+
+Current executable tests stay in native crate/tooling locations unless the
+catalog proves a concrete maintainability or proof-quality reason to move,
+split, or rename them.
+
+Allowed reasons:
+
+- A test file mixes unrelated responsibilities and hides which invariant failed.
+- A test file is large enough that adding new cases would create a god-file.
+- A broad integration test is used as proof for many distinct invariants but
+  does not name covered dimensions.
+- A test is flaky because setup, environment, time, network, or hardware
+  concerns are mixed with pure behavior checks.
+- Fixtures are duplicated across suites and have started to drift.
+- A VS Code extension test file exists but is not registered in
+  `editors/vscode/src/test/suite/index.ts`.
+- A malformed-input or boundary suite is too implicit to show which malformed
+  classes are covered.
+- A slow test belongs in a nightly, soak, hardware-lab, or release tier rather
+  than a fast developer tier.
+
+Not valid reasons:
+
+- Making all tests live in one central tree.
+- Renaming files only to look uniform.
+- Splitting a test without preserving behavior-lock proof.
+- Hiding ignored, flaky, or hardware-dependent tests.
+- Replacing a focused unit test with a broader integration test.
+
+Required order:
+
+1. Catalog the current test file, command, suite tier, invariant links, ignored
+   status, and evidence expectation.
+2. Capture a before-refactor behavior-lock run of the smallest command that
+   exercises the file.
+3. Write the target ownership plan.
+4. Move or split only tests named in the plan.
+5. Preserve test names and snapshot names where practical.
+6. Run the same focused command after the refactor and prove no intended
+   behavior changed.
+7. Update catalog metadata, stale-path checks, ignored-test register, and VS
+   Code suite registration if relevant.
+8. Update diagrams and architecture rows if ownership/data flow/gate execution
+   flow changed.
+
+Preferred organization:
+
+- unit tests close to the module,
+- integration tests in crate `tests/`,
+- conformance in `conformance/**`,
+- VS Code tests in `editors/vscode/src/test/suite/**`,
+- hardware/lab scripts separate from mock/loopback tests,
+- shared fixtures in named fixture directories with owner and provenance.
+
+## Suite Tiers
+
+`veryquick`:
+
+- developer feedback within minutes,
+- parser/lexer smoke, HIR diagnostic smoke, runtime core unit tests, bytecode
+  validator smoke, small deterministic conformance subset,
+- no hardware, network timing, long soak, full fuzz, or visual capture.
+
+`pr`:
+
+- normal mainline protection,
+- `just fmt`, `just clippy`, `just test` or current PR-equivalent gate,
+- deterministic conformance run twice,
+- runtime vertical tests when runtime behavior changed,
+- VS Code extension tests when extension behavior changed,
+- protocol loopback gates for changed protocol surfaces,
+- architecture/changed-area checks when ownership changes.
+
+`nightly`:
+
+- deeper bug discovery and flake detection,
+- extended conformance, fuzz, selected mutation shards, Miri/sanitizer/Loom
+  where supported, long reliability, reconnect/stale-data stress, performance
+  trend, selected UI journey smoke.
+
+`release`:
+
+- shipped artifact proof,
+- PR gates, full conformance, networking/TLS stability where relevant,
+  platform matrix, packaged binary smoke, VSIX smoke, docs render, changelog,
+  version, tag, release checks, checksums, Latest release verification.
+
+`hardware_lab`:
+
+- proof that mocks cannot provide,
+- named devices, firmware/software versions, topology, env vars, safety
+  precautions, skipped/unproven rows visible.
+
+## Test Adequacy Metrics
+
+Metrics are not safety proof. They find weak areas.
+
+First-generation metrics:
+
+- test catalog coverage,
+- oracle coverage,
+- spec completeness,
+- spec-gap debt,
+- negative/failure-mode coverage,
+- ignored-test debt,
+- hardware-proof debt,
+- mutation survivors,
+- fuzz target coverage,
+- release-evidence completeness.
+
+Do not create a single quality score. Scores hide the important reasoning.
+
+## Final Definition of Done
+
+The verification program board is complete only when:
+
+- `verification/` exists with schemas, invariant records, suite definitions,
+  catalog metadata, ignored-test register, risk register, evidence index,
+  spec-source register, and spec-gap register.
+- Existing tests and gates are cataloged without moving them unnecessarily.
+- Specification sources are inventoried before tests are proof-mapped.
+- Safety-critical invariants have oracles and at least one mapped test or an
+  explicit test/spec/hardware gap.
+- Ignored tests are classified and owned.
+- Suite tiers are validated and documented.
+- Bidirectional traceability reports exist.
+- Conformance cases are linked to invariants.
+- Fuzz, mutation, coverage, hardware, UI, supply-chain/security, platform, and
+  release evidence programs have first working reports.
+- Remote-builder gates validate metadata and first generated reports.
+- Public claims are not expanded until release/public-doc gates are complete.
+- `AGENTS.md` and relevant Codex skills are updated after implementation.

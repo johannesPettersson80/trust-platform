@@ -196,7 +196,8 @@ pub(crate) fn field_declaration_ranges(
             let Some(type_name) = current_type_name.as_ref() else {
                 continue;
             };
-            let Some(declared_type_id) = symbols.lookup_registered_type_name(type_name.as_str()) else {
+            let Some(declared_type_id) = symbols.lookup_registered_type_name(type_name.as_str())
+            else {
                 continue;
             };
             let declared_type_id = symbols.resolve_alias_type(declared_type_id);
@@ -229,4 +230,15 @@ pub(crate) fn ident_token_in_name(node: &SyntaxNode) -> Option<SyntaxToken> {
     node.descendants_with_tokens()
         .filter_map(|element| element.into_token())
         .find(|token| token.kind() == SyntaxKind::Ident)
+}
+
+pub(crate) fn contains_ascii_case_insensitive(haystack: &str, needle: &str) -> bool {
+    let needle = needle.as_bytes();
+    if needle.is_empty() {
+        return true;
+    }
+    haystack
+        .as_bytes()
+        .windows(needle.len())
+        .any(|candidate| candidate.eq_ignore_ascii_case(needle))
 }

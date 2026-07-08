@@ -3,11 +3,14 @@ use serde::Deserialize;
 use serde_json::Value;
 use smol_str::SmolStr;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::time::Duration;
 use tracing::{debug, warn};
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
+
+const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct RuntimeInlineValues {
@@ -46,9 +49,13 @@ struct ControlClient {
 impl ControlClient {
     fn connect(endpoint: ControlEndpoint, auth: Option<&str>) -> Option<Self> {
         let stream = match endpoint {
-            ControlEndpoint::Tcp(addr) => ControlStream::Tcp(TcpStream::connect(addr).ok()?),
+            ControlEndpoint::Tcp(addr) => ControlStream::Tcp(connect_tcp(&addr)?),
             #[cfg(unix)]
-            ControlEndpoint::Unix(path) => ControlStream::Unix(UnixStream::connect(path).ok()?),
+            ControlEndpoint::Unix(path) => {
+                let stream = UnixStream::connect(path).ok()?;
+                configure_unix_stream_timeout(&stream);
+                ControlStream::Unix(stream)
+            }
         };
         Some(Self {
             seq: 1,
@@ -94,9 +101,19 @@ impl ControlClient {
             }
         }
         let mut response = String::new();
-        if self.reader.read_line(&mut response).ok()? == 0 {
-            warn!("inlineValue control request kind={} empty response", kind);
-            return None;
+        match self.reader.read_line(&mut response) {
+            Ok(0) => {
+                warn!("inlineValue control request kind={} empty response", kind);
+                return None;
+            }
+            Ok(_) => {}
+            Err(err) => {
+                warn!(
+                    "inlineValue control request kind={} read failed: {err}",
+                    kind
+                );
+                return None;
+            }
         }
         let response: ControlResponse = match serde_json::from_str(&response) {
             Ok(parsed) => parsed,
@@ -113,6 +130,38 @@ impl ControlClient {
             return None;
         }
         response.result
+    }
+}
+
+fn connect_tcp(addr: &str) -> Option<TcpStream> {
+    let socket_addr = resolve_socket_addr(addr)?;
+    let stream = TcpStream::connect_timeout(&socket_addr, CONTROL_IO_TIMEOUT).ok()?;
+    configure_tcp_stream_timeout(&stream);
+    Some(stream)
+}
+
+fn resolve_socket_addr(addr: &str) -> Option<SocketAddr> {
+    addr.parse::<SocketAddr>()
+        .ok()
+        .or_else(|| addr.to_socket_addrs().ok()?.next())
+}
+
+fn configure_tcp_stream_timeout(stream: &TcpStream) {
+    if let Err(err) = stream.set_read_timeout(Some(CONTROL_IO_TIMEOUT)) {
+        warn!("inlineValue control set TCP read timeout failed: {err}");
+    }
+    if let Err(err) = stream.set_write_timeout(Some(CONTROL_IO_TIMEOUT)) {
+        warn!("inlineValue control set TCP write timeout failed: {err}");
+    }
+}
+
+#[cfg(unix)]
+fn configure_unix_stream_timeout(stream: &UnixStream) {
+    if let Err(err) = stream.set_read_timeout(Some(CONTROL_IO_TIMEOUT)) {
+        warn!("inlineValue control set Unix read timeout failed: {err}");
+    }
+    if let Err(err) = stream.set_write_timeout(Some(CONTROL_IO_TIMEOUT)) {
+        warn!("inlineValue control set Unix write timeout failed: {err}");
     }
 }
 

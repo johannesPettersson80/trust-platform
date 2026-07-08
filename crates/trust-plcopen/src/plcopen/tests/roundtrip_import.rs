@@ -109,6 +109,118 @@ END_PROGRAM
     }
 
     #[test]
+    fn import_accepts_st_body_with_body_level_adddata_metadata() {
+        let project = temp_dir("plcopen-import-body-adddata");
+        let xml_path = project.join("input.xml");
+        write(
+            &xml_path,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous>
+      <pou name="Main" pouType="program">
+        <body>
+          <ST><![CDATA[
+PROGRAM Main
+VAR
+  speed : REAL := 10.0;
+END_VAR
+END_PROGRAM
+]]></ST>
+          <addData>
+            <data name="vendor.lineMap"><text>line metadata only</text></data>
+          </addData>
+        </body>
+      </pou>
+    </pous>
+  </types>
+</project>
+"#,
+        );
+
+        let report = import_xml_to_project(&xml_path, &project)
+            .expect("ST body with body-level addData should import");
+        assert_eq!(report.discovered_pous, 1);
+        assert_eq!(report.imported_pous, 1);
+        assert!(
+            report
+                .unsupported_diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.code != "PLCO218"),
+            "body-level addData must not be reported as an unsupported body: {:?}",
+            report.unsupported_diagnostics
+        );
+
+        let source = std::fs::read_to_string(&report.written_sources[0]).expect("read source");
+        assert!(source.contains("PROGRAM Main"));
+        assert!(source.contains("speed : REAL"));
+
+        let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn import_rejects_non_st_bodies_with_named_diagnostics() {
+        let project = temp_dir("plcopen-import-non-st-bodies");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("plcopen")
+            .join("non_st_bodies.xml");
+
+        let error = import_xml_to_project(&fixture, &project).expect_err("non-ST import fails");
+        assert!(
+            error
+                .to_string()
+                .contains("no importable PLCopen ST content"),
+            "unexpected error: {error:#}"
+        );
+
+        let report_path = project.join("interop/plcopen-migration-report.json");
+        assert!(report_path.is_file(), "expected migration report");
+        let report_text = std::fs::read_to_string(&report_path).expect("read migration report");
+        let report: serde_json::Value =
+            serde_json::from_str(&report_text).expect("parse migration report");
+
+        assert_eq!(report["discovered_pous"], 4);
+        assert_eq!(report["imported_pous"], 0);
+        assert_eq!(report["skipped_pous"], 4);
+
+        for code in ["PLCO215", "PLCO216", "PLCO217", "PLCO218"] {
+            assert!(
+                report["unsupported_diagnostics"]
+                    .as_array()
+                    .expect("diagnostics array")
+                    .iter()
+                    .any(|diagnostic| diagnostic["code"] == code
+                        && diagnostic["severity"] == "error"),
+                "missing diagnostic code {code}: {report_text}"
+            );
+        }
+
+        for name in ["FbdPump", "LadderPump", "Sequence", "VendorGraph"] {
+            assert!(
+                report["entries"]
+                    .as_array()
+                    .expect("entries array")
+                    .iter()
+                    .any(|entry| entry["name"] == name
+                        && entry["status"] == "skipped"
+                        && entry["reason"]
+                            .as_str()
+                            .is_some_and(|reason| reason.contains("unsupported non-ST body"))),
+                "missing skipped entry for {name}: {report_text}"
+            );
+        }
+
+        assert!(
+            !contains_st_file(&project.join("src")),
+            "non-ST bodies must not emit scraped ST files"
+        );
+
+        let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
     fn import_supports_data_type_subset_and_generates_type_source() {
         let project = temp_dir("plcopen-import-datatypes");
         let xml_path = project.join("input.xml");
@@ -189,4 +301,3 @@ END_PROGRAM
 
         let _ = std::fs::remove_dir_all(project);
     }
-

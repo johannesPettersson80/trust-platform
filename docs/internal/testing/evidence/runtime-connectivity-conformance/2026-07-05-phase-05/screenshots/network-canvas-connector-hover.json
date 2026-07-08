@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:36537/",
+  "summary": {
+    "bodyText": "truST\nFilter\n+ Add\nDiscover\nEdit\ncell-a\nReachable\nRuntime A\nOnline\nModbus TCP\nCLIENT\nMQTT\nPUB/SUB\n1 host · 1 runtime · 2 endpoints",
+    "nodeCount": 4
+  },
+  "consoleLines": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

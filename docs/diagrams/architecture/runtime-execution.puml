@@ -245,9 +245,15 @@ package "Lifecycle" as lifecyclePkg #LightGray {
     end note
 
     rectangle "shutdown()" as shutdownFlow #Wheat {
-        card "1. stop tasks" as stop1
-        card "2. save_retain()" as stop2
+        card "1. launcher signal bridge\n(run/runtime/signals.rs)\nSIGINT/SIGTERM -> ResourceControl::stop()" as stopSignal
+        card "2. stop tasks\n(scheduler stop flag)" as stop1
+        card "3. apply configured safe outputs" as stopSafe
+        card "4. save_retain()" as stop2
     }
+
+    stopSignal --> stop1
+    stop1 --> stopSafe
+    stopSafe --> stop2
 
     rectangle "online_change()" as onlineChangeFlow #Wheat {
         card "1. queue ReloadBytecode command" as online1
@@ -457,6 +463,27 @@ package "ADS Server Interop" as adsServerPkg #LightCyan {
         or rejected.
     end note
 }
+
+' ============================================================
+' CONNECTOR STATUS CONTRACT
+' ============================================================
+package "Connector Status Contract" as connectorPkg #Lavender {
+    card "contract.rs\nschema_version + state/health/\nconfidence/point quality" as connectorContract
+    card "mapping.rs\nreviewed source-state ->\nconnector-state table" as connectorMapping
+    card "adapters/*\nprotocol projections only;\nno transport loops" as connectorAdapters
+    card "report.rs\nstable report assembly" as connectorReport
+    card "control/connectors_handlers.rs\nViewer-gated connectors.status\nread surface" as connectorControl
+
+    connectorContract --> connectorMapping
+    connectorMapping --> connectorAdapters
+    connectorAdapters --> connectorReport
+    connectorReport --> connectorControl
+}
+
+opcuaFlow ..> connectorAdapters : project OPC UA\nstatus only
+adsFlow ..> connectorAdapters : project ADS client\nstatus only
+adsServerFlow ..> connectorAdapters : project ADS server\nstatus only
+step9 ..> connectorAdapters : project IoDriver\nhealth only
 
 ' ============================================================
 ' VARIABLE STORAGE
@@ -775,7 +802,9 @@ package "Standard Library" as stdlibPkg #PaleTurquoise {
         card "**Function Blocks:**\nTON - Timer On Delay\nTOF - Timer Off Delay\nTP - Pulse Timer\nCTU - Count Up\nCTD - Count Down\nCTUD - Count Up/Down\nR_TRIG - Rising Edge\nF_TRIG - Falling Edge\nSR - Set/Reset\nRS - Reset/Set" as stdFBs
 
         card "**Native robot FB bridge:**\nRobot_P3MinimalArm\n-> world::arm writer-free bridge\n(no transform writes)" as robotFBBridge
+        card "**World arm proof owners:**\nworld/arm.rs re-exports\np3_bridge + types + model + physics + urdf\nmulti_urdf/{domain,setup,step,trace}" as worldArmOwners
     }
+    robotFBBridge ..> worldArmOwners : runtime proof ownership
 }
 
 ' ============================================================
@@ -806,8 +835,35 @@ package "I/O Interface" as ioPkg #LightGray {
         +write_outputs(io)
     }
 
+    component "io/modbus/worker.rs\n(latest input snapshot +\nlevel output handoff)" as modbusWorker
+    component "io/mqtt/worker.rs\n(session worker + freshness +\nlevel output handoff)" as mqttWorker
+    component "io/ethercat/driver.rs\n(hardware construction failure ->\nterminal until driver rebuild)" as ethercatDriver
+
     ioSubsystem --> ioIface
     ioSubsystem --> ioDriver : uses
+    ioDriver ..> modbusWorker : Modbus scan calls\nbounded handoff only
+    ioDriver ..> mqttWorker : MQTT scan calls\nbounded handoff only
+    ioDriver ..> ethercatDriver : EtherCAT scan calls\nfail closed on unavailable hardware
+    modbusWorker ..> ioDriver : owns sync\nModbus protocol path
+    mqttWorker ..> ioDriver : owns sync\nMQTT protocol path
+
+    note right of mqttWorker
+        Phase 3B worker/snapshot contract:
+        Modbus/MQTT connect, poll, and
+        wire round trips stay off the scan
+        thread. Driver health still projects
+        through IoDriverHealth.
+    end note
+
+    note right of ethercatDriver
+        EtherCAT hardware construction that
+        fails after ethercrab storage split is
+        bounded to the driver instance. The
+        driver reports unavailable hardware
+        until the runtime rebuilds the driver
+        instead of retrying allocation in
+        scan-cycle retry windows.
+    end note
 }
 
 ' ============================================================

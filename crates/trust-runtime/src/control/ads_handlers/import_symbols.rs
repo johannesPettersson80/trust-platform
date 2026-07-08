@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use trust_ads_core::SymbolSnapshot;
+use trust_ads_core::{PointAccess, SymbolFlag, SymbolSnapshot};
 
 use crate::ads::diagnostics::{
     CredentialChannelClassification, LocalIdentity, RoutePlan, TargetIdentity,
@@ -251,7 +251,18 @@ fn apply_import_to_project(
         include_patterns: params.include_patterns,
         name_prefix: params.name_prefix,
     };
-    let response = build_symbol_import_response(&request, snapshot.symbols.clone());
+    let mut response = build_symbol_import_response(&request, snapshot.symbols.clone());
+    if params.write_acknowledged {
+        for candidate in response
+            .candidates
+            .iter_mut()
+            .filter(|candidate| candidate.selected)
+        {
+            if candidate.descriptor.flags.contains(&SymbolFlag::Write) {
+                candidate.access = PointAccess::ReadWrite;
+            }
+        }
+    }
     let candidate_count = response.candidates.len();
     let ads_toml_path = project_path(
         project_root,
@@ -555,6 +566,34 @@ mod tests {
         assert!(generated.contains("line1_gvl_setpoint : REAL;"));
         assert!(!generated.contains("line1_main_temperature"));
         assert!(root.join("ads/snapshots/line1.symbols.json").is_file());
+    }
+
+    #[test]
+    fn import_symbols_apply_acknowledged_writable_symbols_as_read_write() {
+        let root = temp_dir("ads-import-apply-writable");
+        let snapshot = SymbolSnapshot::new(
+            "line1",
+            vec![real_symbol("GVL.Setpoint").with_flag(SymbolFlag::Write)],
+        );
+
+        let report = apply_import_to_project(
+            root.as_path(),
+            serde_json::from_value(json!({
+                "connection_name": "line1",
+                "symbols": ["GVL.Setpoint"],
+                "target": target("5.23.91.12.1.1", "192.168.10.5"),
+                "local": local("192.168.10.20.1.1"),
+                "snapshot": snapshot,
+                "write_acknowledged": true
+            }))
+            .expect("params"),
+        )
+        .expect("apply import");
+
+        assert!(report.applied);
+        let ads_toml = fs::read_to_string(root.join("ads.toml")).expect("read ads.toml");
+        assert!(ads_toml.contains("symbol = \"GVL.Setpoint\""), "{ads_toml}");
+        assert!(ads_toml.contains("access = \"read_write\""), "{ads_toml}");
     }
 
     #[test]

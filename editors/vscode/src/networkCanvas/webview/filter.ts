@@ -33,6 +33,23 @@ function endpointsInGraph(graph: NCGraph): NCEndpoint[] {
   return endpoints;
 }
 
+export function graphSummaryFromVisibleGraph(graph: NCGraph): string {
+  const hostCount = graph.hosts.length;
+  const runtimeCount = graph.hosts.reduce(
+    (sum, host) =>
+      sum +
+      host.runtimes.length +
+      host.containers.reduce((nested, container) => nested + container.runtimes.length, 0),
+    0
+  );
+  const endpointCount = endpointsInGraph(graph).length;
+  return `${hostCount} host${hostCount === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"} · ${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}`;
+}
+
+export function withVisibleGraphSummary(graph: NCGraph): NCGraph {
+  return { ...graph, summary: graphSummaryFromVisibleGraph(graph) };
+}
+
 function needsAttention(endpoint: NCEndpoint): boolean {
   switch (endpoint.health) {
     case "connected":
@@ -63,7 +80,7 @@ export function filterReport(graph: NCGraph, hidden: ReadonlySet<string>): Filte
 // Hide endpoints (and their links + orphaned externals) whose protocol is filtered out.
 export function applyFilter(graph: NCGraph, hidden: ReadonlySet<string>): NCGraph {
   if (hidden.size === 0) {
-    return graph;
+    return withVisibleGraphSummary(graph);
   }
   const hiddenEndpoints = new Set<string>();
   const keepRuntime = (rt: NCRuntime): NCRuntime => ({
@@ -90,5 +107,5 @@ export function applyFilter(graph: NCGraph, hidden: ReadonlySet<string>): NCGrap
     referenced.add(l.to);
   }
   const external = graph.external.filter((x) => referenced.has(x.id));
-  return { ...graph, hosts, links, external };
+  return withVisibleGraphSummary({ ...graph, hosts, links, external });
 }

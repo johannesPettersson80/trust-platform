@@ -1,0 +1,81 @@
+{
+  "case_id": "cfm_comms_determinism_connector_projection_001",
+  "category": "comms_determinism",
+  "description": "Simulated connector status transitions project to the shared connector contract without live sockets.",
+  "kind": "connector_status_trace",
+  "trace": [
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "ok",
+      "source": "ads_connection",
+      "source_state": "connected",
+      "state": "ready",
+      "step": 1
+    },
+    {
+      "degraded_points": 2,
+      "detail": null,
+      "health": "degraded",
+      "source": "ads_status",
+      "source_state": "connected",
+      "state": "degraded",
+      "step": 2
+    },
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "degraded",
+      "source": "opcua_client",
+      "source_state": "connecting",
+      "state": "reconnecting",
+      "step": 3
+    },
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "unknown",
+      "source": "opcua_server",
+      "source_state": "no_snapshot",
+      "state": "not_ready",
+      "step": 4
+    },
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "degraded",
+      "source": "mqtt_session",
+      "source_state": "connected_stale",
+      "state": "stale",
+      "step": 5
+    },
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "degraded",
+      "source": "modbus",
+      "source_state": "protocol_error",
+      "state": "degraded",
+      "step": 6
+    },
+    {
+      "degraded_points": 0,
+      "detail": null,
+      "health": "degraded",
+      "source": "ethercat",
+      "source_state": "reconnecting",
+      "state": "reconnecting",
+      "step": 7
+    },
+    {
+      "degraded_points": 0,
+      "detail": "scripted IO driver failure",
+      "health": "degraded",
+      "source": "io_driver",
+      "source_state": "faulted",
+      "state": "degraded",
+      "step": 8
+    }
+  ],
+  "version": 1
+}

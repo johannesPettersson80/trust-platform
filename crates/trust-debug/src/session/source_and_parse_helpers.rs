@@ -88,7 +88,7 @@ fn apply_project_io_config(
     program_path: &str,
     options: &SourceOptions,
 ) -> Result<(), CompileError> {
-    let Some(project_root) = resolve_project_root_for_io(program_path, options)? else {
+    let Some(project_root) = resolve_project_root_for_config(program_path, options)? else {
         return Ok(());
     };
     let io_path = project_root.join("io.toml");
@@ -117,7 +117,77 @@ fn apply_project_io_config(
     Ok(())
 }
 
-fn resolve_project_root_for_io(
+#[cfg(feature = "ads-wire")]
+fn apply_project_ads_config(
+    runtime: &mut Runtime,
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<(), CompileError> {
+    let Some(project_root) = resolve_project_root_for_config(program_path, options)? else {
+        return Ok(());
+    };
+    let runtime_path = project_root.join("runtime.toml");
+    if !runtime_path.is_file() {
+        return Ok(());
+    }
+
+    let runtime_config = trust_runtime::config::RuntimeConfig::load(&runtime_path)
+        .map_err(|err| CompileError::new(format!("failed to load runtime.toml: {err}")))?;
+    if !runtime_config.ads.enabled {
+        return Ok(());
+    }
+
+    let ads_path = if runtime_config.ads.config_path.is_relative() {
+        project_root.join(&runtime_config.ads.config_path)
+    } else {
+        runtime_config.ads.config_path.clone()
+    };
+    let text = std::fs::read_to_string(&ads_path).map_err(|err| {
+        CompileError::new(format!("failed to load {}: {err}", ads_path.display()))
+    })?;
+    let config = trust_runtime::ads::parse_ads_toml(&text)
+        .map_err(|err| CompileError::new(format!("failed to parse ads.toml: {err}")))?;
+    let config_hash = trust_runtime::ads::diagnostics::sha256_evidence_hash(text.as_bytes());
+    runtime
+        .shutdown_ads()
+        .map_err(|err| CompileError::new(format!("failed to reset ADS runtime: {err}")))?;
+    runtime.set_ads_deployed_config_hash(Some(config_hash));
+    let worker_tick_interval = std::time::Duration::from_millis(
+        u64::try_from(runtime_config.ads.worker_tick_interval.as_millis()).unwrap_or(20),
+    );
+    for connection in &config.connections {
+        let transport = trust_runtime::ads::AdsRsTransport::new(connection.route.clone());
+        runtime
+            .start_ads_connection(connection, transport, worker_tick_interval)
+            .map_err(|err| CompileError::new(format!("failed to start ADS runtime: {err}")))?;
+    }
+    Ok(())
+}
+
+#[cfg(not(feature = "ads-wire"))]
+fn apply_project_ads_config(
+    _runtime: &mut Runtime,
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<(), CompileError> {
+    let Some(project_root) = resolve_project_root_for_config(program_path, options)? else {
+        return Ok(());
+    };
+    let runtime_path = project_root.join("runtime.toml");
+    if !runtime_path.is_file() {
+        return Ok(());
+    }
+    let runtime_config = trust_runtime::config::RuntimeConfig::load(&runtime_path)
+        .map_err(|err| CompileError::new(format!("failed to load runtime.toml: {err}")))?;
+    if runtime_config.ads.enabled {
+        return Err(CompileError::new(
+            "runtime.ads.enabled=true requires trust-debug built with feature 'ads-wire'",
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_project_root_for_config(
     program_path: &str,
     options: &SourceOptions,
 ) -> Result<Option<PathBuf>, CompileError> {
@@ -129,11 +199,11 @@ fn resolve_project_root_for_io(
     let parent = entry_path
         .parent()
         .ok_or_else(|| CompileError::new("program path has no parent directory"))?;
-    if parent.join("io.toml").is_file() {
+    if parent.join("io.toml").is_file() || parent.join("runtime.toml").is_file() {
         return Ok(Some(parent.to_path_buf()));
     }
     if let Some(project_root) = parent.parent() {
-        if project_root.join("io.toml").is_file() {
+        if project_root.join("io.toml").is_file() || project_root.join("runtime.toml").is_file() {
             return Ok(Some(project_root.to_path_buf()));
         }
     }

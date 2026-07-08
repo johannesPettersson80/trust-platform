@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { DiscoverCandidate } from "../offlineComm";
+import { discoveryConfidenceLabel, discoverySourceLabel } from "./connectorPresentation";
 import { protocolName } from "./protocolMeta";
 
 // §0.5 Discover pane: goal-first device discovery. Recommended tier (zero input, safe) is checked
@@ -45,6 +46,7 @@ const RECOMMENDED: Row[] = [
   { key: "modbus-local", protocol: "modbus_tcp", label: "Modbus", note: "local network scan" },
 ];
 const TARGETED: Row[] = [
+  { key: "ads-host", protocol: "ads", label: "TwinCAT (ADS) device", note: "at host", input: "host" },
   // Discovering an external OPC-UA server to READ from is the opcua_client flow (the opcua server/
   // expose flow no longer advertises discover). Label names the thing being found.
   { key: "opcua", protocol: "opcua_client", label: "OPC UA server", note: "at host", input: "host" },
@@ -261,7 +263,9 @@ export function DiscoverPane({
               const displayEndpoint = formatDiscoveredEndpoint(endpoint);
               const detail = isRuntime
                 ? runtimeDiscoveryDetail(host, displayEndpoint)
-                : [protocolName(c.protocol), c.source, c.confidence].filter(Boolean).join(" · ");
+                : [protocolName(c.protocol), discoverySourceLabel(c.source), discoveryConfidenceLabel(c.confidence)]
+                    .filter(Boolean)
+                    .join(" · ");
               return (
                 <div key={c.id} style={CARD}>
                   <div style={{ flex: 1, minWidth: 0 }}>

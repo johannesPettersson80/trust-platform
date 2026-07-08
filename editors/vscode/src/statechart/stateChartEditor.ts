@@ -156,8 +156,8 @@ const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
           Cantarell,
           sans-serif
         );
-        background-color: var(--vscode-editor-background, #1e1e1e);
-        color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
+        background-color: var(--trust-canvas, var(--vscode-editor-background, #1e1e1e));
+        color: var(--trust-text, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)));
       }
 
     </style>
@@ -732,7 +732,7 @@ export class StateChartEditorProvider
 
       if (!config) {
         throw new Error(
-          "Hardware mode requires trust-runtime configuration. Set 'trust-lsp.runtime.controlEndpoint' in settings."
+          "Hardware mode requires trust-runtime configuration. Set 'trust.runtime.controlEndpoint' in settings."
         );
       }
 

@@ -415,6 +415,142 @@ params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
     }
 
     #[test]
+    fn session_reload_validates_project_ads_toml_bindings() {
+        let project_root = temp_project_root("reload_ads");
+        let src = project_root.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let main_path = src.join("Main.st");
+        let config_path = src.join("Configuration.st");
+        std::fs::write(&main_path, "PROGRAM Main\nEND_PROGRAM\n").unwrap();
+        std::fs::write(
+            &config_path,
+            r#"CONFIGURATION Config
+RESOURCE R ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_root.join("runtime.toml"),
+            r#"[bundle]
+version = 1
+
+[resource]
+name = "R"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-debug-reload-ads.sock"
+mode = "debug"
+debug_enabled = true
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.ads]
+enabled = true
+config_path = "ads.toml"
+worker_tick_interval_ms = 20
+
+[runtime.opcua]
+enabled = false
+listen = "0.0.0.0:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:runtime"
+publish_interval_ms = 250
+max_nodes = 128
+expose = []
+security_policy = "basic256sha256"
+security_mode = "sign_and_encrypt"
+allow_anonymous = false
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_root.join("ads.toml"),
+            r#"[[connections]]
+name = "line1"
+target_net_id = "5.23.91.12.1.1"
+host = "192.168.10.5"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+var = "missing_ads_global"
+symbol = "MAIN.Temperature"
+type = "REAL"
+mode = "poll"
+"#,
+        )
+        .unwrap();
+
+        let mut session = DebugSession::new(Runtime::new());
+        session.update_source_options(SourceOptionsUpdate {
+            root: Some(project_root.to_string_lossy().to_string()),
+            include_globs: None,
+            exclude_globs: None,
+            ignore_pragmas: None,
+        });
+        let err = session
+            .reload_program(Some(config_path.to_string_lossy().as_ref()))
+            .expect_err("debug reload must validate ADS bindings before launch");
+        assert!(
+            err.to_string()
+                .contains("failed to resolve declared global 'missing_ads_global'"),
+            "unexpected ADS binding error: {err}"
+        );
+    }
+
+    #[test]
     fn session_revalidates_breakpoints_after_source_registration() {
         let source = r#"PROGRAM Main
 VAR

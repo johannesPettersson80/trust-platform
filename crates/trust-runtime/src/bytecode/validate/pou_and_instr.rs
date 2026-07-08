@@ -3,6 +3,7 @@ fn validate_pou_index(
     types: &TypeTable,
     const_pool: &ConstPool,
     ref_table: &RefTable,
+    var_meta: Option<&VarMeta>,
     index: &PouIndex,
     bodies: &[u8],
 ) -> Result<(), BytecodeError> {
@@ -30,6 +31,7 @@ fn validate_pou_index(
                 ensure_const_index(const_pool, default_idx)?;
             }
         }
+        validate_param_direction_metadata(entry)?;
         if let Some(meta) = &entry.class_meta {
             if let Some(parent) = meta.parent_pou_id {
                 if !index.entries.iter().any(|pou| pou.id == parent) {
@@ -79,7 +81,14 @@ fn validate_pou_index(
             const_pool,
             ref_table,
         };
-        validate_instruction_stream(&tables, entry, &bodies[start..end])?;
+        let code = &bodies[start..end];
+        validate_instruction_stream(&tables, entry, code)?;
+        validate_call_targets(code)?;
+        validate_reference_escape(ref_table, entry, code)?;
+        validate_owner_contract(ref_table, entry, code)?;
+        validate_stack_shape(types, const_pool, code)?;
+        validate_const_compat(types, const_pool, ref_table, var_meta, code)?;
+        validate_param_direction_calls(strings, types, var_meta, index, entry, code)?;
     }
     Ok(())
 }

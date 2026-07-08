@@ -13,7 +13,9 @@ use crate::memory::VariableStorage;
 use crate::program_model::InitializerCatalog;
 use crate::stdlib::StandardLibrary;
 use crate::task::TaskState;
-use crate::value::{ArrayValue, DateTimeProfile, Duration, EnumValue, StructValue, Value};
+use crate::value::{
+    truncate_string_elements, ArrayValue, DateTimeProfile, Duration, EnumValue, StructValue, Value,
+};
 
 use super::core::Runtime;
 use super::types::{GlobalInitValue, RestartMode, RetainPolicy, RetainSnapshot};
@@ -436,6 +438,18 @@ fn canonicalize_retained_scalar(
     value: &Value,
 ) -> Result<Value, error::RuntimeError> {
     let migrated = match (declared, value) {
+        (
+            Type::String {
+                max_len: Some(max_len),
+            },
+            Value::String(text),
+        ) => Value::String(truncate_string_elements(text.as_str(), *max_len).into()),
+        (
+            Type::WString {
+                max_len: Some(max_len),
+            },
+            Value::WString(text),
+        ) => Value::WString(truncate_string_elements(text, *max_len)),
         (Type::Bool, Value::Bool(_))
         | (Type::SInt, Value::SInt(_))
         | (Type::Int, Value::Int(_))

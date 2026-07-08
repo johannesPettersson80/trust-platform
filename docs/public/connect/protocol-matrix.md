@@ -35,8 +35,8 @@ flowchart LR
 
 | Protocol | Best for | Go to |
 | --- | --- | --- |
-| Modbus TCP | register-oriented PLC/device integration | [Modbus TCP](external-systems/modbus-tcp.md) |
-| MQTT | brokered event/message exchange | [MQTT](external-systems/mqtt.md) |
+| Modbus TCP | coil/register-oriented PLC/device integration with explicit function-code profiles | [Modbus TCP](external-systems/modbus-tcp.md) |
+| MQTT | brokered raw bytes, typed scalar topics, or bounded Sparkplug B outbound node metrics | [MQTT](external-systems/mqtt.md) |
 | OPC UA | runtime variable exposure to OPC UA clients | [OPC UA](external-systems/opc-ua.md) |
 | Beckhoff ADS | TwinCAT symbol import into truST globals, or exposing truST globals to ADS clients | [Beckhoff ADS](external-systems/ads.md) |
 
@@ -45,6 +45,14 @@ truST runtime discovery uses mDNS/pairing for truST peers; Beckhoff ADS
 discovery uses ADS UDP identify/discovery toward TwinCAT targets.
 ADS server mode is also separate from discovery: external ADS clients add a
 route to the truST runtime host, then browse the symbols truST exposes.
+
+Discovery candidates include a confidence label. `confirmed` means a
+protocol-level handshake succeeded, `likely` means the endpoint answered with a
+protocol-shaped rejection, and `port_reachable` means only TCP reachability was
+observed. A `port_reachable` Modbus or MQTT candidate is not treated as a
+confirmed device or broker. For Modbus targets that do not support FC43/14
+device identification, pass an explicit safe read address and unit id when
+probing so truST can confirm the protocol without writing to the device.
 
 ## Device and fieldbus drivers
 

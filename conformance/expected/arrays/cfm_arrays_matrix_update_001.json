@@ -1,0 +1,96 @@
+{
+  "case_id": "cfm_arrays_matrix_update_001",
+  "category": "arrays",
+  "cycles": 2,
+  "description": "Multi-dimensional ARRAY element updates and whole-value encoding.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "grid": {
+          "dimensions": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ],
+          "elements": [
+            {
+              "type": "DINT",
+              "value": 1
+            },
+            {
+              "type": "DINT",
+              "value": 2
+            },
+            {
+              "type": "DINT",
+              "value": 3
+            },
+            {
+              "type": "DINT",
+              "value": 4
+            }
+          ],
+          "type": "ARRAY"
+        },
+        "total": {
+          "type": "DINT",
+          "value": 10
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "grid": {
+          "dimensions": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ],
+          "elements": [
+            {
+              "type": "DINT",
+              "value": 1
+            },
+            {
+              "type": "DINT",
+              "value": 2
+            },
+            {
+              "type": "DINT",
+              "value": 3
+            },
+            {
+              "type": "DINT",
+              "value": 4
+            }
+          ],
+          "type": "ARRAY"
+        },
+        "total": {
+          "type": "DINT",
+          "value": 10
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

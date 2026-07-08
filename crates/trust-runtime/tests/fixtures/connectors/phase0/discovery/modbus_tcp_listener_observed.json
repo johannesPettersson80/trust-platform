@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "confidence": "port_reachable",
+      "id": "modbus:$ADDR",
+      "label": "$ADDR",
+      "params": {
+        "address": "$ADDR",
+        "probe_detail": "TCP connection succeeded, but Modbus FC43/14 did not respond.",
+        "probe_source": "tcp_connect",
+        "unit_id": 1
+      },
+      "source": "tcp_connect",
+      "warnings": [
+        "Only TCP reachability was observed; configure a safe read probe to prove Modbus on devices without FC43/14."
+      ]
+    }
+  ],
+  "origin": "this_host",
+  "protocol": "modbus_tcp",
+  "schema_version": 1
+}

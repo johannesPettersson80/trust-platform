@@ -9,6 +9,8 @@
 # IDE
 .idea/
 .vscode/
+!editors/vscode/media/examples/*/.vscode/
+!editors/vscode/media/examples/*/.vscode/*.json
 *.swp
 *.swo
 *~
@@ -17,6 +19,7 @@
 .DS_Store
 
 # VS Code Extension
+/.vscode-test/
 editors/vscode/node_modules/
 editors/vscode/out/
 editors/vscode/*.vsix
@@ -30,6 +33,7 @@ scripts/captures/playwright-report/
 
 # Local tooling caches
 .claude/
+.codex/skills/
 .venv/
 __pycache__/
 .claude-plugin/
@@ -61,6 +65,11 @@ runtime-*.log.runtime.log
 
 # Internal docs (not for public repo)
 docs/internal/*
+!docs/internal/design/
+docs/internal/design/*
+!docs/internal/design/rust-support-architecture-spec-v1.md
+!docs/internal/design/rust-plc-*.md
+!docs/internal/design/vscode-ux-overhaul-plan.md
 !docs/internal/prototypes/
 docs/internal/prototypes/*
 !docs/internal/prototypes/browser_analysis_wasm_spike/
@@ -107,12 +116,16 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/codesys-twincat-parity.md
 !docs/internal/testing/checklists/agent-platform-foundation-checklist.md
 !docs/internal/testing/checklists/architecture-automation-tooling.md
+!docs/internal/testing/checklists/plc-verification-program-checklist.md
+!docs/internal/testing/checklists/plc-verification-program/
+!docs/internal/testing/checklists/plc-verification-program/*.md
 !docs/internal/testing/checklists/full-architecture-refactor-program-checklist.md
 !docs/internal/testing/checklists/architecture-doctor-full-map-execution-checklist.md
 !docs/internal/testing/checklists/hir-mutation-hardening-execution-checklist.md
 !docs/internal/testing/checklists/hir-zero-silent-bug-refactor-checklist.md
 !docs/internal/testing/checklists/parser-recovery-hardening-execution-checklist.md
 !docs/internal/testing/checklists/runtime-cli-product-workbench-split-checklist.md
+!docs/internal/testing/checklists/runtime-connectivity-conformance-remediation-checklist.md
 !docs/internal/testing/checklists/runtime-host-surface-ownership-checklist.md
 !docs/internal/testing/checklists/runtime-core-host-split-execution-checklist.md
 !docs/internal/testing/checklists/dependency-hygiene-execution-checklist.md
@@ -133,6 +146,10 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/evidence/web-ide-full-checklist-evidence-2026-02-15.md
 !docs/internal/testing/evidence/ld-runtime-pane-parity-2026-02-27.md
 !docs/internal/testing/evidence/issue-51-init-benchmark-2026-04-28.md
+!docs/internal/testing/evidence/runtime-connectivity-conformance/
+!docs/internal/testing/evidence/runtime-connectivity-conformance/*.md
+!docs/internal/testing/evidence/plc-verification-program/
+!docs/internal/testing/evidence/plc-verification-program/**
 !docs/internal/testing/checklists/plcopen-motion-library-implementation-checklist.md
 !docs/internal/testing/checklists/plcopen-motion-vm-register-ir-hotpath-checklist.md
 !docs/internal/testing/checklists/runtime-vm-performance-follow-up.md
@@ -144,5 +161,5 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
 !docs/internal/references/
 !docs/internal/references/PLCopenMotion/
-CLAUDE.md
 AGENTS.md
+CLAUDE.md

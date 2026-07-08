@@ -1,4 +1,4 @@
-# Conformance Known Gaps (Deliverable 1)
+# Conformance Known Gaps
 
 This list is explicit by contract and updated with suite revisions.
 
@@ -18,6 +18,15 @@ This list is explicit by contract and updated with suite revisions.
 
 - Suite does not yet model wall-clock jitter/fault injection.
   - Deterministic cycle replay is covered; stochastic timing fault profiles are deferred.
+
+- The retain matrix exposes hot/fault/download as conformance labels mapped to
+  the runtime's current cold/warm restart primitives.
+  - A future runtime with distinct restart primitives must add dedicated cases
+    before changing those mappings.
+
+- Communication determinism is simulated/loopback only.
+  - Live broker, PLC, or fieldbus hardware acceptance belongs to the
+    device-in-the-loop gates, not this deterministic suite.
 
 ## Non-goals In Deliverable 1
 

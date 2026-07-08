@@ -312,11 +312,13 @@ fn run_server_doctor_for_parts(
 
 fn build_status_surface(state: &ControlState) -> Result<serde_json::Value, String> {
     let config = config_from_state(state);
-    let snapshot = snapshot_from_resource(state)?;
+    let snapshot = snapshot_from_resource(state).ok();
     #[cfg(not(feature = "ads-server"))]
     let _ = &snapshot;
     #[cfg(feature = "ads-server")]
-    let symbols = build_runtime_symbol_snapshot(&config, &snapshot).ok();
+    let symbols = snapshot
+        .as_ref()
+        .and_then(|snapshot| build_runtime_symbol_snapshot(&config, snapshot).ok());
     #[cfg(not(feature = "ads-server"))]
     let symbols: Option<trust_ads_core::SymbolSnapshot> = None;
     let exposed_count = symbols
@@ -371,6 +373,35 @@ fn build_status_surface(state: &ControlState) -> Result<serde_json::Value, Strin
         "configured_empty": configured_empty,
         "proof_status": server_proof_status(&status, latest_doctor.as_ref()),
     }))
+}
+
+pub(in crate::control) fn ads_server_status_report_from_state(
+    state: &ControlState,
+) -> Result<AdsStatusReport, String> {
+    let config = config_from_state(state);
+    let snapshot = snapshot_from_resource(state).ok();
+    #[cfg(not(feature = "ads-server"))]
+    let _ = &snapshot;
+    #[cfg(feature = "ads-server")]
+    let symbols = snapshot
+        .as_ref()
+        .and_then(|snapshot| build_runtime_symbol_snapshot(&config, snapshot).ok());
+    #[cfg(not(feature = "ads-server"))]
+    let symbols: Option<trust_ads_core::SymbolSnapshot> = None;
+    Ok(ads_server_status_from_state(
+        state,
+        &config,
+        symbols.as_ref(),
+    ))
+}
+
+pub(in crate::control) fn ads_server_connector_endpoint_from_state(state: &ControlState) -> String {
+    let config = config_from_state(state);
+    let identity = local_identity_from_config(&config, state.resource_name.as_str());
+    format!(
+        "{}:{}@{}",
+        identity.ams_net_id, config.ads_port, identity.chosen_ip
+    )
 }
 
 fn latest_server_doctor_report(

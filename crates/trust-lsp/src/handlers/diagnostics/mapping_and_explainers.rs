@@ -19,29 +19,17 @@ fn is_hmi_toml_uri(uri: &Url) -> bool {
         .any(|component| component.as_os_str() == "hmi")
 }
 
-fn collect_hmi_toml_diagnostics(state: &ServerState, uri: &Url, content: &str) -> Vec<Diagnostic> {
+fn collect_hmi_toml_diagnostics(
+    _state: &ServerState,
+    _uri: &Url,
+    content: &str,
+) -> Vec<Diagnostic> {
     let mut diagnostics = collect_hmi_toml_parse_diagnostics(content);
     if !diagnostics.is_empty() {
         return diagnostics;
     }
 
-    let Some(path) = uri_to_path(uri) else {
-        return diagnostics;
-    };
-
-    let root = state
-        .workspace_config_for_uri(uri)
-        .map(|config| config.root)
-        .or_else(|| infer_hmi_root_from_path(path.as_path()));
-    let Some(root) = root else {
-        return diagnostics;
-    };
-
-    diagnostics.extend(collect_hmi_toml_semantic_diagnostics(
-        root.as_path(),
-        path.as_path(),
-        content,
-    ));
+    diagnostics.extend(collect_hmi_toml_local_diagnostics(content));
     diagnostics
 }
 
@@ -68,14 +56,146 @@ fn collect_hmi_toml_parse_diagnostics(content: &str) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn infer_hmi_root_from_path(path: &Path) -> Option<PathBuf> {
-    let parent = path.parent()?;
-    if parent.file_name().and_then(|name| name.to_str()) != Some("hmi") {
-        return None;
+fn collect_hmi_toml_local_diagnostics(content: &str) -> Vec<Diagnostic> {
+    let Ok(value) = toml::from_str::<toml::Value>(content) else {
+        return Vec::new();
+    };
+    let Some(sections) = value.get("section").and_then(toml::Value::as_array) else {
+        return Vec::new();
+    };
+
+    let mut diagnostics = Vec::new();
+    for section in sections {
+        let Some(widgets) = section.get("widget").and_then(toml::Value::as_array) else {
+            continue;
+        };
+        for widget in widgets {
+            let Some(kind) = hmi_toml_widget_string(widget, "type")
+                .map(|kind| kind.trim().to_ascii_lowercase())
+                .filter(|kind| !kind.is_empty())
+            else {
+                continue;
+            };
+            let bind = hmi_toml_widget_string(widget, "bind")
+                .map(str::trim)
+                .unwrap_or_default();
+            if !hmi_toml_supported_widget_kind(kind.as_str()) {
+                diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        "HMI_UNKNOWN_WIDGET_KIND".to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message: format!("unknown widget kind '{kind}'"),
+                    ..Default::default()
+                });
+                continue;
+            }
+            if let (Some(min), Some(max)) = (
+                hmi_toml_widget_number(widget, "min"),
+                hmi_toml_widget_number(widget, "max"),
+            ) {
+                if min > max {
+                    diagnostics.push(Diagnostic {
+                        range: find_name_range(content, bind),
+                        severity: Some(DiagnosticSeverity::WARNING),
+                        code: Some(NumberOrString::String(
+                            HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                        )),
+                        source: Some("truST".to_string()),
+                        message: format!(
+                            "invalid widget property combination: min ({min}) is greater than max ({max})"
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
+            if kind != "indicator"
+                && (hmi_toml_widget_has_key(widget, "on_color")
+                    || hmi_toml_widget_has_key(widget, "off_color"))
+            {
+                diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message: format!(
+                        "invalid widget property combination: on_color/off_color only apply to indicator widgets (found '{kind}')"
+                    ),
+                    ..Default::default()
+                });
+            }
+            if kind == "indicator"
+                && (hmi_toml_widget_has_key(widget, "min")
+                    || hmi_toml_widget_has_key(widget, "max"))
+            {
+                diagnostics.push(Diagnostic {
+                    range: find_name_range(content, bind),
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        HMI_DIAG_INVALID_PROPERTIES.to_string(),
+                    )),
+                    source: Some("truST".to_string()),
+                    message:
+                        "invalid widget property combination: indicator widgets do not support min/max"
+                            .to_string(),
+                    ..Default::default()
+                });
+            }
+        }
     }
-    parent.parent().map(Path::to_path_buf)
+
+    diagnostics.sort_by(|left, right| {
+        let left_code = diagnostic_code(left).unwrap_or_default();
+        let right_code = diagnostic_code(right).unwrap_or_default();
+        left_code
+            .cmp(&right_code)
+            .then_with(|| left.message.cmp(&right.message))
+    });
+    diagnostics
 }
 
+fn hmi_toml_widget_string<'a>(widget: &'a toml::Value, key: &str) -> Option<&'a str> {
+    widget.get(key).and_then(toml::Value::as_str)
+}
+
+fn hmi_toml_widget_number(widget: &toml::Value, key: &str) -> Option<f64> {
+    match widget.get(key) {
+        Some(toml::Value::Integer(value)) => Some(*value as f64),
+        Some(toml::Value::Float(value)) => Some(*value),
+        _ => None,
+    }
+}
+
+fn hmi_toml_widget_has_key(widget: &toml::Value, key: &str) -> bool {
+    widget
+        .as_table()
+        .is_some_and(|table| table.contains_key(key))
+}
+
+fn hmi_toml_supported_widget_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "gauge"
+            | "sparkline"
+            | "bar"
+            | "tank"
+            | "value"
+            | "slider"
+            | "indicator"
+            | "toggle"
+            | "selector"
+            | "readout"
+            | "text"
+            | "table"
+            | "tree"
+    )
+}
+
+#[cfg(test)]
 fn collect_hmi_toml_semantic_diagnostics(
     root: &Path,
     current_file: &Path,
@@ -242,11 +362,13 @@ fn collect_hmi_toml_semantic_diagnostics(
 }
 
 #[derive(Debug, Clone)]
+#[cfg(test)]
 struct LoadedHmiSource {
     path: PathBuf,
     text: String,
 }
 
+#[cfg(test)]
 fn load_hmi_sources_for_diagnostics(root: &Path) -> anyhow::Result<Vec<LoadedHmiSource>> {
     let sources_root = resolve_sources_root(root, None)?;
     let mut source_paths = BTreeSet::new();
@@ -268,4 +390,3 @@ fn load_hmi_sources_for_diagnostics(root: &Path) -> anyhow::Result<Vec<LoadedHmi
     }
     Ok(sources)
 }
-

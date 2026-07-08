@@ -45,6 +45,9 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             host,
             adapter,
             timeout_ms,
+            unit_id,
+            probe_read_address,
+            probe_read_quantity,
             passive,
             json: _,
         } => {
@@ -60,6 +63,18 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             }
             if let Some(timeout_ms) = timeout_ms {
                 scope.insert("timeout_ms".to_string(), json!(timeout_ms));
+            }
+            if let Some(unit_id) = unit_id {
+                scope.insert("unit_id".to_string(), json!(unit_id));
+            }
+            if let Some(probe_read_address) = probe_read_address {
+                scope.insert("probe_read_address".to_string(), json!(probe_read_address));
+            }
+            if let Some(probe_read_quantity) = probe_read_quantity {
+                scope.insert(
+                    "probe_read_quantity".to_string(),
+                    json!(probe_read_quantity),
+                );
             }
             print_json(
                 trust_runtime::control::offline_comm_discover_json(json!({

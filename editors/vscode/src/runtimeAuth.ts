@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import { pickAuthToken } from "./runtimeAuthModel";
@@ -17,9 +18,7 @@ function secretKey(endpoint: string): string {
 }
 
 function legacyToken(): string | undefined {
-  const value = vscode.workspace
-    .getConfiguration("trust-lsp")
-    .get<string>(LEGACY_SETTING, "");
+  const value = getTrustConfiguration().get<string>(LEGACY_SETTING, "");
   return value.trim().length > 0 ? value.trim() : undefined;
 }
 
@@ -59,8 +58,7 @@ export function registerRuntimeAuth(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "trust-lsp.runtime.setAuthToken",
       async (arg?: { endpoint?: string }) => {
-        const configEndpoint = vscode.workspace
-          .getConfiguration("trust-lsp")
+        const configEndpoint = getTrustConfiguration()
           .get<string>("runtime.controlEndpoint", "")
           .trim();
         let endpoint = (arg?.endpoint ?? configEndpoint).trim();

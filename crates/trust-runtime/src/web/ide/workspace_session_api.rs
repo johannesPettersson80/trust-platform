@@ -52,7 +52,7 @@ impl WebIdeState {
             .inner
             .lock()
             .map_err(|_| IdeError::new(IdeErrorKind::Internal, "session state lock poisoned"))?;
-        let _ = self.ensure_session(&mut guard, session_token, now)?;
+        let _ = self.ensure_editor_session(&mut guard, session_token, now)?;
         drop(guard);
 
         let selected = normalize_project_root(path)?;
@@ -66,6 +66,13 @@ impl WebIdeState {
             return Err(IdeError::new(
                 IdeErrorKind::InvalidInput,
                 "project root must be a directory",
+            ));
+        }
+        let approved_base = self.approved_project_base()?;
+        if !canonical.starts_with(&approved_base) {
+            return Err(IdeError::new(
+                IdeErrorKind::Forbidden,
+                "project root is outside approved project base",
             ));
         }
 
@@ -191,6 +198,34 @@ impl WebIdeState {
             .lock()
             .ok()
             .and_then(|guard| guard.clone())
+    }
+
+    fn approved_project_base(&self) -> Result<PathBuf, IdeError> {
+        let base = if let Some(startup_root) = self.startup_project_root.as_ref() {
+            let canonical = startup_root.canonicalize().map_err(|_| {
+                IdeError::new(
+                    IdeErrorKind::NotFound,
+                    "approved project base is missing or inaccessible",
+                )
+            })?;
+            canonical
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or(canonical)
+        } else {
+            std::env::current_dir().map_err(|_| {
+                IdeError::new(
+                    IdeErrorKind::Internal,
+                    "current directory unavailable for project-open base",
+                )
+            })?
+        };
+        base.canonicalize().map_err(|_| {
+            IdeError::new(
+                IdeErrorKind::NotFound,
+                "approved project base is missing or inaccessible",
+            )
+        })
     }
 
     fn current_project_selection(&self) -> Result<IdeProjectSelection, IdeError> {

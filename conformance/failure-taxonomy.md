@@ -1,6 +1,8 @@
-# Conformance Failure Taxonomy (v1)
+# Conformance Failure Taxonomy
 
 `trust-runtime conformance` emits stable reason codes for machine parsing.
+
+The v1 and v2 summary schemas share the same reason-code set.
 
 ## Codes
 

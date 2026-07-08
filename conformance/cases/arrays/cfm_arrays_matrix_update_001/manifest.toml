@@ -1,0 +1,5 @@
+id = "cfm_arrays_matrix_update_001"
+category = "arrays"
+description = "Multi-dimensional ARRAY element updates and whole-value encoding."
+cycles = 2
+watch_globals = ["grid", "total"]

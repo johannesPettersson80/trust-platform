@@ -192,6 +192,7 @@ impl AdsRsTransport {
 
 impl Drop for AdsRsTransport {
     fn drop(&mut self) {
+        self.release_notifications();
         self.release_symbol_handles();
     }
 }

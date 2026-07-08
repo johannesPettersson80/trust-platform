@@ -15,7 +15,7 @@ use crate::retain::{RetainManager, RetainStore};
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig, TaskState};
 use crate::value::{DateTimeProfile, Duration, Value};
-use crate::watchdog::{FaultDecision, FaultPolicy, WatchdogPolicy};
+use crate::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
 use crate::{error, stdlib};
 use indexmap::IndexMap;
 use smol_str::SmolStr;

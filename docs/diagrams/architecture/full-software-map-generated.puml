@@ -251,7 +251,7 @@ bin_trust_runtime --> cli_ui_product
 bin_trust_runtime -[#Red,thickness=2]-> cli_workbench_dev : SRP risk
 
 package "Root Working Directory Surface (git/source scan)" as root_surface #FFF0F0 {
-  component "Tracked root PLC sources\nsrc/config.st\\nsrc/main.st" as root_tracked
+  component "Tracked root PLC sources\nnone" as root_tracked
   component "Present ignored runtime artifacts\nio.toml\\nruntime.toml\\nprogram.stbc\\nruntime-soak-20260220_031559.log\\nruntime-soak-20260220_031559.log.runtime.log" as root_ignored
 }
 root_tracked -[#Orange]-> bin_trust_runtime : repo-root project fixture

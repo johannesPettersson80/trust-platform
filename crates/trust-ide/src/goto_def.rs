@@ -9,7 +9,8 @@ use trust_hir::{Database, SourceDatabase, SymbolId};
 use trust_syntax::parser::parse;
 
 use crate::util::{
-    field_declaration_ranges, field_type, resolve_target_at_position, FieldTarget, ResolvedTarget,
+    contains_ascii_case_insensitive, field_declaration_ranges, field_type,
+    resolve_target_at_position, FieldTarget, ResolvedTarget,
 };
 
 /// Result of a go-to-definition request.
@@ -117,6 +118,9 @@ fn type_definition_for_type_id(
 fn definition_of_field(db: &Database, field: &FieldTarget) -> Option<DefinitionResult> {
     for candidate_file_id in db.file_ids() {
         let source = db.source_text(candidate_file_id);
+        if !contains_ascii_case_insensitive(&source, &field.name) {
+            continue;
+        }
         let parsed = parse(&source);
         let root = parsed.syntax();
         let symbols = db.file_symbols_with_project(candidate_file_id);

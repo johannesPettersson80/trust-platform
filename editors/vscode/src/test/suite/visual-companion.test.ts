@@ -182,6 +182,31 @@ suite("Visual ST companion generation", () => {
     assert.doesNotMatch(wrapper, /RunLatch/);
   });
 
+  test("maps raw direct ladder operands into runtime entry wrapper globals", () => {
+    const ladderUri = vscode.Uri.file("/tmp/demo/direct-address.ladder.json");
+    const source = `{
+      "schemaVersion": 2,
+      "networks": [
+        {
+          "id": "rung_1",
+          "order": 0,
+          "nodes": [
+            { "id": "c1", "type": "contact", "contactType": "NO", "variable": "%IX0.0", "position": { "x": 100, "y": 100 } },
+            { "id": "q1", "type": "coil", "coilType": "NORMAL", "variable": "%QX0.0", "position": { "x": 300, "y": 100 } }
+          ],
+          "edges": [],
+          "layout": { "y": 100 }
+        }
+      ],
+      "variables": [],
+      "metadata": { "name": "direct-address", "description": "test" }
+    }`;
+    const wrapper = generateVisualRuntimeEntrySource(ladderUri, "ladder", source);
+
+    assert.match(wrapper, /ld_io_IX0_0 AT %IX0\.0 : BOOL;/);
+    assert.match(wrapper, /ld_io_QX0_0 AT %QX0\.0 : BOOL;/);
+  });
+
   test("generates ladder companion as function block", () => {
     const program = parseLadderProgramText(`{
       "schemaVersion": 2,
@@ -204,7 +229,11 @@ suite("Visual ST companion generation", () => {
 
     const st = generateLadderCompanionFunctionBlock(program, "simple-start-stop");
     assert.match(st, /FUNCTION_BLOCK FB_simple_start_stop_LADDER/);
-    assert.match(st, /%QX0\.0 := %IX0\.0 AND NOT \(%IX0\.1\);/);
+    assert.match(st, /ld_io_IX0_0\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_IX0_1\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_QX0_0\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_QX0_0 := ld_io_IX0_0 AND NOT \(ld_io_IX0_1\);/);
+    assert.doesNotMatch(st, /%IX0\.0|%IX0\.1|%QX0\.0/);
     assert.match(st, /END_FUNCTION_BLOCK/);
   });
 
@@ -367,7 +396,9 @@ suite("Visual ST companion generation", () => {
 
     const st = generateBlocklyCompanionFunctionBlock(workspace, "blockly-demo");
     assert.match(st, /FUNCTION_BLOCK FB_blockly_demo_BLOCKLY/);
-    assert.match(st, /%QX0\.0 := TRUE;/);
+    assert.match(st, /ld_io_QX0_0\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_QX0_0 := TRUE;/);
+    assert.doesNotMatch(st, /%QX0\.0 := TRUE;/);
     assert.match(st, /END_FUNCTION_BLOCK/);
   });
 
@@ -398,7 +429,9 @@ suite("Visual ST companion generation", () => {
     const st = generateStateChartCompanionFunctionBlock(statechart, "traffic");
     assert.match(st, /FUNCTION_BLOCK FB_traffic_STATECHART/);
     assert.match(st, /EV_START : BOOL;/);
-    assert.match(st, /%QX0\.0 := TRUE;/);
+    assert.match(st, /ld_io_QX0_0\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_QX0_0 := TRUE;/);
+    assert.doesNotMatch(st, /%QX0\.0 := TRUE;/);
     assert.match(st, /_state := 1;/);
     assert.doesNotMatch(st, /\bSTATE_RUN\b/);
     assert.match(st, /END_FUNCTION_BLOCK/);
@@ -446,7 +479,9 @@ suite("Visual ST companion generation", () => {
     assert.match(st, /FUNCTION_BLOCK FB_sfc_demo_SFC/);
     assert.match(st, /Init_active : BOOL := TRUE;/);
     assert.match(st, /Run_active : BOOL := FALSE;/);
-    assert.match(st, /%QX0\.0 := TRUE;/);
+    assert.match(st, /ld_io_QX0_0\s*:\s*BOOL;/);
+    assert.match(st, /ld_io_QX0_0 := TRUE;/);
+    assert.doesNotMatch(st, /%QX0\.0 := TRUE;/);
     assert.match(st, /END_FUNCTION_BLOCK/);
   });
 
@@ -493,7 +528,8 @@ suite("Visual ST companion generation", () => {
           assert.match(st, /FUNCTION_BLOCK FB_/);
           const wrapper = generateVisualRuntimeEntrySource(
             vscode.Uri.file(sourcePath),
-            "blockly"
+            "blockly",
+            sourceText
           );
           assert.match(wrapper, /PROGRAM PRG_/);
         } else if (root.kind === "statechart") {
@@ -503,7 +539,8 @@ suite("Visual ST companion generation", () => {
           assert.doesNotMatch(st, /\b_state\s*:=\s*STATE_[A-Z0-9_]+\b/);
           const wrapper = generateVisualRuntimeEntrySource(
             vscode.Uri.file(sourcePath),
-            "statechart"
+            "statechart",
+            sourceText
           );
           assert.match(wrapper, /PROGRAM PRG_/);
         } else {
@@ -512,7 +549,8 @@ suite("Visual ST companion generation", () => {
           assert.match(st, /FUNCTION_BLOCK FB_/);
           const wrapper = generateVisualRuntimeEntrySource(
             vscode.Uri.file(sourcePath),
-            "sfc"
+            "sfc",
+            sourceText
           );
           assert.match(wrapper, /PROGRAM PRG_/);
         }

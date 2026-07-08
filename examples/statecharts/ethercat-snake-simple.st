@@ -9,6 +9,12 @@
 *)
 
 FUNCTION_BLOCK FB_ethercat_snake_simple_STATECHART
+VAR_EXTERNAL
+  ld_io_QX0_0 : BOOL;
+  ld_io_QX0_1 : BOOL;
+  ld_io_QX0_2 : BOOL;
+END_VAR
+
 VAR_INPUT
   EV_START : BOOL;
   EV_TICK : BOOL;
@@ -38,43 +44,43 @@ END_IF;
 CASE _state OF
   0:
     IF EV_START THEN
-      %QX0.0 := TRUE;
+      ld_io_QX0_0 := TRUE;
       (* LOG: → LED 0: ●○○ *)
       _state := 1;
     END_IF;
   1:
     IF EV_TICK THEN
-      %QX0.0 := FALSE;
-      %QX0.1 := TRUE;
+      ld_io_QX0_0 := FALSE;
+      ld_io_QX0_1 := TRUE;
       (* LOG: → LED 1: ○●○ *)
       _state := 2;
     END_IF;
   2:
     IF EV_TICK THEN
-      %QX0.1 := FALSE;
-      %QX0.2 := TRUE;
+      ld_io_QX0_1 := FALSE;
+      ld_io_QX0_2 := TRUE;
       (* LOG: → LED 2: ○○● (reversing) *)
       _state := 3;
     END_IF;
   3:
     IF EV_TICK THEN
-      %QX0.2 := FALSE;
-      %QX0.1 := TRUE;
+      ld_io_QX0_2 := FALSE;
+      ld_io_QX0_1 := TRUE;
       (* LOG: ← LED 1: ○●○ *)
       _state := 4;
     END_IF;
   4:
     IF EV_TICK THEN
-      %QX0.1 := FALSE;
-      %QX0.0 := TRUE;
+      ld_io_QX0_1 := FALSE;
+      ld_io_QX0_0 := TRUE;
       (* LOG: ← LED 0: ●○○ (cycle complete) *)
       _state := 5;
     END_IF;
   5:
     IF EV_TICK THEN
-      %QX0.0 := FALSE;
+      ld_io_QX0_0 := FALSE;
       (* LOG: 🔁 Cycle complete, restarting... *)
-      %QX0.1 := TRUE;
+      ld_io_QX0_1 := TRUE;
       (* LOG: → LED 1: ○●○ *)
       _state := 2;
     END_IF;

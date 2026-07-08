@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "../../configuration";
 import * as vscode from "vscode";
 import type { RuntimeUiMode, RuntimeUiState } from "./runtimeTypes";
 
@@ -60,13 +61,13 @@ function runtimeScope(resource: vscode.Uri): {
   const folder = vscode.workspace.getWorkspaceFolder(resource);
   if (folder) {
     return {
-      section: vscode.workspace.getConfiguration("trust-lsp", folder.uri),
+      section: getTrustConfiguration(folder.uri),
       target: vscode.ConfigurationTarget.WorkspaceFolder,
     };
   }
 
   return {
-    section: vscode.workspace.getConfiguration("trust-lsp"),
+    section: getTrustConfiguration(),
     target: vscode.ConfigurationTarget.Workspace,
   };
 }

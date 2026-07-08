@@ -36,7 +36,10 @@ impl Runtime {
 
     pub(crate) fn registry_and_initializer_catalog_mut(
         &mut self,
-    ) -> (&mut TypeRegistry, &mut crate::program_model::InitializerCatalog) {
+    ) -> (
+        &mut TypeRegistry,
+        &mut crate::program_model::InitializerCatalog,
+    ) {
         (&mut self.registry, &mut self.initializer_catalog)
     }
 
@@ -181,7 +184,9 @@ impl Runtime {
 
     /// Snapshot register-VM profiling counters.
     #[must_use]
-    pub fn vm_register_profile_snapshot(&self) -> crate::execution_backend::VmRegisterProfileSnapshot {
+    pub fn vm_register_profile_snapshot(
+        &self,
+    ) -> crate::execution_backend::VmRegisterProfileSnapshot {
         self.vm_register_profile.snapshot()
     }
 
@@ -254,20 +259,17 @@ impl Runtime {
     where
         T: crate::ads::AdsTransport + Send + 'static,
     {
-        let bindings =
-            crate::ads::resolve_declared_bindings(self, connection).map_err(|err| {
-                error::RuntimeError::InvalidConfig(
+        let bindings = crate::ads::resolve_declared_bindings(self, connection).map_err(|err| {
+            error::RuntimeError::InvalidConfig(
+                format!("ADS connection '{}': {err}", connection.route.name).into(),
+            )
+        })?;
+        let (bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(transport, bindings)
+            .map_err(|err| {
+                error::RuntimeError::IoTransport(
                     format!("ADS connection '{}': {err}", connection.route.name).into(),
                 )
             })?;
-        let (bridge, worker) =
-            crate::ads::AdsConnectionBridge::with_transport(transport, bindings).map_err(
-                |err| {
-                    error::RuntimeError::IoTransport(
-                        format!("ADS connection '{}': {err}", connection.route.name).into(),
-                    )
-                },
-            )?;
         let worker = worker.spawn(worker_tick_interval).map_err(|err| {
             error::RuntimeError::IoTransport(
                 format!("ADS connection '{}': {err}", connection.route.name).into(),
@@ -308,6 +310,44 @@ impl Runtime {
         let mut subsystem = super::opcua_client_subsystem::OpcUaClientSubsystem::new();
         subsystem.configure(self, config)?;
         self.opcua_client = subsystem;
+        Ok(())
+    }
+
+    /// Register and start one OPC UA client connection.
+    pub fn start_opcua_client_connection<T>(
+        &mut self,
+        connection: &crate::opcua::OpcUaClientConnectionConfig,
+        transport: T,
+        worker_tick_interval: std::time::Duration,
+    ) -> Result<(), error::RuntimeError>
+    where
+        T: crate::opcua::OpcUaClientTransport + Send + 'static,
+    {
+        let bindings = crate::opcua::resolve_opcua_client_bindings(self, connection)?;
+        let (bridge, worker) = crate::opcua::OpcUaClientBridge::with_transport(
+            connection.clone(),
+            transport,
+            bindings,
+        )
+        .map_err(|err| {
+            error::RuntimeError::IoTransport(
+                format!("OPC UA client connection '{}': {err}", connection.name).into(),
+            )
+        })?;
+        let worker = worker.spawn(worker_tick_interval).map_err(|err| {
+            error::RuntimeError::IoTransport(
+                format!("OPC UA client connection '{}': {err}", connection.name).into(),
+            )
+        })?;
+        self.opcua_client
+            .add_connection(connection.clone(), bridge, Some(worker));
+        Ok(())
+    }
+
+    /// Clear and stop active OPC UA client workers.
+    pub fn reset_opcua_client_connections(&mut self) -> Result<(), error::RuntimeError> {
+        self.opcua_client.shutdown()?;
+        self.opcua_client = super::opcua_client_subsystem::OpcUaClientSubsystem::new();
         Ok(())
     }
 
@@ -427,5 +467,4 @@ impl Runtime {
             Err(error::RuntimeError::NullReference)
         }
     }
-
 }

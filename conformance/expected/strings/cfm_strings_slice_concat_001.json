@@ -1,0 +1,58 @@
+{
+  "case_id": "cfm_strings_slice_concat_001",
+  "category": "strings",
+  "cycles": 2,
+  "description": "STRING indexing, LEN, and CONCAT are deterministic across scans.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "combined": {
+          "type": "STRING",
+          "value": "ABCDEF"
+        },
+        "length": {
+          "type": "INT",
+          "value": 4
+        },
+        "second": {
+          "type": "CHAR",
+          "value": 66
+        },
+        "text": {
+          "type": "STRING",
+          "value": "ABCD"
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "combined": {
+          "type": "STRING",
+          "value": "ABCDEF"
+        },
+        "length": {
+          "type": "INT",
+          "value": 4
+        },
+        "second": {
+          "type": "CHAR",
+          "value": 66
+        },
+        "text": {
+          "type": "STRING",
+          "value": "ABCD"
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

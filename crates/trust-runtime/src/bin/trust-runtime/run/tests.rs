@@ -1,9 +1,11 @@
 use super::simulation_warning_message;
+#[cfg(unix)]
+use std::sync::atomic::{AtomicBool, Ordering};
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
 };
-use trust_runtime::harness::{CompileSession, SourceFile};
-use trust_runtime::value::Value;
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::value::{Duration, Value};
 
 fn bundle_with_backend(
     backend: trust_runtime::execution_backend::ExecutionBackend,
@@ -220,6 +222,128 @@ fn execution_backend_selection_cli_overrides_bundle() {
     );
 }
 
+#[cfg(unix)]
+#[derive(Debug)]
+struct FakeSignalSource {
+    signal: Option<super::RuntimeShutdownSignal>,
+}
+
+#[cfg(unix)]
+impl super::RuntimeSignalSource for FakeSignalSource {
+    fn recv_shutdown_signal(&mut self) -> std::io::Result<super::RuntimeShutdownSignal> {
+        self.signal
+            .take()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "no fake signal"))
+    }
+}
+
+#[cfg(unix)]
+#[derive(Debug, Default)]
+struct RecordingShutdownTarget {
+    called: AtomicBool,
+}
+
+#[cfg(unix)]
+impl super::RuntimeShutdownTarget for RecordingShutdownTarget {
+    fn request_shutdown(&self) {
+        self.called.store(true, Ordering::SeqCst);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn signal_abstraction_requests_regular_runtime_shutdown() {
+    for signal in [
+        super::RuntimeShutdownSignal::Interrupt,
+        super::RuntimeShutdownSignal::Terminate,
+    ] {
+        let mut source = FakeSignalSource {
+            signal: Some(signal),
+        };
+        let target = RecordingShutdownTarget::default();
+
+        let observed =
+            super::request_shutdown_from_signal(&mut source, &target).expect("signal shutdown");
+
+        assert_eq!(observed, signal);
+        assert!(
+            target.called.load(Ordering::SeqCst),
+            "signal shutdown must use the ordinary stop target"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn unix_signal_mapping_covers_sigint_and_sigterm() {
+    assert_eq!(
+        super::map_runtime_shutdown_signal(signal_hook::consts::signal::SIGINT),
+        Some(super::RuntimeShutdownSignal::Interrupt)
+    );
+    assert_eq!(
+        super::map_runtime_shutdown_signal(signal_hook::consts::signal::SIGTERM),
+        Some(super::RuntimeShutdownSignal::Terminate)
+    );
+}
+
+#[test]
+fn startup_retain_load_respects_restart_mode() {
+    let source = r#"
+VAR_GLOBAL RETAIN
+    r : INT := 1;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let mut path = std::env::temp_dir();
+    path.push(format!(
+        "trust_runtime_startup_retain_{}.bin",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&path);
+
+    let mut saver = TestHarness::from_source(source).expect("build saver runtime");
+    saver.runtime_mut().set_retain_store(
+        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
+        Some(Duration::from_millis(1)),
+    );
+    saver.set_input("r", Value::Int(42));
+    saver.runtime_mut().mark_retain_dirty();
+    saver
+        .runtime_mut()
+        .save_retain_store()
+        .expect("save retain");
+
+    let mut cold = TestHarness::from_source(source)
+        .expect("build cold runtime")
+        .into_runtime();
+    cold.set_retain_store(
+        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
+        Some(Duration::from_millis(1)),
+    );
+    cold.restart(trust_runtime::RestartMode::Cold)
+        .expect("cold restart");
+    super::load_startup_retain(&mut cold, trust_runtime::RestartMode::Cold)
+        .expect("cold startup retain");
+    assert_eq!(cold.storage().get_global("r"), Some(&Value::Int(1)));
+
+    let mut warm = TestHarness::from_source(source)
+        .expect("build warm runtime")
+        .into_runtime();
+    warm.set_retain_store(
+        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
+        Some(Duration::from_millis(1)),
+    );
+    warm.restart(trust_runtime::RestartMode::Warm)
+        .expect("warm restart");
+    super::load_startup_retain(&mut warm, trust_runtime::RestartMode::Warm)
+        .expect("warm startup retain");
+    assert_eq!(warm.storage().get_global("r"), Some(&Value::Int(42)));
+
+    let _ = std::fs::remove_file(path);
+}
+
 #[test]
 fn ads_runtime_start_spawns_worker_and_scan_applies_mock_data() {
     let source = r#"
@@ -321,6 +445,128 @@ type = "REAL"
         trust_runtime::ads::diagnostics::AdsConnectionStatusState::Connected
     );
     runtime.shutdown_ads().expect("shutdown ADS worker");
+}
+
+#[test]
+fn project_runtime_load_includes_local_dependencies() {
+    let root = unique_temp_dir("run-project-deps");
+    let project = root.join("project");
+    let dependency = root.join("dep");
+    std::fs::create_dir_all(project.join("src")).expect("create project src");
+    std::fs::create_dir_all(dependency.join("src")).expect("create dependency src");
+
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        r#"[project]
+include_paths = ["src"]
+
+[dependencies]
+DepLib = { path = "../dep" }
+"#,
+    )
+    .expect("write project manifest");
+    std::fs::write(
+        dependency.join("trust-lsp.toml"),
+        r#"[package]
+version = "1.0.0"
+
+[project]
+include_paths = ["src"]
+"#,
+    )
+    .expect("write dependency manifest");
+    std::fs::write(
+        dependency.join("src").join("shared.st"),
+        r#"TYPE E_SHARED_STATE : (Idle := 0, Ready := 1) END_TYPE
+"#,
+    )
+    .expect("write dependency source");
+    std::fs::write(
+        project.join("src").join("main.st"),
+        r#"PROGRAM Main
+VAR
+    state : E_SHARED_STATE := E_SHARED_STATE#Ready;
+END_VAR
+END_PROGRAM
+"#,
+    )
+    .expect("write project source");
+    std::fs::write(project.join("program.stbc"), []).expect("write placeholder bytecode");
+    std::fs::write(
+        project.join("io.toml"),
+        r#"[io]
+driver = "simulated"
+params = {}
+"#,
+    )
+    .expect("write io.toml");
+    std::fs::write(
+        project.join("runtime.toml"),
+        r#"[bundle]
+version = 1
+
+[resource]
+name = "DependencyRun"
+cycle_interval_ms = 100
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+mode = "production"
+auth_token = "test-token"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#,
+    )
+    .expect("write runtime.toml");
+
+    let loaded = super::load_runtime(Some(project), None, None)
+        .expect("project runtime load should compile sources and local dependencies");
+
+    assert!(
+        loaded
+            .sources
+            .files()
+            .iter()
+            .any(|file| file.path.ends_with("shared.st")),
+        "dependency source must be included in project run source registry"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+fn unique_temp_dir(name: &str) -> std::path::PathBuf {
+    let mut path = std::env::temp_dir();
+    path.push(format!(
+        "trust_runtime_{name}_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos()
+    ));
+    path
 }
 
 fn assert_enum_variant(value: &Value, expected: &str) {

@@ -1,3 +1,4 @@
+import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 import * as net from "net";
 
@@ -341,10 +342,10 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
-        event.affectsConfiguration("trust-lsp.runtime.controlEndpoint") ||
-        event.affectsConfiguration("trust-lsp.runtime.controlEndpointEnabled") ||
-        event.affectsConfiguration("trust-lsp.runtime.inlineValuesEnabled") ||
-        event.affectsConfiguration("trust-lsp.runtime.mode")
+        affectsTrustConfiguration(event, "runtime.controlEndpoint") ||
+        affectsTrustConfiguration(event, "runtime.controlEndpointEnabled") ||
+        affectsTrustConfiguration(event, "runtime.inlineValuesEnabled") ||
+        affectsTrustConfiguration(event, "runtime.mode")
       ) {
         void sendRuntimeStatus();
       }
@@ -595,7 +596,7 @@ type SettingsPayload = {
 };
 
 function collectSettingsSnapshot(): SettingsPayload {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   return {
     serverPath: config.get<string>("server.path") ?? "",
     traceServer: config.get<string>("trace.server") ?? "off",
@@ -616,7 +617,7 @@ async function applySettingsUpdate(payload: SettingsPayload | undefined): Promis
   if (!payload) {
     return;
   }
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const settingsUpdates: Array<{ key: string; value: unknown }> = [
     { key: "server.path", value: payload.serverPath?.trim() || undefined },
     { key: "trace.server", value: payload.traceServer?.trim() || "off" },
@@ -1095,7 +1096,7 @@ async function hasRuntimeIgnorePragma(
 }
 
 function runtimeSourceOptions(target?: vscode.Uri): RuntimeSourceOptions {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const includeGlobs = normalizeStringArray(
     config.get<unknown>("runtime.includeGlobs")
   );

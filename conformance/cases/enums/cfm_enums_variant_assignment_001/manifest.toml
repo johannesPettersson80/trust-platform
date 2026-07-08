@@ -1,0 +1,5 @@
+id = "cfm_enums_variant_assignment_001"
+category = "enums"
+description = "ENUM typed initializers, unqualified variant assignment, and comparison."
+cycles = 2
+watch_globals = ["state", "is_running"]

@@ -28,6 +28,10 @@ impl BytecodeModule {
             Some(SectionData::PouBodies(bodies)) => bodies,
             _ => return Err(BytecodeError::MissingSection("POU_BODIES".into())),
         };
+        let var_meta = match self.section(SectionId::VarMeta) {
+            Some(SectionData::VarMeta(meta)) => Some(meta),
+            _ => None,
+        };
         let resource_meta = match self.section(SectionId::ResourceMeta) {
             Some(SectionData::ResourceMeta(meta)) => meta,
             _ => return Err(BytecodeError::MissingSection("RESOURCE_META".into())),
@@ -44,10 +48,12 @@ impl BytecodeModule {
         validate_type_table(strings, types)?;
         validate_const_pool(strings, types, const_pool)?;
         validate_ref_table(strings, ref_table)?;
-        validate_pou_index(strings, types, const_pool, ref_table, pou_index, pou_bodies)?;
+        validate_pou_index(
+            strings, types, const_pool, ref_table, var_meta, pou_index, pou_bodies,
+        )?;
         validate_resource_meta(strings, ref_table, pou_index, resource_meta)?;
         validate_io_map(strings, types, ref_table, io_map)?;
-        if let Some(SectionData::VarMeta(meta)) = self.section(SectionId::VarMeta) {
+        if let Some(meta) = var_meta {
             validate_var_meta(strings, types, const_pool, ref_table, meta)?;
         }
         if let Some(SectionData::RetainInit(retain)) = self.section(SectionId::RetainInit) {

@@ -3,7 +3,7 @@
   "displayName": "truST",
   "description": "truST — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.28",
+  "version": "0.24.29",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -146,12 +146,13 @@
       "type": "object",
       "title": "truST",
       "properties": {
-        "trust-lsp.server.path": {
+        "trust.languageServer.executablePath": {
           "type": "string",
           "default": "",
-          "description": "Path to the trust-lsp server executable"
+          "title": "Language server path",
+          "description": "Path to the truST language server executable."
         },
-        "trust-lsp.trace.server": {
+        "trust.languageServer.trace": {
           "type": "string",
           "enum": [
             "off",
@@ -159,35 +160,40 @@
             "verbose"
           ],
           "default": "off",
+          "title": "Language server trace",
           "description": "Traces the communication between VS Code and the language server"
         },
-        "trust-lsp.diagnostics.showIecReferences": {
+        "trust.diagnostics.showIecReferences": {
           "type": "boolean",
           "default": true,
+          "title": "Show IEC references in diagnostics",
           "description": "Append IEC 61131-3 references to diagnostic messages and link to local spec docs when available."
         },
-        "trust-lsp.debug.adapter.path": {
+        "trust.debugAdapter.executablePath": {
           "type": "string",
           "default": "",
-          "description": "Path to the trust-debug adapter executable (leave empty to use trust-debug from PATH)"
+          "title": "Debug adapter path",
+          "description": "Path to the truST debug adapter executable. Leave empty to use the bundled/default adapter."
         },
-        "trust-lsp.debug.adapter.args": {
+        "trust.debugAdapter.arguments": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
+          "title": "Debug adapter arguments",
           "description": "Arguments passed to the debug adapter"
         },
-        "trust-lsp.debug.adapter.env": {
+        "trust.debugAdapter.environment": {
           "type": "object",
           "default": {},
           "additionalProperties": {
             "type": "string"
           },
+          "title": "Debug adapter environment",
           "description": "Environment variables for the debug adapter"
         },
-        "trust-lsp.runtime.includeGlobs": {
+        "trust.runtime.sourceIncludePatterns": {
           "type": "array",
           "items": {
             "type": "string"
@@ -195,66 +201,75 @@
           "default": [
             "**/*.{st,ST,pou,POU}"
           ],
+          "title": "Runtime source include patterns",
           "description": "Glob patterns for Structured Text sources to load in the runtime. Defaults to all Structured Text files in the workspace."
         },
-        "trust-lsp.runtime.excludeGlobs": {
+        "trust.runtime.sourceExcludePatterns": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
+          "title": "Runtime source exclude patterns",
           "description": "Glob patterns of Structured Text sources to exclude from the runtime load set."
         },
-        "trust-lsp.runtime.mode": {
+        "trust.runtime.mode": {
           "type": "string",
           "enum": [
             "simulate",
             "online"
           ],
           "default": "simulate",
+          "title": "Runtime mode",
           "description": "Default runtime mode used by the Run target and Live Values when no project target overrides it.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.controlEndpoint": {
+        "trust.runtime.controlEndpoint": {
           "type": "string",
           "default": "",
+          "title": "Runtime control endpoint",
           "description": "Runtime control endpoint override for Live Values (e.g. unix:///tmp/trust-debug.sock). Leave empty to rely on trust-lsp.toml.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.fleetEndpoints": {
+        "trust.runtime.additionalEndpoints": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
+          "title": "Additional runtime endpoints",
           "description": "Additional runtime control endpoints to aggregate in Devices & Connections (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.controlAuthToken": {
+        "trust.runtime.authTokenFallback": {
           "type": "string",
           "default": "",
+          "title": "Runtime auth token fallback",
           "markdownDescription": "**Legacy / not recommended.** Plaintext auth token for the runtime control endpoint. Prefer storing tokens securely via the *Set auth token* prompt (kept in the OS secret store, per endpoint). This setting is read only as a fallback.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.setupUrl": {
+        "trust.runtime.setupUrl": {
           "type": "string",
           "default": "",
+          "title": "Runtime setup URL",
           "description": "Optional setup web URL for the selected runtime host.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.controlEndpointEnabled": {
+        "trust.runtime.useControlEndpoint": {
           "type": "boolean",
           "default": true,
+          "title": "Use runtime control endpoint",
           "description": "Use the configured runtime control endpoint for inline values.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.inlineValuesEnabled": {
+        "trust.runtime.showInlineValues": {
           "type": "boolean",
           "default": true,
+          "title": "Show inline runtime values",
           "description": "Enable inline values in the editor.",
           "scope": "resource"
         },
-        "trust-lsp.runtime.ignorePragmas": {
+        "trust.runtime.ignorePragmas": {
           "type": "array",
           "items": {
             "type": "string"
@@ -262,37 +277,44 @@
           "default": [
             "@trustlsp:runtime-ignore"
           ],
+          "title": "Runtime ignore pragmas",
           "description": "Top-of-file pragma tokens that exclude a file from runtime loading."
         },
-        "trust-lsp.runtime.cli.path": {
+        "trust.runtime.executablePath": {
           "type": "string",
           "default": "",
-          "description": "Path to the trust-runtime CLI executable for runtime, compile, import/export, and connection flows (leave empty to use trust-runtime from PATH)."
+          "title": "Runtime executable path",
+          "description": "Path to the truST runtime executable for run, compile, import/export, and connection flows. Leave empty to use the bundled/default runtime."
         },
-        "trust-lsp.dev.cli.path": {
+        "trust.testRunner.executablePath": {
           "type": "string",
           "default": "",
-          "description": "Path to the trust-dev CLI executable for running Structured Text tests (leave empty to use trust-dev from PATH)."
+          "title": "Test runner path",
+          "description": "Path to the truST test runner executable for running Structured Text tests. Leave empty to use the bundled/default test runner."
         },
-        "trust-lsp.visual.autoGenerateStCompanion": {
+        "trust.visual.generateStructuredTextCompanions": {
           "type": "boolean",
           "default": true,
+          "title": "Generate Structured Text companions",
           "description": "Automatically generate or update .st companion files when saving .ladder.json, .blockly.json, .sfc.json, or .statechart.json files."
         },
-        "trust-lsp.visual.openStCompanionOnCreate": {
+        "trust.visual.openStructuredTextCompanionOnCreate": {
           "type": "boolean",
           "default": true,
+          "title": "Open generated Structured Text companion",
           "description": "Open the generated .st companion after creating or importing visual logic files."
         },
-        "trust-lsp.visual.autoOpenCustomEditors": {
+        "trust.visual.openVisualEditorsAutomatically": {
           "type": "boolean",
           "default": true,
+          "title": "Open visual logic editors automatically",
           "description": "Automatically open .ladder.json, .statechart.json, .sfc.json, and .blockly.json files with their visual editors."
         },
-        "trust-lsp.hmi.pollIntervalMs": {
+        "trust.hmi.refreshIntervalMs": {
           "type": "number",
           "default": 500,
           "minimum": 100,
+          "title": "HMI refresh interval",
           "description": "Polling interval for the HMI preview panel value refresh (milliseconds).",
           "scope": "resource"
         }

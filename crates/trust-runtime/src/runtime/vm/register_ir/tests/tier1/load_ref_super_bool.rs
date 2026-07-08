@@ -242,6 +242,7 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),
         method_table_by_owner: HashMap::new(),
+        ref_types: HashMap::new(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };
@@ -314,6 +315,7 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),
         method_table_by_owner: HashMap::new(),
+        ref_types: HashMap::new(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };
@@ -396,4 +398,3 @@ fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt()
         "profile={profile:?}"
     );
 }
-

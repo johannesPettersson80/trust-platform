@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "../configuration";
 import * as net from "net";
 import * as vscode from "vscode";
 
@@ -16,7 +17,7 @@ export function runtimeEndpointSettings(): {
   authToken: string | undefined;
   pollIntervalMs: number;
 } {
-  const config = vscode.workspace.getConfiguration("trust-lsp");
+  const config = getTrustConfiguration();
   const endpointEnabled = config.get<boolean>("runtime.controlEndpointEnabled", true);
   const configured = endpointEnabled
     ? (config.get<string>("runtime.controlEndpoint") ?? "").trim()

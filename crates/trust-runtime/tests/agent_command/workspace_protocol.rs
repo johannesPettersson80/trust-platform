@@ -138,6 +138,11 @@ fn trust_runtime_agent_alias_forwards_to_trust_dev() {
         stderr.contains("trust-runtime agent serve") && stderr.contains("trust-dev agent serve"),
         "forwarding alias should print deprecation warning, got: {stderr}"
     );
+    assert!(
+        stderr.contains("removed no earlier than 2026-10-05")
+            && stderr.contains("separate behavior-change release"),
+        "forwarding alias should print removal window, got: {stderr}"
+    );
 
     let _ = fs::remove_dir_all(project);
 }
@@ -218,4 +223,3 @@ fn agent_serve_reports_method_and_path_errors_with_stable_codes() {
 
     let _ = fs::remove_dir_all(project);
 }
-

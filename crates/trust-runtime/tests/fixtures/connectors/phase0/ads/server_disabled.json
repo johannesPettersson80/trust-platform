@@ -1,0 +1,44 @@
+{
+  "ads_port": 851,
+  "allowed_client_count": 0,
+  "ams_net_id": null,
+  "configured_empty": true,
+  "connected_clients": null,
+  "discoverable": false,
+  "enabled": false,
+  "external_client_kind": null,
+  "external_client_name": null,
+  "external_client_verified": false,
+  "exposed_count": 0,
+  "identity": {
+    "ams_net_id": "127.0.0.1.1.1",
+    "candidates": [],
+    "chosen_ip": "127.0.0.1",
+    "classification": "loopback",
+    "host_name": "RESOURCE",
+    "nic": null
+  },
+  "listen": null,
+  "pending_clients": [],
+  "production_ready": false,
+  "proof_status": "not_ready",
+  "recently_refused_clients": [],
+  "role": "server",
+  "schema_version": 2,
+  "status": {
+    "connections": [
+      {
+        "degraded_points": 0,
+        "name": "ads-server",
+        "point_count": 0,
+        "state": "disabled",
+        "summary": "ADS server exposes 0 symbol(s)."
+      }
+    ],
+    "overall": "disabled",
+    "role": "server",
+    "schema_version": 2,
+    "summary": "ADS server is disabled."
+  },
+  "writable_count": 0
+}

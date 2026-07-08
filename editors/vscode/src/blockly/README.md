@@ -87,7 +87,7 @@ Click **Generate Code** button to:
 1. Configure `trust-runtime` connection in VS Code settings:
    ```json
    {
-     "trust-lsp.runtime.controlEndpoint": "unix:///tmp/trust-debug.sock"
+     "trust.runtime.controlEndpoint": "unix:///tmp/trust-debug.sock"
    }
    ```
 2. Ensure trust-runtime is running
@@ -247,9 +247,9 @@ Set runtime connection in `.vscode/settings.json`:
 
 ```json
 {
-  "trust-lsp.runtime.controlEndpoint": "unix:///tmp/trust-debug.sock",
-  "trust-lsp.runtime.controlAuthToken": "optional-auth-token",
-  "trust-lsp.runtime.requestTimeoutMs": 5000
+  "trust.runtime.controlEndpoint": "unix:///tmp/trust-debug.sock",
+  "trust.runtime.authTokenFallback": "optional-auth-token",
+  "trust.runtime.requestTimeoutMs": 5000
 }
 ```
 

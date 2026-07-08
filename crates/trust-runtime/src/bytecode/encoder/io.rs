@@ -1,3 +1,5 @@
+use smol_str::SmolStr;
+
 use crate::bytecode::{
     IoBinding, IoMap, ResourceEntry, ResourceMeta, RetainInit, RetainInitEntry, TaskEntry, VarMeta,
     VarMetaEntry,
@@ -90,12 +92,6 @@ impl<'a> BytecodeEncoder<'a> {
                 .ref_for_global(name.as_ref())
                 .ok_or_else(|| BytecodeError::InvalidSection("global reference missing".into()))?;
             let ref_idx = self.ref_index_for(&reference)?;
-            let retain = match meta.retain {
-                crate::RetainPolicy::Unspecified => 0,
-                crate::RetainPolicy::Retain => 1,
-                crate::RetainPolicy::NonRetain => 2,
-                crate::RetainPolicy::Persistent => 3,
-            };
             let init_const_idx = match &meta.init {
                 crate::GlobalInitValue::Value(value) => self.const_index_for(value).ok(),
                 _ => None,
@@ -104,9 +100,43 @@ impl<'a> BytecodeEncoder<'a> {
                 name_idx,
                 type_id,
                 ref_idx,
-                retain,
+                retain: retain_policy_code(meta.retain),
                 init_const_idx,
             });
+        }
+        let programs = self
+            .runtime
+            .programs()
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        for program in programs {
+            let Some(crate::value::Value::Instance(instance_id)) =
+                self.runtime.storage().get_global(program.name.as_ref())
+            else {
+                continue;
+            };
+            for var in &program.vars {
+                let Some(reference) = self
+                    .runtime
+                    .storage()
+                    .ref_for_instance(*instance_id, var.name.as_ref())
+                else {
+                    continue;
+                };
+                let name_idx = self
+                    .strings
+                    .intern(SmolStr::new(format!("{}.{}", program.name, var.name)));
+                let type_id = self.type_index(var.type_id)?;
+                let ref_idx = self.ref_index_for(&reference)?;
+                entries.push(VarMetaEntry {
+                    name_idx,
+                    type_id,
+                    ref_idx,
+                    retain: retain_policy_code(var.retain),
+                    init_const_idx: None,
+                });
+            }
         }
         Ok(VarMeta { entries })
     }
@@ -124,6 +154,15 @@ impl<'a> BytecodeEncoder<'a> {
             }
         }
         Ok(RetainInit { entries })
+    }
+}
+
+fn retain_policy_code(retain: crate::RetainPolicy) -> u8 {
+    match retain {
+        crate::RetainPolicy::Unspecified => 0,
+        crate::RetainPolicy::Retain => 1,
+        crate::RetainPolicy::NonRetain => 2,
+        crate::RetainPolicy::Persistent => 3,
     }
 }
 

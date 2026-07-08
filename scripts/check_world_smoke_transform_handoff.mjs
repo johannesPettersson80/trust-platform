@@ -6,7 +6,20 @@ const root = process.cwd();
 const args = process.argv.slice(2);
 const allowedFile = "crates/trust-runtime/src/world.rs";
 const allowedArmFile = "crates/trust-runtime/src/world/arm.rs";
-const jointAllowedFiles = new Set([allowedFile, allowedArmFile]);
+const allowedArmFiles = [
+  allowedArmFile,
+  "crates/trust-runtime/src/world/arm/model.rs",
+  "crates/trust-runtime/src/world/arm/multi_urdf/mod.rs",
+  "crates/trust-runtime/src/world/arm/multi_urdf/domain.rs",
+  "crates/trust-runtime/src/world/arm/multi_urdf/setup.rs",
+  "crates/trust-runtime/src/world/arm/multi_urdf/step.rs",
+  "crates/trust-runtime/src/world/arm/multi_urdf/trace.rs",
+  "crates/trust-runtime/src/world/arm/p3_bridge.rs",
+  "crates/trust-runtime/src/world/arm/physics.rs",
+  "crates/trust-runtime/src/world/arm/types.rs",
+  "crates/trust-runtime/src/world/arm/urdf.rs",
+];
+const jointAllowedFiles = new Set([allowedFile, ...allowedArmFiles]);
 const allowedMarker = "WORLD_DYNAMIC_TRANSFORM_HANDOFF_ALLOWED";
 const setTransformPattern = /\.set_transform\s*\(/;
 const teleportPattern = /\.(set_position|set_translation|set_next_kinematic_position|set_next_kinematic_translation|set_next_kinematic_rotation)\s*\(/;
@@ -88,7 +101,7 @@ function functionBlocks(source) {
 }
 
 function forbiddenFkWriterSites() {
-  return [allowedFile, allowedArmFile].flatMap((file) => {
+  return [allowedFile, ...allowedArmFiles].flatMap((file) => {
     if (!fs.existsSync(path.join(root, file))) {
       return [];
     }
@@ -103,24 +116,35 @@ function forbiddenFkWriterSites() {
 
 if (args[0] === "--repo" && args.length === 1) {
   const source = read(allowedFile);
-  const armSource = fs.existsSync(path.join(root, allowedArmFile)) ? read(allowedArmFile) : "";
+  const armSources = allowedArmFiles.map((file) => ({
+    file,
+    source: fs.existsSync(path.join(root, file)) ? read(file) : "",
+  }));
   const markerCount = (source.match(new RegExp(allowedMarker, "g")) || []).length;
   const setTransformLines = lineNumbersWith(source, setTransformPattern);
   const teleportLines = [
     ...lineNumbersWith(source, teleportPattern).map((line) => `${allowedFile}:${line}`),
-    ...lineNumbersWith(armSource, teleportPattern).map((line) => `${allowedArmFile}:${line}`),
+    ...armSources.flatMap(({ file, source }) =>
+      lineNumbersWith(source, teleportPattern).map((line) => `${file}:${line}`)
+    ),
   ];
   const kinematicLines = [
     ...lineNumbersWith(source, kinematicPositionPattern).map((line) => `${allowedFile}:${line}`),
-    ...lineNumbersWith(armSource, kinematicPositionPattern).map((line) => `${allowedArmFile}:${line}`),
+    ...armSources.flatMap(({ file, source }) =>
+      lineNumbersWith(source, kinematicPositionPattern).map((line) => `${file}:${line}`)
+    ),
   ];
   const reparentLines = [
     ...lineNumbersWith(source, sceneReparentPattern).map((line) => `${allowedFile}:${line}`),
-    ...lineNumbersWith(armSource, sceneReparentPattern).map((line) => `${allowedArmFile}:${line}`),
+    ...armSources.flatMap(({ file, source }) =>
+      lineNumbersWith(source, sceneReparentPattern).map((line) => `${file}:${line}`)
+    ),
   ];
   const poseCopyLines = [
     ...lineNumbersWith(source, poseCopyPattern).map((line) => `${allowedFile}:${line}`),
-    ...lineNumbersWith(armSource, poseCopyPattern).map((line) => `${allowedArmFile}:${line}`),
+    ...armSources.flatMap(({ file, source }) =>
+      lineNumbersWith(source, poseCopyPattern).map((line) => `${file}:${line}`)
+    ),
   ];
   if (markerCount !== 1) {
     console.error(`expected exactly one ${allowedMarker} marker in ${allowedFile}, found ${markerCount}`);

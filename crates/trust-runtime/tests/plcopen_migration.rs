@@ -36,7 +36,7 @@ fn approx_eq(left: f64, right: f64, epsilon: f64) -> bool {
 #[test]
 fn migration_import_codesys_fixture_reports_coverage_and_loss() {
     let project = unique_temp_dir("plcopen-migration-codesys");
-    let fixture = fixture_path("codesys.xml");
+    let fixture = fixture_path("synthetic-codesys.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import codesys fixture");
 
@@ -75,7 +75,7 @@ fn migration_import_codesys_fixture_reports_coverage_and_loss() {
 #[test]
 fn migration_import_twincat_fixture_handles_vendor_variants() {
     let project = unique_temp_dir("plcopen-migration-twincat");
-    let fixture = fixture_path("twincat.xml");
+    let fixture = fixture_path("synthetic-twincat.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import twincat fixture");
 
@@ -119,7 +119,7 @@ fn migration_import_twincat_fixture_handles_vendor_variants() {
 #[test]
 fn migration_import_siemens_fixture_reports_vendor_coverage() {
     let project = unique_temp_dir("plcopen-migration-siemens");
-    let fixture = fixture_path("siemens.xml");
+    let fixture = fixture_path("synthetic-siemens.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import siemens fixture");
 
@@ -149,7 +149,7 @@ fn migration_import_siemens_fixture_reports_vendor_coverage() {
 #[test]
 fn migration_import_rockwell_fixture_reports_vendor_coverage() {
     let project = unique_temp_dir("plcopen-migration-rockwell");
-    let fixture = fixture_path("rockwell.xml");
+    let fixture = fixture_path("synthetic-rockwell.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import rockwell fixture");
 
@@ -172,7 +172,7 @@ fn migration_import_rockwell_fixture_reports_vendor_coverage() {
 #[test]
 fn migration_import_schneider_fixture_detects_vendor_precedence() {
     let project = unique_temp_dir("plcopen-migration-schneider");
-    let fixture = fixture_path("schneider.xml");
+    let fixture = fixture_path("synthetic-schneider.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import schneider fixture");
 
@@ -197,7 +197,7 @@ fn migration_import_schneider_fixture_detects_vendor_precedence() {
 #[test]
 fn migration_import_openplc_fixture_reports_vendor_coverage() {
     let project = unique_temp_dir("plcopen-migration-openplc");
-    let fixture = fixture_path("openplc.xml");
+    let fixture = fixture_path("synthetic-openplc.xml");
 
     let report = import_xml_to_project(&fixture, &project).expect("import openplc fixture");
 
@@ -269,7 +269,7 @@ END_FUNCTION
     assert_eq!(clean_report.compatibility_coverage.verdict, "full");
 
     let lossy_project = unique_temp_dir("plcopen-migration-lossy");
-    let lossy_fixture = fixture_path("codesys.xml");
+    let lossy_fixture = fixture_path("synthetic-codesys.xml");
     let lossy_report =
         import_xml_to_project(&lossy_fixture, &lossy_project).expect("import lossy fixture");
 

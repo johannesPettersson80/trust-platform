@@ -2,6 +2,7 @@ use super::{ControlRequest, ControlResponse, ControlState};
 
 mod ads;
 mod comm;
+mod connectors;
 mod debug;
 mod fleet;
 mod io;
@@ -11,6 +12,7 @@ mod variables;
 
 pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option<ControlResponse> {
     status::dispatch(request, state)
+        .or_else(|| connectors::dispatch(request, state))
         .or_else(|| ads::dispatch(request, state))
         .or_else(|| comm::dispatch(request, state))
         .or_else(|| fleet::dispatch(request, state))

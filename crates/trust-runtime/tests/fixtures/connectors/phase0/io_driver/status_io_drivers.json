@@ -1,0 +1,16 @@
+[
+  {
+    "name": "modbus-tcp",
+    "status": "ok"
+  },
+  {
+    "error": "broker reconnecting",
+    "name": "mqtt",
+    "status": "degraded"
+  },
+  {
+    "error": "bus lost",
+    "name": "ethercat",
+    "status": "faulted"
+  }
+]

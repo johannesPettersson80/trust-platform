@@ -181,6 +181,76 @@ pub(super) fn lsp_inline_values_runtime_override_prefers_camel_case_when_aliases
 }
 
 #[test]
+pub(super) fn lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind silent endpoint");
+    let addr = listener.local_addr().expect("silent endpoint addr");
+    let endpoint = format!("tcp://{addr}");
+    let (accepted_tx, accepted_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept silent endpoint");
+        accepted_tx.send(()).expect("send accepted signal");
+        let _stream = stream;
+        let _ = release_rx.recv_timeout(std::time::Duration::from_secs(2));
+    });
+
+    let source = runtime_inline_values_source();
+    let state = Arc::new(ServerState::new());
+    let root_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/").unwrap();
+    state.set_workspace_folders(vec![root_uri.clone()]);
+    state.set_workspace_config(
+        root_uri,
+        ProjectConfig {
+            root: PathBuf::from("/workspace"),
+            config_path: None,
+            include_paths: Vec::new(),
+            vendor_profile: None,
+            stdlib: StdlibSettings::default(),
+            libraries: Vec::new(),
+            dependencies: Vec::new(),
+            dependency_resolution_issues: Vec::new(),
+            diagnostic_external_paths: Vec::new(),
+            build: BuildConfig::default(),
+            targets: Vec::new(),
+            indexing: IndexingConfig::default(),
+            diagnostics: DiagnosticSettings::default(),
+            runtime: RuntimeConfig {
+                control_endpoint: Some(endpoint),
+                control_auth_token: None,
+            },
+            workspace: WorkspaceSettings::default(),
+            telemetry: TelemetryConfig::default(),
+        },
+    );
+
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/runtime.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let worker_state = Arc::clone(&state);
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    let worker = thread::spawn(move || {
+        let params = runtime_inline_values_params(uri, source);
+        let result = inline_value(&worker_state, params);
+        done_tx.send(result).expect("send inline result");
+    });
+
+    accepted_rx
+        .recv_timeout(std::time::Duration::from_millis(200))
+        .expect("silent endpoint accepted connection");
+    let completed = done_rx.recv_timeout(std::time::Duration::from_millis(500));
+    let _ = release_tx.send(());
+    server.join().expect("silent endpoint thread");
+    worker.join().expect("inline worker thread");
+
+    let values = completed
+        .expect("inlineValue must return within the bounded timeout for a silent runtime endpoint")
+        .expect("inline values response");
+    assert!(
+        values.is_empty(),
+        "timeout or transport failure should return an empty inline-value result"
+    );
+}
+
+#[test]
 pub(super) fn lsp_inline_values_merge_instances_into_locals() {
     let (endpoint, handle) = spawn_control_stub_with_instances("TestProgram#1");
     let source = r#"

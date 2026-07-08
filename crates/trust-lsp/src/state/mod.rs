@@ -12,7 +12,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{watch, Semaphore};
-use tower_lsp::lsp_types::{SemanticToken, Url};
+use tower_lsp::lsp_types::{
+    CallHierarchyIncomingCall, CallHierarchyOutgoingCall, SemanticToken, Url,
+};
 
 use crate::config::ProjectConfig;
 use crate::library_docs::library_doc_map;
@@ -111,12 +113,18 @@ pub struct ServerState {
     semantic_tokens: RwLock<FxHashMap<Url, SemanticTokensCache>>,
     /// Cached diagnostics for pull requests.
     diagnostics: RwLock<FxHashMap<Url, DiagnosticCache>>,
+    /// Cached call-hierarchy incoming responses for the current document generation.
+    call_hierarchy_incoming: RwLock<FxHashMap<String, Vec<CallHierarchyIncomingCall>>>,
+    /// Cached call-hierarchy outgoing responses for the current document generation.
+    call_hierarchy_outgoing: RwLock<FxHashMap<String, Vec<CallHierarchyOutgoingCall>>>,
     /// Monotonic ID for semantic token result IDs.
     semantic_tokens_id: AtomicU64,
     /// Monotonic ID for diagnostic result IDs.
     diagnostic_id: AtomicU64,
     /// Monotonic counter for document access.
     doc_access_counter: AtomicU64,
+    /// Monotonic generation for project text changes.
+    document_generation: AtomicU64,
     /// Monotonic generation used for cooperative semantic request cancellation.
     semantic_request_generation: AtomicU64,
     /// Last activity time (epoch ms) for adaptive throttling.
@@ -156,9 +164,12 @@ impl ServerState {
             documents: RwLock::new(FxHashMap::default()),
             semantic_tokens: RwLock::new(FxHashMap::default()),
             diagnostics: RwLock::new(FxHashMap::default()),
+            call_hierarchy_incoming: RwLock::new(FxHashMap::default()),
+            call_hierarchy_outgoing: RwLock::new(FxHashMap::default()),
             semantic_tokens_id: AtomicU64::new(1),
             diagnostic_id: AtomicU64::new(1),
             doc_access_counter: AtomicU64::new(1),
+            document_generation: AtomicU64::new(1),
             semantic_request_generation: AtomicU64::new(1),
             last_activity_ms: AtomicU64::new(0),
             work_done_progress: AtomicBool::new(false),
@@ -415,6 +426,46 @@ impl ServerState {
         F: Future<Output = T>,
     {
         self.request_limiter.run_background(fut).await
+    }
+
+    pub fn document_generation(&self) -> u64 {
+        self.document_generation.load(Ordering::Relaxed)
+    }
+
+    pub(super) fn bump_document_generation(&self) {
+        self.document_generation.fetch_add(1, Ordering::Relaxed);
+        self.call_hierarchy_incoming.write().clear();
+        self.call_hierarchy_outgoing.write().clear();
+    }
+
+    pub fn cached_call_hierarchy_incoming(
+        &self,
+        key: &str,
+    ) -> Option<Vec<CallHierarchyIncomingCall>> {
+        self.call_hierarchy_incoming.read().get(key).cloned()
+    }
+
+    pub fn store_call_hierarchy_incoming(
+        &self,
+        key: String,
+        calls: Vec<CallHierarchyIncomingCall>,
+    ) {
+        self.call_hierarchy_incoming.write().insert(key, calls);
+    }
+
+    pub fn cached_call_hierarchy_outgoing(
+        &self,
+        key: &str,
+    ) -> Option<Vec<CallHierarchyOutgoingCall>> {
+        self.call_hierarchy_outgoing.read().get(key).cloned()
+    }
+
+    pub fn store_call_hierarchy_outgoing(
+        &self,
+        key: String,
+        calls: Vec<CallHierarchyOutgoingCall>,
+    ) {
+        self.call_hierarchy_outgoing.write().insert(key, calls);
     }
 
     pub fn semantic_tokens_cache(&self, uri: &Url) -> Option<SemanticTokensCache> {

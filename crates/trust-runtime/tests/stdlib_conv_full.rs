@@ -200,3 +200,24 @@ fn conversion_full() {
     );
     assert!(lib.call("BYTE_BCD_TO_UINT", &[Value::Byte(0xFA)]).is_err());
 }
+
+#[test]
+fn string_to_real_rejects_non_finite_text() {
+    let lib = StandardLibrary::new();
+
+    let err = lib
+        .call("STRING_TO_REAL", &[Value::String("NaN".into())])
+        .expect_err("STRING_TO_REAL must reject NaN");
+    assert!(
+        err.to_string().contains("overflow") || err.to_string().contains("type"),
+        "expected finite-value conversion error, got {err}"
+    );
+
+    let err = lib
+        .call("STRING_TO_LREAL", &[Value::String("inf".into())])
+        .expect_err("STRING_TO_LREAL must reject infinity");
+    assert!(
+        err.to_string().contains("overflow") || err.to_string().contains("type"),
+        "expected finite-value conversion error, got {err}"
+    );
+}

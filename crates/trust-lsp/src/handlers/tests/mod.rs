@@ -24,6 +24,21 @@ fn position_at(source: &str, needle: &str) -> tower_lsp::lsp_types::Position {
     super::lsp_utils::offset_to_position(source, offset as u32)
 }
 
+fn utf16_position_at(source: &str, needle: &str) -> tower_lsp::lsp_types::Position {
+    let offset = source
+        .find(needle)
+        .unwrap_or_else(|| panic!("missing needle '{needle}'"));
+    let prefix = &source[..offset];
+    let line = prefix.chars().filter(|ch| *ch == '\n').count() as u32;
+    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
+    let character = source[line_start..offset].encode_utf16().count() as u32;
+    tower_lsp::lsp_types::Position { line, character }
+}
+
+fn utf16_len(text: &str) -> u32 {
+    text.encode_utf16().count() as u32
+}
+
 fn inlay_label_contains(label: &tower_lsp::lsp_types::InlayHintLabel, needle: &str) -> bool {
     match label {
         tower_lsp::lsp_types::InlayHintLabel::String(value) => value.contains(needle),

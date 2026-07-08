@@ -119,8 +119,10 @@ impl Drop for AdsServerRuntime {
 ///
 /// # Errors
 ///
-/// Fails closed when the runtime config is enabled but the initial snapshot,
-/// AMS identity, write port, TCP listener, or UDP identify responder cannot be created.
+/// Fails closed when the runtime config is enabled but the AMS identity, write
+/// port, TCP listener, or UDP identify responder cannot be created. Missing
+/// initial runtime snapshots start as an empty/not-ready ADS server and can be
+/// refreshed when a snapshot becomes available.
 pub fn start_ads_server_runtime(
     resource_name: &str,
     config: &AdsServerRuntimeConfig,
@@ -187,15 +189,12 @@ fn start_ads_server_runtime_on_ports(
         return Ok(None);
     }
 
-    let initial_snapshot = snapshot_provider().ok_or_else(|| {
-        RuntimeError::InvalidConfig(
-            "runtime.ads_server.enabled=true but no runtime snapshot is available".into(),
-        )
-    })?;
-    let symbols = Arc::new(AdsServerSymbolSource::from_runtime_snapshot(
-        config,
-        &initial_snapshot,
-    )?);
+    let symbols = Arc::new(match snapshot_provider() {
+        Some(initial_snapshot) => {
+            AdsServerSymbolSource::from_runtime_snapshot(config, &initial_snapshot)?
+        }
+        None => AdsServerSymbolSource::empty(config)?,
+    });
     let policy = AdsServerClientPolicy::new(config);
     let publisher = Arc::new(AdsServerValuePublisher::new(
         config.clone(),

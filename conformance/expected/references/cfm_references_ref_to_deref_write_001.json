@@ -1,0 +1,50 @@
+{
+  "case_id": "cfm_references_ref_to_deref_write_001",
+  "category": "references",
+  "cycles": 2,
+  "description": "REF_TO initialization, dereference read, and dereference write.",
+  "kind": "runtime",
+  "trace": [
+    {
+      "cycle": 1,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "after_write": {
+          "type": "INT",
+          "value": 8
+        },
+        "observed": {
+          "type": "INT",
+          "value": 5
+        },
+        "target": {
+          "type": "INT",
+          "value": 8
+        }
+      },
+      "runtime_time_nanos": 0
+    },
+    {
+      "cycle": 2,
+      "direct": {},
+      "errors": [],
+      "globals": {
+        "after_write": {
+          "type": "INT",
+          "value": 8
+        },
+        "observed": {
+          "type": "INT",
+          "value": 8
+        },
+        "target": {
+          "type": "INT",
+          "value": 8
+        }
+      },
+      "runtime_time_nanos": 0
+    }
+  ],
+  "version": 1
+}

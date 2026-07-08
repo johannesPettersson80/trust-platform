@@ -102,9 +102,10 @@ fn vm_rejects_stack_underflow() {
     let mut module = bytecode_module_from_source(source).expect("compile module");
     replace_main_body(&mut module, &[0x12, 0x06]);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(&cycle.errors, "vm operand stack underflow");
+    assert_apply_invalid_bytecode_contains(
+        &module,
+        "operand stack underflow while decoding opcode 0x12",
+    );
 }
 
 #[test]
@@ -130,15 +131,19 @@ fn vm_rejects_stack_overflow() {
     body.push(0x11);
     body.push(0x02);
     body.extend_from_slice(&(-6_i32).to_le_bytes());
+    body.push(0x12);
+    body.push(0x12);
+    body.push(0x06);
     replace_main_body(&mut module, &body);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(&cycle.errors, "vm operand stack overflow");
+    assert_apply_invalid_bytecode_contains(
+        &module,
+        "inconsistent operand stack depth at control-flow merge",
+    );
 }
 
 #[test]
-fn vm_call_stack_handles_call_and_return() {
+fn vm_validator_rejects_legacy_call_even_when_target_exists() {
     let source = r#"
         FUNCTION Foo : DINT
         Foo := 1;
@@ -211,25 +216,5 @@ fn vm_call_stack_handles_call_and_return() {
             && section.id != SectionId::DebugStringTable.as_raw()
     });
 
-    let bytes = module.encode().expect("encode module");
-    let mut harness = TestHarness::from_source(source).expect("compile runtime");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-
-    let cycle = harness.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "call/ret VM execution should succeed, got {:?}",
-        cycle.errors
-    );
+    assert_apply_invalid_bytecode_contains(&module, "unsupported legacy CALL opcode 0x05");
 }

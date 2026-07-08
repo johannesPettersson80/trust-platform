@@ -1,3 +1,4 @@
+import { getTrustConfiguration } from "../configuration";
 import * as net from "net";
 import * as vscode from "vscode";
 
@@ -158,7 +159,7 @@ export async function runtimeStatusPayload(
   deps: RuntimeStatusDeps
 ): Promise<RuntimeStatusPayload> {
   const target = deps.runtimeConfigTarget();
-  const config = vscode.workspace.getConfiguration("trust-lsp", target);
+  const config = getTrustConfiguration(target);
   let endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
   const authToken = await getControlAuthToken(endpoint);
   const endpointConfigured = endpoint.length > 0;

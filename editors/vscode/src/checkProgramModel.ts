@@ -11,6 +11,7 @@ export interface CheckIssue {
 }
 
 export interface CheckProgramResponse {
+  readonly version?: number;
   readonly ok: boolean;
   readonly status: string; // "ok" | "failed"
   readonly errors: number;

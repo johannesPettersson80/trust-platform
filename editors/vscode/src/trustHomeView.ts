@@ -1,3 +1,4 @@
+import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -43,6 +44,7 @@ import {
   disconnectManagedRuntimeAfterStop,
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
+import { getWorkspaceProjectState } from "./workspaceProject";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
 //   • No project open  → Examples-first onboarding; no transport controls.
@@ -75,11 +77,6 @@ interface SidebarButtonState {
   readonly tone: ButtonTone;
   readonly variant: ButtonVariant;
   readonly enabled: boolean;
-}
-
-interface WorkspaceProjectState {
-  readonly kind: "none" | "nonTrust" | "trust";
-  readonly folder?: vscode.WorkspaceFolder;
 }
 
 class TrustHomeProvider implements vscode.WebviewViewProvider {
@@ -150,9 +147,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private readRemotes(): RemoteRuntime[] {
     const endpoints =
-      vscode.workspace
-        .getConfiguration("trust-lsp")
-        .get<string[]>("runtime.fleetEndpoints", []) ?? [];
+      getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
     const seen = new Set<string>();
     const remotes: RemoteRuntime[] = [];
     for (const raw of endpoints) {
@@ -259,6 +254,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       projectOpen,
       workspaceKind: workspaceState.kind,
       workspaceName: displayProjectName(workspaceState.folder?.name ?? ""),
+      workspaceIssue: workspaceState.issue ?? "",
       options,
       selectedId: selected.id,
       selected,
@@ -1020,7 +1016,12 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	    welcomeEl.classList.toggle("hidden", msg.projectOpen);
 	    projectEl.classList.toggle("hidden", !msg.projectOpen);
 	    if (!msg.projectOpen) {
-	      if (msg.workspaceKind === "nonTrust") {
+	      if (msg.workspaceKind === "malformed") {
+	        const name = msg.workspaceName ? "“" + msg.workspaceName + "”" : "This folder";
+	        welcomeTitle.textContent = "Project needs repair";
+	        welcomeText.textContent = name + " looks like a truST project, but its project settings file cannot be read. Fix the settings file, open another project, or start from an example.";
+	        createProjectEl.textContent = "+ Create project";
+	      } else if (msg.workspaceKind === "nonTrust") {
 	        const name = msg.workspaceName ? "“" + msg.workspaceName + "”" : "This folder";
 	        welcomeTitle.textContent = "No truST project";
 	        welcomeText.textContent = name + " does not contain a truST project yet. Initialize it here, open an existing project, or start from an example.";
@@ -1097,7 +1098,7 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("trust-lsp.runtime.fleetEndpoints")) {
+      if (affectsTrustConfiguration(event, "runtime.fleetEndpoints")) {
         provider.refresh();
       }
     })
@@ -1126,21 +1127,6 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
       }
     })
   );
-}
-
-// "Project open" = a workspace folder is open AND it is a truST project (has a trust-lsp.toml). Keep
-// "no folder" and "non-truST folder" distinct so the first-run UI can explain exactly what happened.
-async function getWorkspaceProjectState(): Promise<WorkspaceProjectState> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) {
-    return { kind: "none" };
-  }
-  const found = await vscode.workspace.findFiles(
-    "**/trust-lsp.toml",
-    "**/node_modules/**",
-    1
-  );
-  return found.length > 0 ? { kind: "trust", folder } : { kind: "nonTrust", folder };
 }
 
 function displayProjectName(name: string): string {

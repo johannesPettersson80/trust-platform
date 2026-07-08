@@ -22,6 +22,7 @@
 // createToggleRenderer
 // createSliderRenderer
 const POLL_MS = 500;
+const CONNECTOR_POLL_MS = 2000;
 const WS_ROUTE = '/ws/hmi';
 const WS_MAX_FAILURES_BEFORE_POLL = 3;
 const WS_RECONNECT_BASE_MS = 500;
@@ -39,6 +40,9 @@ const state = {
   cards: new Map(),
   moduleCards: new Map(),
   sparklines: new Map(),
+  connectors: [],
+  connectorPollHandle: null,
+  connectorStatusError: null,
   latestValues: new Map(),
   pollHandle: null,
   ws: null,
@@ -63,6 +67,20 @@ const state = {
   responsiveMode: 'auto',
   ackInFlight: new Set(),
 };
+
+const CONNECTOR_STATE_ORDER = [
+  'ready',
+  'degraded',
+  'reconnecting',
+  'stale',
+  'not_ready',
+  'faulted',
+  'starting',
+  'configured',
+  'disabled',
+];
+const CONNECTOR_HEALTH_ORDER = ['ok', 'degraded', 'faulted', 'unknown'];
+const CONNECTOR_CONFIDENCE_ORDER = ['confirmed', 'likely', 'port_reachable', 'unavailable'];
 
 /* Dark mode — matches runtime styles.css body[data-theme="dark"] */
 const CONTROL_ROOM_THEME = Object.freeze({
@@ -174,6 +192,200 @@ function setFreshness(timestampMs) {
   }
   const age = Math.max(0, Date.now() - Number(timestampMs));
   freshness.textContent = `freshness: ${age} ms`;
+}
+
+function connectorToken(value, fallback = 'unknown') {
+  const token = String(value || fallback).trim().toLowerCase();
+  return token || fallback;
+}
+
+function connectorLabel(value) {
+  const token = connectorToken(value);
+  if (token === 'not_ready') {
+    return 'not ready';
+  }
+  return token.replace(/_/g, ' ');
+}
+
+function connectionDisplayLabel(value) {
+  const token = connectorToken(value);
+  if (token === 'ready') {
+    return 'ready';
+  }
+  if (['degraded', 'stale', 'not_ready'].includes(token)) {
+    return 'needs attention';
+  }
+  if (token === 'faulted') {
+    return 'fault';
+  }
+  return connectorLabel(token);
+}
+
+function verificationDisplayLabel(value) {
+  const token = connectorToken(value);
+  if (token === 'port_reachable') {
+    return 'port reachable only';
+  }
+  if (token === 'unavailable') {
+    return 'not verified';
+  }
+  return connectorLabel(token);
+}
+
+function healthDisplayLabel(value) {
+  const token = connectorToken(value);
+  if (token === 'ok') {
+    return 'OK';
+  }
+  if (token === 'faulted') {
+    return 'fault';
+  }
+  return connectorLabel(token);
+}
+
+function countConnectorField(connectors, field) {
+  const counts = new Map();
+  for (const connector of connectors) {
+    const key = connectorToken(connector?.[field]);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}
+
+function orderedCountEntries(counts, order) {
+  const entries = [];
+  for (const key of order) {
+    const count = counts.get(key) || 0;
+    if (count > 0) {
+      entries.push([key, count]);
+    }
+  }
+  const extras = Array.from(counts.entries())
+    .filter(([key, count]) => count > 0 && !order.includes(key))
+    .sort(([left], [right]) => left.localeCompare(right));
+  return [...entries, ...extras];
+}
+
+function formatDisplayCounts(prefix, counts, order, labeler) {
+  const entries = orderedCountEntries(counts, order);
+  if (entries.length === 0) {
+    return `${prefix}: none`;
+  }
+  return `${prefix}: ${entries
+    .map(([key, count]) => `${count} ${labeler(key)}`)
+    .join(', ')}`;
+}
+
+function summarizeConnectionCounts(connectors) {
+  let ready = 0;
+  let attention = 0;
+  for (const connector of connectors) {
+    const stateValue = connectorToken(connector?.state);
+    const health = connectorToken(connector?.health);
+    const confidence = connectorToken(connector?.confidence);
+    if (stateValue === 'ready' && health === 'ok' && confidence !== 'port_reachable') {
+      ready += 1;
+    } else {
+      attention += 1;
+    }
+  }
+  if (ready === 0 && attention === 0) {
+    return 'Connections: none';
+  }
+  const parts = [];
+  if (ready > 0) {
+    parts.push(`${ready} ready`);
+  }
+  if (attention > 0) {
+    parts.push(`${attention} needs attention`);
+  }
+  return `Connections: ${parts.join(', ')}`;
+}
+
+function summarizePointCounts(connectors) {
+  let good = 0;
+  let degraded = 0;
+  let unavailable = 0;
+  for (const connector of connectors) {
+    const counts = connector && typeof connector.point_counts === 'object'
+      ? connector.point_counts
+      : {};
+    good += Number(counts.good) || 0;
+    degraded += Number(counts.degraded) || 0;
+    unavailable += Number(counts.unavailable) || 0;
+  }
+  const issue = degraded + unavailable;
+  return {
+    text: issue > 0 ? `Signals: ${good} good, ${issue} need attention` : `Signals: ${good} good`,
+    severity: issue > 0 ? 'stale' : 'connected',
+    title: `Signals: ${good} good, ${issue} need attention`,
+  };
+}
+
+function connectorSeverity(connectors) {
+  if (!Array.isArray(connectors) || connectors.length === 0) {
+    return 'stale';
+  }
+  const hasFault = connectors.some((connector) => {
+    const health = connectorToken(connector?.health);
+    const stateValue = connectorToken(connector?.state);
+    return health === 'faulted' || stateValue === 'faulted';
+  });
+  if (hasFault) {
+    return 'disconnected';
+  }
+  const hasDegraded = connectors.some((connector) => {
+    const health = connectorToken(connector?.health);
+    const stateValue = connectorToken(connector?.state);
+    return (
+      health === 'degraded' ||
+      health === 'unknown' ||
+      ['degraded', 'reconnecting', 'stale', 'not_ready', 'starting', 'configured'].includes(stateValue)
+    );
+  });
+  return hasDegraded ? 'stale' : 'connected';
+}
+
+function setSummaryPill(id, text, severity, title = '') {
+  const pill = byId(id);
+  if (!pill) {
+    return;
+  }
+  pill.classList.remove('connected', 'stale', 'disconnected');
+  if (severity) {
+    pill.classList.add(severity);
+  }
+  pill.textContent = text;
+  pill.title = title;
+}
+
+function updateConnectorStatusSummary(result) {
+  const connectors = Array.isArray(result?.connectors) ? result.connectors : [];
+  state.connectors = connectors;
+  state.connectorStatusError = null;
+  const severity = connectorSeverity(connectors);
+  const states = countConnectorField(connectors, 'state');
+  const health = countConnectorField(connectors, 'health');
+  const confidence = countConnectorField(connectors, 'confidence');
+  const pointSummary = summarizePointCounts(connectors);
+  setSummaryPill(
+    'connectorSummaryState',
+    summarizeConnectionCounts(connectors),
+    confidence.get('port_reachable') ? 'stale' : severity,
+    [
+      formatDisplayCounts('Connection', states, CONNECTOR_STATE_ORDER, connectionDisplayLabel),
+      formatDisplayCounts('Health', health, CONNECTOR_HEALTH_ORDER, healthDisplayLabel),
+      formatDisplayCounts('Verification', confidence, CONNECTOR_CONFIDENCE_ORDER, verificationDisplayLabel),
+      pointSummary.text,
+    ].join('\n'),
+  );
+}
+
+function markConnectorStatusUnavailable(error) {
+  const detail = error instanceof Error ? error.message : String(error || 'unavailable');
+  state.connectors = [];
+  state.connectorStatusError = detail;
+  setSummaryPill('connectorSummaryState', 'Connections: unavailable', 'stale', detail);
 }
 
 function updateDiagnosticsPill() {

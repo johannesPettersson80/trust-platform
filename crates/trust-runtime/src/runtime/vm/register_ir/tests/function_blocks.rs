@@ -321,6 +321,7 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),
         method_table_by_owner: HashMap::new(),
+        ref_types: HashMap::new(),
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };

@@ -159,3 +159,53 @@ END_CONFIGURATION
         .iter()
         .any(|retain| retain.ref_idx == entry.ref_idx));
 }
+
+#[test]
+fn encoder_emits_program_field_var_meta_for_validation() {
+    let source = r#"
+PROGRAM Main
+VAR
+    target : DINT := DINT#0;
+    flag : BOOL := FALSE;
+END_VAR
+target := DINT#1;
+flag := TRUE;
+END_PROGRAM
+"#;
+
+    let module = bytecode_module_from_source(source).unwrap();
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(table)) => table,
+        other => panic!("expected STRING_TABLE, got {other:?}"),
+    };
+    let types = match module.section(SectionId::TypeTable) {
+        Some(SectionData::TypeTable(table)) => table,
+        other => panic!("expected TYPE_TABLE, got {other:?}"),
+    };
+    let var_meta = match module.section(SectionId::VarMeta) {
+        Some(SectionData::VarMeta(meta)) => meta,
+        other => panic!("expected VAR_META, got {other:?}"),
+    };
+
+    let target = var_meta
+        .entries
+        .iter()
+        .find(|entry| lookup_string(strings, entry.name_idx) == "Main.target")
+        .expect("Main.target meta");
+    let flag = var_meta
+        .entries
+        .iter()
+        .find(|entry| lookup_string(strings, entry.name_idx) == "Main.flag")
+        .expect("Main.flag meta");
+
+    assert_ne!(target.ref_idx, flag.ref_idx);
+    assert_eq!(primitive_id(types, target.type_id), Some(8));
+    assert_eq!(primitive_id(types, flag.type_id), Some(1));
+}
+
+fn primitive_id(types: &trust_runtime::bytecode::TypeTable, type_id: u32) -> Option<u16> {
+    match &types.entries.get(type_id as usize)?.data {
+        TypeData::Primitive { prim_id, .. } => Some(*prim_id),
+        _ => None,
+    }
+}

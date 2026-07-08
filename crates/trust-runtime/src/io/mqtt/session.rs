@@ -1,6 +1,6 @@
 trait MqttSession: Send {
     fn is_connected(&self) -> bool;
-    fn take_payload(&mut self) -> Option<Vec<u8>>;
+    fn take_payloads(&mut self) -> Vec<MqttInboundPayload>;
     fn publish(&mut self, topic: &str, payload: &[u8]) -> Result<(), RuntimeError>;
     fn last_error(&self) -> Option<SmolStr>;
 }
@@ -12,29 +12,39 @@ trait MqttSessionFactory: Send + Sync {
 #[derive(Debug, Default)]
 struct RumqttSessionFactory;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MqttInboundPayload {
+    topic: SmolStr,
+    payload: Vec<u8>,
+}
+
 struct RumqttSession {
     client: Client,
-    incoming: Arc<Mutex<Option<Vec<u8>>>>,
+    incoming: Arc<Mutex<VecDeque<MqttInboundPayload>>>,
     connected: Arc<AtomicBool>,
     last_error: Arc<Mutex<Option<SmolStr>>>,
     _worker: thread::JoinHandle<()>,
 }
 
+const MQTT_INCOMING_QUEUE_LIMIT: usize = 256;
+
 impl MqttSessionFactory for RumqttSessionFactory {
     fn connect(&self, config: &MqttIoConfig) -> Result<Box<dyn MqttSession>, RuntimeError> {
         let options = build_mqtt_options(config)?;
         let (client, mut connection) = Client::new(options, 64);
-        client
-            .subscribe(config.topic_in.as_str(), QoS::AtMostOnce)
-            .map_err(|err| RuntimeError::IoDriver(format!("mqtt subscribe: {err}").into()))?;
+        let subscribe_topics = config.subscribe_topics();
+        for topic in &subscribe_topics {
+            client
+                .subscribe(topic.as_str(), QoS::AtMostOnce)
+                .map_err(|err| RuntimeError::IoDriver(format!("mqtt subscribe: {err}").into()))?;
+        }
 
-        let incoming = Arc::new(Mutex::new(None));
+        let incoming = Arc::new(Mutex::new(VecDeque::new()));
         let connected = Arc::new(AtomicBool::new(false));
         let last_error = Arc::new(Mutex::new(None));
         let incoming_ref = Arc::clone(&incoming);
         let connected_ref = Arc::clone(&connected);
         let last_error_ref = Arc::clone(&last_error);
-        let topic_in = config.topic_in.clone();
         let worker = thread::spawn(move || {
             for event in connection.iter() {
                 match event {
@@ -45,9 +55,18 @@ impl MqttSessionFactory for RumqttSessionFactory {
                     }
                     Ok(Event::Incoming(Packet::Publish(publish))) => {
                         connected_ref.store(true, Ordering::SeqCst);
-                        if publish.topic == topic_in {
+                        if subscribe_topics
+                            .iter()
+                            .any(|topic| topic.as_str() == publish.topic)
+                        {
                             let mut guard = incoming_ref.lock().unwrap_or_else(|e| e.into_inner());
-                            *guard = Some(publish.payload.to_vec());
+                            while guard.len() >= MQTT_INCOMING_QUEUE_LIMIT {
+                                guard.pop_front();
+                            }
+                            guard.push_back(MqttInboundPayload {
+                                topic: SmolStr::new(publish.topic),
+                                payload: publish.payload.to_vec(),
+                            });
                         }
                     }
                     Ok(_) => {}
@@ -85,6 +104,16 @@ fn build_mqtt_options(config: &MqttIoConfig) -> Result<MqttOptions, RuntimeError
     options.set_keep_alive(config.keep_alive);
     if let (Some(username), Some(password)) = (&config.username, &config.password) {
         options.set_credentials(username.as_str(), password.as_str());
+    }
+    if let Some(sparkplug) = &config.sparkplug {
+        options
+            .set_clean_session(false)
+            .set_last_will(LastWill::new(
+                sparkplug.ndeath_topic(),
+                encode_sparkplug_ndeath(sparkplug),
+                QoS::AtMostOnce,
+                false,
+            ));
     }
     if let Some(tls) = &config.tls {
         options.set_transport(Transport::Tls(TlsConfiguration::NativeConnector(
@@ -125,9 +154,9 @@ impl MqttSession for RumqttSession {
         self.connected.load(Ordering::SeqCst)
     }
 
-    fn take_payload(&mut self) -> Option<Vec<u8>> {
+    fn take_payloads(&mut self) -> Vec<MqttInboundPayload> {
         let mut guard = self.incoming.lock().unwrap_or_else(|e| e.into_inner());
-        guard.take()
+        guard.drain(..).collect()
     }
 
     fn publish(&mut self, topic: &str, payload: &[u8]) -> Result<(), RuntimeError> {

@@ -843,6 +843,7 @@ mod tests {
                 ("allow_insecure_remote", json!(false)),
                 ("reconnect_ms", json!(500)),
                 ("keep_alive_s", json!(5)),
+                ("on_error", json!("fault")),
                 ("tls_alpn", json!([])),
             ],
         );

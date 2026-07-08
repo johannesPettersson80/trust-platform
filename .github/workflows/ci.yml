@@ -129,6 +129,10 @@ jobs:
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- cargo build --all-targets; then
+              if [[ "${attempt}" -gt 1 ]]; then
+                echo "cargo build passed only after retry on ${{ matrix.os }}" \
+                  | tee -a "gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt"
+              fi
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
@@ -186,6 +190,10 @@ jobs:
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- "${command[@]}"; then
+              if [[ "${attempt}" -gt 1 ]]; then
+                echo "full test suite passed only after retry on ${{ matrix.os }}" \
+                  | tee -a "gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt"
+              fi
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
@@ -199,7 +207,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-log-${{ matrix.os }}
-          path: gate-artifacts/test-${{ matrix.os }}.log
+          path: |
+            gate-artifacts/test-${{ matrix.os }}.log
+            gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt
       - name: Mark gate success
         if: ${{ success() }}
         shell: bash
@@ -258,6 +268,18 @@ jobs:
           diff -u \
             gate-artifacts/conformance-pass-1.normalized.json \
             gate-artifacts/conformance-pass-2.normalized.json
+      - name: Validate conformance summary schemas
+        run: |
+          python3 scripts/validate_conformance_summary_schema.py \
+            --schema conformance/schemas/summary-v1.schema.json \
+            --schema conformance/schemas/summary-v2.schema.json \
+            --summary gate-artifacts/conformance-pass-1.json \
+            --summary gate-artifacts/conformance-pass-2.json
+      - name: Render human-readable conformance report
+        run: |
+          python3 scripts/render_conformance_summary.py \
+            --input gate-artifacts/conformance-pass-1.json \
+            --output gate-artifacts/conformance-pass-1.md
       - name: Enforce runtime comms fuzz smoke budget gate
         run: |
           OUT_DIR=gate-artifacts/runtime-comms-fuzz \
@@ -301,6 +323,7 @@ jobs:
           name: conformance-suite
           path: |
             gate-artifacts/conformance-pass-*.json
+            gate-artifacts/conformance-pass-*.md
             gate-artifacts/runtime-comms-fuzz/**
             gate-artifacts/runtime-comms-bench/**
             gate-artifacts/runtime-vm-bench/**
@@ -532,6 +555,10 @@ jobs:
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- xvfb-run -a npm test; then
+              if [[ "${attempt}" -gt 1 ]]; then
+                echo "VS Code integration tests passed only after retry" \
+                  | tee -a "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension-retry-rescued.txt"
+              fi
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
@@ -548,7 +575,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: vscode-extension-test-log
-          path: gate-artifacts/vscode-extension-test.log
+          path: |
+            gate-artifacts/vscode-extension-test.log
+            gate-artifacts/vscode-extension-retry-rescued.txt
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -611,6 +640,56 @@ jobs:
           name: gate-mp001-parity
           path: gate-artifacts/mp001-parity.txt
 
+  supply-chain:
+    name: Supply Chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-deny and cargo-audit
+        run: |
+          if ! cargo deny --version >/dev/null 2>&1; then
+            cargo install cargo-deny --version 0.19.9 --locked
+          fi
+          if ! cargo audit --version >/dev/null 2>&1; then
+            cargo install cargo-audit --version 0.22.2 --locked
+          fi
+          cargo deny --version
+          cargo audit --version
+      - name: Run cargo-deny
+        run: cargo deny check advisories licenses bans sources
+      - name: Run cargo-audit with tracked advisory exceptions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t audit_ignore_args < <(python3 - <<'PY'
+          import tomllib
+          data = tomllib.load(open("deny.toml", "rb"))
+          for entry in data.get("advisories", {}).get("ignore", []):
+              advisory = entry.get("id")
+              if advisory:
+                  print("--ignore")
+                  print(advisory)
+          PY
+          )
+          cargo audit --deny warnings "${audit_ignore_args[@]}"
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=supply-chain result=success" > gate-artifacts/supply-chain.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-supply-chain
+          path: gate-artifacts/supply-chain.txt
+
   version-release-guard:
     name: Version Release Guard
     runs-on: ubuntu-latest
@@ -649,7 +728,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, version-release-guard]
+    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v6
@@ -669,12 +748,15 @@ jobs:
           NEED_FMT: ${{ needs.fmt.result }}
           NEED_CLIPPY: ${{ needs.clippy.result }}
           NEED_TEST: ${{ needs.test.result }}
+          NEED_CONFORMANCE: ${{ needs.conformance.result }}
+          NEED_ARCHITECTURE_SAFETY: ${{ needs['architecture-safety'].result }}
           NEED_MSRV: ${{ needs.msrv.result }}
           NEED_DOCS: ${{ needs.docs.result }}
           NEED_BROWSER_ANALYSIS: ${{ needs['browser-analysis'].result }}
           NEED_VSCODE_EXTENSION: ${{ needs['vscode-extension'].result }}
           NEED_EDITOR_EXPANSION: ${{ needs['editor-expansion'].result }}
           NEED_MP001_PARITY: ${{ needs['mp001-parity'].result }}
+          NEED_SUPPLY_CHAIN: ${{ needs['supply-chain'].result }}
           NEED_VERSION_RELEASE_GUARD: ${{ needs['version-release-guard'].result }}
         run: |
           python3 scripts/generate_release_gate_report.py \
@@ -685,22 +767,28 @@ jobs:
             --required-gate gate-test-ubuntu-latest \
             --required-gate gate-test-macos-latest \
             --required-gate gate-test-windows-latest \
+            --required-gate gate-conformance \
+            --required-gate gate-architecture-safety \
             --required-gate gate-msrv \
             --required-gate gate-docs \
             --required-gate gate-browser-analysis \
             --required-gate gate-vscode-extension \
             --required-gate gate-editor-expansion \
             --required-gate gate-mp001-parity \
+            --required-gate gate-supply-chain \
             --required-gate gate-version-release-guard \
             --job-status "fmt=${NEED_FMT}" \
             --job-status "clippy=${NEED_CLIPPY}" \
             --job-status "test=${NEED_TEST}" \
+            --job-status "conformance=${NEED_CONFORMANCE}" \
+            --job-status "architecture-safety=${NEED_ARCHITECTURE_SAFETY}" \
             --job-status "msrv=${NEED_MSRV}" \
             --job-status "docs=${NEED_DOCS}" \
             --job-status "browser-analysis=${NEED_BROWSER_ANALYSIS}" \
             --job-status "vscode-extension=${NEED_VSCODE_EXTENSION}" \
             --job-status "editor-expansion=${NEED_EDITOR_EXPANSION}" \
             --job-status "mp001-parity=${NEED_MP001_PARITY}" \
+            --job-status "supply-chain=${NEED_SUPPLY_CHAIN}" \
             --job-status "version-release-guard=${NEED_VERSION_RELEASE_GUARD}" \
             --checklist docs/release-gate-checklist.md
 

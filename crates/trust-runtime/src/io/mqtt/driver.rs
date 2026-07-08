@@ -7,6 +7,10 @@ pub struct MqttIoDriver {
     session: Option<Box<dyn MqttSession>>,
     health: IoDriverHealth,
     next_reconnect: Instant,
+    mapped_inputs: Vec<u8>,
+    sparkplug_birth_published: bool,
+    sparkplug_sequence: u64,
+    worker: Option<MqttWorker>,
 }
 
 impl MqttIoDriver {
@@ -19,7 +23,20 @@ impl MqttIoDriver {
         factory: Arc<dyn MqttSessionFactory>,
     ) -> Result<Self, RuntimeError> {
         let config = MqttIoConfig::from_params(value)?;
-        Ok(Self {
+        let worker = Some(MqttWorker::start(config.clone(), Arc::clone(&factory)));
+        Ok(Self::from_config(config, factory, worker))
+    }
+
+    fn new_sync_for_worker(config: MqttIoConfig, factory: Arc<dyn MqttSessionFactory>) -> Self {
+        Self::from_config(config, factory, None)
+    }
+
+    fn from_config(
+        config: MqttIoConfig,
+        factory: Arc<dyn MqttSessionFactory>,
+        worker: Option<MqttWorker>,
+    ) -> Self {
+        Self {
             config,
             factory,
             session: None,
@@ -27,7 +44,11 @@ impl MqttIoDriver {
                 error: SmolStr::new("mqtt initializing"),
             },
             next_reconnect: Instant::now(),
-        })
+            mapped_inputs: Vec::new(),
+            sparkplug_birth_published: false,
+            sparkplug_sequence: 0,
+            worker,
+        }
     }
 
     pub fn validate_params(value: &toml::Value) -> Result<(), RuntimeError> {
@@ -39,6 +60,24 @@ impl MqttIoDriver {
         self.health = IoDriverHealth::Degraded {
             error: SmolStr::new(message.as_ref()),
         };
+    }
+
+    fn apply_error_policy(&mut self, err: RuntimeError) -> Result<(), RuntimeError> {
+        let message = SmolStr::new(err.to_string());
+        match self.config.on_error {
+            IoDriverErrorPolicy::Fault => {
+                self.health = IoDriverHealth::Faulted {
+                    error: message.clone(),
+                };
+                Err(err)
+            }
+            IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
+                self.health = IoDriverHealth::Degraded {
+                    error: message.clone(),
+                };
+                Ok(())
+            }
+        }
     }
 
     fn ensure_session(&mut self) -> Result<(), RuntimeError> {
@@ -56,6 +95,7 @@ impl MqttIoDriver {
                     ));
                 }
                 self.session = None;
+                self.sparkplug_birth_published = false;
             } else {
                 self.set_degraded("mqtt connecting");
                 return Err(RuntimeError::IoTransport("mqtt connecting".into()));
@@ -82,6 +122,7 @@ impl MqttIoDriver {
                     self.session = Some(session);
                     if connected {
                         self.health = IoDriverHealth::Ok;
+                        self.publish_sparkplug_birth_if_needed()?;
                         return Ok(());
                     }
                     if let Some(error) = last_error {
@@ -115,21 +156,21 @@ impl MqttIoDriver {
         }
     }
 
-    fn take_fresh_payload(&mut self) -> Result<Vec<u8>, RuntimeError> {
+    fn take_fresh_payloads(&mut self) -> Result<Vec<MqttInboundPayload>, RuntimeError> {
         let deadline = Instant::now() + MQTT_READY_TIMEOUT;
         loop {
-            let (payload, connected, last_error) = {
+            let (payloads, connected, last_error) = {
                 let Some(session) = self.session.as_mut() else {
                     return Err(RuntimeError::IoFreshness("mqtt session unavailable".into()));
                 };
                 (
-                    session.take_payload(),
+                    session.take_payloads(),
                     session.is_connected(),
                     session.last_error(),
                 )
             };
-            if let Some(payload) = payload {
-                return Ok(payload);
+            if !payloads.is_empty() {
+                return Ok(payloads);
             }
             if !connected {
                 let detail =
@@ -144,17 +185,83 @@ impl MqttIoDriver {
             thread::sleep(MQTT_READY_POLL);
         }
     }
+
+    fn next_sparkplug_sequence(&mut self) -> u64 {
+        let sequence = self.sparkplug_sequence % 256;
+        self.sparkplug_sequence = (self.sparkplug_sequence + 1) % 256;
+        sequence
+    }
+
+    fn publish_sparkplug_birth_if_needed(&mut self) -> Result<(), RuntimeError> {
+        if self.sparkplug_birth_published || self.config.sparkplug.is_none() {
+            return Ok(());
+        }
+        let sequence = self.next_sparkplug_sequence();
+        let sparkplug = self
+            .config
+            .sparkplug
+            .as_ref()
+            .expect("sparkplug was checked above");
+        let topic = sparkplug.nbirth_topic();
+        let payload =
+            encode_sparkplug_nbirth(sparkplug, &self.config.output_points, sequence);
+        let result = if let Some(session) = self.session.as_mut() {
+            session.publish(&topic, &payload)
+        } else {
+            Err(RuntimeError::IoTransport("mqtt session unavailable".into()))
+        };
+        if let Err(err) = result {
+            self.set_degraded(err.to_string());
+            self.session = None;
+            self.sparkplug_birth_published = false;
+            self.next_reconnect = Instant::now() + self.config.reconnect;
+            return Err(RuntimeError::IoTransport(err.to_string().into()));
+        }
+        self.sparkplug_birth_published = true;
+        Ok(())
+    }
 }
 
 impl IoDriver for MqttIoDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
-        if let Err(err) = self.ensure_session() {
-            return Err(RuntimeError::IoFreshness(err.to_string().into()));
+        if let Some(worker) = &self.worker {
+            return worker.read_inputs(inputs);
         }
-        let payload = self.take_fresh_payload()?;
-        inputs.fill(0);
-        for (dst, src) in inputs.iter_mut().zip(payload.iter()) {
-            *dst = *src;
+        if let Err(err) = self.ensure_session() {
+            return self.apply_error_policy(RuntimeError::IoFreshness(err.to_string().into()));
+        }
+        let payloads = match self.take_fresh_payloads() {
+            Ok(payloads) => payloads,
+            Err(err) => return self.apply_error_policy(err),
+        };
+        if self.config.input_points.is_empty() {
+            let payload = &payloads
+                .first()
+                .expect("take_fresh_payloads only returns a non-empty vector")
+                .payload;
+            inputs.fill(0);
+            for (dst, src) in inputs.iter_mut().zip(payload.iter()) {
+                *dst = *src;
+            }
+        } else {
+            if self.mapped_inputs.len() != inputs.len() {
+                self.mapped_inputs.resize(inputs.len(), 0);
+            }
+            for inbound in &payloads {
+                for point in self
+                .config
+                .input_points
+                .iter()
+                .filter(|point| point.topic.as_str() == inbound.topic.as_str())
+            {
+                    if let Err(err) =
+                        decode_mqtt_point(point, &inbound.payload, &mut self.mapped_inputs)
+                    {
+                        return self.apply_error_policy(err);
+                    }
+                }
+            }
+            inputs.copy_from_slice(&self.mapped_inputs);
         }
         if self
             .session
@@ -167,14 +274,47 @@ impl IoDriver for MqttIoDriver {
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
-        self.ensure_session()?;
+        if let Some(worker) = &self.worker {
+            return worker.write_outputs(outputs);
+        }
+        if let Err(err) = self.ensure_session() {
+            return self.apply_error_policy(err);
+        }
+        let output_publications = if self.config.output_points.is_empty() {
+            vec![(self.config.topic_out.clone(), outputs.to_vec())]
+        } else if self.config.sparkplug.is_some() {
+            let sequence = self.next_sparkplug_sequence();
+            let sparkplug = self
+                .config
+                .sparkplug
+                .as_ref()
+                .expect("sparkplug was checked above");
+            vec![(
+                SmolStr::new(sparkplug.ndata_topic()),
+                encode_sparkplug_ndata(&self.config.output_points, outputs, sequence)?,
+            )]
+        } else {
+            self.config
+                .output_points
+                .iter()
+                .map(|point| {
+                    encode_mqtt_point(point, outputs).map(|payload| (point.topic.clone(), payload))
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        };
         if let Some(session) = self.session.as_mut() {
-            if let Err(err) = session.publish(self.config.topic_out.as_str(), outputs) {
-                self.set_degraded(err.to_string());
-                self.session = None;
-                self.next_reconnect = Instant::now() + self.config.reconnect;
-                return Err(RuntimeError::IoTransport(err.to_string().into()));
-            } else if session.is_connected() {
+            for (topic, payload) in &output_publications {
+                if let Err(err) = session.publish(topic.as_str(), payload) {
+                    self.set_degraded(err.to_string());
+                    self.session = None;
+                    self.sparkplug_birth_published = false;
+                    self.next_reconnect = Instant::now() + self.config.reconnect;
+                    return self.apply_error_policy(RuntimeError::IoTransport(
+                        err.to_string().into(),
+                    ));
+                }
+            }
+            if session.is_connected() {
                 self.health = IoDriverHealth::Ok;
             }
         } else {
@@ -184,6 +324,9 @@ impl IoDriver for MqttIoDriver {
     }
 
     fn health(&self) -> IoDriverHealth {
+        if let Some(worker) = &self.worker {
+            return worker.health();
+        }
         self.health.clone()
     }
 }

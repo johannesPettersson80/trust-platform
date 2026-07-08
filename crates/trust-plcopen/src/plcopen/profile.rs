@@ -84,7 +84,7 @@ pub fn supported_profile() -> PlcopenProfile {
             PlcopenCompatibilityMatrixEntry {
                 capability: "Graphical bodies (FBD/LD/SFC) and advanced runtime deployment resources",
                 status: "unsupported",
-                notes: "ST-complete subset remains ST-only and does not import graphical networks or advanced deployment metadata semantics.",
+                notes: "ST-complete subset remains ST-only; graphical bodies are rejected with named diagnostics and are never scraped into synthesized ST.",
             },
             PlcopenCompatibilityMatrixEntry {
                 capability: "Vendor AOIs, advanced library semantics, and platform-specific pragmas",
@@ -108,7 +108,7 @@ pub fn supported_profile() -> PlcopenProfile {
             "Round-trip preserves unknown vendor addData as opaque fragments, not executable semantics.",
         ],
         known_gaps: vec![
-            "No import/export for SFC/LD/FBD bodies.",
+            "No import/export for SFC/LD/FBD bodies; imports reject them before emitting ST source.",
             "Vendor library shim coverage is limited to the published baseline alias catalog.",
             "No semantic translation for vendor-specific AOI/FB internal behavior beyond simple symbol remapping.",
             "Vendor-specific OOP objects beyond CODESYS methods (for example properties) are not yet semantically imported/exported.",

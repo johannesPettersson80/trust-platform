@@ -201,8 +201,9 @@ pub async fn workspace_symbol_with_progress(
 
     let result = workspace_symbol(state, params);
 
+    let streamed_partials = partial_token.is_some();
     if let Some(symbols) = result.as_ref() {
-        if partial_token.is_some() {
+        if streamed_partials {
             let total = symbols.len().max(1);
             let mut emitted = 0usize;
             for chunk in symbols.chunks(PARTIAL_CHUNK_SIZE) {
@@ -227,5 +228,9 @@ pub async fn workspace_symbol_with_progress(
         Some(format!("Found {count} symbol(s)")),
     )
     .await;
-    result
+    if streamed_partials {
+        result.map(|_| Vec::new())
+    } else {
+        result
+    }
 }

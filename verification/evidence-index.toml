@@ -1,0 +1,41 @@
+# Initial durable evidence index for the PLC verification program.
+
+[[evidence]]
+schema_version = 1
+id = "EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708"
+title = "Issue #93 OpenOT source-build dependency proof"
+area = "release"
+owner = "docs"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/source-build-openot-issue-93.md"
+command = "cargo metadata --format-version 1 --no-deps; cargo check -p trust-runtime --no-default-features; cargo check -p trust-runtime; cargo check -p trust-runtime --locked; bash -n scripts/checkout_openot_ref.sh"
+commit = "dirty:6a7492cae6af"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-08"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-08"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_PUBLIC_DOCS_TRUTH_SCAN_20260708_001"
+title = "Initial public-docs truth scan"
+area = "release"
+owner = "docs"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/public-docs-truth-scan-initial.md"
+command = "rg -n 'source-build|cargo build|one runtime|right wire|Supported platforms|behavior-locked|OpenOT' README.md docs/public docs/specs"
+commit = "dirty:6a7492cae6af"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-08"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-08"

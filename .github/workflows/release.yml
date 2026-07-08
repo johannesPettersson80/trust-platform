@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,14 +15,41 @@ env:
   RUSTC_WRAPPER: ""
 
 jobs:
+  release-preflight:
+    name: Release Preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+
+      - name: Validate workspace/extension version alignment
+        run: python3 scripts/check_release_version_alignment.py
+
+      - name: Validate tag and CI evidence
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/check_release_tag_preflight.py \
+            --tag "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}"
+
   runtime-vm-validation:
     name: Runtime VM Validation
+    needs: release-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
       - name: Checkout OpenOT reference sibling
-        run: git clone --depth 1 https://github.com/johannesPettersson80/open-ot-experiments ../open-ot-ref
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -53,6 +81,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.target }})
+    needs: release-preflight
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -79,7 +108,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Checkout OpenOT reference sibling
-        run: git clone --depth 1 https://github.com/johannesPettersson80/open-ot-experiments ../open-ot-ref
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -88,7 +119,7 @@ jobs:
 
       - name: Install cross (for cross-compilation)
         if: matrix.cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: cargo install cross --version 0.2.5 --locked
 
       - name: Build binaries
         run: |
@@ -280,6 +311,22 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          find vsix-artifacts runtime-artifacts trust-lsp-artifacts -type f \
+            \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \) \
+            -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Generate release body from changelog
+        run: |
+          python3 scripts/extract_changelog_section.py \
+            --section Unreleased \
+            --title "${{ github.ref_name }}" \
+            --output release-notes.md
+
       - name: Publish to VS Code Marketplace
         if: ${{ env.VSCE_PAT != '' }}
         shell: bash
@@ -334,7 +381,7 @@ jobs:
         run: echo "VSCE_PAT not set; skipping Marketplace publish"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             vsix-artifacts/*.vsix
@@ -342,4 +389,5 @@ jobs:
             runtime-artifacts/*.zip
             trust-lsp-artifacts/*.tar.gz
             trust-lsp-artifacts/*.zip
-          generate_release_notes: true
+            SHA256SUMS
+          body_path: release-notes.md

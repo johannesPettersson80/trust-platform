@@ -106,13 +106,15 @@ impl DebugAdapter {
             .unwrap_or_default();
 
         match self.reload_with_state(args) {
-            Ok(updated) => {
+            Ok((updated, restarted_runner)) => {
                 let events = updated
                     .into_iter()
                     .map(|breakpoint| self.breakpoint_event("changed", breakpoint))
                     .collect();
                 let mut events = events;
-                self.emit_io_state_event_from_runtime(&mut events);
+                if !restarted_runner {
+                    self.emit_io_state_event_from_runtime(&mut events);
+                }
                 DispatchOutcome {
                     responses: vec![self.ok_response::<Value>(&request, None)],
                     events,
@@ -130,7 +132,8 @@ impl DebugAdapter {
     fn reload_with_state(
         &mut self,
         args: ReloadArguments,
-    ) -> Result<Vec<crate::protocol::Breakpoint>, trust_runtime::harness::CompileError> {
+    ) -> Result<(Vec<crate::protocol::Breakpoint>, bool), trust_runtime::harness::CompileError>
+    {
         self.session.update_source_options(SourceOptionsUpdate {
             root: args.runtime_root.clone(),
             include_globs: args.runtime_include_globs.clone(),
@@ -155,6 +158,6 @@ impl DebugAdapter {
             }
         }
 
-        reload_result
+        reload_result.map(|breakpoints| (breakpoints, was_running))
     }
 }

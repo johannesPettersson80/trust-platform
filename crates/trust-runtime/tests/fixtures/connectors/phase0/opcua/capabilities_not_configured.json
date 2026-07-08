@@ -1,0 +1,26 @@
+[
+  {
+    "built": true,
+    "configured": false,
+    "detail": "OPC UA is not configured.",
+    "health": "not_configured",
+    "id": "opcua",
+    "next_action": {
+      "kind": "setup",
+      "label": "Set up OPC UA"
+    },
+    "operational": false
+  },
+  {
+    "built": true,
+    "configured": false,
+    "detail": "OPC UA client is not configured.",
+    "health": "not_configured",
+    "id": "opcua_client",
+    "next_action": {
+      "kind": "setup",
+      "label": "Set up OPC UA client"
+    },
+    "operational": false
+  }
+]

@@ -543,6 +543,41 @@ END_CONFIGURATION
 }
 
 #[test]
+fn test_var_access_global_name_collision_reports_duplicate_and_ambiguous() {
+    let errors = check_errors(
+        r#"
+VAR_GLOBAL
+    A1 : INT := INT#111;
+END_VAR
+
+PROGRAM Main
+VAR
+    source : INT := INT#7;
+    observed : INT := INT#0;
+END_VAR
+A1 := INT#55;
+observed := A1;
+END_PROGRAM
+
+CONFIGURATION Conf
+PROGRAM P1 : Main;
+VAR_ACCESS
+    A1 : P1.source : INT READ_WRITE;
+END_VAR
+END_CONFIGURATION
+"#,
+    );
+    assert!(
+        errors.contains(&DiagnosticCode::DuplicateDeclaration),
+        "expected duplicate declaration diagnostic for global/VAR_ACCESS name collision, got {errors:?}"
+    );
+    assert!(
+        errors.contains(&DiagnosticCode::CannotResolve),
+        "expected ambiguous VAR_ACCESS target diagnostic for global/VAR_ACCESS name collision, got {errors:?}"
+    );
+}
+
+#[test]
 fn test_var_config_undefined_target_error() {
     check_has_error(
         r#"

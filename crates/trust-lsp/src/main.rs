@@ -105,6 +105,7 @@ impl LanguageServer for StLanguageServer {
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
+                position_encoding: Some(PositionEncodingKind::UTF16),
                 // Text document sync - incremental updates
                 text_document_sync: Some(TextDocumentSyncCapability::Options(
                     TextDocumentSyncOptions {
@@ -409,7 +410,7 @@ impl LanguageServer for StLanguageServer {
         // sibling files (e.g. Types.st), surfacing as false-positive `cannot resolve
         // type` errors.
         self.state.wait_for_index_first_pass().await;
-        let result = handlers::document_diagnostic(&self.state, params);
+        let result = handlers::document_diagnostic_result(&self.state, params)?;
         self.state
             .record_telemetry(TelemetryEvent::Diagnostic, start.elapsed(), Some(&uri));
         Ok(result)
@@ -676,7 +677,7 @@ impl LanguageServer for StLanguageServer {
         let result = handlers::rename(&self.state, params);
         self.state
             .record_telemetry(TelemetryEvent::Rename, start.elapsed(), Some(&uri));
-        Ok(result)
+        result
     }
 
     async fn prepare_rename(
@@ -811,4 +812,23 @@ async fn main() {
 
     let (service, socket) = LspService::new(StLanguageServer::new);
     Server::new(stdin, stdout, socket).serve(service).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::test_client;
+
+    #[tokio::test]
+    async fn initialize_advertises_utf16_position_encoding() {
+        let server = StLanguageServer::new(test_client());
+        let result = server
+            .initialize(InitializeParams::default())
+            .await
+            .expect("initialize");
+        assert_eq!(
+            result.capabilities.position_encoding,
+            Some(PositionEncodingKind::UTF16)
+        );
+    }
 }

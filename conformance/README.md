@@ -1,19 +1,17 @@
-# Conformance Suite MVP (Deliverable 1)
+# Conformance Suite
 
 This directory defines the deterministic conformance suite contract for
 `trust-platform` and external runtime/tool comparisons.
 
-Week-1 scope in `docs/internal/community-request-roadmap.md` is implemented
-here:
+The original Deliverable 1 MVP remains available as the v1 contract. The
+expanded v2 contract is the current flagship suite used by CI for public
+language/runtime proof.
 
-- conformance scope is defined
-- MVP test categories are frozen
-- pass/fail summary contract format is defined
-- naming rules are defined
+## Contract Versions
 
-## Frozen MVP Categories
+### v1 Frozen Categories
 
-The Deliverable 1 MVP categories are fixed to:
+The v1 contract is frozen to the six Deliverable 1 categories:
 
 1. `timers`
 2. `edges`
@@ -22,8 +20,27 @@ The Deliverable 1 MVP categories are fixed to:
 5. `arithmetic`
 6. `memory_map`
 
-No additional category is added to MVP without updating this README and the
-contract docs in the same change.
+Suites containing only these categories continue to emit
+`trust-conformance-v1` summaries compatible with
+`conformance/schemas/summary-v1.schema.json`.
+
+### v2 Expanded Categories
+
+The v2 suite extends v1 with:
+
+7. `strings`
+8. `arrays`
+9. `structs`
+10. `enums`
+11. `nested_values`
+12. `oop_dispatch`
+13. `references`
+14. `retain_matrix`
+15. `scheduler`
+16. `comms_determinism`
+
+Suites containing any expanded category emit `trust-conformance-v2` summaries
+compatible with `conformance/schemas/summary-v2.schema.json`.
 
 ## Repository Layout
 
@@ -34,6 +51,7 @@ conformance/
   naming.md
   schemas/
     summary-v1.schema.json
+    summary-v2.schema.json
   cases/
     <category>/
       <case_id>/
@@ -43,21 +61,29 @@ conformance/
     <category>/
       <case_id>.json
   reports/
-    <generated summaries>
+    .gitkeep
 ```
 
-## Determinism Contract (MVP)
+Generated reports are CI/local artifacts and are not committed under
+`conformance/reports/`.
+
+## Determinism Contract
 
 - Case execution order is lexicographic by `case_id`.
 - Inputs and expected outputs are versioned in-repo.
 - A case only passes when observed results match expected artifacts exactly.
-- Output summaries must comply with `conformance/schemas/summary-v1.schema.json`.
+- Output summaries must comply with the schema matching the emitted
+  `version`/`profile`.
+- Communication determinism cases use simulated or loopback state transitions
+  only. They must not depend on live sockets, brokers, PLCs, or fieldbus
+  hardware.
 
 ## Documents
 
 - Contract: `conformance/contract.md`
 - Naming rules: `conformance/naming.md`
-- Summary schema: `conformance/schemas/summary-v1.schema.json`
+- Summary schemas: `conformance/schemas/summary-v1.schema.json`,
+  `conformance/schemas/summary-v2.schema.json`
 - Failure taxonomy: `conformance/failure-taxonomy.md`
 - External run guide: `conformance/external-run-guide.md`
 - Known gaps: `conformance/known-gaps.md`
@@ -80,7 +106,7 @@ trust-runtime conformance --suite-root conformance
 Optional output override:
 
 ```bash
-trust-runtime conformance --suite-root conformance --output conformance/reports/local-summary.json
+trust-runtime conformance --suite-root conformance --output target/conformance/local-summary.json
 ```
 
 Runner exits non-zero when any case is `failed` or `error`.

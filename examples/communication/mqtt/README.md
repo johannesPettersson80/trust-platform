@@ -51,6 +51,53 @@ Field intent:
 - `keep_alive_s`: session liveness interval.
 - `allow_insecure_remote`: blocks unsafe remote configuration.
 
+By default, MQTT payloads are raw process-image bytes. If the broker uses typed
+scalar topics instead, add explicit point maps:
+
+```toml
+[[io.params.input_points]]
+topic = "trust/examples/mqtt/in/di0"
+image_offset = 0
+image_bit = 0
+data_type = "bool"
+payload_format = "json"
+
+[[io.params.output_points]]
+topic = "trust/examples/mqtt/out/do0"
+image_offset = 0
+image_bit = 0
+data_type = "bool"
+payload_format = "json"
+```
+
+Point maps also support `u16`, `i16`, `u32`, `i32`, and `f32` values with
+`text`, `json`, `binary_le`, or `binary_be` payloads and optional
+`scale`/`offset`.
+
+For Sparkplug B outbound node metrics, add a Sparkplug profile and stable metric
+names to typed output points:
+
+```toml
+[io.params.sparkplug]
+enabled = true
+namespace = "spBv1.0"
+spec_version = "3.0.0"
+group_id = "trust-examples"
+edge_node_id = "mqtt-runtime"
+
+[[io.params.output_points]]
+topic = "trust/examples/mqtt/out/do0"
+metric_name = "do0"
+image_offset = 0
+image_bit = 0
+data_type = "bool"
+payload_format = "json"
+```
+
+This publishes NBIRTH on connect, NDEATH as the MQTT last will, and NDATA for
+typed output metrics. It does not subscribe to Sparkplug commands or publish
+device-level DBIRTH/DDATA topics.
+
 ## Step 3: Validate config
 
 Why: detect missing mandatory fields and invalid values early.

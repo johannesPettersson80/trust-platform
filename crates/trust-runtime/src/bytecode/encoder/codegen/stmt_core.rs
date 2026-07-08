@@ -127,6 +127,10 @@ impl<'a> BytecodeEncoder<'a> {
         };
 
         if !emitted {
+            if stmt_is_intentional_nop(stmt) {
+                code.push(0x00);
+                return Ok(());
+            }
             if stmt_contains_c1_required_call(stmt) {
                 return Err(BytecodeError::InvalidSection(
                     format!("unsupported C1 CALL_NATIVE lowering path: {:?}", stmt).into(),
@@ -137,7 +141,9 @@ impl<'a> BytecodeEncoder<'a> {
                     "unsupported C5 edge-case lowering path".into(),
                 ));
             }
-            code.push(0x00);
+            return Err(BytecodeError::InvalidSection(
+                format!("unsupported bytecode lowering path: {:?}", stmt).into(),
+            ));
         }
         Ok(())
     }
@@ -205,6 +211,13 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(true)
     }
 
+}
+
+fn stmt_is_intentional_nop(stmt: &crate::program_model::Stmt) -> bool {
+    matches!(
+        stmt,
+        crate::program_model::Stmt::Label { stmt: None, .. }
+    )
 }
 
 fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {

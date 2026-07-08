@@ -48,6 +48,7 @@ function mapFleetRuntime(rt: NetworkCanvasFleetRuntime): NCRuntime {
       detail: ep.detail,
       dimmed: ep.dimmed,
       live: ep.live,
+      connector: ep.connector,
       params: ep.params,
       category: ep.category,
       profile: ep.profile,
@@ -226,7 +227,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
 function mapTopoRuntime(rt: FleetTopologyRuntime): NCRuntime {
   return {
     id: rt.runtime_id,
-    name: rt.name,
+    name: topologyRuntimeDisplayName(rt),
     mode: rt.mode,
     health: rt.health,
     detail: rt.detail,
@@ -241,6 +242,7 @@ function mapTopoRuntime(rt: FleetTopologyRuntime): NCRuntime {
       detail: ep.detail,
       dimmed: false,
       live: ep.live,
+      connector: ep.connector,
       params: ep.params,
       category: ep.category,
       profile: ep.profile,
@@ -248,6 +250,22 @@ function mapTopoRuntime(rt: FleetTopologyRuntime): NCRuntime {
       children: ep.children ? ep.children.map((s) => ({ ...s })) : undefined,
     })),
   };
+}
+
+function topologyRuntimeDisplayName(rt: FleetTopologyRuntime): string {
+  const mode = rt.mode.trim().toLowerCase();
+  const rawName = rt.name.trim();
+  const runtimeId = rt.runtime_id.trim().toLowerCase();
+  if (
+    runtimeId === "runtime:local" ||
+    runtimeId === "runtime:project" ||
+    runtimeId === "resource" ||
+    /^resource$/i.test(rawName) ||
+    /^local simulator$/i.test(rawName)
+  ) {
+    return "Simulator";
+  }
+  return rawName || "Runtime";
 }
 
 // Host roll-up: green ONLY if every runtime is connected (never fabricate green).

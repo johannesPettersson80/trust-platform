@@ -16,6 +16,23 @@ import {
 
 export const CHECK_PROGRAM_COMMAND = "trust-lsp.checkProgram";
 const TRUST_DIAGNOSTIC_SOURCE = "truST";
+const EXPECTED_CHECK_REPORT_VERSION = 1;
+const RUNTIME_PATH_SETTING = "trust.runtime.executablePath";
+
+type CheckLaunchFailureKind =
+  | "missing_binary"
+  | "version_mismatch"
+  | "unavailable";
+
+interface CheckLaunchFailure {
+  readonly kind: CheckLaunchFailureKind;
+  readonly message: string;
+}
+
+interface CheckRunResult {
+  readonly response?: CheckProgramResponse;
+  readonly failure?: CheckLaunchFailure;
+}
 
 let collection: vscode.DiagnosticCollection | undefined;
 const didCheckProgramEmitter = new vscode.EventEmitter<CheckProgramResponse>();
@@ -72,24 +89,60 @@ function projectRoot(): vscode.Uri | undefined {
 function runCheck(
   context: vscode.ExtensionContext,
   root: string
-): Promise<CheckProgramResponse | undefined> {
+): Promise<CheckRunResult> {
   const binary = getBinaryPath(context, "trust-runtime", "runtime.cli.path");
   return new Promise((resolve) => {
     execFile(
       binary,
       ["check", "--project", root, "--json"],
       { cwd: root, timeout: 60_000, maxBuffer: 32 * 1024 * 1024 },
-      (_error, stdout) => {
+      (error, stdout, stderr) => {
         // `check` exits non-zero when the project fails — but still prints the JSON report to stdout,
         // so parse stdout regardless of exit code; only a missing/old binary yields no JSON.
         try {
-          resolve(JSON.parse(stdout) as CheckProgramResponse);
+          const response = JSON.parse(stdout) as CheckProgramResponse;
+          const version = response.version;
+          if (version !== EXPECTED_CHECK_REPORT_VERSION) {
+            resolve({ failure: versionMismatchFailure(version) });
+            return;
+          }
+          resolve({ response });
         } catch {
-          resolve(undefined);
+          resolve({ failure: launchFailure(error, stderr) });
         }
       }
     );
   });
+}
+
+function versionMismatchFailure(version: number | undefined): CheckLaunchFailure {
+  const found = typeof version === "number" ? String(version) : "missing";
+  return {
+    kind: "version_mismatch",
+    message: `Runtime mismatch v${found} != v${EXPECTED_CHECK_REPORT_VERSION}. Update truST.`,
+  };
+}
+
+function launchFailure(
+  error: Error | null,
+  stderr: string
+): CheckLaunchFailure {
+  const detail = `${error?.message ?? ""} ${stderr ?? ""}`.trim();
+  const lower = detail.toLowerCase();
+  if (
+    lower.includes("enoent") ||
+    lower.includes("not found") ||
+    lower.includes("no such file")
+  ) {
+    return {
+      kind: "missing_binary",
+      message: "Missing trust-runtime. Set Runtime path.",
+    };
+  }
+  return {
+    kind: "unavailable",
+    message: `Could not compile because the trust-runtime tools are unavailable. Set '${RUNTIME_PATH_SETTING}' or reinstall truST.`,
+  };
 }
 
 async function runAndReport(
@@ -107,24 +160,25 @@ async function runAndReport(
     { location: vscode.ProgressLocation.Window, title: "truST: compiling…" },
     () => runCheck(context, root.fsPath)
   );
-  if (!response) {
+  if (!response.response) {
     clearCompileStatusMessage();
     void vscode.window.showWarningMessage(
-      "Could not compile the project (the trust-runtime tools aren't available)."
+      response.failure?.message ??
+        `Could not compile because the trust-runtime tools are unavailable. Set '${RUNTIME_PATH_SETTING}' or reinstall truST.`
     );
     return undefined;
   }
 
-  applyDiagnostics(root, response);
-  didCheckProgramEmitter.fire(response);
+  applyDiagnostics(root, response.response);
+  didCheckProgramEmitter.fire(response.response);
   const summary = summarizeCheck(
-    response,
-    response.ok ? undefined : visibleProblemCounts(root)
+    response.response,
+    response.response.ok ? undefined : visibleProblemCounts(root)
   );
   clearCompileStatusMessage();
   lastCompileStatusMessage = vscode.window.setStatusBarMessage(summary, 8_000);
-  if (response.ok) {
-    return response;
+  if (response.response.ok) {
+    return response.response;
   } else {
     void vscode.window
       .showWarningMessage(summary, "Show Problems")
@@ -134,7 +188,7 @@ async function runAndReport(
         }
       });
   }
-  return response;
+  return response.response;
 }
 
 function clearCompileStatusMessage(): void {

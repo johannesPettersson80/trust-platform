@@ -12,8 +12,11 @@ import {
   offlineTopologyForTarget,
   type FleetTopologyResponse,
 } from "../../networkCanvas/fleetTopology";
+import { ensureAdsRuntimeEnabled } from "../../networkCanvas/offlineComm";
+import { mergeConnectorStatusIntoTopology } from "../../networkCanvas/connectorsStatus";
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
 import { buildGraph } from "../../networkCanvas/webview/layout";
+import type { EndpointNodeData } from "../../networkCanvas/webview/types";
 import type { RuntimeTarget } from "../../runtimeTarget";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
@@ -21,6 +24,13 @@ import { ADD_PICKER_GROUPS, groupForAddPicker } from "../../networkCanvas/webvie
 import { applyFilter, filterReport } from "../../networkCanvas/webview/filter";
 import { buildExposeApplyParams } from "../../networkCanvas/exposeConfig";
 import { commTestMessage } from "../../communication/runtimeComm";
+import {
+  connectorConnectionLabel,
+  connectorHealthLabel,
+  connectorSignalsSummary,
+  discoveryConfidenceLabel,
+  discoverySourceLabel,
+} from "../../networkCanvas/webview/connectorPresentation";
 import {
   validateSchemaValues,
   visibleSchemaFields,
@@ -192,6 +202,109 @@ suite("Network Canvas", function () {
     );
     assert.strictEqual(mqtt?.health, "degraded", "raw health preserved");
     assert.strictEqual(mqtt?.dimmed, true, "non-match dimmed for display only");
+  });
+
+  test("connector status surface flows into endpoint graph metadata", () => {
+    const topology = mergeConnectorStatusIntoTopology(fleetTopology(), {
+      schema_version: 1,
+      connectors: [
+        {
+          connector_id: "io:modbus-tcp",
+          protocol: "modbus_tcp",
+          kind: "process_image",
+          state: "ready",
+          health: "ok",
+          confidence: "confirmed",
+          point_counts: { total: 4, good: 4, degraded: 0, unavailable: 0 },
+        },
+        {
+          connector_id: "io:mqtt",
+          protocol: "mqtt",
+          kind: "process_image",
+          state: "stale",
+          health: "degraded",
+          confidence: "port_reachable",
+          point_counts: { total: 3, good: 1, degraded: 1, unavailable: 1 },
+        },
+      ],
+    });
+    assert.ok(topology, "topology should remain present after connector merge");
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology,
+    });
+    const graph = buildCanvasGraph(model, topology);
+    const rendered = buildGraph(graph, undefined, false);
+    const modbus = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:modbus_tcp");
+    const mqtt = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:mqtt");
+    const modbusData = modbus?.data as EndpointNodeData | undefined;
+    const mqttData = mqtt?.data as EndpointNodeData | undefined;
+    assert.strictEqual(modbusData?.connector?.state, "ready");
+    assert.strictEqual(modbusData?.connector?.health, "ok");
+    assert.strictEqual(modbusData?.connector?.confidence, "confirmed");
+    assert.deepStrictEqual(modbusData?.connector?.point_counts, {
+      total: 4,
+      good: 4,
+      degraded: 0,
+      unavailable: 0,
+    });
+    assert.strictEqual(mqttData?.connector?.state, "stale");
+    assert.strictEqual(mqttData?.connector?.health, "degraded");
+    assert.strictEqual(mqttData?.connector?.confidence, "port_reachable");
+    assert.deepStrictEqual(mqttData?.connector?.point_counts, {
+      total: 3,
+      good: 1,
+      degraded: 1,
+      unavailable: 1,
+    });
+  });
+
+  test("ADS tag import enables the runtime ADS subsystem", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-runtime-"));
+    try {
+      fs.writeFileSync(
+        path.join(dir, "runtime.toml"),
+        [
+          "[bundle]",
+          "version = 1",
+          "",
+          "[resource]",
+          'name = "Simulator"',
+          "cycle_interval_ms = 50",
+          "",
+          "[runtime.ads]",
+          "enabled = false",
+          'config_path = "old-ads.toml"',
+          "",
+        ].join("\n")
+      );
+      const result = ensureAdsRuntimeEnabled(dir);
+      assert.deepStrictEqual(result.ok, true);
+      const runtimeToml = fs.readFileSync(path.join(dir, "runtime.toml"), "utf8");
+      assert.match(runtimeToml, /\[runtime\.ads\]/);
+      assert.match(runtimeToml, /^enabled = true$/m);
+      assert.match(runtimeToml, /^config_path = "ads\.toml"$/m);
+      assert.match(runtimeToml, /^worker_tick_interval_ms = 20$/m);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("connector status presentation uses first-user vocabulary", () => {
+    assert.strictEqual(connectorConnectionLabel("ready"), "Ready");
+    assert.strictEqual(connectorConnectionLabel("not_ready"), "Needs attention");
+    assert.strictEqual(connectorHealthLabel("ok"), "OK");
+    assert.strictEqual(connectorHealthLabel("degraded"), "Degraded");
+    assert.strictEqual(discoveryConfidenceLabel("port_reachable"), "Port reachable only");
+    assert.strictEqual(discoverySourceLabel("tcp_connect"), "Known address");
+    assert.strictEqual(
+      connectorSignalsSummary({ good: 1, degraded: 1, unavailable: 1 }),
+      "1 good, 2 need attention"
+    );
+    assert.ok(!discoveryConfidenceLabel("port_reachable").includes("tcp-only"));
+    assert.ok(!discoveryConfidenceLabel("port_reachable").includes("port_reachable"));
+    assert.ok(!discoverySourceLabel("tcp_connect").includes("tcp_connect"));
   });
 
   test("fleet search dims external counterparts and wires without hiding warnings", () => {
@@ -691,6 +804,38 @@ suite("Network Canvas", function () {
           value: "127.0.0.1:48898 · AMS Net ID 127.0.0.1.1.1 · ADS port 851",
         },
         { label: "Connected clients", value: "2 clients connected" },
+        { label: "Verification", value: "Self-test available; no external client verified" },
+      ]
+    );
+    assert.deepStrictEqual(
+      serverEndpointSummaryRows(
+        "ads_server",
+        {
+          listen: "127.0.0.1:48898",
+          ams_net_id: "127.0.0.1.1.1",
+          ads_port: 851,
+        },
+        {
+          value: {
+            connected_clients: 0,
+            proof_status: "external_client_verified",
+            external_client_verified: true,
+            external_client_kind: "loopback-ads-client",
+            external_client_name: "trust-runtime-doctor",
+          },
+          last_seen_ms: 12,
+        }
+      ),
+      [
+        {
+          label: "Server endpoint",
+          value: "127.0.0.1:48898 · AMS Net ID 127.0.0.1.1.1 · ADS port 851",
+        },
+        { label: "Connected clients", value: "0 clients connected" },
+        {
+          label: "Verification",
+          value: "Verified by loopback-ads-client trust-runtime-doctor",
+        },
       ]
     );
   });
@@ -724,7 +869,16 @@ suite("Network Canvas", function () {
                   role: "server",
                   health: "connected",
                   detail: "ADS server runtime is active and listening.",
-                  live: { value: { connected_clients: 3 }, last_seen_ms: 99 },
+                  live: {
+                    value: {
+                      connected_clients: 3,
+                      proof_status: "external_client_verified",
+                      external_client_verified: true,
+                      external_client_kind: "loopback-ads-client",
+                      external_client_name: "trust-runtime-doctor",
+                    },
+                    last_seen_ms: 99,
+                  },
                   params: {
                     listen: "127.0.0.1:48898",
                     ams_net_id: "127.0.0.1.1.1",
@@ -747,11 +901,26 @@ suite("Network Canvas", function () {
     const model = buildNetworkCanvasModel({ topology });
     const canvas = buildCanvasGraph(model, topology);
     const endpoint = canvas.hosts[0]?.runtimes[0]?.endpoints[0];
-    assert.deepStrictEqual(endpoint?.live?.value, { connected_clients: 3 });
+    assert.deepStrictEqual(endpoint?.live?.value, {
+      connected_clients: 3,
+      proof_status: "external_client_verified",
+      external_client_verified: true,
+      external_client_kind: "loopback-ads-client",
+      external_client_name: "trust-runtime-doctor",
+    });
 
     const graph = buildGraph(canvas);
     const node = graph.nodes.find((item) => item.id === "endpoint:ads-server");
-    assert.deepStrictEqual(node?.data.live, { value: { connected_clients: 3 }, last_seen_ms: 99 });
+    assert.deepStrictEqual(node?.data.live, {
+      value: {
+        connected_clients: 3,
+        proof_status: "external_client_verified",
+        external_client_verified: true,
+        external_client_kind: "loopback-ads-client",
+        external_client_name: "trust-runtime-doctor",
+      },
+      last_seen_ms: 99,
+    });
   });
 
   test("ADS client links label the external counterpart as an ADS server", () => {
@@ -834,6 +1003,11 @@ suite("Network Canvas", function () {
     assert.strictEqual(report.hiddenFaultCount, 1);
     assert.strictEqual(report.hiddenWarningCount, 1);
     assert.strictEqual(report.hiddenErrorCount, 0);
+    assert.strictEqual(
+      filtered.summary,
+      "1 host · 1 runtime · 1 endpoint",
+      "footer summary follows visible endpoint nodes after filtering"
+    );
   });
 
   // --- Multi-runtime merge (§10/§12.10) ------------------------------------
@@ -896,6 +1070,119 @@ suite("Network Canvas", function () {
       merged.shared.find((s) => s.id === "S1")?.used_by.slice().sort(),
       ["A", "B"],
       "shared.used_by is unioned"
+    );
+  });
+
+  test("mergeFleetTopologies keeps configured endpoints on the same live runtime", () => {
+    const runtime = (endpoints: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"]): FleetTopologyResponse["hosts"][number]["runtimes"][number] => ({
+      runtime_id: "RESOURCE",
+      name: "Simulator",
+      mode: "online",
+      cycle_ms: 50,
+      health: "connected",
+      detail: "Running.",
+      endpoints,
+    });
+    const host = (endpoints: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"]): FleetTopologyResponse["hosts"][number] => ({
+      host_id: "host:local",
+      hostname: "This computer",
+      arch: "aarch64",
+      os: "linux",
+      ips: ["127.0.0.1"],
+      containers: [],
+      runtimes: [runtime(endpoints)],
+    });
+    const simulated = {
+      id: "endpoint:RESOURCE:simulated",
+      kind: "field",
+      protocol: "simulated",
+      name: "Simulated I/O",
+      role: "owned_driver",
+      health: "connected",
+      detail: "Running.",
+      owned: true,
+      supports_test: true,
+    };
+    const ads = {
+      id: "endpoint:RESOURCE:ads",
+      kind: "service",
+      protocol: "ads",
+      name: "ADS client",
+      role: "supervisory_client",
+      health: "configured_policy",
+      detail: "Configured in ads.toml. Restart the runtime to load it.",
+      owned: true,
+      supports_test: true,
+    };
+    const merged = mergeFleetTopologies([
+      { schema_version: 4, hosts: [host([simulated])], links: [], shared: [], external: [] },
+      { schema_version: 4, hosts: [host([ads])], links: [], shared: [], external: [] },
+    ]);
+
+    const endpoints = merged.hosts[0]?.runtimes[0]?.endpoints ?? [];
+    assert.deepStrictEqual(
+      endpoints.map((endpoint) => endpoint.id).sort(),
+      ["endpoint:RESOURCE:ads", "endpoint:RESOURCE:simulated"],
+      "same-runtime live topology keeps configured endpoints waiting for restart"
+    );
+  });
+
+  test("configured ADS overlay on a live simulator says restart required, not stopped", () => {
+    const topology: FleetTopologyResponse = {
+      schema_version: 4,
+      hosts: [
+        {
+          host_id: "host:local",
+          hostname: "raspberrypi",
+          arch: "aarch64",
+          os: "linux",
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "ADS live TwinCAT",
+              name: "ADS live TwinCAT",
+              mode: "simulate",
+              cycle_ms: 50,
+              health: "simulate",
+              detail: "Runtime answered fleet.topology from its control channel.",
+              endpoints: [
+                {
+                  id: "endpoint:ADS live TwinCAT:ads",
+                  kind: "service",
+                  protocol: "ads",
+                  name: "ADS client",
+                  role: "client",
+                  health: "configured_policy",
+                  detail: "Configured in ADS project config; runtime is not running.",
+                  owned: true,
+                  supports_test: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology,
+    });
+    const runtime = model.fleet?.hosts[0]?.runtimes[0];
+    assert.strictEqual(
+      runtime?.health,
+      "simulate",
+      "a running simulator must not become Stopped because a new ADS endpoint needs restart"
+    );
+    assert.match(
+      runtime?.endpoints[0]?.detail ?? "",
+      /restart the runtime to apply/i,
+      "the configured endpoint should tell the user to restart/apply, not claim the runtime is not running"
     );
   });
 
@@ -1047,6 +1334,177 @@ suite("Network Canvas", function () {
       undefined
     );
     assert.strictEqual(graph.hosts[0].runtimes[0].health, "connected");
+  });
+
+  test("a live local simulator topology replaces the stopped project overlay instead of twinning", () => {
+    const liveTopology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "host:this-computer",
+          hostname: os.hostname(),
+          arch: process.arch,
+          os: process.platform,
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "RESOURCE",
+              name: "RESOURCE",
+              control_endpoint: "unix:///tmp/trust-local-sim.sock",
+              mode: "simulate",
+              cycle_ms: 20,
+              health: "simulate",
+              detail: "Online",
+              source: "self",
+              endpoints: [
+                {
+                  id: "endpoint:live:simulated",
+                  kind: "field",
+                  protocol: "simulated",
+                  name: "Simulated I/O",
+                  role: "owned_driver",
+                  health: "connected",
+                  detail: "Live",
+                  owned: true,
+                  supports_test: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    const offlineProjectTopology: FleetTopologyResponse = {
+      schema_version: 4,
+      hosts: [
+        {
+          host_id: "host:this-computer",
+          hostname: os.hostname(),
+          arch: process.arch,
+          os: process.platform,
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "ADS live TwinCAT",
+              name: "ADS live TwinCAT",
+              control_endpoint: "unix:///tmp/trust-local-sim.sock",
+              mode: "stopped",
+              cycle_ms: 20,
+              health: "configured_policy",
+              detail: "Configured in project files; runtime is not running.",
+              source: "config",
+              endpoints: [
+                {
+                  id: "endpoint:ADS live TwinCAT:simulated",
+                  kind: "field",
+                  protocol: "simulated",
+                  name: "Simulated I/O",
+                  role: "owned_driver",
+                  health: "configured_policy",
+                  detail: "Configured in io.toml; runtime is not running.",
+                  owned: true,
+                  supports_test: true,
+                  source: "config",
+                },
+                {
+                  id: "endpoint:ADS live TwinCAT:ads",
+                  kind: "service",
+                  protocol: "ads",
+                  name: "ADS client",
+                  role: "client",
+                  health: "configured_policy",
+                  detail: "Configured in ADS project config; runtime is not running.",
+                  owned: true,
+                  supports_test: true,
+                  source: "config",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    const merged = mergeFleetTopologies([liveTopology, offlineProjectTopology]);
+
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel({
+        stage: "runtime_live",
+        runtime: RUNNING,
+        topology: merged,
+      }),
+      merged
+    );
+
+    assert.strictEqual(graph.hosts.length, 1, "local simulator stays on one host");
+    assert.strictEqual(graph.summary, "1 host · 1 runtime · 2 endpoints");
+    const runtimes = graph.hosts[0].runtimes;
+    assert.strictEqual(runtimes.length, 1, "one local simulator runtime, not RESOURCE + configured project twin");
+    assert.strictEqual(runtimes[0].name, "Simulator", "ST resource names must not replace the run target");
+    assert.strictEqual(runtimes[0].health, "connected");
+    assert.strictEqual(
+      runtimes[0].endpoints.filter((endpoint) => endpoint.protocol === "simulated").length,
+      1,
+      "the project-file overlay must not duplicate the already-live Simulated I/O endpoint"
+    );
+    assert.ok(
+      runtimes[0].endpoints.some((endpoint) => endpoint.protocol === "ads"),
+      "configured ADS endpoint stays visible while it waits for restart"
+    );
+    assert.match(
+      runtimes[0].endpoints.find((endpoint) => endpoint.protocol === "ads")?.detail ?? "",
+      /restart the runtime to apply/i,
+      "pending ADS endpoint explains the required restart"
+    );
+  });
+
+  test("a live local simulator topology hides raw ST resource names even when mode is missing", () => {
+    const liveTopology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "host:this-computer",
+          hostname: os.hostname(),
+          arch: process.arch,
+          os: process.platform,
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "RESOURCE",
+              name: "RESOURCE",
+              control_endpoint: "unix:///tmp/trust-local-sim.sock",
+              mode: "",
+              cycle_ms: 20,
+              health: "connected",
+              detail: "Online",
+              endpoints: [],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel({
+        stage: "runtime_live",
+        runtime: RUNNING,
+        topology: liveTopology,
+      }),
+      liveTopology
+    );
+
+    assert.strictEqual(graph.hosts[0].runtimes[0].name, "Simulator");
   });
 
   test("managed local runtimes are injected under the existing This computer host", () => {

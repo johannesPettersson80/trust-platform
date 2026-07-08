@@ -261,3 +261,102 @@ console.log('ok');
 "#;
     run_node_hmi_script(&js_path, script, "widget renderer null/stale/good coverage");
 }
+
+#[test]
+fn hmi_connector_summary_renders_shared_status_contract() {
+    let js_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/web/ui/hmi.js");
+    let script = r#"
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+
+class ClassList {
+  constructor() { this.values = new Set(); }
+  add(...names) { for (const name of names) { if (name) { this.values.add(String(name)); } } }
+  remove(...names) { for (const name of names) { this.values.delete(String(name)); } }
+  contains(name) { return this.values.has(String(name)); }
+}
+
+class FakeElement {
+  constructor(id) {
+    this.id = id;
+    this.textContent = '';
+    this.title = '';
+    this.classList = new ClassList();
+  }
+}
+
+const elements = new Map();
+for (const id of ['connectorSummaryState']) {
+  elements.set(id, new FakeElement(id));
+}
+
+const noop = () => {};
+const sourcePath = process.env.HMI_JS_PATH;
+const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__hmi_test__ = { state, updateConnectorStatusSummary, markConnectorStatusUnavailable };';
+const context = {
+  console,
+  URLSearchParams,
+  window: {
+    location: { protocol: 'http:', host: '127.0.0.1:7777', search: '' },
+    addEventListener: noop,
+    setInterval: () => 1,
+    clearInterval: noop,
+    setTimeout: () => 1,
+    clearTimeout: noop,
+    innerWidth: 1280,
+  },
+  document: {
+    createElement: () => new FakeElement('node'),
+    createElementNS: () => new FakeElement('node'),
+    getElementById: (id) => elements.get(id) || null,
+    body: { classList: new ClassList() },
+    documentElement: { style: { setProperty: noop, removeProperty: noop } },
+  },
+  fetch: async () => { throw new Error('unexpected fetch'); },
+  DOMParser: class {
+    parseFromString() {
+      return { querySelector: () => null, documentElement: null };
+    }
+  },
+};
+vm.createContext(context);
+vm.runInContext(source, context, { filename: 'hmi.js' });
+
+const test = context.__hmi_test__;
+test.updateConnectorStatusSummary({
+  connectors: [
+    {
+      state: 'ready',
+      health: 'ok',
+      confidence: 'confirmed',
+      point_counts: { total: 3, good: 2, degraded: 1, unavailable: 0 },
+    },
+    {
+      state: 'not_ready',
+      health: 'unknown',
+      confidence: 'port_reachable',
+      point_counts: { total: 1, good: 0, degraded: 0, unavailable: 1 },
+    },
+  ],
+});
+
+assert.strictEqual(elements.get('connectorSummaryState').textContent, 'Connections: 1 ready, 1 needs attention');
+assert.ok(elements.get('connectorSummaryState').classList.contains('stale'));
+assert.ok(elements.get('connectorSummaryState').title.includes('Connection: 1 ready, 1 needs attention'));
+assert.ok(elements.get('connectorSummaryState').title.includes('Verification: 1 confirmed, 1 port reachable only'));
+assert.ok(elements.get('connectorSummaryState').title.includes('Signals: 2 good, 2 need attention'));
+assert.ok(!elements.get('connectorSummaryState').textContent.includes('proof'));
+assert.ok(!elements.get('connectorSummaryState').textContent.includes('tcp-only'));
+
+test.markConnectorStatusUnavailable(new Error('control timeout'));
+assert.strictEqual(elements.get('connectorSummaryState').textContent, 'Connections: unavailable');
+assert.ok(elements.get('connectorSummaryState').title.includes('control timeout'));
+console.log('ok');
+"#;
+    run_node_hmi_script(
+        &js_path,
+        script,
+        "connector status summary contract rendering",
+    );
+}

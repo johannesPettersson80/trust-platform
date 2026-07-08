@@ -7,6 +7,8 @@ pub struct IoInterface {
     hierarchical: std::collections::HashMap<IoAddressKey, Value>,
 }
 
+pub const PROCESS_IMAGE_AREA_LIMIT: usize = 16 * 1024 * 1024;
+
 impl IoInterface {
     #[must_use]
     pub fn new() -> Self {
@@ -20,9 +22,24 @@ impl IoInterface {
 
     /// Resize the process image buffers.
     pub fn resize(&mut self, inputs: usize, outputs: usize, memory: usize) {
+        self.try_resize(inputs, outputs, memory)
+            .expect("process image resize exceeds runtime cap");
+    }
+
+    /// Resize the process image buffers with runtime cap validation.
+    pub fn try_resize(
+        &mut self,
+        inputs: usize,
+        outputs: usize,
+        memory: usize,
+    ) -> Result<(), RuntimeError> {
+        validate_process_image_area_len("input", inputs)?;
+        validate_process_image_area_len("output", outputs)?;
+        validate_process_image_area_len("memory", memory)?;
         self.inputs.resize(inputs, 0);
         self.outputs.resize(outputs, 0);
         self.memory.resize(memory, 0);
+        Ok(())
     }
 
     /// Access the raw input image.
@@ -294,7 +311,7 @@ impl IoInterface {
         match address.size {
             IoSize::Bit => match value {
                 Value::Bool(flag) => {
-                    ensure_len(buffer, address.byte as usize);
+                    ensure_len(buffer, address.byte as usize)?;
                     let byte = &mut buffer[address.byte as usize];
                     if flag {
                         *byte |= 1 << address.bit;
@@ -307,7 +324,7 @@ impl IoInterface {
             },
             IoSize::Byte => match value {
                 Value::Byte(byte) => {
-                    ensure_len(buffer, address.byte as usize);
+                    ensure_len(buffer, address.byte as usize)?;
                     buffer[address.byte as usize] = byte;
                     Ok(())
                 }
@@ -315,7 +332,7 @@ impl IoInterface {
             },
             IoSize::Word => match value {
                 Value::Word(word) => {
-                    ensure_len(buffer, address.byte as usize + 1);
+                    ensure_len(buffer, address.byte as usize + 1)?;
                     let [lo, hi] = word.to_le_bytes();
                     buffer[address.byte as usize] = lo;
                     buffer[address.byte as usize + 1] = hi;
@@ -325,7 +342,7 @@ impl IoInterface {
             },
             IoSize::DWord => match value {
                 Value::DWord(word) => {
-                    ensure_len(buffer, address.byte as usize + 3);
+                    ensure_len(buffer, address.byte as usize + 3)?;
                     let bytes = word.to_le_bytes();
                     for (idx, byte) in bytes.iter().enumerate() {
                         buffer[address.byte as usize + idx] = *byte;
@@ -336,7 +353,7 @@ impl IoInterface {
             },
             IoSize::LWord => match value {
                 Value::LWord(word) => {
-                    ensure_len(buffer, address.byte as usize + 7);
+                    ensure_len(buffer, address.byte as usize + 7)?;
                     let bytes = word.to_le_bytes();
                     for (idx, byte) in bytes.iter().enumerate() {
                         buffer[address.byte as usize + idx] = *byte;
@@ -352,8 +369,10 @@ impl IoInterface {
                         return Err(RuntimeError::Overflow);
                     }
                     let start = address.byte as usize;
-                    let end = start + len as usize;
-                    ensure_len(buffer, end.saturating_sub(1));
+                    let end = start.checked_add(len as usize).ok_or_else(|| {
+                        RuntimeError::InvalidIoAddress("process image address overflow".into())
+                    })?;
+                    ensure_len(buffer, end.saturating_sub(1))?;
                     buffer[start..end].fill(0);
                     buffer[start..start + bytes.len()].copy_from_slice(bytes);
                     Ok(())
@@ -399,10 +418,52 @@ impl From<&IoAddress> for IoAddressKey {
     }
 }
 
-fn ensure_len(buffer: &mut Vec<u8>, index: usize) {
+fn ensure_len(buffer: &mut Vec<u8>, index: usize) -> Result<(), RuntimeError> {
+    if index >= PROCESS_IMAGE_AREA_LIMIT {
+        return process_image_area_limit_error("process image address");
+    }
     if buffer.len() <= index {
         buffer.resize(index + 1, 0);
     }
+    Ok(())
+}
+
+pub fn validate_process_image_address(address: &IoAddress) -> Result<(), RuntimeError> {
+    if address.wildcard || address.path.len() > 1 {
+        return Ok(());
+    }
+    let byte = address.byte as usize;
+    let extra = match address.size {
+        IoSize::Bit | IoSize::Byte => 0,
+        IoSize::Word => 1,
+        IoSize::DWord => 3,
+        IoSize::LWord => 7,
+        IoSize::Bytes(len) => len.saturating_sub(1) as usize,
+    };
+    let last_byte = byte.checked_add(extra).ok_or_else(|| {
+        RuntimeError::InvalidIoAddress("process image address overflow".into())
+    })?;
+    if last_byte >= PROCESS_IMAGE_AREA_LIMIT {
+        return process_image_area_limit_error("process image address");
+    }
+    Ok(())
+}
+
+fn validate_process_image_area_len(area: &str, len: usize) -> Result<(), RuntimeError> {
+    if len > PROCESS_IMAGE_AREA_LIMIT {
+        return process_image_area_limit_error(area);
+    }
+    Ok(())
+}
+
+fn process_image_area_limit_error(area: &str) -> Result<(), RuntimeError> {
+    Err(RuntimeError::InvalidIoAddress(
+        format!(
+            "{area} exceeds {} byte process image area limit",
+            PROCESS_IMAGE_AREA_LIMIT
+        )
+        .into(),
+    ))
 }
 
 #[cfg(test)]
@@ -474,5 +535,124 @@ mod tests {
             IoSnapshotValue::Value(Value::String(value)) => assert_eq!(value.as_str(), "Ready"),
             other => panic!("expected STRING snapshot value, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn snapshot_rejects_non_finite_real_input_bits() {
+        let mut interface = IoInterface::new();
+        interface.bind_typed(
+            "Temperature",
+            IoAddress::parse("%MD0").expect("real address"),
+            TypeId::REAL,
+        );
+        interface
+            .write(
+                &IoAddress::parse("%MD0").expect("real address"),
+                Value::DWord(f32::NAN.to_bits()),
+            )
+            .expect("write raw REAL bits");
+
+        let snapshot = interface.snapshot();
+
+        match &snapshot.memory[0].value {
+            IoSnapshotValue::Error(error) => assert!(
+                error.contains("finite"),
+                "expected finite-value diagnostic, got {error}"
+            ),
+            other => panic!("expected non-finite REAL bits to be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn string_process_image_write_rejects_payload_larger_than_declared_window() {
+        let mut interface = IoInterface::new();
+        let mut text = IoAddress::parse("%QB0").expect("output byte address");
+        text.size = IoSize::Bytes(3);
+
+        let err = interface
+            .write(&text, Value::String(SmolStr::new("ABCD")))
+            .expect_err("overlong STRING process-image write must fail");
+        assert_eq!(err, RuntimeError::Overflow);
+        assert!(
+            interface.outputs().is_empty(),
+            "failed overlong write must not allocate or partially mutate output image"
+        );
+    }
+
+    #[test]
+    fn process_image_write_rejects_addresses_above_area_cap() {
+        let mut interface = IoInterface::new();
+        let mut max_address = IoAddress::parse("%MB0").expect("memory byte address");
+        max_address.byte = (PROCESS_IMAGE_AREA_LIMIT - 1) as u32;
+        interface
+            .write(&max_address, Value::Byte(0xAA))
+            .expect("last byte inside area cap should be writable");
+        assert_eq!(interface.memory().len(), PROCESS_IMAGE_AREA_LIMIT);
+
+        let mut too_large = IoAddress::parse("%MB0").expect("memory byte address");
+        too_large.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        let err = interface
+            .write(&too_large, Value::Byte(0xBB))
+            .expect_err("address above area cap must fail");
+        assert!(
+            err.to_string().contains("area limit"),
+            "expected cap error, got {err}"
+        );
+    }
+
+    #[test]
+    fn process_image_try_resize_rejects_areas_above_cap() {
+        let mut interface = IoInterface::new();
+        interface
+            .try_resize(PROCESS_IMAGE_AREA_LIMIT, 1, 1)
+            .expect("area exactly at cap should resize");
+        let err = interface
+            .try_resize(PROCESS_IMAGE_AREA_LIMIT + 1, 1, 1)
+            .expect_err("area above cap must fail");
+        assert!(
+            err.to_string().contains("process image area limit"),
+            "expected cap error, got {err}"
+        );
+    }
+
+    #[test]
+    fn process_image_over_reads_are_zero_filled_and_do_not_resize() {
+        let interface = IoInterface::new();
+        let mut byte = IoAddress::parse("%MB0").expect("memory byte address");
+        byte.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        assert_eq!(
+            interface.read(&byte).expect("read over cap byte"),
+            Value::Byte(0)
+        );
+        assert_eq!(
+            interface.memory().len(),
+            0,
+            "over-reading must not allocate memory image bytes"
+        );
+
+        let mut word = IoAddress::parse("%IW0").expect("input word address");
+        word.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        assert_eq!(
+            interface.read(&word).expect("read over cap word"),
+            Value::Word(0)
+        );
+        assert_eq!(
+            interface.inputs().len(),
+            0,
+            "over-reading must not allocate input image bytes"
+        );
+
+        let mut text = IoAddress::parse("%QB0").expect("output byte address");
+        text.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        text.size = IoSize::Bytes(16);
+        assert_eq!(
+            interface.read(&text).expect("read over cap string"),
+            Value::String(SmolStr::new(""))
+        );
+        assert_eq!(
+            interface.outputs().len(),
+            0,
+            "over-reading must not allocate output image bytes"
+        );
     }
 }

@@ -18,6 +18,28 @@
         std::fs::write(path, content).expect("write file");
     }
 
+    fn contains_st_file(path: &Path) -> bool {
+        let Ok(entries) = std::fs::read_dir(path) else {
+            return false;
+        };
+        for entry in entries {
+            let entry = entry.expect("read directory entry");
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                if contains_st_file(&entry_path) {
+                    return true;
+                }
+            } else if entry_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("st"))
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     fn pou_signatures(xml: &str) -> Vec<(String, String, String)> {
         let doc = roxmltree::Document::parse(xml).expect("parse XML");
         let mut items = doc

@@ -87,7 +87,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                 let self_instance = current_self_instance(frames)?;
                 let reference = resolve_instance_field_ref(runtime, self_instance, field)?;
                 let value = read_register(registers, *value)?;
-                dynamic_store_ref(runtime, frames, &reference, value)
+                dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Move { src, dest } => {
@@ -218,7 +218,7 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     .record_ref_op(RegisterRefOpKind::StoreDynamic);
                 let reference = read_reference_register(registers, *reference)?;
                 let value = read_register(registers, *value)?;
-                dynamic_store_ref(runtime, frames, &reference, value)
+                dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Unary { op, src, dest } => {

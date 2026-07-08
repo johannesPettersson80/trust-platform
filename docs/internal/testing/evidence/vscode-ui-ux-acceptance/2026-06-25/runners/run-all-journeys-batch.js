@@ -20,6 +20,7 @@ const batchRoot =
 const lspBin = process.env.ST_LSP_TEST_SERVER || path.join(repo, "target/debug/trust-lsp");
 const runtimeBin = process.env.ST_RUNTIME_TEST_BIN || path.join(repo, "target/debug/trust-runtime");
 const debugBin = process.env.TRUST_DEBUG_BIN || path.join(repo, "target/debug/trust-debug");
+const journeysCsv = path.join(legacyRoot, "journeys.csv");
 
 const defaultSkip = new Set(
   (process.env.TRUST_UX_SKIP || "J-01,J-02")
@@ -171,7 +172,15 @@ const JOURNEYS = [
   {
     id: "J-17",
     slug: "ads-client-program",
-    commands: [{ runner: "ads-client-program-runner.js", envAware: true }],
+    commands: [
+      { runner: "ads-client-program-runner.js", envAware: true },
+      {
+        runner: "ads-client-live-twincat-runner.js",
+        label: "ads-client-live-twincat",
+        envAware: true,
+        requiredEnv: ["TRUST_ADS_LIVE_TWINCAT"],
+      },
+    ],
     expectedGap: "ADS client live browse requires TwinCAT/lab proof if no local ADS fixture is available.",
   },
   {
@@ -285,6 +294,24 @@ const JOURNEYS = [
   },
 ];
 
+function loadJourneyRows() {
+  const rowsByJourney = new Map();
+  if (!fs.existsSync(journeysCsv)) return rowsByJourney;
+  for (const line of fs.readFileSync(journeysCsv, "utf8").split(/\r?\n/)) {
+    if (!line.trim() || line.startsWith("id,")) continue;
+    const parts = line.split(",");
+    const id = parts[0];
+    const rows = (parts[2] || "")
+      .split(";")
+      .map((row) => row.trim())
+      .filter(Boolean);
+    if (id && rows.length) rowsByJourney.set(id, rows);
+  }
+  return rowsByJourney;
+}
+
+const JOURNEY_ROWS = loadJourneyRows();
+
 function safeName(name) {
   return name.replace(/[^A-Za-z0-9_.-]+/g, "-");
 }
@@ -339,6 +366,76 @@ function listFiles(dir) {
   return out;
 }
 
+function walkFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const files = [];
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.isFile()) {
+        files.push(full);
+      }
+    }
+  }
+  return files.sort();
+}
+
+function addRows(target, rows) {
+  if (!Array.isArray(rows)) return;
+  for (const row of rows) {
+    if (typeof row === "string" && row.trim()) target.add(row.trim());
+  }
+}
+
+function collectRowsFromValue(value, proven, deferred) {
+  if (!value || typeof value !== "object") return;
+  addRows(proven, value.rows_proven);
+  addRows(proven, value.rows);
+  addRows(deferred, value.rows_deferred);
+  addRows(deferred, value.deferred_rows);
+  addRows(deferred, value.hardware_gated_rows);
+  if (Array.isArray(value.findings)) {
+    for (const finding of value.findings) {
+      if (finding && typeof finding === "object") {
+        addRows(deferred, finding.rows);
+      }
+    }
+  }
+}
+
+function collectJourneyCoverage(journeyRoot, storyRows) {
+  const proven = new Set();
+  const deferred = new Set();
+  for (const file of walkFiles(path.join(journeyRoot, "json")).filter((f) => f.endsWith(".json"))) {
+    try {
+      collectRowsFromValue(JSON.parse(fs.readFileSync(file, "utf8")), proven, deferred);
+    } catch {
+      // Non-proof JSON should not make the whole runner unreadable.
+    }
+  }
+  const provenRows = [...proven].sort();
+  const deferredRows = [...deferred].filter((row) => !proven.has(row)).sort();
+  const missingRows = storyRows
+    .filter((row) => !proven.has(row) && !deferred.has(row))
+    .sort();
+  return {
+    story_rows: storyRows,
+    rows_proven: provenRows,
+    rows_deferred: deferredRows,
+    rows_not_fully_proven: missingRows,
+    coverage_status:
+      missingRows.length === 0
+        ? deferredRows.length === 0
+          ? "complete"
+          : "complete_with_deferred_rows"
+        : "partial",
+  };
+}
+
 function changedFiles(base, before) {
   const after = listFiles(base);
   const changed = [];
@@ -373,11 +470,30 @@ function writeReport(journeyRoot, result) {
     lines.push(`Expected gap: ${result.expectedGap}`);
     lines.push("");
   }
+  if (result.coverage) {
+    lines.push(`Coverage: ${result.coverage.coverage_status}`);
+    lines.push("");
+    lines.push("## Row Coverage");
+    lines.push("");
+    lines.push(`- Story rows: ${result.coverage.story_rows.join(", ") || "(none)"}`);
+    lines.push(`- Proven rows: ${result.coverage.rows_proven.join(", ") || "(none)"}`);
+    lines.push(`- Deferred rows: ${result.coverage.rows_deferred.join(", ") || "(none)"}`);
+    lines.push(
+      `- Not fully proven: ${result.coverage.rows_not_fully_proven.join(", ") || "(none)"}`
+    );
+    lines.push("");
+  }
   lines.push("## Commands");
   lines.push("");
   for (const command of result.commands) {
     const runnerLabel = command.label ? `${command.label} (${command.runner})` : command.runner;
-    lines.push(`- ${runnerLabel}: ${command.status === 0 ? "passed" : `failed (${command.status})`}`);
+    const statusText =
+      command.status === 0
+        ? "passed"
+        : command.status === "skipped"
+          ? "skipped"
+          : `failed (${command.status})`;
+    lines.push(`- ${runnerLabel}: ${statusText}`);
     if (command.note) lines.push(`  - ${command.note}`);
   }
   lines.push("");
@@ -417,6 +533,7 @@ function runJourney(journey) {
     id: journey.id,
     slug: journey.slug,
     expectedGap: journey.expectedGap,
+    story_rows: JOURNEY_ROWS.get(journey.id) || [],
     status: "passed",
     startedAt: new Date().toISOString(),
     commands: [],
@@ -425,6 +542,10 @@ function runJourney(journey) {
   if (only.size && !only.has(journey.id)) {
     result.status = "skipped";
     result.note = "Not included in this TRUST_UX_ONLY batch; existing journey evidence was left untouched.";
+    result.coverage = collectJourneyCoverage(
+      path.join(batchRoot, `${journey.id}-${journey.slug}`),
+      result.story_rows
+    );
     return result;
   }
 
@@ -437,12 +558,24 @@ function runJourney(journey) {
   if (!only.size && defaultSkip.has(journey.id)) {
     result.status = "skipped";
     result.note = journey.note || "Skipped by TRUST_UX_SKIP.";
+    result.coverage = collectJourneyCoverage(journeyRoot, result.story_rows);
     writeReport(journeyRoot, result);
     fs.writeFileSync(path.join(journeyRoot, "batch-run.json"), JSON.stringify(result, null, 2));
     return result;
   }
 
   for (const command of journey.commands) {
+    const missingEnv = (command.requiredEnv || []).filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      result.commands.push({
+        runner: command.runner,
+        label: command.label,
+        status: "skipped",
+        note: `Skipped because ${missingEnv.join(", ")} is not set.`,
+        envAware: !!command.envAware,
+      });
+      continue;
+    }
     const runnerPath = path.join(runnersDir, command.runner);
     const started = Date.now();
     const legacyBefore = {
@@ -504,9 +637,10 @@ function runJourney(journey) {
         path.join(importBase, "json")
       );
     }
-    entry.strippedPngFiles =
-      pngHygiene.stripTree(path.join(journeyRoot, "screenshots-raw")) +
-      pngHygiene.stripTree(path.join(journeyRoot, "legacy-captures"));
+    // Strip every PNG a helper writes, including diagnostic runner-output copies. The reviewer-facing
+    // duplicate registry below remains scoped to screenshots-raw/legacy-captures so helper mirrors do
+    // not collide with their exported acceptance frames.
+    entry.strippedPngFiles = pngHygiene.stripTree(journeyRoot);
     try {
       const validation = pngHygiene.validateCaptureTree(journeyRoot, {
         duplicateRegistry: pngRegistry,
@@ -532,6 +666,7 @@ function runJourney(journey) {
     }
   }
   result.finishedAt = new Date().toISOString();
+  result.coverage = collectJourneyCoverage(journeyRoot, result.story_rows);
   writeReport(journeyRoot, result);
   fs.writeFileSync(path.join(journeyRoot, "batch-run.json"), JSON.stringify(result, null, 2));
   return result;
@@ -564,6 +699,10 @@ function main() {
       id: result.id,
       slug: result.slug,
       status: result.status,
+      coverage_status: result.coverage && result.coverage.coverage_status,
+      rows_proven: result.coverage && result.coverage.rows_proven,
+      rows_deferred: result.coverage && result.coverage.rows_deferred,
+      rows_not_fully_proven: result.coverage && result.coverage.rows_not_fully_proven,
       commands: result.commands.map((command) => ({
         runner: command.runner,
         status: command.status,

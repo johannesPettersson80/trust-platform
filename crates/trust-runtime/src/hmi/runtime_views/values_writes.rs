@@ -59,6 +59,7 @@ pub fn resolve_write_point(
         .map(|point| HmiWritePoint {
             id: point.id,
             path: point.path,
+            data_type: point.data_type,
             binding: match point.binding {
                 HmiBinding::ProgramVar { program, variable } => {
                     HmiWriteBinding::ProgramVar { program, variable }

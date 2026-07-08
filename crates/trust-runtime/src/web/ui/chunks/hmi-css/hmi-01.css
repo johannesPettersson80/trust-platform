@@ -108,6 +108,13 @@ body {
   user-select: none;
 }
 
+.connector-chip {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pill.mode {
   color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
   background: var(--accent-soft);

@@ -1,0 +1,25 @@
+id = "cfm_retain_matrix_restart_aliases_001"
+category = "retain_matrix"
+description = "Cold, warm, hot, fault, and download restart labels map to deterministic retain behavior."
+cycles = 6
+watch_globals = ["retained", "non_retained", "unspecified"]
+
+[[restarts]]
+before_cycle = 2
+mode = "warm"
+
+[[restarts]]
+before_cycle = 3
+mode = "hot"
+
+[[restarts]]
+before_cycle = 4
+mode = "fault"
+
+[[restarts]]
+before_cycle = 5
+mode = "download"
+
+[[restarts]]
+before_cycle = 6
+mode = "cold"

@@ -14,7 +14,11 @@ struct MqttIoConfig {
     password: Option<SmolStr>,
     reconnect: StdDuration,
     keep_alive: StdDuration,
+    on_error: IoDriverErrorPolicy,
     tls: Option<MqttTlsConfig>,
+    input_points: Vec<MqttInputPoint>,
+    output_points: Vec<MqttOutputPoint>,
+    sparkplug: Option<SparkplugConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,12 +38,16 @@ struct MqttToml {
     password: Option<String>,
     reconnect_ms: Option<u64>,
     keep_alive_s: Option<u64>,
+    on_error: Option<String>,
     tls: Option<bool>,
     tls_ca_path: Option<String>,
     tls_client_cert_path: Option<String>,
     tls_client_key_path: Option<String>,
     tls_alpn: Option<Vec<String>>,
     allow_insecure_remote: Option<bool>,
+    input_points: Option<Vec<MqttPointToml>>,
+    output_points: Option<Vec<MqttPointToml>>,
+    sparkplug: Option<SparkplugToml>,
 }
 
 impl MqttIoConfig {
@@ -87,12 +95,32 @@ impl MqttIoConfig {
             .map(SmolStr::new)
             .unwrap_or_else(|| SmolStr::new("trust/io/out"));
         let reconnect = StdDuration::from_millis(params.reconnect_ms.unwrap_or(500).max(1));
+        let on_error = params
+            .on_error
+            .as_deref()
+            .map(IoDriverErrorPolicy::parse)
+            .transpose()?
+            .unwrap_or(IoDriverErrorPolicy::Fault);
         let keep_alive_s = params.keep_alive_s.unwrap_or(5).max(1);
         if keep_alive_s > u16::MAX.into() {
             return Err(RuntimeError::InvalidConfig(
                 "mqtt keep_alive_s must be <= 65535".into(),
             ));
         }
+        let input_points = params
+            .input_points
+            .unwrap_or_default()
+            .into_iter()
+            .map(MqttInputPoint::from_toml)
+            .collect::<Result<Vec<_>, _>>()?;
+        let output_points = params
+            .output_points
+            .unwrap_or_default()
+            .into_iter()
+            .map(MqttOutputPoint::from_toml)
+            .collect::<Result<Vec<_>, _>>()?;
+        let sparkplug = SparkplugConfig::from_toml(params.sparkplug)?;
+        validate_sparkplug_profile(sparkplug.as_ref(), &input_points, &output_points)?;
 
         Ok(Self {
             endpoint,
@@ -103,8 +131,25 @@ impl MqttIoConfig {
             password,
             reconnect,
             keep_alive: StdDuration::from_secs(keep_alive_s),
+            on_error,
             tls,
+            input_points,
+            output_points,
+            sparkplug,
         })
+    }
+
+    fn subscribe_topics(&self) -> Vec<SmolStr> {
+        if self.input_points.is_empty() {
+            return vec![self.topic_in.clone()];
+        }
+        let mut topics = Vec::new();
+        for point in &self.input_points {
+            if !topics.iter().any(|topic| topic == &point.topic) {
+                topics.push(point.topic.clone());
+            }
+        }
+        topics
     }
 }
 

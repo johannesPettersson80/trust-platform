@@ -9,6 +9,12 @@
 *)
 
 FUNCTION_BLOCK FB_traffic_light_STATECHART
+VAR_EXTERNAL
+  ld_io_QX0_0 : BOOL;
+  ld_io_QX0_1 : BOOL;
+  ld_io_QX0_2 : BOOL;
+END_VAR
+
 VAR_INPUT
   EV_TIMER : BOOL;
   EV_NEXT : BOOL;
@@ -36,35 +42,35 @@ END_IF;
 CASE _state OF
   0:
     IF EV_TIMER THEN
-      %QX0.0 := FALSE;
+      ld_io_QX0_0 := FALSE;
       (* LOG: Traffic light transition *)
       (* LOG: Entering GREEN state *)
-      %QX0.1 := TRUE;
+      ld_io_QX0_1 := TRUE;
       _state := 1;
     END_IF;
   1:
     IF EV_TIMER THEN
-      %QX0.1 := FALSE;
+      ld_io_QX0_1 := FALSE;
       (* LOG: Traffic light transition *)
       (* LOG: Entering YELLOW state *)
-      %QX0.2 := TRUE;
+      ld_io_QX0_2 := TRUE;
       _state := 2;
     ELSIF EV_NEXT THEN
-      %QX0.1 := FALSE;
+      ld_io_QX0_1 := FALSE;
       _state := 3;
     END_IF;
   2:
     IF EV_TIMER THEN
-      %QX0.2 := FALSE;
+      ld_io_QX0_2 := FALSE;
       (* LOG: Traffic light transition *)
       (* LOG: Entering RED state *)
-      %QX0.0 := TRUE;
+      ld_io_QX0_0 := TRUE;
       _state := 0;
     END_IF;
   3:
     IF EV_NEXT THEN
       (* LOG: Entering YELLOW state *)
-      %QX0.2 := TRUE;
+      ld_io_QX0_2 := TRUE;
       _state := 2;
     END_IF;
 END_CASE;

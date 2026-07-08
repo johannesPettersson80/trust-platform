@@ -7,7 +7,7 @@ use crate::stdlib::helpers::{require_arity, require_min, to_i64};
 use crate::stdlib::StandardLibrary;
 use crate::value::{
     string_delete, string_element_count, string_find, string_insert, string_left, string_mid,
-    string_replace, string_right, Value,
+    string_replace, string_right, truncate_string_elements, Value,
 };
 use smol_str::SmolStr;
 
@@ -21,6 +21,7 @@ pub fn register(lib: &mut StandardLibrary) {
     lib.register("DELETE", &["IN", "L", "P"], delete);
     lib.register("REPLACE", &["IN1", "IN2", "L", "P"], replace);
     lib.register("FIND", &["IN1", "IN2"], find);
+    lib.register("__TRUST_LIMIT_STRING", &["IN", "L"], limit_string);
 }
 
 fn len(args: &[Value]) -> Result<Value, RuntimeError> {
@@ -102,6 +103,19 @@ fn concat(args: &[Value]) -> Result<Value, RuntimeError> {
             }
         }
         Ok(Value::String(SmolStr::new(result)))
+    }
+}
+
+fn limit_string(args: &[Value]) -> Result<Value, RuntimeError> {
+    require_arity(args, 2)?;
+    let max_len = u32::try_from(to_i64(&args[1])?).map_err(|_| RuntimeError::Overflow)?;
+    match &args[0] {
+        Value::String(text) => Ok(Value::String(SmolStr::new(truncate_string_elements(
+            text.as_str(),
+            max_len,
+        )))),
+        Value::WString(text) => Ok(Value::WString(truncate_string_elements(text, max_len))),
+        _ => Err(RuntimeError::TypeMismatch),
     }
 }
 

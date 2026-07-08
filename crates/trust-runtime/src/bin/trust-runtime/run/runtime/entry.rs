@@ -69,7 +69,7 @@ pub fn run_runtime(
         .map_err(|err| anyhow::anyhow!("{err}"))?;
 
     runtime.restart(restart_mode)?;
-    runtime.load_retain_store()?;
+    load_startup_retain(&mut runtime, restart_mode)?;
 
     let startup_hmi_scaffold = bundle
         .as_ref()
@@ -181,6 +181,7 @@ pub fn run_runtime(
         );
     }
     let control = handle.control();
+    let _signal_shutdown = install_runtime_signal_shutdown(control.clone())?;
 
     let settings = build_runtime_settings(
         bundle.as_ref(),
@@ -582,6 +583,13 @@ fn parse_restart_mode(restart: &str) -> anyhow::Result<RestartMode> {
             "Invalid restart mode: {restart}. Expected: cold or warm. Tip: run trust-runtime play --help"
         ),
     }
+}
+
+fn load_startup_retain(runtime: &mut Runtime, restart_mode: RestartMode) -> anyhow::Result<()> {
+    if matches!(restart_mode, RestartMode::Warm) {
+        runtime.load_retain_store()?;
+    }
+    Ok(())
 }
 
 fn resolve_execution_backend_selection(

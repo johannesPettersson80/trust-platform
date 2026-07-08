@@ -21,9 +21,13 @@ pub use commands::{
     execute_command, HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND,
     PROJECT_INFO_COMMAND,
 };
-pub(crate) use diagnostics::{document_diagnostic, workspace_diagnostic};
+#[cfg(test)]
+pub(crate) use diagnostics::document_diagnostic;
+pub(crate) use diagnostics::{document_diagnostic_result, workspace_diagnostic};
 #[cfg(test)]
 pub(crate) use features::completion_with_ticket_for_tests;
+#[cfg(test)]
+pub(crate) use features::references;
 pub use features::{
     code_action, code_lens, completion, completion_resolve, document_highlight, document_link,
     document_symbol, folding_range, goto_declaration, goto_definition, goto_implementation,

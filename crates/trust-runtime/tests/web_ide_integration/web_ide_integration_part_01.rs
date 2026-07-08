@@ -115,7 +115,7 @@ fn web_ide_auth_and_session_contract() {
 
 #[test]
 fn web_ide_project_open_endpoint_supports_no_bundle_startup() {
-    let project = make_project("project-open");
+    let project = make_project_in_current_dir("project-open");
     let state = control_state(source_fixture(), ControlMode::Debug, None);
     let base = start_test_server_with_root(state, None, WebAuthMode::Local);
 
@@ -170,4 +170,91 @@ fn web_ide_project_open_endpoint_supports_no_bundle_startup() {
         .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("main.st"))));
 
     let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn web_ide_project_open_requires_editor_and_approved_base() {
+    let allowed_project = make_project_in_current_dir("project-open-allowed");
+    let outside_project = make_project("project-open-outside");
+    let state = control_state(source_fixture(), ControlMode::Debug, None);
+    let base = start_test_server_with_root(state, None, WebAuthMode::Local);
+
+    let (_, viewer_session) = request_json(
+        "POST",
+        &format!("{base}/api/ide/session"),
+        Some(json!({ "role": "viewer" })),
+        &[],
+    );
+    let viewer_token = viewer_session
+        .get("result")
+        .and_then(|v| v.get("token"))
+        .and_then(Value::as_str)
+        .expect("viewer token");
+
+    let (status, viewer_open) = request_json(
+        "POST",
+        &format!("{base}/api/ide/project/open"),
+        Some(json!({ "path": allowed_project.display().to_string() })),
+        &[("X-Trust-Ide-Session", viewer_token)],
+    );
+    assert_eq!(status, 403);
+    assert!(viewer_open
+        .get("error")
+        .and_then(Value::as_str)
+        .is_some_and(|message| message.contains("session role does not allow edits")));
+
+    let (status, _viewer_root) = request_json(
+        "POST",
+        &format!("{base}/api/ide/project/open"),
+        Some(json!({ "path": "/" })),
+        &[("X-Trust-Ide-Session", viewer_token)],
+    );
+    assert_eq!(status, 403);
+
+    let (_, editor_session) = request_json(
+        "POST",
+        &format!("{base}/api/ide/session"),
+        Some(json!({ "role": "editor" })),
+        &[],
+    );
+    let editor_token = editor_session
+        .get("result")
+        .and_then(|v| v.get("token"))
+        .and_then(Value::as_str)
+        .expect("editor token");
+
+    let (status, outside_open) = request_json(
+        "POST",
+        &format!("{base}/api/ide/project/open"),
+        Some(json!({ "path": outside_project.display().to_string() })),
+        &[("X-Trust-Ide-Session", editor_token)],
+    );
+    assert_eq!(status, 403);
+    assert!(outside_open
+        .get("error")
+        .and_then(Value::as_str)
+        .is_some_and(|message| message.contains("outside approved project base")));
+
+    let (status, opened_project) = request_json(
+        "POST",
+        &format!("{base}/api/ide/project/open"),
+        Some(json!({ "path": allowed_project.display().to_string() })),
+        &[("X-Trust-Ide-Session", editor_token)],
+    );
+    assert_eq!(status, 200, "editor open should succeed: {opened_project}");
+
+    let (status, absolute_read) = request_json(
+        "GET",
+        &format!("{base}/api/ide/file?path=%2Fetc%2Fpasswd"),
+        None,
+        &[("X-Trust-Ide-Session", viewer_token)],
+    );
+    assert_eq!(status, 403);
+    assert!(absolute_read
+        .get("error")
+        .and_then(Value::as_str)
+        .is_some_and(|message| message.contains("absolute workspace paths are not allowed")));
+
+    let _ = std::fs::remove_dir_all(allowed_project);
+    let _ = std::fs::remove_dir_all(outside_project);
 }

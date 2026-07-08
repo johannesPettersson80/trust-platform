@@ -235,29 +235,6 @@ export const StateNode: React.FC<NodeProps> = memo(
           style={handleStyle}
         />
 
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { 
-              transform: scale(1);
-              opacity: 1;
-            }
-            50% { 
-              transform: scale(1.2);
-              opacity: 0.8;
-            }
-          }
-          
-          @keyframes ripple {
-            0% {
-              transform: scale(1);
-              opacity: 1;
-            }
-            100% {
-              transform: scale(1.8);
-              opacity: 0;
-            }
-          }
-        `}</style>
       </div>
     );
   }

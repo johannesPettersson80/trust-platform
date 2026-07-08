@@ -242,6 +242,11 @@ suite("truST sidebar — selected target model", () => {
         source.includes("Auth token rejected"),
       "missing and wrong tokens must be classified as distinct recovery prompts"
     );
+    assert.ok(
+      source.includes("remoteDebugSessionName(targetLabel, status.endpoint)") &&
+        source.includes("truST Remote"),
+      "remote Connect must name native debug sessions as remote targets, never as the Simulator"
+    );
   });
 
   test("dropdown is SELECT-ONLY: simulator first, then remotes — NO Add/Connect sentinel; invalid selection falls back to simulator", () => {
@@ -691,17 +696,25 @@ suite("truST sidebar — control surface contract", () => {
 
   test("the status bar does not pretend a simulator target exists before a project exists", () => {
     const source = loadSource("runtimeControls.ts");
+    const projectSource = loadSource("workspaceProject.ts");
     assert.ok(
-      source.includes("workspaceHasTrustProject"),
-      "status bar must check whether the workspace is a truST project before showing a runtime"
+      source.includes("workspaceHasReadableTrustProject"),
+      "status bar must check whether the workspace is a readable truST project before showing a runtime"
     );
     assert.ok(
       source.includes("truST: No project"),
       "no-project and non-truST workspaces must have a neutral status-bar state"
     );
     assert.ok(
-      source.indexOf("workspaceHasTrustProject") < source.indexOf("selectedRuntime({"),
+      source.indexOf("workspaceHasReadableTrustProject") < source.indexOf("selectedRuntime({"),
       "project detection must happen before falling back to the simulator selected-runtime model"
+    );
+    assert.ok(
+      projectSource.includes('readonly kind: "none" | "nonTrust" | "trust" | "malformed"') &&
+        projectSource.includes("manifestReadabilityIssue") &&
+        projectSource.includes("vscode.workspace.fs.readFile(manifest)") &&
+        projectSource.includes("workspaceHasReadableTrustProject"),
+      "status bar and sidebar must share malformed-manifest project detection"
     );
     assert.ok(
       source.includes('createFileSystemWatcher(pattern)') &&
@@ -803,6 +816,11 @@ suite("truST sidebar — control surface contract", () => {
         `${name} must not auto-open VS Code's Debug Console with raw adapter logs`
       );
     }
+    assert.ok(
+      debugSource.includes("remoteAttachDebugSessionName(controlConfig.endpoint)") &&
+        lifecycleSource.includes("remoteDebugSessionName(targetLabel, status.endpoint)"),
+      "native attach sessions must use remote-specific labels when VS Code surfaces the session"
+    );
   });
 
   test("unreachable runtime messages are human-facing and do not expose local socket paths", () => {
@@ -1025,6 +1043,7 @@ suite("truST sidebar — control surface contract", () => {
 
   test("the truST panel is a WebviewView with examples-first onboarding and a compact action surface", () => {
     const source = loadSource("trustHomeView.ts");
+    const projectSource = loadSource("workspaceProject.ts");
     assert.ok(
       source.includes("registerWebviewViewProvider"),
       "trust.home must be a WebviewViewProvider"
@@ -1060,6 +1079,18 @@ suite("truST sidebar — control surface contract", () => {
       source.includes("targetUri: workspaceState.folder.uri") &&
         source.includes("openWorkspace: false"),
       "initializing an open non-truST folder must scaffold that folder instead of opening an unrelated picker"
+    );
+    assert.ok(
+      projectSource.includes('"trust" | "malformed"') &&
+        projectSource.includes("manifestReadabilityIssue") &&
+        projectSource.includes("vscode.workspace.fs.readFile(manifest)") &&
+        source.includes('msg.workspaceKind === "malformed"'),
+      "a folder with an unreadable truST manifest must not be classified as an active project"
+    );
+    assert.ok(
+      source.includes("Project needs repair") &&
+        source.includes("project settings file cannot be read"),
+      "malformed project manifests must render a clear repair state before Compile/Start"
     );
     // Compact action row + visible destinations.
     assert.ok(source.includes(">Target<"), "the target label must read 'Target'");

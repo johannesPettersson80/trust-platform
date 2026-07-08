@@ -1003,6 +1003,45 @@ fn notify_binding_resubscribes_after_symbol_version_change() {
 }
 
 #[test]
+fn notify_binding_refresh_disconnects_before_resubscribe() {
+    let runtime = runtime_with_globals(vec![(
+        "line1_temp",
+        TypeId::REAL,
+        Value::Real(0.0),
+        RetainPolicy::NonRetain,
+    )]);
+    let mut point = point_config(
+        "line1_temp",
+        "MAIN.Temperature",
+        real_type(),
+        PointAccess::Read,
+        false,
+    );
+    point.mode = UpdateMode::Notify;
+    let connection = connection_with_points(vec![point]);
+    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let (_bridge, mut worker) = AdsConnectionBridge::with_transport(
+        MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect and subscribe");
+    assert_eq!(worker.transport().subscribe_count(), 1);
+    assert_eq!(worker.transport().disconnect_count(), 0);
+
+    worker.transport_mut().bump_symbol_version();
+    worker.tick(1_000).expect("refresh and resubscribe");
+
+    assert_eq!(
+        worker.transport().disconnect_count(),
+        1,
+        "symbol-version refresh must release server-side ADS notifications before resubscribing"
+    );
+    assert_eq!(worker.transport().subscribe_count(), 2);
+}
+
+#[test]
 fn read_bindings_do_not_publish_outputs() {
     let mut runtime = runtime_with_globals(vec![(
         "line1_temp",

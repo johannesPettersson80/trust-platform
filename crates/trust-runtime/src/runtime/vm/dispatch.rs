@@ -519,7 +519,7 @@ pub(super) fn execute_pou_stack_with_locals(
             0x33 => {
                 let value = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
-                dynamic_store_ref(runtime, frames, &reference, value)
+                dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             0x40 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Add)

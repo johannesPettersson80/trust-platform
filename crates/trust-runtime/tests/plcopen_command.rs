@@ -262,7 +262,7 @@ END_PROGRAM
     assert!(export_json["source_map_path"].is_string());
 
     let import_project = unique_temp_dir("plcopen-cli-json-import");
-    let fixture = fixture_path("codesys.xml");
+    let fixture = fixture_path("synthetic-codesys.xml");
     let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args([
             "plcopen",
@@ -446,7 +446,7 @@ END_PROGRAM
 #[test]
 fn plcopen_import_json_detects_openplc_ecosystem_and_shims() {
     let import_project = unique_temp_dir("plcopen-cli-openplc-import");
-    let fixture = fixture_path("openplc.xml");
+    let fixture = fixture_path("synthetic-openplc.xml");
     let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args([
             "plcopen",

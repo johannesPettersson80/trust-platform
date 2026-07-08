@@ -91,6 +91,8 @@ fn trust_runtime_test_alias_forwards_to_trust_dev() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("trust-runtime test"));
     assert!(stderr.contains("trust-dev test"));
+    assert!(stderr.contains("removed no earlier than 2026-10-05"));
+    assert!(stderr.contains("separate behavior-change release"));
     assert!(String::from_utf8_lossy(&output.stdout).contains("3 test(s) listed"));
 }
 

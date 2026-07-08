@@ -1,0 +1,9 @@
+{
+  "candidates": [],
+  "origin": "this_host",
+  "protocol": "ads_server",
+  "schema_version": 1,
+  "warnings": [
+    "ADS server discovery is not available yet."
+  ]
+}

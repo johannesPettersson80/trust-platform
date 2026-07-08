@@ -39,6 +39,10 @@ function stateGridPosition(index: number, columns: number): { x: number; y: numb
   };
 }
 
+function stateGridColumns(count: number): number {
+  return Math.max(1, Math.min(2, Math.ceil(Math.sqrt(count))));
+}
+
 function transitionHandles(
   sourcePosition: { x: number; y: number },
   targetPosition: { x: number; y: number }
@@ -92,7 +96,7 @@ export const useStateChart = () => {
     (type: StateType = "normal", position?: { x: number; y: number }) => {
       const id = `state_${Date.now()}`;
       const stateCount = nodes.length;
-      const columns = Math.ceil(Math.sqrt(stateCount + 1));
+      const columns = stateGridColumns(stateCount + 1);
 
       const newNode: StateChartNode = {
         id,
@@ -149,7 +153,7 @@ export const useStateChart = () => {
    * Apply auto-layout to nodes (simple grid layout for now)
    */
   const autoLayout = useCallback(() => {
-    const COLS = Math.ceil(Math.sqrt(nodes.length));
+    const COLS = stateGridColumns(nodes.length);
 
     setNodes((nds) =>
       nds.map((node, index) => ({
@@ -241,7 +245,7 @@ export const useStateChart = () => {
     // Compact grid layout: keep the full state machine visible beside the
     // shared right inspector at normal VS Code widths.
     const stateNames = Object.keys(config.states);
-    const COLS = Math.ceil(Math.sqrt(stateNames.length));
+    const COLS = stateGridColumns(stateNames.length);
 
     stateNames.forEach((stateName, index) => {
       statePositions.set(stateName, stateGridPosition(index, COLS));

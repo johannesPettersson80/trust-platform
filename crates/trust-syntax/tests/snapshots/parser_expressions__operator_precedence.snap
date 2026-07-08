@@ -46,14 +46,14 @@ SourceFile@0..88
           Ident@59..60 "z"
         Assign@61..63 ":="
         BinaryExpr@63..75
-          Literal@63..66
-            IntLiteral@64..65 "2"
-          Power@66..68 "**"
-          BinaryExpr@68..75
+          BinaryExpr@63..71
+            Literal@63..66
+              IntLiteral@64..65 "2"
+            Power@66..68 "**"
             Literal@68..71
               IntLiteral@69..70 "3"
-            Power@71..73 "**"
-            Literal@73..75
-              IntLiteral@74..75 "2"
+          Power@71..73 "**"
+          Literal@73..75
+            IntLiteral@74..75 "2"
         Semicolon@75..76 ";"
     KwEndProgram@77..88 "END_PROGRAM"

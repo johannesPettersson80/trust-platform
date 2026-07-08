@@ -14,7 +14,7 @@ suite("PLCopen runtime error formatting", () => {
 
     assert.ok(message.includes("could not start"));
     assert.ok(message.includes("trust-runtime binary was not found"));
-    assert.ok(message.includes("trust-lsp.runtime.cli.path"));
+    assert.ok(message.includes("trust.runtime.executablePath"));
   });
 
   test("import command failures distinguish malformed XML", () => {

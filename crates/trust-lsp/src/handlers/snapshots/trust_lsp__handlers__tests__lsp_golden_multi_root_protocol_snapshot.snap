@@ -1031,11 +1031,7 @@ expression: output
       },
       "afterDelete": null
     },
-    "didClose": {
-      "content": "\nPROGRAM Notify\nVAR\n    x : INT;\nEND_VAR\nx := 2;\nEND_PROGRAM\n",
-      "isOpen": false,
-      "version": 2
-    },
+    "didClose": null,
     "didOpen": {
       "content": "\nPROGRAM Notify\nVAR\n    x : INT;\nEND_VAR\nx := 1;\nEND_PROGRAM\n",
       "isOpen": true,

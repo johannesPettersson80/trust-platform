@@ -17,8 +17,6 @@ interface SelectedElementRef {
 interface ElementPropertiesPanelProps {
   selectedElement: SelectedElementRef | null;
   selectedElementData: LadderElement | null;
-  activeRungIndex: number | null;
-  networkCount: number;
   gridSize: number;
   onUpdateSelectedElement: (
     updater: (element: LadderElement) => LadderElement
@@ -29,8 +27,6 @@ interface ElementPropertiesPanelProps {
 export function ElementPropertiesPanel({
   selectedElement,
   selectedElementData,
-  activeRungIndex,
-  networkCount,
   gridSize,
   onUpdateSelectedElement,
   onRemoveSelectedElement,
@@ -50,13 +46,13 @@ export function ElementPropertiesPanel({
 
   return (
     <aside className="properties-panel">
-      <div className="properties-section">
-        <h3>Selection</h3>
-        {selectedElementData ? (
+      {selectedElementData ? (
+        <div className="properties-section">
+          <h3>Properties</h3>
+          <p className="property-hint">
+            Rung {selectedElement!.rungIndex + 1} - {selectedElementData.type}
+          </p>
           <>
-            <p className="property-hint">
-              Rung {selectedElement!.rungIndex + 1} - {selectedElementData.type}
-            </p>
             {"variable" in selectedElementData && (
               <div className="property-row">
                 <label htmlFor="ladder-variable">Variable</label>
@@ -493,28 +489,12 @@ export function ElementPropertiesPanel({
               Delete Element
             </button>
           </>
-        ) : (
-          <p className="property-hint">Select an element to edit properties.</p>
-        )}
-      </div>
-
-      <div className="properties-section">
-        <h3>Rungs</h3>
-        {networkCount === 0 ? (
-          <p className="property-hint">No rungs. Add one from the toolbar.</p>
-        ) : (
-          <p className="property-hint">
-            Active rung: {activeRungIndex !== null ? activeRungIndex + 1 : "None"}
-          </p>
-        )}
-      </div>
-
-      <div className="properties-section">
-        <h3>Pan</h3>
-        <p className="property-hint">
-          Hold Space and drag, or use middle mouse button drag.
-        </p>
-      </div>
+        </div>
+      ) : (
+        <div className="trust-empty">
+          <div>Select an element to edit properties.</div>
+        </div>
+      )}
     </aside>
   );
 }

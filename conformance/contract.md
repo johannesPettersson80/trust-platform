@@ -1,11 +1,15 @@
-# Conformance Contract (v1)
+# Conformance Contract
 
 This document defines what the conformance suite asserts and how pass/fail is
-reported for Deliverable 1 MVP.
+reported.
 
 ## Assertion Scope
 
-Each conformance case asserts deterministic behavior for one frozen category:
+Each conformance case asserts deterministic behavior for one category.
+
+### v1 Categories
+
+The v1 summary contract is frozen to:
 
 - `timers`: TON/TOF/TP timing semantics under fixed scan cycles.
 - `edges`: rising/falling edge detection behavior.
@@ -13,6 +17,27 @@ Each conformance case asserts deterministic behavior for one frozen category:
 - `init_reset`: initialization and reset behavior (including retentive checks).
 - `arithmetic`: numeric corner-case behavior for supported operations.
 - `memory_map`: mapped address behavior and visibility rules.
+
+### v2 Categories
+
+The v2 summary contract keeps all v1 categories and adds:
+
+- `strings`: STRING/WSTRING-compatible runtime value behavior covered by the
+  suite.
+- `arrays`: fixed-bound ARRAY indexing, mutation, and whole-value encoding.
+- `structs`: STRUCT initializers, field reads, and field writes.
+- `enums`: ENUM initializers, assignments, comparisons, and value encoding.
+- `nested_values`: nested STRUCT/ARRAY access paths and encoding.
+- `oop_dispatch`: method dispatch, interface dispatch, inheritance overrides,
+  and `SUPER` calls.
+- `references`: `REF_TO` initialization, dereference reads, and dereference
+  writes.
+- `retain_matrix`: cold/warm/hot/fault/download restart labels mapped to the
+  runtime's implemented retain behavior.
+- `scheduler`: deterministic task scheduling under scripted virtual time.
+- `comms_determinism`: simulated connector status transitions projected
+  through the shared connector status model. These cases are loopback/simulated
+  only and never use live sockets or hardware.
 
 ## Pass/Fail Rules
 
@@ -31,12 +56,13 @@ Determinism requirement:
 
 The machine-readable summary is JSON and must validate against:
 
-- `conformance/schemas/summary-v1.schema.json`
+- `conformance/schemas/summary-v1.schema.json` for v1 summaries
+- `conformance/schemas/summary-v2.schema.json` for v2 summaries
 
 Core fields:
 
-- `version`: fixed integer (`1`)
-- `profile`: fixed string (`trust-conformance-v1`)
+- `version`: fixed integer (`1` or `2`)
+- `profile`: fixed string (`trust-conformance-v1` or `trust-conformance-v2`)
 - `generated_at_utc`: RFC3339 timestamp
 - `ordering`: fixed string (`case_id_asc`)
 - `runtime`: runtime metadata (`name`, `version`, optional `target`)
@@ -57,7 +83,7 @@ Per-case optional fields:
 - `cycles`
 - `reason` (`code`, `message`, optional `details`)
 
-`reason.code` values are fixed and machine-parseable in v1:
+`reason.code` values are fixed and machine-parseable in v1 and v2:
 
 - `expected_missing`
 - `expected_mismatch`
@@ -73,6 +99,16 @@ Failure semantics:
   deterministically.
 
 See `conformance/failure-taxonomy.md` for details.
+
+## Compatibility
+
+- `summary-v1.schema.json` is not mutated by v2 expansion.
+- A suite containing only v1 categories emits `version = 1` and
+  `profile = "trust-conformance-v1"`.
+- A suite containing any v2-only category emits `version = 2` and
+  `profile = "trust-conformance-v2"`.
+- Generated human and machine reports are CI artifacts; committed expected
+  artifacts remain under `conformance/expected/`.
 
 ## Example Summary
 

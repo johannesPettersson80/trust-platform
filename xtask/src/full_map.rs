@@ -133,6 +133,8 @@ struct RuntimeWorkbenchCommandMigration {
     current_binary: String,
     destination_binary: String,
     compatibility_plan: String,
+    removal_not_before: String,
+    removal_pr_required: bool,
     owner: String,
     rationale: String,
     review_date: String,
@@ -1497,17 +1499,43 @@ fn validate_workbench_command_migrations(
                 migration.command, migration.compatibility_plan
             ));
         }
+        let removal_not_before = migration.removal_not_before.trim();
+        if !looks_like_yyyy_mm_dd(removal_not_before) {
+            failures.push(format!(
+                "migration policy for '{}' is missing a YYYY-MM-DD removal_not_before date",
+                migration.command
+            ));
+        }
+        if !migration.removal_pr_required {
+            failures.push(format!(
+                "migration policy for '{}' must require a separate removal PR",
+                migration.command
+            ));
+        }
         details.push(format!(
-            "workbench command '{}' migrates {} -> {} compatibility={} owner={} review_date={} rationale={}",
+            "workbench command '{}' migrates {} -> {} compatibility={} removal_not_before={} removal_pr_required={} owner={} review_date={} rationale={}",
             migration.command,
             migration.current_binary,
             migration.destination_binary,
             migration.compatibility_plan,
+            migration.removal_not_before,
+            migration.removal_pr_required,
             migration.owner,
             migration.review_date,
             migration.rationale
         ));
     }
+}
+
+fn looks_like_yyyy_mm_dd(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
 }
 
 fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
@@ -4501,6 +4529,46 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_workbench_command_without_removal_window_fails() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("Agent".to_string());
+
+        let mut policy = base_policy();
+        policy.runtime_command_classes.push(ClassifiedName {
+            name: "Agent".to_string(),
+            class: "workbench_dev".to_string(),
+            owner: "dev tooling".to_string(),
+            rationale: "agent command".to_string(),
+        });
+        policy
+            .runtime_workbench_command_migrations
+            .push(RuntimeWorkbenchCommandMigration {
+                command: "Agent".to_string(),
+                current_binary: "trust-runtime".to_string(),
+                destination_binary: "trust-dev".to_string(),
+                compatibility_plan: "deprecated_forwarding_alias".to_string(),
+                removal_not_before: String::new(),
+                removal_pr_required: false,
+                owner: "dev tooling".to_string(),
+                rationale: "agent serve remains available through a compatibility alias"
+                    .to_string(),
+                review_date: "2026-05-01".to_string(),
+            });
+
+        let check = check_runtime_command_and_module_ownership(&map, &policy);
+
+        assert_eq!(check.status, CheckStatus::Fail);
+        assert!(check
+            .details
+            .iter()
+            .any(|failure| failure.contains("missing a YYYY-MM-DD removal_not_before date")));
+        assert!(check
+            .details
+            .iter()
+            .any(|failure| failure.contains("must require a separate removal PR")));
+    }
+
+    #[test]
     fn documented_workbench_command_migration_policy_passes() {
         let mut map = base_map();
         map.runtime_cli_commands.push("Agent".to_string());
@@ -4519,6 +4587,8 @@ mod tests {
                 current_binary: "trust-runtime".to_string(),
                 destination_binary: "trust-dev".to_string(),
                 compatibility_plan: "deprecated_forwarding_alias".to_string(),
+                removal_not_before: "2026-10-05".to_string(),
+                removal_pr_required: true,
                 owner: "dev tooling".to_string(),
                 rationale: "agent serve remains available through a compatibility alias"
                     .to_string(),
@@ -4530,6 +4600,9 @@ mod tests {
         assert_eq!(check.status, CheckStatus::Pass);
         assert!(check.details.iter().any(|detail| detail
             .contains("workbench command 'Agent' migrates trust-runtime -> trust-dev")));
+        assert!(check.details.iter().any(
+            |detail| detail.contains("removal_not_before=2026-10-05 removal_pr_required=true")
+        ));
     }
 
     #[test]

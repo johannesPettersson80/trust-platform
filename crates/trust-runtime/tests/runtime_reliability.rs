@@ -171,9 +171,10 @@ END_PROGRAM
         }
         std::thread::yield_now();
     }
-    assert!(matches!(
-        handle.last_error(),
-        Some(RuntimeError::WatchdogTimeout)
-    ));
+    let last_error = handle.last_error();
+    assert!(
+        matches!(last_error, Some(RuntimeError::WatchdogTimeout)),
+        "expected WatchdogTimeout, got {last_error:?}"
+    );
     handle.join().unwrap();
 }

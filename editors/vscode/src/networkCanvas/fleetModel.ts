@@ -12,6 +12,7 @@ export interface NetworkCanvasFleetEndpoint {
   readonly owned: boolean;
   readonly dimmed: boolean;
   readonly live?: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"][number]["live"];
+  readonly connector?: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"][number]["connector"];
   readonly params?: Record<string, unknown>;
   // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
   readonly category?: string;
@@ -304,10 +305,11 @@ function fleetRuntime(
       name: endpointDisplayName(endpoint),
       role: endpoint.role,
       health: endpoint.health,
-      detail: endpoint.detail,
+      detail: endpointDetail(endpoint.detail, endpoint.health, runtime.health),
       owned: endpoint.owned,
       dimmed,
       live: endpoint.live,
+      connector: endpoint.connector,
       params: endpoint.params,
       // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
       category: endpoint.category,
@@ -340,8 +342,9 @@ function runtimeDisplayName(
   if (
     runtimeId === "runtime:local" ||
     runtimeId === "runtime:project" ||
-    /^local simulator$/i.test(rawName) ||
-    (mode === "simulate" && /^trust runtime$/i.test(rawName))
+    runtimeId === "resource" ||
+    /^resource$/i.test(rawName) ||
+    /^local simulator$/i.test(rawName)
   ) {
     return "Simulator";
   }
@@ -362,6 +365,22 @@ function endpointDisplayName(
   }
 }
 
+function endpointDetail(
+  detail: string,
+  endpointHealth: string,
+  runtimeHealth: string
+): string {
+  const runtimeIsLive = runtimeHealth === "connected" || runtimeHealth === "simulate";
+  if (
+    runtimeIsLive &&
+    endpointHealth === "configured_policy" &&
+    /runtime is not running/i.test(detail)
+  ) {
+    return "Configured in project files; restart the runtime to apply this change.";
+  }
+  return detail;
+}
+
 function aggregateHealth(values: readonly string[]): string {
   if (values.includes("error")) {
     return "error";
@@ -371,6 +390,9 @@ function aggregateHealth(values: readonly string[]): string {
   }
   if (values.includes("connected")) {
     return "connected";
+  }
+  if (values.includes("simulate")) {
+    return "simulate";
   }
   // "configured_policy" = configured from project files but no live health reported → the runtime is
   // not running. That's an honest "Stopped", not a vague "Pending" (which implies a connection in flight).

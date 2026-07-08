@@ -411,6 +411,7 @@ state -> ide : find_references(db, file_id, offset)
 activate ide
 ide -> db : file_ids()
 loop for each file
+    ide -> ide : skip files missing target text
     ide -> db : file_symbols(file_id)
     ide -> ide : scan for usages
 end
@@ -424,6 +425,81 @@ deactivate handlers
 lsp --> server
 deactivate lsp
 server --> client
+
+' ============================================================
+' DOCUMENT HIGHLIGHT SEQUENCE
+' ============================================================
+
+== Document Highlight ==
+
+client -> server : document highlight request
+server -> lsp : document_highlight(params)
+activate lsp
+
+lsp -> handlers : document_highlight(state, params)
+activate handlers
+handlers -> state : get_document(uri)
+handlers -> state : with_database(|db| ...)
+activate state
+state -> project : database_snapshot()
+project --> state : db
+state -> ide : find_references_in_file(db, file_id, offset, file_id)
+activate ide
+ide -> db : file_symbols(file_id)
+ide -> ide : scan current file only
+ide --> state : Vec<Location>
+deactivate ide
+state --> handlers
+deactivate state
+handlers --> lsp : Vec<DocumentHighlight>
+deactivate handlers
+
+lsp --> server
+deactivate lsp
+server --> client
+
+' ============================================================
+' CALL HIERARCHY CACHE SEQUENCE
+' ============================================================
+
+== Call Hierarchy Incoming/Outgoing ==
+
+client -> server : call hierarchy incoming/outgoing
+server -> lsp : incoming_calls/outgoing_calls(params)
+activate lsp
+
+lsp -> handlers : call hierarchy request(state, params)
+activate handlers
+handlers -> state : cached_call_hierarchy_incoming/outgoing(key)
+alt cache hit for document_generation + item
+    state --> handlers : cached call list
+else cache miss
+    handlers -> state : with_database(|db| ...)
+    activate state
+    state -> project : database_snapshot()
+    project --> state : db
+    state -> ide : incoming/outgoing_calls_in_files(db, item, allowed_files)
+    activate ide
+    ide -> db : file_symbols(file_id)
+    ide -> ide : resolve call graph for allowed files
+    ide --> state : call list
+    deactivate ide
+    state --> handlers
+    deactivate state
+    handlers -> state : store_call_hierarchy_incoming/outgoing(key, calls)
+end
+handlers --> lsp : call list
+deactivate handlers
+
+lsp --> server
+deactivate lsp
+server --> client
+
+note right of state
+    didOpen/didChange/didClose/watch
+    updates bump document_generation and
+    clear call-hierarchy caches.
+end note
 
 ' ============================================================
 ' SEMANTIC TOKENS SEQUENCE
@@ -444,6 +520,7 @@ project --> state : db
 state -> ide : semantic_tokens(db, file_id)
 activate ide
 ide -> db : file_symbols(file_id)
+ide -> ide : precompute declaration/member/type ranges
 ide -> ide : classify tokens\n(keyword, type, variable, etc.)
 ide --> state : Vec<SemanticToken>
 deactivate ide
@@ -474,6 +551,8 @@ note right of client
     documents: RwLock<FxHashMap<Url, Document>>
     project: RwLock<Project>
     workspace_folders: RwLock<Vec<Url>>
+    document_generation: AtomicU64
+    call_hierarchy_incoming/outgoing caches
 
     **IDE Functions (trust-ide/src/lib.rs):**
     • complete() - Completion

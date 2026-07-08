@@ -1,4 +1,5 @@
 import { SfcEngine, type SfcWorkspace } from "../sfc/sfcEngine";
+import { rewriteDirectIoInFunctionBlock } from "./directIo";
 import { fbNameForSource } from "./stNaming";
 
 function isSfcWorkspace(value: unknown): value is SfcWorkspace {
@@ -61,5 +62,7 @@ export function generateSfcCompanionFunctionBlock(
   });
   const programSource = engine.generateStructuredText();
   const functionBlockName = fbNameForSource(baseName || normalizedName, "SFC");
-  return convertProgramToFunctionBlock(programSource, functionBlockName);
+  return rewriteDirectIoInFunctionBlock(
+    convertProgramToFunctionBlock(programSource, functionBlockName)
+  ).source;
 }

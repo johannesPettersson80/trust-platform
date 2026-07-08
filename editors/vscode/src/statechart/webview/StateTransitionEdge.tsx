@@ -11,10 +11,10 @@ import { t } from "../../webview/theme";
 
 function labelTranslateY(sourcePosition: Position, targetPosition: Position): number {
   if (sourcePosition === Position.Left && targetPosition === Position.Right) {
-    return -92;
+    return -130;
   }
   if (sourcePosition === Position.Bottom && targetPosition === Position.Top) {
-    return 55;
+    return 0;
   }
   return 0;
 }

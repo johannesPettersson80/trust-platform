@@ -4,7 +4,7 @@ const cp = require("child_process");
 const crypto = require("crypto");
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const COLOR_MANAGEMENT_CHUNKS = new Set(["gAMA", "cHRM", "iCCP", "sRGB"]);
+const STRIPPED_CHUNKS = new Set(["gAMA", "cHRM", "iCCP", "sRGB", "tIME", "tEXt", "zTXt", "iTXt"]);
 const DEFAULT_MIN_BYTES = 5 * 1024;
 const DEFAULT_MAX_SINGLE_COLOR_RATIO = 0.99;
 
@@ -39,7 +39,7 @@ function stripPngColorChunks(buffer) {
       return buffer;
     }
     const type = buffer.toString("ascii", typeStart, typeStart + 4);
-    if (COLOR_MANAGEMENT_CHUNKS.has(type)) {
+    if (STRIPPED_CHUNKS.has(type)) {
       changed = true;
     } else {
       chunks.push(buffer.subarray(offset, next));
@@ -101,6 +101,18 @@ function sha256File(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
+function pixelSha256File(file) {
+  const proc = cp.spawnSync(
+    "convert",
+    [file, "-alpha", "off", "-depth", "8", "rgb:-"],
+    { encoding: "buffer", maxBuffer: 512 * 1024 * 1024 }
+  );
+  if (proc.status !== 0) {
+    throw new Error(`ImageMagick pixel export failed for ${file}: ${String(proc.stderr || proc.stdout)}`);
+  }
+  return crypto.createHash("sha256").update(proc.stdout).digest("hex");
+}
+
 function assertValidCapture(file, options = {}) {
   const buffer = fs.readFileSync(file);
   const errors = [];
@@ -134,6 +146,11 @@ function assertValidCapture(file, options = {}) {
   const singleColorRatio = dominantColorRatio(file, dimensions.width, dimensions.height);
   if (singleColorRatio >= maxSingleColorRatio) {
     errors.push(`single-colour frame: ${(singleColorRatio * 100).toFixed(2)}% >= ${(maxSingleColorRatio * 100).toFixed(2)}%`);
+  }
+
+  const lingeringChunks = listStrippedChunks(file);
+  if (lingeringChunks.length > 0) {
+    errors.push(`metadata/color chunks present: ${lingeringChunks.join(", ")}`);
   }
 
   if (errors.length) {
@@ -180,14 +197,15 @@ function validateCaptureTree(root, options = {}) {
     try {
       const info = assertValidCapture(file, options);
       if (rejectDuplicates) {
-        const sha = sha256File(file);
+        const sha = pixelSha256File(file);
         const rel = path.relative(root, file);
         const previous = duplicateRegistry.get(sha);
         if (previous && previous !== rel) {
           throw new Error(`${file}: duplicate frame matches ${previous}`);
         }
         duplicateRegistry.set(sha, rel);
-        info.sha256 = sha;
+        info.pixelSha256 = sha;
+        info.sha256 = sha256File(file);
       }
       valid.push(info);
     } catch (error) {
@@ -231,6 +249,10 @@ function stripTree(root) {
 }
 
 function listColorChunks(file) {
+  return listStrippedChunks(file).filter((chunk) => ["gAMA", "cHRM", "iCCP", "sRGB"].includes(chunk));
+}
+
+function listStrippedChunks(file) {
   const buffer = fs.readFileSync(file);
   if (!isPng(buffer)) {
     return [];
@@ -246,7 +268,7 @@ function listColorChunks(file) {
       break;
     }
     const type = buffer.toString("ascii", typeStart, typeStart + 4);
-    if (COLOR_MANAGEMENT_CHUNKS.has(type)) {
+    if (STRIPPED_CHUNKS.has(type)) {
       chunks.push(type);
     }
     offset = next;
@@ -295,8 +317,10 @@ module.exports = {
   copyPngStripped,
   stripTree,
   listColorChunks,
+  listStrippedChunks,
   readPngDimensions,
   assertValidCapture,
   validateCaptureTree,
   sha256File,
+  pixelSha256File,
 };

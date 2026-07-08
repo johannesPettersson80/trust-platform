@@ -81,23 +81,33 @@ impl<'a> BytecodeEncoder<'a> {
                 return Ok(Some(reference));
             }
         }
-        if let Some(binding) = self
+        let access_binding = self
             .runtime
             .access_map()
             .get(name.as_ref())
-            .or_else(|| (key != *name).then(|| self.runtime.access_map().get(key.as_ref()))?)
-        {
-            if binding.partial.is_none() {
-                return Ok(Some(binding.reference.clone()));
-            }
-        }
-        Ok(self
+            .or_else(|| (key != *name).then(|| self.runtime.access_map().get(key.as_ref()))?);
+        let global_ref = self
             .runtime
             .storage()
             .ref_for_global(name.as_ref())
             .or_else(|| {
                 (key != *name).then(|| self.runtime.storage().ref_for_global(key.as_ref()))?
-            }))
+            });
+        if let Some(binding) = access_binding {
+            if binding.partial.is_none() {
+                if global_ref.is_some() {
+                    return Err(BytecodeError::InvalidSection(
+                        format!(
+                            "VAR_ACCESS declaration '{}' conflicts with a global declaration",
+                            binding.name
+                        )
+                        .into(),
+                    ));
+                }
+                return Ok(Some(binding.reference.clone()));
+            }
+        }
+        Ok(global_ref)
     }
 
     pub(super) fn ref_index_for(&mut self, value_ref: &ValueRef) -> Result<u32, BytecodeError> {

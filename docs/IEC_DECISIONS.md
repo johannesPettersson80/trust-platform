@@ -6,6 +6,19 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-05 - Subrange runtime write enforcement
+
+- Area: ST subrange data types and runtime writes
+- IEC context: IEC 61131-3 Ed.3 §6.4.4.4.1 defines subrange values by inclusive lower/upper limits and treats values outside that range as errors; Table 11 defines user-defined subrange declarations.
+- Decision:
+  - Runtime writes into subrange-typed storage are checked against the declared bounds.
+  - Out-of-range execution-time assignment, function/FB parameter copy-in, dynamic-reference writes, HMI/control writes, and retain reload surface a deterministic runtime error.
+  - The runtime must not silently clamp, wrap, or store an out-of-range value.
+  - Declaration-initialization edge cases remain out of this Phase 11 decision unless a separate initializer-specific proof row is opened.
+- Reason:
+  - Existing specs already describe subrange range violations as errors; Phase 11 proof showed the runtime currently stores out-of-range values silently.
+  - A visible runtime error is safer and more auditable than silently changing the value.
+
 ## 2026-02-25 - LD deterministic network traversal
 
 - Area: Ladder Diagram (LD) execution ordering
@@ -86,3 +99,14 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Reason:
   - Bare global access and `VAR_EXTERNAL` linkage become ambiguous if multiple globals with the same effective name coexist.
   - Rejecting duplicates matches the chosen vendor-parity direction more closely than silently preferring one declaration.
+
+## 2026-07-05 - Unqualified variable warm-restart policy
+
+- Area: runtime restart and retain behavior
+- IEC context: IEC 61131-3 Ed.3 §6.5.6 / Figure 9 specifies warm-restart behavior for `RETAIN` and `NON_RETAIN`, while unqualified warm-restart initialization is implementation-specific.
+- Decision:
+  - truST preserves only `RETAIN` and `PERSISTENT` values across warm restart.
+  - `NON_RETAIN` and unqualified variables are initialized from their declared/default initial values on warm restart.
+  - Cold restart initializes `RETAIN`, `PERSISTENT`, `NON_RETAIN`, and unqualified variables.
+- Reason:
+  - This keeps warm-restart retention explicit in source and prevents unqualified variables from accidentally behaving as retained state.

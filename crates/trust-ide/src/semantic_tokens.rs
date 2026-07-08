@@ -4,16 +4,17 @@
 
 use text_size::{TextRange, TextSize};
 
+use rustc_hash::{FxHashMap, FxHashSet};
 use trust_hir::db::{FileId, SemanticDatabase};
-use trust_hir::symbols::{SymbolKind, SymbolTable};
+use trust_hir::symbols::{ScopeId, Symbol, SymbolKind, SymbolTable};
 use trust_hir::{Database, SourceDatabase};
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use trust_syntax::{lex, TokenKind};
 
 use crate::util::{
-    resolve_target_at_position_with_context, scope_at_position, symbol_is_constant, ResolvedTarget,
-    SymbolFilter,
+    ident_token_in_name, is_pou_kind, resolve_target_at_position_with_context, scope_at_position,
+    symbol_is_constant, ResolvedTarget, SymbolFilter,
 };
 
 /// Semantic token types.
@@ -60,6 +61,31 @@ pub struct SemanticTokenModifiers {
     pub is_static: bool,
     /// This is a modification (write).
     pub modification: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PouScope {
+    range: TextRange,
+    scope_id: ScopeId,
+}
+
+#[derive(Debug, Default)]
+struct SemanticClassificationContext {
+    struct_field_ranges: FxHashSet<TextRange>,
+    field_member_ranges: FxHashSet<TextRange>,
+    type_position_ranges: FxHashSet<TextRange>,
+    pou_scopes: Vec<PouScope>,
+}
+
+impl SemanticClassificationContext {
+    fn new(symbols: &SymbolTable, root: &SyntaxNode) -> Self {
+        Self {
+            struct_field_ranges: collect_struct_field_ranges(root),
+            field_member_ranges: collect_field_member_ranges(root),
+            type_position_ranges: collect_type_position_ranges(root),
+            pou_scopes: collect_pou_scopes(symbols, root),
+        }
+    }
 }
 
 /// A semantic token.
@@ -121,147 +147,191 @@ fn symbol_kind_to_token_type(kind: &SymbolKind) -> SemanticTokenType {
     }
 }
 
-/// Classifies an identifier token based on semantic analysis.
-fn classify_identifier(
-    db: &Database,
+struct IdentifierClassifier<'a> {
+    db: &'a Database,
     file_id: FileId,
-    source: &str,
-    symbols: &SymbolTable,
-    root: &SyntaxNode,
-    name: &str,
-    range: TextRange,
-) -> (SemanticTokenType, SemanticTokenModifiers) {
-    let mut modifiers = SemanticTokenModifiers::default();
-    let offset = range.start();
+    source: &'a str,
+    symbols: &'a SymbolTable,
+    filter: &'a SymbolFilter<'a>,
+    declarations_by_range: &'a FxHashMap<TextRange, &'a Symbol>,
+    context: &'a SemanticClassificationContext,
+    root: &'a SyntaxNode,
+}
 
-    let filter = SymbolFilter::new(symbols);
+impl IdentifierClassifier<'_> {
+    /// Classifies an identifier token based on semantic analysis.
+    fn classify(
+        &self,
+        name: &str,
+        range: TextRange,
+    ) -> (SemanticTokenType, SemanticTokenModifiers) {
+        let mut modifiers = SemanticTokenModifiers::default();
+        let offset = range.start();
 
-    // Check if this is a declaration site (range matches a symbol's range)
-    if let Some(symbol) = filter.symbol_at_range(range) {
-        modifiers.declaration = true;
-        if symbol_is_constant(symbol) {
-            modifiers.readonly = true;
+        // Check if this is a declaration site (range matches a symbol's range)
+        if let Some(symbol) = self.declarations_by_range.get(&range).copied() {
+            modifiers.declaration = true;
+            if symbol_is_constant(symbol) {
+                modifiers.readonly = true;
+            }
+            return (symbol_kind_to_token_type(&symbol.kind), modifiers);
         }
-        return (symbol_kind_to_token_type(&symbol.kind), modifiers);
-    }
 
-    let is_field_decl = is_struct_field_declaration(root, offset);
-    let is_field_member = is_field_expr_member(root, offset);
-    if is_field_decl || is_field_member {
-        if let Some(target) =
-            resolve_target_at_position_with_context(db, file_id, offset, source, root, symbols)
-        {
-            match target {
-                ResolvedTarget::Symbol(symbol_id) => {
-                    if let Some(symbol) = symbols.get(symbol_id) {
-                        if symbol_is_constant(symbol) {
-                            modifiers.readonly = true;
+        let is_field_decl = self.context.struct_field_ranges.contains(&range);
+        let is_field_member = self.context.field_member_ranges.contains(&range);
+        if is_field_decl || is_field_member {
+            if let Some(target) = resolve_target_at_position_with_context(
+                self.db,
+                self.file_id,
+                offset,
+                self.source,
+                self.root,
+                self.symbols,
+            ) {
+                match target {
+                    ResolvedTarget::Symbol(symbol_id) => {
+                        if let Some(symbol) = self.symbols.get(symbol_id) {
+                            if symbol_is_constant(symbol) {
+                                modifiers.readonly = true;
+                            }
+                            if symbol.range == range {
+                                modifiers.declaration = true;
+                            }
+                            return (symbol_kind_to_token_type(&symbol.kind), modifiers);
                         }
-                        if symbol.range == range {
+                    }
+                    ResolvedTarget::Field(_) => {
+                        if is_field_decl {
                             modifiers.declaration = true;
                         }
-                        return (symbol_kind_to_token_type(&symbol.kind), modifiers);
+                        return (SemanticTokenType::Property, modifiers);
                     }
                 }
-                ResolvedTarget::Field(_) => {
-                    if is_field_decl {
-                        modifiers.declaration = true;
-                    }
-                    return (SemanticTokenType::Property, modifiers);
+            } else if is_field_decl {
+                modifiers.declaration = true;
+                return (SemanticTokenType::Property, modifiers);
+            }
+        }
+
+        // Find the scope at this position and resolve the name
+        let scope_id = cached_scope_at_position(self.symbols, self.root, offset, self.context);
+        if let Some(symbol) = self.filter.resolve_in_scope(name, scope_id) {
+            if symbol_is_constant(symbol) {
+                modifiers.readonly = true;
+            }
+            return (symbol_kind_to_token_type(&symbol.kind), modifiers);
+        }
+
+        // Fallback: try global lookup
+        if let Some(symbol) = self.filter.lookup_global(name) {
+            if symbol_is_constant(symbol) {
+                modifiers.readonly = true;
+            }
+            return (symbol_kind_to_token_type(&symbol.kind), modifiers);
+        }
+
+        // If in a type position, classify as Type even if unresolved
+        if self.context.type_position_ranges.contains(&range) {
+            return (SemanticTokenType::Type, modifiers);
+        }
+
+        // Unknown identifier - default to variable
+        (SemanticTokenType::Variable, modifiers)
+    }
+}
+
+fn cached_scope_at_position(
+    symbols: &SymbolTable,
+    root: &SyntaxNode,
+    offset: TextSize,
+    context: &SemanticClassificationContext,
+) -> ScopeId {
+    if let Some(scope) = context
+        .pou_scopes
+        .iter()
+        .rev()
+        .find(|scope| range_contains_offset(scope.range, offset))
+    {
+        return scope.scope_id;
+    }
+
+    scope_at_position(symbols, root, offset)
+}
+
+fn range_contains_offset(range: TextRange, offset: TextSize) -> bool {
+    range.start() <= offset && offset < range.end()
+}
+
+fn collect_struct_field_ranges(root: &SyntaxNode) -> FxHashSet<TextRange> {
+    let mut ranges = FxHashSet::default();
+    for type_body in root
+        .descendants()
+        .filter(|node| matches!(node.kind(), SyntaxKind::StructDef | SyntaxKind::UnionDef))
+    {
+        for var_decl in type_body
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarDecl)
+        {
+            for name_node in var_decl
+                .children()
+                .filter(|node| node.kind() == SyntaxKind::Name)
+            {
+                if let Some(token) = ident_token_in_name(&name_node) {
+                    ranges.insert(token.text_range());
                 }
             }
-        } else if is_field_decl {
-            modifiers.declaration = true;
-            return (SemanticTokenType::Property, modifiers);
         }
     }
-
-    // Find the scope at this position and resolve the name
-    let scope_id = scope_at_position(symbols, root, offset);
-    if let Some(symbol) = filter.resolve_in_scope(name, scope_id) {
-        if symbol_is_constant(symbol) {
-            modifiers.readonly = true;
-        }
-        return (symbol_kind_to_token_type(&symbol.kind), modifiers);
-    }
-
-    // Fallback: try global lookup
-    if let Some(symbol) = filter.lookup_global(name) {
-        if symbol_is_constant(symbol) {
-            modifiers.readonly = true;
-        }
-        return (symbol_kind_to_token_type(&symbol.kind), modifiers);
-    }
-
-    // If in a type position, classify as Type even if unresolved
-    if is_type_position(root, offset) {
-        return (SemanticTokenType::Type, modifiers);
-    }
-
-    // Unknown identifier - default to variable
-    (SemanticTokenType::Variable, modifiers)
+    ranges
 }
 
-fn is_struct_field_declaration(root: &SyntaxNode, offset: TextSize) -> bool {
-    let Some(token) = root.token_at_offset(offset).right_biased() else {
-        return false;
-    };
-    let Some(name_node) = token
-        .parent_ancestors()
-        .find(|node| node.kind() == SyntaxKind::Name)
-    else {
-        return false;
-    };
-    let Some(var_decl) = name_node.parent() else {
-        return false;
-    };
-    if var_decl.kind() != SyntaxKind::VarDecl {
-        return false;
+fn collect_field_member_ranges(root: &SyntaxNode) -> FxHashSet<TextRange> {
+    let mut ranges = FxHashSet::default();
+    for field_expr in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::FieldExpr)
+    {
+        let mut children = field_expr.children();
+        let _base = children.next();
+        let Some(member) = children.next() else {
+            continue;
+        };
+        if matches!(member.kind(), SyntaxKind::Name | SyntaxKind::NameRef) {
+            if let Some(token) = ident_token_in_name(&member) {
+                ranges.insert(token.text_range());
+            }
+        }
     }
-    var_decl.ancestors().any(|ancestor| {
+    ranges
+}
+
+fn collect_type_position_ranges(root: &SyntaxNode) -> FxHashSet<TextRange> {
+    let mut ranges = FxHashSet::default();
+    for node in root.descendants().filter(|node| {
         matches!(
-            ancestor.kind(),
-            SyntaxKind::StructDef | SyntaxKind::UnionDef
+            node.kind(),
+            SyntaxKind::TypeRef | SyntaxKind::ExtendsClause | SyntaxKind::ImplementsClause
         )
-    })
-}
-
-fn is_field_expr_member(root: &SyntaxNode, offset: TextSize) -> bool {
-    let Some(token) = root.token_at_offset(offset).right_biased() else {
-        return false;
-    };
-    let Some(name_node) = token
-        .parent_ancestors()
-        .find(|node| matches!(node.kind(), SyntaxKind::Name | SyntaxKind::NameRef))
-    else {
-        return false;
-    };
-    let Some(field_expr) = name_node.parent() else {
-        return false;
-    };
-    if field_expr.kind() != SyntaxKind::FieldExpr {
-        return false;
-    }
-    let mut children = field_expr.children();
-    let _base = children.next();
-    let member = children.next();
-    matches!(member, Some(node) if node == name_node)
-}
-
-/// Checks if an identifier is in a type position (after colon or in type reference).
-fn is_type_position(root: &SyntaxNode, offset: TextSize) -> bool {
-    let Some(token) = root.token_at_offset(offset).right_biased() else {
-        return false;
-    };
-
-    for ancestor in token.parent_ancestors() {
-        match ancestor.kind() {
-            SyntaxKind::TypeRef => return true,
-            SyntaxKind::ExtendsClause | SyntaxKind::ImplementsClause => return true,
-            _ => {}
+    }) {
+        for token in node
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+            .filter(|token| token.kind() == SyntaxKind::Ident)
+        {
+            ranges.insert(token.text_range());
         }
     }
-    false
+    ranges
+}
+
+fn collect_pou_scopes(symbols: &SymbolTable, root: &SyntaxNode) -> Vec<PouScope> {
+    root.descendants()
+        .filter(|node| is_pou_kind(node.kind()))
+        .map(|node| PouScope {
+            range: node.text_range(),
+            scope_id: scope_at_position(symbols, root, node.text_range().start()),
+        })
+        .collect()
 }
 
 /// Computes semantic tokens for a file.
@@ -271,6 +341,22 @@ pub fn semantic_tokens(db: &Database, file_id: FileId) -> Vec<SemanticToken> {
     let parsed = parse(&source);
     let root = parsed.syntax();
     let symbols = db.file_symbols(file_id);
+    let filter = SymbolFilter::new(&symbols);
+    let declarations_by_range: FxHashMap<TextRange, &Symbol> = symbols
+        .iter()
+        .map(|symbol| (symbol.range, symbol))
+        .collect();
+    let context = SemanticClassificationContext::new(&symbols, &root);
+    let classifier = IdentifierClassifier {
+        db,
+        file_id,
+        source: &source,
+        symbols: &symbols,
+        filter: &filter,
+        declarations_by_range: &declarations_by_range,
+        context: &context,
+        root: &root,
+    };
 
     let mut result = Vec::new();
 
@@ -452,8 +538,7 @@ pub fn semantic_tokens(db: &Database, file_id: FileId) -> Vec<SemanticToken> {
             // Identifiers - use semantic analysis
             TokenKind::Ident => {
                 let name = &source[token.range];
-                let (token_type, mods) =
-                    classify_identifier(db, file_id, &source, &symbols, &root, name, token.range);
+                let (token_type, mods) = classifier.classify(name, token.range);
                 result.push(SemanticToken {
                     range: token.range,
                     token_type,
