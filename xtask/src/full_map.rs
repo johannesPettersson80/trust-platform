@@ -4080,9 +4080,9 @@ mod tests {
         assert!(contains_rust_unsafe_token("unsafe { call() }"));
         assert!(contains_rust_unsafe_token("pub unsafe fn call()"));
         assert!(contains_rust_unsafe_token("unsafe impl Send for X {}"));
-        assert!(!contains_rust_unsafe_token(
-            &strip_string_literals("unsafe_allow_public_bind: Option<bool>,")
-        ));
+        assert!(!contains_rust_unsafe_token(&strip_string_literals(
+            "unsafe_allow_public_bind: Option<bool>,"
+        )));
         assert!(!contains_rust_unsafe_token(&strip_string_literals(
             "#![forbid(unsafe_code)]"
         )));
