@@ -118,6 +118,42 @@ Every generated report must include:
 - input metadata paths,
 - output artifact paths.
 
+### Generated Existing-Test Discovery Report
+
+`verification/schemas/generated-test-catalog.schema.json` is the dedicated
+closed schema for `test-catalog-scanner v1`. It is intentionally separate from
+`catalog.schema.json`, which owns reviewed test intent.
+
+The generated report contains:
+
+- full generator provenance, input paths, and a digest over every scanned
+  input;
+- a complete/incomplete scan status and severity-bearing diagnostics;
+- deterministic inferred facts with semantic discovery ID, native identity,
+  source kind, literal name, path and line, nullable package, conservative
+  command hint plus authority, ignore state and reason, and lexical reference
+  candidates. Structured Text declarations retain their
+  `TEST_PROGRAM`/`TEST_FUNCTION_BLOCK` kind in the native identity and use a
+  conservative `trust-dev test --project ... --filter ...` hint;
+- recomputed record/file/ignore/diagnostic counts by source kind;
+- an explicit list of excluded hand-owned fields.
+
+At-rest validation applies the committed closed JSON schema, then recomputes
+discovery IDs and summary counts, requires canonical ordering and
+workspace-relative paths, checks per-source package/command/authority claims,
+checks input contents against the report digest, and binds the Markdown summary
+to the JSON SHA-256. A scan
+with missing roots, unreadable inputs, malformed manifests, duplicate native
+IDs, or invalid target paths is incomplete and the CLI exits nonzero. Dynamic
+or unsupported declarations remain visible warning debt and do not enable
+enforcement in this slice.
+
+Discovery facts must not contain `area`, `owner`, `status`, `test_class`,
+`invariants`, expected results, suite tiers, hardware/network requirements,
+oracle refs, expected failure modes, or evidence destinations. Those fields
+remain review-owned by `verification/test-catalog.toml` beginning at
+`VERIF-P2-004`.
+
 Canonical area values and `verification/spec-matrix.toml` semantics live in
 `spec-matrix-model.md`.
 

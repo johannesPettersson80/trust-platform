@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/generated-test-catalog.schema.json",
+  "title": "truST mechanically generated existing-test catalog report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "scan_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "hand_owned_intent",
+    "inferred_facts",
+    "diagnostics",
+    "limitations",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "test-catalog-scanner" },
+    "generator_version": { "const": 1 },
+    "scan_status": { "enum": ["complete", "incomplete"] },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|dirty:[0-9a-f]{40}|unavailable)$"
+    },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "pattern": "^target/gate-artifacts/verification/.+\\.json$" },
+        "markdown": {
+          "type": "string",
+          "pattern": "^(?:target/gate-artifacts/verification/[^/]+|docs/internal/testing/evidence/plc-verification-program/[0-9]{4}-[0-9]{2}-[0-9]{2}/[^/]+)\\.md$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hand_owned_intent": {
+      "type": "object",
+      "required": ["included", "fields"],
+      "properties": {
+        "included": { "const": false },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inferred_facts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fact" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "required": [
+        "stable_id",
+        "native_id",
+        "source_kind",
+        "name",
+        "path",
+        "line",
+        "package",
+        "command_hint",
+        "command_hint_authority",
+        "discovery_confidence",
+        "ignore_state",
+        "ignore_reason",
+        "reference_candidates",
+        "provenance"
+      ],
+      "properties": {
+        "stable_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+        "native_id": { "type": "string", "minLength": 1 },
+        "source_kind": {
+          "enum": [
+            "rust_integration_test",
+            "rust_unit_test",
+            "structured_text_test",
+            "vscode_test",
+            "conformance_case",
+            "fuzz_target",
+            "gate_script",
+            "github_workflow_job"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "package": { "type": ["string", "null"] },
+        "command_hint": { "type": "string", "minLength": 1 },
+        "command_hint_authority": {
+          "enum": ["exact", "conservative", "package_only", "file_entrypoint", "workflow_only"]
+        },
+        "discovery_confidence": {
+          "enum": [
+            "exact_attribute",
+            "literal_call",
+            "parsed_manifest",
+            "filename_pattern",
+            "yaml_job_indentation",
+            "lexical_declaration"
+          ]
+        },
+        "ignore_state": { "enum": ["not_ignored", "ignored", "conditional"] },
+        "ignore_reason": { "type": ["string", "null"] },
+        "reference_candidates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "provenance": { "const": "inferred" }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "kind", "path", "line", "message"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["records", "files", "ignored", "conditional_ignores", "diagnostics", "errors", "warnings", "by_source_kind"],
+      "properties": {
+        "records": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 },
+        "ignored": { "type": "integer", "minimum": 0 },
+        "conditional_ignores": { "type": "integer", "minimum": 0 },
+        "diagnostics": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "by_source_kind": {
+          "type": "object",
+          "properties": {
+            "rust_integration_test": { "type": "integer", "minimum": 0 },
+            "rust_unit_test": { "type": "integer", "minimum": 0 },
+            "structured_text_test": { "type": "integer", "minimum": 0 },
+            "vscode_test": { "type": "integer", "minimum": 0 },
+            "conformance_case": { "type": "integer", "minimum": 0 },
+            "fuzz_target": { "type": "integer", "minimum": 0 },
+            "gate_script": { "type": "integer", "minimum": 0 },
+            "github_workflow_job": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

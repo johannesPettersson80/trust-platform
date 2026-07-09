@@ -81,6 +81,11 @@ Evidence rules:
   composition.
 - `commit` is the tested commit, or `dirty:<base-commit>` when the worktree was
   dirty; a bare dirty marker without the base commit is invalid.
+- The generated existing-test catalog JSON under
+  `target/gate-artifacts/verification/` is a reproducible working artifact, not
+  durable evidence and not proof of a product claim. Its committed dated
+  Markdown summary may be indexed as `proof_kind = "none"` with empty invariant
+  and test links after the JSON/input digests and counts validate at rest.
 - `committed_file` paths must be git-tracked; `ci_artifact` refs name
   `workflow`, `run_id`, `artifact`, and `retention_days` when the artifact is
   the only proof; `release_object` evidence names `release_object` and `url`;

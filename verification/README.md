@@ -18,6 +18,8 @@ Current seed scope:
 - bytecode/VM-only transform seed artifacts under `verification/seeds/**`.
 - bytecode-validator-only mutation shard metadata and survivor reporting for
   `VERIF-P1B-013`.
+- mechanical existing-test discovery for `VERIF-P2-001` through
+  `VERIF-P2-003`.
 
 TOML shape convention:
 
@@ -67,6 +69,16 @@ TOML shape convention:
   outcomes, exhaustive case-ID partition, outcome counts, survivors, and source
   commit. Known infrastructure failures abort instead of counting as killed or
   unviable mutants.
+- `scripts/scan_test_catalog.py` discovers Rust integration and in-source test
+  attributes, runnable Structured Text `TEST_PROGRAM` and
+  `TEST_FUNCTION_BLOCK` declarations under crate tests, literal VS Code tests,
+  conformance manifests, fuzz targets, root-level `scripts/*gate*` files, and
+  GitHub workflow jobs. It writes the
+  machine report to `target/gate-artifacts/verification/` and a concise dated
+  Markdown summary. `scripts/validate_generated_test_catalog.py` revalidates
+  the schema instance, semantic identities, per-source command contracts, input
+  digest, counts, and Markdown binding at rest. Generated reference candidates
+  are lexical facts only and do not map tests to invariants or claims.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

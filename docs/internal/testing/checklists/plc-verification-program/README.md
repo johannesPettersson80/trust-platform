@@ -159,3 +159,25 @@ verification/
 
 Generated reports are artifacts under `target/gate-artifacts/**` or CI
 workspace artifact paths unless a reviewed summary is intentionally committed.
+
+The Phase 2 existing-test scanner is:
+
+```text
+python3 scripts/scan_test_catalog.py \
+  --json-out target/gate-artifacts/verification/existing-test-catalog.json \
+  --markdown-out docs/internal/testing/evidence/plc-verification-program/<date>/p2-existing-test-catalog.md \
+  --timestamp <fixed-iso-8601-time>
+python3 scripts/validate_generated_test_catalog.py \
+  --json target/gate-artifacts/verification/existing-test-catalog.json \
+  --markdown docs/internal/testing/evidence/plc-verification-program/<date>/p2-existing-test-catalog.md
+```
+
+It inventories only source-derived facts, including runnable Structured Text
+test declarations under crate test projects. Package values may be null,
+command hints carry an authority label, ignore state distinguishes
+unconditional from conditional attributes, and obvious references remain
+lexical candidates.
+The generated JSON explicitly excludes the hand-owned intent fields belonging
+to `verification/test-catalog.toml`. Unmapped or unsupported declarations are
+report debt in this slice; scanner corruption and invalid report structure are
+errors.
