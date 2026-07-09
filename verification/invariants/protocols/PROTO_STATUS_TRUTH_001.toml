@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PROTO_STATUS_TRUTH_001"
+title = "Protocol status reports distinguish proven connectivity from assumptions"
+area = "protocols"
+risk = "false_status"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "Protocol status surfaces must distinguish confirmed protocol behavior, loopback proof, mock-only proof, and hardware-unproven states."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
+tests = []
+gates = ["pr", "hardware_lab"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PUBLIC_WIRE_CLAIM_001"]
+missing = ["protocol_proof_matrix"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "spec_gap"
+rationale = "Hardware-unproven protocol status vocabulary must be specified before claims are mapped."
+spec_gap_ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"

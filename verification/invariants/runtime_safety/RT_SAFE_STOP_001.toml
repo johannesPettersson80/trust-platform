@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RT_SAFE_STOP_001"
+title = "Deliberate stop applies or truthfully reports safe outputs"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "On deliberate stop, configured safe outputs must reach the device or the runtime must report that safe state was not achieved."
+proof_level = "S0"
+contract_kind = "fault_scenario"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = []
+gates = ["pr", "release"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_RUNTIME_SAFE_STATE_001"]
+missing = ["safe_state_worker_handoff_contract", "hardware_lab_real_output_module"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "spec_gap"
+rationale = "Safe-state output handoff while workers are unavailable must be specified before tests are accepted."
+spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"

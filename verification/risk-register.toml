@@ -1,0 +1,16 @@
+# Initial risk register for the PLC verification program.
+
+[[risks]]
+schema_version = 1
+id = "RISK_BYTECODE_VALIDATOR_SCOPE_001"
+title = "Validator coverage may lag VM assumptions"
+area = "bytecode_vm"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-09"
+description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
+mitigation = "Map each VM assumption to required spec tags, crafted-bytecode negative tests, and validator invariants."
+related_invariants = ["VM_SEAM_VALID_001"]
+related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
+evidence_refs = []

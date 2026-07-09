@@ -1,0 +1,15 @@
+schema_version = 1
+id = "nightly"
+title = "Nightly Verification Program"
+area = "suite"
+owner = "verification"
+status = "planned"
+last_reviewed = "2026-07-08"
+purpose = "Placeholder suite for future generated reports, fuzz, mutation, soak, and slow proof."
+duration_class = "long"
+environment = "trust-builder"
+commands = []
+evidence_destination = "target/gate-artifacts/nightly-verification/"
+includes = ["pr"]
+excludes = ["hardware_lab"]
+approved_proof_producers = []

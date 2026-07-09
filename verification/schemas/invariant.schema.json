@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/invariant.schema.json",
+  "title": "truST verification invariant record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "risk",
+    "status",
+    "owner",
+    "claim",
+    "contract_kind",
+    "proof_level",
+    "tests",
+    "gates",
+    "missing",
+    "spec",
+    "oracle",
+    "coverage"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string" },
+    "area": { "type": "string" },
+    "risk": {
+      "enum": [
+        "safety_critical",
+        "wrong_result",
+        "silent_corruption",
+        "false_status",
+        "data_loss",
+        "security",
+        "compatibility",
+        "performance",
+        "usability",
+        "maintenance",
+        "supply_chain",
+        "platform"
+      ]
+    },
+    "status": { "type": "string" },
+    "contract_kind": {
+      "enum": [
+        "decision_table",
+        "state_machine",
+        "protocol_trace",
+        "fault_scenario",
+        "ui_journey",
+        "security_policy",
+        "perf_budget",
+        "release_matrix"
+      ]
+    },
+    "proof_level": { "enum": ["S0", "S1", "D1", "T1", "D2", "I1", "G1", "G2", "R1"] },
+    "tests": { "type": "array", "items": { "type": "string" } },
+    "gates": { "type": "array", "items": { "type": "string" } },
+    "missing": { "type": "array", "items": { "type": "string" } },
+    "spec_gap_refs": { "type": "array", "items": { "type": "string" } },
+    "behavior": { "type": "array" }
+  },
+  "additionalProperties": true
+}

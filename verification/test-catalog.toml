@@ -1,0 +1,84 @@
+# Hand-owned test catalog metadata.
+# Planned P1B case-table rows pin generated planning artifacts only. They are
+# not runnable proof and must not satisfy behavior coverage until P1B-007/008
+# add the case runner and prove.py evidence path.
+
+[[tests]]
+schema_version = 1
+id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
+test_class = "metadata_validation"
+area = "bytecode_vm"
+path = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
+command = "python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check"
+owner = "verification"
+status = "planned"
+invariants = ["VM_SEAM_SUBRANGE_001"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+suite_tiers = ["veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
+case_file_digest = "sha256:be88c5cbe7c25bea0927c8b1c1f9b86bdb3fd612781544625a5b48d69a5fa260"
+last_reviewed = "2026-07-09"
+
+[[tests]]
+schema_version = 1
+id = "TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001"
+test_class = "metadata_validation"
+area = "bytecode_vm"
+path = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
+command = "python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check"
+owner = "verification"
+status = "planned"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+suite_tiers = ["veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
+case_file_digest = "sha256:e1734fc8207fa961c5d6aa3fd2244bc80ff65dde592df116cac0e256ea454586"
+last_reviewed = "2026-07-09"
+
+[[tests]]
+schema_version = 1
+id = "TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001"
+test_class = "metadata_validation"
+area = "bytecode_vm"
+path = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
+command = "python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check"
+owner = "verification"
+status = "planned"
+invariants = ["VM_SEAM_STRING_BOUND_001"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+suite_tiers = ["veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
+case_file_digest = "sha256:36802c65173e8410d6f50dab919203fd084b8642bf8427a7411ef48b5e94d726"
+last_reviewed = "2026-07-09"
+
+[[tests]]
+schema_version = 1
+id = "TEST_CASE_TABLE_VM_SEAM_VALID_001"
+test_class = "metadata_validation"
+area = "bytecode_vm"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+command = "python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check"
+owner = "verification"
+status = "planned"
+invariants = ["VM_SEAM_VALID_001"]
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+expected_result = "The committed bytecode transform case table regenerates exactly from the committed seed artifact; all cases remain blocked until the bytecode validator contract gap closes."
+suite_tiers = ["veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+case_file_digest = "sha256:a3829955b4b18e54e786cbd66b2e4f9eb94db4b9b278e23140eb7380c3c728d1"
+last_reviewed = "2026-07-09"

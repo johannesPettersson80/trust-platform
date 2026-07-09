@@ -1,0 +1,46 @@
+schema_version = 1
+id = "CASES_VM_SEAM_SUBRANGE_001"
+title = "Generated cases for Subrange writes cannot silently store out-of-range values"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "planned"
+invariant = "VM_SEAM_SUBRANGE_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:11389c6e91b4a46c92e1e1790726be4c1c392a0018be531bea707be5e84aecc2"
+source_digest = "sha256:0b2d08529f28d06e454ec8d5af530fd1117b91206c3557e6ccdd92dc7d05ee64"
+last_reviewed = "2026-07-09"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_MIN_AE132E71"
+family = "boundary_low"
+input = { source_partition = { min = 0, max = 100 }, value = 0 }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_MAX_AE132E71"
+family = "boundary_high"
+input = { source_partition = { min = 0, max = 100 }, value = 100 }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_BELOW_MIN_F2BC55A3"
+family = "below_min"
+input = { source_partition = { below = 0 }, value = -1 }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_ABOVE_MAX_2EDDED03"
+family = "above_max"
+input = { source_partition = { above = 100 }, value = 101 }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_WRONG_TYPE_817CB4E0"
+family = "wrong_type_or_shape"
+input = { source_partition = { wrong_type = "REAL" }, shape_descriptor = "REAL" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"

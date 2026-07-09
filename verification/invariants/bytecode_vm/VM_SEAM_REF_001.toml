@@ -1,0 +1,36 @@
+schema_version = 1
+id = "VM_SEAM_REF_001"
+title = "Frame-local references cannot escape their owning frame"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-08"
+claim = "Bytecode validation and runtime reference handling must prevent a local-frame reference from being stored where it can later dereference against a different frame."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bytecode/validate", "crates/trust-runtime-core/src/vm"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+missing = ["reference_escape_contract", "crafted_bytecode_negative_test"]
+
+[input]
+name = "bytecode_reference"
+type = "trust bytecode reference operand"
+declared = "frame-local reference"
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Reference escape rejection behavior must be specified before cases are generated."
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"

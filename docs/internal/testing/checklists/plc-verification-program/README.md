@@ -38,7 +38,9 @@ This is a SQLite-style proof discipline adapted to PLC risk:
 - `policy.md`: stop gates, vocabulary, code-change discipline, spec-gap rules,
   test-refactor policy, suite tiers, metrics, and final definition of done.
 - `metadata-model.md`: machine-readable record shapes, schema files, status
-  vocabulary, authority precedence, schema versioning, and traceability reports.
+  vocabulary, authority precedence, and schema versioning.
+- `metadata-evidence-traceability.md`: evidence record rules, traceability
+  report requirements, and verification-tooling self-test fixtures.
 - `spec-matrix-model.md`: canonical area values and required-specification
   matrix semantics.
 - `test-taxonomy.md`: code-area matrix, test classes, coverage dimensions,

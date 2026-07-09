@@ -1,0 +1,875 @@
+"""Red/green/lock proof producer for verification metadata.
+
+P1B scope implements `prove.py red`, `prove.py green`, and behavior-lock
+baseline/compare evidence.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import platform
+import subprocess
+import sys
+import tomllib
+import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .metadata_validator.constants import PROVE_PRODUCER_RE, ROOT, VERIFICATION
+from .metadata_validator.core import Validator
+from .metadata_validator.integrity import test_counts_as_runnable
+
+
+EXIT_OK = 0
+EXIT_NOT_RED = 2
+EXIT_USAGE = 5
+EXIT_METADATA_INVALID = 6
+EXIT_PROOF_ERROR = 7
+PRODUCER = "prove.py v1"
+CASE_RESULTS = {"passed", "failed", "skipped", "blocked"}
+
+
+class MetadataValidationError(RuntimeError):
+    pass
+
+
+class ProofError(RuntimeError):
+    def __init__(self, message: str, *, failure_kind: str) -> None:
+        super().__init__(message)
+        self.failure_kind = failure_kind
+
+
+@dataclass(frozen=True)
+class ProofResult:
+    record: dict[str, Any]
+    evidence_path: Path
+    artifact_path: Path | None
+
+
+@dataclass(frozen=True)
+class CommandRun:
+    returncode: int
+    trust_verify_run_id: str
+    artifact_path: Path | None
+    artifact: dict[str, Any] | None
+    case_artifact_digest: str | None
+    case_file_digest: str | None
+    case_result_digest: str
+    failed_case_ids: list[str]
+    blocked_case_ids: list[str]
+    per_case_summary: list[str]
+
+
+class ProofProducer:
+    def __init__(
+        self,
+        *,
+        root: Path = ROOT,
+        tests: dict[str, dict[str, Any]] | None = None,
+        ignored_tests: dict[str, dict[str, Any]] | None = None,
+        evidence: dict[str, dict[str, Any]] | None = None,
+        approved_producers: set[str] | None = None,
+        artifact_dir: Path | None = None,
+        evidence_dir: Path | None = None,
+        run_id_factory: Any | None = None,
+        command_timeout_seconds: float = 1800,
+        validate_metadata: bool = True,
+    ) -> None:
+        self.root = root
+        if validate_metadata:
+            validator = load_validated_metadata()
+            tests = validator.tests
+            ignored_tests = validator.ignored_tests
+            evidence = validator.evidence
+            approved_producers = validator.approved_producers()
+        self.tests = tests or {}
+        self.ignored_tests = ignored_tests or {}
+        self.evidence = evidence or {}
+        self.approved_producers = approved_producers or set()
+        self.artifact_dir = artifact_dir or root / "target/gate-artifacts/cases"
+        self.evidence_dir = evidence_dir or root / "target/gate-artifacts/prove"
+        self.run_id_factory = run_id_factory or (lambda: uuid.uuid4().hex)
+        self.command_timeout_seconds = command_timeout_seconds
+
+    def red(self, test_id: str) -> ProofResult:
+        test = self.lookup_runnable_test(test_id)
+        run = self.run_cataloged_command(test_id, test)
+
+        if run.returncode != 0 and run.failed_case_ids:
+            return self.write_red_record(
+                test=test,
+                proof_kind=proof_kind_for_test(test),
+                failure_kind="assertion_failure",
+                run_id=run.trust_verify_run_id,
+                command_exit_status=run.returncode,
+                artifact_path=run.artifact_path,
+                case_artifact_digest=run.case_artifact_digest,
+                case_file_digest=str(run.case_file_digest),
+                red_case_ids=run.failed_case_ids,
+                per_case_summary=run.per_case_summary,
+            )
+
+        if run.returncode == 0 and run.failed_case_ids:
+            raise ProofError(
+                f"{test_id} reported failed cases but command exited 0",
+                failure_kind="metadata_error",
+            )
+        if run.returncode != 0:
+            raise ProofError(
+                f"{test_id} command failed without a failed case artifact",
+                failure_kind="harness_panic" if run.artifact else "compile_error",
+            )
+        raise ProofError(f"{test_id} is not red", failure_kind="none")
+
+    def green(self, test_id: str, red_evidence_id: str) -> ProofResult:
+        test = self.lookup_runnable_test(test_id)
+        red_evidence = self.lookup_red_evidence(red_evidence_id, test_id, test)
+        run = self.run_cataloged_command(test_id, test)
+
+        formerly_red_case_ids = list(red_evidence["red_case_ids"])
+        if run.returncode == 0 and run.failed_case_ids:
+            raise ProofError(
+                f"{test_id} reported failed cases but command exited 0",
+                failure_kind="metadata_error",
+            )
+        if run.returncode != 0 and run.failed_case_ids:
+            raise ProofError(
+                f"{test_id} still has failed cases {run.failed_case_ids}",
+                failure_kind="assertion_failure",
+            )
+        if run.returncode != 0:
+            raise ProofError(
+                f"{test_id} command failed while proving green",
+                failure_kind="harness_panic" if run.artifact else "compile_error",
+            )
+        if run.blocked_case_ids:
+            raise ProofError(
+                f"{test_id} cannot close green proof with blocked cases {run.blocked_case_ids}",
+                failure_kind="metadata_error",
+            )
+
+        passed = passed_case_ids(run.per_case_summary)
+        missing_passes = [case_id for case_id in formerly_red_case_ids if case_id not in passed]
+        if missing_passes:
+            raise ProofError(
+                f"{test_id} formerly red cases are not green: {missing_passes}",
+                failure_kind="metadata_error",
+            )
+
+        return self.write_green_record(
+            test=test,
+            red_evidence=red_evidence,
+            run_id=run.trust_verify_run_id,
+            command_exit_status=run.returncode,
+            artifact_path=run.artifact_path,
+            case_artifact_digest=run.case_artifact_digest,
+            case_file_digest=str(run.case_file_digest),
+            formerly_red_case_ids=formerly_red_case_ids,
+            per_case_summary=run.per_case_summary,
+        )
+
+    def lock_baseline(self, test_id: str) -> ProofResult:
+        test = self.lookup_runnable_test(test_id)
+        self.require_case_file_backed_test(test_id, test)
+        run = self.run_cataloged_command(test_id, test)
+        self.require_lock_clean_run(test_id, run)
+        return self.write_lock_record(
+            test=test,
+            proof_kind="lock_baseline",
+            paired_lock_baseline=None,
+            run_id=run.trust_verify_run_id,
+            command_exit_status=run.returncode,
+            artifact_path=run.artifact_path,
+            case_artifact_digest=run.case_artifact_digest,
+            case_file_digest=run.case_file_digest,
+            case_result_digest=run.case_result_digest,
+            per_case_summary=run.per_case_summary,
+        )
+
+    def lock_compare(self, test_id: str, baseline_evidence_id: str) -> ProofResult:
+        test = self.lookup_runnable_test(test_id)
+        self.require_case_file_backed_test(test_id, test)
+        baseline = self.lookup_lock_baseline(baseline_evidence_id, test_id, test)
+        run = self.run_cataloged_command(test_id, test)
+
+        if run.returncode != baseline.get("command_exit_status"):
+            raise ProofError(
+                f"{test_id} command_exit_status changed from "
+                f"{baseline.get('command_exit_status')!r} to {run.returncode!r}",
+                failure_kind="metadata_error",
+            )
+        if run.blocked_case_ids:
+            raise ProofError(
+                f"{test_id} cannot close lock proof with blocked cases {run.blocked_case_ids}",
+                failure_kind="metadata_error",
+            )
+        if run.case_result_digest != baseline.get("case_result_digest"):
+            raise ProofError(
+                f"{test_id} case result digest changed from "
+                f"{baseline.get('case_result_digest')!r} to {run.case_result_digest!r}",
+                failure_kind="metadata_error",
+            )
+        if run.per_case_summary != baseline.get("per_case_summary"):
+            raise ProofError(
+                f"{test_id} per-case results changed from "
+                f"{baseline.get('per_case_summary')!r} to {run.per_case_summary!r}",
+                failure_kind="metadata_error",
+            )
+        self.require_lock_clean_run(test_id, run)
+        return self.write_lock_record(
+            test=test,
+            proof_kind="lock_compare",
+            paired_lock_baseline=baseline["id"],
+            run_id=run.trust_verify_run_id,
+            command_exit_status=run.returncode,
+            artifact_path=run.artifact_path,
+            case_artifact_digest=run.case_artifact_digest,
+            case_file_digest=run.case_file_digest,
+            case_result_digest=run.case_result_digest,
+            per_case_summary=run.per_case_summary,
+        )
+
+    def run_cataloged_command(self, test_id: str, test: dict[str, Any]) -> CommandRun:
+        case_file = test.get("case_file")
+        case_file_digest = test.get("case_file_digest")
+        if bool(case_file) != bool(case_file_digest):
+            raise ProofError(
+                f"{test_id} must name both case_file and case_file_digest for proof",
+                failure_kind="metadata_error",
+            )
+
+        artifact_path = self.artifact_dir / f"{test_id}.json" if case_file else None
+        if artifact_path and artifact_path.exists():
+            artifact_path.unlink()
+
+        run_id = str(self.run_id_factory())
+        if not run_id:
+            raise ProofError("run_id_factory returned an empty run id", failure_kind="metadata_error")
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "TRUST_VERIFY_TEST_ID": test_id,
+                "TRUST_VERIFY_RUN_ID": run_id,
+                "TRUST_VERIFY_ARTIFACT_DIR": str(self.artifact_dir),
+            }
+        )
+        if case_file_digest:
+            env["TRUST_VERIFY_CASE_FILE_DIGEST"] = str(case_file_digest)
+
+        command = str(test["command"])
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=self.root,
+                env=env,
+                shell=True,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=self.command_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ProofError(
+                f"{test_id} command timed out after {self.command_timeout_seconds:g}s",
+                failure_kind="timeout",
+            ) from exc
+
+        artifact: dict[str, Any] | None = None
+        failed_case_ids: list[str] = []
+        blocked_case_ids: list[str] = []
+        per_case_summary: list[str] = []
+        case_artifact_digest: str | None = None
+        if artifact_path and artifact_path.exists():
+            case_artifact_digest = sha256_file(artifact_path)
+            artifact = load_json_artifact(artifact_path)
+            expected_case_ids = load_case_ids(self.root / str(case_file))
+            failed_case_ids, blocked_case_ids, per_case_summary = validate_case_artifact(
+                artifact=artifact,
+                expected_test_id=test_id,
+                expected_run_id=run_id,
+                expected_artifact_dir=str(self.artifact_dir),
+                expected_case_file_digest=str(case_file_digest),
+                expected_case_ids=expected_case_ids,
+            )
+
+        if case_file and artifact is None:
+            failure = "compile_error" if completed.returncode != 0 else "metadata_error"
+            raise ProofError(
+                f"{test_id} did not produce required case artifact {artifact_path}",
+                failure_kind=failure,
+            )
+
+        return CommandRun(
+            returncode=completed.returncode,
+            trust_verify_run_id=run_id,
+            artifact_path=artifact_path,
+            artifact=artifact,
+            case_artifact_digest=case_artifact_digest,
+            case_file_digest=str(case_file_digest) if case_file_digest else None,
+            case_result_digest=case_result_digest(
+                command_exit_status=completed.returncode,
+                per_case_summary=per_case_summary,
+            ),
+            failed_case_ids=failed_case_ids,
+            blocked_case_ids=blocked_case_ids,
+            per_case_summary=per_case_summary,
+        )
+
+    def require_lock_clean_run(self, test_id: str, run: CommandRun) -> None:
+        if run.returncode != 0 and run.failed_case_ids:
+            raise ProofError(
+                f"{test_id} cannot close lock proof with failed cases {run.failed_case_ids}",
+                failure_kind="metadata_error",
+            )
+        if run.returncode != 0:
+            raise ProofError(
+                f"{test_id} command failed while proving lock",
+                failure_kind="harness_panic" if run.artifact else "compile_error",
+            )
+        if run.failed_case_ids:
+            raise ProofError(
+                f"{test_id} cannot close lock proof with failed cases {run.failed_case_ids}",
+                failure_kind="metadata_error",
+            )
+        if run.blocked_case_ids:
+            raise ProofError(
+                f"{test_id} cannot close lock proof with blocked cases {run.blocked_case_ids}",
+                failure_kind="metadata_error",
+            )
+
+    def lookup_runnable_test(self, test_id: str) -> dict[str, Any]:
+        test = self.tests.get(test_id)
+        if test is None:
+            raise ProofError(f"unknown test {test_id}", failure_kind="metadata_error")
+        if test_id in self.ignored_tests:
+            raise ProofError(f"{test_id} is listed in ignored-tests", failure_kind="metadata_error")
+        if not test_counts_as_runnable(test):
+            raise ProofError(
+                f"{test_id} is not runnable proof at status {test.get('status')!r}",
+                failure_kind="metadata_error",
+            )
+        if "expected_red_failure_kind" in test:
+            raise ProofError(
+                "expected_red_failure_kind is reserved until expected-rejection "
+                "proof has a validator-backed catalog contract",
+                failure_kind="metadata_error",
+            )
+        return test
+
+    def require_case_file_backed_test(self, test_id: str, test: dict[str, Any]) -> None:
+        if not test.get("case_file") or not test.get("case_file_digest"):
+            raise ProofError(
+                f"{test_id} lock proof requires a catalog case_file and case_file_digest",
+                failure_kind="metadata_error",
+            )
+
+    def lookup_red_evidence(
+        self,
+        red_evidence_id: str,
+        test_id: str,
+        test: dict[str, Any],
+    ) -> dict[str, Any]:
+        record = self.evidence.get(red_evidence_id)
+        if record is None:
+            record = load_generated_evidence(self.evidence_dir / f"{red_evidence_id}.toml", red_evidence_id)
+        if record.get("proof_kind") not in {"red", "protective_red"}:
+            raise ProofError(
+                f"{red_evidence_id} is not red/protective_red proof",
+                failure_kind="metadata_error",
+            )
+        producer = str(record.get("producer", ""))
+        if not (PROVE_PRODUCER_RE.match(producer) or producer in self.approved_producers):
+            raise ProofError(
+                f"{red_evidence_id} producer {producer!r} is not accepted for green proof",
+                failure_kind="metadata_error",
+            )
+        if record.get("linked_tests") != [test_id]:
+            raise ProofError(
+                f"{red_evidence_id} linked_tests must be exactly [{test_id!r}]",
+                failure_kind="metadata_error",
+            )
+        if record.get("case_file_digest") != test.get("case_file_digest"):
+            raise ProofError(
+                f"{red_evidence_id} case_file_digest does not match catalog row",
+                failure_kind="metadata_error",
+            )
+        if record.get("failure_kind") not in {"assertion_failure", "expected_rejection"}:
+            raise ProofError(
+                f"{red_evidence_id} failure_kind {record.get('failure_kind')!r} cannot feed green",
+                failure_kind="metadata_error",
+            )
+        red_case_ids = record.get("red_case_ids")
+        if not isinstance(red_case_ids, list) or not red_case_ids:
+            raise ProofError(f"{red_evidence_id} has no red_case_ids", failure_kind="metadata_error")
+        if not record.get("per_case_summary"):
+            raise ProofError(f"{red_evidence_id} has no per_case_summary", failure_kind="metadata_error")
+        return record
+
+    def lookup_lock_baseline(
+        self,
+        baseline_evidence_id: str,
+        test_id: str,
+        test: dict[str, Any],
+    ) -> dict[str, Any]:
+        record = self.evidence.get(baseline_evidence_id)
+        if record is None:
+            record = load_generated_evidence(
+                self.evidence_dir / f"{baseline_evidence_id}.toml",
+                baseline_evidence_id,
+            )
+        if record.get("proof_kind") != "lock_baseline":
+            raise ProofError(
+                f"{baseline_evidence_id} is not lock_baseline proof",
+                failure_kind="metadata_error",
+            )
+        producer = str(record.get("producer", ""))
+        if not (PROVE_PRODUCER_RE.match(producer) or producer in self.approved_producers):
+            raise ProofError(
+                f"{baseline_evidence_id} producer {producer!r} is not accepted for lock proof",
+                failure_kind="metadata_error",
+            )
+        if record.get("linked_tests") != [test_id]:
+            raise ProofError(
+                f"{baseline_evidence_id} linked_tests must be exactly [{test_id!r}]",
+                failure_kind="metadata_error",
+            )
+        if record.get("command") != test.get("command"):
+            raise ProofError(
+                f"{baseline_evidence_id} command does not match catalog row",
+                failure_kind="metadata_error",
+            )
+        if record.get("case_file_digest") != test.get("case_file_digest"):
+            raise ProofError(
+                f"{baseline_evidence_id} case_file_digest does not match catalog row",
+                failure_kind="metadata_error",
+            )
+        if not record.get("per_case_summary"):
+            raise ProofError(
+                f"{baseline_evidence_id} has no per_case_summary",
+                failure_kind="metadata_error",
+            )
+        if "case_result_digest" not in record:
+            raise ProofError(
+                f"{baseline_evidence_id} has no case_result_digest",
+                failure_kind="metadata_error",
+            )
+        if "command_exit_status" not in record:
+            raise ProofError(
+                f"{baseline_evidence_id} has no command_exit_status",
+                failure_kind="metadata_error",
+            )
+        if record.get("command_exit_status") != 0:
+            raise ProofError(
+                f"{baseline_evidence_id} command_exit_status must be 0",
+                failure_kind="metadata_error",
+            )
+        expected_digest = case_result_digest(
+            command_exit_status=int(record["command_exit_status"]),
+            per_case_summary=list(record["per_case_summary"]),
+        )
+        if record.get("case_result_digest") != expected_digest:
+            raise ProofError(
+                f"{baseline_evidence_id} case_result_digest does not match command_exit_status and per_case_summary",
+                failure_kind="metadata_error",
+            )
+        return record
+
+    def write_red_record(
+        self,
+        *,
+        test: dict[str, Any],
+        proof_kind: str,
+        failure_kind: str,
+        run_id: str,
+        command_exit_status: int,
+        artifact_path: Path | None,
+        case_artifact_digest: str | None,
+        case_file_digest: str | None,
+        red_case_ids: list[str],
+        per_case_summary: list[str],
+    ) -> ProofResult:
+        record_id = f"EVID_{test['id']}_RED"
+        record, evidence_path = self.base_proof_record(
+            test=test,
+            record_id=record_id,
+            title=f"Red proof for {test['id']}",
+            generated_report_version="prove-red-v1",
+            proof_kind=proof_kind,
+            failure_kind=failure_kind,
+            run_id=run_id,
+            command_exit_status=command_exit_status,
+            artifact_path=artifact_path,
+            case_artifact_digest=case_artifact_digest,
+            case_file_digest=case_file_digest,
+        )
+        record["red_case_ids"] = red_case_ids
+        record["per_case_summary"] = per_case_summary
+        return self.write_proof_record(record, evidence_path, artifact_path)
+
+    def write_green_record(
+        self,
+        *,
+        test: dict[str, Any],
+        red_evidence: dict[str, Any],
+        run_id: str,
+        command_exit_status: int,
+        artifact_path: Path | None,
+        case_artifact_digest: str | None,
+        case_file_digest: str | None,
+        formerly_red_case_ids: list[str],
+        per_case_summary: list[str],
+    ) -> ProofResult:
+        record_id = f"EVID_{test['id']}_GREEN"
+        record, evidence_path = self.base_proof_record(
+            test=test,
+            record_id=record_id,
+            title=f"Green proof for {test['id']}",
+            generated_report_version="prove-green-v1",
+            proof_kind="green",
+            failure_kind="none",
+            run_id=run_id,
+            command_exit_status=command_exit_status,
+            artifact_path=artifact_path,
+            case_artifact_digest=case_artifact_digest,
+            case_file_digest=case_file_digest,
+        )
+        record["paired_red_evidence"] = red_evidence["id"]
+        record["formerly_red_case_ids"] = formerly_red_case_ids
+        record["per_case_summary"] = per_case_summary
+        return self.write_proof_record(record, evidence_path, artifact_path)
+
+    def write_lock_record(
+        self,
+        *,
+        test: dict[str, Any],
+        proof_kind: str,
+        paired_lock_baseline: str | None,
+        run_id: str,
+        command_exit_status: int,
+        artifact_path: Path | None,
+        case_artifact_digest: str | None,
+        case_file_digest: str | None,
+        case_result_digest: str,
+        per_case_summary: list[str],
+    ) -> ProofResult:
+        suffix = "LOCK_BASELINE" if proof_kind == "lock_baseline" else "LOCK_COMPARE"
+        record_id = f"EVID_{test['id']}_{suffix}"
+        record, evidence_path = self.base_proof_record(
+            test=test,
+            record_id=record_id,
+            title=f"{proof_kind} proof for {test['id']}",
+            generated_report_version="prove-lock-v1",
+            proof_kind=proof_kind,
+            failure_kind="none",
+            run_id=run_id,
+            command_exit_status=command_exit_status,
+            artifact_path=artifact_path,
+            case_artifact_digest=case_artifact_digest,
+            case_file_digest=case_file_digest,
+        )
+        record["per_case_summary"] = per_case_summary
+        record["case_result_digest"] = case_result_digest
+        if paired_lock_baseline is not None:
+            record["paired_lock_baseline"] = paired_lock_baseline
+        return self.write_proof_record(record, evidence_path, artifact_path)
+
+    def base_proof_record(
+        self,
+        *,
+        test: dict[str, Any],
+        record_id: str,
+        title: str,
+        generated_report_version: str,
+        proof_kind: str,
+        failure_kind: str,
+        run_id: str,
+        command_exit_status: int,
+        artifact_path: Path | None,
+        case_artifact_digest: str | None,
+        case_file_digest: str | None,
+    ) -> tuple[dict[str, Any], Path]:
+        evidence_path = self.evidence_dir / f"{record_id}.toml"
+        record: dict[str, Any] = {
+            "schema_version": 1,
+            "id": record_id,
+            "title": title,
+            "area": test.get("area", "verification"),
+            "owner": test.get("owner", "verification"),
+            "status": "mapped",
+            "kind": "committed_file",
+            "path": str(evidence_path.relative_to(self.root)),
+            "command": test["command"],
+            "commit": dirty_commit_marker(self.root),
+            "platform": platform.platform(),
+            "date": dt.date.today().isoformat(),
+            "suite_id": first_or_default(test.get("suite_tiers"), "veryquick"),
+            "producer": PRODUCER,
+            "generated_report_version": generated_report_version,
+            "linked_invariants": list(test.get("invariants", [])),
+            "linked_tests": [test["id"]],
+            "last_reviewed": dt.date.today().isoformat(),
+            "proof_kind": proof_kind,
+            "failure_kind": failure_kind,
+            "trust_verify_run_id": run_id,
+            "command_exit_status": command_exit_status,
+        }
+        if artifact_path is not None:
+            record["case_artifact_path"] = str(artifact_path.relative_to(self.root))
+        if case_artifact_digest is not None:
+            record["case_artifact_digest"] = case_artifact_digest
+        if case_file_digest is not None:
+            record["case_file_digest"] = case_file_digest
+        return record, evidence_path
+
+    def write_proof_record(
+        self,
+        record: dict[str, Any],
+        evidence_path: Path,
+        artifact_path: Path | None,
+    ) -> ProofResult:
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        evidence_path.write_text(render_evidence_record(record))
+        return ProofResult(record=record, evidence_path=evidence_path, artifact_path=artifact_path)
+
+
+def load_validated_metadata() -> Validator:
+    validator = Validator()
+    validator.load_records()
+    validator.validate()
+    if not validator.failures:
+        return validator
+    details = "\n".join(
+        f"- {failure.path}: {failure.message}" for failure in validator.failures[:20]
+    )
+    more = "" if len(validator.failures) <= 20 else f"\n- ... {len(validator.failures) - 20} more"
+    raise MetadataValidationError(f"prove.py metadata validation failed:\n{details}{more}")
+
+
+def load_json_artifact(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text())
+    except Exception as exc:
+        raise ProofError(f"failed to parse case artifact {path}: {exc}", failure_kind="metadata_error") from exc
+    if not isinstance(value, dict):
+        raise ProofError(f"case artifact {path} is not an object", failure_kind="metadata_error")
+    return value
+
+
+def load_generated_evidence(path: Path, evidence_id: str) -> dict[str, Any]:
+    if not path.exists():
+        raise ProofError(f"paired red evidence {evidence_id} not found at {path}", failure_kind="metadata_error")
+    try:
+        data = tomllib.loads(path.read_text())
+    except Exception as exc:
+        raise ProofError(f"failed to parse paired red evidence {path}: {exc}", failure_kind="metadata_error") from exc
+    records = data.get("evidence")
+    if not isinstance(records, list):
+        raise ProofError(f"paired red evidence file {path} has no [[evidence]] table", failure_kind="metadata_error")
+    for record in records:
+        if isinstance(record, dict) and record.get("id") == evidence_id:
+            return record
+    raise ProofError(f"paired red evidence file {path} does not contain {evidence_id}", failure_kind="metadata_error")
+
+
+def load_case_ids(path: Path) -> list[str]:
+    try:
+        data = tomllib.loads(path.read_text())
+    except Exception as exc:
+        raise ProofError(f"failed to parse case file {path}: {exc}", failure_kind="metadata_error") from exc
+    cases = data.get("case", [])
+    if not isinstance(cases, list):
+        raise ProofError(f"case file {path} has no [[case]] table", failure_kind="metadata_error")
+    ids: list[str] = []
+    for case in cases:
+        if not isinstance(case, dict) or not isinstance(case.get("id"), str):
+            raise ProofError(f"case file {path} has a case without id", failure_kind="metadata_error")
+        ids.append(case["id"])
+    return ids
+
+
+def validate_case_artifact(
+    *,
+    artifact: dict[str, Any],
+    expected_test_id: str,
+    expected_run_id: str,
+    expected_artifact_dir: str,
+    expected_case_file_digest: str,
+    expected_case_ids: list[str],
+) -> tuple[list[str], list[str], list[str]]:
+    require_equal(artifact, "schema_version", 1)
+    require_equal(artifact, "test_id", expected_test_id)
+    require_equal(artifact, "case_file_digest", expected_case_file_digest)
+    require_equal(artifact, "trust_verify_test_id", expected_test_id)
+    require_equal(artifact, "trust_verify_run_id", expected_run_id)
+    require_equal(artifact, "trust_verify_case_file_digest", expected_case_file_digest)
+    require_equal(artifact, "trust_verify_artifact_dir", expected_artifact_dir)
+    cases = artifact.get("cases")
+    if not isinstance(cases, list):
+        raise ProofError("case artifact cases field is not an array", failure_kind="metadata_error")
+
+    expected = set(expected_case_ids)
+    seen: set[str] = set()
+    failed: list[str] = []
+    blocked: list[str] = []
+    summary: list[str] = []
+    for case in cases:
+        if not isinstance(case, dict):
+            raise ProofError("case artifact contains a non-object case", failure_kind="metadata_error")
+        case_id = case.get("id")
+        result = case.get("result")
+        if not isinstance(case_id, str):
+            raise ProofError("case artifact contains a case without id", failure_kind="metadata_error")
+        if case_id in seen:
+            raise ProofError(f"duplicate case artifact id {case_id}", failure_kind="metadata_error")
+        if case_id not in expected:
+            raise ProofError(f"unknown case artifact id {case_id}", failure_kind="metadata_error")
+        seen.add(case_id)
+        if result not in CASE_RESULTS:
+            raise ProofError(
+                f"unknown case result {result!r} for case {case_id}",
+                failure_kind="metadata_error",
+            )
+        if result == "skipped":
+            raise ProofError(f"case {case_id} was skipped without waiver", failure_kind="metadata_error")
+        if result == "failed":
+            failed.append(case_id)
+        if result == "blocked":
+            blocked.append(case_id)
+        summary.append(f"{case_id}:{result}")
+    missing = sorted(expected - seen)
+    if missing:
+        raise ProofError(f"case artifact missing cases {missing}", failure_kind="metadata_error")
+    return failed, blocked, summary
+
+
+def passed_case_ids(summary: list[str]) -> set[str]:
+    result: set[str] = set()
+    for item in summary:
+        case_id, sep, status = item.partition(":")
+        if sep and status == "passed":
+            result.add(case_id)
+    return result
+
+
+def require_equal(artifact: dict[str, Any], field: str, expected: Any) -> None:
+    actual = artifact.get(field)
+    if actual != expected:
+        label = {
+            "trust_verify_test_id": "TRUST_VERIFY_TEST_ID",
+            "trust_verify_run_id": "TRUST_VERIFY_RUN_ID",
+            "trust_verify_case_file_digest": "TRUST_VERIFY_CASE_FILE_DIGEST",
+            "trust_verify_artifact_dir": "TRUST_VERIFY_ARTIFACT_DIR",
+        }.get(field, field)
+        raise ProofError(
+            f"case artifact {label} mismatch: expected {expected!r}, actual {actual!r}",
+            failure_kind="metadata_error",
+        )
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return f"sha256:{digest}"
+
+
+def case_result_digest(*, command_exit_status: int, per_case_summary: list[str]) -> str:
+    payload = {
+        "command_exit_status": command_exit_status,
+        "per_case_summary": per_case_summary,
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return f"sha256:{hashlib.sha256(raw).hexdigest()}"
+
+
+def proof_kind_for_test(test: dict[str, Any]) -> str:
+    return "protective_red" if test.get("test_class") == "protective_red" else "red"
+
+
+def first_or_default(value: Any, default: str) -> str:
+    if isinstance(value, list) and value:
+        return str(value[0])
+    return default
+
+
+def dirty_commit_marker(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    head = result.stdout.strip() if result.returncode == 0 else "unknown"
+    return f"dirty:{head[:12]}" if head != "unknown" else "dirty:unknown"
+
+
+def render_evidence_record(record: dict[str, Any]) -> str:
+    lines = ["[[evidence]]"]
+    for key, value in record.items():
+        lines.append(f"{key} = {render_toml_value(value)}")
+    return "\n".join(lines) + "\n"
+
+
+def render_toml_value(value: Any) -> str:
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(render_toml_value(item) for item in value) + "]"
+    raise TypeError(f"unsupported TOML evidence value {value!r}")
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Produce truST verification proof evidence.")
+    subcommands = parser.add_subparsers(dest="command", required=True)
+    red = subcommands.add_parser("red", help="run a cataloged test and record red proof")
+    red.add_argument("--test", required=True, dest="test_id")
+    green = subcommands.add_parser("green", help="run a cataloged test and record green proof")
+    green.add_argument("--test", required=True, dest="test_id")
+    green.add_argument("--red-evidence", required=True, dest="red_evidence_id")
+    lock = subcommands.add_parser("lock", help="run or compare behavior-lock proof")
+    lock.add_argument("--test", required=True, dest="test_id")
+    lock_mode = lock.add_mutually_exclusive_group(required=True)
+    lock_mode.add_argument("--baseline", action="store_true")
+    lock_mode.add_argument("--compare", dest="baseline_evidence_id")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = parse_args(argv or sys.argv[1:])
+    except SystemExit as exc:
+        return int(exc.code) if exc.code == 0 else EXIT_USAGE
+    try:
+        prover = ProofProducer()
+        if args.command == "red":
+            result = prover.red(args.test_id)
+            print(f"red proof written: {result.evidence_path.relative_to(ROOT)}")
+            return EXIT_OK
+        if args.command == "green":
+            result = prover.green(args.test_id, args.red_evidence_id)
+            print(f"green proof written: {result.evidence_path.relative_to(ROOT)}")
+            return EXIT_OK
+        if args.baseline:
+            result = prover.lock_baseline(args.test_id)
+            print(f"lock baseline proof written: {result.evidence_path.relative_to(ROOT)}")
+            return EXIT_OK
+        result = prover.lock_compare(args.test_id, args.baseline_evidence_id)
+    except MetadataValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_METADATA_INVALID
+    except ProofError as exc:
+        print(f"prove.py {args.command} failed ({exc.failure_kind}): {exc}", file=sys.stderr)
+        return EXIT_NOT_RED if exc.failure_kind == "none" else EXIT_PROOF_ERROR
+    print(f"lock compare proof written: {result.evidence_path.relative_to(ROOT)}")
+    return EXIT_OK

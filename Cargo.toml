@@ -11,6 +11,7 @@ members = [
     "crates/trust-plcopen",
     "crates/trust-ads-core",
     "crates/trust-ads-server",
+    "crates/verification-cases",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
     "crates/trust-wasm-analysis",
@@ -97,6 +98,7 @@ trust-dev = { path = "crates/trust-dev" }
 trust-plcopen = { path = "crates/trust-plcopen" }
 trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
+verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }

@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PROTO_DISCOVERY_TRUTH_001"
+title = "Protocol discovery labels do not overclaim"
+area = "protocols"
+risk = "false_status"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "Discovery results must label protocol handshakes, likely devices, and mere port reachability without collapsing them into one truthful state."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
+tests = []
+gates = ["pr", "hardware_lab"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PUBLIC_WIRE_CLAIM_001"]
+missing = ["protocol_discovery_confidence_contract"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "spec_gap"
+rationale = "Discovery confidence taxonomy must be specified before protocol claims are mapped."
+spec_gap_ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"

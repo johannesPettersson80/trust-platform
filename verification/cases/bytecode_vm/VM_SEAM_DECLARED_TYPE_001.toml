@@ -1,0 +1,39 @@
+schema_version = 1
+id = "CASES_VM_SEAM_DECLARED_TYPE_001"
+title = "Generated cases for Declared types cannot be erased into wrong runtime tag semantics"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "planned"
+invariant = "VM_SEAM_DECLARED_TYPE_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:11389c6e91b4a46c92e1e1790726be4c1c392a0018be531bea707be5e84aecc2"
+source_digest = "sha256:6ee9f63713c82ab45c325021aff5b5a7c049d83ba36fadcbaa6f90e5a52c5f55"
+last_reviewed = "2026-07-09"
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_INT_LITERAL_TO_REAL_SLOT_04979927"
+family = "happy_path"
+input = { source_partition = { equals = "INT_LITERAL_TO_REAL_SLOT" }, scenario = "INT_LITERAL_TO_REAL_SLOT" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_INT_VARIABLE_TO_REAL_SLOT_C3821866"
+family = "happy_path"
+input = { source_partition = { equals = "INT_VARIABLE_TO_REAL_SLOT" }, scenario = "INT_VARIABLE_TO_REAL_SLOT" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_INT_EXPRESSION_TO_DINT_SLOT_9BF228AA"
+family = "happy_path"
+input = { source_partition = { equals = "INT_EXPRESSION_TO_DINT_SLOT" }, scenario = "INT_EXPRESSION_TO_DINT_SLOT" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_D8E1DB83"
+family = "wrong_type_or_shape"
+input = { source_partition = { wrong_type = "BOOL_TO_REAL_SLOT" }, shape_descriptor = "BOOL_TO_REAL_SLOT" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"

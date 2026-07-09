@@ -1,0 +1,34 @@
+schema_version = 1
+id = "minimal-stbc-seed"
+title = "Minimal STBC-like bytecode seed for transform case generation"
+description = "Small committed seed with a bytecode header, one section table entry, and a tiny POU-body byte stream. It is a transform seed only; generated cases remain blocked until the bytecode validator contract is specified."
+bytes_hex = "5354424301000100000000001800010018000000000000000600000024000000080000000002000000001201"
+
+[[truncate_points]]
+id = "before_section_table"
+offset = 24
+family = "missing_required"
+
+[[truncate_points]]
+id = "before_pou_bodies"
+offset = 36
+family = "missing_required"
+
+[[opcode_sites]]
+id = "pou_body_first_opcode"
+offset = 36
+opcodes = [255, 128]
+family = "extra_or_unknown"
+
+[[jump_sites]]
+id = "pou_body_jmp_operand"
+operand_offset = 38
+deltas = [100, -100]
+family = "wrong_type_or_shape"
+
+[[stack_underflow_sites]]
+id = "pou_body_pop_empty_stack"
+offset = 36
+length = 1
+bytes_hex = "12"
+family = "wrong_type_or_shape"

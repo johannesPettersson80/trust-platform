@@ -38,6 +38,7 @@ verification/
     spec-source.schema.json
     spec-gap.schema.json
     spec-matrix.schema.json
+    matrix.schema.json
     case-file.schema.json
     case-artifact.schema.json
   matrix.toml
@@ -252,11 +253,15 @@ The validator must fail closed when it sees:
 - public claims with no invariant/proof/gap,
 - durable evidence paths matched by `git check-ignore`,
 - empty-string sentinels used as null values,
+- evidence records with unknown `kind`, invalid commit markers, no `suite_id`
+  or `release_object`, or missing kind-specific fields,
 - unknown `contract_kind`,
 - a `decision_table` invariant with missing behavior rows for applicable
   coverage dimensions,
 - a behavior row that supplies expected behavior without an oracle ref or uses a
   spec-gap ref as if it were an oracle,
+- a behavior row with expression-language partitions such as `when = "..."`
+  instead of the v1 explicit partition keys,
 - a required spec-matrix tag that resolves to neither an active source nor an
   open spec gap,
 - a spec-matrix source whose `covers` list does not contain the required tag,
@@ -412,17 +417,17 @@ declared = "INT(0..100)"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_TYPES_SUBRANGE_001"]
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "docs/specs/12-bytecode.md#subrange-runtime-write"
+ref = "SPEC_RUNTIME_SEMANTICS_001#subrange-runtime-write"
 
 [[behavior]]
 partition = { min = 0, max = 100 }
 outcome = "accept_value"
 delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-oracle_ref = "SPEC_TYPES_SUBRANGE_001#runtime-write"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-write"
 
 [[behavior]]
 partition = { below = 0 }
@@ -431,7 +436,7 @@ error_code = "SubrangeOutOfBounds"
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
 no_partial_apply = true
 fault_surface = "diagnostic"
-oracle_ref = "SPEC_TYPES_SUBRANGE_001#runtime-write"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-write"
 
 [[behavior]]
 partition = { above = 100 }
@@ -440,7 +445,7 @@ error_code = "SubrangeOutOfBounds"
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
 no_partial_apply = true
 fault_surface = "diagnostic"
-oracle_ref = "SPEC_TYPES_SUBRANGE_001#runtime-write"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-write"
 ```
 
 Allowed decision-table outcomes:
@@ -457,6 +462,28 @@ Decision-table rules:
 - Partitions use explicit keys such as `min`, `max`, `below`, `above`, `equals`,
   `wrong_type`, and `malformed`. No `when = "..."` expression language is
   allowed in v1.
+- `equals` partitions are opaque symbolic labels, not behavior expressions.
+  They must use stable `UPPER_CASE_LABEL` values. Case tooling may copy or map
+  the label, but must not infer product behavior from the label text.
+- `equals` partitions must also name `case_family`, and generated cases must
+  carry the label as `input.scenario`, not as the typed input value. This keeps
+  scenario labels from becoming hidden product behavior or fake happy paths.
+- A behavior partition must use exactly one handled shape, except `{ min, max }`
+  which is the v1 closed-range shape. Mixed partitions such as
+  `{ above = 5, equals = "X" }` are invalid because they silently under-generate
+  cases.
+- Rows that name `spec_gap_ref` are blocked behavior placeholders, not oracles:
+  they may name the partition and the gap, but must not carry `outcome`,
+  `delta`, `error_code`, `no_partial_apply`, or `fault_surface`.
+- Rows that name `oracle_ref` must resolve to an active non-public-claim spec
+  source. Fragment suffixes such as `SPEC_ID#section` are allowed, but the base
+  spec ID must exist in `verification/spec-sources.toml`.
+- Rows that name `error_code` require an active stable-error-code-model spec
+  source before they validate. Until that source exists, error-code behavior
+  rows must stay blocked by a spec gap.
+- For `status = "spec_gap"`, `oracle.ref` must equal one of the record's
+  `spec_gap_refs`; `oracle.kind` documents the expected future oracle category.
+  For every other status, `oracle.ref` must not name a spec gap.
 - Behavior rows must tile the declared input domain for finite/scalar domains or
   mark the missing partitions with `spec_gap_ref`.
 - Every behavior row must use the structured `delta` field. Allowed keys in v1
@@ -467,6 +494,9 @@ Decision-table rules:
   `unchanged`, `not_applicable`.
 - Allowed `delta.siblings`, `delta.retain`, and `delta.process_image` values:
   `unchanged`, `expected_delta`, `not_applicable`.
+- When any delta key uses `expected_delta`, the behavior row must define the
+  actual expected change in oracle-cited notes or another structured field in
+  the same record. `expected_delta` is not self-describing.
 - Allowed `delta.diagnostics` values: `none`, `stable_error`,
   `expected_diagnostic`, `not_applicable`.
 - Allowed `delta.status` values: `unchanged`, `fault_visible`,
@@ -660,6 +690,7 @@ owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_SUBRANGE_001"
 generator = "gen_cases.py v1"
+generator_digest = "sha256:<generator-source-digest>"
 source_digest = "sha256:<invariant-record-digest>"
 last_reviewed = "2026-07-08"
 
@@ -667,13 +698,13 @@ last_reviewed = "2026-07-08"
 id = "SUBRANGE_WRITE_MIN"
 family = "boundary_low"
 input = { value = 0 }
-expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_TYPES_SUBRANGE_001#runtime-write" }
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-write" }
 
 [[case]]
 id = "SUBRANGE_WRITE_UPPER_PLUS_1"
 family = "above_max"
 input = { value = 101 }
-expect = { outcome = "reject", error_code = "SubrangeOutOfBounds", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }, no_partial_apply = true, fault_surface = "diagnostic", oracle_ref = "SPEC_TYPES_SUBRANGE_001#runtime-write" }
+expect = { outcome = "reject", error_code = "SubrangeOutOfBounds", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }, no_partial_apply = true, fault_surface = "diagnostic", oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-write" }
 ```
 
 Required fields:
@@ -685,6 +716,9 @@ Required fields:
 - `owner`
 - `status`
 - `invariant`
+- `generator`
+- `generator_digest`
+- `source_digest`
 - `last_reviewed`
 - each `case.id`
 - each `case.family`
@@ -696,7 +730,13 @@ Case rules:
 - `family` must be one of the coverage dimensions in `test-taxonomy.md`.
 - Generated expected behavior may only be copied from a behavior row. Tools and
   agents must never synthesize an expected value from code or a guess.
+- A case with `expect` must match an oracle-backed behavior row on the named
+  invariant. Its `oracle_ref` must resolve through the same oracle rules as
+  behavior rows and catalog rows.
 - A blocked case must name a `spec_gap_ref`; it cannot be counted as covered.
+- Wrong-type or malformed inputs must use `input.shape_descriptor`, not the
+  invariant's typed input field. This prevents a runner from treating labels
+  such as `WSTRING` or `BOOL_TO_REAL_SLOT` as literal test values.
 - Transform-backed case files must name the committed seed artifact and
   generator. `gen_cases.py --check` must reproduce the committed table exactly.
 
@@ -707,6 +747,11 @@ Tests that consume a case file must emit a generated artifact under
 `verification-cases` helper. The artifact lets `prove.py` verify that every
 committed case was executed and observed.
 
+The helper requires the expected case-file digest when constructing its run
+configuration. It must fail before execution and before artifact write if the
+digest does not match. The default artifact directory is the workspace-root
+`target/gate-artifacts/cases`; explicit overrides should be absolute paths.
+
 Required fields:
 
 - `schema_version`
@@ -714,6 +759,9 @@ Required fields:
 - `case_file`
 - `case_file_digest`
 - `helper_version`
+- `trust_verify_test_id`, `trust_verify_run_id`,
+  `trust_verify_case_file_digest`, and `trust_verify_artifact_dir` when
+  `prove.py` exports the matching `TRUST_VERIFY_*` environment variables
 - `cases`
 - per-case `id`, `result`, observed error/status, and state-delta verdict
 
@@ -722,7 +770,15 @@ harness-observed facts. `prove.py` owns command, commit, platform, timing,
 failure-kind classification, and evidence creation. If `prove.py` exports
 `TRUST_VERIFY_*` environment variables for the helper to stamp into the case
 artifact, `prove.py` must verify the stamped values before accepting the
-artifact.
+artifact. The helper fails before case execution when only some stamp variables
+are present or when stamped `TEST_ID`, case-file digest, or artifact directory
+does not match the current run configuration.
+
+For `prove.py lock`, the raw case-artifact digest is provenance only because
+freshness stamps intentionally change between runs. The stable behavior-lock
+comparison uses a deterministic `case_result_digest` derived from command exit
+status plus per-case results, paired to the baseline through
+`paired_lock_baseline`.
 
 ### Suite Record
 
@@ -830,167 +886,5 @@ Required fields:
 - `mitigation`
 - `related_invariants`
 
-### Evidence Record
-
-```toml
-schema_version = 1
-id = "EVIDENCE_BYTECODE_VALIDATION_20260708_001"
-title = "Bytecode validation targeted test run"
-area = "bytecode_vm"
-owner = "trust-runtime"
-status = "planned"
-kind = "committed_file"
-path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/bytecode-validation-output.txt"
-command = "cargo test -p trust-runtime --test bytecode_validation"
-commit = "dirty:6a7492cae"
-platform = "trust-builder-linux"
-date = "2026-07-08"
-suite_id = "pr"
-# Manual is allowed for non-red/green notes and reports. It cannot close
-# high-risk red/green proof.
-producer = "manual"
-generated_report_version = "none"
-linked_invariants = ["VM_SEAM_VALID_001"]
-linked_tests = ["TEST_BYTECODE_UNKNOWN_OPCODE_REJECTED"]
-last_reviewed = "2026-07-08"
-```
-
-Required fields:
-
-- `schema_version`
-- `id`
-- `title`
-- `area`
-- `owner`
-- `status`
-- `kind`
-- `command` when command-backed
-- `commit`
-- `platform`
-- `date`
-- `suite_id` or `release_object`
-- `producer`
-- `generated_report_version`
-- `linked_invariants`
-- `linked_tests`
-- `last_reviewed`
-
-Optional proof fields for `prove.py` or approved gate output:
-
-- `proof_kind`: `red`, `green`, `lock_baseline`, `lock_compare`,
-  `protective_red`, or `none`.
-- `failure_kind`: `assertion_failure`, `expected_rejection`, `compile_error`,
-  `harness_panic`, `timeout`, `none`, or a gate-defined stable value.
-- `case_artifact_path`
-- `case_artifact_digest`
-- `case_file_digest`
-- `paired_red_evidence_ref`
-- `per_case_summary`
-
-Allowed evidence kinds:
-
-- `committed_file`
-- `ci_artifact`
-- `release_object`
-- `lab_report`
-
-Evidence rules:
-
-- `commit` is the tested commit, or `dirty:<base-commit>` when the worktree was
-  dirty; a bare dirty marker without the base commit is invalid.
-- `lab_report` evidence additionally requires `device_model`, `firmware`,
-  `topology`, and `env_vars` fields so hardware claims carry device identity.
-- `committed_file` paths must be git-tracked; `ci_artifact` refs name workflow,
-  run, and artifact, and note retention when the artifact is the only proof.
-- For safety-critical, wrong-result, silent-corruption, and false-status
-  behavior-changing proof, the producer is an allowlist, not a blocklist:
-  `producer` must be `prove.py vN` or an approved gate recorded in suite
-  metadata. Values such as `manual`, `codex`, `claude`, `fable`, or any
-  unrecognized agent/tool name are treated as manual provenance and cannot close
-  red/green proof for those risks.
-- `prove.py green` must pair to the red evidence record for the same test and
-  same case-file digest. It must prove every formerly-red case is now green, no
-  previously-green case regressed, no case was skipped without a waiver, and
-  the case-file digest did not change unless the changed case table has its own
-  reviewed decision or spec-gap closeout.
-- `prove.py lock` for refactors must pair `lock_compare` evidence to a
-  `lock_baseline` evidence record and report any output delta.
-
-Producer vocabulary:
-
-- `manual`: human-authored evidence note.
-- `codex`, `claude`, `fable`: agent-authored review or report note. These are
-  provenance values, not proof producers for high-risk red/green closure.
-- `prove.py vN`: verification prover output.
-- `verification-gate vN`: CI/local metadata gate output.
-- `approved-gate:<suite-or-script-id>`: named suite or gate with an explicit
-  suite record and proof fields equivalent to `prove.py`.
-
-Waiver and risk-change rules live in `spec-matrix-model.md`.
-
-## Traceability Reports
-
-The program must generate both directions:
-
-Forward trace:
-
-```text
-user story/public workflow -> spec source -> invariant -> test -> suite/gate -> evidence -> public claim
-```
-
-Reverse trace:
-
-```text
-public claim/workflow -> evidence -> suite/gate -> test -> invariant -> spec source -> user story/public workflow
-```
-
-Traceability report requirements:
-
-- Every safety-critical invariant has a spec source or spec gap.
-- Every mapped test has at least one invariant.
-- Every release/public claim has a proof path or visible gap.
-- Every user-facing workflow claim has a workflow spec source or visible spec
-  gap before implementation proof is mapped.
-- Every evidence artifact names command, commit/dirty marker, platform, and
-  generated report version.
-- Every spec gap lists blocked tests or explains why no test can be authored.
-
-## Verification Tooling Self-Tests
-
-The verification program must test its own tooling.
-
-Required fixtures:
-
-- known-good metadata set,
-- missing required field,
-- unknown status,
-- stale path,
-- durable evidence path matched by `git check-ignore`,
-- unknown invariant ID,
-- unknown suite ID,
-- unknown evidence ID,
-- public claim without proof/gap,
-- ignored test with `unknown` after grace period,
-- schema-version mismatch,
-- mapped record with empty invariants,
-- stale test name inside an existing file,
-- `validated` with empty evidence,
-- safety-critical `validated` with a `gap_open` or `spec_gap` coverage cell,
-- proof level below status requirement,
-- traceability cycle or redirect loop.
-- decision-table invariant with uncovered required partition,
-- case file with unknown family or stale digest,
-- case artifact that skips a committed case,
-- high-risk red/green evidence from a non-allowlisted producer,
-- green evidence missing its paired red evidence record,
-- compile error or harness panic incorrectly recorded as a red assertion
-  failure.
-
-Required tooling tests:
-
-- schema validator rejects known-bad fixtures,
-- catalog scanner detects changed/deleted tests,
-- spec-source scanner emits missing/stale/conflict reports,
-- changed-file classifier maps paths to code areas and gates,
-- report renderer output is stable enough for review,
-- generated artifacts distinguish inferred facts from hand-authored intent.
+Evidence record details, traceability report rules, and verification-tooling
+self-test fixtures live in `metadata-evidence-traceability.md`.

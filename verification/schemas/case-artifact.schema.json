@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/case-artifact.schema.json",
+  "title": "truST verification generated case artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "test_id",
+    "case_file",
+    "case_file_digest",
+    "helper_version",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "trust_verify_test_id": { "type": ["string", "null"] },
+    "trust_verify_run_id": { "type": ["string", "null"] },
+    "trust_verify_case_file_digest": { "type": ["string", "null"] },
+    "trust_verify_artifact_dir": { "type": ["string", "null"] },
+    "cases": { "type": "array" }
+  },
+  "additionalProperties": true
+}

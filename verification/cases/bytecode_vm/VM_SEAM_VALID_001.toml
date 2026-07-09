@@ -1,0 +1,60 @@
+schema_version = 1
+id = "CASES_VM_SEAM_VALID_001"
+title = "Generated cases for Bytecode validator rejects VM semantic contract violations"
+area = "bytecode_vm"
+owner = "trust-runtime"
+status = "planned"
+invariant = "VM_SEAM_VALID_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:11389c6e91b4a46c92e1e1790726be4c1c392a0018be531bea707be5e84aecc2"
+source_digest = "sha256:eb7ea4788e6d024e71caaeb377406c5370e7717845878b650b7e95b2e4508165"
+last_reviewed = "2026-07-09"
+
+[[case]]
+id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_58B11C2B"
+family = "missing_required"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "container_truncate", truncate_point = "before_section_table", truncate_offset = 24, bytes_hex = "535442430100010000000000180001001800000000000000", mutated_digest = "sha256:a2ca0374a17f0d14407c5473e0c9bfd024388f76bbfe00eea13b4616422a6264" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_D6833A8D"
+family = "missing_required"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "container_truncate", truncate_point = "before_pou_bodies", truncate_offset = 36, bytes_hex = "535442430100010000000000180001001800000000000000060000002400000008000000", mutated_digest = "sha256:dceae1fcf0db628b4210b91d79c103403da9510c2750f3b69a6d195ae499986d" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955"
+family = "extra_or_unknown"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "unknown_opcode", opcode_site = "pou_body_first_opcode", opcode_offset = 36, opcode = 255, bytes_hex = "535442430100010000000000180001001800000000000000060000002400000008000000ff02000000001201", mutated_digest = "sha256:e3d0e91b8bd4d67d9c8d55f6326d3d1b678c624aa47cf4c286114bd75a737b05" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71"
+family = "extra_or_unknown"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "unknown_opcode", opcode_site = "pou_body_first_opcode", opcode_offset = 36, opcode = 128, bytes_hex = "5354424301000100000000001800010018000000000000000600000024000000080000008002000000001201", mutated_digest = "sha256:035b56102a669fad7a7207d8d03306d56b9909eb461009ff0b0f09f3a6e4b672" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "jump_target", jump_site = "pou_body_jmp_operand", operand_offset = 38, delta = 100, bytes_hex = "5354424301000100000000001800010018000000000000000600000024000000080000000002640000001201", mutated_digest = "sha256:89a193bb0d8ea2c43ad78e5ea026be68c519bea25fe0b2878becfe464cd239a4" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "jump_target", jump_site = "pou_body_jmp_operand", operand_offset = 38, delta = -100, bytes_hex = "53544243010001000000000018000100180000000000000006000000240000000800000000029cffffff1201", mutated_digest = "sha256:cefdf584d4efa4326fa47f780e56fff1e4c774777ce3ea35e2657c4e67fbfca9" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[case]]
+id = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:99217a8e9573c21391ec5155de84a155fc217670b5b29e3d2c42923504789b0e", transform = "stack_underflow", stack_site = "pou_body_pop_empty_stack", patch_offset = 36, patch_bytes_hex = "12", bytes_hex = "5354424301000100000000001800010018000000000000000600000024000000080000001202000000001201", mutated_digest = "sha256:f7a10cc30a2c27488e3c5e80f4a8b9c5598e3b6f504af1478d33f6e358c79c6a" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"

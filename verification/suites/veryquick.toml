@@ -1,0 +1,19 @@
+schema_version = 1
+id = "veryquick"
+title = "Very Quick Verification Metadata"
+area = "suite"
+owner = "verification"
+status = "planned"
+last_reviewed = "2026-07-08"
+purpose = "Validate verification metadata without running Rust, Node, browser, hardware, or network tests."
+placeholder = true
+placeholder_note = "This Phase 1 seed is metadata-only. It is not the final veryquick product/test suite until VERIF-P5-000A defines suite composition."
+duration_class = "very_fast"
+environment = "local_or_ci"
+commands = [
+  "python3 scripts/validate_verification_metadata.py"
+]
+evidence_destination = "target/gate-artifacts/verification-metadata/"
+includes = []
+excludes = ["hardware_lab", "rust_tests", "node_tests", "browser_tests"]
+approved_proof_producers = []

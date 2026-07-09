@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/risk-register.schema.json",
+  "title": "truST verification risk record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "risk",
+    "owner",
+    "status",
+    "last_reviewed",
+    "description",
+    "mitigation",
+    "related_invariants"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "related_invariants": { "type": "array", "items": { "type": "string" } },
+    "related_spec_gaps": { "type": "array", "items": { "type": "string" } },
+    "evidence_refs": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,15 @@
+schema_version = 1
+id = "release"
+title = "Release Verification Program"
+area = "suite"
+owner = "verification"
+status = "planned"
+last_reviewed = "2026-07-08"
+purpose = "Placeholder suite for release proof manifest and public claim traceability."
+duration_class = "long"
+environment = "ci_release"
+commands = []
+evidence_destination = "target/gate-artifacts/release-verification/"
+includes = ["nightly"]
+excludes = ["hardware_lab_unless_configured"]
+approved_proof_producers = []

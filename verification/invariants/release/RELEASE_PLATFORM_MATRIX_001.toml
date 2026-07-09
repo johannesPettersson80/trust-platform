@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RELEASE_PLATFORM_MATRIX_001"
+title = "Public platform support claims map to release proof"
+area = "release"
+risk = "compatibility"
+status = "spec_gap"
+owner = "docs"
+last_reviewed = "2026-07-08"
+claim = "Every public platform support claim must map to a release artifact, CI job, smoke proof, or explicit unsupported boundary."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["README.md", ".github/workflows"]
+tests = []
+gates = ["release"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"]
+missing = ["platform_release_proof_matrix"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "spec_gap"
+rationale = "Platform support proof matrix must be specified before public support claims can be closed."
+spec_gap_ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"

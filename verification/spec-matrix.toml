@@ -1,0 +1,250 @@
+# Required specification matrix seed.
+# Bytecode/VM rows are complete for Phase 1B routing; other areas will be added
+# as owned gaps in later Phase 1A slices.
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_CONTAINER"
+area = "bytecode_vm"
+tag = "bytecode_container"
+title = "Bytecode container format"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_SECTION_TABLE"
+area = "bytecode_vm"
+tag = "section_table"
+title = "Bytecode section table"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_TYPE_TABLE"
+area = "bytecode_vm"
+tag = "type_table"
+title = "Bytecode type table"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_CONSTANT_POOL"
+area = "bytecode_vm"
+tag = "constant_pool"
+title = "Bytecode constant pool"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_REFERENCE_TABLE"
+area = "bytecode_vm"
+tag = "reference_table"
+title = "Bytecode reference table"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_POU_INDEX"
+area = "bytecode_vm"
+tag = "pou_index"
+title = "Bytecode POU index"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_POU_BODIES"
+area = "bytecode_vm"
+tag = "pou_bodies"
+title = "Bytecode POU bodies"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_RESOURCE_METADATA"
+area = "bytecode_vm"
+tag = "resource_metadata"
+title = "Bytecode resource metadata"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_IO_MAP"
+area = "bytecode_vm"
+tag = "io_map"
+title = "Bytecode IO map"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_RETAIN_INIT"
+area = "bytecode_vm"
+tag = "retain_init"
+title = "Bytecode retain initialization"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_BYTECODE_FORMAT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_BYTECODE_VALIDATOR_SEMANTIC_CONTRACT"
+area = "bytecode_vm"
+tag = "bytecode_validator_semantic_contract"
+title = "Bytecode validator semantic contract"
+owner = "trust-runtime"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_VALUE_TAG_SEMANTICS"
+area = "bytecode_vm"
+tag = "vm_value_tag_semantics"
+title = "VM runtime value and tag semantics"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_DECLARED_TYPE_CONVERSION"
+area = "bytecode_vm"
+tag = "declared_type_conversion_semantics"
+title = "Declared-type conversion on runtime store"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_STRING_BOUND_WRITE"
+area = "bytecode_vm"
+tag = "string_bound_write_semantics"
+title = "STRING[n] runtime and FB parameter write bounds"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_SUBRANGE_RUNTIME_WRITE"
+area = "bytecode_vm"
+tag = "subrange_runtime_write_semantics"
+title = "Subrange runtime write semantics"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_REFERENCE_AND_OWNER_SEMANTICS"
+area = "bytecode_vm"
+tag = "reference_and_owner_semantics"
+title = "Reference lifetime and instance-owner semantics"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_LOWERING_FAIL_CLOSED"
+area = "bytecode_vm"
+tag = "lowering_fail_closed_contract"
+title = "Source lowering and bytecode encoding fail-closed contract"
+owner = "trust-runtime"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_STABLE_ERROR_MODEL"
+area = "bytecode_vm"
+tag = "stable_error_code_model"
+title = "Stable bytecode/VM error-code model"
+owner = "trust-runtime"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VM_DETERMINISM_AND_RESOURCE_LIMITS"
+area = "bytecode_vm"
+tag = "determinism_and_resource_limits"
+title = "VM determinism and resource-limit contract"
+owner = "trust-runtime-core"
+status = "spec_gap"
+expected_authority = ["normative_product", "reviewed_decision"]
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-08"

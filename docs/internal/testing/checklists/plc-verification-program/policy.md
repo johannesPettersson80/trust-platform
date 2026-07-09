@@ -190,6 +190,15 @@ Tool boundaries:
   what should happen.
 - `prove.py red|green|lock` runs cataloged commands itself and writes evidence
   records. Agents do not hand-author high-risk red/green evidence.
+- `prove.py` binds proof by catalog `test_id`, case-file digest, and generated
+  case-artifact digest. It never trusts path text alone and it never treats
+  compile, harness, metadata, timeout, or infrastructure failures as behavioral
+  red proof unless a written oracle explicitly says that failure class is the
+  expected behavior.
+- `prove.py` must bind a case artifact to the command it just ran by clearing
+  stale artifacts before execution and verifying `TRUST_VERIFY_*` run stamps
+  emitted by the test helper. A digest-correct artifact from an earlier run is
+  not proof.
 - The `verification-cases` helper makes tests consume every committed case and
   write a per-case artifact for `prove.py` to check.
 
@@ -240,6 +249,12 @@ Bypass resistance:
 - A green run that does not correspond to the earlier red run is caught by
   `prove.py green`: same test, same case-file digest, formerly-red cases now
   green, no previously-green case regressed, no unwaived skip.
+- A green proof must pair to a red/protective-red proof for the same test ID,
+  same case-file digest, and same formerly-red case IDs unless a reviewed
+  case-table/spec decision explicitly permits the change.
+- Any exception for changed case digests, accepted lock deltas, risk downgrades,
+  or waivers requires `decision_ref` to an active reviewed decision/deviation.
+  A CLI flag or prose note is not enough.
 - A hand-authored or agent-authored high-risk proof is rejected by producer
   allowlist; only `prove.py vN` or an approved gate can close red/green proof
   for `safety_critical`, `wrong_result`, `silent_corruption`, or `false_status`.
@@ -322,6 +337,7 @@ Spec gap classes:
 - `missing_ui_contract`
 - `missing_user_workflow`
 - `external_source_unavailable`
+- `public_claim_unproven`
 
 Spec gap workflow:
 

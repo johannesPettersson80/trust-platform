@@ -1,0 +1,15 @@
+schema_version = 1
+id = "supporting_local"
+title = "Supporting Local Evidence"
+area = "suite"
+owner = "verification"
+status = "planned"
+last_reviewed = "2026-07-09"
+purpose = "Bucket for committed local supporting evidence that is not itself a milestone gate."
+duration_class = "manual"
+environment = "local"
+commands = []
+evidence_destination = "docs/internal/testing/evidence/"
+includes = []
+excludes = ["hardware_lab"]
+approved_proof_producers = []

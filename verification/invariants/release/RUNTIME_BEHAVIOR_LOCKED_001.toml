@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RUNTIME_BEHAVIOR_LOCKED_001"
+title = "Runtime behavior-locked claim maps to tests and evidence"
+area = "release"
+risk = "false_status"
+status = "spec_gap"
+owner = "docs"
+last_reviewed = "2026-07-08"
+claim = "The public claim that runtime behavior is locked by tests must map to explicit runtime invariants, suites, and durable evidence."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["README.md", "crates/trust-runtime/tests"]
+tests = []
+gates = ["release"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"]
+missing = ["runtime_behavior_traceability_matrix"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "spec_gap"
+rationale = "Runtime behavior-locked proof mapping must be specified before the public claim can be closed."
+spec_gap_ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"

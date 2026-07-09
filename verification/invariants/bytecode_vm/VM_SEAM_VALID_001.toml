@@ -1,0 +1,52 @@
+schema_version = 1
+id = "VM_SEAM_VALID_001"
+title = "Bytecode validator rejects VM semantic contract violations"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-09"
+claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bytecode/validate"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
+missing = ["validator_semantic_contract", "stable_error_code"]
+
+[transform_seed]
+path = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[input]
+name = "bytecode_container"
+type = "trust bytecode"
+declared = "bytecode module"
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "spec_gap"
+rationale = "Container truncation and missing-section behavior are not specified as validator outcomes yet."
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Stack/type/reference/owner validation contract is not written yet."
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "spec_gap"
+rationale = "Stable error code surface is not written yet."
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"

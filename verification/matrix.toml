@@ -1,0 +1,94 @@
+# Verification planning matrix.
+# Phase 1B scope: bytecode/VM pilot only. All other areas remain
+# uninventoried and must fail closed until their rows are added.
+
+schema_version = 1
+id = "VERIFICATION_MATRIX_PILOT_001"
+title = "Bytecode/VM planning matrix pilot"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-09"
+
+[[areas]]
+id = "bytecode_vm"
+status = "mapped"
+owner = "trust-runtime"
+risk_default = "wrong_result"
+high_risks = ["wrong_result", "silent_corruption"]
+path_globs = [
+  "crates/trust-runtime/src/bytecode/**",
+  "crates/trust-runtime/src/runtime/vm/**",
+  "crates/trust-runtime/src/host/harness/lower/**",
+  "crates/trust-runtime-core/src/bytecode/**",
+  "crates/trust-runtime-core/src/error.rs",
+  "crates/trust-runtime-core/src/value/**",
+  "crates/trust-runtime-core/src/vm/**",
+  "verification/invariants/bytecode_vm/**",
+  "verification/cases/bytecode_vm/**",
+]
+required_test_classes = [
+  "metadata_validation",
+  "negative_malformed_input",
+  "failing_regression",
+  "iec_conformance",
+  "mutation",
+]
+required_case_families = [
+  "happy_path",
+  "boundary_low",
+  "boundary_high",
+  "below_min",
+  "above_max",
+  "wrong_type_or_shape",
+  "missing_required",
+  "extra_or_unknown",
+  "encoding_or_unicode",
+  "resource_limit",
+]
+notes = "Pilot row for Phase 1B only. Planner must report open spec gaps before tests or cases can be generated."
+
+[[intent_requirements]]
+intent = "bugfix"
+required_test_classes = [
+  "failing_regression",
+  "negative_malformed_input",
+  "metadata_validation",
+]
+red_required = true
+lock_required = false
+
+[[intent_requirements]]
+intent = "feature"
+required_test_classes = [
+  "failing_regression",
+  "negative_malformed_input",
+  "metadata_validation",
+]
+red_required = true
+lock_required = false
+
+[[intent_requirements]]
+intent = "refactor"
+required_test_classes = [
+  "behavior_lock",
+  "metadata_validation",
+]
+red_required = false
+lock_required = true
+
+[[intent_requirements]]
+intent = "docs"
+required_test_classes = [
+  "metadata_validation",
+]
+red_required = false
+lock_required = false
+
+[[intent_requirements]]
+intent = "test-refactor"
+required_test_classes = [
+  "behavior_lock",
+  "metadata_validation",
+]
+red_required = false
+lock_required = true

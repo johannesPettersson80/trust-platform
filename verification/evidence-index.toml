@@ -13,10 +13,10 @@ command = "cargo metadata --format-version 1 --no-deps; cargo check -p trust-run
 commit = "dirty:6a7492cae6af"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-08"
-suite_id = "veryquick"
+suite_id = "supporting_local"
 producer = "codex"
 generated_report_version = "manual-v1"
-linked_invariants = []
+linked_invariants = ["RELEASE_SOURCE_BUILD_OPENOT_001"]
 linked_tests = []
 last_reviewed = "2026-07-08"
 
@@ -33,9 +33,566 @@ command = "rg -n 'source-build|cargo build|one runtime|right wire|Supported plat
 commit = "dirty:6a7492cae6af"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-08"
+suite_id = "supporting_local"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-08"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VERIFICATION_CONTROL_PLANE_SKELETON_20260708"
+title = "Verification control-plane skeleton validator proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/control-plane-skeleton-implementation.md"
+command = "python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-08"
 suite_id = "veryquick"
 producer = "codex"
 generated_report_version = "manual-v1"
 linked_invariants = []
 linked_tests = []
 last_reviewed = "2026-07-08"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VERIFICATION_CONTROL_PLANE_REVIEW_FIXES_20260709"
+title = "Verification control-plane review-fix validator proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/control-plane-review-fixes.md"
+command = "python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_ERROR_CODE_INVENTORY_20260709"
+title = "Phase 1B VM and bytecode error-code inventory"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-error-code-inventory.md"
+command = "rg -n 'pub enum (BytecodeError|RuntimeError|VmTrap)|SubrangeViolation|InvalidBytecode|InvalidSection|normalize_vm_value_for_type|normalize_vm_value_for_ref|truncate_string_elements' crates/trust-runtime crates/trust-runtime-core; nl -ba crates/trust-runtime-core/src/bytecode/mod.rs crates/trust-runtime-core/src/error.rs crates/trust-runtime-core/src/vm/errors.rs crates/trust-runtime/src/runtime/vm/type_policy.rs crates/trust-runtime/src/runtime/vm/dispatch_refs.rs crates/trust-runtime/src/runtime/vm/call/bindings.rs crates/trust-runtime/src/bytecode/validate/stack_shape.rs crates/trust-runtime/src/bytecode/validate/reference_escape.rs crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs crates/trust-runtime/src/bytecode/validate/const_compat.rs crates/trust-runtime/src/bytecode/validate/param_direction.rs"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "supporting_local"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_VALID_001",
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PLANNING_PILOT_20260709"
+title = "Phase 1B bytecode/VM planning-pilot proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-planning-pilot-implementation.md"
+command = "python3 -m py_compile scripts/plan_tests.py scripts/verification/planner.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs; python3 scripts/plan_tests.py --intent bugfix --changed README.md; python3 scripts/plan_tests.py --intent refactor --area runtime_safety; python3 scripts/plan_tests.py --intent docs --changed verification/invariants/bytecode_vm/VM_SEAM_VALID_001.toml --format json"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PLANNING_PILOT_REVIEW_FIXES_20260709"
+title = "Phase 1B planning-pilot review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-planning-pilot-review-fixes.md"
+command = "python3 -m py_compile scripts/plan_tests.py scripts/verification/planner.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/verification/metadata_validator/taxonomy.py scripts/verification/metadata_validator/integrity.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs; python3 scripts/plan_tests.py --intent bugfix --changed README.md; python3 scripts/plan_tests.py --intent refactor --area runtime_safety; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime-core/src/error.rs; python3 scripts/plan_tests.py --intent bogus --changed x.rs; python3 scripts/plan_tests.py --intent refactor --area typo_area"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_BEHAVIOR_ROWS_20260709"
+title = "Phase 1B bytecode/VM behavior-row seed proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-behavior-row-seed.md"
+command = "python3 -m py_compile scripts/plan_tests.py scripts/verification/planner.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/verification/metadata_validator/taxonomy.py scripts/verification/metadata_validator/integrity.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime-core/src/value/types.rs; python3 scripts/plan_tests.py --intent bugfix --changed verification/invariants/bytecode_vm/VM_SEAM_SUBRANGE_001.toml; python3 scripts/plan_tests.py --intent docs --changed verification/invariants/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml --format json"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_BEHAVIOR_ROW_REVIEW_FIXES_20260709"
+title = "Phase 1B behavior-row review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-behavior-row-review-fixes.md"
+command = "python3 -m py_compile scripts/plan_tests.py scripts/verification/planner.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/verification/metadata_validator/taxonomy.py scripts/verification/metadata_validator/integrity.py scripts/verification/metadata_validator/oracle_refs.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime-core/src/value/types.rs; in-memory Validator probes for fake oracle_ref, behavior error_code without stable_error_code_model, and malformed equals partition label"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_GEN_CASES_20260709"
+title = "Phase 1B gen_cases.py implementation proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-gen-cases-implementation.md"
+command = "python3 -m py_compile scripts/gen_cases.py scripts/verification/case_generator.py scripts/plan_tests.py scripts/verification/planner.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/verification/metadata_validator/taxonomy.py scripts/verification/metadata_validator/integrity.py scripts/verification/metadata_validator/oracle_refs.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --format json; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001; tmp=$(mktemp /tmp/trust-cases-subrange.XXXXXX.toml); python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --out \"$tmp\" && python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check \"$tmp\"; rc=$?; rm -f \"$tmp\"; exit $rc; drift temp-file probe; no-oracle rg probe; TOML parse blocked-case probe; expected-fail non-pilot RT_SAFE_STOP_001 probe; python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime-core/src/value/types.rs; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_GEN_CASES_REVIEW_FIXES_20260709"
+title = "Phase 1B gen_cases.py review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-gen-cases-review-fixes.md"
+command = "python3 -m py_compile scripts/gen_cases.py scripts/verification/case_generator.py scripts/verification/metadata_validator/oracle_refs.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --format json; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001; in-memory Validator probes for mixed partition, missing equals case_family, and invalid non-equals case_family; case_generator main() metadata-invalid exit 6 probe; scenario output-shape probes"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_CASE_TABLES_20260709"
+title = "Phase 1B committed pilot case-table proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-case-tables-implementation.md"
+command = "python3 -m py_compile scripts/gen_cases.py scripts/verification/case_generator.py scripts/verification/case_digests.py scripts/verification/metadata_validator/case_files.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check; no-expected-outcome grep probe; planned-catalog-does-not-unblock planner probe; in-memory case_file_digest mismatch probe; in-memory generator_digest mismatch probe; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = [
+  "TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001",
+  "TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001",
+  "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001",
+]
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_CASE_TABLES_REVIEW_FIXES_20260709"
+title = "Phase 1B committed case-table review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-case-tables-review-fixes.md"
+command = "python3 -m py_compile scripts/gen_cases.py scripts/verification/case_generator.py scripts/verification/case_digests.py scripts/verification/metadata_validator/case_files.py scripts/verification/metadata_validator/core.py scripts/verification/metadata_validator/constants.py scripts/validate_verification_metadata.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check; in-memory catalog digest mismatch probe; in-memory generator digest mismatch probe; fabricated expect probe; wrong-type typed-field grep probe; gate co-drift probe; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = [
+  "TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001",
+  "TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001",
+  "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001",
+]
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_VERIFICATION_CASES_HELPER_20260709"
+title = "Phase 1B verification-cases helper crate proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-verification-cases-helper.md"
+command = "cargo test -p verification-cases red compile-fail probe before implementation; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_VERIFICATION_CASES_HELPER_REVIEW_FIXES_20260709"
+title = "Phase 1B verification-cases helper review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-verification-cases-helper-review-fixes.md"
+command = "cargo test -p verification-cases red compile-fail probe after mandatory digest test update; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_CONTRACT_DESIGN_20260709"
+title = "Phase 1B prove.py contract design"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-contract-design.md"
+command = "python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_CONTRACT_REVIEW_FIXES_20260709"
+title = "Phase 1B prove.py contract review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-contract-review-fixes.md"
+command = "python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_ARTIFACT_STAMPING_FOUNDATION_20260709"
+title = "Phase 1B artifact stamping foundation proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-artifact-stamping-foundation.md"
+command = "cargo test -p verification-cases trust_verify -- --nocapture; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_ARTIFACT_STAMPING_REVIEW_FIXES_20260709"
+title = "Phase 1B artifact stamping review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-artifact-stamping-review-fixes.md"
+command = "for i in $(seq 1 20); do cargo test -p verification-cases -- --test-threads 8 >/tmp/verification-cases-stress.log || exit 1; done; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_RED_IMPLEMENTATION_20260709"
+title = "Phase 1B prove.py red implementation proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-red-implementation.md"
+command = "python3 -m unittest scripts.verification.prover_tests; python3 scripts/prove.py red --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001; python3 scripts/prove.py green; python3 scripts/prove.py lock; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_RED_REVIEW_FIXES_20260709"
+title = "Phase 1B prove.py red review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-red-review-fixes.md"
+command = "python3 -m unittest scripts.verification.prover_tests; python3 scripts/prove.py red --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001; python3 scripts/prove.py green; python3 scripts/prove.py lock; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_GREEN_IMPLEMENTATION_20260709"
+title = "Phase 1B prove.py green implementation proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-green-implementation.md"
+command = "python3 -m unittest scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests; python3 scripts/prove.py red --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001; python3 scripts/prove.py green --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --red-evidence EVID_TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001_RED; python3 scripts/prove.py lock; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py scripts/verification/metadata_validator/evidence_proof.py scripts/verification/metadata_validator/evidence_proof_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_GREEN_REVIEW_FIXES_20260709"
+title = "Phase 1B prove.py green review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-green-review-fixes.md"
+command = "python3 -m unittest scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests; python3 scripts/prove.py red --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001; python3 scripts/prove.py green --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --red-evidence EVID_TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001_RED; python3 scripts/prove.py lock; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py scripts/verification/metadata_validator/evidence_proof.py scripts/verification/metadata_validator/evidence_proof_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_LOCK_IMPLEMENTATION_20260709"
+title = "Phase 1B prove.py lock implementation proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-lock-implementation.md"
+command = "python3 -m unittest scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests; python3 scripts/prove.py lock --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --baseline; python3 scripts/prove.py lock --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --compare EVID_TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001_LOCK_BASELINE; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py scripts/verification/metadata_validator/evidence_proof.py scripts/verification/metadata_validator/evidence_proof_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_PROVE_LOCK_REVIEW_FIXES_20260709"
+title = "Phase 1B prove.py lock review-fix proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-prove-lock-review-fixes.md"
+command = "python3 -m unittest scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests; python3 scripts/prove.py lock --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --baseline; python3 scripts/prove.py lock --test TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001 --compare EVID_TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001_LOCK_BASELINE; python3 -m py_compile scripts/prove.py scripts/verification/prover.py scripts/verification/prover_tests.py scripts/verification/metadata_validator/evidence_proof.py scripts/verification/metadata_validator/evidence_proof_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; cargo test -p verification-cases; cargo clippy -p verification-cases --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_BYTECODE_TRANSFORM_GENERATOR_20260709"
+title = "Phase 1B bytecode transform generator proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-transform-generator.md"
+command = "python3 -m unittest scripts.verification.bytecode_transforms_tests; python3 -m unittest scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests; python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check; python3 -m py_compile scripts/gen_cases.py scripts/verification/case_generator.py scripts/verification/bytecode_transforms.py scripts/verification/bytecode_transforms_tests.py scripts/verification/case_digests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = ["VM_SEAM_VALID_001"]
+linked_tests = ["TEST_CASE_TABLE_VM_SEAM_VALID_001"]
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_VERIFICATION_GATE_REPORT_ONLY_20260709"
+title = "Phase 1B verification-gate report-only CI path proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-verification-gate-report-only.md"
+command = "python3 -m unittest scripts.verification.report_gate_tests; python3 scripts/verification_report_gate.py --changed crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs crates/trust-runtime/tests/new_verification_report_smoke.rs --intent bugfix --out-dir /tmp/trust-verification-gate-test; bash -lc 'python3 scripts/plan_tests.py --intent bugfix --changed crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs --format json; status=$?; test \"$status\" -eq 3'; python3 -m py_compile scripts/verification_report_gate.py scripts/verification/report_gate.py scripts/verification/report_gate_tests.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_ADVERSARIAL_SELFTESTS_20260709"
+title = "Phase 1B adversarial self-test fixture proof"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-adversarial-selftests.md"
+command = "python3 -m unittest scripts.verification.adversarial_selftest_tests scripts.verification.report_gate_tests scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests scripts.verification.bytecode_transforms_tests; python3 -m py_compile scripts/plan_tests.py scripts/verification/planner.py scripts/verification_report_gate.py scripts/verification/report_gate.py scripts/verification/report_gate_tests.py scripts/verification/adversarial_selftest_tests.py; python3 scripts/verification_report_gate.py --changed crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs crates/trust-runtime/tests/new_verification_report_smoke.rs --intent bugfix; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; git diff --check"
+commit = "dirty:1d9b3ec6a"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "veryquick"
+producer = "codex"
+generated_report_version = "manual-v1"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"

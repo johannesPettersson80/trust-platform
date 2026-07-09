@@ -75,6 +75,11 @@ Required fields:
 - `source_ref` or `spec_gap_ref`
 - `last_reviewed`
 
+Optional waiver fields:
+
+- `waived = true`
+- `decision_ref` to an active `reviewed_decision` or `reviewed_deviation`
+
 Allowed `blocks` values:
 
 - `test_mapping`: absence blocks test planning/mapping for that area.
@@ -95,6 +100,8 @@ Allowed `blocks` values:
 - `plan_tests.py` defines an area as uninventoried when any
   `blocks = "test_mapping"` requirement for that area resolves to neither an
   active source nor an open spec gap.
+- An area with no `blocks = "test_mapping"` requirements at all is also
+  uninventoried. Zero rows must fail closed, not pass vacuously.
 - Bytecode/VM requirements must be complete enough for Phase 1B. Other areas
   may initially carry open gaps with owners.
 - This matrix is a debt map, not a work order. It makes missing truth visible

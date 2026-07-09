@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/ignored-test.schema.json",
+  "title": "truST ignored-test record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "test_id",
+    "owner",
+    "area",
+    "status",
+    "ignore_class",
+    "reason",
+    "unblock_condition",
+    "last_reviewed"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "ignore_class": { "type": "string" }
+  },
+  "additionalProperties": true
+}

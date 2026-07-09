@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/case-file.schema.json",
+  "title": "truST verification case file",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "invariant",
+    "generator",
+    "generator_digest",
+    "source_digest",
+    "last_reviewed",
+    "case"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "case": { "type": "array" }
+  },
+  "additionalProperties": true
+}

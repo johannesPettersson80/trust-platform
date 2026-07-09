@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/spec-source.schema.json",
+  "title": "truST verification spec-source record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "authority",
+    "source_status",
+    "visibility",
+    "covers",
+    "known_limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "covers": { "type": "array", "items": { "type": "string" } },
+    "known_limitations": { "type": "array", "items": { "type": "string" } },
+    "conflicts_with": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,36 @@
+schema_version = 1
+id = "VM_SEAM_ENC_001"
+title = "Unencodable source constructs fail closed"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail the build with a named diagnostic rather than emitting NOP or partial bytecode."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bytecode/encoder"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
+missing = ["lowering_fail_closed_contract", "stable_error_code"]
+
+[input]
+name = "hir_statement"
+type = "HIR statement"
+declared = "bytecode-lowerable statement"
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "spec_gap"
+rationale = "Unsupported construct rejection behavior must be specified before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"

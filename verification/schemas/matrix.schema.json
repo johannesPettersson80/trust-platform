@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/matrix.schema.json",
+  "title": "truST verification planning matrix",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "owner",
+    "last_reviewed",
+    "areas",
+    "intent_requirements"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "status": { "type": "string" },
+    "owner": { "type": "string" },
+    "last_reviewed": { "type": "string" },
+    "areas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "owner",
+          "risk_default",
+          "high_risks",
+          "path_globs",
+          "required_test_classes",
+          "required_case_families"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" },
+          "owner": { "type": "string" },
+          "risk_default": { "type": "string" },
+          "high_risks": { "type": "array", "items": { "type": "string" } },
+          "path_globs": { "type": "array", "items": { "type": "string" } },
+          "required_test_classes": { "type": "array", "items": { "type": "string" } },
+          "required_case_families": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "intent_requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "intent",
+          "required_test_classes",
+          "red_required",
+          "lock_required"
+        ],
+        "properties": {
+          "intent": { "type": "string" },
+          "required_test_classes": { "type": "array", "items": { "type": "string" } },
+          "red_required": { "type": "boolean" },
+          "lock_required": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

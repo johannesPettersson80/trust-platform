@@ -1,0 +1,49 @@
+name: Verification Gate
+
+on:
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verification-report:
+    name: Verification report-only gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Run report-only verification gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          python3 scripts/verification_report_gate.py \
+            --base "${BASE_SHA}" \
+            --head "${HEAD_SHA}" \
+            --intent bugfix \
+            --out-dir target/gate-artifacts/verification
+      - name: Add verification report summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [[ -f target/gate-artifacts/verification/verification-gate-report.md ]]; then
+            cat target/gate-artifacts/verification/verification-gate-report.md >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "verification-gate-report.md was not produced." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+      - name: Upload verification report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-gate-report
+          path: target/gate-artifacts/verification/

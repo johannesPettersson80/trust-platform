@@ -1,0 +1,37 @@
+schema_version = 1
+id = "VM_SEAM_DETERMINISM_LIMITS_001"
+title = "VM determinism and resource limits are specified before validation"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "spec_gap"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-09"
+claim = "VM determinism and resource limits must be specified independently of structural bytecode validation before related tests can claim proof."
+proof_level = "S0"
+contract_kind = "perf_budget"
+source_refs = ["crates/trust-runtime-core/src/vm", "crates/trust-runtime/src/runtime/vm"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
+missing = ["determinism_contract", "resource_limit_contract"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "spec_gap"
+rationale = "Resource-limit boundaries must be specified before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "spec_gap"
+rationale = "Determinism and time-base expectations must be specified before tests are accepted."
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/spec-matrix.schema.json",
+  "title": "truST required-specification matrix record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "area",
+    "tag",
+    "title",
+    "owner",
+    "status",
+    "expected_authority",
+    "blocks",
+    "last_reviewed"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "expected_authority": { "type": "array", "items": { "type": "string" } },
+    "source_ref": { "type": "string" },
+    "spec_gap_ref": { "type": "string" },
+    "waived": { "type": "boolean" },
+    "decision_ref": { "type": "string" },
+    "blocks": { "enum": ["test_mapping", "release_claim", "none_yet"] }
+  },
+  "additionalProperties": true
+}

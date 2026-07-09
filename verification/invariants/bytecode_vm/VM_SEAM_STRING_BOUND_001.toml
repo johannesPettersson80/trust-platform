@@ -1,0 +1,69 @@
+schema_version = 1
+id = "VM_SEAM_STRING_BOUND_001"
+title = "STRING[n] bounds are enforced on every runtime write path"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "spec_gap"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-09"
+claim = "Writes into bounded string storage, including FB parameter copy-in, must truncate, reject, or fault according to one written contract."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_VM_VALUE_SEMANTICS_001"]
+missing = ["specified_behavior_outcomes", "stable_error_code"]
+
+[input]
+name = "string_value"
+type = "STRING"
+declared = "STRING[5]"
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[behavior]]
+partition = { min = 0, max = 5 }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "In-bound STRING[5] write semantics must be written before cases assert accepted value and exact state delta."
+
+[[behavior]]
+partition = { above = 5 }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Over-bound STRING[5] behavior is not specified across runtime write paths; do not choose truncate, reject, or fault in tests yet."
+
+[[behavior]]
+partition = { equals = "FB_INPUT_COPY_IN_LENGTH_6" }
+case_family = "above_max"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "The confirmed surviving path is FB parameter copy-in; expected behavior for a value longer than the bounded field is still a spec gap."
+
+[[behavior]]
+partition = { wrong_type = "WSTRING" }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Wrong string-family writes need a written conversion/rejection contract before case generation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "spec_gap"
+rationale = "In-bound string behavior must be specified before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "spec_gap"
+rationale = "Over-bound string behavior must be specified before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Wrong string-family write behavior must be specified before negative cases can assert conversion, rejection, or trap behavior."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/catalog.schema.json",
+  "title": "truST verification test catalog record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "test_class",
+    "area",
+    "path",
+    "command",
+    "owner",
+    "status",
+    "invariants",
+    "expected_result",
+    "suite_tiers",
+    "requires_hardware",
+    "requires_network",
+    "duration_class"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string" },
+    "test_class": {
+      "enum": [
+        "debug_reproduction_probe",
+        "failing_regression",
+        "protective_red",
+        "behavior_lock",
+        "unit",
+        "integration",
+        "runtime_vertical",
+        "iec_conformance",
+        "negative_malformed_input",
+        "fuzz",
+        "property",
+        "mutation",
+        "miri_sanitizer_loom",
+        "protocol_loopback",
+        "hardware_lab",
+        "soak_stability",
+        "performance",
+        "lsp_protocol",
+        "vscode_extension",
+        "browser_webview_visual",
+        "ui_journey_acceptance",
+        "rbac_security",
+        "supply_chain_security",
+        "platform_package",
+        "release_docs",
+        "architecture_diagram",
+        "metadata_validation"
+      ]
+    },
+    "invariants": { "type": "array", "items": { "type": "string" } },
+    "suite_tiers": { "type": "array", "items": { "type": "string" } },
+    "case_file": { "type": "string" },
+    "case_file_digest": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,74 @@
+schema_version = 1
+id = "VM_SEAM_SUBRANGE_001"
+title = "Subrange writes cannot silently store out-of-range values"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "spec_gap"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-09"
+claim = "Runtime writes to subrange-typed storage must accept, reject, or fault according to a written contract; tests cannot invent the behavior."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_VM_VALUE_SEMANTICS_001"]
+missing = ["specified_behavior_outcomes", "stable_error_code"]
+
+[input]
+name = "value"
+type = "INT"
+declared = "INT(0..100)"
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[behavior]]
+partition = { min = 0, max = 100 }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "In-range subrange write semantics are not specified yet; do not generate accepted-value cases until the contract chooses runtime behavior."
+
+[[behavior]]
+partition = { below = 0 }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Below-minimum runtime write behavior and visible error surface are not specified yet."
+
+[[behavior]]
+partition = { above = 100 }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Above-maximum runtime write behavior and visible error surface are not specified yet."
+
+[[behavior]]
+partition = { wrong_type = "REAL" }
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Wrong-type assignment into subrange storage needs the same written value-semantics contract before cases can assert rejection or conversion."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "spec_gap"
+rationale = "Accepted in-range behavior must be written before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "spec_gap"
+rationale = "Out-of-range behavior and error surface must be written before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[coverage.cells]]
+dimension = "below_min"
+state = "spec_gap"
+rationale = "Out-of-range behavior and error surface must be written before cases are generated."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Wrong-type subrange writes must be specified before negative cases can assert conversion, rejection, or trap behavior."
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"

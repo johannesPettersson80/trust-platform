@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/suite.schema.json",
+  "title": "truST verification suite record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "last_reviewed",
+    "purpose",
+    "duration_class",
+    "environment",
+    "commands",
+    "evidence_destination"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string" },
+    "area": { "type": "string" },
+    "commands": { "type": "array", "items": { "type": "string" } },
+    "includes": { "type": "array", "items": { "type": "string" } },
+    "excludes": { "type": "array", "items": { "type": "string" } },
+    "approved_proof_producers": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

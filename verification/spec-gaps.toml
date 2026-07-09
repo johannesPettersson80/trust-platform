@@ -19,7 +19,7 @@ affected_tests = []
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
 resolution_status = "open"
 closeout_evidence = []
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-09"
 
 [[spec_gaps]]
 schema_version = 1
@@ -43,7 +43,76 @@ candidate_spec_sources = [
 ]
 resolution_status = "open"
 closeout_evidence = []
+last_reviewed = "2026-07-09"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"
+title = "Source lowering and bytecode encoding fail-closed contract is incomplete"
+area = "bytecode_vm"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which HIR-clean but unencodable source constructs must fail compilation rather than lower to NOP or partial bytecode?"
+affected_invariants = [
+  "VM_SEAM_ENC_001",
+]
+affected_tests = []
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+]
+resolution_status = "open"
+closeout_evidence = []
 last_reviewed = "2026-07-08"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_ERROR_MODEL_001"
+title = "VM and bytecode stable error-code model is incomplete"
+area = "bytecode_vm"
+risk = "wrong_result"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings?"
+affected_invariants = [
+  "VM_SEAM_VALID_001",
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+affected_tests = []
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-09"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+title = "VM determinism and resource-limit contract is incomplete"
+area = "bytecode_vm"
+risk = "wrong_result"
+owner = "trust-runtime-core"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Which VM determinism, instruction, stack, local, reference, call-depth, and resource limits must be specified and tested independently of bytecode validator structure?"
+affected_invariants = [
+  "VM_SEAM_DETERMINISM_LIMITS_001",
+]
+affected_tests = []
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-09"
 
 [[spec_gaps]]
 schema_version = 1
@@ -53,7 +122,7 @@ area = "runtime_safety"
 risk = "safety_critical"
 owner = "trust-runtime"
 status = "spec_gap"
-gap_class = "missing_failure_mode"
+gap_class = "missing_behavior"
 blocking_question = "When stop/fault safe outputs are issued while an I/O worker queue is full, reconnecting, or down, what must reach hardware and what must be reported as not safe?"
 affected_invariants = [
   "RT_SAFE_STOP_001",
@@ -93,7 +162,7 @@ area = "release"
 risk = "compatibility"
 owner = "docs"
 status = "spec_gap"
-gap_class = "public_claim_needs_release_proof"
+gap_class = "public_claim_unproven"
 blocking_question = "For each public platform, which release asset, CI job, smoke command, and unsupported boundary proves or limits support?"
 affected_invariants = [
   "RELEASE_PLATFORM_MATRIX_001",
@@ -112,7 +181,7 @@ area = "release"
 risk = "false_status"
 owner = "docs"
 status = "spec_gap"
-gap_class = "public_claim_needs_traceability"
+gap_class = "public_claim_unproven"
 blocking_question = "Which runtime and debugger behaviors are locked by which tests, suites, and durable evidence?"
 affected_invariants = [
   "RUNTIME_BEHAVIOR_LOCKED_001",
@@ -123,3 +192,22 @@ candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
 resolution_status = "open"
 closeout_evidence = []
 last_reviewed = "2026-07-08"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+title = "Source-build public claim needs formal verification traceability"
+area = "release"
+risk = "compatibility"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "Which invariant, command set, suite tier, and release/public evidence proves that normal source builds fetch OpenOT through public dependencies without a sibling checkout?"
+affected_invariants = [
+  "RELEASE_SOURCE_BUILD_OPENOT_001",
+]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-09"

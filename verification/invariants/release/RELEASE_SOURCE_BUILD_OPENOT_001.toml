@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RELEASE_SOURCE_BUILD_OPENOT_001"
+title = "Source-build OpenOT dependency claim maps to proof"
+area = "release"
+risk = "compatibility"
+status = "spec_gap"
+owner = "docs"
+last_reviewed = "2026-07-09"
+claim = "The public source-build claim for OpenOT dependencies must map to a formal invariant, command set, and durable evidence before it can be treated as proven."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["README.md", "docs/public/start/install-from-source.md"]
+tests = []
+gates = ["release"]
+evidence_refs = ["EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708"]
+spec_gap_refs = ["SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"]
+missing = ["source_build_suite_mapping", "release_traceability"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "spec_gap"
+rationale = "Dependency-resolution proof needs a formal release/source-build contract before the public claim can be closed."
+spec_gap_ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"

@@ -1,0 +1,15 @@
+schema_version = 1
+id = "hardware_lab"
+title = "Hardware Lab Verification Program"
+area = "suite"
+owner = "verification"
+status = "planned"
+last_reviewed = "2026-07-08"
+purpose = "Env-gated real-device proof for public hardware claims."
+duration_class = "lab"
+environment = "lab_hardware"
+commands = []
+evidence_destination = "docs/internal/testing/evidence/hardware-lab/"
+includes = []
+excludes = []
+approved_proof_producers = []
