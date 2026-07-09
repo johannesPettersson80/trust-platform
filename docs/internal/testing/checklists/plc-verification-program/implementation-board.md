@@ -357,7 +357,7 @@ Acceptance:
   ignore attribute, and obvious checklist/evidence references.
 - [x] `VERIF-P2-003` Emit generated catalog JSON under `target/gate-artifacts`
   and concise Markdown summary under dated evidence root.
-  Clean-source evidence at commit `d4a768479c8542b8db3874037939b0e8f09e2499`
+  Clean-source evidence at commit `c4be8261d1672f146adc2420495eab5265ecc8b8`
   inventories 3,816 records: 3,021 Rust, 257 runnable Structured Text, 456 VS
   Code, 21 conformance, 2 fuzz, 29 root gate scripts, and 30 workflow jobs. It
   reports 85 unconditional ignores, one conditional ignore marker, and one
@@ -365,7 +365,9 @@ Acceptance:
   `target/gate-artifacts/verification/`; the indexed durable summary is
   `docs/internal/testing/evidence/plc-verification-program/2026-07-09/p2-existing-test-catalog.md`.
   Mechanical reference candidates create no proof mappings, and P2-004 onward
-  remain open.
+  remain open. The report explicitly excludes `xtask/**` Rust tests and
+  crate-local fuzz workspaces pending a later reviewed scope row; its exact
+  live counts are an evidence-refresh tripwire rather than CI enforcement.
 - [ ] `VERIF-P2-004` Create committed `verification/test-catalog.toml` only for
   hand-owned metadata that cannot be safely inferred.
 - [ ] `VERIF-P2-005` Add stale-path checker for committed catalog entries.

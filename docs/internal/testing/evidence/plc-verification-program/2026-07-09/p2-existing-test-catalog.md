@@ -1,10 +1,10 @@
 # Generated Existing-Test Catalog
 
 Generator: `test-catalog-scanner v1`
-Source revision: `d4a768479c8542b8db3874037939b0e8f09e2499`
-Generated: `2026-07-09T13:15:00Z`
+Source revision: `c4be8261d1672f146adc2420495eab5265ecc8b8`
+Generated: `2026-07-09T14:00:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `f5e219e8c9cf5aa6eced682cb6de1ab21b3c23adaae6d40809e83913adde5c18`
+Generated JSON SHA-256: `e2cf1d8372de5736cf4658ecffdd1529d40122d30ae36ec60d6574551ed18ae6`
 Input SHA-256: `sha256:95257ea20be325b9a67f42dcd8b360229d8bbf786fd275a20e2238b535b2e12d`
 
 This is a mechanical source inventory. It does not map tests to claims,
@@ -57,6 +57,9 @@ The generated JSON explicitly excludes:
 - Dynamic VS Code titles and runtime skips remain visible diagnostics rather than inferred facts.
 - Structured Text command hints use project-level substring filters and remain conservative.
 - The scripts/*gate* surface means root-level files under scripts whose names contain gate.
+- The P2 board scope excludes Rust tests under xtask/**; they are not included in report totals.
+- Only the root fuzz/Cargo.toml is scanned; crate-local fuzz workspaces are excluded.
+- Reviewed live census counts are an evidence tripwire and require an intentional refresh on drift.
 - Hand-owned catalog intent and enforcement remain outside VERIF-P2-001 through VERIF-P2-003.
 
 ## Diagnostics
