@@ -51,6 +51,9 @@ proof case.
 
 Every test catalog entry must state its test class, invariant IDs, oracle,
 expected failure mode, and evidence destination. A command name is not enough.
+Scanner-backed entries also carry their generated discovery identity; the two
+non-native artifact subject kinds are closed to committed case tables and the
+reviewed mutation shard runner.
 
 | Test class | Must prove | Minimum content | Does not count |
 | --- | --- | --- | --- |

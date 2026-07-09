@@ -4,8 +4,9 @@
 # add the case runner and prove.py evidence path.
 
 [[tests]]
-schema_version = 1
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
+subject_kind = "case_table_artifact"
 test_class = "metadata_validation"
 area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
@@ -15,17 +16,20 @@ status = "planned"
 invariants = ["VM_SEAM_SUBRANGE_001"]
 spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or blocked cases are treated as runnable proof."
+evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001.json"
 suite_tiers = ["veryquick"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
-case_file_digest = "sha256:c9cb498ec35c1bb041a6475e1462964694f06bd7f010e33fda1a7c807137fa76"
+case_file_digest = "sha256:3f04756407d524c81de5b8add0e783f49f415d14c6de90366f3323fdd03b0916"
 last_reviewed = "2026-07-09"
 
 [[tests]]
-schema_version = 1
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001"
+subject_kind = "case_table_artifact"
 test_class = "metadata_validation"
 area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
@@ -35,17 +39,20 @@ status = "planned"
 invariants = ["VM_SEAM_DECLARED_TYPE_001"]
 spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or blocked cases are treated as runnable proof."
+evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001.json"
 suite_tiers = ["veryquick"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:2c9c2e9a9821a9f14e5ca4155553c763d3fa79022838746fab9e6729856c1a51"
+case_file_digest = "sha256:1dcdaeac983744b8d10a6a3d596e1af20eab114bbc2ac3f1e8ff8b89cd3c099a"
 last_reviewed = "2026-07-09"
 
 [[tests]]
-schema_version = 1
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001"
+subject_kind = "case_table_artifact"
 test_class = "metadata_validation"
 area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
@@ -55,17 +62,20 @@ status = "planned"
 invariants = ["VM_SEAM_STRING_BOUND_001"]
 spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant; all cases remain blocked until the value-semantics spec gap closes."
+expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or blocked cases are treated as runnable proof."
+evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001.json"
 suite_tiers = ["veryquick"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:899edd16f6b6b94bc0ad24cfd82e16537872b7cf0f2ebaa3c6d0db674ff94b56"
+case_file_digest = "sha256:ea51c712c5e5e958109e0b05b4ee1344fbcd5d0a883a7303a373c38f184688a9"
 last_reviewed = "2026-07-09"
 
 [[tests]]
-schema_version = 1
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_VALID_001"
+subject_kind = "case_table_artifact"
 test_class = "metadata_validation"
 area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
@@ -75,17 +85,45 @@ status = "planned"
 invariants = ["VM_SEAM_VALID_001"]
 spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 expected_result = "The committed bytecode transform case table regenerates exactly from the committed seed artifact; all cases remain blocked until the bytecode validator contract gap closes."
+expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or blocked cases are treated as runnable proof."
+evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_VALID_001.json"
 suite_tiers = ["veryquick"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:c1372b2ea19e05100fa5317a94527130140b23cc80e80731c49dbdc929579e5c"
+case_file_digest = "sha256:af42eef732cad57663ff8d8119ed01fdad18b6499e7751238560377db04ce91a"
 last_reviewed = "2026-07-09"
 
 [[tests]]
-schema_version = 1
+schema_version = 2
+id = "TEST_BYTECODE_CONTAINER_INVALID_MAGIC"
+subject_kind = "generated_test"
+discovery_id = "DISC_88F921D24D3708CEF3E1"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "header_validation"
+command = "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects a container whose four-byte magic is not STBC before execution; the exact stable error-code contract remains open."
+expected_failure_mode = "A container with non-STBC magic is accepted or reaches execution."
+suite_tiers = []
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CONTAINER_INVALID_MAGIC.json"
+last_reviewed = "2026-07-10"
+
+[[tests]]
+schema_version = 2
 id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
+subject_kind = "mutation_shard_runner"
 test_class = "mutation"
 area = "bytecode_vm"
 path = "scripts/bytecode_validator_mutation.py"
@@ -95,12 +133,14 @@ status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
 spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 expected_result = "Run selected source mutants in an isolated Git archive and report caught, survived, unviable, timeout, or error outcomes against associated committed case IDs without executing blocked cases or claiming behavior proof."
+expected_failure_mode = "A configured mutant or case association is omitted, infrastructure failure is misclassified, or survivor reporting lacks committed case IDs and action."
+evidence_destination = "target/gate-artifacts/verification/bytecode-validator-mutation.json"
 suite_tiers = ["nightly"]
 requires_hardware = false
 requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:c1372b2ea19e05100fa5317a94527130140b23cc80e80731c49dbdc929579e5c"
+case_file_digest = "sha256:af42eef732cad57663ff8d8119ed01fdad18b6499e7751238560377db04ce91a"
 mutation_shard_id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
 mutation_runner = "bytecode-validator-mutation.py v1"
 mutation_tool = "cargo-mutants-single-file-adapter"

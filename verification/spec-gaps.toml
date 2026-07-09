@@ -83,7 +83,7 @@ affected_invariants = [
   "VM_SEAM_STRING_BOUND_001",
   "VM_SEAM_SUBRANGE_001",
 ]
-affected_tests = []
+affected_tests = ["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"]
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",

@@ -24,7 +24,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "generator": { "const": "test-catalog-scanner" },
-    "generator_version": { "const": 1 },
+    "generator_version": { "const": 2 },
     "scan_status": { "enum": ["complete", "incomplete"] },
     "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "command": {

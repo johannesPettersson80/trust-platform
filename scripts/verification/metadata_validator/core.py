@@ -51,6 +51,7 @@ from .constants import (
     VERIFICATION,
 )
 from .case_files import validate_case_file
+from ..test_catalog_intent import validate_catalog_intent
 from .evidence_proof import validate_green_pairing, validate_lock_pairing
 from .integrity import (
     test_counts_as_runnable,
@@ -116,9 +117,19 @@ class Validator:
             elif field not in record:
                 self.fail(path, f"{kind} {record.get('id', '<unknown>')} missing {field}")
 
-    def check_schema_version(self, path: Path, record: dict[str, Any], kind: str) -> None:
-        if record.get("schema_version") != 1:
-            self.fail(path, f"{kind} {record.get('id', '<unknown>')} must use schema_version = 1")
+    def check_schema_version(
+        self,
+        path: Path,
+        record: dict[str, Any],
+        kind: str,
+        *,
+        expected: int = 1,
+    ) -> None:
+        if record.get("schema_version") != expected:
+            self.fail(
+                path,
+                f"{kind} {record.get('id', '<unknown>')} must use schema_version = {expected}",
+            )
 
     def check_area(self, path: Path, record: dict[str, Any], allow_suite: bool = False) -> None:
         area = record.get("area")
@@ -778,6 +789,7 @@ class Validator:
         required = [
             "schema_version",
             "id",
+            "subject_kind",
             "test_class",
             "area",
             "path",
@@ -790,11 +802,14 @@ class Validator:
             "requires_hardware",
             "requires_network",
             "duration_class",
+            "expected_failure_mode",
+            "evidence_destination",
+            "last_reviewed",
         ]
         for record in self.tests.values():
             path = record["_path"]
             self.require(path, record, required, "test")
-            self.check_common(path, record)
+            self.check_common(path, record, schema_version=2)
             if record.get("test_class") not in TEST_CLASSES:
                 self.fail(path, f"{record['id']} has unknown test_class {record.get('test_class')!r}")
             validate_runnable_test_path(self.fail, path, record)
@@ -816,6 +831,14 @@ class Validator:
                     spec_sources=self.spec_sources,
                 )
             self.validate_case_digest(path, record)
+        for failure in validate_catalog_intent(
+            tests=self.tests,
+            matrix=self.matrix,
+            invariants=self.invariants,
+            spec_sources=self.spec_sources,
+            spec_gaps=self.spec_gaps,
+        ):
+            self.fail(VERIFICATION / "test-catalog.toml", failure)
 
     def validate_case_digest(self, path: Path, record: dict[str, Any]) -> None:
         has_file = "case_file" in record
@@ -868,8 +891,15 @@ class Validator:
             self.check_refs(path, record.get("related_spec_gaps", []), self.spec_gaps, "spec gap", record["id"])
             self.check_refs(path, record.get("evidence_refs", []), self.evidence, "evidence", record["id"])
 
-    def check_common(self, path: Path, record: dict[str, Any], allow_suite: bool = False) -> None:
-        self.check_schema_version(path, record, "record")
+    def check_common(
+        self,
+        path: Path,
+        record: dict[str, Any],
+        allow_suite: bool = False,
+        *,
+        schema_version: int = 1,
+    ) -> None:
+        self.check_schema_version(path, record, "record", expected=schema_version)
         self.check_area(path, record, allow_suite=allow_suite)
         self.check_status(path, record)
         if "last_reviewed" not in record and "updated_at" not in record:

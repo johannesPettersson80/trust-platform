@@ -6,6 +6,7 @@
   "required": [
     "schema_version",
     "id",
+    "subject_kind",
     "test_class",
     "area",
     "path",
@@ -17,11 +18,31 @@
     "suite_tiers",
     "requires_hardware",
     "requires_network",
-    "duration_class"
+    "duration_class",
+    "expected_failure_mode",
+    "evidence_destination",
+    "last_reviewed"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "id": { "type": "string" },
+    "subject_kind": {
+      "enum": ["generated_test", "case_table_artifact", "mutation_shard_runner"]
+    },
+    "discovery_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+    "discovery_source_kind": {
+      "enum": [
+        "rust_integration_test",
+        "rust_unit_test",
+        "structured_text_test",
+        "vscode_test",
+        "conformance_case",
+        "fuzz_target",
+        "gate_script",
+        "github_workflow_job"
+      ]
+    },
+    "name": { "type": "string" },
     "test_class": {
       "enum": [
         "debug_reproduction_probe",

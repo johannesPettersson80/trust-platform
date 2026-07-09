@@ -67,6 +67,19 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_catalog_subject_bypass_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        mutation = validator.tests["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
+        mutation["subject_kind"] = "generated_test"
+
+        validator.validate()
+
+        self.assertTrue(
+            any("generated_test requires discovery_id" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

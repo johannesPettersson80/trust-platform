@@ -20,6 +20,8 @@ Current seed scope:
   `VERIF-P1B-013`.
 - mechanical existing-test discovery for `VERIF-P2-001` through
   `VERIF-P2-003`.
+- hand-owned catalog intent, live path/name staleness checks, and explicit VS
+  Code test registration auditing for `VERIF-P2-004` through `VERIF-P2-006`.
 
 TOML shape convention:
 
@@ -83,6 +85,13 @@ TOML shape convention:
   crate-local fuzz workspaces such as `crates/trust-ads-server/fuzz/**`. The
   exact live census is an evidence-refresh tripwire, not CI enforcement; scope
   expansion requires a later reviewed board row.
+- Catalog schema v2 separates scanner-backed `generated_test` rows from the
+  closed `case_table_artifact` and `mutation_shard_runner` exceptions. Run
+  `scripts/check_test_catalog_staleness.py` to re-scan live sources and reject
+  stale discovery ID/path/name/source-kind bindings. Run
+  `scripts/check_vscode_test_registration.py` to reject unregistered, missing,
+  duplicate, dynamic, conditional, or escaping extension-test registrations.
+  These commands are not wired into CI enforcement in this slice.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

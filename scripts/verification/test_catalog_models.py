@@ -11,10 +11,11 @@ from typing import Any
 
 
 GENERATOR = "test-catalog-scanner"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/existing-test-catalog.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/existing-test-catalog.md")
 HAND_OWNED_FIELDS = [
+    "subject_kind",
     "area",
     "owner",
     "status",
@@ -26,8 +27,11 @@ HAND_OWNED_FIELDS = [
     "requires_network",
     "duration_class",
     "oracle_ref",
+    "spec_gap_ref",
     "expected_failure_mode",
     "evidence_destination",
+    "command",
+    "last_reviewed",
 ]
 
 

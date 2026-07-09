@@ -276,6 +276,13 @@ Schema changes must be handled explicitly:
 - removed fields require a migration note and stale-field diagnostic,
 - generated reports must include the schema version they read.
 
+Test-catalog schema v2 is the first migration under this rule. It adds the
+required `subject_kind`, `expected_failure_mode`, `evidence_destination`, and
+`last_reviewed` fields. All committed test records migrate together; catalog
+v1 records are rejected after the migration. The mechanical existing-test
+report remains schema v1 but uses generator v2 because its hand-owned-field
+exclusion list changed.
+
 The validator must fail closed when it sees:
 
 - unknown required version,
@@ -655,36 +662,36 @@ for `verification/spec-matrix.toml` live in `spec-matrix-model.md`.
 ### Test Catalog Record
 
 ```toml
-schema_version = 1
-id = "TEST_BYTECODE_UNKNOWN_OPCODE_REJECTED"
+schema_version = 2
+id = "TEST_BYTECODE_CONTAINER_INVALID_MAGIC"
+subject_kind = "generated_test"
+discovery_id = "DISC_88F921D24D3708CEF3E1"
+discovery_source_kind = "rust_integration_test"
 test_class = "negative_malformed_input"
 area = "bytecode_vm"
-path = "crates/trust-runtime/tests/bytecode_validation.rs"
-name = "rejects_unknown_opcode"
-command = "cargo test -p trust-runtime --test bytecode_validation rejects_unknown_opcode"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "header_validation"
+command = "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
 oracle_ref = "SPEC_BYTECODE_FORMAT_001"
-spec_ref = "SPEC_BYTECODE_FORMAT_001"
-expected_result = "load rejects before execution with a specific unknown-opcode error"
-suite_tiers = ["veryquick", "pr"]
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects non-STBC magic before execution; exact stable error-code semantics remain open."
+expected_failure_mode = "A container with non-STBC magic is accepted or reaches execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CONTAINER_INVALID_MAGIC.json"
+suite_tiers = []
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:<digest>"
-last_reviewed = "2026-07-08"
-
-[evidence]
-red_or_protective = []
-green = []
+last_reviewed = "2026-07-10"
 ```
 
 Required fields:
 
 - `schema_version`
 - `id`
+- `subject_kind`
 - `test_class`
 - `area`
 - `path`
@@ -698,6 +705,26 @@ Required fields:
 - `requires_hardware`
 - `requires_network`
 - `duration_class`
+- `expected_failure_mode`
+- `evidence_destination`
+- `last_reviewed`
+
+`subject_kind` is a closed discriminator:
+
+- `generated_test` requires `discovery_id`, `discovery_source_kind`, and
+  `name`. The live staleness checker resolves exactly one current scanner fact
+  and requires its source kind, path, and name to match. Line-only movement is
+  not stale.
+- `case_table_artifact` is limited to `metadata_validation` rows whose `path`
+  equals a `case_file` under `verification/cases/**`; scanner identity fields
+  are forbidden.
+- `mutation_shard_runner` is limited to the reviewed bytecode-validator
+  mutation runner and its closed shard contract; scanner identity fields are
+  forbidden.
+
+The two artifact subject kinds exist because the Phase 1 rows are verification
+tools/data outside the P2-001 native-test scan surface. They are not a generic
+escape hatch for native tests.
 
 `case_file` and `case_file_digest` are optional. If either is present, both are
 required. `case_file_digest` is the SHA-256 digest of the committed case file and
@@ -724,6 +751,8 @@ Records with `status` in `mapped`, `test_written`, `implemented`, or
 
 Stale-test validation must verify both `path` and `name` against scanner output.
 A renamed or deleted test function inside an existing file fails validation.
+`python3 scripts/check_test_catalog_staleness.py` performs the live scan and
+join; it does not trust a previously generated target artifact.
 
 ### Case File
 

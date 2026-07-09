@@ -95,25 +95,27 @@ class TestCatalogScannerTests(unittest.TestCase):
 
         self.assertEqual(first.to_json(), second.to_json())
         payload = json.loads(first.to_json())
+        self.assertEqual(payload["hand_owned_intent"]["included"], False)
         self.assertEqual(
-            payload["hand_owned_intent"],
+            set(payload["hand_owned_intent"]["fields"]),
             {
-                "included": False,
-                "fields": [
-                    "area",
-                    "owner",
-                    "status",
-                    "test_class",
-                    "invariants",
-                    "expected_result",
-                    "suite_tiers",
-                    "requires_hardware",
-                    "requires_network",
-                    "duration_class",
-                    "oracle_ref",
-                    "expected_failure_mode",
-                    "evidence_destination",
-                ],
+                "subject_kind",
+                "area",
+                "owner",
+                "status",
+                "test_class",
+                "invariants",
+                "expected_result",
+                "suite_tiers",
+                "requires_hardware",
+                "requires_network",
+                "duration_class",
+                "oracle_ref",
+                "spec_gap_ref",
+                "expected_failure_mode",
+                "evidence_destination",
+                "command",
+                "last_reviewed",
             },
         )
         ordering = [
@@ -323,7 +325,7 @@ fn block_comment_separated_test() {}
 
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["generator"], "test-catalog-scanner")
-        self.assertEqual(payload["generator_version"], 1)
+        self.assertEqual(payload["generator_version"], 2)
         self.assertEqual(payload["summary"]["records"], 10)
         self.assertIn("Generated Existing-Test Catalog", markdown)
         self.assertIn("does not map tests to claims", markdown)

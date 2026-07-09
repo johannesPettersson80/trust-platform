@@ -6,7 +6,7 @@ owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_SUBRANGE_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:8605ac862d6c4706b33c5d020eaae1874fbac5229ca34f0c6a1dbcd6609cad19"
+generator_digest = "sha256:ca915d5abf7bb053c84c47764b945ac76da897d753ea6f6f6c1d688c8217be86"
 source_digest = "sha256:0b2d08529f28d06e454ec8d5af530fd1117b91206c3557e6ccdd92dc7d05ee64"
 last_reviewed = "2026-07-09"
 

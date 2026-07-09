@@ -170,6 +170,8 @@ python3 scripts/scan_test_catalog.py \
 python3 scripts/validate_generated_test_catalog.py \
   --json target/gate-artifacts/verification/existing-test-catalog.json \
   --markdown docs/internal/testing/evidence/plc-verification-program/<date>/p2-existing-test-catalog.md
+python3 scripts/check_test_catalog_staleness.py
+python3 scripts/check_vscode_test_registration.py
 ```
 
 It inventories only source-derived facts, including runnable Structured Text
@@ -181,6 +183,20 @@ The generated JSON explicitly excludes the hand-owned intent fields belonging
 to `verification/test-catalog.toml`. Unmapped or unsupported declarations are
 report debt in this slice; scanner corruption and invalid report structure are
 errors.
+
+Beginning with catalog schema v2, each committed record declares a closed
+subject kind. Scanner-backed native tests bind a generated discovery ID, source
+kind, path, and name; line movement is ignored, while rename, delete, move, or
+source-kind drift fails. The Phase 1 case-table and bytecode mutation-runner
+rows use narrow artifact subject kinds because they are outside the scanner
+surface. They cannot be used to exempt ordinary native tests.
+
+The VS Code registration checker requires every
+`editors/vscode/src/test/suite/**/*.test.ts` file to have one direct literal
+`require("./...test")` between Mocha's pre-require and run boundaries in
+`suite/index.ts`. Orphans, missing targets, duplicates, dynamic/conditional
+loads, and path escapes fail. Both Phase 2 checkers remain standalone in this
+slice; the report-only CI posture is unchanged.
 
 The P2-001 board surface is deliberately narrower than the whole workspace:
 Rust tests under `xtask/**` and fuzz targets in crate-local fuzz workspaces such

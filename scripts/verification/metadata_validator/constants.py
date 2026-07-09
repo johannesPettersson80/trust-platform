@@ -282,6 +282,7 @@ SCHEMA_REQUIRED_FIELDS = {
     "catalog.schema.json": [
         "schema_version",
         "id",
+        "subject_kind",
         "test_class",
         "area",
         "path",
@@ -294,6 +295,9 @@ SCHEMA_REQUIRED_FIELDS = {
         "requires_hardware",
         "requires_network",
         "duration_class",
+        "expected_failure_mode",
+        "evidence_destination",
+        "last_reviewed",
     ],
     "evidence.schema.json": [
         "schema_version",
