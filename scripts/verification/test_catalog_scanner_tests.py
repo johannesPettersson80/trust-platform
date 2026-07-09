@@ -78,9 +78,11 @@ class TestCatalogScannerTests(unittest.TestCase):
         self.assertIn("--project crates/fixture/tests/st_project", st_program.command_hint)
         self.assertIn("--filter st_program_passes", st_program.command_hint)
         self.assertEqual(st_program.package, "fixture-crate")
+        self.assertEqual(st_program.reference_candidates, ("VERIF-P2-001",))
 
         st_function_block = fact_named(facts, "st_fb_passes")
         self.assertIn("TEST_FUNCTION_BLOCK", st_function_block.native_id)
+        self.assertEqual(st_function_block.reference_candidates, ())
 
         forbidden = {"test_class", "invariants", "oracle_ref", "expected_failure_mode", "evidence_destination"}
         for record in report.to_dict()["inferred_facts"]:
@@ -166,6 +168,12 @@ fn block_fake() {}
 )]
 #[test]
 fn conditional_ignore() {}
+
+#[test]
+/* first line
+continuation without a leading star
+*/
+fn block_comment_separated_test() {}
 ''',
             )
 
@@ -178,6 +186,10 @@ fn conditional_ignore() {}
         self.assertEqual(conditional.ignore_reason, "non-linux")
         self.assertEqual(report.to_dict()["summary"]["ignored"], 2)
         self.assertEqual(report.to_dict()["summary"]["conditional_ignores"], 1)
+        self.assertEqual(
+            fact_named(report.inferred_facts, "block_comment_separated_test").source_kind,
+            "rust_unit_test",
+        )
 
     def test_discovery_ids_do_not_change_when_only_source_lines_move(self) -> None:
         with fixture_repo() as root:
@@ -262,7 +274,17 @@ fn conditional_ignore() {}
         schema = root / "verification/schemas/generated-test-catalog.schema.json"
         self.assertEqual(validate_schema_file(schema), [])
 
-    def test_live_repository_census_covers_rust_st_and_vscode_sources(self) -> None:
+        mutated = json.loads(schema.read_text())
+        mutated["properties"]["timestamp"]["maxLength"] = 128
+        with tempfile.TemporaryDirectory() as temp:
+            mutated_path = Path(temp) / "generated-test-catalog.schema.json"
+            mutated_path.write_text(json.dumps(mutated))
+            failures = validate_schema_file(mutated_path)
+        self.assertTrue(any("unsupported schema keyword maxLength" in item for item in failures))
+
+    def test_live_repository_census_is_reviewed_evidence_tripwire(self) -> None:
+        """Count drift requires an intentional evidence refresh, not a silent baseline move."""
+
         root = Path(__file__).resolve().parents[2]
         rust = scan_rust_tests(root)
         structured_text = scan_structured_text_tests(root)
@@ -306,6 +328,8 @@ fn conditional_ignore() {}
         self.assertIn("Generated Existing-Test Catalog", markdown)
         self.assertIn("does not map tests to claims", markdown)
         self.assertIn("rust_integration_test", markdown)
+        self.assertTrue(any("xtask" in item for item in payload["limitations"]))
+        self.assertTrue(any("crate-local fuzz" in item for item in payload["limitations"]))
 
 
 def fact_named(facts, name: str):

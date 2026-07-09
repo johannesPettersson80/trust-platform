@@ -166,10 +166,6 @@ def scan_rust_file(
         if not code_stripped:
             if not original_stripped and not pending_attributes:
                 pending_context.clear()
-            elif original_stripped and not original_stripped.startswith(("//", "/*", "*")):
-                pending_attributes.clear()
-                pending_original_attributes.clear()
-                pending_context.clear()
             continue
         if code_stripped.startswith("#["):
             pending_attributes.append(code_stripped)

@@ -181,3 +181,12 @@ The generated JSON explicitly excludes the hand-owned intent fields belonging
 to `verification/test-catalog.toml`. Unmapped or unsupported declarations are
 report debt in this slice; scanner corruption and invalid report structure are
 errors.
+
+The P2-001 board surface is deliberately narrower than the whole workspace:
+Rust tests under `xtask/**` and fuzz targets in crate-local fuzz workspaces such
+as `crates/trust-ads-server/fuzz/**` are not included in generated totals. They
+remain explicit completeness debt until a later reviewed scope row.
+The live-repository census assertions pin the reviewed evidence baseline; an
+organic test addition or removal requires an intentional count and evidence
+refresh rather than a silent baseline move. These assertions are not a CI
+enforcement ratchet in this slice.

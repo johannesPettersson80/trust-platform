@@ -40,6 +40,9 @@ LIMITATIONS = (
     "Dynamic VS Code titles and runtime skips remain visible diagnostics rather than inferred facts.",
     "Structured Text command hints use project-level substring filters and remain conservative.",
     "The scripts/*gate* surface means root-level files under scripts whose names contain gate.",
+    "The P2 board scope excludes Rust tests under xtask/**; they are not included in report totals.",
+    "Only the root fuzz/Cargo.toml is scanned; crate-local fuzz workspaces are excluded.",
+    "Reviewed live census counts are an evidence tripwire and require an intentional refresh on drift.",
     "Hand-owned catalog intent and enforcement remain outside VERIF-P2-001 through VERIF-P2-003.",
 )
 

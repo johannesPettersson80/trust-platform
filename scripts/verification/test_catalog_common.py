@@ -19,6 +19,7 @@ REFERENCE_RE = re.compile(
 REFERENCE_PATH_RE = re.compile(
     r"docs/internal/testing/(?:checklists|evidence)/[A-Za-z0-9_./-]+"
 )
+NON_REFERENCE_TOKENS = {"TEST_PROGRAM", "TEST_FUNCTION_BLOCK"}
 
 
 @dataclass
@@ -73,7 +74,7 @@ def relative_path(root: Path, path: Path) -> str:
 
 
 def references_in(text: str) -> tuple[str, ...]:
-    references = set(REFERENCE_RE.findall(text))
+    references = set(REFERENCE_RE.findall(text)) - NON_REFERENCE_TOKENS
     references.update(match.rstrip(".,;:)") for match in REFERENCE_PATH_RE.findall(text))
     return tuple(sorted(references))
 

@@ -102,6 +102,25 @@ SOURCE_PREFIX = {
     "gate_script": "scripts/",
     "github_workflow_job": ".github/workflows/",
 }
+SUPPORTED_SCHEMA_KEYWORDS = {
+    "$schema",
+    "$id",
+    "$ref",
+    "$defs",
+    "title",
+    "type",
+    "required",
+    "properties",
+    "additionalProperties",
+    "const",
+    "enum",
+    "pattern",
+    "minItems",
+    "items",
+    "uniqueItems",
+    "minLength",
+    "minimum",
+}
 
 
 def validate_report_payload(payload: Any) -> list[str]:
@@ -211,6 +230,7 @@ def validate_schema_file(schema_path: Path) -> list[str]:
     failures: list[str] = []
     if not isinstance(schema, dict):
         return ["generated catalog schema root must be an object"]
+    check_supported_schema_keywords(schema, "$", failures)
     if schema.get("type") != "object" or schema.get("additionalProperties") is not False:
         failures.append("generated catalog schema root must be a closed object")
     if set(schema.get("required", [])) != ROOT_FIELDS:
@@ -227,6 +247,31 @@ def validate_schema_file(schema_path: Path) -> list[str]:
         if set(definition.get("required", [])) != expected:
             failures.append(f"generated catalog schema {name} required fields drift from semantic validation")
     return failures
+
+
+def check_supported_schema_keywords(
+    schema: dict[str, Any],
+    path: str,
+    failures: list[str],
+) -> None:
+    for keyword in sorted(set(schema) - SUPPORTED_SCHEMA_KEYWORDS):
+        failures.append(f"{path}: unsupported schema keyword {keyword}")
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, child in properties.items():
+            if isinstance(child, dict):
+                check_supported_schema_keywords(child, f"{path}.properties.{name}", failures)
+    definitions = schema.get("$defs")
+    if isinstance(definitions, dict):
+        for name, child in definitions.items():
+            if isinstance(child, dict):
+                check_supported_schema_keywords(child, f"{path}.$defs.{name}", failures)
+    items = schema.get("items")
+    if isinstance(items, dict):
+        check_supported_schema_keywords(items, f"{path}.items", failures)
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        check_supported_schema_keywords(additional, f"{path}.additionalProperties", failures)
 
 
 def validate_payload_against_schema(payload: Any, schema: dict[str, Any]) -> list[str]:

@@ -79,6 +79,10 @@ TOML shape convention:
   the schema instance, semantic identities, per-source command contracts, input
   digest, counts, and Markdown binding at rest. Generated reference candidates
   are lexical facts only and do not map tests to invariants or claims.
+- Phase 2's reviewed scan surface excludes `xtask/**` Rust tests and
+  crate-local fuzz workspaces such as `crates/trust-ads-server/fuzz/**`. The
+  exact live census is an evidence-refresh tripwire, not CI enforcement; scope
+  expansion requires a later reviewed board row.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in
