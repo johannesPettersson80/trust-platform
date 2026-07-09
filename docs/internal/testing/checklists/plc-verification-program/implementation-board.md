@@ -364,17 +364,37 @@ Acceptance:
   visible VS Code runtime-skip diagnostic. The generated JSON stays under
   `target/gate-artifacts/verification/`; the indexed durable summary is
   `docs/internal/testing/evidence/plc-verification-program/2026-07-09/p2-existing-test-catalog.md`.
-  Mechanical reference candidates create no proof mappings, and P2-004 onward
-  remain open. The report explicitly excludes `xtask/**` Rust tests and
+  Mechanical reference candidates create no proof mappings. The report
+  explicitly excludes `xtask/**` Rust tests and
   crate-local fuzz workspaces pending a later reviewed scope row; its exact
   live counts are an evidence-refresh tripwire rather than CI enforcement.
-- [ ] `VERIF-P2-004` Create committed `verification/test-catalog.toml` only for
-  hand-owned metadata that cannot be safely inferred.
-- [ ] `VERIF-P2-005` Add stale-path checker for committed catalog entries.
-- [ ] `VERIF-P2-005A` Stale catalog checks must verify file path and test name
+- [x] `VERIF-P2-004` Create committed `verification/test-catalog.toml` only for
+  hand-owned metadata that cannot be safely inferred. Catalog schema v2 uses a
+  closed subject discriminator and requires review-owned expected result,
+  failure mode, evidence destination, and review date. The first native row is
+  `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`, bound to generated fact
+  `DISC_88F921D24D3708CEF3E1`. It maps only the specified STBC-magic rejection
+  in inventoried `bytecode_vm`; exact error-code stability remains under open
+  `SPEC_GAP_VM_ERROR_MODEL_001`, and no current suite is falsely assigned.
+  Four case-table rows and the bytecode-validator mutation runner use closed
+  non-native artifact kinds rather than a generic scanner exemption.
+- [x] `VERIF-P2-005` Add stale-path checker for committed catalog entries.
+  `scripts/check_test_catalog_staleness.py` scans current sources in memory and
+  validates all six committed paths without trusting an old target artifact.
+- [x] `VERIF-P2-005A` Stale catalog checks must verify file path and test name
   against scanner output; a renamed/deleted test function inside a surviving
-  file must fail validation.
-- [ ] `VERIF-P2-006` Add VS Code extension-test registration checker.
+  file must fail validation. Generated rows resolve exactly one discovery ID
+  and require its source kind, path, and name to match; fixtures also reject
+  moves, duplicates, path escape, and invalid artifact exemptions while
+  accepting line-only movement.
+- [x] `VERIF-P2-006` Add VS Code extension-test registration checker.
+  `scripts/check_vscode_test_registration.py` verifies 38/38 source test files
+  and all 456 discovered VS Code facts are registered by direct literal loads
+  in `suite/index.ts`; malformed boundaries, orphans, missing/duplicate/case-
+  mismatched targets, dynamic/conditional loads, traversal, and symlink escape
+  fail. Both new checkers remain standalone and CI remains report-only.
+  Implementation/evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-catalog-binding-registration.md`.
 - [ ] `VERIF-P2-007` Add test-class completeness report.
 - [ ] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
