@@ -40,6 +40,8 @@ export function run(): Promise<void> {
   require("./runtime-control-client.test");
   require("./runtime-target.test");
   require("./network-canvas.test");
+  require("./network-canvas-github-issues.test");
+  require("./network-canvas-session-model.test");
   require("./ads-status-summary.test");
   require("./libraries-model.test");
   require("./library-code-actions.test");

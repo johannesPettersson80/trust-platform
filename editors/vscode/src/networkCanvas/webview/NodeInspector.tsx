@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { adsConnectionIdentityParts } from "./adsConnectionSummary";
 import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
@@ -208,7 +209,11 @@ function connectionSummary(value: unknown): string {
         .filter(isRecordValue)
         .map((point) => pointMapping(point as Record<string, unknown>))
         .filter(Boolean);
-      const head = [name, endpoint].filter(Boolean).join(" · ");
+      const head = [
+        name,
+        endpoint,
+        ...adsConnectionIdentityParts(connection),
+      ].filter(Boolean).join(" · ");
       return mappings.length === 0 ? head : `${head}\n${mappings.map((mapping) => `- ${mapping}`).join("\n")}`;
     })
     .join("\n");

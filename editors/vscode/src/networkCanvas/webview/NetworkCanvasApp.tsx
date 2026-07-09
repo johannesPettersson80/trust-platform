@@ -13,37 +13,32 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
-import { t, tint } from "./theme";
 import { buildGraph } from "./layout";
 import { visibleFaultsForValidationState } from "./faults";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./CasedEdge";
-import type { NCGraph } from "./types";
 import { AddDevicePanel } from "./AddDevicePanel";
 import { NodeInspector, type InspectorNode } from "./NodeInspector";
 import { AddPane } from "./AddPane";
 import { AddHostPanel } from "./AddHostPanel";
 import { AddRuntimePanel } from "./AddRuntimePanel";
 import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
-import {
-  DiscoverPane,
-  type DiscoverOrigin,
-  type DiscoverRequest,
-  type DiscoverProgressRow,
-} from "./DiscoverPane";
+import { DiscoverPane } from "./DiscoverPane";
 import { BrowseTagsPanel } from "./BrowseTagsPanel";
-import { browseAction } from "./browseActions";
-import type { DiscoverCandidate, RoutePlan, SymbolNode } from "../offlineComm";
+import { useBrowseSession } from "./useBrowseSession";
+import { useCanvasHostState } from "./useCanvasHostState";
+import { NetworkCanvasHeader } from "./NetworkCanvasHeader";
+import { NetworkCanvasOverlays } from "./NetworkCanvasOverlays";
+import { activeDrawerWidth } from "./networkCanvasStyles";
 import {
-  buildOpcuaConnection,
-  classifyOpcuaBrowseError,
-  selectedLeaves,
-  type OpcuaErrorView,
-} from "./opcuaClientModel";
+  useDiscoverActions,
+  useDiscoverPaneLifecycle,
+} from "./useDiscoverPane";
+import type { DeviceDraft } from "./discoverPaneModel";
 import { EditModeContext, type AddSlotRequest } from "./editMode";
 import { FilterPanel } from "./FilterPanel";
 import { applyFilter, filterReport, protocolsInGraph } from "./filter";
-import type { CommApplyResponse, CommSchemaResponse } from "../../communication/schemaForm";
+import type { CommApplyResponse } from "../../communication/schemaForm";
 import { LOCAL_RUNTIME_NODE_ID } from "./types";
 
 interface VsCodeApi {
@@ -58,20 +53,22 @@ const vscode: VsCodeApi =
     ? acquireVsCodeApi()
     : { postMessage() {}, getState: () => undefined, setState() {} };
 
-const EMPTY: NCGraph = {
-  kind: "graph",
-  title: "Devices & Connections",
-  summary: "",
-  hosts: [],
-  links: [],
-  external: [],
-  faults: [],
-};
-
 function Canvas() {
-  const [graph, setGraph] = useState<NCGraph>(
-    () => (typeof window !== "undefined" && (window as { __NC__?: NCGraph }).__NC__) || EMPTY
-  );
+  const post = useCallback((message: unknown) => vscode.postMessage(message), []);
+  const {
+    open: discoverOpen,
+    show: openDiscoverPane,
+    close: closeDiscoverPane,
+    toggle: toggleDiscoverPane,
+    scanning: discoverScanning,
+    progress: discoverProgress,
+    results: discoverResults,
+    error: discoverError,
+    sessionCurrent: discoverSessionCurrent,
+    prepareReady: prepareDiscoveryReady,
+    handleMessage: handleDiscoveryMessage,
+    startScan: onDiscoverScan,
+  } = useDiscoverPaneLifecycle(post);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [editMode, setEditMode] = useState(false);
@@ -83,23 +80,11 @@ function Canvas() {
     | undefined
   >(undefined);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
-  const [discoverScanning, setDiscoverScanning] = useState(false);
-  const [discoverProgress, setDiscoverProgress] = useState<DiscoverProgressRow[]>([]);
-  const [discoverResults, setDiscoverResults] = useState<DiscoverCandidate[]>([]);
-  const [browseTags, setBrowseTags] = useState<{ label: string; protocol: string; target: Record<string, unknown>; title: string; actionLabel: string; mode: "tags" | "expose" } | undefined>(undefined);
-  const [browseTree, setBrowseTree] = useState<SymbolNode[] | undefined>(undefined);
-  const [browseRouteMissing, setBrowseRouteMissing] = useState(false);
-  const [browseRoutePlan, setBrowseRoutePlan] = useState<RoutePlan | undefined>(undefined);
-  // opcua_client: a structured browse failure mapped to one recovery action (esp. cert-trust).
-  const [browseError, setBrowseError] = useState<OpcuaErrorView | undefined>(undefined);
-  const [browseLoading, setBrowseLoading] = useState(false);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [searchDraft, setSearchDraft] = useState("");
-  const [draft, setDraft] = useState<{ runtimeId: string; runtimeName: string; protocol: string; prefillParams?: Record<string, unknown> } | undefined>(undefined);
+  const [draft, setDraft] = useState<DeviceDraft | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [focusTargetId, setFocusTargetId] = useState<string | undefined>(undefined);
-  const [schema, setSchema] = useState<CommSchemaResponse | undefined>(undefined);
   const [applyResult, setApplyResult] = useState<CommApplyResponse | undefined>(undefined);
   const applyResultSignature = useMemo(
     () =>
@@ -114,21 +99,47 @@ function Canvas() {
     [applyResult]
   );
   const [applyResultLocallyStale, setApplyResultLocallyStale] = useState(false);
-  const [reachable, setReachable] = useState(false);
-  const [setupMessage, setSetupMessage] = useState<string | undefined>(undefined);
   const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const clearApplyResult = useCallback(() => {
     setApplyResult(undefined);
     setApplyResultLocallyStale(false);
-    vscode.postMessage({ type: "clearApplyResult" });
+    post({ type: "clearApplyResult" });
+  }, [post]);
+  const {
+    panel: browseTags,
+    tree: browseTree,
+    routeMissing: browseRouteMissing,
+    routePlan: browseRoutePlan,
+    error: browseError,
+    loading: browseLoading,
+    open: openBrowse,
+    openNode: onBrowse,
+    handleMessage: handleBrowseMessage,
+    browseTarget: onBrowseTarget,
+    trustCertificate: onTrustCertificate,
+    createRoute: onCreateRoute,
+    copy: onCopy,
+    addTags: onAddTags,
+    close: closeBrowse,
+  } = useBrowseSession(post, clearApplyResult);
+  const onHostFocusNode = useCallback((nodeId: string) => {
+    setSelectedId(nodeId);
+    setFocusTargetId(nodeId);
   }, []);
+  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
+    handleDiscoveryMessage,
+    handleBrowseMessage,
+    prepareDiscoveryReady,
+    onFocusNode: onHostFocusNode,
+    onApplyResult: setApplyResult,
+  });
 
   const focusNode = useCallback(
     (nodeId: string) => {
-      vscode.postMessage({ type: "focus", nodeId });
+      post({ type: "focus", nodeId });
       void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 });
     },
-    [fitView]
+    [fitView, post]
   );
 
   // §6.1: drop a palette item onto a runtime → that runtime owns the new endpoint.
@@ -184,53 +195,6 @@ function Canvas() {
     setApplyResultLocallyStale(false);
   }, [applyResultSignature]);
 
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (msg && msg.type === "graph" && msg.graph) {
-        setGraph(msg.graph as NCGraph);
-      }
-      if (msg && msg.type === "meta") {
-        setSchema(msg.schema as CommSchemaResponse | undefined);
-        setApplyResult(msg.applyResult as CommApplyResponse | undefined);
-        setReachable(Boolean(msg.reachable));
-        setSetupMessage(typeof msg.setupMessage === "string" ? msg.setupMessage : undefined);
-      }
-      if (msg && msg.type === "discoverProgress") {
-        const status: "scanning" | "done" = msg.status === "done" ? "done" : "scanning";
-        const row: DiscoverProgressRow = {
-          protocol: String(msg.protocol ?? ""),
-          label: String(msg.label ?? ""),
-          status,
-          count: typeof msg.count === "number" ? msg.count : undefined,
-        };
-        setDiscoverProgress((prev) => [...prev.filter((p) => p.label !== row.label), row]);
-      }
-      if (msg && msg.type === "discoverResults") {
-        setDiscoverResults(Array.isArray(msg.candidates) ? (msg.candidates as DiscoverCandidate[]) : []);
-        setDiscoverScanning(false);
-      }
-      if (msg && msg.type === "symbolTree") {
-        setBrowseTree(Array.isArray(msg.tree) ? (msg.tree as SymbolNode[]) : []);
-        setBrowseRouteMissing(Boolean(msg.routeMissing));
-        setBrowseRoutePlan(msg.routePlan as RoutePlan | undefined);
-        setBrowseError(
-          msg.error
-            ? classifyOpcuaBrowseError(msg.error as { code?: string; message?: string })
-            : undefined
-        );
-        setBrowseLoading(false);
-      }
-      if (msg && msg.type === "focusNode" && typeof msg.nodeId === "string") {
-        setSelectedId(msg.nodeId);
-        setFocusTargetId(msg.nodeId);
-      }
-    };
-    window.addEventListener("message", onMessage);
-    vscode.postMessage({ type: "ready" });
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
-
   // Signature of the current top-level node IDs — drives a re-fit when the graph's STRUCTURE changes
   // (first paint, or a swap like offline→live topology where host/runtime ids change), but not on a plain
   // live-value poll (same ids). A ref the resize observer reads, so it never re-fits to an empty graph.
@@ -274,6 +238,9 @@ function Canvas() {
       built.nodes.find((node) => node.type === "runtime")
     );
   }, [built.nodes, selectedId]);
+  const toolbarAddTargetLabel = toolbarAddTarget
+    ? String((toolbarAddTarget.data as { label?: string } | undefined)?.label ?? "runtime")
+    : undefined;
   const selectedOwningRuntime = useMemo(() => {
     const selected = selectedId ? built.nodes.find((node) => node.id === selectedId) : undefined;
     if (!selected) {
@@ -288,18 +255,34 @@ function Canvas() {
         : undefined) ?? toolbarAddTarget
     );
   }, [built.nodes, selectedId, toolbarAddTarget]);
+  const {
+    origins: discoverOrigins,
+    protocols: discoverProtocols,
+    add: onDiscoverAdd,
+    adopt: onDiscoverAdopt,
+  } = useDiscoverActions({
+    nodes: built.nodes,
+    schema,
+    post,
+    openBrowse,
+    clearApplyResult,
+    close: closeDiscoverPane,
+    setSelectedId,
+    setDraft,
+    setEditMode,
+  });
   const openAddPicker = useCallback(() => {
     if (!toolbarAddTarget) {
       return;
     }
     setFilterOpen(false);
-    setDiscoverOpen(false);
+    closeDiscoverPane();
     setSelectedId(undefined);
     setDraft(undefined);
     setEditMode(false);
     clearApplyResult();
     setAddSlot({ kind: "device", targetId: toolbarAddTarget.id });
-  }, [toolbarAddTarget, clearApplyResult]);
+  }, [toolbarAddTarget, clearApplyResult, closeDiscoverPane]);
 
   const toggleHidden = useCallback((protocol: string) => {
     setHidden((prev) => {
@@ -488,12 +471,10 @@ function Canvas() {
     vscode.setState({ ...state, positions: positionsRef.current });
   }, []);
 
-  const post = useCallback((message: unknown) => vscode.postMessage(message), []);
-
   const onSearch = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchDraft(e.target.value);
-      post({ type: "search", query: e.target.value });
+    (query: string) => {
+      setSearchDraft(query);
+      post({ type: "search", query });
     },
     [post]
   );
@@ -501,167 +482,39 @@ function Canvas() {
     setSearchDraft("");
     post({ type: "search", query: "" });
   }, [post]);
-
-  const discoverOrigins = useMemo(() => {
-    const runtimes = built.nodes
-      .filter((n) => n.type === "runtime")
-      .map((n): DiscoverOrigin => {
-        const data = n.data as { label?: string; health?: string; attached?: boolean };
-        const label = String(data.label ?? n.id);
-        const health = String(data.health ?? "");
-        const runtimeDiscoveryReady =
-          data.attached === true ||
-          health === "connected" ||
-          health === "running" ||
-          health === "online";
-        return {
-          id: n.id,
-          label,
-          runtimeDiscoveryReady,
-          runtimeDiscoveryDisabledReason: runtimeDiscoveryReady
-            ? undefined
-            : `Start or connect ${label} before scanning from it.`,
-        };
-      });
-    return [
-      {
-        id: "this_host",
-        label: "This computer",
-        runtimeDiscoveryReady: false,
-        runtimeDiscoveryDisabledReason: "Choose a running runtime for EtherCAT or GPIO scans.",
-      },
-      ...runtimes,
-    ];
-  }, [built.nodes]);
-
-  // Discover-capable protocols come straight from the contract: comm.schema marks a protocol's
-  // actions with "discover". The Discover pane offers exactly this set — so EtherCAT/GPIO appear the
-  // moment the runtime advertises them, and nothing is ever offered that the backend can't scan.
-  const discoverProtocols = useMemo(
-    () =>
-      new Set(
-        (schema?.protocols ?? [])
-          .filter((p) => p.actions.includes("discover"))
-          .map((p) => p.id)
-      ),
-    [schema]
-  );
-
-  const onDiscoverScan = useCallback(
-    (req: DiscoverRequest) => {
-      setDiscoverScanning(true);
-      setDiscoverProgress([]);
-      setDiscoverResults([]);
-      post({ type: "discover", request: req });
-    },
+  const onCanvasAction = useCallback(
+    (action: string) => post({ type: "action", action }),
     [post]
   );
-  // Open the Browse-tags/channels flow for a protocol+target (shared by the inspector button and
-  // discovery "+Add" — ADS is configured by picking its tags, not via a generic form).
-  const openBrowse = useCallback(
-    (protocol: string, target: Record<string, unknown>, label: string) => {
-      const action = browseAction(protocol);
-      if (!action) {
-        return;
+  const onToggleFilter = useCallback(() => {
+    setFilterOpen((value) => !value);
+    setAddSlot(undefined);
+    closeDiscoverPane();
+    clearApplyResult();
+  }, [clearApplyResult, closeDiscoverPane]);
+  const onToggleDiscover = useCallback(() => {
+    toggleDiscoverPane();
+    setFilterOpen(false);
+    setAddSlot(undefined);
+    clearApplyResult();
+  }, [clearApplyResult, toggleDiscoverPane]);
+  const onToggleEdit = useCallback(() => {
+    setEditMode((value) => {
+      if (value) {
+        setAddSlot(undefined);
       }
-      clearApplyResult();
-      const tgt = action.local ? { local: true } : target;
-      setBrowseTags({
-        label,
-        protocol,
-        target: tgt,
-        title: action.title,
-        actionLabel: action.actionLabel,
-        mode: action.mode,
-      });
-      setBrowseTree(undefined);
-      setBrowseRouteMissing(false);
-      setBrowseRoutePlan(undefined);
-      setBrowseError(undefined);
-      setBrowseLoading(true);
-      post({ type: "browseSymbols", protocol, target: tgt, kind: action.kind });
-    },
-    [post, clearApplyResult]
-  );
-  const onDiscoverAdd = useCallback(
-    (c: DiscoverCandidate) => {
-      clearApplyResult();
-      setDiscoverOpen(false);
-      setSelectedId(undefined);
-      // §0.5: a discovered ADS PLC is set up by picking its tags (browse → add tags), not via the
-      // generic device form — route straight to Browse tags with the discovered connection.
-      if (browseAction(c.protocol)?.mode === "tags") {
-        openBrowse(c.protocol, c.params, c.label || c.protocol);
-        return;
-      }
-      const rt = built.nodes.find((n) => n.type === "runtime");
-      setDraft({
-        runtimeId: rt?.id ?? "",
-        runtimeName: String((rt?.data as { label?: string } | undefined)?.label ?? "runtime"),
-        protocol: c.protocol,
-        prefillParams: c.params,
-      });
-    },
-    [built.nodes, openBrowse, clearApplyResult]
-  );
-  const onDiscoverAdopt = useCallback(
-    (c: DiscoverCandidate) => {
-      const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
-      const label =
-        typeof c.label === "string" && c.label.trim().length > 0
-          ? c.label.trim()
-          : typeof c.params.name === "string"
-            ? c.params.name.trim()
-            : "";
-      if (endpoint) {
-        post({ type: "addHost", endpoint, label });
-      }
-      setDiscoverOpen(false);
-      setEditMode(false); // success state: show the adopted runtime, not the next edit-mode placeholders
-    },
-    [post]
-  );
-  const onBrowse = useCallback(
-    (node: InspectorNode) => {
-      const protocol = String(node.data.protocol ?? "");
-      const params = (node.data.params as Record<string, unknown> | undefined) ?? {};
-      // The opcua_client endpoint node carries the whole section ({ connections: [...] }), but the
-      // remote browse needs ONE connection's endpoint settings (endpoint_url + security) as the
-      // target — passing the section verbatim makes the backend reject it ("requires target endpoint
-      // settings") and the tree comes back empty. Use the sole connection. (Multi-connection
-      // disambiguation via a picker is a follow-up.)
-      const connections = params.connections;
-      const target =
-        (protocol === "opcua_client" || protocol === "ads") && Array.isArray(connections) && connections.length > 0
-          ? ((connections[0] as Record<string, unknown> | undefined) ?? params)
-          : params;
-      openBrowse(
-        protocol,
-        target,
-        String(node.data.name ?? node.data.label ?? protocol)
-      );
-    },
-    [openBrowse]
-  );
-  // opcua_client: explicit cert-trust path — re-browse the same endpoint with trust_server_certificate
-  // set, and carry it into the saved connection. Never auto-trusts; only on the user's click.
-  const onTrustCertificate = useCallback(() => {
-    if (!browseTags) {
-      return;
-    }
-    const target = { ...browseTags.target, trust_server_certificate: true };
-    setBrowseTags({ ...browseTags, target });
-    setBrowseTree(undefined);
-    setBrowseError(undefined);
-    setBrowseLoading(true);
-    post({ type: "browseSymbols", protocol: browseTags.protocol, target, kind: "nodes" });
-  }, [post, browseTags]);
+      return !value;
+    });
+    setFilterOpen(false);
+    clearApplyResult();
+  }, [clearApplyResult]);
+
   const onEditBrowseCredentials = useCallback(() => {
     if (!browseTags) {
       return;
     }
     clearApplyResult();
-    setBrowseTags(undefined);
+    closeBrowse();
     setSelectedId(undefined);
     const runtime = selectedOwningRuntime;
     setDraft({
@@ -670,44 +523,7 @@ function Canvas() {
       protocol: browseTags.protocol,
       prefillParams: browseTags.target,
     });
-  }, [browseTags, clearApplyResult, selectedOwningRuntime]);
-  const onCreateRoute = useCallback(() => {
-    if (browseTags) {
-      post({ type: "createRoute", protocol: browseTags.protocol, target: browseTags.target });
-    }
-  }, [post, browseTags]);
-  const onCopy = useCallback((text: string) => post({ type: "copyText", text }), [post]);
-  const onAddTags = useCallback(
-    (keys: string[], writable: boolean) => {
-      if (browseTags && keys.length > 0) {
-        // Resolve the stable selection keys back to leaves by node identity (not display path).
-        const nodes = selectedLeaves(browseTree, new Set(keys));
-        if (browseTags.protocol === "opcua_client") {
-          // Map the selected leaves → a connection with points (var/node_id/type/access),
-          // carrying the endpoint + chosen security/auth/trust from the browse target.
-          const connection = buildOpcuaConnection(
-            browseTags.target,
-            browseTags.label,
-            nodes,
-            writable
-          );
-          if (connection) {
-            post({ type: "addOpcuaConnection", connection });
-          }
-        } else if (browseTags.protocol === "ethercat") {
-          const paths = nodes.map((n) => n.path);
-          post({ type: "addEthercatChannels", target: browseTags.target, paths });
-        } else {
-          // ADS tags / expose globals are keyed by their symbol path.
-          const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
-          const paths = nodes.map((n) => n.path);
-          post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
-        }
-      }
-      setBrowseTags(undefined);
-    },
-    [post, browseTags, browseTree]
-  );
+  }, [browseTags, clearApplyResult, closeBrowse, selectedOwningRuntime]);
 
   const visibleFaults = visibleFaultsForValidationState(
     graph.faults,
@@ -719,7 +535,7 @@ function Canvas() {
       editMode,
       onPickSlot: (slot: AddSlotRequest) => {
         setFilterOpen(false);
-        setDiscoverOpen(false);
+        closeDiscoverPane();
         setSelectedId(undefined);
         setDraft(undefined);
         clearApplyResult();
@@ -733,7 +549,7 @@ function Canvas() {
         }
       },
     }),
-    [editMode, clearApplyResult]
+    [editMode, clearApplyResult, closeDiscoverPane]
   );
 
   // Every drawer (inspector, add/setup/discover/filter, browse) opens on the RIGHT — opposite the
@@ -741,27 +557,14 @@ function Canvas() {
   // width reserves space in the flex row, so React Flow's viewport genuinely narrows (not a racy calc)
   // and we re-fit into it: the panel sits beside the graph, never over a node, at any webview width
   // (Explorer open or not). Keep these widths in sync with each panel's PANEL width.
-  const activeDrawerW = draft
-    ? 360 // AddDevicePanel
-    : selectedId
-      ? 340 // NodeInspector
-      : browseTags
-        ? 340 // BrowseTagsPanel
-        : discoverOpen
-          ? 290 // DiscoverPane
-          : addSlot?.kind === "setup"
-            ? 252 // SetUpRuntimePanel
-            : addSlot?.kind === "host"
-              ? 300 // AddHostPanel / Connect existing runtime
-            : addSlot?.kind === "device"
-              ? 360 // AddPane
-            : addSlot?.kind === "runtime-scaffold"
-              ? 232 // AddRuntimePanel
-            : addSlot
-              ? 232
-              : filterOpen
-                ? 184 // FilterPanel
-                : 0;
+  const activeDrawerW = activeDrawerWidth(
+    Boolean(draft),
+    Boolean(selectedId),
+    Boolean(browseTags),
+    discoverOpen,
+    addSlot?.kind,
+    filterOpen
+  );
   const drawerOpen = activeDrawerW > 0;
   // Re-fit whenever the reserved width CHANGES — opening (0→W), closing (W→0), or swapping between two
   // drawers of different widths (e.g. the 360px add picker → the 360px config form). Tracking the
@@ -802,167 +605,27 @@ function Canvas() {
     return () => timers.forEach(clearTimeout);
   }, [browseTags, browseTree?.length, browseLoading, applyResultSignature, built.nodes.length, fitView]);
 
-  const toolbarBtn = (
-    active: boolean,
-    variant: "default" | "primary" = "default",
-    disabled = false
-  ): React.CSSProperties => ({
-    border: `1px solid ${active || variant === "primary" ? t.accent : t.border}`,
-    background:
-      variant === "primary"
-        ? t.accent
-        : active
-          ? tint(t.accent, 0.14)
-          : "transparent",
-    color: disabled ? t.textSubtle : variant === "primary" ? t.onAccent : t.text,
-    borderRadius: t.radius,
-    padding: "6px 12px",
-    fontSize: 12,
-    fontWeight: variant === "primary" ? 650 : 500,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.62 : 1,
-    whiteSpace: "nowrap",
-    transition: `background ${t.ease}, border-color ${t.ease}`,
-  });
-  const fieldIssueCount = applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0;
-  const fieldIssueLabel =
-    fieldIssueCount > 0
-      ? `${fieldIssueCount} field issue${fieldIssueCount === 1 ? "" : "s"} · fix highlighted fields`
-      : undefined;
-  const fieldIssueTitle =
-    fieldIssueCount > 0
-      ? applyResult?.message || "Fix the highlighted fields and try again."
-      : undefined;
-  const issuePillStyle: React.CSSProperties = {
-    border: `1px solid ${tint(t.danger, 0.5)}`,
-    background: tint(t.danger, 0.12),
-    color: t.danger,
-    borderRadius: t.radius,
-    padding: "6px 10px",
-    fontSize: 11,
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-    maxWidth: 360,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "10px 16px",
-          borderBottom: `1px solid ${t.border}`,
-          background: t.surface,
-          zIndex: 5,
-        }}
-      >
-        <div
-          aria-label="truST"
-          title="truST"
-          style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", color: t.text, letterSpacing: 0.2 }}
-        >
-          tru<span style={{ color: t.accent }}>ST</span>
-        </div>
-        <input
-          onChange={onSearch}
-          value={searchDraft}
-          placeholder="Search nodes, links, faults"
-          style={{
-            flex: "1 1 240px",
-            minWidth: 0,
-            background: t.inputBg,
-            border: `1px solid ${t.inputBorder}`,
-            borderRadius: t.radius,
-            color: t.text,
-            padding: "6px 10px",
-            fontSize: 12,
-          }}
-        />
-        {searchDraft.trim().length > 0 && (
-          <button
-            onClick={clearSearch}
-            title="Clear search"
-            style={toolbarBtn(false)}
-          >
-            Clear search
-          </button>
-        )}
-        {fieldIssueLabel ? (
-          <span
-            style={issuePillStyle}
-            title={fieldIssueTitle}
-          >
-            {fieldIssueLabel}
-          </span>
-        ) : fault && (
-          <button
-            onClick={() => focusNode(fault.targetNodeId)}
-            style={{
-              ...issuePillStyle,
-              cursor: "pointer",
-            }}
-            title={fault.label}
-          >
-            {visibleFaults.length} issue{visibleFaults.length === 1 ? "" : "s"} · {fault.label}
-          </button>
-        )}
-        <button
-          onClick={() => {
-            setFilterOpen((v) => !v);
-            setAddSlot(undefined);
-            setDiscoverOpen(false);
-            clearApplyResult();
-          }}
-          title="Filter connections by protocol"
-          style={toolbarBtn(filterOpen)}
-        >
-          Filter
-        </button>
-        <button
-          onClick={openAddPicker}
-          disabled={!toolbarAddTarget}
-          title={
-            toolbarAddTarget
-              ? `Add a device or connection to ${String((toolbarAddTarget.data as { label?: string } | undefined)?.label ?? "runtime")}`
-              : "Open or set up a runtime before adding a device or connection"
-          }
-          style={toolbarBtn(addSlot?.kind === "device", "primary", !toolbarAddTarget)}
-        >
-          + Add
-        </button>
-        <button
-          onClick={() => {
-            setDiscoverOpen((v) => !v);
-            setFilterOpen(false);
-            setAddSlot(undefined);
-            clearApplyResult();
-          }}
-          title="Find devices on the network"
-          style={toolbarBtn(discoverOpen)}
-        >
-          Discover
-        </button>
-        <button
-          onClick={() => {
-            setEditMode((v) => {
-              if (v) {
-                setAddSlot(undefined);
-              }
-              return !v;
-            });
-            setFilterOpen(false);
-            clearApplyResult();
-          }}
-          title="Edit mode: shows + on each runtime to add a device or service"
-          style={toolbarBtn(editMode)}
-        >
-          {editMode ? "Done" : "Edit"}
-        </button>
-      </header>
+      <NetworkCanvasHeader
+        searchValue={searchDraft}
+        onSearchChange={onSearch}
+        onClearSearch={clearSearch}
+        fieldIssueCount={applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0}
+        fieldIssueMessage={applyResult?.message}
+        fault={fault}
+        faultCount={visibleFaults.length}
+        onFocusFault={focusNode}
+        filterActive={filterOpen}
+        onToggleFilter={onToggleFilter}
+        addActive={addSlot?.kind === "device"}
+        addTargetLabel={toolbarAddTargetLabel}
+        onAdd={openAddPicker}
+        discoverActive={discoverOpen}
+        onToggleDiscover={onToggleDiscover}
+        editActive={editMode}
+        onToggleEdit={onToggleEdit}
+      />
 
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <div ref={flowWrapRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
@@ -995,74 +658,12 @@ function Canvas() {
         </ReactFlow>
         </EditModeContext.Provider>
 
-        {nodes.length === 0 && (
-          <div
-            className="trust-loading"
-            style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, pointerEvents: "none" }}
-          >
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={t.textSubtle} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4.5" width="18" height="6" rx="1.5" />
-              <rect x="3" y="13.5" width="18" height="6" rx="1.5" />
-              <circle cx="6.6" cy="7.5" r="1" fill={t.textSubtle} stroke="none" />
-              <circle cx="6.6" cy="16.5" r="1" fill={t.textSubtle} stroke="none" />
-            </svg>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: t.textMuted }}>Loading your devices…</div>
-            <div style={{ fontSize: 12, color: t.textSubtle, maxWidth: 300, textAlign: "center" }}>Reading the project's runtime and connections.</div>
-          </div>
-        )}
-
-        {graph.banner && (
-          <div
-            style={{
-              position: "absolute",
-              top: 12,
-              left: "50%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              background: t.overlay,
-              border: `1px solid ${graph.banner.kind === "info" ? t.border : tint(t.danger, 0.5)}`,
-              borderRadius: t.radiusLg,
-              padding: "8px 12px",
-              boxShadow: t.shadowOverlay,
-              zIndex: 6,
-            }}
-          >
-            <span
-              style={{
-                color: graph.banner.kind === "info" ? t.text : t.danger,
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              {graph.banner.text}
-            </span>
-            {graph.banner.actions.map((a) => (
-              <button
-                key={a.action}
-                onClick={() => post({ type: "action", action: a.action })}
-                style={{
-                  border: `1px solid ${t.border}`,
-                  background: "transparent",
-                  color: t.text,
-                  borderRadius: t.radiusSm,
-                  padding: "4px 10px",
-                  fontSize: 11,
-                  cursor: "pointer",
-                }}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {graph.summary && (
-          <div className="trust-canvas-summary">
-            {graph.summary}
-          </div>
-        )}
+        <NetworkCanvasOverlays
+          empty={nodes.length === 0}
+          banner={graph.banner}
+          summary={graph.summary}
+          onAction={onCanvasAction}
+        />
         </div>
 
         {/* Reserves the active drawer's width in the flex row so the canvas column narrows by exactly
@@ -1090,7 +691,7 @@ function Canvas() {
             onDiscover={() => {
               clearApplyResult();
               setAddSlot(undefined);
-              setDiscoverOpen(true);
+              openDiscoverPane();
             }}
             onClose={() => {
               clearApplyResult();
@@ -1144,10 +745,12 @@ function Canvas() {
             scanning={discoverScanning}
             progress={discoverProgress}
             results={discoverResults}
+            error={discoverError}
+            sessionCurrent={discoverSessionCurrent}
             onScan={onDiscoverScan}
             onAdd={onDiscoverAdd}
             onAdopt={onDiscoverAdopt}
-            onClose={() => setDiscoverOpen(false)}
+            onClose={closeDiscoverPane}
           />
         )}
 
@@ -1199,6 +802,8 @@ function Canvas() {
             title={browseTags.title}
             actionLabel={browseTags.actionLabel}
             targetLabel={browseTags.label}
+            protocol={browseTags.protocol}
+            target={browseTags.target}
             tree={browseTree}
             routeMissing={browseRouteMissing}
             routePlan={browseRoutePlan}
@@ -1208,8 +813,9 @@ function Canvas() {
             onTrustCertificate={onTrustCertificate}
             onEditCredentials={onEditBrowseCredentials}
             onCopy={onCopy}
+            onBrowseTarget={onBrowseTarget}
             onAddTags={onAddTags}
-            onClose={() => setBrowseTags(undefined)}
+            onClose={closeBrowse}
           />
         )}
       </div>

@@ -1,28 +1,26 @@
 import React, { useEffect, useState } from "react";
 import type { DiscoverCandidate } from "../offlineComm";
+import { candidateDisabledReason } from "../discoverySession";
+import {
+  adsTargetNetId,
+  candidateAdsPort,
+  parseAdsPortInput,
+  withCandidateAdsPort,
+} from "./adsTargetPort";
 import { discoveryConfidenceLabel, discoverySourceLabel } from "./connectorPresentation";
+import type {
+  DiscoverOrigin,
+  DiscoverProgressRow,
+  DiscoverRequest,
+  DiscoverRequestItem,
+} from "./discoverPaneModel";
+import { shouldShowDiscoveryUnavailable } from "./discoverPaneModel";
 import { protocolName } from "./protocolMeta";
 
 // §0.5 Discover pane: goal-first device discovery. Recommended tier (zero input, safe) is checked
 // by default; targeted scans and runtime hardware scans are opt-in. Scan origin is explicit because
 // the computer, a runtime, and a remote host can see different networks. Results → Add (opens the
 // prefilled form) or Adopt (a truST runtime).
-
-export interface DiscoverRequestItem {
-  protocol: string;
-  cidr?: string;
-  host?: string;
-}
-export interface DiscoverRequest {
-  origin: string;
-  items: DiscoverRequestItem[];
-}
-export interface DiscoverProgressRow {
-  protocol: string;
-  label: string;
-  status: "scanning" | "done";
-  count?: number;
-}
 
 interface Row {
   key: string;
@@ -31,13 +29,6 @@ interface Row {
   note: string;
   input?: "host" | "cidr";
   confirm?: boolean;
-}
-
-export interface DiscoverOrigin {
-  id: string;
-  label: string;
-  runtimeDiscoveryReady?: boolean;
-  runtimeDiscoveryDisabledReason?: string;
 }
 
 const RECOMMENDED: Row[] = [
@@ -65,6 +56,8 @@ export function DiscoverPane({
   scanning,
   progress,
   results,
+  error,
+  sessionCurrent,
   onScan,
   onAdd,
   onAdopt,
@@ -73,8 +66,10 @@ export function DiscoverPane({
   origins: DiscoverOrigin[];
   discoverProtocols: ReadonlySet<string>;
   scanning: boolean;
-  progress: DiscoverProgressRow[];
-  results: DiscoverCandidate[];
+  progress: readonly DiscoverProgressRow[];
+  results: readonly DiscoverCandidate[];
+  error?: string;
+  sessionCurrent: boolean;
   onScan: (req: DiscoverRequest) => void;
   onAdd: (candidate: DiscoverCandidate) => void;
   onAdopt: (candidate: DiscoverCandidate) => void;
@@ -102,6 +97,7 @@ export function DiscoverPane({
     new Set(recommended.map((r) => r.key))
   );
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [adsPortDrafts, setAdsPortDrafts] = useState<Record<string, string>>({});
   const [showTargeted, setShowTargeted] = useState(false);
   const [showRuntime, setShowRuntime] = useState(false);
   const selectedOrigin = origins.find((o) => o.id === origin) ?? origins[0];
@@ -138,6 +134,12 @@ export function DiscoverPane({
     }
   }, [recKeys]);
 
+  useEffect(() => {
+    if (scanning) {
+      setAdsPortDrafts({});
+    }
+  }, [scanning]);
+
   const toggle = (key: string) =>
     setChecked((prev) => {
       const next = new Set(prev);
@@ -154,7 +156,11 @@ export function DiscoverPane({
         host: r.input === "host" ? inputs[r.key]?.trim() || undefined : undefined,
       }));
     if (items.length > 0) {
-      onScan({ origin, items });
+      onScan({
+        origin,
+        originEndpoint: selectedOrigin?.controlEndpoint,
+        items,
+      });
     }
   };
 
@@ -223,7 +229,18 @@ export function DiscoverPane({
         </div>
 
         <div className="trust-section">
-          {allRows.length === 0 && (
+          {error && (
+            <div className="trust-field__message trust-field__message--error">
+              {error}
+            </div>
+          )}
+          {shouldShowDiscoveryUnavailable(
+            allRows.length,
+            scanning,
+            progress.length,
+            results.length,
+            error
+          ) && (
             <p className="trust-help" style={{ margin: "4px 2px" }}>
               No discovery is available yet. Load a project or connect a runtime that advertises
               discoverable protocols.
@@ -258,12 +275,31 @@ export function DiscoverPane({
             )}
             {results.map((c) => {
               const isRuntime = typeof c.params.control_endpoint === "string";
+              const isAds = c.protocol === "ads";
               const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
               const host = typeof c.params.host === "string" ? c.params.host : "";
               const displayEndpoint = formatDiscoveredEndpoint(endpoint);
+              const adsPortDraft = adsPortDrafts[c.id] ?? String(candidateAdsPort(c));
+              const adsPort = parseAdsPortInput(adsPortDraft);
+              const sessionDisabledReason = candidateDisabledReason(
+                c.protocol,
+                discoverProtocols,
+                sessionCurrent,
+                !c.originRuntimeId ||
+                  origins.some((candidateOrigin) => candidateOrigin.id === c.originRuntimeId)
+              );
+              const actionDisabledReason =
+                sessionDisabledReason ??
+                (isAds ? adsPort.error : undefined);
               const detail = isRuntime
                 ? runtimeDiscoveryDetail(host, displayEndpoint)
-                : [protocolName(c.protocol), discoverySourceLabel(c.source), discoveryConfidenceLabel(c.confidence)]
+                : [
+                    isAds
+                      ? `${adsTargetNetId(c.params)} · ADS port ${adsPort.port ?? adsPortDraft}`
+                      : protocolName(c.protocol),
+                    discoverySourceLabel(c.source),
+                    discoveryConfidenceLabel(c.confidence),
+                  ]
                     .filter(Boolean)
                     .join(" · ");
               return (
@@ -271,8 +307,54 @@ export function DiscoverPane({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "var(--trust-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</div>
                     <div style={{ fontSize: 10, color: "var(--trust-text-muted)", lineHeight: 1.25, overflowWrap: "anywhere" }}>{detail}</div>
+                    {isAds && (
+                      <label style={ADS_PORT_LABEL}>
+                        ADS port
+                        <input
+                          data-role="ads-port"
+                          type="number"
+                          min={1}
+                          max={65535}
+                          step={1}
+                          value={adsPortDraft}
+                          aria-invalid={Boolean(adsPort.error)}
+                          aria-describedby={adsPort.error ? `${c.id}-ads-port-error` : undefined}
+                          onChange={(event) =>
+                            setAdsPortDrafts((previous) => ({
+                              ...previous,
+                              [c.id]: event.target.value,
+                            }))
+                          }
+                          className="trust-input"
+                          style={ADS_PORT_INPUT}
+                        />
+                      </label>
+                    )}
+                    {isAds && adsPort.error && (
+                      <div id={`${c.id}-ads-port-error`} className="trust-field__message trust-field__message--error">
+                        {adsPort.error}
+                      </div>
+                    )}
+                    {sessionDisabledReason && (
+                      <div className="trust-field__message trust-field__message--error">
+                        {sessionDisabledReason}
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => (isRuntime ? onAdopt(c) : onAdd(c))} className="trust-button">
+                  <button
+                    onClick={() => {
+                      if (actionDisabledReason) {
+                        return;
+                      }
+                      const candidate = isAds && adsPort.port
+                        ? withCandidateAdsPort(c, adsPort.port)
+                        : c;
+                      isRuntime ? onAdopt(candidate) : onAdd(candidate);
+                    }}
+                    disabled={Boolean(actionDisabledReason)}
+                    title={actionDisabledReason}
+                    className="trust-button"
+                  >
                     {isRuntime ? "Adopt" : "+ Add"}
                   </button>
                 </div>
@@ -341,3 +423,17 @@ const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var
 const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: "var(--trust-radius-lg)", border: "1px solid var(--trust-border)", background: "var(--trust-surface)" };
 const ICON: React.CSSProperties = { minHeight: 24, padding: 0, width: 26 };
 const SCAN_BUTTON: React.CSSProperties = { flex: 1 };
+const ADS_PORT_LABEL: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  marginTop: 6,
+  color: "var(--trust-text-muted)",
+  fontSize: 10,
+};
+const ADS_PORT_INPUT: React.CSSProperties = {
+  width: 84,
+  minHeight: 24,
+  padding: "2px 6px",
+  fontSize: 11,
+};

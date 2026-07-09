@@ -1,0 +1,200 @@
+import * as vscode from "vscode";
+
+import { sendRuntimeControlRequest } from "../runtimeControlClient";
+import type { RuntimeTarget } from "../runtimeTarget";
+import type {
+  DiscoveryRequestToken,
+  DiscoveryRequestTracker,
+} from "./discoverySession";
+import {
+  discoveryProtocolName,
+  discoveryRuntimeFailureMessage,
+} from "./discoveryErrors";
+import {
+  offlineCommDiscover,
+  type DiscoverCandidate,
+} from "./offlineComm";
+
+interface DiscoveryRequestItem {
+  readonly protocol: string;
+  readonly cidr?: string;
+  readonly host?: string;
+}
+
+export interface DiscoveryMessageEnvelope {
+  readonly sessionId: string;
+  readonly requestId: number;
+  readonly request: {
+    readonly origin: string;
+    readonly originEndpoint?: string;
+    readonly items: readonly DiscoveryRequestItem[];
+  };
+}
+
+export interface DiscoveryControllerContext {
+  readonly panel: vscode.WebviewPanel;
+  readonly extensionContext: vscode.ExtensionContext;
+  readonly runtimeTarget?: RuntimeTarget;
+  readonly tracker: DiscoveryRequestTracker<vscode.WebviewPanel>;
+  readonly token: DiscoveryRequestToken;
+}
+
+export function parseDiscoveryEnvelope(
+  message: Record<string, unknown>
+): DiscoveryMessageEnvelope | undefined {
+  if (
+    typeof message.sessionId !== "string" ||
+    message.sessionId.length === 0 ||
+    !Number.isSafeInteger(message.requestId) ||
+    typeof message.requestId !== "number" ||
+    !isRecord(message.request)
+  ) {
+    return undefined;
+  }
+  const origin =
+    typeof message.request.origin === "string"
+      ? message.request.origin
+      : "this_host";
+  const rawItems = Array.isArray(message.request.items)
+    ? message.request.items
+    : [];
+  const items = rawItems.flatMap((raw): DiscoveryRequestItem[] => {
+    if (!isRecord(raw) || typeof raw.protocol !== "string") {
+      return [];
+    }
+    return [
+      {
+        protocol: raw.protocol,
+        cidr: typeof raw.cidr === "string" ? raw.cidr : undefined,
+        host: typeof raw.host === "string" ? raw.host : undefined,
+      },
+    ];
+  });
+  return {
+    sessionId: message.sessionId,
+    requestId: message.requestId,
+    request: {
+      origin,
+      originEndpoint:
+        typeof message.request.originEndpoint === "string"
+          ? message.request.originEndpoint
+          : undefined,
+      items,
+    },
+  };
+}
+
+export async function runNetworkCanvasDiscovery(
+  envelope: DiscoveryMessageEnvelope,
+  context: DiscoveryControllerContext
+): Promise<void> {
+  const { panel, extensionContext, runtimeTarget, tracker, token } = context;
+  const { sessionId, requestId, request } = envelope;
+  const viaRuntime =
+    request.origin !== "this_host" &&
+    runtimeTarget?.status === "online_reachable" &&
+    Boolean(runtimeTarget.endpoint);
+  const runtimeRequested = request.origin !== "this_host";
+  const all: DiscoverCandidate[] = [];
+
+  const postIfCurrent = (payload: Record<string, unknown>): boolean => {
+    if (!tracker.isCurrent(token, panel) || !panel.visible) {
+      return false;
+    }
+    void panel.webview.postMessage({ ...payload, sessionId, requestId });
+    return true;
+  };
+
+  if (runtimeRequested && !viaRuntime) {
+    postIfCurrent({
+      type: "discoverResults",
+      candidates: [],
+      error:
+        "The selected runtime is no longer reachable. Start or reconnect it, then scan again.",
+    });
+    return;
+  }
+
+  for (const item of request.items) {
+    const { protocol, cidr, host } = item;
+    const label = discoverLabel(protocol, host, cidr);
+    if (
+      !postIfCurrent({
+        type: "discoverProgress",
+        protocol,
+        label,
+        status: "scanning",
+      })
+    ) {
+      return;
+    }
+
+    let candidates: DiscoverCandidate[] = [];
+    if (viaRuntime && runtimeTarget?.endpoint) {
+      try {
+        const response = await sendRuntimeControlRequest<{
+          candidates?: DiscoverCandidate[];
+        }>(
+          runtimeTarget.endpoint,
+          runtimeTarget.authToken,
+          "comm.discover",
+          { protocol, origin: "runtime", scope: { cidr, host } },
+          { timeoutMs: 8000 }
+        );
+        candidates = response?.candidates ?? [];
+      } catch (error) {
+        postIfCurrent({
+          type: "discoverResults",
+          candidates: all,
+          error: discoveryRuntimeFailureMessage(protocol, error),
+        });
+        return;
+      }
+    } else {
+      const response = await offlineCommDiscover(
+        extensionContext,
+        protocol,
+        "this-host",
+        { cidr, host }
+      );
+      candidates = response?.candidates ?? [];
+    }
+    if (!tracker.isCurrent(token, panel)) {
+      return;
+    }
+    const stamped = candidates.map((candidate) => ({
+      ...candidate,
+      protocol,
+      originRuntimeId: runtimeRequested ? request.origin : undefined,
+    }));
+    all.push(...stamped);
+    if (
+      !postIfCurrent({
+        type: "discoverProgress",
+        protocol,
+        label,
+        status: "done",
+        count: stamped.length,
+      })
+    ) {
+      return;
+    }
+  }
+
+  postIfCurrent({ type: "discoverResults", candidates: all });
+}
+
+function discoverLabel(protocol: string, host?: string, cidr?: string): string {
+  const label = discoveryProtocolName(protocol);
+  if (host) {
+    return `${label} @ ${host}`;
+  }
+  if (cidr) {
+    return `${label} ${cidr}`;
+  }
+  return label;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}

@@ -31,13 +31,24 @@ reviewed ST globals.
    setup page at `/setup/ads`.
 3. Discover the TwinCAT target. Broadcast discovery is easiest when UDP 48899 is
    allowed; otherwise enter the TwinCAT IP and AMS Net ID manually.
-4. Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host.
+4. In **Devices & Connections**, choose the logical **ADS port** before browsing
+   symbols. Port `851` is the default PLC runtime; other examples include `301`
+   for an I/O server, `501` for NC/Motion, and `852` or later for additional PLC
+   runtimes. Each port is a separate ADS server with its own symbol namespace;
+   this setting does not search all ports.
+5. Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host.
    The wizard can generate the exact PowerShell, XML, or manual route values.
-5. Run the ADS Doctor from the runtime host.
-6. Import TwinCAT symbols into `ads.toml`, a cached symbol snapshot, and the
+6. Run the ADS Doctor from the runtime host.
+7. Import TwinCAT symbols into `ads.toml`, a cached symbol snapshot, and the
    single generated ST file `src/generated/ads_generated.st`.
-7. Deploy or reload the project bundle, then verify `ads.status` and generated
+8. Deploy or reload the project bundle, then verify `ads.status` and generated
    value/`_quality` globals from the runtime.
+
+The selected server must expose Beckhoff Online Symbolism/Symbol Upload. An I/O
+or Motion port can be reachable without exposing a browseable symbol table; for
+NC/Motion, TwinCAT symbol generation may need to be enabled for the relevant
+axes. Ports `301` and `501` are examples, not hardware-validation claims for a
+particular TwinCAT project.
 
 ### TwinCAT Connects To truST
 
@@ -63,7 +74,8 @@ symbols, and TwinCAT browses truST like an ADS target.
 ### TwinCAT Setup Hints
 
 - ADS uses TCP `48898` for router transport and UDP `48899` for discovery and
-  route-related setup. The logical PLC ADS port is usually `851`.
+  route-related setup. The logical PLC ADS port is usually `851`, but the route
+  transport and logical ADS server port are different settings.
 - Route direction matters. In ADS client mode, TwinCAT needs a route back to the
   truST runtime host. In ADS server mode, the TwinCAT engineering station or
   client needs a route to the truST runtime host.

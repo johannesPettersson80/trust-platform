@@ -1,0 +1,470 @@
+{
+  "rows": [
+    "DISC-01",
+    "DISC-02",
+    "DISC-03",
+    "DISC-04",
+    "DISC-05",
+    "DISC-06",
+    "DISC-08"
+  ],
+  "workflow": "Devices & Connections Discover/Browse/Connect surface",
+  "bundle": {
+    "path": "editors/vscode/media/networkCanvasWebview.js",
+    "sha256": "42781816b0f436ce0f97e6b8d49ef193a9907a51709ff97cf8dc75634ec1add8",
+    "builtAt": "2026-07-09T22:11:23.969Z"
+  },
+  "steps": [],
+  "originInitial": {
+    "text": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O 1 host · 1 runtime · 1 endpoint Devices & Connections Discover ✕ Scan from This computer Simulator Choose the computer or runtime that can see the target network. Recommended TwinCAT (ADS) network broadcast truST runtimes mDNS Modbus local network scan ▸ Known address or subnet ▸ Runtime hardware scans ⚠ Scan",
+    "origin": "this_host",
+    "origins": [
+      {
+        "value": "this_host",
+        "label": "This computer"
+      },
+      {
+        "value": "Simulator",
+        "label": "Simulator"
+      }
+    ],
+    "disabledChecks": [],
+    "vars": {
+      "--trust-surface-raised": "#202020",
+      "--trust-border": "rgba(204, 204, 204, 0.2)",
+      "--trust-text-subtle": "rgba(204, 204, 204, 0.5)",
+      "--trust-action-primary-bg": "#0078d4",
+      "--vscode-editorHoverWidget-background": "#202020",
+      "--vscode-editorWidget-border": "rgba(204, 204, 204, 0.2)",
+      "--vscode-disabledForeground": "rgba(204, 204, 204, 0.5)",
+      "--vscode-button-background": "#0078d4"
+    },
+    "scanButton": {
+      "text": "Scan",
+      "disabled": false,
+      "className": "trust-button trust-button--primary",
+      "style": "flex: 1 1 0%;",
+      "matchesDisabled": false,
+      "background": "rgb(0, 120, 212)",
+      "border": "rgb(0, 120, 212)",
+      "color": "rgb(255, 255, 255)"
+    }
+  },
+  "disc01": {
+    "path": "screenshots-raw/DISC-01-scan-origin.png",
+    "bytes": 84634
+  },
+  "runtimeToggle": {
+    "clicked": true,
+    "text": "▸ Runtime hardware scans ⚠"
+  },
+  "runtimeOrigin": {
+    "set": true,
+    "value": "Simulator",
+    "label": "Simulator",
+    "options": [
+      {
+        "value": "this_host",
+        "label": "This computer"
+      },
+      {
+        "value": "Simulator",
+        "label": "Simulator"
+      }
+    ]
+  },
+  "disc04State": {
+    "text": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O 1 host · 1 runtime · 1 endpoint Devices & Connections Discover ✕ Scan from This computer Simulator Choose the computer or runtime that can see the target network. Recommended TwinCAT (ADS) network broadcast Start or connect Simulator before scanning from it. truST runtimes mDNS Start or connect Simulator before scanning from it. Modbus local network scan Start or connect Simulator before scanning from it. ▸ Known address or subnet ▾ Runtime hardware scans ⚠ EtherCAT slaves⚠ bus enumeration Start or connect Simulator before scanning from it. GPIO lines local pins on the runtime Start or connect Simulator before scanning from it. Scan",
+    "origin": "Simulator",
+    "origins": [
+      {
+        "value": "this_host",
+        "label": "This computer"
+      },
+      {
+        "value": "Simulator",
+        "label": "Simulator"
+      }
+    ],
+    "disabledChecks": [
+      "TwinCAT (ADS)network broadcastStart or connect Simulator before scanning from it.",
+      "truST runtimesmDNSStart or connect Simulator before scanning from it.",
+      "Modbuslocal network scanStart or connect Simulator before scanning from it.",
+      "EtherCAT slaves⚠bus enumerationStart or connect Simulator before scanning from it.",
+      "GPIO lineslocal pins on the runtimeStart or connect Simulator before scanning from it."
+    ],
+    "vars": {
+      "--trust-surface-raised": "#202020",
+      "--trust-border": "rgba(204, 204, 204, 0.2)",
+      "--trust-text-subtle": "rgba(204, 204, 204, 0.5)",
+      "--trust-action-primary-bg": "#0078d4",
+      "--vscode-editorHoverWidget-background": "#202020",
+      "--vscode-editorWidget-border": "rgba(204, 204, 204, 0.2)",
+      "--vscode-disabledForeground": "rgba(204, 204, 204, 0.5)",
+      "--vscode-button-background": "#0078d4"
+    },
+    "scanButton": {
+      "text": "Scan",
+      "disabled": true,
+      "className": "trust-button",
+      "style": "flex: 1 1 0%;",
+      "matchesDisabled": true,
+      "background": "rgb(32, 32, 32)",
+      "border": "rgba(204, 204, 204, 0.2)",
+      "color": "rgba(204, 204, 204, 0.5)"
+    }
+  },
+  "disc04": {
+    "path": "screenshots-raw/DISC-04-runtime-only-origin.png",
+    "bytes": 102433
+  },
+  "originBackToThisHost": {
+    "set": true,
+    "value": "this_host",
+    "label": "This computer",
+    "options": [
+      {
+        "value": "this_host",
+        "label": "This computer"
+      },
+      {
+        "value": "Simulator",
+        "label": "Simulator"
+      }
+    ]
+  },
+  "recommendedScan": {
+    "clicked": true,
+    "text": "Scan"
+  },
+  "recommendedText": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O 1 host · 1 runtime · 1 endpoint Devices & Connections Discover ✕ Scan from This computer Simulator Choose the computer or runtime that can see the target network. Recommended TwinCAT (ADS) network broadcast truST runtimes mDNS Modbus local network scan ▸ Known address or subnet ▾ Runtime hardware scans ⚠ EtherCAT slaves⚠ bus enumeration Choose a running runtime for EtherCAT or GPIO scans. GPIO lines local pins on the runtime Choose a running runtime for EtherCAT or GPIO scans. ADS … scanning Scanning…",
+  "disc02": {
+    "path": "screenshots-raw/DISC-02-recommended-scan.png",
+    "bytes": 95039
+  },
+  "recommendedIdle": {
+    "idle": true,
+    "text": "Scan",
+    "disabled": false
+  },
+  "cleared": [
+    "TwinCAT (ADS)network broadcast",
+    "truST runtimesmDNS",
+    "Modbuslocal network scan"
+  ],
+  "targeted": {
+    "clicked": false,
+    "pattern": "Targeted",
+    "buttons": [
+      "Filter",
+      "+ Add",
+      "Discover",
+      "Edit",
+      "Zoom In",
+      "Zoom Out",
+      "Fit View",
+      "✕",
+      "▸ Known address or subnet",
+      "▾ Runtime hardware scans ⚠",
+      "Scan"
+    ]
+  },
+  "knownAddress": {
+    "clicked": true,
+    "text": "▸ Known address or subnet"
+  },
+  "checkedModbusDevice": {
+    "set": true,
+    "checked": true,
+    "row": "Modbus deviceat host"
+  },
+  "hostInputReady": {
+    "found": true,
+    "placeholders": [
+      "Search nodes, links, faults",
+      "checkbox",
+      "checkbox",
+      "checkbox",
+      "checkbox",
+      "checkbox",
+      "checkbox",
+      "checkbox",
+      "host:port",
+      "checkbox",
+      "checkbox",
+      "checkbox"
+    ]
+  },
+  "hostSet": {
+    "set": true,
+    "value": "127.0.0.1:15205",
+    "placeholder": "host:port"
+  },
+  "foundScan": {
+    "clicked": true,
+    "text": "Scan"
+  },
+  "foundIdle": {
+    "idle": true,
+    "text": "Scan",
+    "disabled": false
+  },
+  "foundText": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O 1 host · 1 runtime · 1 endpoint Devices & Connections Discover ✕ Scan from This computer Simulator Choose the computer or runtime that can see the target network. Recommended TwinCAT (ADS) network broadcast truST runtimes mDNS Modbus local network scan ▾ Known address or subnet TwinCAT (ADS) device at host OPC UA server at host MQTT broker at host Modbus device at host Modbus (custom subnet) ▾ Runtime hardware scans ⚠ EtherCAT slaves⚠ bus enumeration Choose a running runtime for EtherCAT or GPIO scans. GPIO lines local pins on the runtime Choose a running runtime for EtherCAT or GPIO scans. Modbus @ 127.0.0.1:15205 … 1 found 127.0.0.1:15205 Modbus TCP · Known address · Port reachable only + Add Scan",
+  "disc03": {
+    "path": "screenshots-raw/DISC-03-targeted-scan-found.png",
+    "bytes": 107160
+  },
+  "disc06": {
+    "path": "screenshots-raw/DISC-06-seen-not-connected.png",
+    "bytes": 107153
+  },
+  "emptyHostSet": {
+    "set": true,
+    "value": "127.0.0.1:15206",
+    "placeholder": "host:port"
+  },
+  "emptyScan": {
+    "clicked": true,
+    "text": "Scan"
+  },
+  "emptyText": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O 1 host · 1 runtime · 1 endpoint Devices & Connections Discover ✕ Scan from This computer Simulator Choose the computer or runtime that can see the target network. Recommended TwinCAT (ADS) network broadcast truST runtimes mDNS Modbus local network scan ▾ Known address or subnet TwinCAT (ADS) device at host OPC UA server at host MQTT broker at host Modbus device at host Modbus (custom subnet) ▾ Runtime hardware scans ⚠ EtherCAT slaves⚠ bus enumeration Choose a running runtime for EtherCAT or GPIO scans. GPIO lines local pins on the runtime Choose a running runtime for EtherCAT or GPIO scans. Modbus @ 127.0.0.1:15206 … 0 found Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, start or connect a runtime first. Scan",
+  "disc05": {
+    "path": "screenshots-raw/DISC-05-empty-result.png",
+    "bytes": 107085
+  },
+  "refill": {
+    "set": true,
+    "value": "127.0.0.1:15205",
+    "placeholder": "host:port"
+  },
+  "rescan": {
+    "clicked": true,
+    "text": "Scan"
+  },
+  "issue95": {
+    "regression": "editor-group split, resize, webview remount, native candidate activation, and stale-card reset",
+    "initialTargetId": "933DE10FF730CD2F3ABD2EB60C221436",
+    "beforeRemount": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.RecommendedTwinCAT (ADS)network broadcasttruST runtimesmDNSModbuslocal network scan▾ Known address or subnetTwinCAT (ADS) deviceat hostOPC UA serverat hostMQTT brokerat hostModbus deviceat hostModbus (custom subnet)▾ Runtime hardware scans ⚠EtherCAT slaves⚠bus enumerationChoose a running runtime for EtherCAT or GPIO scans.GPIO lineslocal pins on the runtimeChoose a running runtime for EtherCAT or GPIO scans.Modbus @ 127.0.0.1:15205 … 1 found127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ AddScan",
+      "actions": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "matching": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "noCapability": false,
+      "actionableCount": 1,
+      "contradictory": false
+    },
+    "beforeRemountScreenshot": {
+      "path": "screenshots-raw/DISC-95-candidate-before-remount.png",
+      "bytes": 107165
+    },
+    "remountedTargetId": "0AD74DCA50F9649A806B9900827F9CDA",
+    "targetChanged": true,
+    "afterRemount": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.RecommendedTwinCAT (ADS)network broadcasttruST runtimesmDNSModbuslocal network scan▸ Known address or subnet▸ Runtime hardware scans ⚠Scan",
+      "actions": [],
+      "matching": [],
+      "noCapability": false,
+      "actionableCount": 0,
+      "contradictory": false
+    },
+    "afterRemountScreenshot": {
+      "path": "screenshots-raw/DISC-95-remount-clears-stale-cards.png",
+      "bytes": 109154
+    },
+    "freshCleared": [
+      "TwinCAT (ADS)network broadcast",
+      "truST runtimesmDNS",
+      "Modbuslocal network scan"
+    ],
+    "freshResult": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.RecommendedTwinCAT (ADS)network broadcasttruST runtimesmDNSModbuslocal network scan▾ Known address or subnetTwinCAT (ADS) deviceat hostOPC UA serverat hostMQTT brokerat hostModbus deviceat hostModbus (custom subnet)▸ Runtime hardware scans ⚠Modbus @ 127.0.0.1:15205 … 1 found127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ AddScan",
+      "actions": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "matching": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "noCapability": false,
+      "actionableCount": 1,
+      "contradictory": false
+    },
+    "freshResultScreenshot": {
+      "path": "screenshots-raw/DISC-95-fresh-card-after-remount.png",
+      "bytes": 124647
+    },
+    "capabilityDropDispatch": {
+      "dispatched": true
+    },
+    "retainedScanWithoutCapabilities": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.Modbus @ 127.0.0.1:15205 … 1 found127.0.0.1:15205Modbus TCP · Known address · Port reachable onlyThis discovery action is no longer available. Refresh the runtime and scan again.+ AddScan",
+      "actions": [
+        {
+          "disabled": true,
+          "title": "This discovery action is no longer available. Refresh the runtime and scan again.",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable onlyThis discovery action is no longer available. Refresh the runtime and scan again.+ Add"
+        }
+      ],
+      "matching": [
+        {
+          "disabled": true,
+          "title": "This discovery action is no longer available. Refresh the runtime and scan again.",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable onlyThis discovery action is no longer available. Refresh the runtime and scan again.+ Add"
+        }
+      ],
+      "noCapability": false,
+      "actionableCount": 0,
+      "contradictory": false
+    },
+    "retainedScanWithoutCapabilitiesScreenshot": {
+      "path": "screenshots-raw/DISC-95-retained-result-suppresses-no-capability.png",
+      "bytes": 106585
+    },
+    "capabilityRestoreDispatch": {
+      "dispatched": true
+    },
+    "afterCapabilityRestore": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.RecommendedTwinCAT (ADS)network broadcasttruST runtimesmDNSModbuslocal network scan▾ Known address or subnetTwinCAT (ADS) deviceat hostOPC UA serverat hostMQTT brokerat hostModbus deviceat hostModbus (custom subnet)▸ Runtime hardware scans ⚠Modbus @ 127.0.0.1:15205 … 1 found127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ AddScan",
+      "actions": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "matching": [
+        {
+          "disabled": false,
+          "title": "",
+          "text": "127.0.0.1:15205Modbus TCP · Known address · Port reachable only+ Add"
+        }
+      ],
+      "noCapability": false,
+      "actionableCount": 1,
+      "contradictory": false
+    },
+    "nativeEvents": [
+      {
+        "type": "pointerdown",
+        "trusted": true,
+        "defaultPrevented": false
+      },
+      {
+        "type": "mousedown",
+        "trusted": true,
+        "defaultPrevented": false
+      },
+      {
+        "type": "focus",
+        "trusted": true,
+        "defaultPrevented": false
+      },
+      {
+        "type": "pointerup",
+        "trusted": true,
+        "defaultPrevented": false
+      },
+      {
+        "type": "mouseup",
+        "trusted": true,
+        "defaultPrevented": false
+      },
+      {
+        "type": "click",
+        "trusted": true,
+        "defaultPrevented": false
+      }
+    ],
+    "finalReopen": {
+      "pane": true,
+      "text": "Devices & ConnectionsDiscover✕Scan fromThis computerSimulatorChoose the computer or runtime that can see the target network.RecommendedTwinCAT (ADS)network broadcasttruST runtimesmDNSModbuslocal network scan▸ Known address or subnet▸ Runtime hardware scans ⚠Scan",
+      "actions": [],
+      "matching": [],
+      "noCapability": false,
+      "actionableCount": 0,
+      "contradictory": false
+    },
+    "finalReopenScreenshot": {
+      "path": "screenshots-raw/DISC-95-reopen-has-no-actionable-stale-card.png",
+      "bytes": 100549
+    }
+  },
+  "prefillText": "truST Filter + Add Discover Edit This computer Reachable Simulator Stopped Simulated I/O I/O Modbus TCP DRAFT DRAFT 1 host · 1 runtime · 1 endpoint Devices & Connections / Add device or connection Add Modbus TCP on Simulator ✕ Protocol Modbus TCP MQTT EtherCAT GPIO Simulated I/O Loopback I/O OPC UA server OPC UA client OpenOT Discovery Mesh / Zenoh Realtime T0 Runtime cloud / federation ADS server ADS client Read and write register-oriented devices or PLC endpoints. Device address * IP address and TCP port of the Modbus device. Unit ID * Modbus unit/server id. Input start register * First input register read by the runtime. Output start register * First output register written by the runtime. Timeout * Request timeout in milliseconds. On error * Stop with fault Warn and continue Ignore Runtime behavior when the driver cannot read or write. Save Cancel",
+  "prefillInputs": [
+    {
+      "label": "truSTFilter+ AddDiscoverEditThis computerReachableSimulatorStoppedSimulated I/OI/OModbus TCPDRAFTDRA",
+      "placeholder": "Search nodes, links, faults",
+      "value": "",
+      "type": "text"
+    },
+    {
+      "label": "ProtocolModbus TCPMQTTEtherCATGPIOSimulated I/OLoopback I/OOPC UA serverOPC UA clientOpenOTDiscovery",
+      "placeholder": "",
+      "value": "modbus_tcp",
+      "type": "select-one"
+    },
+    {
+      "label": "Device address *IP address and TCP port of the Modbus device.",
+      "placeholder": "",
+      "value": "127.0.0.1:15205",
+      "type": "text"
+    },
+    {
+      "label": "Unit ID *Modbus unit/server id.",
+      "placeholder": "",
+      "value": "1",
+      "type": "number"
+    },
+    {
+      "label": "Input start register *First input register read by the runtime.",
+      "placeholder": "",
+      "value": "0",
+      "type": "number"
+    },
+    {
+      "label": "Output start register *First output register written by the runtime.",
+      "placeholder": "",
+      "value": "0",
+      "type": "number"
+    },
+    {
+      "label": "Timeout *Request timeout in milliseconds.",
+      "placeholder": "",
+      "value": "500",
+      "type": "number"
+    },
+    {
+      "label": "On error *Stop with faultWarn and continueIgnoreRuntime behavior when the driver cannot read or writ",
+      "placeholder": "",
+      "value": "fault",
+      "type": "select-one"
+    }
+  ],
+  "disc08": {
+    "path": "screenshots-raw/DISC-08-browse-to-prefilled-form.png",
+    "bytes": 120465
+  }
+}

@@ -9,12 +9,17 @@ import type {
   CommSchemaResponse,
 } from "../communication/schemaForm";
 import type { FleetTopologyResponse } from "./fleetTopology";
+import {
+  buildOfflineAdsImportArgs,
+  buildOfflineBrowseSymbolsArgs,
+  classifyAdsBrowseCommandFailure,
+} from "./adsBrowseContract";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
-// on a stopped/offline project (config is just files on disk). Every call returns undefined on
-// ANY failure (missing subcommand on an older binary, bad JSON, spawn error) so callers fall
-// back to the live-control path and the UI never breaks before the CLIs ship.
+// on a stopped/offline project (config is just files on disk). Most legacy queries return
+// undefined on command/JSON failure; ADS browse preserves a structured failure so an unavailable
+// port is never misreported as an empty symbol table.
 
 function runtimeBinary(context: vscode.ExtensionContext): string {
   return getBinaryPath(context, "trust-runtime", "runtime.cli.path");
@@ -226,6 +231,7 @@ export interface DiscoverCandidate {
   source: string; // scan | mdns | ads_broadcast | ethercat_bus | opcua_endpoint
   confidence: string; // confirmed | likely | port_reachable | unavailable
   protocol: string;
+  originRuntimeId?: string;
   params: Record<string, unknown>;
   warnings?: string[];
 }
@@ -271,8 +277,8 @@ export interface BrowseSymbolsResponse {
   protocol: string;
   // ADS route status on a LIVE browse; `status:"missing"` → offer "Create route" (carries route_plan).
   route?: { status?: string; route_plan?: RoutePlan };
-  // Structured browse failure (opcua_client): code ∈ cert_untrusted | auth_required |
-  // endpoint_unreachable | browse_denied | unsupported_security_profile. Drives the recovery action.
+  // Structured protocol browse failure. OPC UA and ADS use protocol-specific codes so the canvas
+  // can offer honest recovery instead of collapsing every failure into an empty tree.
   error?: { code: string; message: string };
   tree: SymbolNode[];
 }
@@ -338,31 +344,12 @@ export async function offlineAdsImportSymbols(
   }
 
   const connectionName = stringField(target, "name") ?? "ads_import";
-  const args = [
-    "ads",
-    "import-symbols",
-    "--target",
-    host,
-    "--connection",
+  const args = buildOfflineAdsImportArgs(
+    projectDir,
+    target,
     connectionName,
-    "--out",
-    path.join(projectDir, "ads.toml"),
-    "--gen",
-    path.join(projectDir, "src", "generated", "ads_generated.st"),
-    "--force",
-    "--json",
-  ];
-  const targetNetId = stringField(target, "target_net_id", "ams_net_id");
-  if (targetNetId) {
-    args.push("--target-net-id", targetNetId);
-  }
-  const amsPort = numberField(target, "ams_port");
-  if (amsPort) {
-    args.push("--ams-port", String(amsPort));
-  }
-  for (const symbol of normalizedSymbols) {
-    args.push("--include", symbol);
-  }
+    normalizedSymbols
+  );
 
   const result = await runJsonCommand<AdsImportSymbolsReport>(
     runtimeBinary(context),
@@ -404,24 +391,35 @@ export async function offlineBrowseSymbols(
   connectionName?: string,
   projectDir?: string
 ): Promise<BrowseSymbolsResponse | undefined> {
-  const args = ["comm", "browse-symbols", "--protocol", protocol, "--kind", kind, "--json"];
-  // Local expose (truST's own globals) + EtherCAT channels read from project files offline.
-  if (projectDir) {
-    args.push("--project", projectDir);
+  const args = buildOfflineBrowseSymbolsArgs(
+    protocol,
+    target,
+    kind,
+    connectionName,
+    projectDir
+  );
+  const result = await runJsonCommand<BrowseSymbolsResponse>(
+    runtimeBinary(context),
+    args,
+    projectDir
+  );
+  if (result.ok) {
+    return result.value;
   }
-  // A remote target (ADS) carries connection params; local/project browses pass none.
-  if (target && Object.keys(target).length > 0) {
-    args.push("--target", JSON.stringify(target));
+  if (protocol !== "ads") {
+    return undefined;
   }
-  if (connectionName) {
-    args.push("--connection-name", connectionName);
-  }
-  return runJson<BrowseSymbolsResponse>(runtimeBinary(context), args, projectDir);
+  const message = result.message ?? "ADS symbol browse failed.";
+  return {
+    protocol,
+    tree: [],
+    error: {
+      code: classifyAdsBrowseCommandFailure(message),
+      message,
+    },
+  };
 }
 
-// §0.5.3 `comm.discover` — find devices/endpoints. `origin` = where the scan runs (this_host =
-// the dev machine via CLI; runtime = the runtime's network/hardware). Returns undefined on any
-// failure (older binary without the verb, spawn error) so the UI degrades gracefully.
 export async function offlineCommDiscover(
   context: vscode.ExtensionContext,
   protocol: string,

@@ -666,7 +666,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn apply_import_pins_local_net_id_and_generates_single_file() {
+    fn apply_import_preserves_non_plc_port_and_generates_single_file() {
         let response = build_symbol_import_response(
             &SymbolImportRequest {
                 connection_name: "line1".to_string(),
@@ -677,11 +677,13 @@ mod tests {
             vec![real_symbol("MAIN.Temperature")],
         );
 
+        let mut import_target = target("5.23.91.12.1.1", "192.168.10.5");
+        import_target.ams_port = 301;
         let artifacts = apply_symbol_import(
             None,
             SymbolImportApplyRequest {
                 response,
-                target: target("5.23.91.12.1.1", "192.168.10.5"),
+                target: import_target,
                 local: local("192.168.10.20.1.1"),
                 existing_snapshots: Vec::new(),
                 write_acknowledged: false,
@@ -692,6 +694,7 @@ mod tests {
         assert!(artifacts
             .ads_toml
             .contains("local_net_id = \"192.168.10.20.1.1\""));
+        assert!(artifacts.ads_toml.contains("ams_port = 301"));
         assert!(artifacts.generated_st.contains("TYPE\n    ADS_QUALITY"));
         assert!(artifacts
             .generated_st

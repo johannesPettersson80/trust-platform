@@ -6,9 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.29`
+Target release: `v0.24.30`
 
 ### Added
+
+- vscode/trust-runtime: Devices & Connections can select any valid ADS server
+  port before browsing symbols, defaults to PLC port `851`, preserves non-851
+  ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
+  port, unsupported Symbol Upload, and an empty or incompatible symbol table.
 
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
@@ -314,6 +319,16 @@ Target release: `v0.24.29`
   native-call path.
 
 ### Fixed
+
+- vscode: fixed stale Devices & Connections refresh and discovery sessions so
+  editor-group resize/remounts cannot publish torn capability state or leave old
+  Discover cards actionable; hidden webviews now pause polling and resynchronize
+  when visible.
+- vscode: kept Browse-tags symbol selection on accessible native checkbox
+  semantics and added a real X11 quick-click/Space regression journey across
+  multiple Network Canvas refreshes.
+- vscode: changed the fail-closed writable ADS import refusal to a complete
+  modal explanation with a **Start runtime** recovery action.
 
 - docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
   MQTT, and OPC UA so the public navigation path matches the shipped ADS

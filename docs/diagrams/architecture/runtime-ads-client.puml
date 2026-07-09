@@ -11,6 +11,7 @@ title truST Runtime: Beckhoff ADS Client Architecture
 
 package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
     component "VS Code ADS Panel\n(runtime-child webview)" as vscodeAdsPanel
+    component "Devices & Connections\nAMS Net ID + ADS port chooser" as networkCanvasAds
     component "Runtime Pane\nsingle selected runtime context" as runtimePane
     component "Setup Web Wizard\n/setup/ads on runtime host" as setupAds
     component "CLI Backend\ntrust-runtime ads ..." as adsCli
@@ -20,6 +21,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "runtimeTarget.ts\nendpoint + mode + reachability" as runtimeTarget
     component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
     component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
+    component "control/comm_handlers/browse_symbols.rs\nport-aware Symbol Upload + structured errors" as commBrowse
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
     component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
@@ -66,6 +68,9 @@ component "HMI + Control/Debug + Historian" as surfaces #Wheat
 
 runtimePane --> runtimeTarget : owns runtime selection
 vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)
+networkCanvasAds --> runtimeTarget : reads selected runtime
+networkCanvasAds --> commBrowse : comm.browse_symbols\ntarget AMS Net ID + ADS port
+networkCanvasAds --> onboardingEngine : selected symbols + same port\nimport into ads.toml
 vscodeAdsPanel --> runtimeControlClient : calls selected endpoint
 runtimeControlClient --> adsControl : JSON-line commands
 setupAds --> adsWebRoutes : HTTP calls on runtime host
@@ -76,6 +81,7 @@ onboardingEngine --> diagnosticsSchema
 adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
 adsCli --> onboardingEngine : scriptable backend
 onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
+commBrowse --> twincat : Symbol Upload on exactly\none selected ADS server port
 onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
 onboardingEngine --> adsSnapshot : live symbol snapshot
 onboardingEngine --> generatedSt : generated ST preview/write
