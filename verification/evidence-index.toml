@@ -596,3 +596,27 @@ generated_report_version = "manual-v1"
 linked_invariants = []
 linked_tests = []
 last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"
+title = "Phase 1B bytecode-validator mutation shard proof"
+area = "bytecode_vm"
+owner = "trust-runtime"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-shard.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-plc-mutation-run\" && python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-p1b-013-mutation\" --output-json /tmp/p1b-bytecode-validator-mutation-report-clean.json --output-markdown /tmp/p1b-bytecode-validator-mutation-report-clean.md'"
+commit = "dirty:dd893679ccfdc9c7fcbda68a54976d44aa793b83"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-09"
+suite_id = "nightly"
+producer = "bytecode-validator-mutation.py v1"
+generated_report_version = "bytecode-validator-mutation-report-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_VALID_001"]
+linked_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
+mutation_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
+mutation_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
+mutation_report_digest = "sha256:792aa9db3106c654b3651b60c061eaef58e701bac241425cbf84e27dddb55e08"
+last_reviewed = "2026-07-09"

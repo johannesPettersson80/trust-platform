@@ -53,6 +53,20 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_mutation_catalog_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.tests["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]["mutation_shard_id"] = (
+            "BYTECODE_VALIDATOR_CORRUPTED"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any("shard/test binding mismatch" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

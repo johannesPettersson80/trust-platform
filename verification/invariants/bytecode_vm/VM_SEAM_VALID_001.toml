@@ -12,7 +12,7 @@ contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/validate"]
 tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
 gates = ["veryquick", "pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]
 spec_gap_refs = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
 missing = ["validator_semantic_contract", "stable_error_code"]
 

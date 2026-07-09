@@ -13,4 +13,4 @@ description = "Malformed bytecode could satisfy structural checks while violatin
 mitigation = "Map each VM assumption to required spec tags, crafted-bytecode negative tests, and validator invariants."
 related_invariants = ["VM_SEAM_VALID_001"]
 related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
-evidence_refs = []
+evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]

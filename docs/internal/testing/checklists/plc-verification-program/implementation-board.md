@@ -323,9 +323,14 @@ not inventoried until their metadata exists.
   false blocks, and the bytecode-validator mutation shard has reported
   survivors against case IDs. This row stays open across phases until
   `VERIF-P1B-013` and `VERIF-P1B-014` are complete.
-- [ ] `VERIF-P1B-013` Pull the first bytecode-validator mutation shard forward
+- [x] `VERIF-P1B-013` Pull the first bytecode-validator mutation shard forward
   from Phase 10 and report survivors against case IDs. This satisfies only the
-  bytecode-validator slice of `VERIF-P10-001`.
+  bytecode-validator slice of `VERIF-P10-001`. The focused two-mutant shard
+  reported both mutants caught and zero survivors against five associated
+  committed case IDs; two decode-boundary truncation IDs remain explicitly out
+  of scope. Machine report and implementation evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json`
+  and `p1b-bytecode-validator-mutation-shard.md` in the same evidence root.
 - [ ] `VERIF-P1B-014` Flip the bytecode/VM pilot ratchet from report-only to
   enforcing after burn-in: at least three organic PRs or implementation slices
   run with zero false blocks, pilot red/green proof is captured, waiver/risk
@@ -581,7 +586,9 @@ Acceptance:
 
 - [ ] `VERIF-P10-001` Define first mutation shards: bytecode validator, runtime
   value/type conversion, HIR diagnostics, parser recovery, retain/restart,
-  connector status projection.
+  connector status projection. The bytecode-validator pilot slice is pulled
+  forward and satisfied by `VERIF-P1B-013`; the full row stays open until all
+  other listed shards are defined.
 - [ ] `VERIF-P10-002` Coverage is adequacy signal, not release safety proof.
 - [ ] `VERIF-P10-003` Add mutation survivor report format.
 - [ ] `VERIF-P10-004` Safety-critical survivors require added test,

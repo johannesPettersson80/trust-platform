@@ -80,7 +80,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:5ab4a9a767775e73425bc81953ca5b032d648d7e683c29f04bfd554ca5155204"
+case_file_digest = "sha256:c1372b2ea19e05100fa5317a94527130140b23cc80e80731c49dbdc929579e5c"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -100,7 +100,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:5ab4a9a767775e73425bc81953ca5b032d648d7e683c29f04bfd554ca5155204"
+case_file_digest = "sha256:c1372b2ea19e05100fa5317a94527130140b23cc80e80731c49dbdc929579e5c"
 mutation_shard_id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
 mutation_runner = "bytecode-validator-mutation.py v1"
 mutation_tool = "cargo-mutants-single-file-adapter"
