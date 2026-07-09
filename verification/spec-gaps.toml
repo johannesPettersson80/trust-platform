@@ -15,7 +15,7 @@ affected_invariants = [
   "VM_SEAM_REF_001",
   "VM_SEAM_OWNER_001",
 ]
-affected_tests = []
+affected_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
 resolution_status = "open"
 closeout_evidence = []

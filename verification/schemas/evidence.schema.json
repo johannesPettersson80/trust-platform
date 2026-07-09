@@ -38,7 +38,10 @@
     "paired_red_evidence": { "type": "string" },
     "paired_lock_baseline": { "type": "string" },
     "formerly_red_case_ids": { "type": "array", "items": { "type": "string" } },
-    "decision_ref": { "type": "string" }
+    "decision_ref": { "type": "string" },
+    "mutation_test_id": { "type": "string" },
+    "mutation_report_path": { "type": "string" },
+    "mutation_report_digest": { "type": "string" }
   },
   "additionalProperties": true
 }

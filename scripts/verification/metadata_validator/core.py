@@ -57,6 +57,7 @@ from .integrity import (
     validate_open_spec_gap_references,
     validate_runnable_test_path,
 )
+from .mutation_shards import validate_committed_mutation_metadata
 from .oracle_refs import (
     validate_error_code_ref,
     validate_oracle_ref,
@@ -283,6 +284,11 @@ class Validator:
         self.validate_tests()
         self.validate_ignored_tests()
         self.validate_risks()
+        validate_committed_mutation_metadata(
+            fail=self.fail,
+            tests=self.tests,
+            evidence=self.evidence,
+        )
         self.validate_public_claim_links()
         validate_open_spec_gap_references(
             fail=self.fail,

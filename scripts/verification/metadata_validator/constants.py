@@ -215,6 +215,7 @@ TEST_CLASSES = {
 EVIDENCE_KINDS = {"committed_file", "ci_artifact", "release_object", "lab_report"}
 PROOF_KINDS = {"red", "green", "lock_baseline", "lock_compare", "protective_red", "none"}
 SCHEMA_FILES = {
+    "bytecode-validator-mutation-report.schema.json",
     "invariant.schema.json",
     "suite.schema.json",
     "catalog.schema.json",
@@ -232,6 +233,30 @@ PROVE_PRODUCER_RE = re.compile(r"^prove\.py v[0-9]+(?:\.[0-9]+)*$")
 COMMIT_RE = re.compile(r"^(?:[0-9a-f]{7,40}|dirty:[0-9a-f]{7,40})$")
 
 SCHEMA_REQUIRED_FIELDS = {
+    "bytecode-validator-mutation-report.schema.json": [
+        "schema_version",
+        "id",
+        "status",
+        "shard_id",
+        "test_id",
+        "runner",
+        "tool",
+        "tool_version",
+        "source_commit",
+        "platform",
+        "started_at",
+        "finished_at",
+        "case_file",
+        "case_file_digest",
+        "case_semantics",
+        "blocked_case_ids_executed",
+        "baseline_commands",
+        "mutations",
+        "summary",
+        "survivors",
+        "out_of_scope_case_ids",
+        "out_of_scope_reason",
+    ],
     "case-artifact.schema.json": [
         "schema_version",
         "test_id",

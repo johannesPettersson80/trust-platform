@@ -16,6 +16,8 @@ Current seed scope:
 - bytecode/VM-only planning matrix pilot for `plan_tests.py`.
 - bytecode/VM-only decision-table case generator pilot for `gen_cases.py`.
 - bytecode/VM-only transform seed artifacts under `verification/seeds/**`.
+- bytecode-validator-only mutation shard metadata and survivor reporting for
+  `VERIF-P1B-013`.
 
 TOML shape convention:
 
@@ -53,6 +55,19 @@ TOML shape convention:
 - `scripts/verification/adversarial_selftest_tests.py` is the pilot's
   bypass-resistance fixture suite. It checks that shortcut attempts become
   failed validation, non-red proof, or report-only findings.
+- `scripts/bytecode_validator_mutation.py` adapts cargo-mutants single-file
+  candidates for validator fragments assembled with `include!()`. It runs in an
+  isolated Git archive, cleans only `trust-runtime` outputs in a dedicated
+  mutation target between mutants, and records caught/survived/unviable/timeout
+  outcomes against committed case IDs. Those IDs are associations only: blocked
+  cases are not executed and mutation evidence does not close a spec gap.
+- Bytecode-validator mutation evidence carries `mutation_report_path` plus a
+  SHA-256 digest. The metadata validator rechecks the machine JSON against the
+  cataloged runner/tool version, mutant selectors and commands, raw process
+  outcomes, exhaustive case-ID partition, outcome counts, survivors, and source
+  commit. Known infrastructure failures abort instead of counting as killed or
+  unviable mutants.
+
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in
 `docs/internal/testing/checklists/plc-verification-program/metadata-model.md`

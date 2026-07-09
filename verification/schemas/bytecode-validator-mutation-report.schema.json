@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/bytecode-validator-mutation-report.schema.json",
+  "title": "truST bytecode-validator mutation report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "status",
+    "shard_id",
+    "test_id",
+    "runner",
+    "tool",
+    "tool_version",
+    "source_commit",
+    "platform",
+    "started_at",
+    "finished_at",
+    "case_file",
+    "case_file_digest",
+    "case_semantics",
+    "blocked_case_ids_executed",
+    "baseline_commands",
+    "mutations",
+    "summary",
+    "survivors",
+    "out_of_scope_case_ids",
+    "out_of_scope_reason"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "status": { "const": "complete" },
+    "case_semantics": { "const": "association_only_blocked_cases_not_executed" },
+    "blocked_case_ids_executed": { "const": false },
+    "mutations": { "type": "array", "minItems": 1 },
+    "survivors": { "type": "array" },
+    "out_of_scope_case_ids": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

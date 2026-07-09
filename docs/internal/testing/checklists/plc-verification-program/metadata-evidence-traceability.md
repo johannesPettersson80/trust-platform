@@ -59,6 +59,12 @@ Optional proof fields for `prove.py` or approved gate output:
   `case_result_digest`, `paired_red_evidence`, `formerly_red_case_ids`,
   `paired_lock_baseline`, `decision_ref`, and `per_case_summary`.
 
+Optional mutation-report fields for the Phase 1B bytecode-validator pilot:
+
+- `mutation_test_id`
+- `mutation_report_path`
+- `mutation_report_digest`
+
 Allowed evidence kinds:
 
 - `committed_file`
@@ -91,6 +97,34 @@ Evidence rules:
   previously-green case regressed, no case was skipped without a waiver, and
   the case-file digest did not change unless the changed case table has its own
   reviewed decision or spec-gap closeout.
+
+### Bytecode-Validator Mutation Report Contract
+
+The `VERIF-P1B-013` report is a narrow pilot contract, not the generic Phase 10
+mutation-report format tracked by `VERIF-P10-003`.
+
+- The runner uses cargo-mutants single-file candidates because cargo-mutants
+  package discovery does not traverse the validator's `include!()` fragments.
+- Product source is mutated only inside an isolated archive of the tested Git
+  commit. A dedicated target is cleaned for `trust-runtime` before baseline,
+  before every mutant, and after source restoration so mutant artifacts cannot
+  contaminate later proof.
+- Results use the closed vocabulary `caught`, `survived`, `unviable`, `timeout`,
+  or `error`; compile failures are `unviable`, never `caught`. Signals and known
+  disk, quota, temporary-directory, or permission failures are infrastructure
+  errors and abort the shard instead of being counted as mutant outcomes.
+- Every measured mutant names committed `related_case_ids`. Every survivor also
+  carries a non-empty action. Unknown, duplicate, overlapping, omitted, or
+  unaccounted case IDs fail validation.
+- `related_case_ids` are traceability labels, not an assertion that a blocked
+  case ran or killed a mutant. Fields such as `killed_by_case_ids` or
+  `executed_case_ids` are forbidden while the cases remain blocked.
+- The report JSON pins the cataloged case-file digest, source commit, exact tool
+  and runner versions, platform, passing baseline commands, per-mutant selector
+  and build/test commands, raw exit/timeout fields, derived outcomes, summary
+  counts, survivors, and out-of-scope case IDs. The evidence record pins the
+  JSON path and SHA-256 digest, and the at-rest validator recomputes the report
+  contract from the already-loaded catalog record.
 - `prove.py lock` for refactors must pair `lock_compare` evidence to a
   `lock_baseline` evidence record and report any output delta.
 

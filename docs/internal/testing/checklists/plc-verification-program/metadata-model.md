@@ -41,6 +41,7 @@ verification/
     matrix.schema.json
     case-file.schema.json
     case-artifact.schema.json
+    bytecode-validator-mutation-report.schema.json
   matrix.toml
   spec-matrix.toml
   test-catalog.toml
@@ -666,6 +667,19 @@ Required fields:
 required. `case_file_digest` is the SHA-256 digest of the committed case file and
 the validator recomputes it. Editing cases to make a test pass must be visible
 as a metadata diff.
+
+Pilot mutation catalog rows use `test_class = "mutation"` and add a closed
+bytecode-validator-only contract: `mutation_shard_id`, `mutation_runner`,
+`mutation_tool`, `mutation_tool_version`, `mutation_case_semantics`,
+`mutation_out_of_scope_case_ids`, `mutation_out_of_scope_reason`, and one or
+more `[[tests.mutations]]` tables.
+Each mutation names a validator source file/function, cargo-mutants selector,
+build/test commands, committed `related_case_ids`, and a survivor action. The
+validator requires the measured and out-of-scope IDs to form a disjoint,
+exhaustive partition of the cataloged case file. While those cases are blocked,
+the only allowed semantics are
+`association_only_blocked_cases_not_executed`; mutation results are adequacy
+evidence, not expected-behavior proof.
 
 `invariants` may be empty only while `status` is `planned` or `gap_open`.
 Records with `status` in `mapped`, `test_written`, `implemented`, or
