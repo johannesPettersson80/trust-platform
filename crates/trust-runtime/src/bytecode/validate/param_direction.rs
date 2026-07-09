@@ -247,10 +247,9 @@ fn parse_native_symbol_args(symbol: &str) -> Option<NativeSymbolArgs> {
     for raw in parts {
         let (is_target, suffix) = if let Some(rest) = raw.strip_prefix('E') {
             (false, rest)
-        } else if let Some(rest) = raw.strip_prefix('T') {
-            (true, rest)
         } else {
-            return None;
+            let rest = raw.strip_prefix('T')?;
+            (true, rest)
         };
         let name = if suffix.is_empty() {
             None
