@@ -620,3 +620,24 @@ mutation_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 mutation_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
 mutation_report_digest = "sha256:792aa9db3106c654b3651b60c061eaef58e701bac241425cbf84e27dddb55e08"
 last_reviewed = "2026-07-09"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P2_EXISTING_TEST_CATALOG_20260709"
+title = "Phase 2 mechanical existing-test catalog"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-09/p2-existing-test-catalog.md"
+command = "python3 scripts/scan_test_catalog.py --json-out target/gate-artifacts/verification/existing-test-catalog.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-09/p2-existing-test-catalog.md --timestamp 2026-07-09T13:15:00Z; python3 scripts/validate_generated_test_catalog.py --json target/gate-artifacts/verification/existing-test-catalog.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-09/p2-existing-test-catalog.md; python3 -m unittest scripts.verification.test_catalog_scanner_tests; python3 -m py_compile scripts/scan_test_catalog.py scripts/validate_generated_test_catalog.py scripts/verification/test_catalog_*.py; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; git diff --check"
+commit = "d4a768479c8542b8db3874037939b0e8f09e2499"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-09"
+suite_id = "supporting_local"
+producer = "test-catalog-scanner v1"
+generated_report_version = "generated-test-catalog-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-09"
