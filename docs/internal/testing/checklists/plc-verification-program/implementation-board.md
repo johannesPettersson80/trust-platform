@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `e5c0d9d194649bd36ae54e699d685fa6e2b996d2` classifies 1/3,816 scanner facts
+  commit `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
   required class slots complete (`mutation` and `negative_malformed_input`);
   `failing_regression`, `iec_conformance`, and `metadata_validation` remain
@@ -420,16 +420,19 @@ Acceptance:
   Markdown-to-JSON digest. Debt exits successfully and no CI enforcement was
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
+  Generated JSON SHA-256:
+  `d99144aab0a3588f956750dcc3919dcffe0a7ec5c3a1a1d9d5636565cb4f6134`.
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `e5c0d9d194649bd36ae54e699d685fa6e2b996d2`
+  Clean-source report commit `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
   assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
   invariant/family slots have declared cells, 64 remain structurally
   unassigned, and one additional recorded dimension remains visible. All 17
   declared cells stay `spec_gap`. Four catalog-bound case files contribute 21
   blocked observations without upgrading any state. Missing cells receive no
-  synthetic state.
+  synthetic state. Generated JSON SHA-256:
+  `161a21f93e7edfc687e763d72a531dbd9c47f4bb1e5ed2eb4f9c795dfc7e3115`.
 - [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
   bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
   binds classes only through `malformed_input_class_ids`. The sole reviewed
@@ -506,14 +509,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `e5c0d9d194649bd36ae54e699d685fa6e2b996d2` inventories 3,816 facts in 670
+  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `9708e1419fe38eef6964326865c30ca25c32ddd7a77f9454b69608e9f0df5add`.
+  `4482774a2845d044bd57f3c53bb91c58e1483f70d120ef4e8b5692bf82a3ceb4`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -548,13 +551,13 @@ Acceptance:
   failure.
 
   The clean-source report at commit
-  `a2d8bb7b50d0ec5c2fad33d348ed41e46b705158` inventories 88 observations:
+  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` inventories 88 observations:
   85 static Rust ignores, one conditional Rust ignore, one conditional VS Code
   runtime skip, and one literal Playwright skip. It reports zero discovery
   diagnostics and binds 535 Rust, 47 Node, six Playwright, 29 shell, and 21
   conformance files; shell and conformance remain explicit limitations rather
   than invented identities. Generated JSON SHA-256:
-  `21dd101354aa7ec138aab6056c8613ccc71cef5c92d0b33188664b7882020a43`.
+  `7eef950aa851ab5815be9a1c932fa08f21a92bfb21319278255e26e3e403700c`.
 
   The hand-owned registry joins all 88 observations one-to-one and classifies
   63 as `unknown`, 15 as `perf_soak`, five as `lab_required`, and five as
@@ -578,39 +581,86 @@ Acceptance:
 
 ## Phase 4 - Invariant Registry
 
-- [ ] `VERIF-P4-000` Import confirmed findings from the 2026-07-04/05 runtime,
+- [x] `VERIF-P4-000` Import confirmed findings from the 2026-07-04/05 runtime,
   HIR-to-VM, IDE/LSP, and comms reviews as risk-register entries and invariant
   seeds with `gap_open` or `spec_gap` status. Include timer semantics, NaN/Inf
   ingress, runtime authz, OPC UA session lifecycle, and online-change/hot-reload
-  consistency.
-- [ ] `VERIF-P4-001` Seed compiler/frontend invariants.
-- [ ] `VERIF-P4-002` Seed HIR-to-bytecode-to-VM seam invariants.
-- [ ] `VERIF-P4-003` Seed runtime-safety invariants.
-- [ ] `VERIF-P4-004` Seed protocol/connectivity invariants.
-- [ ] `VERIF-P4-005` Seed editor/source-transformation invariants.
-- [ ] `VERIF-P4-006` Seed HMI/UI acceptance invariants.
-- [ ] `VERIF-P4-007` Seed release/public-claim invariants.
-- [ ] `VERIF-P4-008` Seed security/supply-chain/platform invariants.
-- [ ] `VERIF-P4-009` Link each safety-critical invariant to at least one oracle
+  consistency. Five V-08 findings are planned risks with a machine-typed
+  provenance-only source; they create no behavior oracle or proof.
+- [x] `VERIF-P4-001` Seed compiler/frontend invariants. Five seeds map to five
+  canonical invariants: two `gap_open`, three `spec_gap`.
+- [x] `VERIF-P4-002` Seed HIR-to-bytecode-to-VM seam invariants. Six seeds map
+  to five canonical `spec_gap` invariants through the one reviewed type-seam
+  merge.
+- [x] `VERIF-P4-003` Seed runtime-safety invariants. Nine canonical records
+  remain four `gap_open` and five `spec_gap`.
+- [x] `VERIF-P4-004` Seed protocol/connectivity invariants. Six canonical
+  records remain one `gap_open` and five `spec_gap`.
+- [x] `VERIF-P4-005` Seed editor/source-transformation invariants. Eight
+  canonical records remain one `gap_open` and seven `spec_gap`.
+- [x] `VERIF-P4-006` Seed HMI/UI acceptance invariants. The one seed remains
+  `spec_gap` at S0.
+- [x] `VERIF-P4-007` Seed release/public-claim invariants. All three seeds
+  remain `spec_gap` at S0.
+- [x] `VERIF-P4-008` Seed security/supply-chain/platform invariants. All six
+  seeds remain `spec_gap` at S0.
+- [x] `VERIF-P4-009` Link each safety-critical invariant to at least one oracle
   reference or spec gap.
-- [ ] `VERIF-P4-010` Mark unproven claims as `gap_open`, `blocked`,
+- [x] `VERIF-P4-010` Mark unproven claims as `gap_open`, `blocked`,
   `deferred`, `spec_gap`, or `unproven`; do not mark them `validated`.
+
+  The clean-source invariant-seed audit at commit
+  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` binds all 44 written obligations
+  to 43 canonical invariants: 36 new records and eight pre-existing seed
+  mappings to seven canonical records. Only `VM_SEAM_TYPE_001` and
+  `VM_SEAM_TYPE_002` share a canonical invariant. Seed posture is eight
+  `gap_open` and 36 `spec_gap`, all at S0. Across the full registry, all 52
+  invariants remain unvalidated at S0: eight `gap_open` and 44 `spec_gap`.
+  All nine safety-critical invariants name an oracle-eligible active source or
+  an open focused spec gap. Generated JSON SHA-256:
+  `04ced8ccdeeb8cabab268361f72cbb8f8326872d5266fe1542d77c72302dde16`.
+  Durable evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md`
+  and
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-confirmed-findings-source-review.md`.
 
 ## Phase 4A - Specification Completeness Audit
 
-- [ ] `VERIF-P4A-001` Add spec-gap register entries under
-  `verification/spec-gaps.toml`.
-- [ ] `VERIF-P4A-002` Report invariants with `spec.status != "specified"`.
-- [ ] `VERIF-P4A-003` Report tests with `expected_result` but no `oracle_ref`,
-  `spec_ref`, or `spec_gap_ref`.
-- [ ] `VERIF-P4A-004` Report coverage dimensions marked `spec_gap`.
+- [x] `VERIF-P4A-001` Add spec-gap register entries under
+  `verification/spec-gaps.toml`. The register now contains 34 focused gaps,
+  all open; this slice added 24 and closed none.
+- [x] `VERIF-P4A-002` Report invariants with `spec.status != "specified"`. The
+  report lists 44 of 52 invariants: 27 `missing` and 17 `ambiguous`.
+- [x] `VERIF-P4A-003` Report tests with `expected_result` but no `oracle_ref`,
+  `spec_ref`, or `spec_gap_ref`. Zero of six expected-result catalog rows are
+  unbound.
+- [x] `VERIF-P4A-004` Report coverage dimensions marked `spec_gap`. The report
+  lists 53 of 61 coverage cells; the other eight remain `gap_open`.
 - [ ] `VERIF-P4A-005` Report public docs claims with no invariant and no oracle.
-- [ ] `VERIF-P4A-006` Add close-out rule: spec gap closes only when owning
+  The current output shows four registered public-claim sources as explicitly
+  non-exhaustive context only. It does not scan all public docs, so this row
+  remains open.
+- [x] `VERIF-P4A-006` Add close-out rule: spec gap closes only when owning
   spec/decision/deviation/design doc is updated and mapped tests are written or
-  explicitly deferred.
-- [ ] `VERIF-P4A-007` Safety-critical `spec_gap` blocks `validated`.
-- [ ] `VERIF-P4A-008` For bytecode/VM pilot, classify every initial gap as test
-  gap, spec gap, hardware/tool blocked, or not applicable.
+  explicitly deferred. The primary validator requires an active oracle-eligible
+  owning source on a tracked, nonignored, nonsymlinked workspace path, written
+  mapped tests or an eligible reviewed deferral, exact closeout-evidence test
+  links, and removal of all live gap references.
+- [x] `VERIF-P4A-007` Safety-critical `spec_gap` blocks `validated`. Both direct
+  invariant references and reverse gap-to-invariant links are checked.
+- [x] `VERIF-P4A-008` For bytecode/VM pilot, classify every initial gap as test
+  gap, spec gap, hardware/tool blocked, or not applicable. The explicit,
+  disjoint denominator contains eight gaps: five open spec gaps and three test
+  gaps for `failing_regression`, `iec_conformance`, and `metadata_validation`;
+  no hardware/tool or not-applicable classification was inferred.
+
+  The report-only completeness audit was generated from clean commit
+  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`. Generated JSON SHA-256:
+  `36044c2c9e2d734f6c38eb0d3d345432e3605f8d6c4cd0e8ceac7d689f5b398a`.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md`.
+  The audit is report-only, creates no proof, closes no spec gap, and does not
+  change CI enforcement.
 
 ## Phase 5 - Suite Definitions and Gate Mapping
 

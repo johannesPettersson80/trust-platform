@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `a2d8bb7b50d0ec5c2fad33d348ed41e46b705158`
-Generated: `2026-07-10T17:05:47+02:00`
+Source revision: `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
+Generated: `2026-07-10T20:00:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `c7e67119c30a22c1ca7de5413fdabcc5a5a716743aff258fc174cf94e7d74da3`
-Input SHA-256: `sha256:abaf4810542b9cae6e9c95ae73e128fef3795c45a9d5f61fd1fa20059bcb8961`
+Generated JSON SHA-256: `161a21f93e7edfc687e763d72a531dbd9c47f4bb1e5ed2eb4f9c795dfc7e3115`
+Input SHA-256: `sha256:93721081410ed0f60158884f268cf9dd20445e74dc9e90c8d3c6f95ecea49864`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -14,7 +14,7 @@ mean every required coverage slot is assigned or covered.
 
 - Mapped areas: 1
 - Mapped-area invariants: 8
-- Out-of-scope invariants: 8
+- Out-of-scope invariants: 44
 - Required family slots: 80
 - Assigned required slots: 16
 - Missing required slots: 64
@@ -163,14 +163,50 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 
 ## Out-Of-Scope Invariants
 
+- `DEBUG_AUTH_001` (`control_security`): 1 recorded cells
 - `DEBUG_BEHAVIOR_LOCKED_001` (`editor_safety`): 1 recorded cells
+- `DEBUG_PAUSE_001` (`editor_safety`): 1 recorded cells
+- `DEV_COMMIT_SCOPE_001` (`plcopen_devtools`): 1 recorded cells
+- `DEV_TEST_DISCOVERY_001` (`plcopen_devtools`): 1 recorded cells
+- `EDIT_DIAG_CANCEL_001` (`editor_safety`): 1 recorded cells
+- `EDIT_LSP_POS_001` (`editor_safety`): 1 recorded cells
+- `EDIT_RENAME_001` (`editor_safety`): 1 recorded cells
+- `EDIT_RENAME_002` (`editor_safety`): 1 recorded cells
+- `IEC_PARSE_RECOVER_001` (`compiler_iec`): 1 recorded cells
+- `IEC_PREC_001` (`compiler_iec`): 1 recorded cells
+- `IEC_STRING_001` (`compiler_iec`): 1 recorded cells
+- `IEC_SUBRANGE_001` (`compiler_iec`): 1 recorded cells
+- `IEC_TIMER_001` (`compiler_iec`): 1 recorded cells
+- `PLAT_PATH_001` (`supply_chain_platform`): 1 recorded cells
+- `PLAT_VSCODE_001` (`supply_chain_platform`): 1 recorded cells
+- `PLCO_IMPORT_001` (`plcopen_devtools`): 1 recorded cells
+- `PROTO_ADS_001` (`protocols`): 1 recorded cells
 - `PROTO_DISCOVERY_TRUTH_001` (`protocols`): 1 recorded cells
+- `PROTO_ETHERCAT_001` (`protocols`): 1 recorded cells
+- `PROTO_MODBUS_001` (`protocols`): 1 recorded cells
+- `PROTO_MQTT_001` (`protocols`): 1 recorded cells
+- `PROTO_OPCUA_001` (`protocols`): 1 recorded cells
 - `PROTO_STATUS_TRUTH_001` (`protocols`): 1 recorded cells
 - `RELEASE_PLATFORM_MATRIX_001` (`release`): 1 recorded cells
 - `RELEASE_SOURCE_BUILD_OPENOT_001` (`release`): 1 recorded cells
+- `REL_CLAIM_001` (`release`): 1 recorded cells
+- `REL_CONF_001` (`release`): 1 recorded cells
+- `REL_VERSION_001` (`release`): 1 recorded cells
+- `RT_RELOAD_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_DEADLINE_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_FORCE_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_IO_001` (`runtime_safety`): 1 recorded cells
 - `RT_SAFE_IO_WORKER_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_NAN_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_PANIC_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_RESTART_001` (`runtime_safety`): 1 recorded cells
+- `RT_SAFE_RETAIN_001` (`runtime_safety`): 1 recorded cells
 - `RT_SAFE_STOP_001` (`runtime_safety`): 1 recorded cells
 - `RUNTIME_BEHAVIOR_LOCKED_001` (`release`): 1 recorded cells
+- `SEC_ARTIFACT_001` (`supply_chain_platform`): 1 recorded cells
+- `SEC_AUTHZ_001` (`control_security`): 1 recorded cells
+- `SEC_DEP_AUDIT_001` (`supply_chain_platform`): 1 recorded cells
+- `UI_STATUS_001` (`hmi_ui`): 1 recorded cells
 
 ## Limitations
 
