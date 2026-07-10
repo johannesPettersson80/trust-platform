@@ -1,0 +1,31 @@
+schema_version = 1
+id = "IEC_STRING_001"
+title = "STRING bounds remain enforced across binding boundaries"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "spec_gap"
+owner = "trust-hir"
+last_reviewed = "2026-07-10"
+claim = "STRING length bounds must not be silently lost across assignment, call, return, or function-block binding."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"]
+missing = ["string_binding_boundary_contract", "bound_preservation_cases"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "spec_gap"
+rationale = "Assignment and parameter-binding bounds require a focused written contract."
+spec_gap_ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"

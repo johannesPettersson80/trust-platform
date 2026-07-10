@@ -14,8 +14,10 @@
     "gap_class",
     "blocking_question",
     "affected_invariants",
+    "affected_tests",
     "candidate_spec_sources",
     "resolution_status",
+    "closeout_evidence",
     "last_reviewed"
   ],
   "properties": {
@@ -38,7 +40,11 @@
       ]
     },
     "affected_invariants": { "type": "array", "items": { "type": "string" } },
-    "candidate_spec_sources": { "type": "array", "items": { "type": "string" } }
+    "affected_tests": { "type": "array", "items": { "type": "string" } },
+    "candidate_spec_sources": { "type": "array", "items": { "type": "string" } },
+    "resolution_source_ref": { "type": "string", "minLength": 1 },
+    "test_deferral_ref": { "type": "string", "minLength": 1 },
+    "closeout_evidence": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": true
 }

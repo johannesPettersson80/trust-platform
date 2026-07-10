@@ -1,0 +1,29 @@
+schema_version = 1
+id = "PROTO_OPCUA_001"
+title = "OPC UA client session lifecycle is persistent and observable"
+area = "protocols"
+risk = "false_status"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "OPC UA client sessions and subscriptions must follow the reviewed persistent lifecycle and expose stale and reconnecting state."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_opcua_lifecycle_cases", "durable_lifecycle_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "The reviewed lifecycle decision exists, but cataloged cases and accepted proof are not linked."

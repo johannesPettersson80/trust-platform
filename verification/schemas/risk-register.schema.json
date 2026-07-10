@@ -14,12 +14,18 @@
     "last_reviewed",
     "description",
     "mitigation",
-    "related_invariants"
+    "source_refs",
+    "related_invariants",
+    "related_spec_gaps",
+    "related_spec_sources",
+    "evidence_refs"
   ],
   "properties": {
     "schema_version": { "const": 1 },
+    "source_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
     "related_invariants": { "type": "array", "items": { "type": "string" } },
     "related_spec_gaps": { "type": "array", "items": { "type": "string" } },
+    "related_spec_sources": { "type": "array", "items": { "type": "string" } },
     "evidence_refs": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": true

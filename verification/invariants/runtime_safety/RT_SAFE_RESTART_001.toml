@@ -1,0 +1,29 @@
+schema_version = 1
+id = "RT_SAFE_RESTART_001"
+title = "Restart labels map to deterministic retain behavior"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_restart_transition_cases", "retain_restart_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "The restart contract is active, but lifecycle cases and proof are not linked."

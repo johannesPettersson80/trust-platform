@@ -1,0 +1,31 @@
+schema_version = 1
+id = "SEC_DEP_AUDIT_001"
+title = "Dependency vulnerability and license status is release-visible"
+area = "supply_chain_platform"
+risk = "supply_chain"
+status = "spec_gap"
+owner = "release"
+last_reviewed = "2026-07-10"
+claim = "Release proof must expose dependency vulnerability and license status together with owned, time-bounded exceptions."
+proof_level = "S0"
+contract_kind = "security_policy"
+source_refs = ["Cargo.toml", "Cargo.lock"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"]
+missing = ["dependency_audit_blocking_policy", "owned_exception_contract"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "spec_gap"
+rationale = "Release-blocking audit conditions and exception ownership are not specified."
+spec_gap_ref = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"

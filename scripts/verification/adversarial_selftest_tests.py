@@ -114,6 +114,56 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_invariant_seed_manifest_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.seed_manifest["seeds"][0]["canonical_invariant_id"] = (
+            "RT_SAFE_DEADLINE_001"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "canonical invariant must be RT_SAFE_PANIC_001" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_risk_without_provenance_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.risks["RISK_RUNTIME_NONFINITE_INGRESS_001"]["source_refs"] = []
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "must name at least one provenance source_ref" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_non_gap_oracle_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.invariants["IEC_PREC_001"]["oracle"]["ref"] = (
+            "SPEC_DOES_NOT_EXIST"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "oracle_ref references unknown spec source 'SPEC_DOES_NOT_EXIST'"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

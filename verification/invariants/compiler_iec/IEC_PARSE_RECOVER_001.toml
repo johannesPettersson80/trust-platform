@@ -1,0 +1,31 @@
+schema_version = 1
+id = "IEC_PARSE_RECOVER_001"
+title = "Parser recovery advances and reports malformed structure"
+area = "compiler_iec"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-syntax"
+last_reviewed = "2026-07-10"
+claim = "Parser recovery must not silently accept malformed delimiter or nesting structure."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_IEC_PARSER_RECOVERY_001"]
+missing = ["parser_recovery_progress_contract", "malformed_structure_oracles"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_IEC_DEVIATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_IEC_PARSER_RECOVERY_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Recovery progress and diagnostic boundaries must be specified before malformed-source outcomes are accepted."
+spec_gap_ref = "SPEC_GAP_IEC_PARSER_RECOVERY_001"

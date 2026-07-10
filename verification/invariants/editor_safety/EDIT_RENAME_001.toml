@@ -1,0 +1,31 @@
+schema_version = 1
+id = "EDIT_RENAME_001"
+title = "Rename refuses shadow capture"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-ide"
+last_reviewed = "2026-07-10"
+claim = "Rename must refuse when the resulting name would capture or be captured by another visible symbol."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-ide/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_EDITOR_RENAME_CONFLICT_001"]
+missing = ["rename_shadow_conflict_contract", "scope_collision_cases"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "spec_gap"
+rationale = "The complete shadow-capture conflict set is not specified."
+spec_gap_ref = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"

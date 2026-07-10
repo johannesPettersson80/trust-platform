@@ -11,6 +11,93 @@ status = "planned"
 last_reviewed = "2026-07-09"
 description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
 mitigation = "Map each VM assumption to required spec tags, crafted-bytecode negative tests, and validator invariants."
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 related_invariants = ["VM_SEAM_VALID_001"]
 related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
+related_spec_sources = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
 evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]
+
+[[risks]]
+schema_version = 1
+id = "RISK_IEC_TIMER_SEMANTICS_001"
+title = "Timer restart and elapsed-time semantics may diverge across lifecycle boundaries"
+area = "compiler_iec"
+risk = "safety_critical"
+owner = "language"
+status = "planned"
+last_reviewed = "2026-07-10"
+description = "The external review confirmed unresolved TP, TOF, and TON elapsed-time, restart, and time-base boundaries."
+mitigation = "Keep the invariant at S0 until the focused timer gap is resolved and linked tests and proof are produced."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["IEC_TIMER_001"]
+related_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+related_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+evidence_refs = []
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_NONFINITE_INGRESS_001"
+title = "Non-finite values may cross runtime ingress boundaries without a defined policy"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-10"
+description = "The external review confirmed that NaN and infinity handling across I/O, protocol, API, and retained-value ingress is not specified."
+mitigation = "Resolve the focused ingress gap before mapping negative or boundary tests to an accepted behavior."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["RT_SAFE_NAN_001"]
+related_spec_gaps = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+evidence_refs = []
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_AUTHORIZATION_001"
+title = "Runtime control and debug authorization boundaries may permit unintended operations"
+area = "control_security"
+risk = "security"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-10"
+description = "The external review confirmed unresolved viewer, control, file-read, write, force, and release authorization boundaries."
+mitigation = "Define the control authorization matrix and debug authorization contract before accepting allow-or-deny expectations."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+related_spec_gaps = ["SPEC_GAP_DEBUG_AUTHORIZATION_001", "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"]
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+evidence_refs = []
+
+[[risks]]
+schema_version = 1
+id = "RISK_OPCUA_CLIENT_LIFECYCLE_001"
+title = "OPC UA client session lifecycle may report stale data as current"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-10"
+description = "The external review imported the historical session-per-poll finding and requires the persistent lifecycle decision to remain explicit."
+mitigation = "Keep lifecycle coverage at S0 until cataloged tests and durable proof are linked without promoting the review evidence itself."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["PROTO_OPCUA_001"]
+related_spec_gaps = ["SPEC_GAP_PROTOCOL_STATUS_MODEL_001"]
+related_spec_sources = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+evidence_refs = []
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_RELOAD_TRANSACTION_001"
+title = "Online change may leave runtime state partially applied"
+area = "runtime_safety"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-10"
+description = "The external review confirmed that hot-reload consistency across live state and status lacks a complete transaction contract."
+mitigation = "Resolve the reload transaction gap before defining expected partial-failure behavior or accepting reload proof."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["RT_RELOAD_001"]
+related_spec_gaps = ["SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"]
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+evidence_refs = []

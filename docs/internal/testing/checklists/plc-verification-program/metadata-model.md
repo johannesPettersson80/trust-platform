@@ -33,6 +33,8 @@ verification/
     suite.schema.json
     catalog.schema.json
     ignored-test.schema.json
+    invariant-seed-manifest.schema.json
+    invariant-seed-audit-report.schema.json
     risk-register.schema.json
     evidence.schema.json
     spec-source.schema.json
@@ -43,10 +45,12 @@ verification/
     case-artifact.schema.json
     bytecode-validator-mutation-report.schema.json
     ignored-test-inventory-report.schema.json
+    spec-completeness-report.schema.json
   matrix.toml
   spec-matrix.toml
   test-catalog.toml
   ignored-tests.toml
+  invariant-seeds.toml
   risk-register.toml
   evidence-index.toml
   spec-sources.toml
@@ -528,7 +532,8 @@ Decision-table rules:
   rows must stay blocked by a spec gap.
 - For `status = "spec_gap"`, `oracle.ref` must equal one of the record's
   `spec_gap_refs`; `oracle.kind` documents the expected future oracle category.
-  For every other status, `oracle.ref` must not name a spec gap.
+  For every other status, `oracle.ref` must resolve to an active non-public
+  normative/reviewed specification source, not merely avoid naming a gap.
 - Behavior rows must tile the declared input domain for finite/scalar domains or
   mark the missing partitions with `spec_gap_ref`.
 - Every behavior row must use the structured `delta` field. Allowed keys in v1
@@ -642,8 +647,10 @@ Required fields:
 - `gap_class`
 - `blocking_question`
 - `affected_invariants`
+- `affected_tests`
 - `candidate_spec_sources`
 - `resolution_status`
+- `closeout_evidence`
 - `last_reviewed`
 
 Allowed `resolution_status` values:
@@ -654,6 +661,36 @@ Allowed `resolution_status` values:
 - `test_mapped`
 - `closed`
 - `rejected`
+
+A gap may use `resolution_status = "closed"` only when an active tracked
+normative-product/reviewed-decision/reviewed-deviation source owns the resolved
+contract, mapped tests exist or an active reviewed deferral is named, and
+durable closeout evidence back-links the gap and exact test disposition. A
+closed gap must no longer be referenced from required specs, invariant
+top-level refs/coverage/behavior, tests, or risks. Safety-critical invariants
+cannot be `validated` while an open gap links them in either direction.
+
+### Invariant Seed Manifest
+
+`verification/invariant-seeds.toml` is a closed wrapper record:
+
+```toml
+schema_version = 1
+
+[[seeds]]
+seed_id = "VM_SEAM_TYPE_001"
+canonical_invariant_id = "VM_SEAM_DECLARED_TYPE_001"
+board_row = "VERIF-P4-002"
+origin = "preexisting"
+```
+
+Every one of the 44 written seed IDs must appear exactly once and in reviewed
+source order. `canonical_invariant_id` must resolve to the exact area/path; only
+the reviewed `VM_SEAM_TYPE_001`/`VM_SEAM_TYPE_002` merge is many-to-one. The
+five P4-000 seeds additionally name a unique `p4_000_risk_id`. New Phase 4
+records must have empty tests/evidence, and every mapped invariant remains S0
+with `status` in `gap_open` or `spec_gap`. The live audit binds active tracked
+oracle/review sources and never treats a public claim as a behavior oracle.
 
 ### Required Specification Matrix Record
 
@@ -1119,8 +1156,10 @@ owner = "trust-runtime"
 status = "planned"
 description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
 mitigation = "Map each VM assumption to crafted-bytecode negative tests and validator invariants."
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 related_invariants = ["VM_SEAM_VALID_001"]
-related_spec_gaps = []
+related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+related_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
 evidence_refs = []
 last_reviewed = "2026-07-08"
 ```
@@ -1137,7 +1176,11 @@ Required fields:
 - `last_reviewed`
 - `description`
 - `mitigation`
+- `source_refs`
 - `related_invariants`
+- `related_spec_gaps`
+- `related_spec_sources`
+- `evidence_refs`
 
 Evidence record details, traceability report rules, and verification-tooling
 self-test fixtures live in `metadata-evidence-traceability.md`.

@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PROTO_ETHERCAT_001"
+title = "EtherCAT unavailable-resource behavior is bounded and visible"
+area = "protocols"
+risk = "false_status"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Unavailable EtherCAT hardware or configuration must not create unbounded resource use or a false healthy status."
+proof_level = "S0"
+contract_kind = "fault_scenario"
+source_refs = ["crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"]
+missing = ["ethercat_unavailable_resource_contract", "hardware_absence_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "spec_gap"
+rationale = "Resource, retry, timeout, and status bounds for unavailable hardware are unspecified."
+spec_gap_ref = "SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"

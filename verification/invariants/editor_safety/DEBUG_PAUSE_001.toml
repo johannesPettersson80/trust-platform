@@ -1,0 +1,31 @@
+schema_version = 1
+id = "DEBUG_PAUSE_001"
+title = "Debug pause has explicit watchdog and scan-deadline semantics"
+area = "editor_safety"
+risk = "safety_critical"
+status = "spec_gap"
+owner = "trust-debug"
+last_reviewed = "2026-07-10"
+claim = "Breakpoint and pause handling must not leave scan deadlines, watchdogs, I/O, or safe-state behavior implicit."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"]
+missing = ["pause_watchdog_contract", "paused_runtime_lifecycle_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "spec_gap"
+rationale = "Paused execution interaction with deadlines, watchdogs, I/O, and safe state is unspecified."
+spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"

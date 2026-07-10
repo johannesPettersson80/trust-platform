@@ -41,6 +41,7 @@ from .constants import (
     VERIFICATION,
 )
 from .case_files import validate_case_file
+from ..invariant_seed_contract import load_seed_audit, validate_seed_records
 from ..test_catalog_intent import validate_catalog_intent
 from .evidence_proof import validate_green_pairing, validate_lock_pairing
 from .integrity import (
@@ -55,6 +56,7 @@ from .oracle_refs import validate_oracle_ref
 from .schema_contracts import validate_schema_enums
 from .risks import validate_risks as validate_risk_records
 from .taxonomy import validate_taxonomy_drift
+from .spec_gap_closure import validate_spec_gap_closure
 
 
 @dataclass
@@ -76,6 +78,7 @@ class Validator:
         self.risks: dict[str, dict[str, Any]] = {}
         self.required_specs: dict[str, dict[str, Any]] = {}
         self.matrix: dict[str, Any] = {}
+        self.seed_manifest: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -194,6 +197,10 @@ class Validator:
         )
         self.matrix = self.load_toml(VERIFICATION / "matrix.toml")
         self.check_no_empty_strings(VERIFICATION / "matrix.toml", self.matrix)
+        self.seed_manifest = self.load_toml(VERIFICATION / "invariant-seeds.toml")
+        self.check_no_empty_strings(
+            VERIFICATION / "invariant-seeds.toml", self.seed_manifest
+        )
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -269,6 +276,17 @@ class Validator:
         self.validate_tests()
         self.validate_ignored_tests()
         self.validate_risks()
+        self.validate_invariant_seeds()
+        for failure in validate_spec_gap_closure(
+            spec_gaps=self.spec_gaps,
+            spec_sources=self.spec_sources,
+            tests=self.tests,
+            evidence=self.evidence,
+            invariants=self.invariants,
+            required_specs=self.required_specs,
+            risks=self.risks,
+        ):
+            self.fail(VERIFICATION / "spec-gaps.toml", failure)
         validate_committed_mutation_metadata(
             fail=self.fail,
             tests=self.tests,
@@ -329,8 +347,10 @@ class Validator:
             "gap_class",
             "blocking_question",
             "affected_invariants",
+            "affected_tests",
             "candidate_spec_sources",
             "resolution_status",
+            "closeout_evidence",
             "last_reviewed",
         ]
         for record in self.spec_gaps.values():
@@ -354,6 +374,13 @@ class Validator:
             for invariant_id in record.get("affected_invariants", []):
                 if invariant_id not in self.invariants:
                     self.fail(path, f"{record['id']} references unknown affected invariant {invariant_id}")
+            self.check_refs(
+                path,
+                record.get("affected_tests", []),
+                self.tests,
+                "test",
+                record["id"],
+            )
 
     def validate_suites(self) -> None:
         required = [
@@ -560,6 +587,13 @@ class Validator:
                 self.fail(path, f"{record['id']} must name suite_id or release_object")
             self.check_refs(path, record.get("linked_invariants", []), self.invariants, "invariant", record["id"])
             self.check_refs(path, record.get("linked_tests", []), self.tests, "test", record["id"])
+            self.check_refs(
+                path,
+                record.get("linked_spec_gaps", []),
+                self.spec_gaps,
+                "spec gap",
+                record["id"],
+            )
             if record.get("suite_id") and record["suite_id"] not in self.suites:
                 self.fail(path, f"{record['id']} references unknown suite_id {record['suite_id']}")
             if record.get("kind") == "committed_file":
@@ -718,6 +752,36 @@ class Validator:
             evidence=self.evidence,
         )
 
+    def validate_invariant_seeds(self) -> None:
+        path = VERIFICATION / "invariant-seeds.toml"
+        try:
+            load_seed_audit(ROOT)
+        except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as exc:
+            self.fail(path, f"invariant seed audit failed: {exc}")
+        records = self.seed_manifest.get("seeds")
+        if self.seed_manifest.get("schema_version") != 1 or not isinstance(records, list):
+            self.fail(path, "invariant seed manifest must use schema_version 1 and [[seeds]]")
+            return
+        invariant_paths = {
+            invariant_id: record["_path"].relative_to(ROOT).as_posix()
+            for invariant_id, record in self.invariants.items()
+        }
+        for failure in validate_seed_records(
+            written_seed_text=(
+                ROOT
+                / "docs/internal/testing/checklists/plc-verification-program/verification-areas.md"
+            ).read_text(),
+            seed_records=records,
+            invariants=self.invariants,
+            invariant_paths=invariant_paths,
+            spec_sources=self.spec_sources,
+            spec_gaps=self.spec_gaps,
+            risks=self.risks,
+            tests=self.tests,
+            evidence=self.evidence,
+        ):
+            self.fail(path, failure)
+
     def check_common(
         self,
         path: Path,
@@ -780,6 +844,8 @@ class Validator:
             for failure in self.failures:
                 print(f"- {failure.path}: {failure.message}", file=sys.stderr)
             return 1
+        seed_records = self.seed_manifest.get("seeds", [])
+        seed_count = len(seed_records) if isinstance(seed_records, list) else 0
         total = (
             len(self.spec_sources)
             + len(self.spec_gaps)
@@ -791,6 +857,7 @@ class Validator:
             + len(self.risks)
             + len(self.required_specs)
             + (1 if self.matrix else 0)
+            + seed_count
         )
         print(f"verification metadata validated: {total} records")
         return 0

@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RT_SAFE_NAN_001"
+title = "Non-finite ingress cannot silently become unsafe REAL state"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "NaN and infinity ingress must not create an unreported unsafe REAL state."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
+missing = ["nonfinite_ingress_policy", "boundary_specific_oracles"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "spec_gap"
+rationale = "Accepted non-finite behavior at each ingress boundary is not specified."
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"

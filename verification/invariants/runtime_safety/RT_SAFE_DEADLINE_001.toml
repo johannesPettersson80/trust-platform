@@ -1,0 +1,29 @@
+schema_version = 1
+id = "RT_SAFE_DEADLINE_001"
+title = "Execution deadline expiry is visible"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "The runtime execution deadline must be armed as documented and its expiry must be visible to control and status surfaces."
+proof_level = "S0"
+contract_kind = "fault_scenario"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_deadline_cases", "deadline_surface_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "The reviewed deadline decision exists, but accepted fault cases and proof are not linked."

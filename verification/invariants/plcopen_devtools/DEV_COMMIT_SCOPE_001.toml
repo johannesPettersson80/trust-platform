@@ -1,0 +1,31 @@
+schema_version = 1
+id = "DEV_COMMIT_SCOPE_001"
+title = "Developer commit helpers expose unrelated staged scope"
+area = "plcopen_devtools"
+risk = "data_loss"
+status = "spec_gap"
+owner = "trust-dev"
+last_reviewed = "2026-07-10"
+claim = "Developer commit helpers must not silently include unrelated pre-staged changes."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-dev/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_DEV_COMMIT_SCOPE_001"]
+missing = ["commit_staging_scope_contract", "pre_staged_collision_cases"]
+
+[spec]
+status = "missing"
+source_refs = []
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_DEV_COMMIT_SCOPE_001"
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "spec_gap"
+rationale = "Ownership and failure behavior for unrelated staged paths are not specified."
+spec_gap_ref = "SPEC_GAP_DEV_COMMIT_SCOPE_001"

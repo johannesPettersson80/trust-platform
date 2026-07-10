@@ -1,0 +1,31 @@
+schema_version = 1
+id = "REL_VERSION_001"
+title = "Release version, tag, workflow, and Latest marker stay aligned"
+area = "release"
+risk = "false_status"
+status = "spec_gap"
+owner = "release"
+last_reviewed = "2026-07-10"
+claim = "Workspace, extension, changelog, tag, workflow, release object, and Latest marker versions must not disagree at release completion."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["Cargo.toml", "CHANGELOG.md", "editors/vscode/package.json", ".github/workflows"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_RELEASE_VERSION_CHAIN_001"]
+missing = ["release_version_chain_contract", "public_latest_marker_proof"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "release_contract"
+ref = "SPEC_GAP_RELEASE_VERSION_CHAIN_001"
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "spec_gap"
+rationale = "The complete release version and public marker chain is not specified."
+spec_gap_ref = "SPEC_GAP_RELEASE_VERSION_CHAIN_001"

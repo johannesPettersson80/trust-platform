@@ -1,0 +1,31 @@
+schema_version = 1
+id = "SEC_AUTHZ_001"
+title = "Runtime control authorization is explicit and default deny"
+area = "control_security"
+risk = "security"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
+proof_level = "S0"
+contract_kind = "security_policy"
+source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"]
+missing = ["control_authorization_matrix", "default_deny_cases", "allowed_role_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "spec_gap"
+rationale = "The complete control operation and role matrix is not specified."
+spec_gap_ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"

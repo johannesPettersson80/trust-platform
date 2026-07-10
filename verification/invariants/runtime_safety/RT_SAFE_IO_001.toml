@@ -1,0 +1,29 @@
+schema_version = 1
+id = "RT_SAFE_IO_001"
+title = "Device work remains outside the scan-cycle critical path"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Slow device and protocol work must not block the scan-cycle critical path."
+proof_level = "S0"
+contract_kind = "fault_scenario"
+source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_slow_device_cases", "scan_latency_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The runtime contract exists, but cataloged slow-device cases and proof are not linked."

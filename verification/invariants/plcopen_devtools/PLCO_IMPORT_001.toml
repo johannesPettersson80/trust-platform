@@ -1,0 +1,29 @@
+schema_version = 1
+id = "PLCO_IMPORT_001"
+title = "Unsupported executable PLCopen content rejects loudly"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "gap_open"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-10"
+claim = "Unsupported executable non-ST PLCopen content must reject loudly without causing benign metadata to hide valid ST."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-plcopen/src"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_plcopen_body_cases", "real_vendor_corpus_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The reviewed import decision exists, but cataloged cases and real-vendor proof are not linked."

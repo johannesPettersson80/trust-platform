@@ -59,6 +59,9 @@ def validate_node(
         minimum = schema.get("minItems")
         if isinstance(minimum, int) and len(instance) < minimum:
             failures.append(f"{path}: array has fewer than {minimum} items")
+        maximum = schema.get("maxItems")
+        if isinstance(maximum, int) and len(instance) > maximum:
+            failures.append(f"{path}: array has more than {maximum} items")
         if schema.get("uniqueItems") is True:
             encoded = [json.dumps(item, sort_keys=True, separators=(",", ":")) for item in instance]
             if len(encoded) != len(set(encoded)):

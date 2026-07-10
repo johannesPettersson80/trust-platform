@@ -166,6 +166,8 @@ gap_class = "public_claim_unproven"
 blocking_question = "For each public platform, which release asset, CI job, smoke command, and unsupported boundary proves or limits support?"
 affected_invariants = [
   "RELEASE_PLATFORM_MATRIX_001",
+  "PLAT_PATH_001",
+  "PLAT_VSCODE_001",
 ]
 affected_tests = []
 candidate_spec_sources = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
@@ -211,3 +213,411 @@ candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
 resolution_status = "open"
 closeout_evidence = []
 last_reviewed = "2026-07-09"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_PARSER_RECOVERY_001"
+title = "Parser recovery progress and diagnostic boundaries need a written contract"
+area = "compiler_iec"
+risk = "silent_corruption"
+owner = "trust-syntax"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "Which malformed delimiters and nesting states must recovery consume, diagnose, and stop without accepting a partial construct?"
+affected_invariants = ["IEC_PARSE_RECOVER_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_IEC_DEVIATIONS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+title = "STRING bounds across assignment and parameter binding need a written contract"
+area = "compiler_iec"
+risk = "wrong_result"
+owner = "trust-hir"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Where and how must STRING[n] bounds be enforced during assignment, calls, returns, and function-block parameter binding?"
+affected_invariants = ["IEC_STRING_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+title = "Timer restart and time-base boundaries need a written contract"
+area = "compiler_iec"
+risk = "safety_critical"
+owner = "language"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "What are the TP, TOF, and TON ET, restart, clock-reset, and runtime time-base semantics at every lifecycle boundary?"
+affected_invariants = ["IEC_TIMER_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"
+title = "Retain load and save failure policy needs a written contract"
+area = "runtime_safety"
+risk = "data_loss"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_persistence"
+blocking_question = "Which retain read, decode, compatibility, and write failures block startup or shutdown, and how must each failure be surfaced?"
+affected_invariants = ["RT_SAFE_RETAIN_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+title = "Force, write, and release lifecycle needs a written contract"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How do force, write, and release state transition across disconnect, stop, restart, pause, fault, and authorization changes?"
+affected_invariants = ["RT_SAFE_FORCE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+title = "Non-finite REAL ingress policy needs a written contract"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "At each I/O, protocol, API, and retained-value boundary, must NaN and infinity be rejected, normalized, faulted, or propagated?"
+affected_invariants = ["RT_SAFE_NAN_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"
+title = "Online-change and hot-reload transaction boundaries need a written contract"
+area = "runtime_safety"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which runtime state, status, I/O, retain, and debug changes form one reload transaction, and what must happen on partial failure?"
+affected_invariants = ["RT_RELOAD_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001"
+title = "Protocol discovery handshake confidence needs a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which protocol exchange distinguishes a confirmed endpoint from a likely endpoint or port reachability for each connector?"
+affected_invariants = ["PROTO_MODBUS_001", "PROTO_MQTT_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"
+title = "EtherCAT unavailable-resource behavior needs a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_hardware_contract"
+blocking_question = "What bounded memory, retry, timeout, and status behavior is required when EtherCAT hardware or configuration is unavailable?"
+affected_invariants = ["PROTO_ETHERCAT_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"
+title = "Connector status vocabulary and lifecycle need a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which canonical states, freshness transitions, and error details must each connector expose without collapsing configured, reachable, and live?"
+affected_invariants = ["PROTO_ADS_001", "PROTO_OPCUA_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"
+title = "Rename conflict and shadow-capture policy needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-ide"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which local, imported, project-wide, and cross-file conflicts must make rename refuse rather than capture another symbol?"
+affected_invariants = ["EDIT_RENAME_001", "EDIT_RENAME_002"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"
+title = "LSP negotiated position encoding needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Which negotiated or default character encoding governs every incoming and outgoing position, range, edit, and semantic-token length?"
+affected_invariants = ["EDIT_LSP_POS_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001"
+title = "Diagnostic cancellation publication policy needs a written contract"
+area = "editor_safety"
+risk = "false_status"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must push, pull, and workspace diagnostics distinguish cancellation from a successful empty diagnostic result?"
+affected_invariants = ["EDIT_DIAG_CANCEL_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEBUG_AUTHORIZATION_001"
+title = "Debug write and force authorization needs a written contract"
+area = "control_security"
+risk = "security"
+owner = "trust-debug"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which authenticated roles may write, force, or release each address class, and what denial contract applies by default?"
+affected_invariants = ["DEBUG_AUTH_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+title = "Debug pause and watchdog interaction needs a written contract"
+area = "editor_safety"
+risk = "safety_critical"
+owner = "trust-debug"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "While execution is paused, which scan deadline, watchdog, I/O, safe-state, and resume semantics remain active?"
+affected_invariants = ["DEBUG_PAUSE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"
+title = "Developer test-discovery filename case policy is unspecified"
+area = "plcopen_devtools"
+risk = "false_status"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_user_workflow"
+blocking_question = "Which supported source extensions and case variants must test discovery include, and how must unsupported files be reported?"
+affected_invariants = ["DEV_TEST_DISCOVERY_001"]
+affected_tests = []
+candidate_spec_sources = []
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_COMMIT_SCOPE_001"
+title = "Developer commit-helper staging scope is unspecified"
+area = "plcopen_devtools"
+risk = "data_loss"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_user_workflow"
+blocking_question = "How must commit helpers distinguish their generated changes from unrelated pre-staged paths before creating a commit?"
+affected_invariants = ["DEV_COMMIT_SCOPE_001"]
+affected_tests = []
+candidate_spec_sources = []
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_UI_STATUS_VOCABULARY_001"
+title = "Cross-surface runtime status vocabulary needs a written contract"
+area = "hmi_ui"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_ui_contract"
+blocking_question = "Which canonical connector states, freshness labels, and fault details must HMI, editor, CLI, hover, and reports render consistently?"
+affected_invariants = ["UI_STATUS_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+title = "Runtime control authorization matrix needs a written contract"
+area = "control_security"
+risk = "security"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which roles may invoke every control, API, HMI, file-read, write, force, and release operation, including the default-deny boundary?"
+affected_invariants = ["SEC_AUTHZ_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+title = "Dependency audit and exception policy needs a written contract"
+area = "supply_chain_platform"
+risk = "supply_chain"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which vulnerability, license, advisory, and exception conditions block release, and who owns time-bounded exceptions?"
+affected_invariants = ["SEC_DEP_AUDIT_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_ARTIFACT_PROVENANCE_001"
+title = "Release artifact provenance chain needs a written contract"
+area = "supply_chain_platform"
+risk = "supply_chain"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "How must each release binary, package, VSIX, checksum, tag, commit, and workflow run be bound and independently verified?"
+affected_invariants = ["SEC_ARTIFACT_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+title = "Hardware public claims need proof-level boundaries"
+area = "release"
+risk = "false_status"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "How must public documentation distinguish mock, loopback, simulated, interoperability, and real device-in-loop evidence?"
+affected_invariants = ["REL_CLAIM_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_CONFORMANCE_PUBLICATION_001"
+title = "Conformance publication source-of-truth needs a written contract"
+area = "release"
+risk = "false_status"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "Which suite results, known gaps, timestamps, and toolchain identity must generate each public conformance statement?"
+affected_invariants = ["REL_CONF_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RELEASE_VERSION_CHAIN_001"
+title = "Release version and Latest-marker chain needs a written contract"
+area = "release"
+risk = "false_status"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which version files, changelog entry, tag, workflow run, release object, artifacts, and Latest marker must agree before release completion?"
+affected_invariants = ["REL_VERSION_001"]
+affected_tests = []
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-10"

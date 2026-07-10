@@ -116,6 +116,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "enum",
     "pattern",
     "minItems",
+    "maxItems",
     "items",
     "uniqueItems",
     "minLength",

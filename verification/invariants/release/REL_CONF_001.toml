@@ -1,0 +1,31 @@
+schema_version = 1
+id = "REL_CONF_001"
+title = "Public conformance status derives from results and known gaps"
+area = "release"
+risk = "false_status"
+status = "spec_gap"
+owner = "docs"
+last_reviewed = "2026-07-10"
+claim = "Public conformance status must be generated from identified suite results and the current known-gap set."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["docs/public", "verification"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_CONFORMANCE_PUBLICATION_001"]
+missing = ["conformance_publication_contract", "suite_and_gap_source_binding"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_CONFORMANCE_PUBLICATION_001"
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "spec_gap"
+rationale = "The generation inputs and freshness rules for public conformance status are unspecified."
+spec_gap_ref = "SPEC_GAP_CONFORMANCE_PUBLICATION_001"

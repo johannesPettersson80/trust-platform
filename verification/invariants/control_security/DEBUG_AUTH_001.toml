@@ -1,0 +1,31 @@
+schema_version = 1
+id = "DEBUG_AUTH_001"
+title = "Debug writes and forces require explicit authorization"
+area = "control_security"
+risk = "security"
+status = "spec_gap"
+owner = "trust-debug"
+last_reviewed = "2026-07-10"
+claim = "A default viewer or control connection must not gain write, force, or release authority without an explicit authorization contract."
+proof_level = "S0"
+contract_kind = "security_policy"
+source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_DEBUG_AUTHORIZATION_001"]
+missing = ["debug_role_permission_matrix", "deny_allow_boundary_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_DEBUG_AUTHORIZATION_001"
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "spec_gap"
+rationale = "Debug write, force, and release role boundaries are not specified."
+spec_gap_ref = "SPEC_GAP_DEBUG_AUTHORIZATION_001"

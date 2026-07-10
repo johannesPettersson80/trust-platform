@@ -1,0 +1,31 @@
+schema_version = 1
+id = "DEV_TEST_DISCOVERY_001"
+title = "Developer test discovery cannot silently skip supported filename case"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "spec_gap"
+owner = "trust-dev"
+last_reviewed = "2026-07-10"
+claim = "Developer test discovery must not silently omit a supported source because of extension case."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-dev/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"]
+missing = ["supported_extension_case_contract", "mixed_case_discovery_cases"]
+
+[spec]
+status = "missing"
+source_refs = []
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "spec_gap"
+rationale = "Supported extension and case variants are not specified."
+spec_gap_ref = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"

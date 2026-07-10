@@ -147,6 +147,7 @@ verification/
   suites/
   cases/
   schemas/
+  invariant-seeds.toml
   matrix.toml
   spec-matrix.toml
   test-catalog.toml
@@ -254,3 +255,24 @@ reviewed grace duration or milestone required by `VERIF-P14-000` exists.
 Historical source text, paths, names, and lexical references never create a
 `red_protective` or `flaky_quarantined` claim. Ignored and conditional tests do
 not become runnable proof or coverage through this registry.
+
+Phase 4 maps the 44 seed obligations written in `verification-areas.md` through
+`verification/invariant-seeds.toml`. The manifest uses explicit aliases only
+where an existing canonical invariant already owns the same obligation; names
+and prose similarity cannot create aliases. New seeds remain `gap_open` or
+`spec_gap` at S0 with no mapped tests or closing evidence. Five review-derived
+risks retain their tracked source provenance without treating historical fix
+evidence as proof of the registry claim.
+
+The Phase 4A specification-completeness report keeps four debt surfaces
+separate: unspecified/ambiguous invariant specs, expected-result tests without
+an oracle or gap, `spec_gap` coverage cells, and the bytecode pilot's disjoint
+spec-gap/test-gap denominator. Public claims are registry-only context until
+the broad claim inventory is complete, so `VERIF-P4A-005` remains open.
+
+```text
+python3 scripts/report_invariant_seed_audit.py --json-out <json> --markdown-out <md> --timestamp <time>
+python3 scripts/validate_invariant_seed_audit_report.py --json <json> --markdown <md>
+python3 scripts/report_spec_completeness.py --json-out <json> --markdown-out <md> --timestamp <time>
+python3 scripts/validate_spec_completeness_report.py --json <json> --markdown <md>
+```

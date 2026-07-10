@@ -27,6 +27,7 @@ from .oracle_refs import (
     validate_oracle_ref,
     validate_partition_contract,
 )
+from .integrity import OPEN_GAP_RESOLUTIONS
 
 Fail = Callable[[Path, str], None]
 Require = Callable[[Path, dict[str, Any], list[str], str], None]
@@ -119,8 +120,24 @@ def validate_invariants(
                     f"{record['id']} spec_gap oracle.ref must name one of "
                     "spec_gap_refs",
                 )
+            else:
+                gap = spec_gaps.get(oracle.get("ref"))
+                if not gap or gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS:
+                    fail(
+                        path,
+                        f"{record['id']} spec_gap oracle.ref must name an open "
+                        "actionable spec gap",
+                    )
         elif oracle.get("ref") in spec_gaps:
             fail(path, f"{record['id']} non-spec-gap oracle.ref cannot name a spec gap")
+        else:
+            validate_oracle_ref(
+                fail=fail,
+                path=path,
+                owner_id=record["id"],
+                oracle_ref=oracle.get("ref"),
+                spec_sources=spec_sources,
+            )
         check_refs(path, record.get("tests", []), tests, "test", record["id"])
         check_refs(path, record.get("gates", []), suites, "suite", record["id"])
         check_refs(

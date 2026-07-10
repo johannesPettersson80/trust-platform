@@ -1,0 +1,29 @@
+schema_version = 1
+id = "IEC_SUBRANGE_001"
+title = "Subrange writes follow the reviewed product decision"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "gap_open"
+owner = "trust-hir"
+last_reviewed = "2026-07-10"
+claim = "Subrange write handling must remain aligned with the active reviewed decision and its documented unsupported boundaries."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+missing = ["cataloged_subrange_write_cases", "decision_traceability"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DECISIONS_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_IEC_DECISIONS_001"
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "A reviewed decision exists, but accepted boundary cases and proof are not linked."

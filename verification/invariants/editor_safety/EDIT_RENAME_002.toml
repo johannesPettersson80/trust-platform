@@ -1,0 +1,31 @@
+schema_version = 1
+id = "EDIT_RENAME_002"
+title = "Cross-file rename checks the merged project symbol table"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-ide"
+last_reviewed = "2026-07-10"
+claim = "Cross-file rename conflict checks must include imported and merged project symbols."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-ide/src", "crates/trust-hir/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_EDITOR_RENAME_CONFLICT_001"]
+missing = ["merged_symbol_conflict_contract", "cross_file_collision_cases"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "spec_gap"
+rationale = "Merged-project rename conflicts require a complete written partition."
+spec_gap_ref = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"

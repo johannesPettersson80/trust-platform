@@ -29,6 +29,10 @@ Current seed scope:
   `VERIF-P2-010`.
 - report-only existing-test refactor assessment and a deny-by-default reviewed
   proposal/redirect contract for `VERIF-P2A-001` through `VERIF-P2A-010`.
+- exhaustive ignored-test discovery and reviewed classification for
+  `VERIF-P3-001` through `VERIF-P3-005`.
+- an exhaustive 44-obligation invariant seed manifest, five imported review
+  risks, and report-only specification-completeness debt for Phase 4/4A.
 
 TOML shape convention:
 
@@ -36,6 +40,9 @@ TOML shape convention:
   `verification/invariants/<area>/<INVARIANT_ID>.toml`;
 - flat registries use plural wrapper arrays, for example `[[spec_sources]]`,
   `[[spec_gaps]]`, and `[[evidence]]`;
+- `verification/invariant-seeds.toml` maps the 44 written seed obligations to
+  canonical invariant records. Its three reviewed aliases are identity only;
+  they create no test, proof, or gap closure.
 - committed case tables live under `verification/cases/<area>/**` and are
   referenced from planned test-catalog rows by path plus SHA-256 digest.
   These rows pin planning artifacts only; they do not count as runnable proof.
@@ -163,6 +170,18 @@ TOML shape convention:
   escaping, or class-incomplete records fail immediately. The primary metadata
   validator checks the static schema and class obligations but does not perform
   the source scan. These Phase 3 commands are not wired into CI enforcement.
+- Run `scripts/report_invariant_seed_audit.py` and
+  `scripts/validate_invariant_seed_audit_report.py` for the Phase 4 exhaustive
+  seed/import join. It requires 44 written seeds, 43 canonical invariants, five
+  review-risk links, durable non-public oracle sources for `gap_open`, and open
+  focused gaps for `spec_gap`. Every seed remains S0 and unvalidated.
+- Run `scripts/report_spec_completeness.py` and
+  `scripts/validate_spec_completeness_report.py` for Phase 4A debt: invariants
+  whose specification is not `specified`, expected-result tests without an
+  oracle/gap binding, `spec_gap` coverage cells, and the bytecode pilot's
+  explicit spec-gap/test-gap partition. Registered public claims are shown as
+  non-exhaustive context; `VERIF-P4A-005` remains open until broad claim-source
+  inventory exists. Neither report is wired into CI enforcement.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

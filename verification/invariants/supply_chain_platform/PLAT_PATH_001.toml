@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PLAT_PATH_001"
+title = "Supported platform path behavior is proven or rejected clearly"
+area = "supply_chain_platform"
+risk = "platform"
+status = "spec_gap"
+owner = "release"
+last_reviewed = "2026-07-10"
+claim = "Path and filesystem behavior on each supported platform must be tested or fail with an explicit unsupported diagnostic."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["crates", "scripts"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"]
+missing = ["platform_path_behavior_matrix", "unsupported_path_diagnostics"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "spec_gap"
+rationale = "Platform path and filesystem support boundaries are not mapped to proof."
+spec_gap_ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"

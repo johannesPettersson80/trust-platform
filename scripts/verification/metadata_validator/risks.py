@@ -40,7 +40,11 @@ def validate_risks(
         "last_reviewed",
         "description",
         "mitigation",
+        "source_refs",
         "related_invariants",
+        "related_spec_gaps",
+        "related_spec_sources",
+        "evidence_refs",
     ]
     for record in risks.values():
         path = record["_path"]
@@ -48,6 +52,10 @@ def validate_risks(
         check_common(path, record)
         if record.get("risk") not in RISKS:
             fail(path, f"{record['id']} has unknown risk {record.get('risk')!r}")
+        if not record.get("source_refs"):
+            fail(path, f"{record['id']} must name at least one provenance source_ref")
+        if not record.get("related_invariants"):
+            fail(path, f"{record['id']} must link at least one invariant")
         check_refs(
             path,
             record.get("related_invariants", []),

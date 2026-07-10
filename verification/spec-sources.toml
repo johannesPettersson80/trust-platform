@@ -273,3 +273,176 @@ known_limitations = [
   "Cannot be closed until verification metadata maps runtime/debugger invariants to suites/evidence; see SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001.",
 ]
 conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_EXTERNAL_REVIEW_V08_001"
+title = "PLC verification external-review finding V-08"
+area = "verification"
+owner = "verification"
+status = "mapped"
+authority = "reviewed_decision"
+source_status = "active"
+visibility = "internal"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/review-verdict.md"
+version = "2026-07-08"
+last_reviewed = "2026-07-10"
+covers = [
+  "review_finding_v08_provenance",
+  "timer_semantics_risk",
+  "nonfinite_ingress_risk",
+  "runtime_authorization_risk",
+  "opcua_lifecycle_risk",
+  "runtime_reload_risk",
+]
+known_limitations = [
+  "This source records finding provenance only and must never be used as an invariant oracle.",
+  "Each imported finding remains planned and requires its own written contract or focused open spec gap.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_IEC_EXPRESSIONS_001"
+title = "truST IEC expression contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+visibility = "public"
+path = "docs/specs/05-expressions.md"
+version = "current"
+last_reviewed = "2026-07-10"
+covers = [
+  "expression_syntax",
+  "operator_precedence",
+  "operator_associativity",
+]
+known_limitations = [
+  "The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+title = "truST IEC data-type contract candidate"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+visibility = "public"
+path = "docs/specs/02-data-types.md"
+version = "current"
+last_reviewed = "2026-07-10"
+covers = [
+  "elementary_data_types",
+  "string_bounds",
+  "subrange_types",
+]
+known_limitations = [
+  "Assignment and parameter-binding enforcement remain candidates for focused specification closure.",
+  "This product source does not by itself establish IEC conformance.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+title = "truST IEC standard function-block contract candidate"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+visibility = "public"
+path = "docs/specs/08-standard-function-blocks.md"
+version = "current"
+last_reviewed = "2026-07-10"
+covers = [
+  "standard_function_blocks",
+  "timer_function_blocks",
+  "timer_elapsed_time",
+]
+known_limitations = [
+  "Timer restart and runtime time-base boundaries remain an open specification gap.",
+  "This product source does not by itself establish IEC conformance.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_LSP_CONTRACT_001"
+title = "truST LSP product contract candidate"
+area = "editor_safety"
+owner = "trust-lsp"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+visibility = "public"
+path = "docs/specs/14-lsp.md"
+version = "current"
+last_reviewed = "2026-07-10"
+covers = [
+  "lsp_range_operations",
+  "lsp_incremental_sync",
+]
+known_limitations = [
+  "The source does not specify negotiated character encoding or supplementary-plane position conversion.",
+  "Rename conflict and diagnostic cancellation partitions remain focused open specification gaps.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
+title = "Reviewed OPC UA client lifecycle decision"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "reviewed_decision"
+source_status = "active"
+visibility = "internal"
+path = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-04-phase-03/opcua-client-subscription-spike.md"
+version = "2026-07-04"
+last_reviewed = "2026-07-10"
+covers = [
+  "opcua_persistent_session",
+  "opcua_subscription_recovery",
+  "opcua_freshness_status",
+]
+known_limitations = [
+  "This reviewed implementation decision is not a public protocol-conformance claim or hardware proof.",
+]
+context_refs = [
+  "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-04-phase-03/opcua-persistent-worker-remote-proof.md",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_PLCOPEN_IMPORT_DECISION_001"
+title = "truST PLCopen import compatibility contract"
+area = "plcopen_devtools"
+owner = "trust-plcopen"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+visibility = "public"
+path = "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"
+version = "current"
+last_reviewed = "2026-07-10"
+covers = [
+  "plcopen_non_st_rejection",
+  "plcopen_st_import",
+  "plcopen_fixture_provenance",
+]
+known_limitations = [
+  "Real CODESYS and TwinCAT export-corpus coverage remains unavailable and must not be inferred from synthetic fixtures.",
+]
+context_refs = [
+  "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-09/plcopen-import-and-root-scratch-cleanup.md",
+]
+conflicts_with = []

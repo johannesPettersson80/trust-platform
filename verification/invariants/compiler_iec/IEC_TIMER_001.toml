@@ -1,0 +1,31 @@
+schema_version = 1
+id = "IEC_TIMER_001"
+title = "Timer elapsed-time and restart semantics are explicit"
+area = "compiler_iec"
+risk = "safety_critical"
+status = "spec_gap"
+owner = "language"
+last_reviewed = "2026-07-10"
+claim = "TP, TOF, and TON elapsed-time, restart, and time-base semantics must be specified before they are treated as verified."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+missing = ["timer_restart_contract", "runtime_timebase_contract", "timer_lifecycle_cases"]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "spec_gap"
+rationale = "Timer restart and runtime time-base behavior remain unspecified."
+spec_gap_ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"

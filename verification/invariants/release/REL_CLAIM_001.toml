@@ -1,0 +1,31 @@
+schema_version = 1
+id = "REL_CLAIM_001"
+title = "Public hardware claims name their proof level"
+area = "release"
+risk = "false_status"
+status = "spec_gap"
+owner = "docs"
+last_reviewed = "2026-07-10"
+claim = "Public hardware documentation must distinguish mock, loopback, simulation, interoperability, and real device-in-loop evidence."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["docs/public", "README.md"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"]
+missing = ["public_hardware_proof_vocabulary", "claim_to_evidence_matrix"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "spec_gap"
+rationale = "Public proof-level vocabulary and evidence linkage are not specified."
+spec_gap_ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"

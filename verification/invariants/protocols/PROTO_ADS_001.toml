@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PROTO_ADS_001"
+title = "ADS status and tooling surfaces report honest connection state"
+area = "protocols"
+risk = "false_status"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "ADS status, route, browse, and import surfaces must not collapse configured, reachable, connected, and live into one state."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PROTOCOL_STATUS_MODEL_001"]
+missing = ["ads_status_lifecycle_contract", "cross_surface_status_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "spec_gap"
+rationale = "Canonical connector state and freshness transitions are not specified."
+spec_gap_ref = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"

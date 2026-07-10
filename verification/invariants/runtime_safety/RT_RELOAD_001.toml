@@ -1,0 +1,31 @@
+schema_version = 1
+id = "RT_RELOAD_001"
+title = "Runtime reload is transactionally consistent"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Online change and hot reload must not leave live runtime state partially applied or inconsistent with status."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"]
+missing = ["reload_transaction_contract", "partial_failure_cases"]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "spec_gap"
+rationale = "Reload transaction and rollback boundaries must be specified before failure outcomes are accepted."
+spec_gap_ref = "SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"

@@ -220,6 +220,7 @@ SCHEMA_FILES = {
     "suite.schema.json",
     "catalog.schema.json",
     "ignored-test.schema.json",
+    "invariant-seed-manifest.schema.json",
     "risk-register.schema.json",
     "evidence.schema.json",
     "spec-source.schema.json",
@@ -352,6 +353,10 @@ SCHEMA_REQUIRED_FIELDS = {
         "oracle",
         "coverage",
     ],
+    "invariant-seed-manifest.schema.json": [
+        "schema_version",
+        "seeds",
+    ],
     "matrix.schema.json": [
         "schema_version",
         "id",
@@ -373,7 +378,11 @@ SCHEMA_REQUIRED_FIELDS = {
         "last_reviewed",
         "description",
         "mitigation",
+        "source_refs",
         "related_invariants",
+        "related_spec_gaps",
+        "related_spec_sources",
+        "evidence_refs",
     ],
     "spec-gap.schema.json": [
         "schema_version",
@@ -386,8 +395,10 @@ SCHEMA_REQUIRED_FIELDS = {
         "gap_class",
         "blocking_question",
         "affected_invariants",
+        "affected_tests",
         "candidate_spec_sources",
         "resolution_status",
+        "closeout_evidence",
         "last_reviewed",
     ],
     "spec-matrix.schema.json": [

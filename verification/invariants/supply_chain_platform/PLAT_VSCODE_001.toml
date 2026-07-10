@@ -1,0 +1,31 @@
+schema_version = 1
+id = "PLAT_VSCODE_001"
+title = "VSIX package behavior matches the supported platform matrix"
+area = "supply_chain_platform"
+risk = "compatibility"
+status = "spec_gap"
+owner = "editors-vscode"
+last_reviewed = "2026-07-10"
+claim = "VSIX installation and packaged binary behavior must be smoke-tested on each claimed platform or scoped as unsupported."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["editors/vscode", ".github/workflows"]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"]
+missing = ["vsix_platform_smoke_matrix", "packaged_binary_identity_proof"]
+
+[spec]
+status = "missing"
+source_refs = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "public_doc"
+ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "spec_gap"
+rationale = "VSIX and packaged-binary support is not mapped across the public platform matrix."
+spec_gap_ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
