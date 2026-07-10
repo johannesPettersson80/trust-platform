@@ -22,20 +22,11 @@ from .constants import (
     BLOCKS_VALUES,
     CASE_FAMILIES,
     COMMIT_RE,
-    CONTRACT_KINDS,
-    COVERAGE_STATES,
-    DELTA_KEYS,
-    DELTA_VALUES,
     EVIDENCE_KINDS,
     GAP_CLASSES,
     HIGH_RISKS,
     INTENTS,
-    ORACLE_KINDS,
-    OUTCOMES,
-    PARTITION_KEYS,
     PROOF_KINDS,
-    PROOF_LEVELS,
-    PROOF_LEVELS_VALIDATED,
     PROVE_PRODUCER_RE,
     RESOLUTION_STATUSES,
     RISKS,
@@ -44,7 +35,6 @@ from .constants import (
     SCHEMA_REQUIRED_FIELDS,
     SOURCE_AUTHORITIES,
     SOURCE_STATUSES,
-    SPEC_STATUSES,
     STATUSES,
     SUITE_AREA,
     TEST_CLASSES,
@@ -59,13 +49,11 @@ from .integrity import (
     validate_runnable_test_path,
 )
 from .ignored_tests import load_checklist_row_ids, validate_ignored_test_records
+from .invariants import validate_invariants as validate_invariant_records
 from .mutation_shards import validate_committed_mutation_metadata
-from .oracle_refs import (
-    validate_error_code_ref,
-    validate_oracle_ref,
-    validate_partition_contract,
-)
+from .oracle_refs import validate_oracle_ref
 from .schema_contracts import validate_schema_enums
+from .risks import validate_risks as validate_risk_records
 from .taxonomy import validate_taxonomy_drift
 
 
@@ -393,162 +381,19 @@ class Validator:
                     self.fail(path, f"{record['id']} includes unknown suite {suite_id}")
 
     def validate_invariants(self) -> None:
-        required = [
-            "schema_version",
-            "id",
-            "title",
-            "area",
-            "risk",
-            "status",
-            "owner",
-            "claim",
-            "contract_kind",
-            "spec.status",
-            "oracle.kind",
-            "oracle.ref",
-            "proof_level",
-            "tests",
-            "gates",
-            "missing",
-            "coverage",
-        ]
-        for record in self.invariants.values():
-            path = record["_path"]
-            self.require(path, record, required, "invariant")
-            self.check_common(path, record)
-            relative = path.relative_to(VERIFICATION / "invariants")
-            if relative.parts[0] != record.get("area"):
-                self.fail(path, f"{record['id']} area {record.get('area')!r} does not match directory {relative.parts[0]!r}")
-            if path.stem != record.get("id"):
-                self.fail(path, f"{record['id']} filename must match invariant id")
-            if record.get("risk") not in RISKS:
-                self.fail(path, f"{record['id']} has unknown risk {record.get('risk')!r}")
-            if record.get("proof_level") not in PROOF_LEVELS:
-                self.fail(path, f"{record['id']} has unknown proof_level {record.get('proof_level')!r}")
-            if record.get("contract_kind") not in CONTRACT_KINDS:
-                self.fail(path, f"{record['id']} has unknown contract_kind {record.get('contract_kind')!r}")
-            spec = record.get("spec", {})
-            if spec.get("status") not in SPEC_STATUSES:
-                self.fail(path, f"{record['id']} has unknown spec.status {spec.get('status')!r}")
-            if not spec.get("source_refs") and not record.get("spec_gap_refs"):
-                self.fail(path, f"{record['id']} must name spec.source_refs or spec_gap_refs")
-            oracle = record.get("oracle", {})
-            if oracle.get("kind") not in ORACLE_KINDS:
-                self.fail(path, f"{record['id']} has unknown oracle.kind {oracle.get('kind')!r}")
-            if record.get("status") == "spec_gap":
-                if oracle.get("ref") not in record.get("spec_gap_refs", []):
-                    self.fail(path, f"{record['id']} spec_gap oracle.ref must name one of spec_gap_refs")
-            elif oracle.get("ref") in self.spec_gaps:
-                self.fail(path, f"{record['id']} non-spec-gap oracle.ref cannot name a spec gap")
-            self.check_refs(path, record.get("tests", []), self.tests, "test", record["id"])
-            self.check_refs(path, record.get("gates", []), self.suites, "suite", record["id"])
-            self.check_refs(path, record.get("evidence_refs", []), self.evidence, "evidence", record["id"])
-            self.check_refs(path, record.get("spec_gap_refs", []), self.spec_gaps, "spec gap", record["id"])
-            for source_id in spec.get("source_refs", []):
-                if source_id not in self.spec_sources:
-                    self.fail(path, f"{record['id']} references unknown spec source {source_id}")
-            cells = record.get("coverage", {}).get("cells")
-            if not isinstance(cells, list) or not cells:
-                self.fail(path, f"{record['id']} must have coverage.cells")
-            else:
-                for cell in cells:
-                    self.validate_coverage_cell(path, record, cell)
-            for behavior in record.get("behavior", []):
-                self.validate_behavior(path, record, behavior)
-            if record.get("status") == "validated":
-                self.validate_validated_invariant(path, record)
-            if record.get("status") == "test_written" and not record.get("tests"):
-                self.fail(path, f"{record['id']} is test_written without tests")
-            if record.get("status") == "implemented" and (not record.get("tests") or not record.get("evidence_refs")):
-                self.fail(path, f"{record['id']} is implemented without tests and evidence")
-            if record.get("status") in {"implemented", "validated"} and record.get("risk") in HIGH_RISKS:
-                if not self.has_closing_high_risk_evidence(record):
-                    self.fail(path, f"{record['id']} high-risk {record.get('status')} lacks allowlisted green/lock evidence that back-links the invariant")
-
-    def validate_coverage_cell(self, path: Path, record: dict[str, Any], cell: dict[str, Any]) -> None:
-        dimension = cell.get("dimension")
-        if dimension not in CASE_FAMILIES:
-            self.fail(path, f"{record['id']} has unknown coverage dimension {dimension!r}")
-        state = cell.get("state")
-        if state not in COVERAGE_STATES:
-            self.fail(path, f"{record['id']} has unknown coverage state {state!r}")
-        if state == "spec_gap":
-            gap_id = cell.get("spec_gap_ref")
-            if gap_id not in self.spec_gaps:
-                self.fail(path, f"{record['id']} coverage cell references unknown spec_gap_ref {gap_id!r}")
-        if state in {"covered", "covered_by_fuzz"} and not record.get("tests"):
-            self.fail(path, f"{record['id']} coverage cell {dimension} is {state} without tests")
-        if state == "not_applicable":
-            decision_ref = cell.get("decision_ref")
-            source = self.spec_sources.get(decision_ref)
-            if not source or source.get("authority") not in {"reviewed_decision", "reviewed_deviation"} or source.get("source_status") != "active":
-                self.fail(path, f"{record['id']} not_applicable cell requires active reviewed decision/deviation decision_ref")
-
-    def validate_behavior(self, path: Path, record: dict[str, Any], behavior: dict[str, Any]) -> None:
-        partition = behavior.get("partition")
-        if not isinstance(partition, dict) or not partition:
-            self.fail(path, f"{record['id']} behavior must define a partition table")
-        else:
-            unknown_keys = set(partition) - PARTITION_KEYS
-            if unknown_keys:
-                self.fail(path, f"{record['id']} behavior partition has unknown keys {sorted(unknown_keys)}")
-            validate_partition_contract(fail=self.fail, path=path, owner_id=record["id"], behavior=behavior)
-        if "oracle_ref" not in behavior and "spec_gap_ref" not in behavior:
-            self.fail(path, f"{record['id']} behavior must name oracle_ref or spec_gap_ref")
-        if "oracle_ref" in behavior and "spec_gap_ref" in behavior:
-            self.fail(path, f"{record['id']} behavior cannot use oracle_ref and spec_gap_ref together")
-        if "spec_gap_ref" in behavior and behavior["spec_gap_ref"] not in self.spec_gaps:
-            self.fail(path, f"{record['id']} behavior references unknown spec_gap_ref {behavior['spec_gap_ref']}")
-        if "spec_gap_ref" in behavior:
-            forbidden = {"outcome", "delta", "error_code", "no_partial_apply", "fault_surface"} & set(behavior)
-            if forbidden:
-                self.fail(path, f"{record['id']} spec-gap behavior cannot carry expected outcome fields {sorted(forbidden)}")
-            return
-        validate_oracle_ref(
+        validate_invariant_records(
             fail=self.fail,
-            path=path,
-            owner_id=record["id"],
-            oracle_ref=behavior.get("oracle_ref"),
+            require=self.require,
+            check_common=self.check_common,
+            check_refs=self.check_refs,
+            invariants=self.invariants,
             spec_sources=self.spec_sources,
+            spec_gaps=self.spec_gaps,
+            tests=self.tests,
+            suites=self.suites,
+            evidence=self.evidence,
+            approved_producers=self.approved_producers(),
         )
-        validate_error_code_ref(
-            fail=self.fail,
-            path=path,
-            owner_id=record["id"],
-            behavior=behavior,
-            spec_sources=self.spec_sources,
-        )
-        if behavior.get("outcome") not in OUTCOMES:
-            self.fail(path, f"{record['id']} has unknown behavior outcome {behavior.get('outcome')!r}")
-        delta = behavior.get("delta")
-        if not isinstance(delta, dict):
-            self.fail(path, f"{record['id']} behavior must use structured delta")
-            return
-        extra = set(delta) - DELTA_KEYS
-        missing = DELTA_KEYS - set(delta)
-        if extra:
-            self.fail(path, f"{record['id']} behavior delta has unknown keys {sorted(extra)}")
-        if missing:
-            self.fail(path, f"{record['id']} behavior delta missing keys {sorted(missing)}")
-        for key, value in delta.items():
-            if value not in DELTA_VALUES.get(key, set()):
-                self.fail(path, f"{record['id']} behavior delta.{key} has invalid value {value!r}")
-            if value == "expected_delta" and not (behavior.get("expected_delta_ref") or behavior.get("notes") or behavior.get("rationale")):
-                self.fail(path, f"{record['id']} behavior uses expected_delta without oracle-cited expected_delta_ref/notes")
-
-    def validate_validated_invariant(self, path: Path, record: dict[str, Any]) -> None:
-        if record.get("proof_level") not in PROOF_LEVELS_VALIDATED:
-            self.fail(path, f"{record['id']} validated with insufficient proof_level {record.get('proof_level')!r}")
-        if not record.get("tests"):
-            self.fail(path, f"{record['id']} validated without tests")
-        if not record.get("evidence_refs"):
-            self.fail(path, f"{record['id']} validated without evidence_refs")
-        if record.get("spec", {}).get("status") != "specified":
-            self.fail(path, f"{record['id']} validated without spec.status = specified")
-        if record.get("risk") in HIGH_RISKS:
-            for cell in record.get("coverage", {}).get("cells", []):
-                if cell.get("state") in {"gap_open", "spec_gap"}:
-                    self.fail(path, f"{record['id']} high-risk validated with open coverage cell {cell.get('dimension')}")
 
     def validate_required_specs(self) -> None:
         required = [
@@ -861,20 +706,17 @@ class Validator:
             self.fail(path, failure)
 
     def validate_risks(self) -> None:
-        for record in self.risks.values():
-            path = record["_path"]
-            self.require(
-                path,
-                record,
-                ["schema_version", "id", "title", "area", "risk", "owner", "status", "last_reviewed", "description", "mitigation", "related_invariants"],
-                "risk",
-            )
-            self.check_common(path, record)
-            if record.get("risk") not in RISKS:
-                self.fail(path, f"{record['id']} has unknown risk {record.get('risk')!r}")
-            self.check_refs(path, record.get("related_invariants", []), self.invariants, "invariant", record["id"])
-            self.check_refs(path, record.get("related_spec_gaps", []), self.spec_gaps, "spec gap", record["id"])
-            self.check_refs(path, record.get("evidence_refs", []), self.evidence, "evidence", record["id"])
+        validate_risk_records(
+            fail=self.fail,
+            require=self.require,
+            check_common=self.check_common,
+            check_refs=self.check_refs,
+            risks=self.risks,
+            invariants=self.invariants,
+            spec_gaps=self.spec_gaps,
+            spec_sources=self.spec_sources,
+            evidence=self.evidence,
+        )
 
     def check_common(
         self,
@@ -915,21 +757,6 @@ class Validator:
         for invariant_id in evidence.get("linked_invariants", []):
             invariant = self.invariants.get(invariant_id)
             if invariant and invariant.get("risk") in HIGH_RISKS:
-                return True
-        return False
-
-    def has_closing_high_risk_evidence(self, invariant: dict[str, Any]) -> bool:
-        approved_producers = self.approved_producers()
-        for evidence_id in invariant.get("evidence_refs", []):
-            evidence = self.evidence.get(evidence_id)
-            if not evidence:
-                continue
-            if invariant["id"] not in evidence.get("linked_invariants", []):
-                continue
-            if evidence.get("proof_kind") not in {"green", "lock_compare"}:
-                continue
-            producer = str(evidence.get("producer", ""))
-            if PROVE_PRODUCER_RE.match(producer) or producer in approved_producers:
                 return True
         return False
 
