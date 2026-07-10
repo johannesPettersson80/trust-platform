@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `3e207af163703fda7cbfae3c2bc7cbef9e643f87` classifies 1/3,816 scanner facts
+  commit `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
   required class slots complete (`mutation` and `negative_malformed_input`);
   `failing_regression`, `iec_conformance`, and `metadata_validation` remain
@@ -423,7 +423,7 @@ Acceptance:
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `3e207af163703fda7cbfae3c2bc7cbef9e643f87`
+  Clean-source report commit `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54`
   assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
   invariant/family slots have declared cells, 64 remain structurally
   unassigned, and one additional recorded dimension remains visible. All 17
@@ -464,45 +464,64 @@ Acceptance:
 
 ## Phase 2A - Existing Test Refactor Plan
 
-- [ ] `VERIF-P2A-001` Add report for large or mixed-purpose test files. The
+- [x] `VERIF-P2A-001` Add report for large or mixed-purpose test files. The
   implementation uses the architecture policy's inclusive 1,000-line review
   threshold and only reviewed catalog area/test-class diversity for purpose;
   names and source text cannot establish mixed purpose.
-- [ ] `VERIF-P2A-002` Add report for broad tests claiming too many invariants
+- [x] `VERIF-P2A-002` Add report for broad tests claiming too many invariants
   without coverage dimensions. Catalog v2 has no authorized dimension field,
   so every multi-invariant row is a candidate and unknown fields cannot satisfy
   the check.
-- [ ] `VERIF-P2A-003` Add report for duplicated fixtures or near-duplicate
+- [x] `VERIF-P2A-003` Add report for duplicated fixtures or near-duplicate
   malformed/boundary inputs. V1 reports whole-file exact/normalized matches,
   explicit malformed-class overlap, exact committed case inputs, same-table
   structural peers, and shared case references. Helper-level similarity is
   explicitly not assessed.
-- [ ] `VERIF-P2A-004` Add VS Code registration refactor report. The report joins
+- [x] `VERIF-P2A-004` Add VS Code registration refactor report. The report joins
   all 456 scanner facts to the 38 literal registrations and projects file size,
   fact, ignored, and mapped counts without recommending a refactor.
-- [ ] `VERIF-P2A-005` Add slow-test classification report. Only hand-owned
+- [x] `VERIF-P2A-005` Add slow-test classification report. Only hand-owned
   catalog `duration_class` values classify a fact; names, ignore state,
   hardware flags, and suite names never infer duration.
-- [ ] `VERIF-P2A-006` Require written plan for every proposed move/split/rename:
+- [x] `VERIF-P2A-006` Require written plan for every proposed move/split/rename:
   before command, after command, invariant IDs, fixture ownership, stale-path
   updates, expected behavior delta. The closed v1 contract validates these
   fields, binds dimensions to explicit malformed-class metadata, and blocks
   split until a multi-target model exists.
-- [ ] `VERIF-P2A-007` Add catalog redirect/stale-path rule for moved/renamed
+- [x] `VERIF-P2A-007` Add catalog redirect/stale-path rule for moved/renamed
   tests. Redirects require one validated proposal per edge and one live
   catalog/scanner endpoint. A second edge for the same test remains blocked
   until proof evidence IDs become proposal-scoped.
-- [ ] `VERIF-P2A-008` Add before/after focused behavior-lock rule. Completed
+- [x] `VERIF-P2A-008` Add before/after focused behavior-lock rule. Completed
   changes require distinct-revision, production-valid case-file-bound
   baseline/compare evidence. Command-changing changes and rows without case
   files remain blocked rather than receiving an invented proof model.
-- [ ] `VERIF-P2A-009` Add SOLID/KISS/DRY rule for test files. Every proposal has
+- [x] `VERIF-P2A-009` Add SOLID/KISS/DRY rule for test files. Every proposal has
   a closed three-principle review and fixture-ownership decision; a mechanical
   signal alone never authorizes change.
-- [ ] `VERIF-P2A-010` Add first pilot refactor proposal only after bytecode/VM
+- [x] `VERIF-P2A-010` Add first pilot refactor proposal only after bytecode/VM
   catalog exists; mark "no refactor needed" if reports show no real need. The
-  pilot targets `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`; completion awaits the
-  clean generated assessment and durable evidence.
+  pilot targets `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`; the reviewed
+  disposition is `no_refactor_needed` because the assessment found no observed
+  refactor signal for that test.
+
+  The clean-source report at commit
+  `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54` inventories 3,816 facts in 670
+  files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
+  purpose or broad-claim candidates, zero exact or normalized fact-file
+  duplicate groups, six same-table structural case peer groups, one shared
+  case-file reference group, and zero malformed-class overlap groups. It joins
+  all 456 VS Code facts to 38 registrations and records only one reviewed
+  scanner duration plus five artifact durations. Generated JSON SHA-256:
+  `5127e0c590f7925ae44e2bfa20a3ff78fa51da546ed8ff887f4805f5196852c9`.
+
+  Change dispositions remain fail-closed. Mechanical signals never authorize
+  a move or rename; `split` is blocked until a multi-target contract exists;
+  completed command-changing refactors and catalog rows without case-file-
+  bound lock evidence are blocked; and a second redirect edge for one test is
+  blocked until proof evidence IDs are proposal-scoped. No test was moved,
+  split, renamed, or behaviorally changed. Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md`.
 
 Acceptance:
 
