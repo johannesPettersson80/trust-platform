@@ -64,6 +64,10 @@ class TestRefactorReportTests(unittest.TestCase):
         self.assertIn("Size is a review signal, not a refactor decision.", markdown)
         self.assertIn("`CASE_A`", markdown)
         self.assertIn("`TEST_ARTIFACT`", markdown)
+        self.assertLess(
+            markdown.index("Structural peers"),
+            markdown.index("## VS Code Registration"),
+        )
 
         self.assertIn(
             "test-refactor assessment Markdown does not exactly match JSON",

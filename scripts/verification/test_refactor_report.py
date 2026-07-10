@@ -172,9 +172,6 @@ class TestRefactorAssessmentReport:
                 "- Explicit malformed-class overlap groups: "
                 f"{len(duplicate['malformed_class_overlap_groups'])}",
                 f"- Free-form source-body similarity: `{duplicate['source_body_similarity']}`",
-                "",
-                "## VS Code Registration",
-                "",
             ]
         )
         for row in duplicate["exact_fact_file_groups"]:
@@ -211,6 +208,7 @@ class TestRefactorAssessmentReport:
                 f"{', '.join(f'`{item}`' for item in row['test_ids'])}; paths "
                 f"{', '.join(f'`{item}`' for item in row['paths'])}."
             )
+        lines.extend(["", "## VS Code Registration", ""])
         vscode = payload["vscode_registration"]
         lines.extend(
             [
