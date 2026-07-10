@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `b63196b4d5196af8a1da6fad5078646784fc8fe1` classifies 1/3,816 scanner facts
+  commit `3e207af163703fda7cbfae3c2bc7cbef9e643f87` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
   required class slots complete (`mutation` and `negative_malformed_input`);
   `failing_regression`, `iec_conformance`, and `metadata_validation` remain
@@ -423,7 +423,7 @@ Acceptance:
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `b63196b4d5196af8a1da6fad5078646784fc8fe1`
+  Clean-source report commit `3e207af163703fda7cbfae3c2bc7cbef9e643f87`
   assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
   invariant/family slots have declared cells, 64 remain structurally
   unassigned, and one additional recorded dimension remains visible. All 17
