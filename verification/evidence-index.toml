@@ -960,3 +960,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P4_INVARIANT_SPEC_AUDIT_CLOSURE_20260710"
+title = "Phase 4 invariant and specification audit closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-spec-audit-closure-validation.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && git diff --check && ssh trust-builder 'cd \"$HOME/projects/trust-platform-p4-validation-85af612b2\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p4-final-tmp\" just fmt && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p4-final-tmp\" just clippy && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p4-final-tmp\" just test-all'"
+commit = "895fc8c9ff6ccc96c85aafefe1b44a1a94bd6708"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-10"
+suite_id = "supporting_local"
+producer = "codex phase4 invariant and specification audit closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-10"

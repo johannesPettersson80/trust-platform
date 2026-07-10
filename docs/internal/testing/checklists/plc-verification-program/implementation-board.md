@@ -623,6 +623,9 @@ Acceptance:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md`
   and
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-confirmed-findings-source-review.md`.
+  Focused local validation and clean remote `fmt`/`clippy`/`test-all` closure
+  are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-spec-audit-closure-validation.md`.
 
 ## Phase 4A - Specification Completeness Audit
 
