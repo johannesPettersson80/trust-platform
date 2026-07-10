@@ -407,8 +407,8 @@ Acceptance:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-catalog-binding-registration.md`.
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
-  mapped-area required-class completeness. Clean-source report commit
-  `c23ebe993c1e2bfa4cec2e865fc0cdebcfed3fd2` classifies 1/3,816 scanner facts
+  mapped-area required-class completeness. Refreshed clean-source report
+  commit `b63196b4d5196af8a1da6fad5078646784fc8fe1` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
   required class slots complete (`mutation` and `negative_malformed_input`);
   `failing_regression`, `iec_conformance`, and `metadata_validation` remain
@@ -450,6 +450,9 @@ Acceptance:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md`,
   and
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md`.
+  Clean implementation/evidence commits and the focused plus broad remote gate
+  results are bound in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-debt-closure-validation.md`.
 
 Acceptance:
 
