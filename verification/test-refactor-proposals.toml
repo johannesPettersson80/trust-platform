@@ -1,0 +1,44 @@
+# Reviewed test-refactor proposals. A validated no_refactor_needed record is a
+# terminal evidence-based decision; it does not authorize a catalog redirect.
+
+[[proposals]]
+schema_version = 1
+id = "TEST_REFACTOR_BYTECODE_CONTAINER_INVALID_MAGIC_001"
+test_id = "TEST_BYTECODE_CONTAINER_INVALID_MAGIC"
+disposition = "no_refactor_needed"
+status = "validated"
+lifecycle = ["proposed", "reviewed", "validated"]
+source_paths = ["crates/trust-runtime/tests/bytecode_container.rs"]
+decision_inputs = ["docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"]
+finding_refs = []
+before_command = "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact"
+after_command = "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact"
+invariant_ids = ["VM_SEAM_VALID_001"]
+coverage_dimensions = ["malformed_input_class:bad_magic"]
+stale_path_updates = []
+expected_behavior_delta = "none"
+rationale = "The reviewed assessment reports no actionable move, split, or rename signal for this focused pilot test."
+last_reviewed = "2026-07-10"
+
+[proposals.source_identity]
+discovery_id = "DISC_88F921D24D3708CEF3E1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "header_validation"
+
+[proposals.target_identity]
+discovery_id = "DISC_88F921D24D3708CEF3E1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "header_validation"
+
+[proposals.fixture_ownership]
+before_owner = "crates/trust-runtime/tests/bytecode_container.rs::valid_container"
+after_owner = "crates/trust-runtime/tests/bytecode_container.rs::valid_container"
+review = "The compact valid-container helper remains local to the focused container-format test file."
+
+[proposals.design_review]
+solid = "pass"
+kiss = "pass"
+dry = "pass"
+rationale = "The test has one header-validation responsibility, uses a small local fixture, and has no catalog-evidenced split or move need."

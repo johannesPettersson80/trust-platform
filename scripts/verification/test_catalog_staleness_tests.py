@@ -69,6 +69,42 @@ class TestCatalogStalenessTests(unittest.TestCase):
 
         self.assertTrue(any("resolved to 2 scanner facts" in item for item in failures))
 
+    def test_redirect_contract_is_checked_with_catalog_staleness(self) -> None:
+        with catalog_root() as root:
+            fact = generated_fact()
+            redirect = {
+                "schema_version": 1,
+                "id": "TEST_REDIRECT_ORPHAN",
+                "proposal_id": "TEST_REFACTOR_MISSING",
+                "test_id": "TEST_INVALID_MAGIC",
+                "status": "active",
+                "old_identity": {
+                    "discovery_id": "DISC_00000000000000000000",
+                    "discovery_source_kind": "rust_integration_test",
+                    "path": "crates/trust-runtime/tests/old.rs",
+                    "name": "old_header_validation",
+                },
+                "new_identity": {
+                    "discovery_id": fact.stable_id,
+                    "discovery_source_kind": fact.source_kind,
+                    "path": fact.path,
+                    "name": fact.name,
+                },
+                "before_behavior_lock_evidence": "EVID_BEFORE",
+                "after_behavior_lock_evidence": "EVID_AFTER",
+                "last_reviewed": "2026-07-10",
+            }
+            failures = validate_catalog_staleness(
+                root=root,
+                tests={"TEST_INVALID_MAGIC": generated_record()},
+                facts=[fact],
+                proposals={},
+                redirects={"TEST_REDIRECT_ORPHAN": redirect},
+                evidence={},
+            )
+
+        self.assertTrue(any("orphan proposal TEST_REFACTOR_MISSING" in item for item in failures))
+
     def test_every_subject_requires_an_existing_safe_path(self) -> None:
         with catalog_root() as root:
             missing = generated_record()

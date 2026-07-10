@@ -141,6 +141,13 @@ Rules:
   product cap, runtime width, or reviewed decision.
 - If a broad integration test covers a cell, the catalog must say how its
   assertion fails if that specific cell regresses.
+- Catalog schema v2 cannot yet express per-invariant coverage dimensions.
+  Phase 2A therefore reports every multi-invariant catalog row as a candidate
+  with missing dimensions; ad hoc source text or unknown catalog fields cannot
+  satisfy this rule.
+- Existing-test size, whole-file similarity, and same-table input shape are
+  review candidates only. They never mechanically authorize a move, split,
+  rename, or fixture merge.
 
 `decision_table` contract cases may use only data-shaped dimensions in v1:
 happy path, boundary values, wrong type or shape, missing/extra fields,

@@ -27,6 +27,8 @@ Current seed scope:
 - report-only coverage-cell gaps, reviewed bytecode malformed-input classes,
   and exact unmapped-test identities for `VERIF-P2-008` through
   `VERIF-P2-010`.
+- report-only existing-test refactor assessment and a deny-by-default reviewed
+  proposal/redirect contract for `VERIF-P2A-001` through `VERIF-P2A-010`.
 
 TOML shape convention:
 
@@ -118,6 +120,31 @@ TOML shape convention:
   the previous report's tracked and untracked outputs before starting the next
   generator; an output from report N intentionally makes the same tree dirty
   for report N+1.
+- Run `scripts/report_test_refactor_assessment.py` with
+  `scripts/validate_test_refactor_assessment_report.py` for the Phase 2A
+  assessment. It reports inclusive 1,000-line signals, reviewed catalog
+  mapping diversity, multi-invariant claims, whole-file and committed-case
+  structural similarities, VS Code registration structure, and explicit
+  duration classifications. Size and similarity are review signals only.
+  Helper functions and helper-only files are not assessed for duplication,
+  and catalog v2 has no authorized broad-test coverage-dimension field.
+- `verification/test-refactor-proposals.toml` is hand-owned intent. Every
+  record binds exact source identity, commands, invariants, explicit
+  malformed-input dimensions, fixture ownership, stale-path updates, zero
+  expected behavior delta, and a SOLID/KISS/DRY review. Mechanical findings
+  never authorize a move or rename; unsupported change plans may remain only
+  proposed or rejected. The v1 single-identity model rejects
+  `split` rather than pretending to model multiple targets.
+- `verification/test-catalog-redirects.toml` records only validated historical
+  move/rename edges. V1 permits one edge per test and rejects a second edge
+  until `prove.py` can produce proposal-scoped lock IDs. Completed changes
+  require paired, passing
+  `lock_baseline`/`lock_compare` evidence bound to the catalog case file. Tests
+  without `case_file` plus `case_file_digest` remain blocked from refactor
+  completion. `scripts/validate_test_refactor_proposals.py` and
+  `scripts/check_test_catalog_staleness.py` both recompute the live assessment;
+  neither trusts a caller-supplied report. No Phase 2A command is wired into CI
+  enforcement in this slice.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

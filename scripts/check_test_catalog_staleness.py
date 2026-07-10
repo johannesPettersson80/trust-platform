@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check committed test-catalog paths and names against a live source scan."""
+"""Check catalog identities and reviewed redirects against a live source scan."""
 
 from __future__ import annotations
 

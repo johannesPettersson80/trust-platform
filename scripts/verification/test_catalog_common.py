@@ -50,8 +50,11 @@ def make_fact(
     reference_candidates: tuple[str, ...] = (),
 ) -> InferredTestFact:
     native_id = native_id or f"{path}#{name}"
-    identity = f"{source_kind}\0{package or ''}\0{native_id}".encode()
-    stable_id = "DISC_" + hashlib.sha256(identity).hexdigest()[:20].upper()
+    stable_id = stable_discovery_id(
+        source_kind=source_kind,
+        package=package,
+        native_id=native_id,
+    )
     return InferredTestFact(
         stable_id=stable_id,
         native_id=native_id,
@@ -67,6 +70,16 @@ def make_fact(
         ignore_reason=ignore_reason,
         reference_candidates=reference_candidates,
     )
+
+
+def stable_discovery_id(
+    *,
+    source_kind: str,
+    package: str | None,
+    native_id: str,
+) -> str:
+    identity = f"{source_kind}\0{package or ''}\0{native_id}".encode()
+    return "DISC_" + hashlib.sha256(identity).hexdigest()[:20].upper()
 
 
 def relative_path(root: Path, path: Path) -> str:

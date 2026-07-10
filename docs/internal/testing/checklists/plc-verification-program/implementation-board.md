@@ -464,22 +464,45 @@ Acceptance:
 
 ## Phase 2A - Existing Test Refactor Plan
 
-- [ ] `VERIF-P2A-001` Add report for large or mixed-purpose test files.
+- [ ] `VERIF-P2A-001` Add report for large or mixed-purpose test files. The
+  implementation uses the architecture policy's inclusive 1,000-line review
+  threshold and only reviewed catalog area/test-class diversity for purpose;
+  names and source text cannot establish mixed purpose.
 - [ ] `VERIF-P2A-002` Add report for broad tests claiming too many invariants
-  without coverage dimensions.
+  without coverage dimensions. Catalog v2 has no authorized dimension field,
+  so every multi-invariant row is a candidate and unknown fields cannot satisfy
+  the check.
 - [ ] `VERIF-P2A-003` Add report for duplicated fixtures or near-duplicate
-  malformed/boundary inputs.
-- [ ] `VERIF-P2A-004` Add VS Code registration refactor report.
-- [ ] `VERIF-P2A-005` Add slow-test classification report.
+  malformed/boundary inputs. V1 reports whole-file exact/normalized matches,
+  explicit malformed-class overlap, exact committed case inputs, same-table
+  structural peers, and shared case references. Helper-level similarity is
+  explicitly not assessed.
+- [ ] `VERIF-P2A-004` Add VS Code registration refactor report. The report joins
+  all 456 scanner facts to the 38 literal registrations and projects file size,
+  fact, ignored, and mapped counts without recommending a refactor.
+- [ ] `VERIF-P2A-005` Add slow-test classification report. Only hand-owned
+  catalog `duration_class` values classify a fact; names, ignore state,
+  hardware flags, and suite names never infer duration.
 - [ ] `VERIF-P2A-006` Require written plan for every proposed move/split/rename:
   before command, after command, invariant IDs, fixture ownership, stale-path
-  updates, expected behavior delta.
+  updates, expected behavior delta. The closed v1 contract validates these
+  fields, binds dimensions to explicit malformed-class metadata, and blocks
+  split until a multi-target model exists.
 - [ ] `VERIF-P2A-007` Add catalog redirect/stale-path rule for moved/renamed
-  tests.
-- [ ] `VERIF-P2A-008` Add before/after focused behavior-lock rule.
-- [ ] `VERIF-P2A-009` Add SOLID/KISS/DRY rule for test files.
+  tests. Redirects require one validated proposal per edge and one live
+  catalog/scanner endpoint. A second edge for the same test remains blocked
+  until proof evidence IDs become proposal-scoped.
+- [ ] `VERIF-P2A-008` Add before/after focused behavior-lock rule. Completed
+  changes require distinct-revision, production-valid case-file-bound
+  baseline/compare evidence. Command-changing changes and rows without case
+  files remain blocked rather than receiving an invented proof model.
+- [ ] `VERIF-P2A-009` Add SOLID/KISS/DRY rule for test files. Every proposal has
+  a closed three-principle review and fixture-ownership decision; a mechanical
+  signal alone never authorizes change.
 - [ ] `VERIF-P2A-010` Add first pilot refactor proposal only after bytecode/VM
-  catalog exists; mark "no refactor needed" if reports show no real need.
+  catalog exists; mark "no refactor needed" if reports show no real need. The
+  pilot targets `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`; completion awaits the
+  clean generated assessment and durable evidence.
 
 Acceptance:
 

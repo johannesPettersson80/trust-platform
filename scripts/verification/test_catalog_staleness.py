@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import tomllib
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .test_catalog_models import InferredTestFact
-from .test_catalog_scanner import scan_repository
-from .test_catalog_validation import validate_report_payload
+from .test_refactor_contract import validate_test_refactor_records
 
 
 DISCOVERY_FIELDS = {"discovery_id", "discovery_source_kind", "name"}
@@ -21,6 +19,9 @@ def validate_catalog_staleness(
     root: Path,
     tests: Mapping[str, Mapping[str, Any]],
     facts: Sequence[InferredTestFact],
+    proposals: Mapping[str, Mapping[str, Any]] | None = None,
+    redirects: Mapping[str, Mapping[str, Any]] | None = None,
+    evidence: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[str]:
     failures: list[str] = []
     facts_by_id: dict[str, list[InferredTestFact]] = defaultdict(list)
@@ -41,40 +42,30 @@ def validate_catalog_staleness(
                 )
         else:
             failures.append(f"{record_id} has unsupported subject_kind {subject_kind!r}")
+    if any(value is not None for value in (proposals, redirects, evidence)):
+        failures.extend(
+            validate_test_refactor_records(
+                root=root,
+                proposals=proposals or {},
+                redirects=redirects or {},
+                tests=tests,
+                evidence=evidence or {},
+                facts=facts,
+            )
+        )
     return failures
 
 
 def validate_live_catalog(root: Path) -> tuple[list[str], int, int]:
-    """Scan current sources and join them to the committed catalog."""
+    """Recompute the complete live P2A join, including proposal assessment."""
 
-    root = root.resolve()
-    report = scan_repository(root)
-    payload = report.to_dict()
-    failures = [f"generated catalog: {item}" for item in validate_report_payload(payload)]
-    if payload.get("scan_status") != "complete":
-        failures.append("generated catalog scan_status is not complete")
+    from .test_refactor_live import build_live_test_refactor_state
+
     try:
-        catalog = tomllib.loads((root / "verification/test-catalog.toml").read_text())
-    except Exception as exc:
-        return [*failures, f"committed catalog cannot be read: {exc}"], 0, len(report.inferred_facts)
-    records = catalog.get("tests")
-    if not isinstance(records, list):
-        return [*failures, "committed catalog must contain [[tests]] records"], 0, len(report.inferred_facts)
-    tests: dict[str, Mapping[str, Any]] = {}
-    counts = Counter(record.get("id") for record in records if isinstance(record, Mapping))
-    for record in records:
-        if not isinstance(record, Mapping) or not isinstance(record.get("id"), str):
-            failures.append("committed catalog contains a test without a string id")
-            continue
-        record_id = record["id"]
-        if counts[record_id] != 1:
-            failures.append(f"committed catalog has duplicate test id {record_id}")
-            continue
-        tests[record_id] = record
-    failures.extend(
-        validate_catalog_staleness(root=root, tests=tests, facts=report.inferred_facts)
-    )
-    return sorted(set(failures)), len(tests), len(report.inferred_facts)
+        state = build_live_test_refactor_state(root)
+    except ValueError as exc:
+        return [str(exc)], 0, 0
+    return [], state.catalog_count, state.fact_count
 
 
 def _validate_path(root: Path, record_id: str, value: Any, failures: list[str]) -> None:

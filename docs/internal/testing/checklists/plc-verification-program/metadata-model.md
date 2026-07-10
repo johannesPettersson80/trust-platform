@@ -726,6 +726,53 @@ The two artifact subject kinds exist because the Phase 1 rows are verification
 tools/data outside the P2-001 native-test scan surface. They are not a generic
 escape hatch for native tests.
 
+### Existing-test refactor assessment and proposals
+
+The Phase 2A assessment is report-only. It recomputes scanner facts, catalog
+bindings, suite metadata, VS Code registration, committed case inputs, and the
+architecture program's inclusive existing-file review threshold. Mechanical
+size, exact content, normalized content, and same-table case-input shape are
+candidate signals. They never authorize a move, split, rename, fixture merge,
+or behavior change. Free-form body similarity, fixture helper functions, and
+helper-only files are explicitly `not_assessed` in v1.
+
+Catalog schema v2 has no authorized per-invariant `coverage_dimensions` field.
+Therefore every valid catalog row with multiple invariant IDs is reported as a
+missing-dimension candidate; source text or an unknown catalog field cannot
+upgrade it. Proposal `coverage_dimensions` are narrower: v1 accepts only
+`malformed_input_class:<id>` values exactly backed by that catalog row's
+reviewed `malformed_input_class_ids`.
+
+`verification/test-refactor-proposals.toml` uses closed schema v1. A proposal
+records one catalog test, its source and target scanner identities, source
+paths, the reviewed assessment decision input, exact before/after commands,
+invariants, explicit coverage dimensions, fixture ownership, stale-path
+updates, `expected_behavior_delta = "none"`, lifecycle, rationale, and a
+SOLID/KISS/DRY review. `no_refactor_needed` is a terminal reviewed decision
+only when the live assessment reports no signal for its source paths. Change
+dispositions remain unsupported by the mechanical v1 assessment; a signal is
+not operation-specific authorization. Such a change plan may remain
+`status = "proposed"` (or be rejected), but cannot advance. The single-target model rejects
+`disposition = "split"` until a reviewed multi-target contract exists.
+
+`verification/test-catalog-redirects.toml` is append-only identity history for
+validated moves and renames. Each edge references exactly one completed,
+validated proposal and its paired behavior-lock evidence. V1 permits one edge
+per catalog test. A second historical edge is blocked until `prove.py` can emit
+proposal-scoped lock IDs; it is not simulated with invented evidence IDs.
+Forks, merges, cycles, live old identities, missing endpoints, and terminal
+catalog/scanner mismatch fail.
+
+Move/rename completion requires production-valid `lock_baseline` and
+`lock_compare` evidence with the same current catalog command, one catalog
+test, ordered distinct source revisions and run IDs, exit status zero, the
+proposal's exact invariant IDs, the committed case-ID set, identical passing
+per-case summaries and result digest, and the catalog's current
+`case_file_digest`. This deliberately blocks
+completion for command-changing refactors and scanner-only catalog rows that
+lack `case_file` and `case_file_digest`; Phase 2A does not invent a
+command-only proof model.
+
 `case_file` and `case_file_digest` are optional. If either is present, both are
 required. `case_file_digest` is the SHA-256 digest of the committed case file and
 the validator recomputes it. Editing cases to make a test pass must be visible
