@@ -536,18 +536,42 @@ Acceptance:
 
 ## Phase 3 - Ignored Test Register
 
-- [ ] `VERIF-P3-001` Generate ignored-test inventory from Rust, Node,
+- [x] `VERIF-P3-001` Generate ignored-test inventory from Rust, Node,
   Playwright, shell, and conformance surfaces where practical.
-- [ ] `VERIF-P3-002` Classify every ignored test using machine classes from
+- [x] `VERIF-P3-002` Classify every ignored test using machine classes from
   `metadata-model.md`.
-- [ ] `VERIF-P3-003` For `red_protective`, require linked row and expected red
+- [x] `VERIF-P3-003` For `red_protective`, require linked row and expected red
   symptom.
-- [ ] `VERIF-P3-004` For `lab_required`, require env vars, hardware topology,
+- [x] `VERIF-P3-004` For `lab_required`, require env vars, hardware topology,
   and public-claim impact.
-- [ ] `VERIF-P3-005` For `flaky_quarantined`, require owner and last observed
+- [x] `VERIF-P3-005` For `flaky_quarantined`, require owner and last observed
   failure.
+
+  The clean-source report at commit
+  `a2d8bb7b50d0ec5c2fad33d348ed41e46b705158` inventories 88 observations:
+  85 static Rust ignores, one conditional Rust ignore, one conditional VS Code
+  runtime skip, and one literal Playwright skip. It reports zero discovery
+  diagnostics and binds 535 Rust, 47 Node, six Playwright, 29 shell, and 21
+  conformance files; shell and conformance remain explicit limitations rather
+  than invented identities. Generated JSON SHA-256:
+  `21dd101354aa7ec138aab6056c8613ccc71cef5c92d0b33188664b7882020a43`.
+
+  The hand-owned registry joins all 88 observations one-to-one and classifies
+  63 as `unknown`, 15 as `perf_soak`, five as `lab_required`, and five as
+  `manual`. No source name, path, comment, or lexical reference created a
+  catalog mapping: all 88 records omit optional `test_id`. Closed class
+  contracts require row/symptom evidence for `red_protective`, environment and
+  topology plus public-claim impact for `lab_required`, and dated durable
+  failure evidence for `flaky_quarantined`. The standalone live checker owns
+  exhaustive source staleness; the primary metadata validator owns the static
+  schema and class obligations. Neither command is wired into CI enforcement.
+
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md`.
 - [ ] `VERIF-P3-006` Fail metadata validation if any ignored test remains
-  `unknown` after the grace period defined per `VERIF-P14-000`.
+  `unknown` after the grace period defined per `VERIF-P14-000`. This row stays
+  open because that grace period does not yet exist; current unknown debt is
+  visible and report-only.
 
 ## Phase 4 - Invariant Registry
 
