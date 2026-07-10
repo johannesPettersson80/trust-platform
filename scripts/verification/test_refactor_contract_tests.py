@@ -25,6 +25,7 @@ ASSESSMENT_PATH = (
     "docs/internal/testing/evidence/plc-verification-program/2026-07-10/"
     "p2a-test-refactor-assessment.md"
 )
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestRefactorContractTests(unittest.TestCase):
@@ -270,6 +271,44 @@ class TestRefactorContractTests(unittest.TestCase):
             )
 
         self.assertTrue(any("distinct source revisions" in item for item in failures))
+
+    def test_behavior_lock_revisions_require_clean_full_git_shas(self) -> None:
+        with contract_root() as root:
+            old = old_fact()
+            new = generated_fact()
+            valid = lock_evidence(root)
+            full_revision = subprocess.run(
+                ["git", "-C", str(root), "rev-list", "--reverse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()[0]
+            for invalid in (f"dirty:{full_revision}", full_revision[:12]):
+                with self.subTest(commit=invalid):
+                    evidence = copy.deepcopy(valid)
+                    evidence["EVID_BEFORE"]["commit"] = invalid
+                    failures = validate_test_refactor_records(
+                        root=root,
+                        proposals={PROPOSAL_ID: refactor_proposal(old, new)},
+                        redirects={"TEST_REDIRECT_001": redirect_record(old, new)},
+                        tests={TEST_ID: catalog_record(new)},
+                        evidence=evidence,
+                        facts=[new],
+                    )
+
+                    self.assertTrue(
+                        any("clean full Git SHA" in item for item in failures),
+                        failures,
+                    )
+
+    def test_readme_names_live_refactor_validation_boundary(self) -> None:
+        readme = (ROOT / "verification/README.md").read_text()
+
+        self.assertIn(
+            "The primary metadata validator does not run the source scan required "
+            "for proposal and redirect validation.",
+            readme,
+        )
 
     def test_behavior_lock_binds_exact_cases_invariants_and_run_ids(self) -> None:
         with contract_root() as root:
@@ -695,7 +734,7 @@ def lock_evidence(
         "id": before_id,
         "proof_kind": "lock_baseline",
         "command": COMMAND,
-        "commit": f"dirty:{before_revision[:12]}",
+        "commit": before_revision,
         "trust_verify_run_id": f"{prefix}before-run",
         **common,
     }
@@ -704,7 +743,7 @@ def lock_evidence(
         "proof_kind": "lock_compare",
         "paired_lock_baseline": before_id,
         "command": after_command,
-        "commit": f"dirty:{after_revision[:12]}",
+        "commit": after_revision,
         "trust_verify_run_id": f"{prefix}after-run",
         **common,
     }

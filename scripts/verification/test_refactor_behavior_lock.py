@@ -19,7 +19,7 @@ PROPOSAL_EVIDENCE_FIELDS = {
     "before_behavior_lock_evidence",
     "after_behavior_lock_evidence",
 }
-COMMIT_RE = re.compile(r"^(?:dirty:)?([0-9a-f]{7,40})$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
@@ -182,11 +182,11 @@ def _validate_revisions(
         match = COMMIT_RE.fullmatch(str(record.get("commit", "")))
         if match is None:
             failures.append(
-                f"{label} {evidence_label} evidence commit must identify a Git revision"
+                f"{label} {evidence_label} evidence commit must be a clean full Git SHA"
             )
             return
         resolved = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--verify", f"{match.group(1)}^{{commit}}"],
+            ["git", "-C", str(root), "rev-parse", "--verify", f"{match.group(0)}^{{commit}}"],
             check=False,
             capture_output=True,
             text=True,

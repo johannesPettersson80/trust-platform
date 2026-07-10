@@ -143,8 +143,10 @@ TOML shape convention:
   without `case_file` plus `case_file_digest` remain blocked from refactor
   completion. `scripts/validate_test_refactor_proposals.py` and
   `scripts/check_test_catalog_staleness.py` both recompute the live assessment;
-  neither trusts a caller-supplied report. No Phase 2A command is wired into CI
-  enforcement in this slice.
+  neither trusts a caller-supplied report. The primary metadata validator does not run the source scan required for proposal and redirect validation.
+  The standalone live commands and all Phase 2A report generation and at-rest
+  paths do run that contract. No Phase 2A command is wired into CI enforcement
+  in this slice.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in
