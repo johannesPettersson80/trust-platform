@@ -97,6 +97,23 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_ignored_registry_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        ignored_id = sorted(validator.ignored_tests)[0]
+        validator.ignored_tests[ignored_id]["status"] = "mapped"
+        validator.ignored_tests[ignored_id]["ignore_class"] = "unknown"
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "unknown classification must use status gap_open" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

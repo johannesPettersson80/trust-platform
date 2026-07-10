@@ -58,6 +58,7 @@ from .integrity import (
     validate_open_spec_gap_references,
     validate_runnable_test_path,
 )
+from .ignored_tests import load_checklist_row_ids, validate_ignored_test_records
 from .mutation_shards import validate_committed_mutation_metadata
 from .oracle_refs import (
     validate_error_code_ref,
@@ -850,15 +851,14 @@ class Validator:
         )
 
     def validate_ignored_tests(self) -> None:
-        for record in self.ignored_tests.values():
-            path = record["_path"]
-            self.require(
-                path,
-                record,
-                ["schema_version", "id", "test_id", "owner", "area", "status", "ignore_class", "reason", "unblock_condition", "last_reviewed"],
-                "ignored test",
-            )
-            self.check_common(path, record)
+        path = VERIFICATION / "ignored-tests.toml"
+        for failure in validate_ignored_test_records(
+            root=ROOT,
+            ignored_tests=self.ignored_tests,
+            tests=self.tests,
+            checklist_row_ids=load_checklist_row_ids(ROOT),
+        ):
+            self.fail(path, failure)
 
     def validate_risks(self) -> None:
         for record in self.risks.values():

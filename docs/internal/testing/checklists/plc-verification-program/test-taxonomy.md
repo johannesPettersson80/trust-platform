@@ -91,10 +91,18 @@ only when at least one catalog row of that class has a runnable status:
 `mapped`, `test_written`, `implemented`, or `validated`. Planned artifacts are
 reported separately and do not count. A scanner-backed row whose fact is
 `ignored` or `conditional` is not effectively runnable and also does not count;
-Phase 3 owns its reviewed ignore classification. Mechanical scanner facts have no class
-until an exact `generated_test.discovery_id` binding is reviewed; source names,
-paths, command hints, and lexical references cannot supply one. Reports show
-counts and debt, never a single quality score.
+Phase 3 owns its reviewed ignore classification. Mechanical scanner facts have
+no class until an exact `generated_test.discovery_id` binding is reviewed;
+source names, paths, command hints, and lexical references cannot supply one.
+Reports show counts and debt, never a single quality score.
+
+The ignored-test registry is a non-runnable overlay. It binds a source
+discovery identity to one reviewed ignore class, owner, area, reason, and
+unblock condition, but it does not map the source fact to an invariant, oracle,
+coverage cell, suite, or public claim. `red_protective`, `lab_required`, and
+`flaky_quarantined` have additional evidence obligations; absent evidence stays
+`unknown` rather than being inferred from source prose. Neither an ignored
+record nor its command hint can be used as behavior proof.
 
 ## Coverage Dimensions
 

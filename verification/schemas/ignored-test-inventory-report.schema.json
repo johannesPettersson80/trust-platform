@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/ignored-test-inventory-report.schema.json",
+  "title": "truST ignored-test inventory report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "records",
+    "diagnostics",
+    "surface_summary",
+    "limitations",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "ignored-test-inventory" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "records": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ignored_test_fact" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "surface_summary": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/surface" }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "classification_included",
+        "rust_basis",
+        "vscode_basis",
+        "playwright_basis",
+        "shell_basis",
+        "conformance_basis"
+      ],
+      "properties": {
+        "classification_included": { "const": false },
+        "rust_basis": { "const": "existing_test_catalog_declared_ignore_state" },
+        "vscode_basis": { "const": "existing_test_catalog_runtime_this_skip_diagnostic" },
+        "playwright_basis": { "const": "tracked_capture_spec_literal_test_skip" },
+        "shell_basis": { "const": "limitation_no_static_test_identity_convention" },
+        "conformance_basis": { "const": "limitation_runtime_skipped_is_not_source_ignore" }
+      },
+      "additionalProperties": false
+    },
+    "ignored_test_fact": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "native_id",
+        "discovery_source_kind",
+        "name",
+        "path",
+        "line",
+        "package",
+        "command_hint",
+        "ignore_state",
+        "ignore_mechanism",
+        "ignore_reason",
+        "reference_candidates"
+      ],
+      "properties": {
+        "discovery_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+        "native_id": { "type": "string", "minLength": 1 },
+        "discovery_source_kind": {
+          "enum": [
+            "rust_integration_test",
+            "rust_unit_test",
+            "vscode_test",
+            "playwright_test"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "package": { "type": ["string", "null"] },
+        "command_hint": { "type": "string", "minLength": 1 },
+        "ignore_state": { "enum": ["ignored", "conditional"] },
+        "ignore_mechanism": {
+          "enum": [
+            "rust_attribute",
+            "rust_cfg_attr",
+            "vscode_runtime_skip",
+            "playwright_literal_skip"
+          ]
+        },
+        "ignore_reason": { "type": "string", "minLength": 1 },
+        "reference_candidates": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "kind", "path", "line", "message"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "surface": {
+      "type": "object",
+      "required": [
+        "surface",
+        "scanned_files",
+        "records",
+        "ignored",
+        "conditional",
+        "coverage",
+        "note"
+      ],
+      "properties": {
+        "surface": { "enum": ["rust", "node", "playwright", "shell", "conformance"] },
+        "scanned_files": { "type": "integer", "minimum": 0 },
+        "records": { "type": "integer", "minimum": 0 },
+        "ignored": { "type": "integer", "minimum": 0 },
+        "conditional": { "type": "integer", "minimum": 0 },
+        "coverage": { "enum": ["mechanical", "limitation"] },
+        "note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "source_count": {
+      "type": "object",
+      "required": ["source_kind", "records"],
+      "properties": {
+        "source_kind": {
+          "enum": [
+            "rust_integration_test",
+            "rust_unit_test",
+            "vscode_test",
+            "playwright_test"
+          ]
+        },
+        "records": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "records",
+        "ignored",
+        "conditional",
+        "diagnostics",
+        "errors",
+        "warnings",
+        "by_source_kind"
+      ],
+      "properties": {
+        "records": { "type": "integer", "minimum": 0 },
+        "ignored": { "type": "integer", "minimum": 0 },
+        "conditional": { "type": "integer", "minimum": 0 },
+        "diagnostics": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "by_source_kind": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/source_count" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

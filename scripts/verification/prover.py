@@ -89,6 +89,7 @@ class ProofProducer:
             approved_producers = validator.approved_producers()
         self.tests = tests or {}
         self.ignored_tests = ignored_tests or {}
+        self.ignored_tests_by_test_id = index_ignored_tests_by_test_id(self.ignored_tests)
         self.evidence = evidence or {}
         self.approved_producers = approved_producers or set()
         self.artifact_dir = artifact_dir or root / "target/gate-artifacts/cases"
@@ -348,8 +349,12 @@ class ProofProducer:
         test = self.tests.get(test_id)
         if test is None:
             raise ProofError(f"unknown test {test_id}", failure_kind="metadata_error")
-        if test_id in self.ignored_tests:
-            raise ProofError(f"{test_id} is listed in ignored-tests", failure_kind="metadata_error")
+        ignored = self.ignored_tests_by_test_id.get(test_id)
+        if ignored is not None:
+            raise ProofError(
+                f"{test_id} is listed in ignored-tests by {ignored.get('id', '<unknown>')}",
+                failure_kind="metadata_error",
+            )
         if not test_counts_as_runnable(test):
             raise ProofError(
                 f"{test_id} is not runnable proof at status {test.get('status')!r}",
@@ -789,6 +794,29 @@ def case_result_digest(*, command_exit_status: int, per_case_summary: list[str])
 
 def proof_kind_for_test(test: dict[str, Any]) -> str:
     return "protective_red" if test.get("test_class") == "protective_red" else "red"
+
+
+def index_ignored_tests_by_test_id(
+    ignored_tests: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Index only explicit catalog mappings; registry IDs are not test IDs."""
+
+    result: dict[str, dict[str, Any]] = {}
+    for record_id, record in ignored_tests.items():
+        test_id = record.get("test_id")
+        if test_id is None:
+            continue
+        if not isinstance(test_id, str) or not test_id:
+            raise MetadataValidationError(
+                f"ignored-test record {record_id} has invalid optional test_id"
+            )
+        previous = result.get(test_id)
+        if previous is not None:
+            raise MetadataValidationError(
+                f"ignored-test records {previous.get('id')} and {record_id} duplicate test_id {test_id}"
+            )
+        result[test_id] = record
+    return result
 
 
 def first_or_default(value: Any, default: str) -> str:

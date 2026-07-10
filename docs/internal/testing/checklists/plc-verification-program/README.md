@@ -238,3 +238,19 @@ The live-repository census assertions pin the reviewed evidence baseline; an
 organic test addition or removal requires an intentional count and evidence
 refresh rather than a silent baseline move. These assertions are not a CI
 enforcement ratchet in this slice.
+
+Phase 3 overlays reviewed ignore intent without changing the Phase 2 catalog.
+Its dedicated inventory keeps mechanical source identity, raw reason, state,
+and mechanism separate from `verification/ignored-tests.toml`. The live checker
+requires every ignored or conditional observation to resolve to exactly one
+registry record and rejects stale or invented identities; line movement is not
+semantic. An optional `test_id` is permitted only when it resolves to a catalog
+row with the same discovery identity, so the initial uncataloged population does
+not fabricate catalog mappings.
+
+The initial register may use `unknown` where current behavior or quarantine
+evidence is not established. That debt is visible and report-only until the
+reviewed grace duration or milestone required by `VERIF-P14-000` exists.
+Historical source text, paths, names, and lexical references never create a
+`red_protective` or `flaky_quarantined` claim. Ignored and conditional tests do
+not become runnable proof or coverage through this registry.

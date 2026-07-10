@@ -159,9 +159,12 @@ Catalog binding rules:
 - `TEST_ID` resolves to exactly one `verification/test-catalog.toml` record.
 - The catalog record must be at least `mapped` before `prove.py` can create
   proof; planned case-table rows are not runnable tests.
-- `prove.py` must refuse `TEST_ID`s listed in `verification/ignored-tests.toml`
-  unless a reviewed decision explicitly authorizes collecting diagnostic-only
-  evidence for that ignored test.
+- `prove.py` must refuse a `TEST_ID` named by an ignored record's optional
+  `test_id` field unless a reviewed decision explicitly authorizes collecting
+  diagnostic-only evidence for that ignored test. The lookup is indexed by
+  catalog test identity, never by the ignored record's `IGNORED_*` ID. Records
+  without `test_id` classify uncataloged source facts and do not fabricate a
+  catalog mapping.
 - The catalog record's `command` is the command `prove.py` runs. Agents do not
   run a different command and hand-write evidence.
 - If the catalog row names `case_file`, it also names `case_file_digest`; the

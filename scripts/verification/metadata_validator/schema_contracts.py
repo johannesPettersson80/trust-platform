@@ -5,13 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 from ..test_catalog_intent import GENERATED_SOURCE_KINDS, SUBJECT_KINDS
+from .ignored_tests import (
+    IGNORED_SOURCE_KINDS,
+    IGNORE_CLASSES,
+    IGNORE_MECHANISMS,
+    IGNORE_STATES,
+)
 from .constants import (
+    AREAS,
     CONTRACT_KINDS,
     EVIDENCE_KINDS,
     GAP_CLASSES,
     PROOF_KINDS,
     PROOF_LEVELS,
     RISKS,
+    STATUSES,
     TEST_CLASSES,
 )
 
@@ -25,6 +33,14 @@ SCHEMA_ENUM_EXPECTATIONS = {
     "evidence.schema.json": {
         "kind": EVIDENCE_KINDS,
         "proof_kind": PROOF_KINDS,
+    },
+    "ignored-test.schema.json": {
+        "area": AREAS,
+        "discovery_source_kind": IGNORED_SOURCE_KINDS,
+        "ignore_class": IGNORE_CLASSES,
+        "ignore_mechanism": IGNORE_MECHANISMS,
+        "ignore_state": IGNORE_STATES,
+        "status": STATUSES,
     },
     "invariant.schema.json": {
         "risk": RISKS,

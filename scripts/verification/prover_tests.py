@@ -167,6 +167,20 @@ class RedProofProducerTests(unittest.TestCase):
             self.assertEqual(raised.exception.failure_kind, "metadata_error")
             self.assertIn("ignored", str(raised.exception))
 
+    def test_ignored_registry_records_without_catalog_test_id_do_not_block_proof(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.ignored["IGNORED_UNMAPPED_001"] = {
+                "id": "IGNORED_UNMAPPED_001",
+                "discovery_id": "DISC_0123456789ABCDEF0123",
+            }
+            fx.add_writer("failed", exit_code=1)
+
+            result = fx.prover().red("TEST_RED")
+
+            self.assertEqual(result.record["proof_kind"], "red")
+
 
 class GreenProverTests(unittest.TestCase):
     def test_green_records_pair_when_formerly_red_cases_now_pass(self) -> None:
@@ -612,7 +626,11 @@ class fixture:
         self.tests["TEST_RED"] = record
 
     def add_ignored_test(self) -> None:
-        self.ignored["TEST_RED"] = {"id": "TEST_RED", "reason": "ignored for test"}
+        self.ignored["IGNORED_TEST_RED_001"] = {
+            "id": "IGNORED_TEST_RED_001",
+            "test_id": "TEST_RED",
+            "reason": "ignored for test",
+        }
 
     def write_evidence(
         self,

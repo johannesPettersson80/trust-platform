@@ -147,6 +147,22 @@ TOML shape convention:
   The standalone live commands and all Phase 2A report generation and at-rest
   paths do run that contract. No Phase 2A command is wired into CI enforcement
   in this slice.
+- Run `scripts/report_ignored_test_inventory.py` to generate the Phase 3
+  mechanical inventory, and validate it with
+  `scripts/validate_ignored_test_inventory_report.py`. The report recognizes
+  Rust ignore attributes, a uniquely enclosed VS Code `this.skip()`, and
+  literal tracked Playwright skips. Unsupported ignored markers on excluded
+  Rust and Node test surfaces fail visibly instead of disappearing. Shell and
+  conformance limitations are explicit, and the report binds canonical JSON,
+  exact Markdown, clean full-SHA provenance, source inputs, the registry, and
+  both schemas.
+- `verification/ignored-tests.toml` is the hand-reviewed classification plane.
+  Run `scripts/check_ignored_test_staleness.py` for the exhaustive one-to-one
+  live join. Unknown classifications are reported with exit zero until
+  `VERIF-P14-000` defines a grace rule; malformed, duplicate, missing, stale,
+  escaping, or class-incomplete records fail immediately. The primary metadata
+  validator checks the static schema and class obligations but does not perform
+  the source scan. These Phase 3 commands are not wired into CI enforcement.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

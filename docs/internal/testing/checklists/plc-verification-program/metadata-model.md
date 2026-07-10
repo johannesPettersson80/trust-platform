@@ -42,6 +42,7 @@ verification/
     case-file.schema.json
     case-artifact.schema.json
     bytecode-validator-mutation-report.schema.json
+    ignored-test-inventory-report.schema.json
   matrix.toml
   spec-matrix.toml
   test-catalog.toml
@@ -1048,24 +1049,35 @@ Optional fields:
 ### Ignored Test Record
 
 ```toml
-schema_version = 1
-id = "IGNORED_VM_FRAME_REF_ESCAPE_001"
-test_id = "TEST_VM_FRAME_REF_ESCAPE_REJECTED"
+schema_version = 2
+id = "IGNORED_0123456789ABCDEF0123"
+discovery_id = "DISC_0123456789ABCDEF0123"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/example.rs"
+name = "historical_ignored_example"
+ignore_state = "ignored"
+ignore_reason = "reviewed source attribute text"
+ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
-status = "planned"
-ignore_class = "red_protective"
-reason = "Documents known unsafe behavior before implementation slice starts."
-unblock_condition = "SEAM verifier rule implemented and targeted green proof captured."
-linked_rows = ["VM_SEAM_REF_001"]
 area = "bytecode_vm"
-last_reviewed = "2026-07-08"
+status = "gap_open"
+ignore_class = "unknown"
+reason = "Current behavior has not been re-established under this program."
+unblock_condition = "Rerun at a reviewed commit, then remove the ignore or assign an evidence-backed class."
+last_reviewed = "2026-07-10"
 ```
 
 Required fields:
 
 - `schema_version`
 - `id`
-- `test_id`
+- `discovery_id`
+- `discovery_source_kind`
+- `path`
+- `name`
+- `ignore_state`
+- `ignore_reason`
+- `ignore_mechanism`
 - `owner`
 - `area`
 - `status`
@@ -1073,6 +1085,27 @@ Required fields:
 - `reason`
 - `unblock_condition`
 - `last_reviewed`
+
+`discovery_id` is the required source identity. The live checker binds path,
+name, source kind, raw ignore reason, state, and mechanism exactly while
+deliberately ignoring line movement. `test_id` is optional; when present it
+must resolve to a catalog row with the same discovery identity. Registry IDs
+are not catalog test IDs, and uncataloged ignored facts must not invent one.
+
+Class-specific fields:
+
+- `red_protective`: nonempty, unambiguous `linked_rows` plus
+  `expected_red_symptom`.
+- `lab_required`: non-secret `required_env_vars`, `hardware_topology`, a
+  tracked non-symlink `hardware_topology_ref`, and nonempty
+  `public_claim_impact`. This impact is not a test-to-public-claim mapping.
+- `flaky_quarantined`: `last_observed_failure`, `failure_signature`, and a
+  tracked non-symlink `evidence_ref`.
+
+Class-only fields are forbidden on other classes. `unknown` must use
+`status = "gap_open"` and remains report-only until `VERIF-P14-000` defines
+the grace rule; there is no ad hoc strict flag. Mechanical names, paths,
+comments, reasons, and lexical references never infer a reviewed class.
 
 ### Risk Register Record
 
