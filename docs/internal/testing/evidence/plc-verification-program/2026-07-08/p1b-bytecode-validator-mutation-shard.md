@@ -1,6 +1,6 @@
 # P1B Bytecode-Validator Mutation Shard
 
-Date: 2026-07-09; refreshed 2026-07-10 after the catalog-v2 provenance migration
+Date: 2026-07-09; refreshed 2026-07-10 after the Phase 3 provenance migration
 
 Implemented row:
 
@@ -15,7 +15,7 @@ Implemented row:
   validator because its implementation is assembled from `include!()` files.
   The shard therefore uses cargo-mutants single-file candidate generation and
   applies only two selected function-bypass mutants in an isolated archive of
-  commit `3d8a5a79f5fae14fec950c3851323eee5d74915e`.
+  commit `7d041edb9192ec65646ca231d0d9b0c5abffa781`.
 - The runner cleans only `trust-runtime` outputs in the dedicated mutation
   target before baseline, before each mutant, and after restoration. No product
   source in the working checkout is edited.
@@ -46,12 +46,13 @@ Machine report:
 
 - `p1b-bytecode-validator-mutation-report.json`
 - SHA-256:
-  `bc6f8a3ad2f2ebcd28611083cd21c69518afea7814497b998e0c0e2c97100d79`
+  `d813727096bb415f0de5105add8b588edbc31290e8f814a809e031a1d71b57ec`
 
-The 2026-07-10 refresh was required because catalog schema v2 changed the
-case-generator provenance digest and therefore the bytecode-validator case-file
-digest. The case IDs, mutant selectors, commands, and outcomes are unchanged;
-the shard was rerun rather than hand-editing the report binding.
+The latest 2026-07-10 refresh was required because the Phase 3 validator modules
+changed the case-generator provenance digest and therefore the bytecode-
+validator case-file digest. The case IDs, mutant selectors, commands, and
+outcomes are unchanged; the shard was rerun rather than hand-editing the report
+binding.
 
 ## Tests-First And Tooling Corrections
 
@@ -100,11 +101,12 @@ the shard was rerun rather than hand-editing the report binding.
 Final remote mutation run on `trust-builder`:
 
 ```text
-cd "$HOME/projects/trust-platform-plc-final-validation"
-python3 scripts/bytecode_validator_mutation.py \
-  --target-dir "$HOME/.cache/codex-targets/trust-platform-p2-004-006-mutation" \
-  --output-json /tmp/p2-bytecode-validator-mutation-report.json \
-  --output-markdown /tmp/p2-bytecode-validator-mutation-report.md
+cd "$HOME/projects/trust-platform-p3-validation-7d041edb9"
+TMPDIR="$HOME/.cache/codex-targets/trust-platform-p3-tmp" \
+  python3 scripts/bytecode_validator_mutation.py \
+  --target-dir "$HOME/.cache/codex-targets/trust-platform-p3-mutation" \
+  --output-json /tmp/p3-bytecode-validator-mutation-report.json \
+  --output-markdown /tmp/p3-bytecode-validator-mutation-report.md
 ```
 
 Result: 2 caught, 0 survived, 0 unviable, 0 timeout, 0 error. Its two cataloged
@@ -136,8 +138,9 @@ python3 -m py_compile \
 git diff --check
 ```
 
-Local result: 106 tests passed; both metadata commands validated 98 records; all
-four generated-case checks, Python compilation, and diff hygiene passed.
+Latest refresh result: 110 tests passed; both metadata commands validated 198
+records; all four generated-case checks and diff hygiene passed. Python
+compilation remains part of the final Phase 3 closure validation.
 
 The same command chain passed on `trust-builder`; that remote chain also ran
 `cargo fmt --all -- --check`, which passed. One pre-final remote chain used the
