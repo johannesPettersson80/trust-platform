@@ -244,7 +244,8 @@ Authority levels:
 
 Source status values:
 
-- `active`: usable as an oracle subject to authority rules.
+- `active`: current, but usable as an oracle only when `oracle_eligible = true`
+  and the authority rules also allow it.
 - `draft`: useful but not yet binding.
 - `stale`: source appears outdated.
 - `superseded`: source has an explicit replacement.
@@ -571,6 +572,7 @@ owner = "trust-runtime"
 status = "mapped"
 authority = "normative_product"
 source_status = "active"
+oracle_eligible = true
 visibility = "internal"
 path = "docs/specs/12-bytecode.md"
 version = "current"
@@ -598,6 +600,7 @@ Required fields:
 - `status`
 - `authority`
 - `source_status`
+- `oracle_eligible`
 - `visibility`
 - `path` or `external_ref`
 - `covers`
@@ -605,7 +608,11 @@ Required fields:
 
 Public claims are committed spec-source records with `authority =
 "public_claim"`. They must include `claim_text` and `surface_ref` fields, and
-they cannot serve as final safety-critical oracles.
+they must set `oracle_eligible = false`; they cannot serve as test, case,
+behavior, or invariant oracles. Review artifacts that record finding provenance
+without defining behavior must also set `oracle_eligible = false`. Such sources
+may support risk provenance, but cannot close a spec gap or justify a test
+deferral.
 
 User stories and public workflows are also specification sources when they
 define expected behavior. They may use `authority = "normative_product"` when

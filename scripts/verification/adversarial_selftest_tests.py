@@ -164,6 +164,46 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_provenance_only_source_is_rejected_as_invariant_oracle(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        source_id = "SPEC_EXTERNAL_REVIEW_V08_001"
+        validator.spec_sources[source_id]["oracle_eligible"] = False
+        invariant = validator.invariants["IEC_PREC_001"]
+        invariant["spec"]["source_refs"] = [source_id]
+        invariant["oracle"] = {"kind": "reviewed_decision", "ref": source_id}
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "oracle_ref references provenance-only spec source"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_provenance_only_source_cannot_satisfy_required_spec(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        record = next(
+            item for item in validator.required_specs.values() if item.get("source_ref")
+        )
+        source_ref = record["source_ref"]
+        validator.spec_sources[source_ref]["oracle_eligible"] = False
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "is provenance-only and cannot satisfy a required spec"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

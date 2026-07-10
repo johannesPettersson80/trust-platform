@@ -422,6 +422,7 @@ SCHEMA_REQUIRED_FIELDS = {
         "status",
         "authority",
         "source_status",
+        "oracle_eligible",
         "visibility",
         "covers",
         "known_limitations",

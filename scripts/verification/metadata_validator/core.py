@@ -313,6 +313,7 @@ class Validator:
             "status",
             "authority",
             "source_status",
+            "oracle_eligible",
             "visibility",
             "covers",
             "known_limitations",
@@ -325,6 +326,10 @@ class Validator:
                 self.fail(path, f"{record['id']} has unknown authority {record.get('authority')!r}")
             if record.get("source_status") not in SOURCE_STATUSES:
                 self.fail(path, f"{record['id']} has unknown source_status {record.get('source_status')!r}")
+            if not isinstance(record.get("oracle_eligible"), bool):
+                self.fail(path, f"{record['id']} oracle_eligible must be boolean")
+            if record.get("authority") == "public_claim" and record.get("oracle_eligible") is not False:
+                self.fail(path, f"public claim {record['id']} must set oracle_eligible = false")
             if "path" not in record and "external_ref" not in record:
                 self.fail(path, f"{record['id']} must have path or external_ref")
             if "path" in record and not (ROOT / record["path"]).exists():
@@ -445,7 +450,12 @@ class Validator:
             if record.get("waived") is True:
                 decision_ref = record.get("decision_ref")
                 source = self.spec_sources.get(decision_ref)
-                if not source or source.get("authority") not in {"reviewed_decision", "reviewed_deviation"} or source.get("source_status") != "active":
+                if (
+                    not source
+                    or source.get("authority") not in {"reviewed_decision", "reviewed_deviation"}
+                    or source.get("source_status") != "active"
+                    or source.get("oracle_eligible") is not True
+                ):
                     self.fail(path, f"{record['id']} waived matrix row requires active reviewed decision/deviation decision_ref")
             source_ref = record.get("source_ref")
             gap_ref = record.get("spec_gap_ref")
@@ -463,6 +473,11 @@ class Validator:
             return
         if source.get("source_status") != "active":
             self.fail(path, f"{record['id']} source_ref {source_ref} is not active")
+        if source.get("oracle_eligible") is not True:
+            self.fail(
+                path,
+                f"{record['id']} source_ref {source_ref} is provenance-only and cannot satisfy a required spec",
+            )
         if source.get("authority") not in record.get("expected_authority", []):
             self.fail(path, f"{record['id']} source_ref {source_ref} authority {source.get('authority')!r} not allowed")
         if source.get("authority") == "public_claim" and record.get("blocks") == "test_mapping":

@@ -127,6 +127,8 @@ def _validate_closed_gap(
             )
         if source.get("source_status") != "active":
             failures.append(f"{gap_id} resolution source must be active")
+        if source.get("oracle_eligible") is not True:
+            failures.append(f"{gap_id} provenance-only resolution source cannot close a spec gap")
         _validate_resolution_source_path(
             root,
             source.get("path"),
@@ -221,6 +223,7 @@ def _is_active_deferral(
         source
         and source.get("authority") in DEFERRAL_SOURCE_AUTHORITIES
         and source.get("source_status") == "active"
+        and source.get("oracle_eligible") is True
     )
 
 

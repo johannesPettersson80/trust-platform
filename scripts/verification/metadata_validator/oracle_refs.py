@@ -49,6 +49,11 @@ def validate_oracle_ref(
         return
     if source.get("source_status") != "active":
         fail(path, f"{owner_id} oracle_ref references non-active spec source {source_id!r}")
+    if source.get("oracle_eligible") is not True:
+        fail(
+            path,
+            f"{owner_id} oracle_ref references provenance-only spec source {source_id!r}",
+        )
     if source.get("authority") not in ORACLE_AUTHORITIES:
         fail(path, f"{owner_id} oracle_ref cannot use authority {source.get('authority')!r}")
 

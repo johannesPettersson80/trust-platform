@@ -12,12 +12,14 @@
     "status",
     "authority",
     "source_status",
+    "oracle_eligible",
     "visibility",
     "covers",
     "known_limitations"
   ],
   "properties": {
     "schema_version": { "const": 1 },
+    "oracle_eligible": { "type": "boolean" },
     "covers": { "type": "array", "items": { "type": "string" } },
     "known_limitations": { "type": "array", "items": { "type": "string" } },
     "conflicts_with": { "type": "array", "items": { "type": "string" } }

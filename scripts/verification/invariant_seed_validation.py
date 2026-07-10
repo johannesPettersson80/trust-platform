@@ -75,7 +75,7 @@ SUMMARY_FIELDS = {
     "canonical_invariants",
     "merged_seed_aliases",
     "phase4_records",
-    "preexisting_records",
+    "preexisting_seed_mappings",
     "gap_open",
     "spec_gap",
     "p4_000_risks",

@@ -144,6 +144,17 @@ class SeedManifestContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "gap_open oracle must use an active normative or reviewed source"):
             load_seed_audit(self.root)
 
+        _write_fixture(self.root)
+        sources = self.root / "verification/spec-sources.toml"
+        sources.write_text(
+            sources.read_text().replace(
+                "oracle_eligible = true",
+                "oracle_eligible = false",
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "gap_open oracle source is provenance-only"):
+            load_seed_audit(self.root)
+
     def test_spec_gap_requires_open_focused_gap_in_oracle_and_coverage(self) -> None:
         gap_path = self.root / "verification/spec-gaps.toml"
         gap_path.write_text(gap_path.read_text().replace('resolution_status = "open"', 'resolution_status = "closed"'))
@@ -241,6 +252,9 @@ class SeedAuditReportTests(unittest.TestCase):
             rows=state.audit.rows,
         )
         write_reports(report, json_path=json_path, markdown_path=markdown_path)
+        markdown = markdown_path.read_text()
+        self.assertIn("- Pre-existing seed mappings: 8", markdown)
+        self.assertNotIn("Pre-existing canonical records", markdown)
         self.assertEqual(
             [],
             validate_report_files(
@@ -448,6 +462,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
             status = "mapped"
             authority = "normative_product"
             source_status = "active"
+            oracle_eligible = true
             visibility = "internal"
             path = "fixture/source"
             version = "current"

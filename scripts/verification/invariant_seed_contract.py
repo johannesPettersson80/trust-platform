@@ -411,6 +411,8 @@ def _validate_seed_row(
             raise ValueError(
                 f"{prefix}: gap_open oracle must use an active normative or reviewed source"
             )
+        if source.get("oracle_eligible") is not True:
+            raise ValueError(f"{prefix}: gap_open oracle source is provenance-only")
         if spec.get("status") != "specified":
             raise ValueError(f"{prefix}: gap_open invariant requires spec.status specified")
         for cell in cells:

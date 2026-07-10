@@ -412,6 +412,17 @@ def _bytecode_pilot(
         for record in ignored_tests.values()
         if isinstance(record.get("test_id"), str)
     }
+    ignored_discovery_ids = {
+        record["discovery_id"]
+        for record in ignored_tests.values()
+        if isinstance(record.get("discovery_id"), str)
+    }
+    ignored_test_ids.update(
+        test_id
+        for test_id, record in tests.items()
+        if isinstance(record.get("discovery_id"), str)
+        and record["discovery_id"] in ignored_discovery_ids
+    )
     area = _mapped_matrix_area(matrix, PILOT_AREA)
     required_classes = area.get("required_test_classes", [])
     if not isinstance(required_classes, list) or not all(

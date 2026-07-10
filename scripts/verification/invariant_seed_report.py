@@ -90,7 +90,9 @@ def build_summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "canonical_invariants": len(canonical),
         "merged_seed_aliases": len(rows) - len(canonical),
         "phase4_records": sum(row["origin"] == "phase4" for row in rows),
-        "preexisting_records": sum(row["origin"] == "preexisting" for row in rows),
+        "preexisting_seed_mappings": sum(
+            row["origin"] == "preexisting" for row in rows
+        ),
         "gap_open": sum(row["status"] == "gap_open" for row in rows),
         "spec_gap": sum(row["status"] == "spec_gap" for row in rows),
         "p4_000_risks": sum(row["p4_000_risk_id"] is not None for row in rows),
@@ -122,7 +124,7 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"- Canonical invariants: {summary['canonical_invariants']}",
         f"- Authorized merged aliases: {summary['merged_seed_aliases']}",
         f"- Newly introduced Phase 4 records: {summary['phase4_records']}",
-        f"- Pre-existing canonical records: {summary['preexisting_records']}",
+        f"- Pre-existing seed mappings: {summary['preexisting_seed_mappings']}",
         f"- Gap-open records: {summary['gap_open']}",
         f"- Spec-gap records: {summary['spec_gap']}",
         f"- Imported P4-000 review risks: {summary['p4_000_risks']}",

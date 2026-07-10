@@ -237,6 +237,7 @@ def _validate_coverage_cell(
             or source.get("authority")
             not in {"reviewed_decision", "reviewed_deviation"}
             or source.get("source_status") != "active"
+            or source.get("oracle_eligible") is not True
         ):
             fail(
                 path,

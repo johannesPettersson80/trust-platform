@@ -20,6 +20,7 @@ def source(
         "id": source_id,
         "authority": authority,
         "source_status": source_status,
+        "oracle_eligible": True,
         "path": "docs/specs/owner.md",
         "last_reviewed": "2026-07-10",
     }
@@ -151,6 +152,30 @@ class SpecGapClosureTests(unittest.TestCase):
             invariants={"INV_X": invariant(status="gap_open")},
         )
         self.assertTrue(any("cannot close a spec gap" in item for item in failures))
+
+    def test_provenance_only_source_cannot_close_or_defer_a_gap(self) -> None:
+        owner = source()
+        owner["oracle_eligible"] = False
+        deferral = source("DECISION_DEFER", authority="reviewed_decision")
+        deferral["oracle_eligible"] = False
+        failures = self.validate(
+            spec_gaps={"SPEC_GAP_X": gap(
+                affected_tests=[],
+                test_deferral_ref="DECISION_DEFER",
+            )},
+            spec_sources={"SPEC_OWNER": owner, "DECISION_DEFER": deferral},
+            evidence={"EVID_X": closeout_evidence(linked_tests=[])},
+            invariants={"INV_X": invariant(
+                risk="wrong_result",
+                status="gap_open",
+                spec={"status": "specified"},
+                spec_gap_refs=[],
+                coverage={"cells": [{"dimension": "happy_path", "state": "gap_open"}]},
+            )},
+        )
+        joined = "\n".join(failures)
+        self.assertIn("provenance-only resolution source cannot close", joined)
+        self.assertIn("test_deferral_ref must name an active reviewed", joined)
 
     def test_closed_gap_accepts_active_owner_and_written_mapped_test(self) -> None:
         failures = self.validate(

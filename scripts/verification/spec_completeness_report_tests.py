@@ -188,12 +188,13 @@ class SpecCompletenessAnalysisTests(unittest.TestCase):
         self.assertEqual("test_gap", metadata["classification"])
         self.assertEqual(["TEST_PLANNED"], metadata["related_record_ids"])
 
-    def test_ignored_mapped_test_does_not_fill_required_test_slot(self) -> None:
+    def test_ignored_discovery_identity_does_not_fill_required_test_slot(self) -> None:
         analysis = analyze_spec_completeness(
             invariants={},
             tests={
                 "TEST_A": {
                     "id": "TEST_A",
+                    "discovery_id": "DISC_A",
                     "area": "bytecode_vm",
                     "test_class": "unit",
                     "status": "mapped",
@@ -201,7 +202,7 @@ class SpecCompletenessAnalysisTests(unittest.TestCase):
                     "oracle_ref": "SPEC_A",
                 }
             },
-            ignored_tests={"IGNORED_A": {"id": "IGNORED_A", "test_id": "TEST_A"}},
+            ignored_tests={"IGNORED_A": {"id": "IGNORED_A", "discovery_id": "DISC_A"}},
             spec_gaps={},
             spec_sources={},
             matrix={"areas": [{"id": "bytecode_vm", "status": "mapped", "required_test_classes": ["unit"]}]},
