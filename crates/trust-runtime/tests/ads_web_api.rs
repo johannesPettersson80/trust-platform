@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -583,9 +583,7 @@ fn start_capture_server() -> (String, Arc<Mutex<Option<String>>>, thread::JoinHa
     let captured_thread = Arc::clone(&captured);
     let join = thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("capture request");
-        let mut buffer = [0_u8; 8192];
-        let read = stream.read(&mut buffer).expect("read capture request");
-        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let request = read_capture_request(&mut stream);
         *captured_thread.lock().expect("capture lock") = Some(request);
         let body = br#"{"ok":true,"result":{"proxied":true}}"#;
         let response = format!(
@@ -596,8 +594,51 @@ fn start_capture_server() -> (String, Arc<Mutex<Option<String>>>, thread::JoinHa
             .write_all(response.as_bytes())
             .expect("write capture response headers");
         stream.write_all(body).expect("write capture response body");
+        stream.flush().expect("flush capture response");
     });
     (format!("http://{addr}"), captured, join)
+}
+
+fn read_capture_request(stream: &mut TcpStream) -> String {
+    const MAX_CAPTURE_REQUEST_BYTES: usize = 8192;
+
+    // Drain the declared body before closing so Windows does not reset the connection.
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .expect("set capture read timeout");
+    let mut request = Vec::new();
+    let mut expected_len = None;
+    while expected_len.is_none_or(|len| request.len() < len) {
+        let mut chunk = [0_u8; 1024];
+        let read = stream.read(&mut chunk).expect("read capture request");
+        assert!(read > 0, "capture request ended before its body");
+        request.extend_from_slice(&chunk[..read]);
+        assert!(
+            request.len() <= MAX_CAPTURE_REQUEST_BYTES,
+            "capture request exceeded {MAX_CAPTURE_REQUEST_BYTES} bytes"
+        );
+
+        if expected_len.is_none() {
+            let Some(header_end) = request.windows(4).position(|window| window == b"\r\n\r\n")
+            else {
+                continue;
+            };
+            let headers = String::from_utf8_lossy(&request[..header_end]);
+            let content_length = headers
+                .lines()
+                .filter_map(|line| line.split_once(':'))
+                .find(|(name, _)| name.eq_ignore_ascii_case("Content-Length"))
+                .map(|(_, value)| {
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .expect("parse capture Content-Length")
+                })
+                .unwrap_or(0);
+            expected_len = Some(header_end + 4 + content_length);
+        }
+    }
+    String::from_utf8_lossy(&request).to_string()
 }
 
 fn ads_import_symbols_params() -> serde_json::Value {
