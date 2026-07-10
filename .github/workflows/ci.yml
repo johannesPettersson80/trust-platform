@@ -30,7 +30,9 @@ jobs:
       - name: Guard IEC log paths
         run: python3 ./scripts/check_iec_log_paths.py
       - name: Guard expensive gate observability
-        run: python3 ./scripts/check_gate_observability.py
+        run: |
+          python3 ./scripts/run_with_progress.py --self-test
+          python3 ./scripts/check_gate_observability.py
       - name: Guard regression-test-first bug fixes
         run: |
           python3 ./scripts/check_regression_test_first.py --self-test
