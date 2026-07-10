@@ -663,3 +663,24 @@ catalog_json_digest = "sha256:a00e1aeb109d8d058460e49f65c0fa30d4bd5931a321cb6558
 linked_invariants = []
 linked_tests = []
 last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P2_TEST_CLASS_COMPLETENESS_20260710"
+title = "Phase 2 scanner mapping and required test-class completeness"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
+command = "python3 scripts/report_test_class_completeness.py --json-out target/gate-artifacts/verification/test-class-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md --timestamp 2026-07-10T14:00:00Z; python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md; python3 -m unittest scripts.verification.adversarial_selftest_tests scripts.verification.report_gate_tests scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests scripts.verification.bytecode_transforms_tests scripts.verification.bytecode_validator_mutation_tests scripts.verification.test_catalog_scanner_tests scripts.verification.test_catalog_intent_tests scripts.verification.test_catalog_staleness_tests scripts.verification.test_catalog_vscode_registration_tests scripts.verification.metadata_validator.schema_contracts_tests scripts.verification.test_class_completeness_tests; python3 scripts/validate_verification_metadata.py; scripts/verification_metadata_gate.sh; python3 scripts/check_test_catalog_staleness.py; python3 scripts/check_vscode_test_registration.py; python3 scripts/validate_generated_test_catalog.py --json target/gate-artifacts/verification/existing-test-catalog.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-catalog-binding-registration.md; python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check; python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check; git diff --check"
+commit = "c23ebe993c1e2bfa4cec2e865fc0cdebcfed3fd2"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-10"
+suite_id = "supporting_local"
+producer = "test-class-completeness v1"
+generated_report_version = "test-class-completeness-report-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-10"

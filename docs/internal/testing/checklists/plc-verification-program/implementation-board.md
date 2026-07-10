@@ -393,13 +393,35 @@ Acceptance:
   in `suite/index.ts`; malformed boundaries, orphans, missing/duplicate/case-
   mismatched targets, dynamic/conditional loads, traversal, and symlink escape
   fail. Both new checkers remain standalone and CI remains report-only.
+  The fact-level join is performed by the standalone audit itself, not only by
+  a live-repository unittest; scanner facts in an out-of-suite TypeScript file
+  or a JavaScript test file fail. Catalog `subject_kind` and
+  `discovery_source_kind` schema enums are also drift-pinned to the validator
+  vocabularies in a dedicated module, leaving validator `core.py` below 1,000
+  lines.
   Implementation/evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-catalog-binding-registration.md`.
-- [ ] `VERIF-P2-007` Add test-class completeness report.
+- [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
+  report-only generator separates exact scanner-fact classification from
+  mapped-area required-class completeness. Clean-source report commit
+  `c23ebe993c1e2bfa4cec2e865fc0cdebcfed3fd2` classifies 1/3,816 scanner facts
+  and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
+  required class slots complete (`mutation` and `negative_malformed_input`);
+  `failing_regression`, `iec_conformance`, and `metadata_validation` remain
+  missing. Four planned case-table rows are visible under
+  `metadata_validation` but do not count, and ignored/conditional generated
+  facts cannot count as effectively runnable. The at-rest validator recomputes
+  live scanner/catalog/matrix joins, full metadata validity, tool/schema input
+  digests, canonical command/time shape, clean source-commit inputs, and the
+  Markdown-to-JSON digest. Debt exits successfully and no CI enforcement was
+  added. Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
 - [ ] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-- [ ] `VERIF-P2-009` Add malformed-input coverage report.
+- [ ] `VERIF-P2-009` Add malformed-input coverage report. The current catalog
+  has no reviewed machine field binding a negative test to a surface-specific
+  malformed-input class; do not infer that binding from test names or paths.
 - [ ] `VERIF-P2-010` Do not fail CI on unmapped tests in the first slice. Report
   unmapped tests as debt.
 
