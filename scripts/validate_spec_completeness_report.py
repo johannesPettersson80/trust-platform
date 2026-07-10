@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from scripts.verification.spec_completeness_cli import SCHEMA_PATH
-from scripts.verification.spec_completeness_live import validate_report_files
+from verification.spec_completeness_cli import SCHEMA_PATH
+from verification.spec_completeness_live import validate_report_files
 
 
 def main() -> int:

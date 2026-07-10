@@ -216,6 +216,18 @@ class SpecCompletenessAnalysisTests(unittest.TestCase):
 
 
 class SpecCompletenessContractTests(unittest.TestCase):
+    def test_cli_entrypoints_are_directly_runnable(self) -> None:
+        for script in (
+            "scripts/report_spec_completeness.py",
+            "scripts/validate_spec_completeness_report.py",
+        ):
+            result = subprocess.run(
+                ["python3", script, "--help"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
     def test_payload_and_markdown_round_trip(self) -> None:
         report = fixture_report()
         payload = report.to_dict()
