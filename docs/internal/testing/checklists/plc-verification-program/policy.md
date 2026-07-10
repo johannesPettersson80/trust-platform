@@ -447,6 +447,13 @@ Preferred organization:
 - named devices, firmware/software versions, topology, env vars, safety
   precautions, skipped/unproven rows visible.
 
+Phase 5 suite records bind direct entrypoints to the reviewed gate inventory.
+`includes` and `excludes` do not imply command inheritance, transitive success,
+or evidence reuse until `VERIF-P14-000B` defines composition semantics. A
+conditional suite tier is reported to the planner but is never promoted into a
+direct required suite without the condition being established by the owning
+workflow or review.
+
 ## Test Adequacy Metrics
 
 Metrics are not safety proof. They find weak areas.

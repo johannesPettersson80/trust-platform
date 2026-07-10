@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://trust-plc.local/schemas/matrix.schema.json",
-  "title": "truST verification planning matrix",
+  "title": "truST verification planning and code-area routing matrix",
   "type": "object",
   "required": [
     "schema_version",
@@ -11,61 +11,116 @@
     "owner",
     "last_reviewed",
     "areas",
+    "code_areas",
     "intent_requirements"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
-    "id": { "type": "string" },
-    "title": { "type": "string" },
-    "status": { "type": "string" },
-    "owner": { "type": "string" },
-    "last_reviewed": { "type": "string" },
+    "schema_version": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "status": { "const": "mapped" },
+    "owner": { "type": "string", "minLength": 1 },
+    "last_reviewed": { "type": "string", "minLength": 1 },
     "areas": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "id",
-          "status",
-          "owner",
-          "risk_default",
-          "high_risks",
-          "path_globs",
-          "required_test_classes",
-          "required_case_families"
-        ],
-        "properties": {
-          "id": { "type": "string" },
-          "status": { "type": "string" },
-          "owner": { "type": "string" },
-          "risk_default": { "type": "string" },
-          "high_risks": { "type": "array", "items": { "type": "string" } },
-          "path_globs": { "type": "array", "items": { "type": "string" } },
-          "required_test_classes": { "type": "array", "items": { "type": "string" } },
-          "required_case_families": { "type": "array", "items": { "type": "string" } }
-        },
-        "additionalProperties": true
-      }
+      "minItems": 11,
+      "items": { "$ref": "#/$defs/area" }
+    },
+    "code_areas": {
+      "type": "array",
+      "minItems": 29,
+      "maxItems": 29,
+      "items": { "$ref": "#/$defs/codeArea" }
     },
     "intent_requirements": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "intent",
-          "required_test_classes",
-          "red_required",
-          "lock_required"
-        ],
-        "properties": {
-          "intent": { "type": "string" },
-          "required_test_classes": { "type": "array", "items": { "type": "string" } },
-          "red_required": { "type": "boolean" },
-          "lock_required": { "type": "boolean" }
-        },
-        "additionalProperties": true
-      }
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/intentRequirement" }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "areaId": {
+      "enum": [
+        "compiler_iec",
+        "bytecode_vm",
+        "runtime_safety",
+        "protocols",
+        "control_security",
+        "editor_safety",
+        "plcopen_devtools",
+        "hmi_ui",
+        "release",
+        "supply_chain_platform",
+        "verification"
+      ]
+    },
+    "suiteId": {
+      "enum": ["veryquick", "pr", "nightly", "release", "hardware_lab"]
+    },
+    "area": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "owner",
+        "risk_default",
+        "high_risks",
+        "path_globs",
+        "required_test_classes",
+        "required_case_families",
+        "suite_tiers"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/areaId" },
+        "status": { "const": "mapped" },
+        "owner": { "type": "string", "minLength": 1 },
+        "risk_default": { "type": "string", "minLength": 1 },
+        "high_risks": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "path_globs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "required_test_classes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "required_case_families": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "suite_tiers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/suiteId" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "codeArea": {
+      "type": "object",
+      "required": [
+        "id",
+        "match_kind",
+        "area_ids",
+        "path_globs",
+        "intents",
+        "required_test_classes",
+        "suite_tiers",
+        "conditional_suite_tiers",
+        "notes"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "match_kind": { "enum": ["path", "intent"] },
+        "area_ids": { "type": "array", "items": { "$ref": "#/$defs/areaId" }, "uniqueItems": true },
+        "path_globs": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "intents": { "type": "array", "items": { "enum": ["bugfix", "feature", "refactor", "docs", "test-refactor"] }, "uniqueItems": true },
+        "required_test_classes": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "suite_tiers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/suiteId" }, "uniqueItems": true },
+        "conditional_suite_tiers": { "type": "array", "items": { "$ref": "#/$defs/suiteId" }, "uniqueItems": true },
+        "notes": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "intentRequirement": {
+      "type": "object",
+      "required": ["intent", "required_test_classes", "red_required", "lock_required"],
+      "properties": {
+        "intent": { "enum": ["bugfix", "feature", "refactor", "docs", "test-refactor"] },
+        "required_test_classes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "red_required": { "type": "boolean" },
+        "lock_required": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
 }

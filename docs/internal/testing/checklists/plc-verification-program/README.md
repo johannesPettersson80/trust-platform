@@ -148,6 +148,7 @@ verification/
   cases/
   schemas/
   invariant-seeds.toml
+  gate-inventory.toml
   matrix.toml
   spec-matrix.toml
   test-catalog.toml

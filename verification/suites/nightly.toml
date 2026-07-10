@@ -1,15 +1,54 @@
-schema_version = 1
+schema_version = 2
 id = "nightly"
-title = "Nightly Verification Program"
+title = "Nightly Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Placeholder suite for future generated reports, fuzz, mutation, soak, and slow proof."
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Scheduled reliability, soak, extended fuzz/Miri, and explicitly planned deep discovery commands; hardware proof remains separate."
 duration_class = "long"
-environment = "trust-builder"
-commands = []
-evidence_destination = "target/gate-artifacts/nightly-verification/"
+environment = "github_nightly"
+commands = [
+  "workflow job .github/workflows/hmi-long-soak.yml#hmi-soak",
+  "workflow job .github/workflows/nightly-reliability.yml#reliability",
+  "workflow job .github/workflows/salsa-hardening.yml#fuzz-extended-nightly",
+  "workflow job .github/workflows/salsa-hardening.yml#miri-nightly",
+  "python3 scripts/bytecode_validator_mutation.py",
+  "scripts/runtime_motion_example_bench_gate.sh",
+  "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
+  "scripts/salsa_hardening_perf_gate.sh",
+  "scripts/unsafe_concurrency_miri_gate.sh",
+  "scripts/unsafe_concurrency_valgrind_gate.sh",
+]
+command_bindings = [
+  "GATE_JOB_HMI_LONG_SOAK",
+  "GATE_JOB_NIGHTLY_RELIABILITY",
+  "GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY",
+  "GATE_JOB_SALSA_MIRI_NIGHTLY",
+  "GATE_MUTATION_BYTECODE_VALIDATOR",
+  "GATE_SCRIPT_RUNTIME_MOTION_EXAMPLE_BENCH",
+  "GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ",
+  "GATE_SCRIPT_SALSA_HARDENING_PERF",
+  "GATE_SCRIPT_UNSAFE_CONCURRENCY_MIRI",
+  "GATE_SCRIPT_UNSAFE_CONCURRENCY_VALGRIND",
+]
+inventory_ids = [
+  "GATE_JOB_HMI_LONG_SOAK",
+  "GATE_JOB_NIGHTLY_RELIABILITY",
+  "GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY",
+  "GATE_JOB_SALSA_MIRI_NIGHTLY",
+  "GATE_MUTATION_BYTECODE_VALIDATOR",
+  "GATE_SCRIPT_AGGREGATE_ST_TEST_FLAKE_HISTORY",
+  "GATE_SCRIPT_RUNTIME_MOTION_EXAMPLE_BENCH",
+  "GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY",
+  "GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ",
+  "GATE_SCRIPT_SALSA_FUZZ",
+  "GATE_SCRIPT_SALSA_HARDENING_PERF",
+  "GATE_SCRIPT_SALSA_MIRI",
+  "GATE_SCRIPT_UNSAFE_CONCURRENCY_MIRI",
+  "GATE_SCRIPT_UNSAFE_CONCURRENCY_VALGRIND",
+]
+evidence_destination = "ci-artifact:nightly-*"
 includes = ["pr"]
 excludes = ["hardware_lab"]
 approved_proof_producers = []

@@ -223,6 +223,7 @@ SCHEMA_FILES = {
     "invariant-seed-manifest.schema.json",
     "risk-register.schema.json",
     "evidence.schema.json",
+    "gate-inventory.schema.json",
     "spec-source.schema.json",
     "spec-gap.schema.json",
     "spec-matrix.schema.json",
@@ -365,6 +366,7 @@ SCHEMA_REQUIRED_FIELDS = {
         "owner",
         "last_reviewed",
         "areas",
+        "code_areas",
         "intent_requirements",
     ],
     "risk-register.schema.json": [
@@ -439,6 +441,15 @@ SCHEMA_REQUIRED_FIELDS = {
         "duration_class",
         "environment",
         "commands",
+        "command_bindings",
+        "inventory_ids",
         "evidence_destination",
+        "includes",
+        "excludes",
+        "approved_proof_producers",
+    ],
+    "gate-inventory.schema.json": [
+        "schema_version",
+        "surfaces",
     ],
 }

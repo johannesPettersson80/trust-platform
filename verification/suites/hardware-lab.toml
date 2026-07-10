@@ -1,15 +1,24 @@
-schema_version = 1
+schema_version = 2
 id = "hardware_lab"
-title = "Hardware Lab Verification Program"
+title = "Hardware Lab Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Env-gated real-device proof for public hardware claims."
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Strict opt-in proof on named real devices using the existing device-in-loop workflow, script, Rust harness, and JSON artifact contract."
 duration_class = "lab"
-environment = "lab_hardware"
-commands = []
-evidence_destination = "docs/internal/testing/evidence/hardware-lab/"
+environment = "github_or_lab_runner"
+commands = [
+  "scripts/runtime_device_in_loop_gate.sh",
+]
+command_bindings = [
+  "GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP",
+]
+inventory_ids = [
+  "GATE_JOB_PROTOCOL_DEVICE_IN_LOOP",
+  "GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP",
+]
+evidence_destination = "ci-artifact:protocol-device-in-loop-* or committed lab_report"
 includes = []
-excludes = []
+excludes = ["skip_capable_default_as_proof"]
 approved_proof_producers = []

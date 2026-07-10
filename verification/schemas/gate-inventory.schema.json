@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/gate-inventory.schema.json",
+  "title": "Reviewed gate and workflow surface inventory",
+  "type": "object",
+  "required": ["schema_version", "surfaces"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "surfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "source_kind",
+          "path",
+          "name",
+          "command",
+          "variant",
+          "command_role",
+          "disposition",
+          "suite_ids",
+          "owner",
+          "duration_class",
+          "environment",
+          "artifact_kind",
+          "artifact_paths",
+          "artifact_retention",
+          "enforcement",
+          "required_env",
+          "rationale"
+        ],
+        "properties": {
+          "schema_version": { "const": 1 },
+          "id": { "type": "string", "pattern": "^GATE_[A-Z0-9_]+$" },
+          "discovery_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+          "source_kind": {
+            "enum": ["catalog_test_command", "gate_script", "github_workflow_job", "workflow_template", "just_recipe"]
+          },
+          "path": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 },
+          "variant": { "type": "string", "minLength": 1 },
+          "command_role": {
+            "enum": ["entrypoint", "helper", "reference"]
+          },
+          "disposition": {
+            "enum": ["assigned", "excluded", "report_only", "supporting"]
+          },
+          "suite_ids": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "hardware_lab",
+                "nightly",
+                "pr",
+                "release",
+                "supporting_local",
+                "veryquick"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "owner": { "type": "string", "minLength": 1 },
+          "duration_class": {
+            "enum": ["fast", "lab", "long", "manual", "medium", "slow", "very_fast"]
+          },
+          "environment": {
+            "enum": [
+              "consumer_project_ci",
+              "github_matrix",
+              "github_nightly",
+              "github_or_lab_runner",
+              "github_pages",
+              "github_release",
+              "github_release_matrix",
+              "github_self_hosted_linux",
+              "github_ubuntu",
+              "linux_tooling",
+              "local",
+              "local_or_ci",
+              "nightly_toolchain",
+              "trust_builder"
+            ]
+          },
+          "artifact_kind": {
+            "enum": [
+              "ci_artifact",
+              "ci_job_result",
+              "committed_file",
+              "lab_report",
+              "machine_local",
+              "none",
+              "release_object"
+            ]
+          },
+          "artifact_paths": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "artifact_retention": {
+            "enum": ["committed", "machine_local", "none", "release_object", "repository_default"]
+          },
+          "enforcement": {
+            "enum": [
+              "advisory",
+              "conditional",
+              "excluded",
+              "non_executable",
+              "planned",
+              "report_only",
+              "required",
+              "supporting"
+            ]
+          },
+          "required_env": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*=[^\\s=]+$" },
+            "uniqueItems": true
+          },
+          "rationale": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

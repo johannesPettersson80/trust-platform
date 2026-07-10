@@ -13,7 +13,7 @@ Current seed scope:
 - bytecode/VM specification sources,
 - runtime safety specification sources,
 - first public-docs claim scan with explicit gaps,
-- bytecode/VM-only planning matrix pilot for `plan_tests.py`.
+- exhaustive code-area planning and changed-file routing for `plan_tests.py`.
 - bytecode/VM-only decision-table case generator pilot for `gen_cases.py`.
 - bytecode/VM-only transform seed artifacts under `verification/seeds/**`.
 - bytecode-validator-only mutation shard metadata and survivor reporting for
@@ -33,6 +33,8 @@ Current seed scope:
   `VERIF-P3-001` through `VERIF-P3-005`.
 - an exhaustive 44-obligation invariant seed manifest, five imported review
   risks, and report-only specification-completeness debt for Phase 4/4A.
+- a live-bound inventory of existing workflow jobs and root gate scripts,
+  mapped suite definitions, and 29 stable test-taxonomy routes for Phase 5.
 
 TOML shape convention:
 
@@ -52,9 +54,12 @@ TOML shape convention:
 - `verification/spec-matrix.toml` will define required specification tags per
   canonical area. A tag is satisfied by an active spec source whose `covers`
   list includes the tag, or by an open spec gap with an owner.
-- `verification/matrix.toml` defines planning globs, risk defaults, required
-  test classes, and case families. In Phase 1B it is intentionally scoped to
-  `bytecode_vm`; every other area remains uninventoried and must fail closed.
+- `verification/matrix.toml` defines all 11 canonical areas plus the 29 stable
+  code-area routes reviewed in `test-taxonomy.md`. The changed-file classifier
+  rejects absolute, escaping, backslash, control-character, and noncanonical
+  paths; unmatched paths remain default-denied. Deleted paths and both sides of
+  a rename are retained by the report gate. Direct suite requirements do not
+  expand suite `includes` or conditional suite tiers.
 - `scripts/gen_cases.py --invariant <ID>` derives case records from invariant
   behavior rows. Rows with `spec_gap_ref` become blocked cases. Rows with
   `oracle_ref` copy expected outcomes from the behavior row; the tool never
@@ -182,6 +187,33 @@ TOML shape convention:
   explicit spec-gap/test-gap partition. Registered public claims are shown as
   non-exhaustive context; `VERIF-P4A-005` remains open until broad claim-source
   inventory exists. Neither report is wired into CI enforcement.
+- `verification/gate-inventory.toml` binds every executable root workflow job
+  and root `scripts/*gate*` fact to its live discovery identity, command,
+  owner, duration, environment, artifact posture, enforcement posture, and a
+  direct suite or explicit exclusion. The nested consumer workflow template is
+  a non-executable exclusion. Suite records reference every assigned inventory
+  row through `inventory_ids`; `command_bindings` must name every directly
+  assigned `command_role = "entrypoint"` row and no helper/reference row, and
+  `commands` must be their exact ordered projection.
+- `veryquick` maps to `just verification-veryquick` on `trust-builder`. The
+  bounded recipe runs the canonical verification Python suite, metadata/case
+  consistency, existing HIR/runtime recipes, syntax and runtime-core tests,
+  bytecode validation, and one deterministic conformance case. It is not a new
+  broad local Raspberry Pi gate.
+- Run `python3 scripts/run_verification_focused_tests.py` for the canonical
+  verification-tooling suite. Discovery is recursive and deterministic, so the
+  Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
+  cannot be omitted by a hand-maintained command. The production module
+  `metadata_validator/ignored_tests.py` is explicitly excluded.
+- Hardware-lab commands require the exact structured opt-in
+  `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
+  the hosted or scheduled skip-capable workflow remains an inventory helper and
+  is not lab proof. Release entrypoints must name a CI artifact, bound CI job
+  result, committed/lab report, or release object and cannot use `target/**` as
+  durable evidence.
+  Phase 11 remains bound to the existing device-in-loop workflow, script, Rust
+  harness, and JSON artifact contract. Suite `includes`/`excludes` are
+  identifiers only until `VERIF-P14-000B` defines composition semantics.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

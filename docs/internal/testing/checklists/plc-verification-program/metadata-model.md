@@ -26,11 +26,13 @@ verification/
     nightly.toml
     release.toml
     hardware-lab.toml
+  gate-inventory.toml
   cases/
     bytecode_vm/
   schemas/
     invariant.schema.json
     suite.schema.json
+    gate-inventory.schema.json
     catalog.schema.json
     ignored-test.schema.json
     invariant-seed-manifest.schema.json
@@ -1048,22 +1050,26 @@ status plus per-case results, paired to the baseline through
 ### Suite Record
 
 ```toml
-schema_version = 1
+schema_version = 2
 id = "pr"
-title = "PR Required"
+title = "Pull Request Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Protect mainline for normal changes."
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Bind current PR entrypoints and their inventoried helper gates."
 duration_class = "medium"
-environment = "trust-builder"
+environment = "github_matrix"
 commands = [
-  "just fmt",
-  "just clippy",
-  "just test",
+  "workflow job .github/workflows/ci.yml#fmt",
 ]
-evidence_destination = "target/gate-artifacts/pr/"
+command_bindings = [
+  "GATE_JOB_CI_FMT",
+]
+inventory_ids = [
+  "GATE_JOB_CI_FMT",
+]
+evidence_destination = "ci-artifact:gate-*"
 includes = ["veryquick"]
 excludes = ["hardware_lab"]
 approved_proof_producers = []
@@ -1082,13 +1088,35 @@ Required fields:
 - `duration_class`
 - `environment`
 - `commands`
+- `command_bindings`
+- `inventory_ids`
 - `evidence_destination`
+- `includes`
+- `excludes`
+- `approved_proof_producers`
 
-Optional fields:
+`verification/gate-inventory.toml` owns command facts. Every workflow job and
+root gate script is live-bound or explicitly excluded. A suite's
+`inventory_ids` is the exact exhaustive direct reverse join for that suite;
+`command_bindings` must contain every directly assigned inventory row whose
+`command_role` is `entrypoint` and no `helper` or `reference` row, and
+`commands` must equal the corresponding ordered inventory command projection.
+This avoids duplicating owners, environments, durations, artifact posture, and
+enforcement facts in suite files.
 
-- `approved_proof_producers`: producer IDs such as
-  `approved-gate:runtime-comms-conformance` that are allowed to close high-risk
-  red/green proof when they emit evidence fields equivalent to `prove.py`.
+Milestone suite records are `mapped`, non-placeholder, and nonempty. This does
+not mean they have run or produced proof. `veryquick` is explicitly
+`trust_builder`-owned. Hardware entrypoints require
+`TRUST_DIT_REQUIRE_HARDWARE=1`; the strict device-in-loop script is the
+entrypoint and the skip-capable scheduled workflow remains a helper reference.
+Release entrypoints require durable evidence, a named CI artifact, or a bound
+CI job result and cannot use `target/**` as durable output. The
+`supporting_local` bucket may be commandless because its inventory rows are not
+milestone entrypoints.
+
+`includes` and `excludes` are validated identifiers/display constraints only.
+The validator does not recursively compose commands or claim inherited
+execution; `VERIF-P14-000B` owns that future policy.
 
 ### Ignored Test Record
 

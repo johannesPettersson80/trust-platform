@@ -15,16 +15,74 @@
     "duration_class",
     "environment",
     "commands",
-    "evidence_destination"
+    "command_bindings",
+    "inventory_ids",
+    "evidence_destination",
+    "includes",
+    "excludes",
+    "approved_proof_producers"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
-    "id": { "type": "string" },
-    "area": { "type": "string" },
-    "commands": { "type": "array", "items": { "type": "string" } },
-    "includes": { "type": "array", "items": { "type": "string" } },
-    "excludes": { "type": "array", "items": { "type": "string" } },
-    "approved_proof_producers": { "type": "array", "items": { "type": "string" } }
+    "schema_version": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "const": "suite" },
+    "owner": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "last_reviewed": { "type": "string", "minLength": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "duration_class": {
+      "enum": ["very_fast", "fast", "medium", "slow", "long", "lab", "manual"]
+    },
+    "environment": {
+      "enum": [
+        "local_or_ci",
+        "local",
+        "github_ubuntu",
+        "github_matrix",
+        "github_self_hosted_linux",
+        "github_or_lab_runner",
+        "github_release",
+        "github_release_matrix",
+        "github_pages",
+        "github_nightly",
+        "nightly_toolchain",
+        "linux_tooling",
+        "trust_builder",
+        "consumer_project_ci"
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "command_bindings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "inventory_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_destination": { "type": "string", "minLength": 1 },
+    "includes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "excludes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "approved_proof_producers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

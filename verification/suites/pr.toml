@@ -1,19 +1,79 @@
-schema_version = 1
+schema_version = 2
 id = "pr"
-title = "PR Verification Metadata"
+title = "Pull Request Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Protect verification metadata links before broader repo gates."
-placeholder = true
-placeholder_note = "This Phase 1 seed is metadata-only. It is not the final PR gate until VERIF-P5-000A defines suite composition."
-duration_class = "fast"
-environment = "trust-builder"
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Direct inventory of current pull-request jobs and their gate-script helpers; the verification report remains diagnostic until its ratchet flips."
+duration_class = "medium"
+environment = "github_matrix"
 commands = [
-  "python3 scripts/validate_verification_metadata.py"
+  "workflow job .github/workflows/ci.yml#fmt",
+  "workflow job .github/workflows/ci.yml#clippy",
+  "workflow job .github/workflows/ci.yml#test",
+  "workflow job .github/workflows/ci.yml#conformance",
+  "workflow job .github/workflows/ci.yml#architecture-safety",
+  "workflow job .github/workflows/ci.yml#msrv",
+  "workflow job .github/workflows/ci.yml#docs",
+  "workflow job .github/workflows/ci.yml#browser-analysis",
+  "workflow job .github/workflows/ci.yml#vscode-extension",
+  "workflow job .github/workflows/ci.yml#editor-expansion",
+  "workflow job .github/workflows/ci.yml#mp001-parity",
+  "workflow job .github/workflows/ci.yml#supply-chain",
+  "workflow job .github/workflows/salsa-hardening.yml#memory-regression",
+  "workflow job .github/workflows/salsa-hardening.yml#fuzz-smoke",
+  "workflow job .github/workflows/verification-gate.yml#verification-report",
 ]
-evidence_destination = "target/gate-artifacts/verification-metadata/"
+command_bindings = [
+  "GATE_JOB_CI_FMT",
+  "GATE_JOB_CI_CLIPPY",
+  "GATE_JOB_CI_TEST",
+  "GATE_JOB_CI_CONFORMANCE",
+  "GATE_JOB_CI_ARCHITECTURE_SAFETY",
+  "GATE_JOB_CI_MSRV",
+  "GATE_JOB_CI_DOCS",
+  "GATE_JOB_CI_BROWSER_ANALYSIS",
+  "GATE_JOB_CI_VSCODE_EXTENSION",
+  "GATE_JOB_CI_EDITOR_EXPANSION",
+  "GATE_JOB_CI_MP001_PARITY",
+  "GATE_JOB_CI_SUPPLY_CHAIN",
+  "GATE_JOB_SALSA_MEMORY_REGRESSION",
+  "GATE_JOB_SALSA_FUZZ_SMOKE",
+  "GATE_JOB_VERIFICATION_REPORT",
+]
+inventory_ids = [
+  "GATE_JOB_CI_ARCHITECTURE_SAFETY",
+  "GATE_JOB_CI_BROWSER_ANALYSIS",
+  "GATE_JOB_CI_CLIPPY",
+  "GATE_JOB_CI_CONFORMANCE",
+  "GATE_JOB_CI_DOCS",
+  "GATE_JOB_CI_EDITOR_EXPANSION",
+  "GATE_JOB_CI_FMT",
+  "GATE_JOB_CI_MP001_PARITY",
+  "GATE_JOB_CI_MSRV",
+  "GATE_JOB_CI_SUPPLY_CHAIN",
+  "GATE_JOB_CI_TEST",
+  "GATE_JOB_CI_VSCODE_EXTENSION",
+  "GATE_JOB_SALSA_FUZZ_SMOKE",
+  "GATE_JOB_SALSA_MEMORY_REGRESSION",
+  "GATE_JOB_VERIFICATION_REPORT",
+  "GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP",
+  "GATE_SCRIPT_CHECK_GATE_OBSERVABILITY",
+  "GATE_SCRIPT_RUNTIME_BOUNDARY_FAIL_CLOSED_AST_GREP",
+  "GATE_SCRIPT_RUNTIME_CLOUD_SECURITY_PROFILE",
+  "GATE_SCRIPT_RUNTIME_COMMS_BENCH",
+  "GATE_SCRIPT_RUNTIME_COMMS_CONFORMANCE",
+  "GATE_SCRIPT_RUNTIME_COMMS_FUZZ",
+  "GATE_SCRIPT_RUNTIME_MESH_TLS_STABILITY",
+  "GATE_SCRIPT_RUNTIME_SAFETY_FAIL_CLOSED_AST_GREP",
+  "GATE_SCRIPT_RUNTIME_VM_BENCH",
+  "GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY",
+  "GATE_SCRIPT_SALSA_FUZZ",
+  "GATE_SCRIPT_SALSA_MEMORY",
+  "GATE_SCRIPT_VERIFICATION_REPORT",
+]
+evidence_destination = "ci-artifact:gate-*"
 includes = ["veryquick"]
 excludes = ["hardware_lab"]
 approved_proof_producers = []

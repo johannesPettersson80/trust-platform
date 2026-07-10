@@ -1,19 +1,24 @@
-schema_version = 1
+schema_version = 2
 id = "veryquick"
-title = "Very Quick Verification Metadata"
+title = "Very Quick Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Validate verification metadata without running Rust, Node, browser, hardware, or network tests."
-placeholder = true
-placeholder_note = "This Phase 1 seed is metadata-only. It is not the final veryquick product/test suite until VERIF-P5-000A defines suite composition."
-duration_class = "very_fast"
-environment = "local_or_ci"
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Bounded trust-builder feedback for verification tooling, compiler semantics, runtime core, bytecode validation, and one deterministic conformance case."
+duration_class = "fast"
+environment = "trust_builder"
 commands = [
-  "python3 scripts/validate_verification_metadata.py"
+  "just verification-veryquick",
 ]
-evidence_destination = "target/gate-artifacts/verification-metadata/"
+command_bindings = [
+  "GATE_JUST_VERIFICATION_VERYQUICK",
+]
+inventory_ids = [
+  "GATE_JUST_VERIFICATION_VERYQUICK",
+  "GATE_SCRIPT_VERIFICATION_METADATA",
+]
+evidence_destination = "target/gate-artifacts/veryquick/"
 includes = []
-excludes = ["hardware_lab", "rust_tests", "node_tests", "browser_tests"]
+excludes = ["hardware_lab", "network_timing", "long_soak", "visual_capture"]
 approved_proof_producers = []

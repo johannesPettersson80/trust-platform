@@ -7,7 +7,6 @@ read-only join over committed metadata; it never invents expected behavior.
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import subprocess
 import sys
@@ -16,6 +15,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .area_routing import (
+    AreaRoutingError,
+    classify_changed_path,
+    intent_overlay,
+    normalize_changed_path,
+)
 from .metadata_validator.constants import AREAS, INTENTS, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS, test_counts_as_runnable
@@ -45,6 +50,9 @@ class PlanResult:
     uninventoried_areas: list[str]
     required_test_classes: list[str]
     required_case_families: list[str]
+    matched_route_ids: list[str]
+    required_suites: list[str]
+    conditional_suites: list[str]
     spec_gaps: list[str]
     missing_test_classes: list[str]
     existing_tests: list[str]
@@ -98,14 +106,7 @@ class Planner:
         self.tests = wrapped_optional(VERIFICATION / "test-catalog.toml", "tests")
 
     def classify_file(self, changed_file: str) -> list[str]:
-        normalized = normalize_changed_file(changed_file)
-        matches: list[str] = []
-        for area_id, area in self.areas.items():
-            for pattern in area.get("path_globs", []):
-                if fnmatch.fnmatchcase(normalized, pattern):
-                    matches.append(area_id)
-                    break
-        return sorted(set(matches))
+        return list(classify_changed_path(self.matrix, changed_file).area_ids)
 
     def plan(
         self,
@@ -120,22 +121,48 @@ class Planner:
         resolved_areas: set[str] = set()
         unmapped: list[str] = []
         unknown_areas: list[str] = []
-        normalized_files = [normalize_changed_file(f) for f in changed_files or [] if f.strip()]
+        normalized_files: list[str] = []
+        route_required_classes: set[str] = set()
+        matched_route_ids: set[str] = set()
+        required_suites: set[str] = set()
+        conditional_suites: set[str] = set()
+        invalid_path_notes: set[str] = set()
         if area:
             if area not in AREAS:
                 unknown_areas.append(area)
             else:
                 resolved_areas.add(area)
-        for changed_file in normalized_files:
-            matches = self.classify_file(changed_file)
-            if not matches:
+                required_suites.update(self.areas.get(area, {}).get("suite_tiers", []))
+        for changed_file in changed_files or []:
+            try:
+                route = classify_changed_path(self.matrix, changed_file)
+            except AreaRoutingError as exc:
+                normalized_files.append(changed_file)
                 unmapped.append(changed_file)
-            resolved_areas.update(matches)
+                invalid_path_notes.add(f"invalid changed path {changed_file!r}: {exc}")
+                continue
+            normalized_files.append(route.path)
+            if route.unmapped:
+                unmapped.append(route.path)
+            resolved_areas.update(route.area_ids)
+            matched_route_ids.update(route.route_ids)
+            route_required_classes.update(route.required_test_classes)
+            required_suites.update(route.suite_tiers)
+            conditional_suites.update(route.conditional_suite_tiers)
+
+        overlay = intent_overlay(self.matrix, intent)
+        matched_route_ids.update(overlay.route_ids)
+        route_required_classes.update(overlay.required_test_classes)
+        required_suites.update(overlay.suite_tiers)
+        conditional_suites.update(overlay.conditional_suite_tiers)
 
         if not resolved_areas and not unmapped and not unknown_areas:
             raise ValueError("provide --changed files or --area")
 
-        required_classes: set[str] = set()
+        required_classes: set[str] = (
+            set(route_required_classes) if intent in BEHAVIOR_INTENTS else set()
+        )
+        required_classes.update(overlay.required_test_classes)
         required_families: set[str] = set()
         spec_gaps: set[str] = set()
         existing_tests: set[str] = set()
@@ -149,6 +176,7 @@ class Planner:
             risk_notes.add(
                 f"unmapped files are unclassified and treated as highest risk: {HIGHEST_RISK}"
             )
+        risk_notes.update(invalid_path_notes)
         for unknown_area in unknown_areas:
             risk_notes.add(
                 f"{unknown_area} is not a canonical area and is treated as highest risk: {HIGHEST_RISK}"
@@ -210,6 +238,9 @@ class Planner:
             uninventoried_areas=sorted(uninventoried),
             required_test_classes=sorted(required_classes),
             required_case_families=sorted(required_families),
+            matched_route_ids=sorted(matched_route_ids),
+            required_suites=sorted(required_suites),
+            conditional_suites=sorted(conditional_suites - required_suites),
             spec_gaps=sorted(spec_gaps),
             missing_test_classes=sorted(missing_classes),
             existing_tests=sorted(existing_tests),
@@ -261,6 +292,15 @@ def render_text(result: PlanResult) -> str:
     if result.required_case_families:
         lines.extend(["", "Required case families:"])
         lines.extend(f"- `{name}`" for name in result.required_case_families)
+    if result.matched_route_ids:
+        lines.extend(["", "Matched code-area routes:"])
+        lines.extend(f"- `{name}`" for name in result.matched_route_ids)
+    if result.required_suites:
+        lines.extend(["", "Direct required suites:"])
+        lines.extend(f"- `{name}`" for name in result.required_suites)
+    if result.conditional_suites:
+        lines.extend(["", "Conditional suites (not directly required):"])
+        lines.extend(f"- `{name}`" for name in result.conditional_suites)
     if result.spec_gaps:
         lines.extend(["", "Blocking spec gaps:"])
         lines.extend(f"- `{gap}`" for gap in result.spec_gaps)
@@ -304,6 +344,9 @@ def result_to_json(result: PlanResult) -> str:
             "uninventoried_areas": result.uninventoried_areas,
             "required_test_classes": result.required_test_classes,
             "required_case_families": result.required_case_families,
+            "matched_route_ids": result.matched_route_ids,
+            "required_suites": result.required_suites,
+            "conditional_suites": result.conditional_suites,
             "spec_gaps": result.spec_gaps,
             "missing_test_classes": result.missing_test_classes,
             "existing_tests": result.existing_tests,
@@ -349,10 +392,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def normalize_changed_file(value: str) -> str:
-    normalized = value.strip()
-    while normalized.startswith("./"):
-        normalized = normalized[2:]
-    return normalized
+    return normalize_changed_path(value)
 
 
 def validate_metadata_or_raise() -> None:

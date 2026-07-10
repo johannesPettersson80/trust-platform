@@ -1,15 +1,41 @@
-schema_version = 1
+schema_version = 2
 id = "release"
-title = "Release Verification Program"
+title = "Release Verification"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-08"
-purpose = "Placeholder suite for release proof manifest and public claim traceability."
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Release entrypoints whose outputs are named CI artifacts or public release objects; helper scripts remain inventory references."
 duration_class = "long"
-environment = "ci_release"
-commands = []
-evidence_destination = "target/gate-artifacts/release-verification/"
+environment = "github_release_matrix"
+commands = [
+  "workflow job .github/workflows/ci.yml#release-gate-report",
+  "workflow job .github/workflows/ci.yml#version-release-guard",
+  "workflow job .github/workflows/release.yml#release-preflight",
+  "workflow job .github/workflows/release.yml#build",
+  "workflow job .github/workflows/release.yml#publish",
+  "workflow job .github/workflows/release.yml#runtime-vm-validation",
+]
+command_bindings = [
+  "GATE_JOB_CI_RELEASE_GATE_REPORT",
+  "GATE_JOB_CI_VERSION_RELEASE_GUARD",
+  "GATE_JOB_RELEASE_PREFLIGHT",
+  "GATE_JOB_RELEASE_BUILD",
+  "GATE_JOB_RELEASE_PUBLISH",
+  "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
+]
+inventory_ids = [
+  "GATE_JOB_CI_RELEASE_GATE_REPORT",
+  "GATE_JOB_CI_VERSION_RELEASE_GUARD",
+  "GATE_JOB_RELEASE_BUILD",
+  "GATE_JOB_RELEASE_PREFLIGHT",
+  "GATE_JOB_RELEASE_PUBLISH",
+  "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
+  "GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT",
+  "GATE_SCRIPT_RUNTIME_VM_BENCH",
+  "GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY",
+]
+evidence_destination = "ci-artifact:release-*; release-object:GitHub Release"
 includes = ["nightly"]
 excludes = ["hardware_lab_unless_configured"]
 approved_proof_producers = []

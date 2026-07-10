@@ -14,6 +14,7 @@ from scripts.verification.report_gate import (
     build_report,
     changed_files_from_git,
     find_uncataloged_tests,
+    parse_name_status_z,
     report_exit_code,
     render_markdown,
 )
@@ -48,6 +49,74 @@ class VerificationReportGateTests(unittest.TestCase):
             changed = changed_files_from_git(repo, base_tip, feature_head)
 
         self.assertEqual(changed, ["feature.txt"])
+
+    def test_changed_files_from_git_includes_deleted_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run_git(repo, "init")
+            run_git(repo, "config", "user.email", "verification@example.invalid")
+            run_git(repo, "config", "user.name", "Verification Test")
+            deleted = repo / "crates/trust-runtime/src/runtime/deleted.rs"
+            deleted.parent.mkdir(parents=True)
+            deleted.write_text("pub fn removed() {}\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "base")
+            base = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            deleted.unlink()
+            run_git(repo, "add", "-u")
+            run_git(repo, "commit", "-m", "delete runtime source")
+            head = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            changed = changed_files_from_git(repo, base, head)
+
+        self.assertEqual(changed, ["crates/trust-runtime/src/runtime/deleted.rs"])
+
+    def test_changed_files_from_git_includes_both_rename_endpoints(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run_git(repo, "init")
+            run_git(repo, "config", "user.email", "verification@example.invalid")
+            run_git(repo, "config", "user.name", "Verification Test")
+            old_path = "crates/trust-hir/src/old_owner.rs"
+            new_path = "crates/trust-runtime/src/runtime/new_owner.rs"
+            source = repo / old_path
+            source.parent.mkdir(parents=True)
+            source.write_text("pub fn moved() {}\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "base")
+            base = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            (repo / new_path).parent.mkdir(parents=True)
+            run_git(repo, "mv", old_path, new_path)
+            run_git(repo, "commit", "-m", "move ownership")
+            head = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            changed = changed_files_from_git(repo, base, head)
+
+        self.assertEqual(changed, sorted([old_path, new_path]))
+
+    def test_name_status_parser_preserves_unusual_paths_for_default_deny(self) -> None:
+        paths = parse_name_status_z(
+            "M\0path with spaces.rs\0D\0path-with-tab\t.rs\0"
+            "R100\0old\nname.rs\0new\nname.rs\0"
+        )
+
+        self.assertEqual(
+            paths,
+            sorted(
+                [
+                    "path with spaces.rs",
+                    "path-with-tab\t.rs",
+                    "old\nname.rs",
+                    "new\nname.rs",
+                ]
+            ),
+        )
+
+    def test_name_status_parser_rejects_truncated_rename(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "malformed NUL-delimited"):
+            parse_name_status_z("R100\0old.rs\0")
 
     def test_uncataloged_test_report_uses_catalog_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

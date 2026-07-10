@@ -158,7 +158,19 @@ def command_name(command: list[str]) -> str:
 
 def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
     completed = subprocess.run(
-        ["git", "diff", "--name-only", "--diff-filter=AMR", "--merge-base", base, head],
+        [
+            "git",
+            "diff",
+            "--name-status",
+            "-z",
+            "--find-renames",
+            "--find-copies",
+            "--diff-filter=ACDMRTUXB",
+            "--merge-base",
+            base,
+            head,
+            "--",
+        ],
         cwd=root,
         text=True,
         stdout=subprocess.PIPE,
@@ -167,7 +179,24 @@ def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
     )
     if completed.returncode != 0:
         raise RuntimeError(f"git diff failed: {completed.stderr.strip()}")
-    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    return parse_name_status_z(completed.stdout)
+
+
+def parse_name_status_z(output: str) -> list[str]:
+    tokens = output.split("\0")
+    if tokens and tokens[-1] == "":
+        tokens.pop()
+    paths: set[str] = set()
+    index = 0
+    while index < len(tokens):
+        status = tokens[index]
+        index += 1
+        path_count = 2 if status[:1] in {"R", "C"} else 1
+        if not status or index + path_count > len(tokens):
+            raise RuntimeError("git diff returned malformed NUL-delimited name-status output")
+        paths.update(tokens[index : index + path_count])
+        index += path_count
+    return sorted(paths)
 
 
 def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]:

@@ -36,9 +36,15 @@ from .constants import (
     SOURCE_AUTHORITIES,
     SOURCE_STATUSES,
     STATUSES,
-    SUITE_AREA,
     TEST_CLASSES,
     VERIFICATION,
+)
+from ..area_routing import MILESTONE_SUITE_IDS, validate_area_routing
+from ..gate_inventory import (
+    INVENTORY_PATH,
+    GateInventoryError,
+    load_gate_inventory,
+    validate_gate_inventory,
 )
 from .case_files import validate_case_file
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
@@ -57,6 +63,7 @@ from .schema_contracts import validate_schema_enums
 from .risks import validate_risks as validate_risk_records
 from .taxonomy import validate_taxonomy_drift
 from .spec_gap_closure import validate_spec_gap_closure
+from .suites import validate_suite_records
 
 
 @dataclass
@@ -73,6 +80,7 @@ class Validator:
         self.evidence: dict[str, dict[str, Any]] = {}
         self.invariants: dict[str, dict[str, Any]] = {}
         self.suites: dict[str, dict[str, Any]] = {}
+        self.gate_inventory: dict[str, dict[str, Any]] = {}
         self.tests: dict[str, dict[str, Any]] = {}
         self.ignored_tests: dict[str, dict[str, Any]] = {}
         self.risks: dict[str, dict[str, Any]] = {}
@@ -171,6 +179,16 @@ class Validator:
 
     def load_records(self) -> None:
         self.load_json_schemas()
+        try:
+            self.gate_inventory = load_gate_inventory(ROOT)
+        except GateInventoryError as exc:
+            self.fail(ROOT / INVENTORY_PATH, str(exc))
+        else:
+            validate_gate_inventory(
+                ROOT,
+                self.gate_inventory,
+                on_failure=self.fail,
+            )
         self.load_wrapped_records(
             VERIFICATION / "spec-sources.toml",
             "spec_sources",
@@ -389,29 +407,11 @@ class Validator:
             )
 
     def validate_suites(self) -> None:
-        required = [
-            "schema_version",
-            "id",
-            "title",
-            "area",
-            "owner",
-            "status",
-            "last_reviewed",
-            "purpose",
-            "duration_class",
-            "environment",
-            "commands",
-            "evidence_destination",
-        ]
-        for record in self.suites.values():
-            path = record["_path"]
-            self.require(path, record, required, "suite")
-            self.check_common(path, record, allow_suite=True)
-            if record.get("area") != SUITE_AREA:
-                self.fail(path, f"suite {record['id']} must use area = suite")
-            for suite_id in record.get("includes", []):
-                if suite_id not in self.suites:
-                    self.fail(path, f"{record['id']} includes unknown suite {suite_id}")
+        validate_suite_records(
+            fail=self.fail,
+            suites=self.suites,
+            inventory=self.gate_inventory,
+        )
 
     def validate_invariants(self) -> None:
         validate_invariant_records(
@@ -507,10 +507,36 @@ class Validator:
         self.require(
             path,
             self.matrix,
-            ["schema_version", "id", "title", "status", "owner", "last_reviewed", "areas", "intent_requirements"],
+            [
+                "schema_version",
+                "id",
+                "title",
+                "status",
+                "owner",
+                "last_reviewed",
+                "areas",
+                "code_areas",
+                "intent_requirements",
+            ],
             "planning matrix",
         )
-        self.check_schema_version(path, self.matrix, "planning matrix")
+        self.check_schema_version(path, self.matrix, "planning matrix", expected=2)
+        taxonomy = (
+            ROOT
+            / "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md"
+        )
+        try:
+            taxonomy_text = taxonomy.read_text()
+        except (OSError, UnicodeError) as exc:
+            self.fail(taxonomy, f"test taxonomy cannot be read: {exc}")
+        else:
+            for failure in validate_area_routing(
+                self.matrix,
+                taxonomy_text,
+                canonical_areas=AREAS,
+                suite_ids=set(self.suites) & MILESTONE_SUITE_IDS,
+            ):
+                self.fail(path, failure)
         if self.matrix.get("status") not in STATUSES:
             self.fail(path, f"planning matrix uses unknown status {self.matrix.get('status')!r}")
 

@@ -1,15 +1,20 @@
-schema_version = 1
+schema_version = 2
 id = "supporting_local"
 title = "Supporting Local Evidence"
 area = "suite"
 owner = "verification"
-status = "planned"
-last_reviewed = "2026-07-09"
-purpose = "Bucket for committed local supporting evidence that is not itself a milestone gate."
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Bucket for developer parity and migration-decision helpers that are not milestone entrypoints or proof-producing gates."
 duration_class = "manual"
 environment = "local"
 commands = []
+command_bindings = []
+inventory_ids = [
+  "GATE_SCRIPT_PREPUSH_CI",
+  "GATE_SCRIPT_SALSA_SPIKE",
+]
 evidence_destination = "docs/internal/testing/evidence/"
 includes = []
-excludes = ["hardware_lab"]
+excludes = ["milestone_enforcement", "hardware_lab"]
 approved_proof_producers = []
