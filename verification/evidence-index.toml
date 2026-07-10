@@ -873,3 +873,24 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P3_IGNORED_TEST_REGISTER_CLOSURE_20260710"
+title = "Phase 3 ignored-test register closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-register-closure-validation.md"
+command = "python3 -m unittest scripts.verification.adversarial_selftest_tests scripts.verification.report_gate_tests scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests scripts.verification.metadata_validator.schema_contracts_tests scripts.verification.bytecode_transforms_tests scripts.verification.bytecode_validator_mutation_tests scripts.verification.test_catalog_scanner_tests scripts.verification.test_catalog_intent_tests scripts.verification.test_catalog_staleness_tests scripts.verification.test_catalog_vscode_registration_tests scripts.verification.test_class_completeness_tests scripts.verification.report_input_contract_tests scripts.verification.coverage_matrix_gap_tests scripts.verification.malformed_input_coverage_tests scripts.verification.test_catalog_debt_tests scripts.verification.test_refactor_assessment_tests scripts.verification.test_refactor_contract_tests scripts.verification.test_refactor_report_tests scripts.verification.ignored_test_inventory_tests scripts.verification.ignored_test_vscode_skip_tests scripts.verification.ignored_test_provenance_tests scripts.verification.ignored_test_schema_drift_tests scripts.verification.ignored_test_staleness_tests scripts.verification.metadata_validator.ignored_tests_tests && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check && git diff --check && ssh trust-builder 'cd \"$HOME/projects/trust-platform-p3-validation-7d041edb9\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p3-mutation\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p3-tmp\" && mkdir -p \"$TMPDIR\" && just fmt && just clippy && just test-all'"
+commit = "cf513c5d6f8c54a27fb4c7b71b0cf2d1944c9b96"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-10"
+suite_id = "supporting_local"
+producer = "codex phase3 ignored-test register closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-10"

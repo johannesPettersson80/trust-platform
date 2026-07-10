@@ -568,6 +568,9 @@ Acceptance:
 
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md`.
+  Focused local/remote validation, the clean mutation replay, and remote
+  `fmt`/`clippy`/`test-all` closure are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-register-closure-validation.md`.
 - [ ] `VERIF-P3-006` Fail metadata validation if any ignored test remains
   `unknown` after the grace period defined per `VERIF-P14-000`. This row stays
   open because that grace period does not yet exist; current unknown debt is
