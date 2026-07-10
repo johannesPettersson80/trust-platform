@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for the version/release evidence guard CLI contract."""
+"""Regression tests for the version/release evidence guard CLI contract."""
 
 from __future__ import annotations
 
