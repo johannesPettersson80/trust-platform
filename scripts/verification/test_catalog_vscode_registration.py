@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 
 from .test_catalog_common import diagnostic, source_files
 from .test_catalog_models import ScanDiagnostic
-from .test_catalog_vscode import mask_js_literals, strip_js_comments
+from .test_catalog_vscode import mask_js_literals, scan_vscode_tests, strip_js_comments
 
 
 INDEX_PATH = "editors/vscode/src/test/suite/index.ts"
@@ -36,6 +36,8 @@ class VscodeRegistrationAudit:
     unregistered_files: tuple[str, ...]
     missing_targets: tuple[str, ...]
     duplicate_targets: tuple[str, ...]
+    fact_count: int
+    unregistered_fact_files: tuple[str, ...]
     diagnostics: tuple[ScanDiagnostic, ...]
 
     @property
@@ -45,6 +47,23 @@ class VscodeRegistrationAudit:
 
 def audit_vscode_test_registration(root: Path) -> VscodeRegistrationAudit:
     root = root.resolve()
+    try:
+        scan = scan_vscode_tests(root)
+        fact_count = len(scan.facts)
+        fact_files = tuple(sorted({fact.path for fact in scan.facts}))
+        scan_diagnostics = [item for item in scan.diagnostics if item.severity == "error"]
+    except (OSError, UnicodeError, ValueError) as exc:
+        fact_count = 0
+        fact_files = ()
+        scan_diagnostics = [
+            diagnostic(
+                "vscode_fact_scan",
+                "editors/vscode/src/test",
+                1,
+                f"VS Code fact scan failed closed: {exc}",
+                severity="error",
+            )
+        ]
     suite = root / SUITE_PATH
     index = root / INDEX_PATH
     test_files = tuple(
@@ -52,17 +71,17 @@ def audit_vscode_test_registration(root: Path) -> VscodeRegistrationAudit:
         for path in source_files(root, SUITE_PATH, (".ts",))
         if path.name.endswith(".test.ts")
     )
-    diagnostics: list[ScanDiagnostic] = []
+    diagnostics = scan_diagnostics
     entries: list[VscodeRegistrationEntry] = []
 
     if not index.is_file():
         diagnostics.append(diagnostic("missing_registration_index", INDEX_PATH, 1, "index.ts is missing", severity="error"))
-        return _build_audit(test_files, entries, diagnostics)
+        return _build_audit(test_files, entries, diagnostics, fact_count, fact_files)
     try:
         lines = index.read_text().splitlines()
     except (OSError, UnicodeError) as exc:
         diagnostics.append(diagnostic("registration_index_read", INDEX_PATH, 1, str(exc), severity="error"))
-        return _build_audit(test_files, entries, diagnostics)
+        return _build_audit(test_files, entries, diagnostics, fact_count, fact_files)
 
     code_lines: list[tuple[int, str]] = []
     state: str | None = None
@@ -81,7 +100,7 @@ def audit_vscode_test_registration(root: Path) -> VscodeRegistrationAudit:
                 severity="error",
             )
         )
-        return _build_audit(test_files, entries, diagnostics)
+        return _build_audit(test_files, entries, diagnostics, fact_count, fact_files)
 
     for line_number, code in code_lines:
         if not pre_lines[0] < line_number < run_lines[0]:
@@ -115,7 +134,14 @@ def audit_vscode_test_registration(root: Path) -> VscodeRegistrationAudit:
                 )
             )
 
-    return _build_audit(test_files, entries, diagnostics, root=root)
+    return _build_audit(
+        test_files,
+        entries,
+        diagnostics,
+        fact_count,
+        fact_files,
+        root=root,
+    )
 
 
 def _safe_specifier(specifier: str) -> bool:
@@ -134,6 +160,8 @@ def _build_audit(
     test_files: tuple[str, ...],
     entries: list[VscodeRegistrationEntry],
     diagnostics: list[ScanDiagnostic],
+    fact_count: int,
+    fact_files: tuple[str, ...],
     *,
     root: Path | None = None,
 ) -> VscodeRegistrationAudit:
@@ -160,6 +188,17 @@ def _build_audit(
         diagnostics.append(
             diagnostic("unregistered_test_file", path, 1, "VS Code test file is not registered in suite/index.ts", severity="error")
         )
+    unregistered_fact_files = tuple(sorted(set(fact_files) - existing))
+    for path in unregistered_fact_files:
+        diagnostics.append(
+            diagnostic(
+                "unregistered_vscode_fact_file",
+                path,
+                1,
+                "scanner found VS Code test facts in a file not registered in suite/index.ts",
+                severity="error",
+            )
+        )
     diagnostics.sort(key=lambda item: (item.path, item.line, item.kind, item.message))
     return VscodeRegistrationAudit(
         index_path=INDEX_PATH,
@@ -169,6 +208,8 @@ def _build_audit(
         unregistered_files=unregistered,
         missing_targets=tuple(sorted(set(missing_targets))),
         duplicate_targets=duplicate_targets,
+        fact_count=fact_count,
+        unregistered_fact_files=unregistered_fact_files,
         diagnostics=tuple(diagnostics),
     )
 

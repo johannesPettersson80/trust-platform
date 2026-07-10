@@ -172,6 +172,13 @@ python3 scripts/validate_generated_test_catalog.py \
   --markdown docs/internal/testing/evidence/plc-verification-program/<date>/p2-existing-test-catalog.md
 python3 scripts/check_test_catalog_staleness.py
 python3 scripts/check_vscode_test_registration.py
+python3 scripts/report_test_class_completeness.py \
+  --json-out target/gate-artifacts/verification/test-class-completeness.json \
+  --markdown-out docs/internal/testing/evidence/plc-verification-program/<date>/p2-test-class-completeness.md \
+  --timestamp <fixed-iso-8601-time>
+python3 scripts/validate_test_class_completeness_report.py \
+  --json target/gate-artifacts/verification/test-class-completeness.json \
+  --markdown docs/internal/testing/evidence/plc-verification-program/<date>/p2-test-class-completeness.md
 ```
 
 It inventories only source-derived facts, including runnable Structured Text
@@ -195,8 +202,23 @@ The VS Code registration checker requires every
 `editors/vscode/src/test/suite/**/*.test.ts` file to have one direct literal
 `require("./...test")` between Mocha's pre-require and run boundaries in
 `suite/index.ts`. Orphans, missing targets, duplicates, dynamic/conditional
-loads, and path escapes fail. Both Phase 2 checkers remain standalone in this
-slice; the report-only CI posture is unchanged.
+loads, and path escapes fail. It also scans all supported
+`editors/vscode/src/test/**` sources and rejects any discovered VS Code fact
+whose file is outside that registered set; the file inventory alone is not the
+completeness assertion.
+
+The test-class completeness report keeps two denominators separate. Scanner
+classification counts only exact `discovery_id` joins from `generated_test`
+catalog rows; case-table and mutation-runner artifacts cannot classify source
+facts. Matrix completeness compares each mapped area's
+`required_test_classes` with catalog rows in runnable statuses. Planned and
+other non-runnable rows are listed but do not satisfy a required class.
+Scanner-backed rows marked `ignored` or `conditional` also do not satisfy a
+required class; Phase 3 still owns their reviewed classification. A
+structurally `complete` report may therefore contain unmapped facts and missing
+classes. Those are report debt, not an enforcement failure or permission to
+infer area, class, invariant, oracle, or expected behavior from names. These
+Phase 2 commands remain standalone; the report-only CI posture is unchanged.
 
 The P2-001 board surface is deliberately narrower than the whole workspace:
 Rust tests under `xtask/**` and fuzz targets in crate-local fuzz workspaces such

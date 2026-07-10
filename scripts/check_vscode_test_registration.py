@@ -21,7 +21,8 @@ def main() -> int:
         return 1
     print(
         "VS Code test registration validated: "
-        f"{len(audit.test_files)} files, {len(audit.entries)} registrations"
+        f"{audit.fact_count} discovered facts, {len(audit.test_files)} files, "
+        f"{len(audit.entries)} registrations"
     )
     return 0
 

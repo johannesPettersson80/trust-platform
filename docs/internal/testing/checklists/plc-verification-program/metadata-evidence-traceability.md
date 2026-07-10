@@ -86,6 +86,12 @@ Evidence rules:
   durable evidence and not proof of a product claim. Its committed dated
   Markdown summary may be indexed as `proof_kind = "none"` with empty invariant
   and test links after the JSON/input digests and counts validate at rest.
+- The generated test-class completeness JSON uses the same working-artifact
+  rule. Its committed dated Markdown summary may be indexed with
+  `proof_kind = "none"` and empty invariant/test links only after the validator
+  recomputes the live scanner/catalog/matrix joins, input digest, class counts,
+  and Markdown-to-JSON digest. Missing mappings/classes are visible debt and do
+  not become behavior proof.
 - `committed_file` paths must be git-tracked; `ci_artifact` refs name
   `workflow`, `run_id`, `artifact`, and `retention_days` when the artifact is
   the only proof; `release_object` evidence names `release_object` and `url`;

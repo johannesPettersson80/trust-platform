@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.verification.test_catalog_vscode import scan_vscode_tests
 from scripts.verification.test_catalog_vscode_registration import audit_vscode_test_registration
 
 
@@ -96,19 +95,49 @@ class TestCatalogVscodeRegistrationTests(unittest.TestCase):
         self.assertIn("missing_registration_target", kinds)
         self.assertIn("unregistered_test_file", kinds)
 
+    def test_rejects_discovered_fact_outside_suite_registration_surface(self) -> None:
+        with vscode_root(
+            files=("alpha.test.ts",),
+            registrations=('require("./alpha.test");',),
+        ) as root:
+            outside = root / "editors/vscode/src/test/outside.test.ts"
+            outside.write_text('test("outside", () => {});\n')
+
+            audit = audit_vscode_test_registration(root)
+
+        self.assertFalse(audit.is_clean)
+        self.assertEqual(
+            audit.unregistered_fact_files,
+            ("editors/vscode/src/test/outside.test.ts",),
+        )
+        self.assertIn("unregistered_vscode_fact_file", {item.kind for item in audit.diagnostics})
+
+    def test_rejects_discovered_javascript_fact_missing_from_ts_inventory(self) -> None:
+        with vscode_root(
+            files=("alpha.test.ts",),
+            registrations=('require("./alpha.test");',),
+        ) as root:
+            javascript = root / "editors/vscode/src/test/suite/legacy.test.js"
+            javascript.write_text('test("legacy", () => {});\n')
+
+            audit = audit_vscode_test_registration(root)
+
+        self.assertFalse(audit.is_clean)
+        self.assertEqual(
+            audit.unregistered_fact_files,
+            ("editors/vscode/src/test/suite/legacy.test.js",),
+        )
+        self.assertIn("unregistered_vscode_fact_file", {item.kind for item in audit.diagnostics})
+
     def test_live_repository_has_no_unregistered_vscode_facts(self) -> None:
         root = Path(__file__).resolve().parents[2]
         audit = audit_vscode_test_registration(root)
-        facts = scan_vscode_tests(root).facts
 
         self.assertTrue(audit.is_clean)
         self.assertEqual(len(audit.test_files), 38)
         self.assertEqual(len(audit.entries), 38)
-        self.assertEqual(len(facts), 456)
-        self.assertEqual(
-            {fact.path for fact in facts},
-            set(audit.registered_files),
-        )
+        self.assertEqual(audit.fact_count, 456)
+        self.assertEqual(audit.unregistered_fact_files, ())
 
 
 class vscode_root:

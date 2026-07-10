@@ -85,6 +85,17 @@ reviewed mutation shard runner.
 | `architecture_diagram` | Architecture claims match source-derived facts. | Generated map/doctor check, diagram render/drift check. | Hand-authored diagram alone. |
 | `metadata_validation` | Verification program is internally consistent. | Schema validation, stale paths, invariant-test-gate links, ignored-test classification. | Markdown prose only. |
 
+Test-class completeness is counted only from the machine-readable planning
+matrix and hand-owned catalog. For each mapped area, a required class is present
+only when at least one catalog row of that class has a runnable status:
+`mapped`, `test_written`, `implemented`, or `validated`. Planned artifacts are
+reported separately and do not count. A scanner-backed row whose fact is
+`ignored` or `conditional` is not effectively runnable and also does not count;
+Phase 3 owns its reviewed ignore classification. Mechanical scanner facts have no class
+until an exact `generated_test.discovery_id` binding is reviewed; source names,
+paths, command hints, and lexical references cannot supply one. Reports show
+counts and debt, never a single quality score.
+
 ## Coverage Dimensions
 
 Every invariant needs a coverage matrix. Each required cell is one of:

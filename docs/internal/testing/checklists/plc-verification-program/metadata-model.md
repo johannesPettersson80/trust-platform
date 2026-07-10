@@ -754,6 +754,43 @@ A renamed or deleted test function inside an existing file fails validation.
 `python3 scripts/check_test_catalog_staleness.py` performs the live scan and
 join; it does not trust a previously generated target artifact.
 
+The catalog schema's `subject_kind` and `discovery_source_kind` enums are
+drift-pinned to the Python validator vocabularies, alongside `test_class`.
+Changing only the schema or only the validator must fail metadata validation.
+
+### Test-Class Completeness Report
+
+`VERIF-P2-007` produces a generated JSON report under
+`target/gate-artifacts/verification/test-class-completeness.json` and a concise
+Markdown summary. Its closed schema is
+`verification/schemas/test-class-completeness-report.schema.json`.
+
+The report owns two independent joins:
+
+- scanner classification: an inferred fact is classified only when exactly one
+  `subject_kind = "generated_test"` row names its current `discovery_id`;
+- mapped-area class completeness: each `required_test_classes` value in
+  `verification/matrix.toml` is complete only when the area has at least one
+  catalog row whose status is `mapped`, `test_written`, `implemented`, or
+  `validated` and whose scanner fact, when present, is neither `ignored` nor
+  `conditional`.
+
+`case_table_artifact` and `mutation_shard_runner` rows never classify scanner
+facts. `planned`, `gap_open`, and other non-runnable rows remain visible beside
+their class but do not satisfy it. The generator must not infer hand-owned
+fields from paths, names, command hints, or lexical reference candidates.
+`report_status = "complete"` means generation, schema, live joins, input digest,
+and Markdown binding succeeded; it does not mean the catalog is complete.
+Unmapped facts and missing classes are debt and do not change the report command
+to a failing exit. Corrupt metadata, stale identities, scanner errors, schema
+drift, report tampering, and digest mismatches do fail. At-rest validation also
+pins the canonical command and timestamp shape, requires the source commit to
+exist, and verifies test sources, matrix/catalog data, report tooling, scanner
+join modules, validator wiring, and relevant schemas against that clean commit.
+Historical
+platform text cannot be rederived on another host and remains an explicit
+evidence-review field.
+
 ### Case File
 
 Case files are committed data under `verification/cases/<area>/*.toml`. They are

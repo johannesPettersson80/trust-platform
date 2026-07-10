@@ -64,6 +64,7 @@ from .oracle_refs import (
     validate_oracle_ref,
     validate_partition_contract,
 )
+from .schema_contracts import validate_schema_enums
 from .taxonomy import validate_taxonomy_drift
 
 
@@ -173,7 +174,8 @@ class Validator:
                 self.fail(path, "schema root type must be object")
             if data.get("required") != SCHEMA_REQUIRED_FIELDS[name]:
                 self.fail(path, "schema required fields drift from validator contract")
-            self.check_schema_enums(path, name, data)
+            for failure in validate_schema_enums(name, data):
+                self.fail(path, failure)
 
     def load_records(self) -> None:
         self.load_json_schemas()
@@ -225,23 +227,6 @@ class Validator:
             record = self.load_toml(path)
             self.check_no_empty_strings(path, record)
             self.register(self.suites, path, record, "suite")
-
-    def check_schema_enums(self, path: Path, name: str, schema: dict[str, Any]) -> None:
-        expectations = {
-            "catalog.schema.json": {"test_class": TEST_CLASSES},
-            "evidence.schema.json": {"kind": EVIDENCE_KINDS, "proof_kind": PROOF_KINDS},
-            "invariant.schema.json": {
-                "risk": RISKS,
-                "contract_kind": CONTRACT_KINDS,
-                "proof_level": PROOF_LEVELS,
-            },
-            "spec-gap.schema.json": {"gap_class": GAP_CLASSES},
-        }
-        properties = schema.get("properties", {})
-        for field, expected_values in expectations.get(name, {}).items():
-            actual = properties.get(field, {}).get("enum")
-            if set(actual or []) != expected_values:
-                self.fail(path, f"schema enum for {field} drifts from validator vocabulary")
 
     def load_wrapped_records(
         self,
