@@ -11,6 +11,7 @@ from ..gate_inventory import (
     ARTIFACT_RETENTIONS,
     DURATION_CLASSES,
     ENVIRONMENTS,
+    HARDWARE_OPT_IN,
 )
 from .constants import STATUSES
 
@@ -25,7 +26,6 @@ DURABLE_ARTIFACT_KINDS = {
     "committed_file",
 }
 HARDWARE_ENVIRONMENTS = {"github_self_hosted_linux", "github_or_lab_runner"}
-HARDWARE_OPT_IN = "TRUST_DIT_REQUIRE_HARDWARE=1"
 
 SUITE_FIELDS = {
     "schema_version",

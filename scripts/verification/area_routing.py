@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import PurePosixPath
 from typing import Any, Iterable, Mapping
 
@@ -282,7 +283,7 @@ def classify_changed_path(matrix: Mapping[str, Any], value: str) -> PathRoute:
         for route in matrix.get("code_areas", [])
         if isinstance(route, dict)
         and route.get("match_kind") == "path"
-        and any(fnmatch.fnmatchcase(path, pattern) for pattern in route.get("path_globs", []))
+        and any(_path_glob_matches(path, pattern) for pattern in route.get("path_globs", []))
     ]
     selection = _selection(matches) if matches else _fallback_selection(matrix, path)
     return PathRoute(path=path, **selection.__dict__)
@@ -335,7 +336,7 @@ def _fallback_selection(matrix: Mapping[str, Any], path: str) -> RouteSelection:
         area
         for area in matrix.get("areas", [])
         if isinstance(area, dict)
-        and any(fnmatch.fnmatchcase(path, pattern) for pattern in area.get("path_globs", []))
+        and any(_path_glob_matches(path, pattern) for pattern in area.get("path_globs", []))
     ]
     return RouteSelection(
         route_ids=(),
@@ -357,6 +358,31 @@ def _fallback_selection(matrix: Mapping[str, Any], path: str) -> RouteSelection:
         ),
         conditional_suite_tiers=(),
     )
+
+
+def _path_glob_matches(path: str, pattern: str) -> bool:
+    """Match a full POSIX path while reserving recursion for a `**` segment."""
+
+    path_parts = tuple(path.split("/"))
+    pattern_parts = tuple(pattern.split("/"))
+
+    @lru_cache(maxsize=None)
+    def matches(path_index: int, pattern_index: int) -> bool:
+        if pattern_index == len(pattern_parts):
+            return path_index == len(path_parts)
+        token = pattern_parts[pattern_index]
+        if token == "**":
+            return matches(path_index, pattern_index + 1) or (
+                path_index < len(path_parts)
+                and matches(path_index + 1, pattern_index)
+            )
+        return (
+            path_index < len(path_parts)
+            and fnmatch.fnmatchcase(path_parts[path_index], token)
+            and matches(path_index + 1, pattern_index + 1)
+        )
+
+    return matches(0, 0)
 
 
 def _check_exact_fields(

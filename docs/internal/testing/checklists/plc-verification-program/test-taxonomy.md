@@ -51,6 +51,9 @@ does not invent an area from the intent. `unsafe_concurrency` and
 classifier does not infer semantic changes from source text; ordinary source
 paths still route through their owning canonical area's fallback globs when no
 more-specific taxonomy route matches, and an unmatched path is blocked.
+Path globs match complete normalized POSIX paths: `*` and `?` stay within one
+path segment, while a complete `**` segment matches zero or more segments. The
+same matcher is used for specific routes and canonical-area fallbacks.
 `conditional_suite_tiers` are review prompts for the written conditions in this
 table; the planner reports them separately and never promotes them to directly
 required suites.

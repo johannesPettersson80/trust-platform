@@ -364,6 +364,41 @@ Waiver and risk-change rules live in `spec-matrix-model.md`.
 
 ## Traceability Reports
 
+### Phase 6 Requirement/Oracle Audit
+
+Before bidirectional public-claim traceability can be exhaustive, Phase 6 uses a
+bounded requirement/oracle audit over all committed invariant records. The
+audit derives mappings only from each invariant's explicit `[spec].source_refs`,
+`spec_gap_refs`, and `[oracle].ref` fields. Titles, paths, source text, test
+names, and lexical candidates never create a mapping.
+
+The reviewed row scopes are:
+
+- `VERIF-P6-001`: `compiler_iec`;
+- `VERIF-P6-002`: `runtime_safety`;
+- `VERIF-P6-003`: `protocols`;
+- `VERIF-P6-004`: `editor_safety`;
+- `VERIF-P6-005`: `control_security` and `supply_chain_platform`.
+
+`VERIF-P6-006` reports every committed invariant, including areas outside those
+five mapping rows. An invariant has an available oracle only when its
+`[oracle].ref` names an active, oracle-eligible, non-public-claim specification
+source. A reference to an open specification gap is a visible missing-oracle
+blocker, even when the invariant also lists an active candidate source. Public
+claims may create obligations or context but can never be counted as oracles.
+
+The report lists missing-oracle invariants in the four risk classes named by
+`VERIF-P6-007`, but does not fail on them. That enforcement row remains blocked
+until `VERIF-P14-000` defines its grace rule. The report scope is committed
+verification metadata, not a scan of every possible product requirement.
+`VERIF-P1A-002`, `VERIF-P1A-003`, `VERIF-P1A-006`, `VERIF-P1A-007`, and
+`VERIF-P4A-005` therefore remain visible limits. Forward, reverse, and orphan
+traceability rows `VERIF-P6-008` through `VERIF-P6-010` stay open until their
+public-claim and live-test denominators can be exhaustive. Test, gate, and
+evidence IDs shown in the Phase 6 ledger are copied explicit associations, not
+a completed trace. Their registries are live-validated; the evidence index is
+excluded from the report input digest to avoid a report/evidence digest cycle.
+
 The program must generate both directions:
 
 Forward trace:

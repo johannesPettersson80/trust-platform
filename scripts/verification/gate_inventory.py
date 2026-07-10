@@ -103,6 +103,7 @@ DISCOVERY_ID_RE = re.compile(r"^DISC_[A-F0-9]{20}$")
 ENV_RE = re.compile(r"^[A-Z][A-Z0-9_]*=[^\s=]+$")
 CATALOG_PATH = Path("verification/test-catalog.toml")
 HARDWARE_TEST_PATH = Path("crates/trust-runtime/tests/device_in_the_loop.rs")
+HARDWARE_OPT_IN = "TRUST_DIT_REQUIRE_HARDWARE=1"
 REVIEWED_JUST_RECIPES = {
     "verification-veryquick": (
         "mkdir -p target/gate-artifacts/veryquick",
@@ -357,10 +358,18 @@ def _validate_record(record_key: str, record: dict[str, Any], failures: list[str
                 f"{record_key}: {artifact_kind} requires artifact_retention = "
                 + " or ".join(sorted(allowed_retention))
             )
+    strict_hardware = HARDWARE_OPT_IN in required_env
+    if strict_hardware and (
+        suite_ids != ["hardware_lab"] or command_role != "entrypoint"
+    ):
+        failures.append(
+            f"{record_key}: {HARDWARE_OPT_IN} is reserved to the exclusive "
+            "hardware_lab entrypoint"
+        )
     if "hardware_lab" in suite_ids and command_role == "entrypoint":
-        if "TRUST_DIT_REQUIRE_HARDWARE=1" not in required_env:
+        if not strict_hardware:
             failures.append(
-                f"{record_key}: hardware_lab requires TRUST_DIT_REQUIRE_HARDWARE=1 in required_env"
+                f"{record_key}: hardware_lab requires {HARDWARE_OPT_IN} in required_env"
             )
         if record.get("environment") != "github_or_lab_runner":
             failures.append(f"{record_key}: hardware_lab requires environment = github_or_lab_runner")

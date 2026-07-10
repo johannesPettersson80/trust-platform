@@ -35,6 +35,8 @@ Current seed scope:
   risks, and report-only specification-completeness debt for Phase 4/4A.
 - a live-bound inventory of existing workflow jobs and root gate scripts,
   mapped suite definitions, and 29 stable test-taxonomy routes for Phase 5.
+- a report-only requirement/oracle audit for `VERIF-P6-001` through
+  `VERIF-P6-006`, derived only from explicit invariant source and gap links.
 
 TOML shape convention:
 
@@ -205,6 +207,13 @@ TOML shape convention:
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module
   `metadata_validator/ignored_tests.py` is explicitly excluded.
+- Run `scripts/report_requirement_oracle_audit.py` with
+  `scripts/validate_requirement_oracle_audit_report.py` for the Phase 6 audit.
+  The report covers all committed invariants, distinguishes active eligible
+  oracle sources from open-gap placeholders, and lists future high-risk
+  enforcement candidates without enforcing them. Public claims remain
+  non-oracle context. The report does not close `VERIF-P6-007` through
+  `VERIF-P6-010`.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and
@@ -214,6 +223,11 @@ TOML shape convention:
   Phase 11 remains bound to the existing device-in-loop workflow, script, Rust
   harness, and JSON artifact contract. Suite `includes`/`excludes` are
   identifiers only until `VERIF-P14-000B` defines composition semantics.
+
+Committed report source revisions need not equal the current repository HEAD
+when their at-rest validators prove that the complete bound input closure is
+unchanged. A report is regenerated when a bound input changes, not merely
+because unrelated commits advanced HEAD.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

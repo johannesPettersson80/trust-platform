@@ -205,6 +205,39 @@ class GateInventoryTests(unittest.TestCase):
                 "hardware_lab requires TRUST_DIT_REQUIRE_HARDWARE=1 in required_env",
             )
 
+    def test_static_hardware_opt_in_is_reserved_to_the_strict_hardware_entrypoint(self) -> None:
+        with fixture_root() as root:
+            baseline = fixture_records(root)
+            helper_id = next(
+                item_id
+                for item_id, item in baseline.items()
+                if item["source_kind"] == "gate_script"
+            )
+            cases = (
+                (
+                    helper_id,
+                    {
+                        "command_role": "helper",
+                        "required_env": ["TRUST_DIT_REQUIRE_HARDWARE=1"],
+                    },
+                ),
+                (
+                    "GATE_FIXTURE_TEMPLATE",
+                    {"required_env": ["TRUST_DIT_REQUIRE_HARDWARE=1"]},
+                ),
+            )
+
+            for record_id, updates in cases:
+                with self.subTest(record_id=record_id):
+                    records = copy.deepcopy(baseline)
+                    records[record_id].update(updates)
+                    self.assertFailure(
+                        records,
+                        root,
+                        "TRUST_DIT_REQUIRE_HARDWARE=1 is reserved to the exclusive "
+                        "hardware_lab entrypoint",
+                    )
+
     def test_nested_template_is_only_a_non_executable_exclusion(self) -> None:
         with fixture_root() as root:
             baseline = fixture_records(root)

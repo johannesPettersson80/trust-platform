@@ -106,6 +106,24 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertEqual(result.suite_tiers, ("pr",))
         self.assertEqual(result.conditional_suite_tiers, ())
 
+    def test_single_star_wildcard_does_not_cross_path_segments(self) -> None:
+        direct = classify_changed_path(self.matrix, "scripts/perf_bench.py")
+        nested = classify_changed_path(self.matrix, "scripts/nested/perf_bench.py")
+
+        self.assertIn("performance_hot_paths", direct.route_ids)
+        self.assertIn("verification_tooling", nested.route_ids)
+        self.assertNotIn("performance_hot_paths", nested.route_ids)
+
+    def test_double_star_wildcard_preserves_recursive_routes(self) -> None:
+        cargo_manifest = classify_changed_path(self.matrix, "crates/a/b/Cargo.toml")
+        webview = classify_changed_path(
+            self.matrix,
+            "editors/vscode/src/a/b/webview/panel.ts",
+        )
+
+        self.assertIn("security_supply_chain", cargo_manifest.route_ids)
+        self.assertIn("hmi_runtime_web_ui", webview.route_ids)
+
     def test_unmatched_path_is_default_denied(self) -> None:
         result = classify_changed_path(self.matrix, "unmodeled/new_surface.xyz")
 
