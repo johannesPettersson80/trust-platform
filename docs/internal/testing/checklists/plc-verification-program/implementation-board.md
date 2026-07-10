@@ -522,6 +522,9 @@ Acceptance:
   blocked until proof evidence IDs are proposal-scoped. No test was moved,
   split, renamed, or behaviorally changed. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md`.
+  Focused local validation and the clean remote `fmt`/`clippy`/`test-all`
+  closure are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-refactor-assessment-closure-validation.md`.
 
 Acceptance:
 

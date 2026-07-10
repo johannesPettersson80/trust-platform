@@ -771,6 +771,27 @@ last_reviewed = "2026-07-10"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_P2A_REFACTOR_ASSESSMENT_CLOSURE_20260710"
+title = "Phase 2A existing-test refactor assessment closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-refactor-assessment-closure-validation.md"
+command = "python3 -m unittest scripts.verification.adversarial_selftest_tests scripts.verification.report_gate_tests scripts.verification.prover_tests scripts.verification.metadata_validator.evidence_proof_tests scripts.verification.metadata_validator.schema_contracts_tests scripts.verification.bytecode_transforms_tests scripts.verification.bytecode_validator_mutation_tests scripts.verification.test_catalog_scanner_tests scripts.verification.test_catalog_intent_tests scripts.verification.test_catalog_staleness_tests scripts.verification.test_catalog_vscode_registration_tests scripts.verification.test_class_completeness_tests scripts.verification.report_input_contract_tests scripts.verification.coverage_matrix_gap_tests scripts.verification.malformed_input_coverage_tests scripts.verification.test_catalog_debt_tests scripts.verification.test_refactor_assessment_tests scripts.verification.test_refactor_contract_tests scripts.verification.test_refactor_report_tests && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md && python3 -m py_compile scripts/report_test_refactor_assessment.py scripts/validate_test_refactor_assessment_report.py scripts/validate_test_refactor_proposals.py scripts/verification/test_refactor*.py && git diff --check && ssh trust-builder 'mkdir -p \"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09/tmp\" && cd \"$HOME/projects/trust-platform-p2a-validation-4e9923b09\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09/tmp\" CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09\" just fmt && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09/tmp\" CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09\" just clippy && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09/tmp\" CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-p2a-4e9923b09\" just test-all'"
+commit = "4e9923b0947f78f30bc9a17789f4f6889ff3e819"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-10"
+suite_id = "supporting_local"
+producer = "codex phase2a refactor assessment closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_P2_REPORT_REPLAY_REVIEW_FIXES_20260710"
 title = "Phase 2 report replay review fixes"
 area = "verification"
