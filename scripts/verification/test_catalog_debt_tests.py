@@ -19,7 +19,7 @@ from scripts.verification.test_catalog_debt import (
     UnmappedTestDebtReport,
     analyze_unmapped_test_debt,
 )
-from scripts.verification.test_catalog_debt_cli import main
+from scripts.verification.test_catalog_debt_cli import default_command, main
 from scripts.verification.test_catalog_debt_validation import (
     _validate_input_binding,
     _validate_source_commit,
@@ -32,6 +32,10 @@ from scripts.verification.test_catalog_scanner import scan_repository
 
 
 class UnmappedTestDebtTests(unittest.TestCase):
+    def test_default_command_rejects_missing_timestamp(self) -> None:
+        with self.assertRaisesRegex(ValueError, "timestamp is required"):
+            default_command(Path("debt.json"), Path("debt.md"), "")
+
     def test_exact_generated_discovery_ids_are_the_only_classification_basis(self) -> None:
         mapped = _fact("mapped", line=10)
         unmapped = _fact("unmapped", line=20, ignore_state="ignored")

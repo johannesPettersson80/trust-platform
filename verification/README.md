@@ -113,6 +113,11 @@ TOML shape convention:
   `scripts/validate_unmapped_test_debt_report.py` for every unmapped scanner
   identity. These reports reject dirty or symlinked provenance and require
   canonical JSON plus exact Markdown, while nonzero debt still exits zero.
+  Each generator requires a pristine source tree before it writes output.
+  Reproduce multiple committed reports in separate clean worktrees, or restore
+  the previous report's tracked and untracked outputs before starting the next
+  generator; an output from report N intentionally makes the same tree dirty
+  for report N+1.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in

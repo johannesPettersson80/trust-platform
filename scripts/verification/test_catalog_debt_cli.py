@@ -38,8 +38,10 @@ SCHEMA_PATH = Path("verification/schemas/unmapped-test-debt-report.schema.json")
 def default_command(
     json_path: Path,
     markdown_path: Path,
-    timestamp: str | None,
+    timestamp: str,
 ) -> tuple[str, ...]:
+    if not timestamp:
+        raise ValueError("report timestamp is required")
     command = [
         "python3",
         "scripts/report_unmapped_test_debt.py",
@@ -47,9 +49,9 @@ def default_command(
         json_path.as_posix(),
         "--markdown-out",
         markdown_path.as_posix(),
+        "--timestamp",
+        timestamp,
     ]
-    if timestamp:
-        command.extend(("--timestamp", timestamp))
     return tuple(command)
 
 

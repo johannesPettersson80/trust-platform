@@ -36,12 +36,10 @@ def validate_bound_input_paths(root: Path, input_paths: Iterable[str]) -> list[s
             failures.append(f"input path must be normalized and workspace-relative: {value!r}")
             continue
         candidate = root
-        symlink_component = False
         for part in PurePosixPath(value).parts:
             candidate /= part
             if candidate.is_symlink():
                 failures.append(f"input path contains a symlink component: {value}")
-                symlink_component = True
                 break
         try:
             resolved = (root / value).resolve(strict=True)
@@ -54,8 +52,6 @@ def validate_bound_input_paths(root: Path, input_paths: Iterable[str]) -> list[s
             failures.append(f"input path escapes the workspace after resolution: {value}")
         if not resolved.is_file():
             failures.append(f"input path is not a regular file: {value}")
-        if symlink_component:
-            continue
     return sorted(set(failures))
 
 
