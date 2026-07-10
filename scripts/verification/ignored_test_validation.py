@@ -21,6 +21,7 @@ from .ignored_test_models import (
     render_markdown,
 )
 from .ignored_test_report import LIMITATIONS, SURFACE_NOTES
+from .ignored_test_source_contract import is_modeled_source_path
 from .report_input_contract import validate_bound_input_paths
 from .test_catalog_common import input_digest, stable_discovery_id
 from .test_catalog_json_schema import validate_json_schema_instance
@@ -565,7 +566,7 @@ def _validate_source_commit(root: Path, value: Any, input_paths: list[str]) -> l
     missing_modeled_sources = sorted(
         path
         for path in tree_paths
-        if _is_modeled_source_path(path) and path not in input_paths
+        if is_modeled_source_path(path) and path not in input_paths
     )
     if missing_modeled_sources:
         failures.append(
@@ -581,93 +582,6 @@ def _validate_source_commit(root: Path, value: Any, input_paths: list[str]) -> l
     elif diff.returncode != 0:
         failures.append(f"could not compare report inputs with source commit: exit {diff.returncode}")
     return failures
-
-
-def _is_modeled_source_path(value: str) -> bool:
-    """Mirror the tracked source surfaces whose deletion must stale this report."""
-
-    if value.startswith(
-        (
-            "docs/internal/testing/evidence/",
-            "target/",
-            "gate-artifacts/",
-            "conformance/reports/",
-        )
-    ):
-        return False
-    parts = value.split("/")
-    name = parts[-1]
-    suffix = Path(name).suffix
-
-    if len(parts) == 3 and parts[0] == "crates" and name == "Cargo.toml":
-        return True
-    if len(parts) >= 4 and parts[0] == "crates":
-        surface = parts[2]
-        if surface == "src" and suffix == ".rs":
-            return True
-        if surface == "tests" and suffix in {".rs", ".st", ".pou"}:
-            return True
-        if "fuzz" in parts[2:] and suffix == ".rs":
-            return True
-    if parts[0] == "xtask" and suffix == ".rs":
-        return True
-    if parts[0] == "fuzz" and (suffix == ".rs" or value == "fuzz/Cargo.toml"):
-        return True
-    if value == "editors/vscode/package.json":
-        return True
-    if value.startswith("editors/vscode/src/test/") and suffix in {".ts", ".js"}:
-        return True
-    if value == "scripts/captures/package.json":
-        return True
-    if (
-        value.startswith("scripts/captures/")
-        and ".spec." in name
-        and suffix in {".js", ".mjs", ".ts"}
-    ):
-        return True
-    if _is_excluded_node_sentinel_path(parts, name, suffix):
-        return True
-    if (
-        value.startswith("conformance/cases/")
-        and name == "manifest.toml"
-    ):
-        return True
-    if (
-        len(parts) == 2
-        and parts[0] == "scripts"
-        and "gate" in name
-        and suffix in {".py", ".sh"}
-    ):
-        return True
-    return (
-        len(parts) == 3
-        and parts[0] == ".github"
-        and parts[1] == "workflows"
-        and suffix in {".yml", ".yaml"}
-    )
-
-
-def _is_excluded_node_sentinel_path(
-    parts: list[str],
-    name: str,
-    suffix: str,
-) -> bool:
-    if suffix not in {".js", ".mjs", ".cjs", ".ts"}:
-        return False
-    value = "/".join(parts)
-    if value.startswith("editors/vscode/src/test/"):
-        return False
-    if value.startswith("scripts/captures/") and ".spec." in name:
-        return False
-    return (
-        ".test." in name
-        or ".spec." in name
-        or ".e2e." in name
-        or any(
-            part in {"test", "tests", "__tests__", "spec", "specs"}
-            for part in parts[:-1]
-        )
-    )
 
 
 def _check_exact_fields(

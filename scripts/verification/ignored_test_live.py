@@ -13,6 +13,7 @@ from .ignored_test_discovery import (
     discover_vscode_unsupported_skip_markers,
 )
 from .ignored_test_report import InventoryAnalysis, build_inventory_payload
+from .ignored_test_source_contract import validate_discovery_path_contract
 from .report_input_contract import validate_bound_input_paths
 from .test_catalog_scanner import scan_repository
 
@@ -65,17 +66,20 @@ def build_live_inventory_state(
     )
     if analysis.summary["errors"]:
         raise ValueError("ignored-test discovery produced error diagnostics")
+    discovery_input_paths = {
+        *scanner.provenance.input_paths,
+        *vscode_unsupported.input_paths,
+        *playwright.input_paths,
+        *excluded_rust.input_paths,
+        *excluded_node.input_paths,
+    }
+    source_contract_failures = validate_discovery_path_contract(
+        discovery_input_paths
+    )
+    if source_contract_failures:
+        raise ValueError("; ".join(source_contract_failures))
     input_paths = tuple(
-        sorted(
-            {
-                *scanner.provenance.input_paths,
-                *vscode_unsupported.input_paths,
-                *playwright.input_paths,
-                *excluded_rust.input_paths,
-                *excluded_node.input_paths,
-                *_report_contract_paths(root),
-            }
-        )
+        sorted({*discovery_input_paths, *_report_contract_paths(root)})
     )
     failures = validate_bound_input_paths(root, input_paths)
     if failures:
@@ -98,6 +102,7 @@ def _report_contract_paths(root: Path) -> set[str]:
         "scripts/verification/ignored_test_live.py",
         "scripts/verification/ignored_test_models.py",
         "scripts/verification/ignored_test_report.py",
+        "scripts/verification/ignored_test_source_contract.py",
         "scripts/verification/ignored_test_validation.py",
         "scripts/verification/report_input_contract.py",
         REPORT_SCHEMA_PATH,

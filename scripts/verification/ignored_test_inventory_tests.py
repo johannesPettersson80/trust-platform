@@ -209,6 +209,9 @@ class IgnoredTestReportTests(unittest.TestCase):
         self.assertIn(
             "verification/schemas/ignored-test-inventory-report.schema.json", paths
         )
+        self.assertIn(
+            "scripts/verification/ignored_test_source_contract.py", paths
+        )
 
     def test_inventory_uses_only_scanner_ignore_states_and_extended_discoveries(self) -> None:
         ignored = make_fact(

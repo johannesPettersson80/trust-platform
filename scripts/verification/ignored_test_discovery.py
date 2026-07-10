@@ -16,14 +16,12 @@ from .test_catalog_vscode import VSCODE_LITERAL_RE, mask_js_literals, strip_js_c
 
 
 PLAYWRIGHT_LITERAL_SKIP_RE = re.compile(
-    r"^\s*test\.skip\s*\(\s*(?P<quote>['\"`])"
+    r"\btest\.skip[ \t]*\([ \t]*(?P<quote>['\"`])"
     r"(?P<title>(?:\\.|(?!(?P=quote)).)*)(?P=quote)"
 )
 PLAYWRIGHT_SKIP_CANDIDATE_RE = re.compile(
-    r"^\s*(?:test\.(?:skip|fixme)|(?:test\.)?describe\.skip)\s*\("
-)
-PLAYWRIGHT_MULTILINE_SKIP_CANDIDATE_RE = re.compile(
-    r"\b(?:test\.(?:skip|fixme)|(?:test\.)?describe\.skip)\s*\("
+    r"\b(?:test\s*\.\s*(?:skip|fixme)|"
+    r"(?:test\s*\.\s*)?describe\s*\.\s*skip)\s*\("
 )
 CALLBACK_OPEN_RE = re.compile(
     r"(?:async\s+)?function(?:\s+[A-Za-z_$][A-Za-z0-9_$]*)?\s*\([^)]*\)\s*\{"
@@ -31,14 +29,16 @@ CALLBACK_OPEN_RE = re.compile(
     re.DOTALL,
 )
 NODE_SKIP_SENTINEL_RE = re.compile(
-    r"\b(?:test|it|describe)\.(?:skip|fixme)\s*\("
-    r"|\btest\.describe\.skip\s*\(|\bthis\.skip\s*\("
+    r"\b(?:test|it|describe|suite|context)\s*\.\s*(?:skip|fixme)\s*\("
+    r"|\b(?:xdescribe|xit)\s*\(|\bthis\s*\.\s*skip\s*\("
 )
 VSCODE_UNSUPPORTED_NAMED_SKIP_RE = re.compile(
-    r"\b(?P<form>(?:describe|suite|context)\.skip|xdescribe|xit)\s*\("
+    r"\b(?P<form>(?:describe|suite|context)\s*\.\s*skip|xdescribe|xit)\s*\("
 )
-VSCODE_DECLARED_SKIP_CANDIDATE_RE = re.compile(r"\b(?:test|it)\.skip\s*\(")
-VSCODE_RUNTIME_SKIP_CANDIDATE_RE = re.compile(r"\bthis\.skip\s*\(")
+VSCODE_DECLARED_SKIP_CANDIDATE_RE = re.compile(
+    r"\b(?:test|it)\s*\.\s*skip\s*\("
+)
+VSCODE_RUNTIME_SKIP_CANDIDATE_RE = re.compile(r"\bthis\s*\.\s*skip\s*\(")
 
 
 @dataclass
@@ -81,16 +81,20 @@ def discover_playwright_skips(root: Path) -> IgnoredDiscoveryBatch:
         batch.input_paths.add(relative)
         try:
             text = path.read_text()
-            lines = text.splitlines()
         except (OSError, UnicodeError) as exc:
             batch.diagnostics.append(
                 InventoryDiagnostic("error", "playwright_source_read", relative, 1, str(exc))
             )
             continue
-        lexical_state: str | None = None
-        for line_number, line in enumerate(lines, start=1):
-            code, lexical_state = strip_js_comments(line, lexical_state)
-            literal = PLAYWRIGHT_LITERAL_SKIP_RE.match(code)
+        lines = text.splitlines()
+        code_lines = _js_code_lines(text)
+        masked = "".join(mask_js_literals(line) for line in code_lines)
+        offsets = _line_offsets(text)
+        for candidate in PLAYWRIGHT_SKIP_CANDIDATE_RE.finditer(masked):
+            line_number = _line_number(text, candidate.start())
+            local_offset = candidate.start() - offsets[line_number - 1]
+            code_line = code_lines[line_number - 1]
+            literal = PLAYWRIGHT_LITERAL_SKIP_RE.match(code_line, local_offset)
             if literal:
                 title = _decode_title(literal.group("title"))
                 if literal.group("quote") == "`" and "${" in title:
@@ -126,10 +130,10 @@ def discover_playwright_skips(root: Path) -> IgnoredDiscoveryBatch:
                         ignore_state="ignored",
                         ignore_mechanism="playwright_literal_skip",
                         ignore_reason="literal test.skip declaration",
-                        reference_candidates=references_in(line),
+                        reference_candidates=references_in(lines[line_number - 1]),
                     )
                 )
-            elif PLAYWRIGHT_SKIP_CANDIDATE_RE.match(code):
+            else:
                 batch.diagnostics.append(
                     InventoryDiagnostic(
                         "error",
@@ -139,21 +143,6 @@ def discover_playwright_skips(root: Path) -> IgnoredDiscoveryBatch:
                         "Playwright skip does not use a same-line literal test title",
                     )
                 )
-        for match in PLAYWRIGHT_MULTILINE_SKIP_CANDIDATE_RE.finditer(
-            _mask_js_source(text)
-        ):
-            if "\n" not in match.group(0):
-                continue
-            batch.diagnostics.append(
-                InventoryDiagnostic(
-                    "error",
-                    "dynamic_playwright_skip",
-                    relative,
-                    _line_number(text, match.start()),
-                    "Playwright skip call crosses a line boundary and has no "
-                    "stable literal identity",
-                )
-            )
     batch.facts.sort(key=lambda item: (item.path, item.line, item.name, item.discovery_id))
     batch.diagnostics.sort(
         key=lambda item: (item.path, item.line, item.severity, item.kind, item.message)
