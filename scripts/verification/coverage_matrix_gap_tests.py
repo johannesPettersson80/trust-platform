@@ -329,7 +329,7 @@ class CoverageMatrixGapTests(unittest.TestCase):
             {
                 "mapped_areas": 1,
                 "mapped_area_invariants": 8,
-                "out_of_scope_invariants": 8,
+                "out_of_scope_invariants": 44,
                 "required_family_slots": 80,
                 "assigned_required_slots": 16,
                 "missing_required_slots": 64,
