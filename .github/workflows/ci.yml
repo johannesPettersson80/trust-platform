@@ -39,6 +39,8 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           python3 ./scripts/check_regression_test_first.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
+      - name: Guard release evidence wait budget
+        run: python3 ./scripts/check_version_release_evidence_tests.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
@@ -708,6 +710,7 @@ jobs:
   version-release-guard:
     name: Version Release Guard
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     permissions:
       contents: read
       actions: read

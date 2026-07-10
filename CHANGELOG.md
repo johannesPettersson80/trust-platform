@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.30`
+Target release: `v0.24.31`
 
 ### Added
 
@@ -320,6 +320,10 @@ Target release: `v0.24.30`
 
 ### Fixed
 
+- ci: the main-branch version release guard now allows 90 minutes for a matching
+  Release workflow to finish, with a larger job budget and a focused regression
+  test, so healthy cold Windows artifact builds do not fail release evidence at
+  the former 30-minute boundary.
 - vscode: fixed stale Devices & Connections refresh and discovery sessions so
   editor-group resize/remounts cannot publish torn capability state or leave old
   Discover cards actionable; hidden webviews now pause polling and resynchronize
