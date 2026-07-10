@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Mapping
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .integrity import OPEN_GAP_RESOLUTIONS, RUNNABLE_TEST_STATUSES
@@ -19,6 +20,7 @@ DEFERRAL_SOURCE_AUTHORITIES = {"reviewed_decision", "reviewed_deviation"}
 
 def validate_spec_gap_closure(
     *,
+    root: Path,
     spec_gaps: Mapping[str, Mapping[str, Any]],
     spec_sources: Mapping[str, Mapping[str, Any]],
     tests: Mapping[str, Mapping[str, Any]],
@@ -29,6 +31,7 @@ def validate_spec_gap_closure(
 ) -> list[str]:
     """Validate closed gaps and reject safety-critical validation over open gaps."""
 
+    root = root.resolve()
     failures: list[str] = []
     required_specs = required_specs or {}
     risks = risks or {}
@@ -36,6 +39,7 @@ def validate_spec_gap_closure(
         gap = spec_gaps[gap_id]
         if gap.get("resolution_status") == "closed":
             _validate_closed_gap(
+                root=root,
                 gap_id=gap_id,
                 gap=gap,
                 spec_sources=spec_sources,
@@ -94,6 +98,7 @@ def validate_spec_gap_closure(
 
 def _validate_closed_gap(
     *,
+    root: Path,
     gap_id: str,
     gap: Mapping[str, Any],
     spec_sources: Mapping[str, Mapping[str, Any]],
@@ -122,11 +127,12 @@ def _validate_closed_gap(
             )
         if source.get("source_status") != "active":
             failures.append(f"{gap_id} resolution source must be active")
-        source_path = source.get("path")
-        if not _is_workspace_path(source_path):
-            failures.append(
-                f"{gap_id} resolution source must name a tracked workspace path, not external-reference-only metadata"
-            )
+        _validate_resolution_source_path(
+            root,
+            source.get("path"),
+            gap_id,
+            failures,
+        )
         source_reviewed = source.get("last_reviewed")
         gap_reviewed = gap.get("last_reviewed")
         if (
@@ -264,3 +270,54 @@ def _is_workspace_path(value: Any) -> bool:
         return False
     path = PurePosixPath(value)
     return not path.is_absolute() and ".." not in path.parts and "." not in path.parts
+
+
+def _validate_resolution_source_path(
+    root: Path,
+    value: Any,
+    gap_id: str,
+    failures: list[str],
+) -> None:
+    label = f"{gap_id} resolution source"
+    if not _is_workspace_path(value):
+        failures.append(
+            f"{label} must name a tracked workspace path, not external-reference-only metadata"
+        )
+        return
+
+    relative = PurePosixPath(value)
+    candidate = root
+    for part in relative.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            failures.append(f"{label} path contains a symlink component: {value}")
+            return
+    try:
+        candidate.resolve().relative_to(root)
+    except ValueError:
+        failures.append(f"{label} path escapes the workspace: {value}")
+        return
+    if not candidate.is_file():
+        failures.append(f"{label} must identify a regular file: {value}")
+        return
+
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-q", "--", value],
+        cwd=root,
+        check=False,
+    )
+    if ignored.returncode == 0:
+        failures.append(f"{label} path is gitignored: {value}")
+        return
+    if ignored.returncode != 1:
+        failures.append(f"{label} git check-ignore failed for {value}")
+        return
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", value],
+        cwd=root,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if tracked.returncode != 0:
+        failures.append(f"{label} must identify a tracked durable file: {value}")

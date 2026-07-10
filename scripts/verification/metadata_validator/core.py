@@ -278,6 +278,7 @@ class Validator:
         self.validate_risks()
         self.validate_invariant_seeds()
         for failure in validate_spec_gap_closure(
+            root=ROOT,
             spec_gaps=self.spec_gaps,
             spec_sources=self.spec_sources,
             tests=self.tests,

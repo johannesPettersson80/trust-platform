@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from .metadata_validator.spec_gap_closure import validate_spec_gap_closure
 
@@ -67,6 +70,30 @@ def closeout_evidence(*, linked_tests: list[str] | None = None) -> dict:
 
 
 class SpecGapClosureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        owner = self.root / "docs/specs/owner.md"
+        owner.parent.mkdir(parents=True)
+        owner.write_text("# Owner contract\n")
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.name", "Verification Test"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.email", "test@example.invalid"],
+            check=True,
+        )
+        subprocess.run(["git", "-C", str(self.root), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "commit", "-q", "-m", "fixture"],
+            check=True,
+        )
+
+    def tearDown(self) -> None:
+        self.directory.cleanup()
+
     def validate(
         self,
         *,
@@ -79,6 +106,7 @@ class SpecGapClosureTests(unittest.TestCase):
         risks: dict[str, dict] | None = None,
     ) -> list[str]:
         return validate_spec_gap_closure(
+            root=self.root,
             spec_gaps=spec_gaps or {},
             spec_sources=spec_sources or {},
             tests=tests or {},
@@ -236,6 +264,43 @@ class SpecGapClosureTests(unittest.TestCase):
             )},
         )
         self.assertTrue(any("external-reference-only" in item for item in failures))
+
+    def test_closed_gap_resolution_source_must_be_tracked_and_symlink_free(self) -> None:
+        untracked = self.root / "docs/specs/untracked.md"
+        untracked.write_text("# Untracked\n")
+        owner = source()
+        owner["path"] = "docs/specs/untracked.md"
+        failures = self.validate(
+            spec_gaps={"SPEC_GAP_X": gap()},
+            spec_sources={"SPEC_OWNER": owner},
+            tests={"TEST_X": {"id": "TEST_X", "status": "mapped"}},
+            evidence={"EVID_X": closeout_evidence()},
+            invariants={"INV_X": invariant(
+                risk="wrong_result",
+                status="gap_open",
+                spec={"status": "specified"},
+                spec_gap_refs=[],
+                coverage={"cells": [{"dimension": "happy_path", "state": "gap_open"}]},
+            )},
+        )
+        self.assertTrue(any("tracked durable file" in item for item in failures), failures)
+
+        untracked.unlink()
+        untracked.symlink_to(self.root / "docs/specs/owner.md")
+        failures = self.validate(
+            spec_gaps={"SPEC_GAP_X": gap()},
+            spec_sources={"SPEC_OWNER": owner},
+            tests={"TEST_X": {"id": "TEST_X", "status": "mapped"}},
+            evidence={"EVID_X": closeout_evidence()},
+            invariants={"INV_X": invariant(
+                risk="wrong_result",
+                status="gap_open",
+                spec={"status": "specified"},
+                spec_gap_refs=[],
+                coverage={"cells": [{"dimension": "happy_path", "state": "gap_open"}]},
+            )},
+        )
+        self.assertTrue(any("symlink component" in item for item in failures), failures)
 
     def test_malformed_optional_reference_lists_fail_without_crashing(self) -> None:
         malformed = gap(candidate_spec_sources=None)

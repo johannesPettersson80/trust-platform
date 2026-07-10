@@ -31,6 +31,7 @@ def load_repository_inputs(
 
     root = root.resolve()
     closure_failures = validate_spec_gap_closure(
+        root=root,
         spec_gaps=validator.spec_gaps,
         spec_sources=validator.spec_sources,
         tests=validator.tests,
