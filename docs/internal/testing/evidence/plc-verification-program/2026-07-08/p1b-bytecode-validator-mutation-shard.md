@@ -1,6 +1,6 @@
 # P1B Bytecode-Validator Mutation Shard
 
-Date: 2026-07-09; refreshed 2026-07-10 after the Phase 3 provenance migration
+Date: 2026-07-09; refreshed 2026-07-10 after the Phase 4 metadata migration
 
 Implemented row:
 
@@ -15,7 +15,7 @@ Implemented row:
   validator because its implementation is assembled from `include!()` files.
   The shard therefore uses cargo-mutants single-file candidate generation and
   applies only two selected function-bypass mutants in an isolated archive of
-  commit `7d041edb9192ec65646ca231d0d9b0c5abffa781`.
+  commit `3bf92dd9a4c373cc988d0836ace51366f1c34bb2`.
 - The runner cleans only `trust-runtime` outputs in the dedicated mutation
   target before baseline, before each mutant, and after restoration. No product
   source in the working checkout is edited.
@@ -46,13 +46,13 @@ Machine report:
 
 - `p1b-bytecode-validator-mutation-report.json`
 - SHA-256:
-  `d813727096bb415f0de5105add8b588edbc31290e8f814a809e031a1d71b57ec`
+  `4086046a2bc49ff2767fdea058eeace1b6da5031a018fd3b2a48beb33ee62ef6`
 
-The latest 2026-07-10 refresh was required because the Phase 3 validator modules
-changed the case-generator provenance digest and therefore the bytecode-
-validator case-file digest. The case IDs, mutant selectors, commands, and
-outcomes are unchanged; the shard was rerun rather than hand-editing the report
-binding.
+The latest 2026-07-10 refresh was required because the Phase 4 validator and
+oracle-eligibility modules changed the case-generator provenance digest and
+therefore the bytecode-validator case-file digest. The case IDs, mutant
+selectors, commands, and outcomes are unchanged; the shard was rerun against
+the final clean implementation commit rather than hand-editing the binding.
 
 ## Tests-First And Tooling Corrections
 
@@ -101,12 +101,12 @@ binding.
 Final remote mutation run on `trust-builder`:
 
 ```text
-cd "$HOME/projects/trust-platform-p3-validation-7d041edb9"
-TMPDIR="$HOME/.cache/codex-targets/trust-platform-p3-tmp" \
+cd "$HOME/projects/trust-platform-p4-validation-85af612b2"
+TMPDIR="$HOME/.cache/codex-targets/trust-platform-p4-mutation-tmp-3bf9" \
   python3 scripts/bytecode_validator_mutation.py \
-  --target-dir "$HOME/.cache/codex-targets/trust-platform-p3-mutation" \
-  --output-json /tmp/p3-bytecode-validator-mutation-report.json \
-  --output-markdown /tmp/p3-bytecode-validator-mutation-report.md
+  --target-dir "$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9" \
+  --output-json "$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.json" \
+  --output-markdown "$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.md"
 ```
 
 Result: 2 caught, 0 survived, 0 unviable, 0 timeout, 0 error. Its two cataloged
@@ -138,17 +138,8 @@ python3 -m py_compile \
 git diff --check
 ```
 
-Latest refresh result: 110 tests passed; both metadata commands validated 198
-records; all four generated-case checks and diff hygiene passed. Python
-compilation remains part of the final Phase 3 closure validation.
-
-The same command chain passed on `trust-builder`; that remote chain also ran
-`cargo fmt --all -- --check`, which passed. One pre-final remote chain used the
-nonexistent handle `DECLARED_TYPE_STRUCT_VALID_001` and stopped after its first
-case check; the final chain above uses the four committed invariant IDs and
-passed in full.
-
-Remote `just clippy` passed for the commit stack. Broad `just test` and
-`just test-all` were not run for this focused Python/metadata mutation-tooling
-row. The two affected Rust integration test commands were built and run as the
-clean baselines and against each mutant by the final remote shard.
+Latest mutation refresh result: 2 caught, 0 survived, 0 unviable, 0 timeout,
+and 0 error. The source commit and regenerated case-file digest are bound in
+the machine report. The broader Phase 4 focused and remote closure commands are
+recorded in the dated Phase 4 validation evidence rather than retroactively
+claimed here.

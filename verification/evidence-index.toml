@@ -606,8 +606,8 @@ owner = "trust-runtime"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-shard.md"
-command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-p3-validation-7d041edb9\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p3-tmp\" python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-p3-mutation\" --output-json /tmp/p3-bytecode-validator-mutation-report.json --output-markdown /tmp/p3-bytecode-validator-mutation-report.md'"
-commit = "7d041edb9192ec65646ca231d0d9b0c5abffa781"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-p4-validation-85af612b2\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-p4-mutation-tmp-3bf9\" python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9\" --output-json \"$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.json\" --output-markdown \"$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.md\"'"
+commit = "3bf92dd9a4c373cc988d0836ace51366f1c34bb2"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "nightly"
@@ -618,7 +618,7 @@ linked_invariants = ["VM_SEAM_VALID_001"]
 linked_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
 mutation_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 mutation_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
-mutation_report_digest = "sha256:d813727096bb415f0de5105add8b588edbc31290e8f814a809e031a1d71b57ec"
+mutation_report_digest = "sha256:4086046a2bc49ff2767fdea058eeace1b6da5031a018fd3b2a48beb33ee62ef6"
 last_reviewed = "2026-07-10"
 
 [[evidence]]
@@ -893,4 +893,26 @@ generated_report_version = "manual-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
+last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P4_CONFIRMED_FINDINGS_SOURCE_REVIEW_20260710"
+title = "Phase 4 confirmed-findings provenance review"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-confirmed-findings-source-review.md"
+command = "python3 -m unittest scripts.verification.adversarial_selftest_tests.AdversarialSelfTestFixtures.test_provenance_only_source_is_rejected_as_invariant_oracle scripts.verification.adversarial_selftest_tests.AdversarialSelfTestFixtures.test_provenance_only_source_cannot_satisfy_required_spec scripts.verification.invariant_seed_audit_tests.SeedManifestContractTests.test_gap_open_requires_active_non_claim_oracle_source scripts.verification.spec_gap_closure_tests.SpecGapClosureTests.test_provenance_only_source_cannot_close_or_defer_a_gap"
+commit = "3bf92dd9a4c373cc988d0836ace51366f1c34bb2"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-10"
+suite_id = "supporting_local"
+producer = "codex phase4 source review"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
 last_reviewed = "2026-07-10"
