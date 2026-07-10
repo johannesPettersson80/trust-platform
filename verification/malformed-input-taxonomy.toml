@@ -1,0 +1,203 @@
+schema_version = 1
+id = "MALFORMED_INPUT_BYTECODE_VM_V1"
+title = "Bytecode malformed-input taxonomy"
+area = "bytecode_vm"
+surface_id = "bytecode_container_instruction_stream"
+review_doc = "verification/malformed-input-taxonomy.md"
+last_reviewed = "2026-07-10"
+
+[[classes]]
+id = "ambiguous_instance_owner"
+title = "Ambiguous instance owner"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Instance-owner validation behavior is not fully specified."
+
+[[classes]]
+id = "argument_count_resource_limit"
+title = "Argument-count resource limit"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Argument-count limits require a written resource contract."
+
+[[classes]]
+id = "bad_magic"
+title = "Bad bytecode magic"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires the four-byte magic to equal STBC."
+
+[[classes]]
+id = "call_depth_resource_limit"
+title = "Call-depth resource limit"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Call-depth limits require a written resource contract."
+
+[[classes]]
+id = "call_target_mismatch"
+title = "Call-target mismatch"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Call-target validation behavior is not fully specified."
+
+[[classes]]
+id = "const_type_incompatible"
+title = "Constant type incompatible with use"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Constant-use compatibility validation is not fully specified."
+
+[[classes]]
+id = "duplicate_section"
+title = "Duplicate bytecode section"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Duplicate-section handling is not fully specified."
+
+[[classes]]
+id = "instructions_resource_limit"
+title = "Instruction-count resource limit"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Instruction-count limits require a written resource contract."
+
+[[classes]]
+id = "invalid_checksum"
+title = "Invalid bytecode checksum"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires CRC32 validation when the checksum flag is set."
+
+[[classes]]
+id = "jump_target_not_instruction_boundary"
+title = "Jump target not on instruction boundary"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Instruction-boundary validation behavior is not fully specified."
+
+[[classes]]
+id = "jump_target_out_of_bounds"
+title = "Jump target outside code"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Jump-target validation behavior is not fully specified."
+
+[[classes]]
+id = "local_frame_reference_persistence"
+title = "Local-frame reference persistence"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Local-frame reference persistence behavior is not fully specified."
+
+[[classes]]
+id = "locals_resource_limit"
+title = "Locals resource limit"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Local-slot limits require a written resource contract."
+
+[[classes]]
+id = "missing_instance_owner"
+title = "Missing instance owner"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Missing-owner validation behavior is not fully specified."
+
+[[classes]]
+id = "missing_section"
+title = "Missing required bytecode section"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Missing-section rejection behavior is not fully specified."
+
+[[classes]]
+id = "operand_index_out_of_bounds"
+title = "Operand index out of bounds"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Operand-index validation behavior is not fully specified."
+
+[[classes]]
+id = "parameter_direction_mismatch"
+title = "Parameter-direction mismatch"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Parameter-direction validation behavior is not fully specified."
+
+[[classes]]
+id = "reference_escape"
+title = "Reference escape"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Reference-escape validation behavior is not fully specified."
+
+[[classes]]
+id = "refs_resource_limit"
+title = "Reference-count resource limit"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Reference-count limits require a written resource contract."
+
+[[classes]]
+id = "stack_leftover"
+title = "Operand stack leftover"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Stack-leftover validation behavior is not fully specified."
+
+[[classes]]
+id = "stack_type_mismatch"
+title = "Operand stack type mismatch"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Stack-type validation behavior is not fully specified."
+
+[[classes]]
+id = "stack_underflow"
+title = "Operand stack underflow"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Stack-underflow rejection behavior is not fully specified."
+
+[[classes]]
+id = "stale_instance_owner"
+title = "Stale instance owner"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Stale-owner validation behavior is not fully specified."
+
+[[classes]]
+id = "truncated_section"
+title = "Truncated bytecode section"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Truncated-section rejection behavior is not fully specified."
+
+[[classes]]
+id = "unknown_opcode"
+title = "Unknown opcode"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Unknown-opcode validation behavior is not fully specified."
+
+[[classes]]
+id = "unsupported_schema_tag"
+title = "Unsupported bytecode schema tag"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Schema-tag compatibility behavior is not fully specified."
+
+[[classes]]
+id = "unsupported_version"
+title = "Unsupported bytecode version"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires unsupported major versions to be rejected."
+
+[[classes]]
+id = "wrong_section"
+title = "Wrong bytecode section shape"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+rationale = "Wrong-section shape and identity behavior is not fully specified."

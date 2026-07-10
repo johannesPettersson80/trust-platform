@@ -162,6 +162,12 @@ Malformed-input tests must pick from a surface-specific taxonomy. The first
 version can be incomplete, but missing classes must be visible as `gap_open`,
 `spec_gap`, `blocked`, or `deferred`.
 
+The inventoried bytecode/VM pilot atomizes this prose into reviewed stable IDs
+in `verification/malformed-input-taxonomy.toml`, with its human-readable mirror
+in `verification/malformed-input-taxonomy.md`. Catalog mappings use only
+explicit `malformed_input_class_ids`; names, paths, case IDs, and mutation
+associations never create a mapping.
+
 ### ST Source, Lexer, Parser
 
 - invalid token bytes or characters,

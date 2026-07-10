@@ -102,6 +102,7 @@ def generated_record() -> dict:
         discovery_source_kind="rust_integration_test",
         path="crates/trust-runtime/tests/bytecode_container.rs",
         name="header_validation",
+        malformed_input_class_ids=["bad_magic"],
         test_class="negative_malformed_input",
         oracle_ref="SPEC_BYTECODE_FORMAT_001",
     )

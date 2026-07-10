@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import subprocess
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -172,6 +173,21 @@ class TestClassCompletenessTests(unittest.TestCase):
             failures,
         )
 
+    def test_schema_contract_requires_clean_source_commit_pattern(self) -> None:
+        schema = json.loads(
+            (ROOT / "verification/schemas/test-class-completeness-report.schema.json").read_text()
+        )
+        schema["properties"]["commit"]["pattern"] = (
+            "^(?:[0-9a-f]{40}|dirty:[0-9a-f]{40}|unavailable)$"
+        )
+
+        failures = validate_schema_contract(schema)
+
+        self.assertIn(
+            "completeness schema commit pattern must require a clean full SHA",
+            failures,
+        )
+
     def test_forged_command_timestamp_and_unknown_commit_are_rejected(self) -> None:
         report = fixture_report().to_dict()
         report["command"] = ["false"]
@@ -203,6 +219,24 @@ class TestClassCompletenessTests(unittest.TestCase):
         self.assertTrue(
             any("source commit lacks report inputs" in item for item in old_commit_failures),
             old_commit_failures,
+        )
+
+    def test_dirty_source_commit_cannot_bypass_at_rest_input_binding(self) -> None:
+        head = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        failures = _validate_source_commit(
+            ROOT,
+            "dirty:" + head,
+            ["verification/matrix.toml"],
+        )
+
+        self.assertIn(
+            "commit must be a clean full Git SHA for at-rest validation",
+            failures,
         )
 
     def test_generator_rejects_full_metadata_validation_failure_before_scanning(self) -> None:

@@ -43,6 +43,12 @@
       ]
     },
     "name": { "type": "string" },
+    "malformed_input_class_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "uniqueItems": true
+    },
     "test_class": {
       "enum": [
         "debug_reproduction_probe",

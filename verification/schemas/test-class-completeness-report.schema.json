@@ -48,7 +48,7 @@
     },
     "commit": {
       "type": "string",
-      "pattern": "^(?:[0-9a-f]{40}|dirty:[0-9a-f]{40}|unavailable)$"
+      "pattern": "^[0-9a-f]{40}$"
     },
     "timestamp": {
       "type": "string",

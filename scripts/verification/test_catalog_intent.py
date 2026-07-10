@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
+
+from .malformed_input_contract import (
+    load_malformed_input_taxonomy,
+    validate_catalog_malformed_bindings,
+    validate_malformed_input_contract,
+)
 
 
 DISCOVERY_ID_RE = re.compile(r"^DISC_[A-F0-9]{20}$")
@@ -25,6 +32,7 @@ GENERATED_SOURCE_KINDS = {
 }
 DISCOVERY_FIELDS = {"discovery_id", "discovery_source_kind", "name"}
 NON_MAPPING_STATUSES = {"planned", "gap_open"}
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def validate_catalog_intent(
@@ -84,6 +92,19 @@ def validate_catalog_intent(
             _validate_case_table_subject(record_id, record, failures)
         else:
             _validate_mutation_subject(record_id, record, failures)
+
+    try:
+        malformed_taxonomy = load_malformed_input_taxonomy(ROOT)
+    except Exception as exc:
+        failures.append(f"malformed-input taxonomy cannot be read: {exc}")
+    else:
+        failures.extend(validate_malformed_input_contract(ROOT, malformed_taxonomy))
+        failures.extend(
+            validate_catalog_malformed_bindings(
+                tests=tests,
+                taxonomy=malformed_taxonomy,
+            )
+        )
 
     return failures
 

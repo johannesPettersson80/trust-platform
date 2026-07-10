@@ -105,6 +105,7 @@ test_class = "negative_malformed_input"
 area = "bytecode_vm"
 path = "crates/trust-runtime/tests/bytecode_container.rs"
 name = "header_validation"
+malformed_input_class_ids = ["bad_magic"]
 command = "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact"
 owner = "trust-runtime"
 status = "mapped"

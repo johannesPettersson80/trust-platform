@@ -80,6 +80,23 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_unknown_malformed_input_class_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.tests["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"][
+            "malformed_input_class_ids"
+        ] = ["invented_from_test_name"]
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "unknown malformed-input class invented_from_test_name" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
     def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
         failures: list[str] = []
 

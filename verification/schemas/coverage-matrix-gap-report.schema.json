@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/coverage-matrix-gap-report.schema.json",
+  "title": "truST coverage-matrix gap report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "summary",
+    "areas",
+    "out_of_scope_invariants",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "coverage-matrix-gap-report" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "areas": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/area" }
+    },
+    "out_of_scope_invariants": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/out_of_scope" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "area_basis",
+        "slot_basis",
+        "coverage_states",
+        "missing_slot_semantics",
+        "case_observation_semantics",
+        "debt_is_report_failure"
+      ],
+      "properties": {
+        "area_basis": { "const": "planning_matrix_status_mapped" },
+        "slot_basis": { "const": "mapped_area_invariant_x_required_case_family" },
+        "coverage_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/coverage_state" },
+          "uniqueItems": true
+        },
+        "missing_slot_semantics": { "const": "structural_debt_without_synthetic_state" },
+        "case_observation_semantics": { "const": "planning_observation_only_never_state_upgrade" },
+        "debt_is_report_failure": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "coverage_state": {
+      "enum": [
+        "covered",
+        "covered_by_fuzz",
+        "not_applicable",
+        "blocked",
+        "spec_gap",
+        "gap_open",
+        "deferred"
+      ]
+    },
+    "state_counts": {
+      "type": "object",
+      "required": [
+        "covered",
+        "covered_by_fuzz",
+        "not_applicable",
+        "blocked",
+        "spec_gap",
+        "gap_open",
+        "deferred"
+      ],
+      "properties": {
+        "covered": { "type": "integer", "minimum": 0 },
+        "covered_by_fuzz": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "spec_gap": { "type": "integer", "minimum": 0 },
+        "gap_open": { "type": "integer", "minimum": 0 },
+        "deferred": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "mapped_areas",
+        "mapped_area_invariants",
+        "out_of_scope_invariants",
+        "required_family_slots",
+        "assigned_required_slots",
+        "missing_required_slots",
+        "additional_recorded_cells",
+        "recorded_cells",
+        "case_files",
+        "case_observations",
+        "blocked_case_observations",
+        "state_counts"
+      ],
+      "properties": {
+        "mapped_areas": { "type": "integer", "minimum": 0 },
+        "mapped_area_invariants": { "type": "integer", "minimum": 0 },
+        "out_of_scope_invariants": { "type": "integer", "minimum": 0 },
+        "required_family_slots": { "type": "integer", "minimum": 0 },
+        "assigned_required_slots": { "type": "integer", "minimum": 0 },
+        "missing_required_slots": { "type": "integer", "minimum": 0 },
+        "additional_recorded_cells": { "type": "integer", "minimum": 0 },
+        "recorded_cells": { "type": "integer", "minimum": 0 },
+        "case_files": { "type": "integer", "minimum": 0 },
+        "case_observations": { "type": "integer", "minimum": 0 },
+        "blocked_case_observations": { "type": "integer", "minimum": 0 },
+        "state_counts": { "$ref": "#/$defs/state_counts" }
+      },
+      "additionalProperties": false
+    },
+    "cell": {
+      "type": "object",
+      "required": [
+        "dimension",
+        "assignment",
+        "coverage_state",
+        "rationale",
+        "spec_gap_ref",
+        "decision_ref",
+        "state_issues",
+        "case_ids",
+        "blocked_case_ids"
+      ],
+      "properties": {
+        "dimension": { "type": "string", "minLength": 1 },
+        "assignment": {
+          "enum": [
+            "assigned",
+            "missing_cell",
+            "additional_recorded",
+            "out_of_scope_recorded"
+          ]
+        },
+        "coverage_state": {
+          "enum": [
+            null,
+            "covered",
+            "covered_by_fuzz",
+            "not_applicable",
+            "blocked",
+            "spec_gap",
+            "gap_open",
+            "deferred"
+          ]
+        },
+        "rationale": { "type": ["string", "null"] },
+        "spec_gap_ref": { "type": ["string", "null"] },
+        "decision_ref": { "type": ["string", "null"] },
+        "state_issues": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "case_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "blocked_case_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "case_family": {
+      "type": "object",
+      "required": ["dimension", "case_ids", "blocked_case_ids"],
+      "properties": {
+        "dimension": { "type": "string", "minLength": 1 },
+        "case_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "blocked_case_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "invariant": {
+      "type": "object",
+      "required": [
+        "id",
+        "risk",
+        "status",
+        "contract_kind",
+        "proof_level",
+        "linked_test_ids",
+        "required_slots",
+        "additional_cells",
+        "additional_case_families"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "contract_kind": { "type": "string", "minLength": 1 },
+        "proof_level": { "type": "string", "minLength": 1 },
+        "linked_test_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "required_slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cell" }
+        },
+        "additional_cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cell" }
+        },
+        "additional_case_families": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/case_family" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "area": {
+      "type": "object",
+      "required": [
+        "area",
+        "required_case_families",
+        "invariant_count",
+        "required_family_slots",
+        "assigned_required_slots",
+        "missing_required_slots",
+        "additional_recorded_cells",
+        "invariants"
+      ],
+      "properties": {
+        "area": { "type": "string", "minLength": 1 },
+        "required_case_families": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "invariant_count": { "type": "integer", "minimum": 0 },
+        "required_family_slots": { "type": "integer", "minimum": 0 },
+        "assigned_required_slots": { "type": "integer", "minimum": 0 },
+        "missing_required_slots": { "type": "integer", "minimum": 0 },
+        "additional_recorded_cells": { "type": "integer", "minimum": 0 },
+        "invariants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/invariant" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "out_of_scope": {
+      "type": "object",
+      "required": ["id", "area", "recorded_cells"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "recorded_cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cell" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

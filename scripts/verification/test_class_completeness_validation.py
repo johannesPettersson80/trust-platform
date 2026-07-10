@@ -14,6 +14,7 @@ from typing import Any
 
 from .metadata_validator.constants import ROOT as METADATA_ROOT
 from .metadata_validator.core import Validator
+from .report_input_contract import validate_bound_input_paths, validator_code_input_paths
 from .test_catalog_common import input_digest
 from .test_catalog_json_schema import validate_json_schema_instance
 from .test_catalog_scanner import scan_repository
@@ -86,7 +87,7 @@ CLASS_FIELDS = {"test_class", "runnable_test_ids", "non_runnable_tests", "comple
 MAPPING_FIELDS = {"discovery_id", "test_id"}
 SOURCE_COUNT_FIELDS = {"source_kind", "facts", "classified", "unmapped"}
 NON_RUNNABLE_FIELDS = {"test_id", "status", "reason"}
-COMMIT_RE = re.compile(r"^(?:[0-9a-f]{40}|dirty:[0-9a-f]{40}|unavailable)$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 DATED_EVIDENCE_RE = re.compile(
     r"^docs/internal/testing/evidence/plc-verification-program/\d{4}-\d{2}-\d{2}/[^/]+\.md$"
@@ -113,7 +114,7 @@ def validate_report_payload(
     if not DIGEST_RE.fullmatch(str(payload.get("input_digest", ""))):
         failures.append("input_digest must be sha256:<64 lowercase hex>")
     if not COMMIT_RE.fullmatch(str(payload.get("commit", ""))):
-        failures.append("commit must be a full Git SHA, dirty full SHA, or unavailable")
+        failures.append("commit must be a clean full Git SHA")
     for field in ("timestamp", "platform"):
         if not isinstance(payload.get(field), str) or not payload[field]:
             failures.append(f"{field} must be a non-empty string")
@@ -249,13 +250,12 @@ def validate_report_files(
     expected_inputs = sorted(
         set(scan.provenance.input_paths)
         | set(REPORT_CONTRACT_PATHS)
+        | validator_code_input_paths(root)
         | {"verification/matrix.toml", "verification/test-catalog.toml"}
     )
     if payload.get("input_paths") != expected_inputs:
         failures.append("input_paths do not match current scanner, matrix, and catalog inputs")
-    missing_inputs = [path for path in expected_inputs if not (root / path).is_file()]
-    if missing_inputs:
-        failures.append(f"input paths no longer exist: {', '.join(missing_inputs[:5])}")
+    failures.extend(validate_bound_input_paths(root, expected_inputs))
     if payload.get("input_digest") != input_digest(root, expected_inputs):
         failures.append("input_digest does not match current report inputs")
     failures.extend(_validate_source_commit(root, payload.get("commit"), expected_inputs))
@@ -287,6 +287,8 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
     ):
         if properties.get(field, {}).get("const") != expected:
             failures.append(f"completeness schema const for {field} drifts from report contract")
+    if properties.get("commit", {}).get("pattern") != COMMIT_RE.pattern:
+        failures.append("completeness schema commit pattern must require a clean full SHA")
     definitions = schema.get("$defs", {})
     expected_definitions = {
         "area": AREA_FIELDS,
@@ -520,10 +522,12 @@ def _is_iso_timestamp(value: str) -> bool:
 
 
 def _validate_source_commit(root: Path, value: Any, input_paths: list[str]) -> list[str]:
-    if not isinstance(value, str) or value == "unavailable":
-        return ["commit must resolve to a repository commit for at-rest validation"]
-    dirty = value.startswith("dirty:")
-    commit = value.removeprefix("dirty:")
+    failures = validate_bound_input_paths(root, input_paths)
+    if not isinstance(value, str) or not COMMIT_RE.fullmatch(value):
+        return sorted(
+            set([*failures, "commit must be a clean full Git SHA for at-rest validation"])
+        )
+    commit = value
     resolved = subprocess.run(
         ["git", "-C", str(root), "cat-file", "-e", f"{commit}^{{commit}}"],
         check=False,
@@ -531,8 +535,6 @@ def _validate_source_commit(root: Path, value: Any, input_paths: list[str]) -> l
     )
     if resolved.returncode != 0:
         return [f"commit does not resolve in the repository: {commit}"]
-    if dirty:
-        return []
     tree = subprocess.run(
         ["git", "-C", str(root), "ls-tree", "-r", "--name-only", "-z", commit],
         check=False,
@@ -542,7 +544,6 @@ def _validate_source_commit(root: Path, value: Any, input_paths: list[str]) -> l
         return [f"could not read source commit tree: {commit}"]
     tree_paths = {item.decode() for item in tree.stdout.split(b"\0") if item}
     missing = sorted(set(input_paths) - tree_paths)
-    failures: list[str] = []
     if missing:
         failures.append(f"source commit lacks report inputs: {', '.join(missing[:5])}")
     diff = subprocess.run(
