@@ -673,8 +673,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
-command = "python3 scripts/report_test_class_completeness.py --json-out target/gate-artifacts/verification/test-class-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_test_class_completeness.py --json-out target/gate-artifacts/verification/test-class-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -683,7 +683,7 @@ generated_report_version = "test-class-completeness-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -694,8 +694,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
-command = "python3 scripts/report_coverage_matrix_gaps.py --json-out target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_coverage_matrix_gaps.py --json-out target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -704,7 +704,7 @@ generated_report_version = "coverage-matrix-gap-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -715,8 +715,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
-command = "python3 scripts/report_malformed_input_coverage.py --json-out target/gate-artifacts/verification/malformed-input-coverage.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_malformed_input_coverage.py --json-out target/gate-artifacts/verification/malformed-input-coverage.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -725,7 +725,7 @@ generated_report_version = "malformed-input-coverage-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -736,8 +736,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
-command = "python3 scripts/report_unmapped_test_debt.py --json-out target/gate-artifacts/verification/unmapped-test-debt.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_unmapped_test_debt.py --json-out target/gate-artifacts/verification/unmapped-test-debt.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -746,7 +746,7 @@ generated_report_version = "unmapped-test-debt-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -757,8 +757,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
-command = "python3 scripts/report_test_refactor_assessment.py --json-out target/gate-artifacts/verification/test-refactor-assessment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_test_refactor_assessment.py --json-out target/gate-artifacts/verification/test-refactor-assessment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -767,7 +767,7 @@ generated_report_version = "test-refactor-assessment-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -926,8 +926,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
-command = "python3 scripts/report_phase5_suite_audit.py --json-out target/gate-artifacts/verification/phase5-suite-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_phase5_suite_audit.py --json-out target/gate-artifacts/verification/phase5-suite-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -937,7 +937,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -970,8 +970,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
-command = "python3 scripts/report_spec_completeness.py --json-out target/gate-artifacts/verification/spec-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md --timestamp 2026-07-10T21:10:00Z && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
-commit = "f58b9c1412b5002e26ea0b05de54d8b10b0bca46"
+command = "python3 scripts/report_spec_completeness.py --json-out target/gate-artifacts/verification/spec-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
 platform = "local-linux-aarch64-raspberrypi"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -981,7 +981,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-11"
 
 [[evidence]]
 schema_version = 1
@@ -1026,3 +1026,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-10"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P6_REQUIREMENT_ORACLE_AUDIT_20260711"
+title = "Phase 6 requirement and oracle mapping audit"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md"
+command = "python3 scripts/report_requirement_oracle_audit.py --json-out target/gate-artifacts/verification/requirement-oracle-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md --timestamp 2026-07-11T01:30:00+02:00 && python3 scripts/validate_requirement_oracle_audit_report.py --json target/gate-artifacts/verification/requirement-oracle-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md"
+commit = "d1cdfc0d98fb1452d7badba67e46aa42219e9f13"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-11"
+suite_id = "supporting_local"
+producer = "requirement-oracle-audit v1"
+generated_report_version = "requirement-oracle-audit-report-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-11"

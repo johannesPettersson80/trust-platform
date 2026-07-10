@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46` classifies 1/3,816 scanner facts
+  commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. Across 11 mapped areas, two of 32 required class
   slots are complete; both are in `bytecode_vm` (`mutation` and
   `negative_malformed_input`). Four planned case-table rows are visible under
@@ -420,11 +420,11 @@ Acceptance:
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
   Generated JSON SHA-256:
-  `52a269ba9059a9c81ec6b465015a63e21bfab093639f0d6c004a7dabb7bae812`.
+  `3f18bb963e642f2a64d611fcd26929f3c100f0e328c16b13e5e5c6fcc28a63ab`.
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`
+  Clean-source report commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`
   assesses all 11 mapped areas and 52 invariants. The authorized family model
   remains bytecode/VM-only: 16 of 80 required invariant/family slots have
   declared cells and 64 remain structurally unassigned. The other ten areas
@@ -433,7 +433,7 @@ Acceptance:
   `spec_gap` and eight `gap_open` cells. Four catalog-bound case files
   contribute 21 blocked observations without upgrading any state. Missing
   cells receive no synthetic state. Generated JSON SHA-256:
-  `4b63966835b4a86dde82eb88c06ef6c385d51f086260a2b7a535f870b7564d67`.
+  `0bfd4a4e44f93291079f5a6bcc7e1aa7c55526171766a89da142fe80b9e00065`.
 - [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
   bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
   binds classes only through `malformed_input_class_ids`. The sole reviewed
@@ -510,14 +510,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `f58b9c1412b5002e26ea0b05de54d8b10b0bca46` inventories 3,816 facts in 670
+  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `f26e9d65d31d1a71b44c2adb08515852d228b62a4d399f1d0aa1eb7132e139ed`.
+  `04ada28471c82c2c1c90596c00177325cc4692e1ed7b5792601a870d58a3ae13`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -659,8 +659,8 @@ Acceptance:
   no hardware/tool or not-applicable classification was inferred.
 
   The report-only completeness audit was generated from clean commit
-  `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`. Generated JSON SHA-256:
-  `7c908f30968c82d1092afc735b1026a8b0f285185623fae1a6963bfcde5e6938`.
+  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. Generated JSON SHA-256:
+  `facfb725726c7d6ac833a3478bee35036e537b04f425b79fe00b5d9632a9119d`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md`.
   The audit is report-only, creates no proof, closes no spec gap, and does not
@@ -678,8 +678,9 @@ Acceptance:
 - [x] `VERIF-P5-000A` Define `veryquick` environment and just-recipe mapping
   before using it in suite records; do not invent a new broad local Pi gate.
   `just verification-veryquick` is source-bound to its exact bounded command
-  sequence on `trust_builder`; its canonical Python runner discovers all 36
-  verification `*_tests.py` modules, including the Phase 3 review regressions.
+  sequence on `trust_builder`; its canonical Python runner discovers all 37
+  verification `*_tests.py` modules, including the Phase 3 review regressions
+  and the Phase 6 requirement/oracle contract tests.
 - [ ] `VERIF-P5-000B` Phase 11 hardware lab work must build on any existing
   device-in-loop workflow/test harness instead of creating a parallel source of
   truth. Phase 5 binds the existing workflow, script, Rust harness, and JSON
@@ -717,10 +718,10 @@ Acceptance:
   suites are reported without becoming direct requirements.
 
   The combined report-only audit was generated independently from clean source
-  commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`. It records 62 inventory
+  commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. It records 62 inventory
   rows, six suite records, 33 direct commands, 11 areas, and 29 routes. Generated
   JSON SHA-256:
-  `4400a2c4d157107e21d54d6291ed84d71cf9dc0de85def212535ed5f7c99651f`.
+  `a71f06b664ccd2b20e5cbf0f048dded967d48810d0c6a7732d75ea9ca54f869e`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md`.
   It emits no proof, closes no spec gap, does not interpret suite inheritance,
@@ -728,15 +729,30 @@ Acceptance:
 
 ## Phase 6 - Requirement, Oracle, and Traceability Mapping
 
-- [ ] `VERIF-P6-001` Map IEC spec/deviation references to compiler/runtime
-  conformance invariants.
-- [ ] `VERIF-P6-002` Map runtime design contracts to runtime-safety invariants.
-- [ ] `VERIF-P6-003` Map protocol specifications/product decisions to protocol
-  invariants.
-- [ ] `VERIF-P6-004` Map VS Code/LSP protocol references and product contracts
-  to editor invariants.
-- [ ] `VERIF-P6-005` Map security/supply-chain/platform contracts to invariants.
-- [ ] `VERIF-P6-006` Add report for invariants missing oracles.
+- [x] `VERIF-P6-001` Map IEC spec/deviation references to compiler/runtime
+  conformance invariants. Five `compiler_iec` invariants map only through
+  explicit references: two have eligible reviewed sources and three remain
+  blocked by open specification gaps. This is not external IEC conformance
+  proof; `VERIF-P1A-007` remains open.
+- [x] `VERIF-P6-002` Map runtime design contracts to runtime-safety invariants.
+  Ten `runtime_safety` invariants are mapped: four have eligible explicit
+  oracles and six remain specification-gap blocked.
+- [x] `VERIF-P6-003` Map protocol specifications/product decisions to protocol
+  invariants. Seven `protocols` invariants are mapped: one has an eligible
+  explicit oracle and six remain specification-gap blocked. Public claims are
+  retained as context and cannot become oracles.
+- [x] `VERIF-P6-004` Map VS Code/LSP protocol references and product contracts
+  to editor invariants. All six `editor_safety` invariants are explicitly
+  associated and remain specification-gap blocked; no mapping is inferred from
+  names, paths, or source text.
+- [x] `VERIF-P6-005` Map security/supply-chain/platform contracts to invariants.
+  Six invariants across `control_security` and `supply_chain_platform` are
+  explicitly associated and remain specification-gap blocked.
+- [x] `VERIF-P6-006` Add report for invariants missing oracles. The report
+  covers all 52 committed invariants, including 18 outside the five mapping
+  scopes: eight have eligible explicit oracles and 44 are blocked by open
+  specification gaps. It lists 34 future high-risk enforcement candidates but
+  does not fail on them.
 - [ ] `VERIF-P6-007` Fail only on missing oracles for `safety_critical`,
   `wrong_result`, `silent_corruption`, and `false_status` risks after the grace
   period defined per `VERIF-P14-000`.
@@ -746,6 +762,15 @@ Acceptance:
   public claim -> evidence -> suite/gate -> test -> invariant -> spec source.
 - [ ] `VERIF-P6-010` Add report for orphan specs, orphan tests, orphan
   invariants, orphan public claims, and orphan evidence.
+
+  The report-only audit was generated from clean source commit
+  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. Generated JSON SHA-256:
+  `ba33665d79b00c65d76b9c0196b55fdbe74afd923095c64f0d8401c860dac5e3`.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md`.
+  It creates no proof, closes no specification gap, enables no enforcement,
+  and leaves the non-exhaustive public-claim and live-test traceability rows
+  open.
 
 Acceptance:
 
