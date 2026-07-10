@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54` classifies 1/3,816 scanner facts
+  commit `e5c0d9d194649bd36ae54e699d685fa6e2b996d2` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
   required class slots complete (`mutation` and `negative_malformed_input`);
   `failing_regression`, `iec_conformance`, and `metadata_validation` remain
@@ -423,7 +423,7 @@ Acceptance:
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54`
+  Clean-source report commit `e5c0d9d194649bd36ae54e699d685fa6e2b996d2`
   assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
   invariant/family slots have declared cells, 64 remain structurally
   unassigned, and one additional recorded dimension remains visible. All 17
@@ -506,14 +506,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `d8dc5728828b43a9bf7321fc89e2efcb4b3fbd54` inventories 3,816 facts in 670
+  `e5c0d9d194649bd36ae54e699d685fa6e2b996d2` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `5127e0c590f7925ae44e2bfa20a3ff78fa51da546ed8ff887f4805f5196852c9`.
+  `9708e1419fe38eef6964326865c30ca25c32ddd7a77f9454b69608e9f0df5add`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -525,6 +525,9 @@ Acceptance:
   Focused local validation and the clean remote `fmt`/`clippy`/`test-all`
   closure are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-refactor-assessment-closure-validation.md`.
+  Clean-full behavior-lock provenance hardening and refreshed report bindings
+  are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-review-fixes-validation.md`.
 
 Acceptance:
 
