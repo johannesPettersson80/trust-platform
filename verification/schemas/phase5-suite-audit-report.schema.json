@@ -141,8 +141,8 @@
       "type": "object",
       "required": [
         "report_only_enforcement_unchanged",
-        "proof_created",
-        "spec_gaps_closed",
+        "report_emits_proof",
+        "report_closes_spec_gaps",
         "suite_includes_interpreted",
         "p5_000b_remains_open"
       ],
@@ -150,10 +150,10 @@
         "report_only_enforcement_unchanged": {
           "const": true
         },
-        "proof_created": {
+        "report_emits_proof": {
           "const": false
         },
-        "spec_gaps_closed": {
+        "report_closes_spec_gaps": {
           "const": false
         },
         "suite_includes_interpreted": {

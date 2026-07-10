@@ -11,6 +11,7 @@ from pathlib import Path
 from scripts.verification.gate_inventory import (
     INVENTORY_PATH,
     GateInventoryError,
+    _validate_report_only_source_contract,
     load_gate_inventory,
     validate_gate_inventory,
 )
@@ -268,6 +269,63 @@ class GateInventoryTests(unittest.TestCase):
 
             self.assertFailure(records, root, "artifact claim is absent from workflow job source")
 
+    def test_ci_job_result_locator_is_derived_from_the_live_workflow_identity(self) -> None:
+        records = load_gate_inventory(ROOT)
+        records["GATE_JOB_RELEASE_PREFLIGHT"]["artifact_paths"] = [
+            "completely-invented-ci-result"
+        ]
+
+        self.assertFailure(
+            records,
+            ROOT,
+            "CI job result locator must equal the live workflow identity",
+        )
+
+    def test_strict_hardware_artifact_path_is_bound_to_the_script_default(self) -> None:
+        records = load_gate_inventory(ROOT)
+        records["GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP"]["artifact_paths"] = [
+            "totally/invented/artifact"
+        ]
+
+        self.assertFailure(
+            records,
+            ROOT,
+            "strict hardware artifact_paths must equal the reviewed script default",
+        )
+
+    def test_report_only_workflow_rejects_strict_mode_and_permission_drift(self) -> None:
+        record = load_gate_inventory(ROOT)["GATE_JOB_VERIFICATION_REPORT"]
+        baseline = (ROOT / record["path"]).read_text()
+        cases = (
+            (
+                baseline.replace(
+                    "--intent bugfix \\\n",
+                    "--intent bugfix \\\n            --strict \\\n",
+                ),
+                "must not pass --strict",
+            ),
+            (
+                baseline.replace(
+                    "permissions:\n  contents: read",
+                    "permissions:\n  contents: write",
+                ),
+                "read-only permissions",
+            ),
+        )
+        for text, expected in cases:
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                write(root / record["path"], text)
+                failures: list[str] = []
+
+                _validate_report_only_source_contract(
+                    root,
+                    {"GATE_JOB_VERIFICATION_REPORT": record},
+                    failures,
+                )
+
+                self.assertTrue(any(expected in failure for failure in failures), failures)
+
     def test_catalog_command_binding_is_exact_and_unique(self) -> None:
         with fixture_root() as root:
             records = fixture_records(root)
@@ -306,6 +364,20 @@ class GateInventoryTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(GateInventoryError, "duplicate gate inventory id GATE_DUP"):
+                load_gate_inventory(root)
+
+    def test_loader_rejects_unknown_top_level_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / INVENTORY_PATH
+            path.parent.mkdir(parents=True)
+            path.write_text(
+                "schema_version = 1\n"
+                "unexpected = 'accepted'\n"
+                "surfaces = []\n"
+            )
+
+            with self.assertRaisesRegex(GateInventoryError, "top-level fields drift"):
                 load_gate_inventory(root)
 
     def test_schema_is_closed_and_pins_the_contract_fields(self) -> None:

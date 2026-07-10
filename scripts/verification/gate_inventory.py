@@ -132,6 +132,11 @@ def load_gate_inventory(root: Path) -> dict[str, dict[str, Any]]:
         payload = tomllib.loads(path.read_text())
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
         raise GateInventoryError(f"cannot load {INVENTORY_PATH}: {exc}") from exc
+    if set(payload) != {"schema_version", "surfaces"}:
+        raise GateInventoryError(
+            "gate inventory top-level fields drift: "
+            f"expected ['schema_version', 'surfaces'], got {sorted(payload)}"
+        )
     if payload.get("schema_version") != 1:
         raise GateInventoryError("gate inventory top-level schema_version must be 1")
     rows = payload.get("surfaces")
@@ -222,6 +227,7 @@ def validate_gate_inventory(
     _validate_catalog_command_sources(root, normalized, failures)
     _validate_workflow_artifact_sources(root, normalized, failures)
     _validate_hardware_source_contract(root, normalized, failures)
+    _validate_report_only_source_contract(root, normalized, failures)
     return _finish(root, sorted(set(failures)), on_failure)
 
 
@@ -496,7 +502,14 @@ def _validate_workflow_artifact_sources(
             continue
         if record.get("command_role") == "reference":
             continue
-        if record.get("artifact_kind") not in {"ci_artifact", "lab_report", "release_object"}:
+        artifact_kind = record.get("artifact_kind")
+        if artifact_kind == "ci_job_result":
+            if record.get("artifact_paths") != [record.get("name")]:
+                failures.append(
+                    f"{record_id}: CI job result locator must equal the live workflow identity"
+                )
+            continue
+        if artifact_kind not in {"ci_artifact", "lab_report", "release_object"}:
             continue
         block = _workflow_job_block(root, record)
         if block is None:
@@ -561,9 +574,19 @@ def _validate_hardware_source_contract(
                 failures.append(
                     f"GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP: strict hardware {field} must be {value!r}"
                 )
+        expected_artifacts = ["target/gate-artifacts/device-in-the-loop/"]
+        if strict.get("artifact_paths") != expected_artifacts:
+            failures.append(
+                "GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP: strict hardware artifact_paths "
+                "must equal the reviewed script default"
+            )
         _require_source_fragments(
             root / "scripts/runtime_device_in_loop_gate.sh",
-            ("cargo test -p trust-runtime --test device_in_the_loop -- --ignored --nocapture",),
+            (
+                'OUT_DIR="${OUT_DIR:-target/gate-artifacts/device-in-the-loop}"',
+                'TRUST_DIT_ARTIFACT_DIR="${OUT_DIR}"',
+                "cargo test -p trust-runtime --test device_in_the_loop -- --ignored --nocapture",
+            ),
             "strict device-in-loop script",
             failures,
         )
@@ -588,6 +611,65 @@ def _validate_hardware_source_contract(
             failures.append(
                 "GATE_JOB_PROTOCOL_DEVICE_IN_LOOP: workflow no longer exposes the reviewed skip-capable hardware input"
             )
+
+
+def _validate_report_only_source_contract(
+    root: Path,
+    records: Mapping[str, dict[str, Any]],
+    failures: list[str],
+) -> None:
+    record = records.get("GATE_JOB_VERIFICATION_REPORT")
+    if record is None:
+        return
+    block = _workflow_job_block(root, record)
+    path_value = record.get("path")
+    path = root / path_value if isinstance(path_value, str) else None
+    try:
+        workflow = path.read_text() if path is not None else ""
+    except (OSError, UnicodeError):
+        workflow = ""
+    if not re.search(r"(?m)^permissions:\n  contents: read\n\njobs:\n", workflow):
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: report-only workflow must retain read-only permissions"
+        )
+    if block is None:
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: report-only workflow source cannot be resolved"
+        )
+        return
+    if "--strict" in block:
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: report-only workflow must not pass --strict"
+        )
+    expected = (
+        "python3 scripts/verification_report_gate.py \\",
+        '--base "${BASE_SHA}" \\',
+        '--head "${HEAD_SHA}" \\',
+        "--intent bugfix \\",
+        "--out-dir target/gate-artifacts/verification",
+    )
+    invocation = _continued_command(block, "python3 scripts/verification_report_gate.py")
+    if invocation != expected:
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: report-only workflow invocation drifts from the reviewed command"
+        )
+
+
+def _continued_command(block: str, prefix: str) -> tuple[str, ...]:
+    lines = block.splitlines()
+    start = next(
+        (index for index, line in enumerate(lines) if line.strip().startswith(prefix)),
+        None,
+    )
+    if start is None:
+        return ()
+    command: list[str] = []
+    for line in lines[start:]:
+        value = line.strip()
+        command.append(value)
+        if not value.endswith("\\"):
+            break
+    return tuple(command)
 
 
 def _require_source_fragments(

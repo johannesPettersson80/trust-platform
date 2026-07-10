@@ -40,11 +40,23 @@ class Phase5AuditReportTests(unittest.TestCase):
         self.assertEqual(11, len(state.area_rows))
         self.assertEqual(29, len(state.route_rows))
         self.assertEqual(list(range(1, 30)), [row["order"] for row in state.route_rows])
+        self.assertTrue(
+            {
+                "scripts/plan_tests.py",
+                "scripts/run_verification_focused_tests.py",
+                "scripts/verification/focused_test_suite.py",
+                "scripts/verification/planner.py",
+                "scripts/verification/report_gate.py",
+                "scripts/verification_report_gate.py",
+                "scripts/verification/test_catalog_json_schema.py",
+                "scripts/verification/test_catalog_validation.py",
+            }.issubset(state.input_paths)
+        )
         self.assertEqual(
             {
                 "report_only_enforcement_unchanged": True,
-                "proof_created": False,
-                "spec_gaps_closed": False,
+                "report_emits_proof": False,
+                "report_closes_spec_gaps": False,
                 "suite_includes_interpreted": False,
                 "p5_000b_remains_open": True,
             },
@@ -73,7 +85,7 @@ class Phase5AuditReportTests(unittest.TestCase):
             ("route", lambda p: p["routes"][0].update(order=29), "live Phase 5 state"),
             (
                 "boundary",
-                lambda p: p["boundaries"].update(proof_created=True),
+                lambda p: p["boundaries"].update(report_emits_proof=True),
                 "non-enforcement boundary contract",
             ),
             ("summary", lambda p: p["summary"].update(inventory_records=60), "summary does not match"),
@@ -91,7 +103,7 @@ class Phase5AuditReportTests(unittest.TestCase):
         self.assertEqual([], validate_schema_contract(schema))
         self.assertEqual([], validate_json_schema_instance(payload, schema))
 
-        schema["$defs"]["boundary"]["properties"].pop("proof_created")
+        schema["$defs"]["boundary"]["properties"].pop("report_emits_proof")
         failures = validate_schema_contract(schema)
         self.assertTrue(any("boundary fields drift" in failure for failure in failures), failures)
 

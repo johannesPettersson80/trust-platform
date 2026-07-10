@@ -130,6 +130,42 @@ class CoverageMatrixGapTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicates coverage dimension happy_path"):
             analyze_coverage_matrix_gaps(**inputs)
 
+    def test_mapped_area_without_authorized_case_family_model_has_zero_slots(self) -> None:
+        inputs = fixture_inputs()
+        inputs["matrix"]["areas"].append(
+            {
+                "id": "compiler_iec",
+                "status": "mapped",
+                "required_case_families": [],
+            }
+        )
+        inputs["invariants"].append(
+            fixture_invariant(
+                "INV_COMPILER",
+                "compiler_iec",
+                [
+                    {
+                        "dimension": "happy_path",
+                        "state": "spec_gap",
+                        "rationale": "recorded without inventing an area-wide family model",
+                        "spec_gap_ref": "SPEC_GAP_FIXTURE",
+                    }
+                ],
+            )
+        )
+
+        analysis = analyze_coverage_matrix_gaps(**inputs)
+
+        area = next(row for row in analysis["areas"] if row["area"] == "compiler_iec")
+        self.assertEqual(area["required_case_families"], [])
+        self.assertEqual(area["required_family_slots"], 0)
+        self.assertEqual(area["assigned_required_slots"], 0)
+        self.assertEqual(area["missing_required_slots"], 0)
+        self.assertEqual(
+            area["invariants"][0]["additional_cells"][0]["dimension"],
+            "happy_path",
+        )
+
     def test_closed_spec_gap_is_reported_as_debt_without_relabeling_state(self) -> None:
         inputs = fixture_inputs()
         inputs["spec_gaps"]["SPEC_GAP_FIXTURE"]["resolution_status"] = "closed"

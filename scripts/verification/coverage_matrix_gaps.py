@@ -248,7 +248,7 @@ def analyze_coverage_matrix_gaps(
     mapped_blocked_ids: set[str] = set()
     for area_id, area in mapped_areas.items():
         required = area.get("required_case_families")
-        if not isinstance(required, list) or not required or not all(
+        if not isinstance(required, list) or not all(
             isinstance(item, str) and item for item in required
         ):
             raise ValueError(f"mapped area {area_id} has invalid required_case_families")
