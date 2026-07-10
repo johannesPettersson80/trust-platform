@@ -1,6 +1,6 @@
 # P1B Bytecode-Validator Mutation Shard
 
-Date: 2026-07-09; refreshed 2026-07-10 after the Phase 4 metadata migration
+Date: 2026-07-09; refreshed 2026-07-10 after the Phase 5 suite migration
 
 Implemented row:
 
@@ -15,7 +15,7 @@ Implemented row:
   validator because its implementation is assembled from `include!()` files.
   The shard therefore uses cargo-mutants single-file candidate generation and
   applies only two selected function-bypass mutants in an isolated archive of
-  commit `3bf92dd9a4c373cc988d0836ace51366f1c34bb2`.
+  commit `8511e3e2ca14e8c575f4442a44fe0051af4b522c`.
 - The runner cleans only `trust-runtime` outputs in the dedicated mutation
   target before baseline, before each mutant, and after restoration. No product
   source in the working checkout is edited.
@@ -46,13 +46,13 @@ Machine report:
 
 - `p1b-bytecode-validator-mutation-report.json`
 - SHA-256:
-  `4086046a2bc49ff2767fdea058eeace1b6da5031a018fd3b2a48beb33ee62ef6`
+  `fd8b7a7ab1f73b639b198678782072dee19dd5c2f0f9b19fb945dedf22069d4a`
 
-The latest 2026-07-10 refresh was required because the Phase 4 validator and
-oracle-eligibility modules changed the case-generator provenance digest and
-therefore the bytecode-validator case-file digest. The case IDs, mutant
-selectors, commands, and outcomes are unchanged; the shard was rerun against
-the final clean implementation commit rather than hand-editing the binding.
+The latest 2026-07-10 refresh was required because the Phase 5 suite and gate
+metadata migration changed the case-generator provenance digest and therefore
+the bytecode-validator case-file digest. The case IDs, mutant selectors,
+commands, and outcomes are unchanged; the shard was rerun against the final
+clean implementation commit rather than hand-editing the binding.
 
 ## Tests-First And Tooling Corrections
 
@@ -101,12 +101,11 @@ the final clean implementation commit rather than hand-editing the binding.
 Final remote mutation run on `trust-builder`:
 
 ```text
-cd "$HOME/projects/trust-platform-p4-validation-85af612b2"
-TMPDIR="$HOME/.cache/codex-targets/trust-platform-p4-mutation-tmp-3bf9" \
-  python3 scripts/bytecode_validator_mutation.py \
-  --target-dir "$HOME/.cache/codex-targets/trust-platform-p4-mutation-3bf9" \
-  --output-json "$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.json" \
-  --output-markdown "$HOME/p4-evidence-3bf9/bytecode-validator-mutation-report.md"
+cd "$HOME/projects/trust-platform-p5-validation-8511e3e2c"
+python3 scripts/bytecode_validator_mutation.py \
+  --target-dir "$HOME/.cache/codex-targets/trust-platform-p5-mutation" \
+  --output-json target/gate-artifacts/verification/bytecode-validator-mutation.json \
+  --output-markdown target/gate-artifacts/verification/bytecode-validator-mutation.md
 ```
 
 Result: 2 caught, 0 survived, 0 unviable, 0 timeout, 0 error. Its two cataloged
@@ -140,6 +139,6 @@ git diff --check
 
 Latest mutation refresh result: 2 caught, 0 survived, 0 unviable, 0 timeout,
 and 0 error. The source commit and regenerated case-file digest are bound in
-the machine report. The broader Phase 4 focused and remote closure commands are
-recorded in the dated Phase 4 validation evidence rather than retroactively
+the machine report. The broader Phase 5 focused and remote closure commands are
+recorded in the dated Phase 5 validation evidence rather than retroactively
 claimed here.

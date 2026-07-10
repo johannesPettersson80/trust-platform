@@ -329,13 +329,13 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
     def test_unmapped_file_is_reported_by_planner(self) -> None:
         result = Planner().plan(
             "bugfix",
-            ["README.md"],
+            ["editors/neovim/lspconfig.lua"],
             None,
             None,
         )
 
         self.assertEqual(result.exit_code, 4)
-        self.assertEqual(result.unmapped_files, ["README.md"])
+        self.assertEqual(result.unmapped_files, ["editors/neovim/lspconfig.lua"])
 
 
 if __name__ == "__main__":
