@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
-Generated: `2026-07-10T20:00:00Z`
+Source revision: `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`
+Generated: `2026-07-10T21:10:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `4482774a2845d044bd57f3c53bb91c58e1483f70d120ef4e8b5692bf82a3ceb4`
-Input SHA-256: `sha256:4e7e5715b635c92c160acb44d065f8be6965d863d1f8039d5f5d1819e065d3ba`
+Generated JSON SHA-256: `f26e9d65d31d1a71b44c2adb08515852d228b62a4d399f1d0aa1eb7132e139ed`
+Input SHA-256: `sha256:f04d7204a45f2f3b80a17d3c2eb617bf57a056ddd9fd814c460bc588f97eee55`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -113,8 +113,8 @@ a move, split, rename, fixture merge, or behavior change.
 - Artifact `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`: `fast` `case_table_artifact` at `verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml`; suites `veryquick`.
 - Artifact `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`: `fast` `case_table_artifact` at `verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml`; suites `veryquick`.
 - Artifact `TEST_CASE_TABLE_VM_SEAM_VALID_001`: `fast` `case_table_artifact` at `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`; suites `veryquick`.
-- Commandless suites: `hardware_lab`, `nightly`, `release`, `supporting_local`
-- Placeholder suites: `pr`, `veryquick`
+- Commandless suites: `supporting_local`
+- Placeholder suites: none
 - Catalog rows without suite tiers: `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`
 - Unknown assigned suites: none
 

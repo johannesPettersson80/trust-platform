@@ -408,11 +408,10 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` classifies 1/3,816 scanner facts
-  and reports 3,815 as debt. The sole mapped `bytecode_vm` area has two of five
-  required class slots complete (`mutation` and `negative_malformed_input`);
-  `failing_regression`, `iec_conformance`, and `metadata_validation` remain
-  missing. Four planned case-table rows are visible under
+  commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46` classifies 1/3,816 scanner facts
+  and reports 3,815 as debt. Across 11 mapped areas, two of 32 required class
+  slots are complete; both are in `bytecode_vm` (`mutation` and
+  `negative_malformed_input`). Four planned case-table rows are visible under
   `metadata_validation` but do not count, and ignored/conditional generated
   facts cannot count as effectively runnable. The at-rest validator recomputes
   live scanner/catalog/matrix joins, full metadata validity, tool/schema input
@@ -421,18 +420,20 @@ Acceptance:
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
   Generated JSON SHA-256:
-  `d99144aab0a3588f956750dcc3919dcffe0a7ec5c3a1a1d9d5636565cb4f6134`.
+  `52a269ba9059a9c81ec6b465015a63e21bfab093639f0d6c004a7dabb7bae812`.
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
-  assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
-  invariant/family slots have declared cells, 64 remain structurally
-  unassigned, and one additional recorded dimension remains visible. All 17
-  declared cells stay `spec_gap`. Four catalog-bound case files contribute 21
-  blocked observations without upgrading any state. Missing cells receive no
-  synthetic state. Generated JSON SHA-256:
-  `161a21f93e7edfc687e763d72a531dbd9c47f4bb1e5ed2eb4f9c795dfc7e3115`.
+  Clean-source report commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`
+  assesses all 11 mapped areas and 52 invariants. The authorized family model
+  remains bytecode/VM-only: 16 of 80 required invariant/family slots have
+  declared cells and 64 remain structurally unassigned. The other ten areas
+  define no invented required families; their recorded cells remain visible as
+  additional observations. In total, 61 recorded cells comprise 53
+  `spec_gap` and eight `gap_open` cells. Four catalog-bound case files
+  contribute 21 blocked observations without upgrading any state. Missing
+  cells receive no synthetic state. Generated JSON SHA-256:
+  `4b63966835b4a86dde82eb88c06ef6c385d51f086260a2b7a535f870b7564d67`.
 - [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
   bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
   binds classes only through `malformed_input_class_ids`. The sole reviewed
@@ -509,14 +510,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` inventories 3,816 facts in 670
+  `f58b9c1412b5002e26ea0b05de54d8b10b0bca46` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `4482774a2845d044bd57f3c53bb91c58e1483f70d120ef4e8b5692bf82a3ceb4`.
+  `f26e9d65d31d1a71b44c2adb08515852d228b62a4d399f1d0aa1eb7132e139ed`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -610,7 +611,7 @@ Acceptance:
   `deferred`, `spec_gap`, or `unproven`; do not mark them `validated`.
 
   The clean-source invariant-seed audit at commit
-  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955` binds all 44 written obligations
+  `f58b9c1412b5002e26ea0b05de54d8b10b0bca46` binds all 44 written obligations
   to 43 canonical invariants: 36 new records and eight pre-existing seed
   mappings to seven canonical records. Only `VM_SEAM_TYPE_001` and
   `VM_SEAM_TYPE_002` share a canonical invariant. Seed posture is eight
@@ -618,7 +619,7 @@ Acceptance:
   invariants remain unvalidated at S0: eight `gap_open` and 44 `spec_gap`.
   All nine safety-critical invariants name an oracle-eligible active source or
   an open focused spec gap. Generated JSON SHA-256:
-  `04ced8ccdeeb8cabab268361f72cbb8f8326872d5266fe1542d77c72302dde16`.
+  `68e008badbac90b2435b347f88bc24a3e5edc9e2554c96067e38cf18bba594b9`.
   Durable evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md`
   and
@@ -658,8 +659,8 @@ Acceptance:
   no hardware/tool or not-applicable classification was inferred.
 
   The report-only completeness audit was generated from clean commit
-  `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`. Generated JSON SHA-256:
-  `36044c2c9e2d734f6c38eb0d3d345432e3605f8d6c4cd0e8ceac7d689f5b398a`.
+  `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`. Generated JSON SHA-256:
+  `7c908f30968c82d1092afc735b1026a8b0f285185623fae1a6963bfcde5e6938`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md`.
   The audit is report-only, creates no proof, closes no spec gap, and does not
@@ -667,31 +668,63 @@ Acceptance:
 
 ## Phase 5 - Suite Definitions and Gate Mapping
 
-- [ ] `VERIF-P5-000` Inventory existing workflows and `scripts/*gate*` into
-  suite records or explicit exclusions. Include nightly reliability, HMI long
-  soak, protocol device-in-loop, salsa hardening, release/version guard,
-  malformed-bytecode fuzz, VM determinism/reliability, unsafe/concurrency, and
-  runtime device-in-loop gates.
-- [ ] `VERIF-P5-000A` Define `veryquick` environment and just-recipe mapping
+- [x] `VERIF-P5-000` Inventory existing workflows and `scripts/*gate*` into
+  suite records or explicit exclusions. The exhaustive live join contains 62
+  records: 29 root gate scripts, 30 executable root workflow jobs, one
+  non-executable nested workflow template, one exact just recipe, and one
+  catalog-bound mutation command. Nightly reliability, HMI soak, device in the
+  loop, salsa hardening, release/version, malformed-bytecode fuzz, VM
+  reliability, and unsafe/concurrency surfaces are all represented.
+- [x] `VERIF-P5-000A` Define `veryquick` environment and just-recipe mapping
   before using it in suite records; do not invent a new broad local Pi gate.
+  `just verification-veryquick` is source-bound to its exact bounded command
+  sequence on `trust_builder`; its canonical Python runner discovers all 36
+  verification `*_tests.py` modules, including the Phase 3 review regressions.
 - [ ] `VERIF-P5-000B` Phase 11 hardware lab work must build on any existing
   device-in-loop workflow/test harness instead of creating a parallel source of
-  truth.
-- [ ] `VERIF-P5-001` Define `veryquick`.
-- [ ] `VERIF-P5-002` Define `pr`.
-- [ ] `VERIF-P5-003` Define `nightly`.
-- [ ] `VERIF-P5-004` Define `release`.
-- [ ] `VERIF-P5-005` Define `hardware_lab`.
-- [ ] `VERIF-P5-006` Validate command owner, duration, environment, artifacts.
-- [ ] `VERIF-P5-007` Ensure hardware commands are env-gated.
-- [ ] `VERIF-P5-008` Ensure release commands name durable evidence or CI
-  artifacts.
-- [ ] `VERIF-P5-009` Encode code-area matrix in machine-readable metadata.
+  truth. Phase 5 binds the existing workflow, script, Rust harness, and JSON
+  artifact contract, but this standing row remains open until Phase 11 builds
+  the reviewed lab program on those sources.
+- [x] `VERIF-P5-001` Define `veryquick`: one bounded direct entrypoint plus the
+  metadata-gate helper, with no workflow enforcement added.
+- [x] `VERIF-P5-002` Define `pr`: 15 direct workflow entrypoints and 29 total
+  inventory references; the verification job remains explicitly report-only.
+- [x] `VERIF-P5-003` Define `nightly`: ten direct entrypoints and 14 total
+  references, including the catalog-bound bytecode-validator mutation shard.
+- [x] `VERIF-P5-004` Define `release`: six direct workflow entrypoints and nine
+  total references, with preflight represented by its bound CI job result.
+- [x] `VERIF-P5-005` Define `hardware_lab`: only the strict device-in-loop
+  script is an entrypoint; the skip-capable hosted workflow remains a helper.
+- [x] `VERIF-P5-006` Validate command owner, duration, environment, artifacts.
+  Closed-schema records, exhaustive direct joins, exact recipe/catalog
+  commands, workflow artifact names, CI job results, and hardware output paths
+  are revalidated from current source.
+- [x] `VERIF-P5-007` Ensure hardware commands are env-gated. Hardware proof
+  requires exact `TRUST_DIT_REQUIRE_HARDWARE=1`; the dynamic workflow default
+  cannot satisfy the strict suite binding.
+- [x] `VERIF-P5-008` Ensure release commands name durable evidence or CI
+  artifacts. Every direct release entrypoint binds a workflow artifact,
+  release object, or CI job result; `target/**` is rejected as durable output.
+- [x] `VERIF-P5-009` Encode code-area matrix in machine-readable metadata.
   Bytecode/VM pilot requirements are pulled forward by `VERIF-P1B-001`; the
-  full row closes only when every area in `test-taxonomy.md` is represented.
-- [ ] `VERIF-P5-010` Add changed-file classifier. Bytecode/VM pilot
+  schema-v2 matrix now represents all 11 canonical areas and all 29 stable
+  taxonomy routes.
+- [x] `VERIF-P5-010` Add changed-file classifier. Bytecode/VM pilot
   classification is pulled forward by `VERIF-P1B-002`; the full row closes only
-  when every code area has default-deny routing.
+  when every code area has default-deny routing. Specific routes take
+  precedence over canonical area fallbacks; deletions and both rename endpoints
+  are retained, unsafe paths fail, unmatched paths default-deny, and conditional
+  suites are reported without becoming direct requirements.
+
+  The combined report-only audit was generated independently from clean source
+  commit `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`. It records 62 inventory
+  rows, six suite records, 33 direct commands, 11 areas, and 29 routes. Generated
+  JSON SHA-256:
+  `4400a2c4d157107e21d54d6291ed84d71cf9dc0de85def212535ed5f7c99651f`.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md`.
+  It emits no proof, closes no spec gap, does not interpret suite inheritance,
+  and does not change workflow enforcement.
 
 ## Phase 6 - Requirement, Oracle, and Traceability Mapping
 

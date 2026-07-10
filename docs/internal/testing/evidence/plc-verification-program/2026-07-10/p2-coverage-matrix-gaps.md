@@ -1,25 +1,25 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
-Generated: `2026-07-10T20:00:00Z`
+Source revision: `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`
+Generated: `2026-07-10T21:10:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `161a21f93e7edfc687e763d72a531dbd9c47f4bb1e5ed2eb4f9c795dfc7e3115`
-Input SHA-256: `sha256:93721081410ed0f60158884f268cf9dd20445e74dc9e90c8d3c6f95ecea49864`
+Generated JSON SHA-256: `4b63966835b4a86dde82eb88c06ef6c385d51f086260a2b7a535f870b7564d67`
+Input SHA-256: `sha256:c74aac67567c291309b6e2ac343ea0b81cde535af5b9d6a30ff911f2b550885a`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
 
 ## Summary
 
-- Mapped areas: 1
-- Mapped-area invariants: 8
-- Out-of-scope invariants: 44
+- Mapped areas: 11
+- Mapped-area invariants: 52
+- Out-of-scope invariants: 0
 - Required family slots: 80
 - Assigned required slots: 16
 - Missing required slots: 64
-- Additional recorded cells: 1
-- Recorded mapped-area cells: 17
+- Additional recorded cells: 45
+- Recorded mapped-area cells: 61
 - Catalog-bound case files: 4
 - Case observations: 21
 - Blocked case observations: 21
@@ -32,8 +32,8 @@ mean every required coverage slot is assigned or covered.
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 17 |
-| `gap_open` | 0 |
+| `spec_gap` | 53 |
+| `gap_open` | 8 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -161,52 +161,313 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `resource_limit` | `missing_cell` | none | none | none |
 | `wrong_type_or_shape` | `assigned` | `spec_gap` | `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE`, `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F`, `VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9` | none |
 
+## Area: `compiler_iec`
+
+Required families: none
+
+### `IEC_PARSE_RECOVER_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `wrong_type_or_shape` | `additional_recorded` | `spec_gap` | none | none |
+
+### `IEC_PREC_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `gap_open` | none | none |
+
+### `IEC_STRING_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `boundary_high` | `additional_recorded` | `spec_gap` | none | none |
+
+### `IEC_SUBRANGE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `boundary_high` | `additional_recorded` | `gap_open` | none | none |
+
+### `IEC_TIMER_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `time_or_clock_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `control_security`
+
+Required families: none
+
+### `DEBUG_AUTH_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `auth_or_permission` | `additional_recorded` | `spec_gap` | none | none |
+
+### `SEC_AUTHZ_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `auth_or_permission` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `editor_safety`
+
+Required families: none
+
+### `DEBUG_BEHAVIOR_LOCKED_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+
+### `DEBUG_PAUSE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `time_or_clock_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `EDIT_DIAG_CANCEL_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `concurrency_or_cancellation` | `additional_recorded` | `spec_gap` | none | none |
+
+### `EDIT_LSP_POS_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `encoding_or_unicode` | `additional_recorded` | `spec_gap` | none | none |
+
+### `EDIT_RENAME_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+
+### `EDIT_RENAME_002`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `hmi_ui`
+
+Required families: none
+
+### `UI_STATUS_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `plcopen_devtools`
+
+Required families: none
+
+### `DEV_COMMIT_SCOPE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+
+### `DEV_TEST_DISCOVERY_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PLCO_IMPORT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `wrong_type_or_shape` | `additional_recorded` | `gap_open` | none | none |
+
+## Area: `protocols`
+
+Required families: none
+
+### `PROTO_ADS_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PROTO_DISCOVERY_TRUTH_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PROTO_ETHERCAT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `resource_limit` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PROTO_MODBUS_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PROTO_MQTT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PROTO_OPCUA_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `persistence_or_recovery` | `additional_recorded` | `gap_open` | none | none |
+
+### `PROTO_STATUS_TRUTH_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `release`
+
+Required families: none
+
+### `RELEASE_PLATFORM_MATRIX_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RELEASE_SOURCE_BUILD_OPENOT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `REL_CLAIM_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `REL_CONF_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `REL_VERSION_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RUNTIME_BEHAVIOR_LOCKED_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `runtime_safety`
+
+Required families: none
+
+### `RT_RELOAD_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RT_SAFE_DEADLINE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `time_or_clock_fault` | `additional_recorded` | `gap_open` | none | none |
+
+### `RT_SAFE_FORCE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RT_SAFE_IO_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `gap_open` | none | none |
+
+### `RT_SAFE_IO_WORKER_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `concurrency_or_cancellation` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RT_SAFE_NAN_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `wrong_type_or_shape` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RT_SAFE_PANIC_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `concurrency_or_cancellation` | `additional_recorded` | `gap_open` | none | none |
+
+### `RT_SAFE_RESTART_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `persistence_or_recovery` | `additional_recorded` | `gap_open` | none | none |
+
+### `RT_SAFE_RETAIN_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `persistence_or_recovery` | `additional_recorded` | `spec_gap` | none | none |
+
+### `RT_SAFE_STOP_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `supply_chain_platform`
+
+Required families: none
+
+### `PLAT_PATH_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+
+### `PLAT_VSCODE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+
+### `SEC_ARTIFACT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+### `SEC_DEP_AUDIT_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+
+## Area: `verification`
+
+Required families: none
+
 ## Out-Of-Scope Invariants
 
-- `DEBUG_AUTH_001` (`control_security`): 1 recorded cells
-- `DEBUG_BEHAVIOR_LOCKED_001` (`editor_safety`): 1 recorded cells
-- `DEBUG_PAUSE_001` (`editor_safety`): 1 recorded cells
-- `DEV_COMMIT_SCOPE_001` (`plcopen_devtools`): 1 recorded cells
-- `DEV_TEST_DISCOVERY_001` (`plcopen_devtools`): 1 recorded cells
-- `EDIT_DIAG_CANCEL_001` (`editor_safety`): 1 recorded cells
-- `EDIT_LSP_POS_001` (`editor_safety`): 1 recorded cells
-- `EDIT_RENAME_001` (`editor_safety`): 1 recorded cells
-- `EDIT_RENAME_002` (`editor_safety`): 1 recorded cells
-- `IEC_PARSE_RECOVER_001` (`compiler_iec`): 1 recorded cells
-- `IEC_PREC_001` (`compiler_iec`): 1 recorded cells
-- `IEC_STRING_001` (`compiler_iec`): 1 recorded cells
-- `IEC_SUBRANGE_001` (`compiler_iec`): 1 recorded cells
-- `IEC_TIMER_001` (`compiler_iec`): 1 recorded cells
-- `PLAT_PATH_001` (`supply_chain_platform`): 1 recorded cells
-- `PLAT_VSCODE_001` (`supply_chain_platform`): 1 recorded cells
-- `PLCO_IMPORT_001` (`plcopen_devtools`): 1 recorded cells
-- `PROTO_ADS_001` (`protocols`): 1 recorded cells
-- `PROTO_DISCOVERY_TRUTH_001` (`protocols`): 1 recorded cells
-- `PROTO_ETHERCAT_001` (`protocols`): 1 recorded cells
-- `PROTO_MODBUS_001` (`protocols`): 1 recorded cells
-- `PROTO_MQTT_001` (`protocols`): 1 recorded cells
-- `PROTO_OPCUA_001` (`protocols`): 1 recorded cells
-- `PROTO_STATUS_TRUTH_001` (`protocols`): 1 recorded cells
-- `RELEASE_PLATFORM_MATRIX_001` (`release`): 1 recorded cells
-- `RELEASE_SOURCE_BUILD_OPENOT_001` (`release`): 1 recorded cells
-- `REL_CLAIM_001` (`release`): 1 recorded cells
-- `REL_CONF_001` (`release`): 1 recorded cells
-- `REL_VERSION_001` (`release`): 1 recorded cells
-- `RT_RELOAD_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_DEADLINE_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_FORCE_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_IO_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_IO_WORKER_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_NAN_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_PANIC_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_RESTART_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_RETAIN_001` (`runtime_safety`): 1 recorded cells
-- `RT_SAFE_STOP_001` (`runtime_safety`): 1 recorded cells
-- `RUNTIME_BEHAVIOR_LOCKED_001` (`release`): 1 recorded cells
-- `SEC_ARTIFACT_001` (`supply_chain_platform`): 1 recorded cells
-- `SEC_AUTHZ_001` (`control_security`): 1 recorded cells
-- `SEC_DEP_AUDIT_001` (`supply_chain_platform`): 1 recorded cells
-- `UI_STATUS_001` (`hmi_ui`): 1 recorded cells
+- none
 
 ## Limitations
 

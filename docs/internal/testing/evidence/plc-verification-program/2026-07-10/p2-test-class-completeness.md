@@ -1,11 +1,11 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `437af609c1d1dd6d2e0a6aabbda87a4ed84ee955`
-Generated: `2026-07-10T20:00:00Z`
+Source revision: `f58b9c1412b5002e26ea0b05de54d8b10b0bca46`
+Generated: `2026-07-10T21:10:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `d99144aab0a3588f956750dcc3919dcffe0a7ec5c3a1a1d9d5636565cb4f6134`
-Input SHA-256: `sha256:26c449e9f1c5b6ec26b910fd04cc119275018a17f61c065bf86c05d0531ffa6c`
+Generated JSON SHA-256: `52a269ba9059a9c81ec6b465015a63e21bfab093639f0d6c004a7dabb7bae812`
+Input SHA-256: `sha256:ad4de2c4aa2d29771abe59a21e2af334bb47ee294086c5f5e1d746afc681bb57`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
@@ -18,10 +18,10 @@ mean every scanner fact or required test class is mapped.
 - Catalog records: 6
 - Runnable catalog records: 2
 - Non-runnable catalog records: 4
-- Mapped areas: 1
-- Required class slots: 5
+- Mapped areas: 11
+- Required class slots: 32
 - Complete required class slots: 2
-- Missing required class slots: 3
+- Missing required class slots: 30
 
 ## Scanner Classification
 
@@ -49,6 +49,83 @@ Classified mappings:
 | `metadata_validation` | none | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001` (planned; catalog_status:planned), `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001` (planned; catalog_status:planned), `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001` (planned; catalog_status:planned), `TEST_CASE_TABLE_VM_SEAM_VALID_001` (planned; catalog_status:planned) | no |
 | `mutation` | `TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001` | none | yes |
 | `negative_malformed_input` | `TEST_BYTECODE_CONTAINER_INVALID_MAGIC` | none | yes |
+
+## Area: `compiler_iec`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `iec_conformance` | none | none | no |
+| `metadata_validation` | none | none | no |
+| `negative_malformed_input` | none | none | no |
+| `unit` | none | none | no |
+
+## Area: `control_security`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `integration` | none | none | no |
+| `rbac_security` | none | none | no |
+| `runtime_vertical` | none | none | no |
+
+## Area: `editor_safety`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `lsp_protocol` | none | none | no |
+| `unit` | none | none | no |
+| `vscode_extension` | none | none | no |
+
+## Area: `hmi_ui`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `browser_webview_visual` | none | none | no |
+| `integration` | none | none | no |
+| `runtime_vertical` | none | none | no |
+| `ui_journey_acceptance` | none | none | no |
+
+## Area: `plcopen_devtools`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `integration` | none | none | no |
+| `negative_malformed_input` | none | none | no |
+| `unit` | none | none | no |
+
+## Area: `protocols`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `integration` | none | none | no |
+| `protocol_loopback` | none | none | no |
+| `unit` | none | none | no |
+
+## Area: `release`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `release_docs` | none | none | no |
+
+## Area: `runtime_safety`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `integration` | none | none | no |
+| `runtime_vertical` | none | none | no |
+| `unit` | none | none | no |
+
+## Area: `supply_chain_platform`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `platform_package` | none | none | no |
+| `supply_chain_security` | none | none | no |
+
+## Area: `verification`
+
+| Required class | Runnable tests | Non-runnable rows | Complete |
+| --- | --- | --- | --- |
+| `metadata_validation` | none | none | no |
 
 ## Limitations
 
