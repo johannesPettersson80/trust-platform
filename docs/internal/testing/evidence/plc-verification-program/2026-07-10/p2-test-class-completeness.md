@@ -1,11 +1,11 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `c23ebe993c1e2bfa4cec2e865fc0cdebcfed3fd2`
-Generated: `2026-07-10T14:00:00Z`
+Source revision: `b63196b4d5196af8a1da6fad5078646784fc8fe1`
+Generated: `2026-07-10T08:20:00Z`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `02efbd5f847d3f84a4c881acdac6235d0f9b8ecc972f046e2c47da35ae9f7bd7`
-Input SHA-256: `sha256:2de81013c52665704526c0c858e8cd8a0455ba48d12b7e8e6f66973f3c034048`
+Generated JSON SHA-256: `d12fc8da468ea85d885a53cb58e8c30be09dc619ff67b85d47a58eb77de59f53`
+Input SHA-256: `sha256:8df327a5ca96ecb701d26fc68f58850f8500c713085788d54526738db1356d45`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
@@ -61,113 +61,3 @@ Classified mappings:
 - Generated tests marked ignored or conditional by the scanner do not satisfy runnable class completeness.
 - Scanner exclusions remain those documented by the generated existing-test catalog.
 - Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.
-
-## Review Fixes Folded In
-
-- The VS Code registration audit now performs the scanner-fact join itself. It
-  rejects a discovered test fact outside `suite/**` and a discovered JavaScript
-  test file that the TypeScript file inventory cannot register. The live result
-  is 456 discovered facts, 38 files, and 38 registrations.
-- Catalog `subject_kind`, `discovery_source_kind`, and `test_class` enums are
-  checked from a dedicated schema-contract module. This reduced
-  `metadata_validator/core.py` from 995 to 980 lines.
-- A structurally complete report can contain debt, but cannot relabel it:
-  summary, per-source counts, mapped-area classes, non-runnable reasons, input
-  digest, canonical command, ISO timestamp, clean source inputs, and generated
-  Markdown are revalidated at rest.
-- Generated facts with `ignore_state = "ignored"` or `"conditional"` remain
-  classified when review-owned identity exists, but cannot satisfy an
-  effectively runnable required-class slot. Phase 3 still owns their reviewed
-  ignore classification.
-
-## Tests First
-
-Before implementation, the registration suite failed twice because out-of-suite
-TypeScript and JavaScript test facts incorrectly passed, and errored because the
-audit had no fact count. The schema-contract and completeness suites each failed
-to import their not-yet-created modules. Later adversarial fixtures were added
-for metadata-validator wiring, schema widening, ignored facts, forged command
-and timestamp values, nonexistent/pre-feature commits, semantic count edits,
-and JSON/Markdown digest tampering.
-
-## Honest Debt Boundary
-
-The report makes no proof claim. Only
-`TEST_BYTECODE_CONTAINER_INVALID_MAGIC` classifies a mechanical scanner fact.
-The bytecode-validator mutation runner is a runnable catalog artifact but never
-classifies a source fact. The four planned case tables remain non-runnable.
-No area, test class, invariant, oracle, expected result, or malformed-input
-class is inferred from source text.
-
-`VERIF-P2-008` remains open. `VERIF-P2-009` also remains open because the
-catalog does not yet have a reviewed machine binding from negative tests to the
-surface-specific malformed-input taxonomy. This report contains aggregate and
-per-source unmapped counts, not all 3,815 individual debt identities, so
-`VERIF-P2-010` remains open as well.
-
-## Validation
-
-Clean-source generation and independent at-rest validation ran locally from
-commit `c23ebe993c1e2bfa4cec2e865fc0cdebcfed3fd2`:
-
-```text
-python3 scripts/report_test_class_completeness.py \
-  --json-out target/gate-artifacts/verification/test-class-completeness.json \
-  --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md \
-  --timestamp 2026-07-10T14:00:00Z
-python3 scripts/validate_test_class_completeness_report.py \
-  --json target/gate-artifacts/verification/test-class-completeness.json \
-  --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md
-```
-
-Both commands passed. The generated JSON SHA-256 is
-`02efbd5f847d3f84a4c881acdac6235d0f9b8ecc972f046e2c47da35ae9f7bd7`.
-The focused validation command recorded in `verification/evidence-index.toml`
-is rerun after this evidence row is indexed.
-
-Remote focused validation ran from a temporary clean worktree at the same
-implementation commit on `trust-builder`:
-
-```text
-just fmt
-python3 -m unittest \
-  scripts.verification.adversarial_selftest_tests \
-  scripts.verification.report_gate_tests \
-  scripts.verification.prover_tests \
-  scripts.verification.metadata_validator.evidence_proof_tests \
-  scripts.verification.bytecode_transforms_tests \
-  scripts.verification.bytecode_validator_mutation_tests \
-  scripts.verification.test_catalog_scanner_tests \
-  scripts.verification.test_catalog_intent_tests \
-  scripts.verification.test_catalog_staleness_tests \
-  scripts.verification.test_catalog_vscode_registration_tests \
-  scripts.verification.metadata_validator.schema_contracts_tests \
-  scripts.verification.test_class_completeness_tests
-python3 scripts/validate_verification_metadata.py
-scripts/verification_metadata_gate.sh
-python3 scripts/check_test_catalog_staleness.py
-python3 scripts/check_vscode_test_registration.py
-python3 scripts/report_test_class_completeness.py \
-  --json-out target/gate-artifacts/verification/test-class-completeness.json \
-  --markdown-out target/gate-artifacts/verification/test-class-completeness.md \
-  --timestamp 2026-07-10T14:00:00Z
-python3 scripts/validate_test_class_completeness_report.py \
-  --json target/gate-artifacts/verification/test-class-completeness.json \
-  --markdown target/gate-artifacts/verification/test-class-completeness.md
-git diff --check
-git status --short --branch
-```
-
-Results: 154/154 tests passed in 20.319 seconds; both metadata commands
-validated 101 implementation-commit records; staleness was 6/3,816;
-registration was 456 discovered facts, 38 files, and 38 registrations; report
-generation and at-rest validation passed; the worktree stayed clean. Broad
-remote clippy/test/test-all were not run: the pre-run builder had 13 GB free
-after an unrelated active `test-all`, below the documented thresholds for those
-gates. The temporary worktree and transfer bundle were removed after validation;
-the final disk check showed 60 GB free on `/home/johannes` and 3.6 GB on `/tmp`.
-
-No product/runtime source, extension product source, workflow, suite,
-specification gap, invariant status, skill, or agent instruction changed. CI
-remains report-only; `VERIF-P1B-012`, `VERIF-P1B-014`, `VERIF-P2-008` onward,
-`VERIF-P10-001`, and `VERIF-P10-003` remain open.

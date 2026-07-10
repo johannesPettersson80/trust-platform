@@ -791,6 +791,63 @@ Historical
 platform text cannot be rederived on another host and remains an explicit
 evidence-review field.
 
+### Coverage-Matrix Gap Report
+
+`VERIF-P2-008` writes
+`target/gate-artifacts/verification/coverage-matrix-gaps.json`; its closed
+schema is `verification/schemas/coverage-matrix-gap-report.schema.json`.
+Completeness is assessed only for invariants in planning-matrix areas whose
+status is `mapped`. The denominator is each mapped invariant crossed with that
+area's `required_case_families`.
+
+A required slot is either `assigned` to one committed coverage cell or
+`missing_cell`. A missing cell has no coverage state; the report must not
+invent `gap_open`, `spec_gap`, or `not_applicable`. Recorded cells preserve one
+of `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
+`gap_open`, or `deferred` exactly as authored. Catalog-bound case files are
+reported as planning observations only and never upgrade a cell.
+
+### Malformed-Input Taxonomy And Coverage
+
+`verification/malformed-input-taxonomy.toml` is the reviewed bytecode/VM pilot
+taxonomy. It is intentionally limited to the inventoried
+`bytecode_container_instruction_stream` surface and is mirrored exactly by
+`verification/malformed-input-taxonomy.md`. Compound prose categories are
+atomized into stable class IDs. `required` classes name an active same-area
+oracle; `spec_gap` classes name an open/actionable same-area gap; blocked,
+deferred, and not-applicable dispositions carry their required rationale or
+reviewed reference.
+
+Only `generated_test` rows with test class `negative_malformed_input` or `fuzz`
+may set `malformed_input_class_ids`. Negative rows require a nonempty reviewed
+binding; artifact rows and unrelated classes forbid it. The report never
+derives a class from a test name, path, command, lexical reference, case ID, or
+mutation association. For a `required` class, an effectively runnable native
+mapping derives `covered`, a fuzz-only mapping derives `covered_by_fuzz`, and
+no mapping derives `gap_open`. An authored `spec_gap`, `blocked`, `deferred`,
+or `not_applicable` disposition is never promoted by test presence.
+
+`VERIF-P2-009` writes
+`target/gate-artifacts/verification/malformed-input-coverage.json`; its schema
+is `verification/schemas/malformed-input-coverage-report.schema.json`.
+
+### Unmapped-Test Debt Report
+
+`VERIF-P2-010` writes
+`target/gate-artifacts/verification/unmapped-test-debt.json`; its closed schema
+is `verification/schemas/unmapped-test-debt-report.schema.json`. The debt set
+is the exact subtraction of current scanner facts by reviewed
+`generated_test.discovery_id`. Case-table and mutation-runner artifact rows do
+not classify scanner facts. Each debt row contains only inferred identity:
+discovery ID, source kind, path, name, and ignore state.
+
+All three Phase 2 reports are report-only. Debt returns success; corrupt
+metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
+noncanonical JSON, or Markdown that differs from the JSON-derived rendering
+fail. Source provenance binds report code and semantic inputs without binding
+the mutable evidence index or the report's own follow-up evidence row. Full
+metadata validation remains a separate current-tree health prerequisite.
+
 ### Case File
 
 Case files are committed data under `verification/cases/<area>/*.toml`. They are

@@ -70,6 +70,10 @@ Acceptance:
 - [x] `VERIF-P1-014` Encode coverage matrix metadata in the invariant schema.
 - [x] `VERIF-P1-015` Encode test class, oracle/spec refs, suite tier, evidence,
   and malformed-input taxonomy fields in the catalog schema.
+  The original seed encoded the generic test class and reference fields but
+  did not yet provide a surface-specific malformed-class binding. That prior
+  overstatement is corrected by `VERIF-P2-009`, which adds the reviewed
+  `malformed_input_class_ids` contract and bytecode/VM pilot taxonomy.
 - [x] `VERIF-P1-016` Add `schema_version = 1` to every metadata schema and record
   fixture.
 - [x] `VERIF-P1-017` Add cross-field validation rules for status progression:
@@ -416,14 +420,36 @@ Acceptance:
   Markdown-to-JSON digest. Debt exits successfully and no CI enforcement was
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
-- [ ] `VERIF-P2-008` Add coverage-matrix gap report with states:
+- [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-- [ ] `VERIF-P2-009` Add malformed-input coverage report. The current catalog
-  has no reviewed machine field binding a negative test to a surface-specific
-  malformed-input class; do not infer that binding from test names or paths.
-- [ ] `VERIF-P2-010` Do not fail CI on unmapped tests in the first slice. Report
-  unmapped tests as debt.
+  Clean-source report commit `b63196b4d5196af8a1da6fad5078646784fc8fe1`
+  assesses one mapped area and eight bytecode/VM invariants: 16 of 80 required
+  invariant/family slots have declared cells, 64 remain structurally
+  unassigned, and one additional recorded dimension remains visible. All 17
+  declared cells stay `spec_gap`. Four catalog-bound case files contribute 21
+  blocked observations without upgrading any state. Missing cells receive no
+  synthetic state.
+- [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
+  bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
+  binds classes only through `malformed_input_class_ids`. The sole reviewed
+  mapping is `TEST_BYTECODE_CONTAINER_INVALID_MAGIC` to `bad_magic`, producing
+  one `covered` class. `invalid_checksum` and `unsupported_version` remain
+  `gap_open` because their existing source tests are still uncataloged; 25
+  validator/resource classes remain `spec_gap`. Names, paths, commands, case
+  IDs, and mutation associations cannot create a mapping.
+- [x] `VERIF-P2-010` Do not fail CI on unmapped tests in the first slice. The
+  canonical debt report lists all 3,815 unmapped identities from 3,816 scanner
+  facts, including 85 ignored and one conditional fact. Debt exits zero;
+  corrupt metadata, stale joins, dirty provenance, symlinked inputs,
+  noncanonical JSON, and Markdown tampering fail. No workflow enforcement was
+  added.
+
+  Implementation/evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md`,
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md`,
+  and
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md`.
 
 Acceptance:
 

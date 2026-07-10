@@ -220,6 +220,16 @@ classes. Those are report debt, not an enforcement failure or permission to
 infer area, class, invariant, oracle, or expected behavior from names. These
 Phase 2 commands remain standalone; the report-only CI posture is unchanged.
 
+The coverage-matrix gap report keeps declared coverage state separate from
+structural absence. A missing invariant/family slot has no implied state, and
+cataloged cases remain planning observations rather than proof. The malformed
+input report uses only reviewed `malformed_input_class_ids` from the
+bytecode/VM pilot taxonomy; it never infers a class from test text or location.
+The unmapped-test debt report emits every remaining scanner identity rather
+than only aggregate counts. All three artifacts bind clean source inputs,
+reject symlinks and noncanonical/tampered output, and return success for honest
+debt without enabling CI enforcement.
+
 The P2-001 board surface is deliberately narrower than the whole workspace:
 Rust tests under `xtask/**` and fuzz targets in crate-local fuzz workspaces such
 as `crates/trust-ads-server/fuzz/**` are not included in generated totals. They

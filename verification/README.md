@@ -24,6 +24,9 @@ Current seed scope:
   Code test registration auditing for `VERIF-P2-004` through `VERIF-P2-006`.
 - report-only scanner-mapping and required-test-class completeness for
   `VERIF-P2-007`.
+- report-only coverage-cell gaps, reviewed bytecode malformed-input classes,
+  and exact unmapped-test identities for `VERIF-P2-008` through
+  `VERIF-P2-010`.
 
 TOML shape convention:
 
@@ -101,6 +104,15 @@ TOML shape convention:
   never count as runnable completeness, and neither do generated rows whose
   scanner facts are ignored or conditional. These commands are not wired into
   CI enforcement in this slice.
+- Run `scripts/report_coverage_matrix_gaps.py` with
+  `scripts/validate_coverage_matrix_gap_report.py` to list assigned and missing
+  invariant/family slots without synthesizing states. Run
+  `scripts/report_malformed_input_coverage.py` with
+  `scripts/validate_malformed_input_coverage_report.py` for the reviewed
+  bytecode/VM taxonomy, and `scripts/report_unmapped_test_debt.py` with
+  `scripts/validate_unmapped_test_debt_report.py` for every unmapped scanner
+  identity. These reports reject dirty or symlinked provenance and require
+  canonical JSON plus exact Markdown, while nonzero debt still exits zero.
 
 Do not mark records `validated` until the validators, suite definitions, and
 evidence index checks described in
