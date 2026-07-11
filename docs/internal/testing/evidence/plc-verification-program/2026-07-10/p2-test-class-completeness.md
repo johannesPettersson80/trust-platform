@@ -1,11 +1,11 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `fa228977fee66537ea22a727555aee297bb28abe`
-Generated: `2026-07-11T08:00:00+02:00`
+Source revision: `32560ac5160f80f536ff5a3b911cb31f46a11ced`
+Generated: `2026-07-11T10:40:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `c01bd689129153b1fdfc51dccfc9a7c91892e1a8f0611d09300021d965323d6c`
-Input SHA-256: `sha256:b872839016943c44c96417280ef68d469ddb77763017f527fb17d452fbe1adde`
+Generated JSON SHA-256: `9c7eb2443ce003ddfc13d4106f78a18b82e1e0044471d3ad2ced61dcca5bd7be`
+Input SHA-256: `sha256:8ebb4cdcebc825706b4b17dbaf4bace6fd424e133b78a2176d92059dccf7cef3`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
