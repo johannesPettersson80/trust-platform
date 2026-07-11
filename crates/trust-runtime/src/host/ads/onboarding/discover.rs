@@ -10,6 +10,7 @@ use crate::ads::onboarding::wire::AdsOnboardingWire;
 #[serde(rename_all = "snake_case")]
 pub enum DiscoverySource {
     Manual,
+    LocalRouter,
     DirectedIdentify,
     DirectedBroadcast,
 }
@@ -105,7 +106,8 @@ pub fn discover_targets<W: AdsOnboardingWire>(
                 source: DiscoverySource::Manual,
             });
         } else {
-            let mut identity = wire.udp_identify(target)?;
+            let observation = wire.directed_identity(target)?;
+            let mut identity = observation.target;
             if identity.ip.is_empty() {
                 identity.ip = target.to_string();
             }
@@ -114,7 +116,14 @@ pub fn discover_targets<W: AdsOnboardingWire>(
             }
             results.push(DiscoveryResult {
                 target: identity,
-                source: DiscoverySource::DirectedIdentify,
+                source: match observation.transport {
+                    super::wire::DirectedIdentityTransport::Udp => {
+                        DiscoverySource::DirectedIdentify
+                    }
+                    super::wire::DirectedIdentityTransport::LocalRouter => {
+                        DiscoverySource::LocalRouter
+                    }
+                },
             });
         }
     }
@@ -203,3 +212,6 @@ fn push_unique(results: &mut Vec<DiscoveryResult>, result: DiscoveryResult) {
         results.push(result);
     }
 }
+
+#[cfg(test)]
+mod local_router_tests;

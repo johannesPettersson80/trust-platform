@@ -26,29 +26,57 @@ Choose the direction first:
 This is the ADS client path. truST imports TwinCAT symbols and turns them into
 reviewed ST globals.
 
-1. Select the online runtime in the VS Code Runtime pane.
-2. Open **Structured Text: Add Beckhoff ADS Device** or open the runtime-host
-   setup page at `/setup/ads`.
-3. Discover the TwinCAT target. Broadcast discovery is easiest when UDP 48899 is
-   allowed; otherwise enter the TwinCAT IP and AMS Net ID manually.
-4. In **Devices & Connections**, choose the logical **ADS port** before browsing
-   symbols. Port `851` is the default PLC runtime; other examples include `301`
-   for an I/O server, `501` for NC/Motion, and `852` or later for additional PLC
-   runtimes. Each port is a separate ADS server with its own symbol namespace;
-   this setting does not search all ports.
-5. Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host.
-   The wizard can generate the exact PowerShell, XML, or manual route values.
-6. Run the ADS Doctor from the runtime host.
-7. Import TwinCAT symbols into `ads.toml`, a cached symbol snapshot, and the
+1. Open **Devices & Connections**, choose **Discover**, and select the single
+   **TwinCAT** flow. You do not need to start the truST simulator merely to
+   discover from the engineering computer.
+2. Under **Discovery runs from**, keep **This computer** when the engineering
+   computer can reach TwinCAT. Choose an online runtime only when that deployed
+   runtime must perform discovery from a different network.
+3. Under **Where is TwinCAT?**, choose **On the discovery computer**, **On the
+   discovery computer's network**, or **At known address**. Both network choices
+   are relative to the discovery origin selected above. The known-address form
+   accepts a bare Host or IP, not `host:port`.
+4. Find the TwinCAT computer. Network identity uses UDP; same-computer identity
+   uses a short local AMS-router handshake on TCP `48898`. Neither path opens or
+   browses a logical PLC service. Before checking services, stop any truST
+   runtime or other software on the named discovery computer that is currently
+   reading TwinCAT; leave TwinCAT and the PLC running. Confirm this in the found
+   computer card, then choose **Check 6 ADS services**. The confirmation is
+   required again for every retry or changed port list because a second direct
+   ADS connection between the same hosts can interrupt live I/O.
+5. truST checks PLC runtimes `851`–`854`, Additional task 1 at `301`, and the NC
+   SAF service at `501`, reporting each logical service separately. If exactly
+   one service exposes variables it is selected automatically; otherwise choose
+   one and select **Browse variables**. truST refuses to probe when the selected
+   discovery runtime—or a reachable selected runtime on this computer—has
+   active, recovering, or unverifiable ADS I/O.
+6. If the project uses another logical ADS service, open **Advanced** and add
+   its port. Checks are limited to the common preset plus explicitly entered
+   ports. The six preset services plus at most four explicit services are a
+   bounded check; truST does not sweep all `1..65535` services.
+   Editing this list immediately disables selection and **Browse variables**
+   for earlier results—even when the new text is invalid—until a fresh
+   confirmed check completes. Use **Check services again** to repeat an
+   unchanged check; retries require the same fresh confirmation.
+7. If broadcast or directed identity is blocked, enter Host/IP plus **AMS Net
+   ID** in Advanced. This declares the TwinCAT computer without pretending it
+   was observed on the wire.
+8. Add the route on the TwinCAT side so TwinCAT trusts the computer or runtime
+   that performs the ADS connection. The wizard can generate the exact
+   PowerShell, XML, or manual route values. A found computer remains visible as
+   **Route setup required** when this route is missing.
+9. Open **Structured Text: Add Beckhoff ADS Device** or the runtime-host setup
+   page at `/setup/ads` to complete production commissioning.
+10. Run the ADS Doctor from the runtime host.
+11. Import TwinCAT symbols into `ads.toml`, a cached symbol snapshot, and the
    single generated ST file `src/generated/ads_generated.st`.
-8. Deploy or reload the project bundle, then verify `ads.status` and generated
+12. Deploy or reload the project bundle, then verify `ads.status` and generated
    value/`_quality` globals from the runtime.
 
-The selected server must expose Beckhoff Online Symbolism/Symbol Upload. An I/O
-or Motion port can be reachable without exposing a browseable symbol table; for
-NC/Motion, TwinCAT symbol generation may need to be enabled for the relevant
-axes. Ports `301` and `501` are examples, not hardware-validation claims for a
-particular TwinCAT project.
+The selected service must expose Beckhoff Online Symbolism/Symbol Upload.
+Additional task `301` or NC SAF `501` can be reachable without exposing a
+browseable variable table; TwinCAT symbol generation must be enabled for the
+relevant task or axes.
 
 ### TwinCAT Connects To truST
 
@@ -147,17 +175,35 @@ Do not confuse ADS target discovery with truST runtime discovery:
 
 - truST runtime discovery uses the runtime-to-runtime mDNS/pairing surfaces.
 - ADS target discovery uses Beckhoff ADS UDP discovery and directed identify
-  from the runtime host toward TwinCAT.
+  from the runtime host toward TwinCAT. For **On the discovery computer**, truST
+  first asks the local AMS router for its identity over TCP `48898`; loopback
+  UDP does not have to answer.
 
 If broadcast discovery is blocked by the network, enter the TwinCAT host/IP and
 AMS Net ID manually. The Doctor still proves whether the runtime host can reach
 the PLC and whether the route back to the runtime host exists.
+
+Identity discovery and PLC runtime checks are separate operations:
+
+- The local AMS router handshake identifies same-computer TwinCAT; UDP `48899`
+  identifies LAN or known-address TwinCAT computers.
+- TCP `48898` carries AMS router traffic.
+- ADS `851`, `852`, and later numbers select logical PLC services inside that
+  router; they are not TCP or UDP socket ports.
+
+Devices & Connections keeps an identified TwinCAT computer visible even when a
+logical service is stopped, Symbol Upload is unavailable, or route setup is
+still required. Execution errors are shown as errors and are never converted to
+a successful `0 found` result.
 
 ## Simulator Smoke
 
 The pyads testserver is useful for a basic no-TwinCAT wire smoke. It can prove
 that truST opens a real ADS TCP connection to `127.0.0.1:48898`, derives the
 loopback AMS identity, verifies the route path, and reads the ADS runtime state.
+truST first performs a bounded check for a local AMS router. If no router
+handshake answers, it reconnects as a direct AMS/TCP client so the simulator
+does not need to emulate TwinCAT's local router registration protocol.
 It is not a substitute for the TwinCAT lab gate: the stock pyads advanced
 handler does not expose a real TwinCAT symbol upload table, so truST cannot use
 it to prove symbol upload, handle caching, notifications, online-change symbol

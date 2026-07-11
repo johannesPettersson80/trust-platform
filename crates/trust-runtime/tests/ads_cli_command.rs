@@ -14,6 +14,82 @@ use trust_ads_core::{
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[test]
+fn comm_ads_manual_discovery_cli_bypasses_udp_and_preserves_logical_port() {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "comm",
+            "discover",
+            "--protocol",
+            "ads",
+            "--host",
+            "192.0.2.5",
+            "--target-net-id",
+            "5.23.91.12.1.1",
+            "--ams-port",
+            "852",
+            "--json",
+        ])
+        .output()
+        .expect("run manual comm ADS discovery");
+
+    assert_success(&output);
+    let payload: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("parse comm discovery JSON");
+    assert_eq!(
+        payload
+            .pointer("/candidates/0/source")
+            .and_then(serde_json::Value::as_str),
+        Some("manual")
+    );
+    assert_eq!(
+        payload
+            .pointer("/candidates/0/confidence")
+            .and_then(serde_json::Value::as_str),
+        Some("declared")
+    );
+    assert_eq!(
+        payload
+            .pointer("/candidates/0/params/host")
+            .and_then(serde_json::Value::as_str),
+        Some("192.0.2.5")
+    );
+    assert_eq!(
+        payload
+            .pointer("/candidates/0/params/ams_net_id")
+            .and_then(serde_json::Value::as_str),
+        Some("5.23.91.12.1.1")
+    );
+    assert_eq!(
+        payload
+            .pointer("/candidates/0/params/ams_port")
+            .and_then(serde_json::Value::as_u64),
+        Some(852)
+    );
+}
+
+#[test]
+fn comm_ads_manual_discovery_cli_rejects_malformed_ams_net_id() {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "comm",
+            "discover",
+            "--protocol",
+            "ads",
+            "--host",
+            "192.0.2.5",
+            "--target-net-id",
+            "1.2.3.256.5.6",
+            "--ams-port",
+            "852",
+            "--json",
+        ])
+        .output()
+        .expect("run invalid manual comm ADS discovery");
+
+    assert_failure_contains(&output, "AMS Net ID must contain six numbers 0-255");
+}
+
+#[test]
 fn ads_validate_cli_returns_nonzero_for_missing_snapshot_symbol() {
     let root = unique_temp_dir("ads-cli-missing-symbol");
     let config = write_ads_config(&root);

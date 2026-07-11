@@ -21,6 +21,14 @@ Click **Create project** and choose an empty folder (for example `my-first-plc`)
 complete, runnable project and opens it. You never edit a config file to get started — the generated
 `runtime.toml` and `io.toml` are valid out of the box with simulated I/O.
 
+On Windows, truST generates an authenticated loopback control endpoint and a
+fresh project token automatically, so the file is also valid for standalone
+runtime tools. When you press **Start**, the debug adapter uses a separate
+per-workspace authenticated endpoint; that random workspace token stays only in
+memory and is never logged. Older local Windows projects that lack the required
+file token are upgraded once before launch, so there is no manual
+`runtime.toml` repair step.
+
 What gets created:
 
 ```text

@@ -19,6 +19,19 @@ export interface AdsStatusSummary {
   degradedCount: number;
 }
 
+/** A fresh authoring ADS connection could displace these runtime-owned connections. */
+export function hasActiveOrRecoveringAdsConnection(
+  status: AdsStatusReport | undefined
+): boolean {
+  return Boolean(
+    status?.connections?.some(
+      (connection) =>
+        typeof connection?.state !== "string" ||
+        connection.state.toLowerCase() !== "disabled"
+    )
+  );
+}
+
 export function summarizeAdsStatus(
   status: AdsStatusReport | undefined
 ): AdsStatusSummary {

@@ -53,6 +53,11 @@ async function main(): Promise<void> {
   const runtimePath = cargoDebugBinary(repoRoot, runtimeName);
   const devName = process.platform === "win32" ? "trust-dev.exe" : "trust-dev";
   const devPath = cargoDebugBinary(repoRoot, devName);
+  const debugName = process.platform === "win32" ? "trust-debug.exe" : "trust-debug";
+  const configuredDebug = process.env.ST_DEBUG_TEST_BIN?.trim();
+  const debugPath = configuredDebug
+    ? path.resolve(repoRoot, configuredDebug)
+    : cargoDebugBinary(repoRoot, debugName);
 
   if (!configured) {
     buildRustPackage(repoRoot, "trust-lsp");
@@ -62,7 +67,13 @@ async function main(): Promise<void> {
 
   buildRustPackage(repoRoot, "trust-runtime");
   buildRustPackage(repoRoot, "trust-dev");
-  buildRustPackage(repoRoot, "trust-debug");
+  if (configuredDebug) {
+    if (!fs.existsSync(debugPath)) {
+      throw new Error(`ST_DEBUG_TEST_BIN not found at ${debugPath}`);
+    }
+  } else {
+    buildRustPackage(repoRoot, "trust-debug");
+  }
 
   await runTests({
     extensionDevelopmentPath,
@@ -78,6 +89,7 @@ async function main(): Promise<void> {
       ST_LSP_TEST_SERVER: serverPath,
       ST_RUNTIME_TEST_BIN: runtimePath,
       ST_DEV_TEST_BIN: devPath,
+      ST_DEBUG_TEST_BIN: debugPath,
     },
   });
 }

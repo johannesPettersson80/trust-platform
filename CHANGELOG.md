@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.31`
+Target release: `v0.24.32`
 
 ### Added
 
@@ -236,6 +236,17 @@ Target release: `v0.24.31`
 
 ### Changed
 
+- vscode/trust-runtime: replaced the two ambiguous TwinCAT discovery choices
+  with one **Find TwinCAT** journey that separates the discovery computer from
+  the target location, supports same-computer, local-network, and known-address
+  paths, then checks PLC runtimes `851`-`854` plus TwinCAT services `301`
+  (Additional task 1) and `501` (NC SAF) after explicit connection-safety
+  confirmation, supports four bounded explicit services, reports each logical
+  service separately, and opens **Browse variables** on an unambiguous working
+  runtime. A selected runtime with active or unverifiable ADS I/O fails closed
+  before a competing service-check connection can be opened. Edited or invalid
+  service plans immediately invalidate prior results, and completed checks can
+  be repeated in place only after a fresh safety confirmation.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
@@ -320,6 +331,26 @@ Target release: `v0.24.31`
 
 ### Fixed
 
+- vscode/trust-debug: Windows simulator projects now include authenticated TCP
+  control configuration, existing tokenless local projects are repaired before
+  launch, known placeholder tokens such as `some-secret-value` are rotated to a
+  random value, and per-workspace simulator control uses an authenticated
+  loopback endpoint so users no longer need to hand-edit `runtime.toml`.
+- trust-runtime/vscode: ADS discovery now rejects inline `host:port` and invalid
+  AMS Net IDs before wire I/O, preserves actionable command failures instead of
+  reporting a successful `0 found`, keeps a found TwinCAT computer visible when
+  route or logical-service checks fail, and negotiates router-assigned ADS
+  source registration for same-computer TwinCAT. Same-computer identity now
+  comes from the local AMS router open-port handshake before UDP fallback, so
+  loopback UDP silence does not force manual identity entry; local pyads
+  simulators retain a bounded direct-server fallback. Service checks now require
+  fresh confirmation that other software on the discovery computer is not
+  reading TwinCAT, cancel their local child process promptly, and refuse to
+  compete with active or unverifiable ADS I/O on a selected runtime.
+- ci: Windows release gating now packages the real `win32-x64` VSIX and proves
+  its exact embedded runtime against manual ADS port selection, UDP Identify,
+  host validation, local AMS-router registration, and bounded direct-loopback
+  fallback to a normal ADS `852` AMS/TCP request before publish.
 - ci: the main-branch version release guard now allows 90 minutes for a matching
   Release workflow to finish, with a larger job budget and a focused regression
   test, so healthy cold Windows artifact builds do not fail release evidence at
