@@ -46,6 +46,11 @@ from ..gate_inventory import (
     load_gate_inventory,
     validate_gate_inventory,
 )
+from ..fuzz_program_contract import (
+    FUZZ_PROGRAM_PATH,
+    load_fuzz_program,
+    validate_fuzz_program_contract,
+)
 from .case_files import validate_case_file
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
 from ..runtime_anomaly_contract import (
@@ -94,6 +99,7 @@ class Validator:
         self.matrix: dict[str, Any] = {}
         self.seed_manifest: dict[str, Any] = {}
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
+        self.fuzz_program: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -230,6 +236,10 @@ class Validator:
             self.runtime_anomaly_taxonomy = load_runtime_anomaly_taxonomy(ROOT)
         except Exception as exc:
             self.fail(VERIFICATION / "runtime-anomaly-taxonomy.toml", f"load failed: {exc}")
+        try:
+            self.fuzz_program = load_fuzz_program(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / FUZZ_PROGRAM_PATH, f"load failed: {exc}")
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -313,6 +323,8 @@ class Validator:
             spec_gaps=self.spec_gaps,
         ):
             self.fail(ROOT / RUNTIME_ANOMALY_TAXONOMY_PATH, failure)
+        for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
+            self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -929,6 +941,7 @@ class Validator:
             + len(self.required_specs)
             + (1 if self.matrix else 0)
             + (1 if self.runtime_anomaly_taxonomy else 0)
+            + (1 if self.fuzz_program else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")

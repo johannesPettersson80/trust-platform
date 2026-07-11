@@ -61,6 +61,14 @@ class ReportInputContractTests(unittest.TestCase):
         paths = validator_code_input_paths(ROOT)
 
         for expected in (
+            ".github/workflows/ci.yml",
+            ".github/workflows/salsa-hardening.yml",
+            "Cargo.toml",
+            "crates/trust-ads-server/fuzz/.gitignore",
+            "fuzz/.gitignore",
+            "scripts/runtime_comms_fuzz_gate.sh",
+            "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
+            "scripts/salsa_fuzz_gate.sh",
             "scripts/validate_verification_metadata.py",
             "scripts/gen_cases.py",
             "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md",
@@ -71,6 +79,9 @@ class ReportInputContractTests(unittest.TestCase):
             "verification/schemas/malformed-input-taxonomy.schema.json",
             "verification/runtime-anomaly-taxonomy.toml",
             "verification/schemas/runtime-anomaly-taxonomy.schema.json",
+            "verification/fuzz-program.toml",
+            "verification/schemas/fuzz-program.schema.json",
+            "verification/gate-inventory.toml",
         ):
             self.assertIn(expected, paths)
         self.assertNotIn("verification/evidence-index.toml", paths)

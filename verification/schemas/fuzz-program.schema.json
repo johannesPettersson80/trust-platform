@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/fuzz-program.schema.json",
+  "title": "PLC fuzz program inventory",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "owner",
+    "proof_posture",
+    "execution_posture",
+    "mapping_basis",
+    "last_reviewed",
+    "corpus_policy",
+    "crash_regression_handoff",
+    "surfaces",
+    "targets"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "const": "FUZZ_PROGRAM_V1" },
+    "title": { "type": "string", "minLength": 1 },
+    "status": { "const": "mapped" },
+    "owner": { "const": "verification" },
+    "proof_posture": { "const": "association_only" },
+    "execution_posture": { "const": "inventory_only" },
+    "mapping_basis": {
+      "const": "explicit_live_identity_and_reviewed_surface_association_only"
+    },
+    "last_reviewed": { "const": "2026-07-11" },
+    "corpus_policy": { "$ref": "#/$defs/corpus_policy" },
+    "crash_regression_handoff": { "$ref": "#/$defs/crash_regression_handoff" },
+    "surfaces": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/surface" },
+      "minItems": 8,
+      "maxItems": 8
+    },
+    "targets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/target" },
+      "minItems": 11,
+      "maxItems": 11
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "surface_id": {
+      "enum": [
+        "st_lexer_parser",
+        "hir_lowering_input",
+        "plcopen_xml",
+        "bytecode_container_instructions",
+        "protocol_payloads",
+        "config_files",
+        "lsp_incremental_edits",
+        "hmi_schema_payloads"
+      ]
+    },
+    "area": {
+      "enum": [
+        "compiler_iec",
+        "plcopen_devtools",
+        "bytecode_vm",
+        "protocols",
+        "runtime_safety",
+        "editor_safety",
+        "hmi_ui"
+      ]
+    },
+    "tier": {
+      "enum": ["pr_smoke", "nightly", "manual_extended"]
+    },
+    "corpus_policy": {
+      "type": "object",
+      "required": [
+        "working_corpus_storage",
+        "raw_crash_storage",
+        "durable_evidence_status",
+        "contents_assessed",
+        "tracked_generated_corpus_allowed",
+        "rationale"
+      ],
+      "properties": {
+        "working_corpus_storage": { "const": "machine_local_ignored" },
+        "raw_crash_storage": { "const": "machine_local_ignored" },
+        "durable_evidence_status": { "const": "not_durable" },
+        "contents_assessed": { "const": false },
+        "tracked_generated_corpus_allowed": { "const": false },
+        "rationale": {
+          "const": "Generated working corpora and raw crash artifacts are local discovery inputs, not durable verification evidence. Their contents and counts are intentionally excluded from this reproducible inventory."
+        }
+      },
+      "additionalProperties": false
+    },
+    "crash_regression_handoff": {
+      "type": "object",
+      "required": [
+        "enforcement_status",
+        "required_disposition",
+        "p9_005_row_remains_open",
+        "rationale"
+      ],
+      "properties": {
+        "enforcement_status": { "const": "not_enforced" },
+        "required_disposition": { "const": "deterministic_regression" },
+        "p9_005_row_remains_open": { "const": true },
+        "rationale": {
+          "const": "The written program requires a minimized crash to become a deterministic regression, but no machine registry or exhaustive crash-to-regression join enforces that handoff yet."
+        }
+      },
+      "additionalProperties": false
+    },
+    "surface": {
+      "type": "object",
+      "required": ["id", "title", "area", "rationale"],
+      "properties": {
+        "id": { "$ref": "#/$defs/surface_id" },
+        "title": { "type": "string", "minLength": 1 },
+        "area": { "$ref": "#/$defs/area" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "surface_association": {
+      "type": "object",
+      "required": ["surface_id", "strength", "rationale"],
+      "properties": {
+        "surface_id": { "$ref": "#/$defs/surface_id" },
+        "strength": { "enum": ["direct", "partial"] },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "id",
+        "target_kind",
+        "name",
+        "path",
+        "command",
+        "owner",
+        "primary_tier",
+        "additional_tiers",
+        "enforcement_status",
+        "execution_basis_ids",
+        "last_reviewed",
+        "surface_associations"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^FUZZ_(?:TARGET|SMOKE)_[A-Z0-9_]+$" },
+        "target_kind": { "enum": ["cargo_fuzz", "bounded_rust_smoke"] },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "pattern": "^[A-Za-z0-9_./-]+$" },
+        "manifest_path": { "type": "string", "pattern": "^(?:fuzz|crates/[A-Za-z0-9_-]+/fuzz)/Cargo\\.toml$" },
+        "discovery_id": { "type": "string", "pattern": "^DISC_[0-9A-F]{20}$" },
+        "discovery_source_kind": {
+          "enum": ["rust_unit_test", "rust_integration_test"]
+        },
+        "command": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "primary_tier": { "$ref": "#/$defs/tier" },
+        "additional_tiers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tier" },
+          "maxItems": 1,
+          "uniqueItems": true
+        },
+        "enforcement_status": { "enum": ["wired", "planned", "manual_only"] },
+        "execution_basis_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^GATE_[A-Z0-9_]+$" },
+          "uniqueItems": true
+        },
+        "corpus_path": { "type": "string", "pattern": "^(?:fuzz|crates/[A-Za-z0-9_-]+/fuzz)/corpus/[A-Za-z0-9_-]+$" },
+        "artifact_path": { "type": "string", "pattern": "^(?:fuzz|crates/[A-Za-z0-9_-]+/fuzz)/artifacts/[A-Za-z0-9_-]+$" },
+        "corpus_storage": { "const": "machine_local_ignored" },
+        "artifact_storage": { "const": "machine_local_ignored" },
+        "last_reviewed": { "const": "2026-07-11" },
+        "surface_associations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/surface_association" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

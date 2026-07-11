@@ -246,6 +246,50 @@ TOML shape convention:
   are planned routes only. The audit executes no fault, creates no proof or
   invariant coverage, and leaves `VERIF-P8-002`, `VERIF-P8-005`, and
   `VERIF-P8-006` open.
+- `verification/fuzz-program.toml` owns the Phase 9 hand-reviewed fuzz
+  association plane. It binds five parsed cargo-fuzz targets and six exact Rust
+  fuzz/property smokes to the ordered required surfaces
+  `st_lexer_parser`, `hir_lowering_input`, `plcopen_xml`,
+  `bytecode_container_instructions`, `protocol_payloads`, `config_files`,
+  `lsp_incremental_edits`, and `hmi_schema_payloads`. The five cargo targets
+  include the three crate-local ADS targets deliberately excluded from the
+  Phase 2 scanner; that historical scanner denominator is not broadened.
+- Run the Phase 9 report-only audit with:
+
+  ```text
+  python3 scripts/report_fuzz_program_audit.py \
+    --json-out target/gate-artifacts/verification/fuzz-program-audit.json \
+    --markdown-out target/gate-artifacts/verification/fuzz-program-audit.md \
+    --timestamp <fixed-iso-8601-time>
+  python3 scripts/validate_fuzz_program_audit_report.py \
+    --json target/gate-artifacts/verification/fuzz-program-audit.json \
+    --markdown target/gate-artifacts/verification/fuzz-program-audit.md
+  ```
+
+  Every target has one primary tier from `pr_smoke`, `nightly`, or
+  `manual_extended`; `additional_tiers` records only another real execution
+  profile and does not imply suite inheritance or enforcement. Surface states
+  distinguish direct cargo-fuzz targets, bounded-smoke-only associations,
+  partial associations, and unmapped surfaces. They are target-presence debt,
+  not an oracle, invariant coverage, a passing campaign, or proof.
+  Execution claims are bound to the raw reviewed gate-script and workflow
+  bytes, script executable modes, exact unique workflow trigger/job blocks, and
+  effective Cargo default workspace membership. Matching command text in
+  comments, normalized line endings, dead shell control flow, or another
+  workflow block cannot satisfy those bindings.
+  Each bounded Rust smoke must also resolve to a live `not_ignored` scanner
+  fact; `ignored` or `conditional` facts cannot retain a wired or planned
+  runnable tier.
+  The Rust census remains lexical: ordinary `cfg` evaluation and parent-module
+  reachability are not compiler-proven by this audit. `wired` therefore means a
+  reviewed required command path, not observed execution or passing evidence.
+- Fuzz working corpora, generated seed inputs, coverage output, and raw crash
+  artifacts remain under ignored workspace-local paths. Named CI uploads are
+  still run artifacts unless separately bound as durable evidence. The audit
+  checks storage and ignore posture but does not inspect or claim completeness
+  for corpus contents. No enforced crash ledger currently joins every minimized
+  artifact to a tracked deterministic regression, so `VERIF-P9-005` remains
+  open; an empty artifact directory or policy sentence cannot close it.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and

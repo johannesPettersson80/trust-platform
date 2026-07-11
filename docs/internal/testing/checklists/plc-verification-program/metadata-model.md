@@ -926,6 +926,96 @@ or `not_applicable` disposition is never promoted by test presence.
 `target/gate-artifacts/verification/malformed-input-coverage.json`; its schema
 is `verification/schemas/malformed-input-coverage-report.schema.json`.
 
+### Fuzz Program Inventory And Surface-Gap Report
+
+`verification/fuzz-program.toml` is the Phase 9 hand-reviewed association
+plane. Its closed schema is `verification/schemas/fuzz-program.schema.json`.
+It inventories the live fuzz and fuzz-like executable population without
+turning source names, paths, commands, or successful execution into invariant
+coverage or proof.
+
+The required surface IDs are ordered and exhaustive for this first report:
+
+- `st_lexer_parser`
+- `hir_lowering_input`
+- `plcopen_xml`
+- `bytecode_container_instructions`
+- `protocol_payloads`
+- `config_files`
+- `lsp_incremental_edits`
+- `hmi_schema_payloads`
+
+The initial live inventory has eleven executable facts: five parsed cargo-fuzz
+targets and six bounded Rust fuzz/property smokes. The cargo-fuzz targets are
+`syntax_parse`, `hir_semantic`, `ams_frame`, `boundary_noop`, and
+`command_dispatch`. The Rust population is
+`vm_malformed_bytecode_fuzz_smoke_budget`,
+`mesh_payload_encode_decode_fuzz_smoke_budget`,
+`t0_shm_header_fuzz_rejects_corruption_budget`,
+`runtime_cloud_api_payload_fuzz_smoke_budget`,
+`wan_allowlist_parser_fuzz_smoke_budget`, and
+`test_initializer_recovery_property_smoke_for_generated_positional_shapes`.
+Cargo targets bind to their parsed manifest identity. Rust smokes bind to their
+exact live scanner discovery identity. A name or lexical candidate alone cannot
+create a target record or surface association.
+
+Every target has exactly one `primary_tier` from `pr_smoke`, `nightly`, or
+`manual_extended`. `additional_tiers` is sorted, duplicate-free, uses the same
+vocabulary, and cannot repeat the primary tier. It records another real
+execution profile, such as the root parser/HIR targets' extended nightly mode;
+it does not imply suite inheritance. Tier records preserve their reviewed
+enforcement posture, so a planned nightly route and a live required job do not
+become equivalent.
+
+For a live execution basis, command text is not sufficient. The validator binds
+the raw reviewed shell-script and workflow bytes by content digest, retains the
+scripts' tracked executable modes, requires unique reviewed workflow trigger
+and job blocks, and checks effective Cargo default-workspace membership for the
+parser property smoke. Comments, echoes, line-ending normalization, dead
+control flow, uncalled functions, or another workflow block cannot preserve an
+execution claim after its reviewed source changes.
+Every bounded Rust smoke must resolve with `ignore_state = "not_ignored"` in the
+fresh scanner join. Ignored or conditional facts are rejected rather than
+remaining wired or planned through a filtered command that can exit without
+executing the test.
+The Rust scanner remains a lexical census and does not evaluate arbitrary
+`cfg` expressions or prove parent-module reachability. Consequently `wired`
+means the reviewed command path is required and source-bound; it does not mean
+this report observed the test execute or pass.
+
+The generated surface state is one of:
+
+- `cargo_fuzz_target`: at least one reviewed direct cargo-fuzz association;
+- `smoke_only`: direct bounded smoke exists, but no direct cargo-fuzz target;
+- `partial_only`: every reviewed association exercises only part of the named
+  surface or stops below its required boundary;
+- `unmapped`: no reviewed target association exists.
+
+Only the exact association records derive these states. They do not derive an
+oracle, expected result, catalog mapping, invariant coverage state such as
+`covered_by_fuzz`, passing campaign, or product claim. `smoke_only`,
+`partial_only`, and `unmapped` remain surface-gap rows in the first report.
+
+Corpus and artifact storage is deliberately separate from deterministic
+regression storage. Generated seed corpora, developer corpora, coverage output,
+and crash artifacts stay under the owning fuzz workspace's ignored
+`corpus/`, `coverage/`, `artifacts/`, or `target/` paths. Named CI uploads remain
+run artifacts rather than committed regression proof unless an evidence record
+binds the run and retention. The Phase 9 audit validates path and ignore
+posture, but does not enumerate, hash, assess, or claim completeness for corpus
+contents. A minimized crash must ultimately be promoted to a tracked native
+test or fixture with a deterministic command and reviewed identity; the ignored
+crash artifact is not that regression.
+
+`VERIF-P9-006` writes
+`target/gate-artifacts/verification/fuzz-program-audit.json` plus the generated
+`target/gate-artifacts/verification/fuzz-program-audit.md`; its closed schema is
+`verification/schemas/fuzz-program-audit-report.schema.json`. The report is
+report-only and records that no fuzz campaign ran. `VERIF-P9-005` remains open
+because no enforced crash ledger currently joins every minimized artifact to a
+tracked deterministic regression. A policy statement or an empty artifact
+directory cannot close that universal handoff rule.
+
 ### Unmapped-Test Debt Report
 
 `VERIF-P2-010` writes

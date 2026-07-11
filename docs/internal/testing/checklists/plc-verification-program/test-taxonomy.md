@@ -445,3 +445,86 @@ Minimum assertions:
 - platform-specific claims have platform proof,
 - path assumptions are explicit,
 - unsupported platforms fail with clear diagnostics rather than false success.
+
+## Phase 9 Fuzz Surface Program
+
+The Phase 9 inventory is a separate association audit over existing executable
+fuzz mechanisms. It does not broaden the Phase 2 scanner denominator, infer
+semantic coverage from names, or promote any coverage cell to
+`covered_by_fuzz`.
+
+The first report requires these eight ordered surfaces:
+
+| Surface ID | Reviewed boundary |
+| --- | --- |
+| `st_lexer_parser` | Structured Text tokenization, parsing, and recovery input |
+| `hir_lowering_input` | HIR analysis plus the lowering boundary; HIR-only exercise is partial |
+| `plcopen_xml` | PLCopen XML decode/import input |
+| `bytecode_container_instructions` | Bytecode container and instruction-stream validation input |
+| `protocol_payloads` | Protocol, transport, and runtime communication payload input |
+| `config_files` | Runtime, project, protocol, and HMI configuration files |
+| `lsp_incremental_edits` | LSP document synchronization and incremental-edit input |
+| `hmi_schema_payloads` | HMI schema/API payload input |
+
+The live inventory denominator is eleven executable facts, not every test whose
+name contains `malformed` or `random`:
+
+- five parsed cargo-fuzz targets: `syntax_parse`, `hir_semantic`, `ams_frame`,
+  `boundary_noop`, and `command_dispatch`;
+- five bounded Rust fuzz smokes: malformed bytecode, mesh payload, shared-memory
+  header, runtime-cloud API payload, and WAN allowlist parser;
+- one bounded Rust property smoke for generated parser initializer recovery.
+
+The five cargo-fuzz records are discovered from every tracked cargo-fuzz
+manifest, including the crate-local ADS workspace that Phase 2 intentionally
+excluded. The six Rust records resolve by exact live scanner discovery ID. The
+reviewed target IDs are stable hand-owned identities; target kind is closed to
+`cargo_fuzz` or `bounded_rust_smoke`, and association strength is closed to
+`direct` or `partial`.
+
+The initial surface derivation is intentionally strict:
+
+- `st_lexer_parser` and `protocol_payloads` are `cargo_fuzz_target`;
+- `bytecode_container_instructions` is `smoke_only`;
+- `hir_lowering_input` and `lsp_incremental_edits` are `partial_only`;
+- `plcopen_xml`, `config_files`, and `hmi_schema_payloads` are `unmapped`.
+
+Thus six of eight surfaces remain report gaps. A direct bounded smoke is not a
+substitute for a sustained cargo-fuzz target, and a lower-layer HIR edit cycle
+does not prove the LSP incremental-edit boundary. The WAN allowlist parser is a
+partial protocol-payload association; it is not a config-file parser and cannot
+fill that surface.
+
+Each target has one `primary_tier`: `pr_smoke`, `nightly`, or
+`manual_extended`. `additional_tiers` may name another real mode from the same
+vocabulary, but is sorted, duplicate-free, and disjoint from the primary tier.
+Only `syntax_parse` and `hir_semantic` initially add `nightly` to their
+`pr_smoke` primary tier. Tier assignment states where a target is intended or
+observed to run; a separate enforcement field preserves whether that path is
+required, planned, or manual. It is not passing evidence.
+
+Required/wired tier claims are source-bound: reviewed gate scripts and workflows
+retain exact raw-byte digests, scripts retain executable mode, relevant trigger
+and job blocks remain unique and digest-bound, and workspace-wide test claims
+retain the target crate in the effective default Cargo workspace. Lexical
+command matches alone are not an execution authority.
+Bounded Rust smokes also require a fresh `not_ignored` scanner fact; an ignored
+or conditional test cannot keep a runnable tier merely because its filter
+command still exits successfully.
+This audit does not evaluate arbitrary Rust `cfg` expressions or prove
+parent-module reachability. Its `wired` state is command-path metadata, never an
+observed execution result.
+
+Generated seed corpora and raw crash artifacts stay machine-local and ignored
+under the owning fuzz workspace. CI uploads remain run artifacts unless a
+durable evidence row binds the run, artifact, and retention. Phase 9 checks
+storage geometry and ignore posture only; corpus bytes, counts, quality,
+coverage, and completeness are not assessed. A minimized crash becomes useful
+regression input only after it is promoted to a tracked deterministic native
+test or fixture with a reviewed identity and runnable command.
+
+That final crash handoff is not enforced today. There is no exhaustive crash
+ledger joining every raw or minimized artifact to its deterministic regression,
+so `VERIF-P9-005` remains open. The generated audit reports target/surface gaps
+and the open handoff boundary without running a fuzz campaign, closing a spec
+gap, or creating proof.

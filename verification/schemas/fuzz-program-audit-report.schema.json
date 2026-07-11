@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/fuzz-program-audit-report.schema.json",
+  "title": "Phase 9 fuzz-program audit report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "boundaries",
+    "corpus_policy",
+    "crash_regression_handoff",
+    "targets",
+    "surfaces",
+    "gap_rows",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "fuzz-program-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "command": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "corpus_policy": { "$ref": "#/$defs/corpus_policy" },
+    "crash_regression_handoff": { "$ref": "#/$defs/crash_regression_handoff" },
+    "targets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/target" },
+      "minItems": 11,
+      "maxItems": 11
+    },
+    "surfaces": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/surface" },
+      "minItems": 8,
+      "maxItems": 8
+    },
+    "gap_rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gap" },
+      "minItems": 6,
+      "maxItems": 6
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "inventory_basis",
+        "surface_basis",
+        "mapping_basis",
+        "gap_basis",
+        "tier_basis",
+        "corpus_contents_assessed",
+        "debt_is_report_failure"
+      ],
+      "properties": {
+        "inventory_basis": {
+          "const": "tracked_cargo_fuzz_manifests_and_reviewed_rust_candidate_census"
+        },
+        "surface_basis": { "const": "exact_phase9_eight_surface_order" },
+        "mapping_basis": {
+          "const": "explicit_live_identity_and_reviewed_surface_association_only"
+        },
+        "gap_basis": { "const": "surface_without_direct_cargo_fuzz_target" },
+        "tier_basis": { "const": "explicit_primary_and_additional_execution_profiles" },
+        "corpus_contents_assessed": { "const": false },
+        "debt_is_report_failure": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "boundaries": {
+      "type": "object",
+      "required": [
+        "report_creates_proof",
+        "report_creates_invariant_coverage",
+        "report_closes_spec_gaps",
+        "semantic_oracles_assessed",
+        "fuzz_campaign_executed",
+        "corpus_contents_assessed",
+        "crash_freedom_claimed",
+        "p9_005_crash_regression_row_remains_open",
+        "phase2_scanner_scope_changed",
+        "runtime_or_product_behavior_changed",
+        "ci_enforcement_changed"
+      ],
+      "properties": {
+        "report_creates_proof": { "const": false },
+        "report_creates_invariant_coverage": { "const": false },
+        "report_closes_spec_gaps": { "const": false },
+        "semantic_oracles_assessed": { "const": false },
+        "fuzz_campaign_executed": { "const": false },
+        "corpus_contents_assessed": { "const": false },
+        "crash_freedom_claimed": { "const": false },
+        "p9_005_crash_regression_row_remains_open": { "const": true },
+        "phase2_scanner_scope_changed": { "const": false },
+        "runtime_or_product_behavior_changed": { "const": false },
+        "ci_enforcement_changed": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "corpus_policy": {
+      "type": "object",
+      "required": [
+        "working_corpus_storage",
+        "raw_crash_storage",
+        "durable_evidence_status",
+        "contents_assessed",
+        "tracked_generated_corpus_allowed",
+        "rationale"
+      ],
+      "properties": {
+        "working_corpus_storage": { "const": "machine_local_ignored" },
+        "raw_crash_storage": { "const": "machine_local_ignored" },
+        "durable_evidence_status": { "const": "not_durable" },
+        "contents_assessed": { "const": false },
+        "tracked_generated_corpus_allowed": { "const": false },
+        "rationale": {
+          "const": "Generated working corpora and raw crash artifacts are local discovery inputs, not durable verification evidence. Their contents and counts are intentionally excluded from this reproducible inventory."
+        }
+      },
+      "additionalProperties": false
+    },
+    "crash_regression_handoff": {
+      "type": "object",
+      "required": [
+        "enforcement_status",
+        "required_disposition",
+        "p9_005_row_remains_open",
+        "rationale"
+      ],
+      "properties": {
+        "enforcement_status": { "const": "not_enforced" },
+        "required_disposition": { "const": "deterministic_regression" },
+        "p9_005_row_remains_open": { "const": true },
+        "rationale": {
+          "const": "The written program requires a minimized crash to become a deterministic regression, but no machine registry or exhaustive crash-to-regression join enforces that handoff yet."
+        }
+      },
+      "additionalProperties": false
+    },
+    "surface_id": {
+      "enum": [
+        "st_lexer_parser",
+        "hir_lowering_input",
+        "plcopen_xml",
+        "bytecode_container_instructions",
+        "protocol_payloads",
+        "config_files",
+        "lsp_incremental_edits",
+        "hmi_schema_payloads"
+      ]
+    },
+    "area": {
+      "enum": [
+        "compiler_iec",
+        "plcopen_devtools",
+        "bytecode_vm",
+        "protocols",
+        "runtime_safety",
+        "editor_safety",
+        "hmi_ui"
+      ]
+    },
+    "target_id": {
+      "enum": [
+        "FUZZ_TARGET_SYNTAX_PARSE",
+        "FUZZ_TARGET_HIR_SEMANTIC",
+        "FUZZ_TARGET_ADS_AMS_FRAME",
+        "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
+        "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
+        "FUZZ_SMOKE_VM_MALFORMED_BYTECODE",
+        "FUZZ_SMOKE_MESH_PAYLOAD",
+        "FUZZ_SMOKE_SHM_HEADER",
+        "FUZZ_SMOKE_RUNTIME_CLOUD_API",
+        "FUZZ_SMOKE_WAN_ALLOWLIST",
+        "FUZZ_SMOKE_PARSER_INITIALIZER_RECOVERY_PROPERTY"
+      ]
+    },
+    "target_kind": { "enum": ["cargo_fuzz", "bounded_rust_smoke"] },
+    "tier": { "enum": ["pr_smoke", "nightly", "manual_extended"] },
+    "enforcement_status": { "enum": ["wired", "planned", "manual_only"] },
+    "surface_state": {
+      "enum": ["cargo_fuzz_target", "smoke_only", "partial_only", "unmapped"]
+    },
+    "gap_state": { "enum": ["smoke_only", "partial_only", "unmapped"] },
+    "association_strength": { "enum": ["direct", "partial"] },
+    "gap_reason": {
+      "enum": [
+        "no_cargo_fuzz_target",
+        "no_direct_surface_target",
+        "no_associated_target"
+      ]
+    },
+    "target_id_array": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/target_id" },
+      "uniqueItems": true
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "tier_array": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tier" },
+      "uniqueItems": true
+    },
+    "surface_association": {
+      "type": "object",
+      "required": ["surface_id", "strength", "rationale"],
+      "properties": {
+        "surface_id": { "$ref": "#/$defs/surface_id" },
+        "strength": { "$ref": "#/$defs/association_strength" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "id",
+        "target_kind",
+        "name",
+        "path",
+        "command",
+        "owner",
+        "primary_tier",
+        "additional_tiers",
+        "enforcement_status",
+        "execution_basis_ids",
+        "surface_associations",
+        "last_reviewed",
+        "corpus_contents_assessed"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/target_id" },
+        "target_kind": { "$ref": "#/$defs/target_kind" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "primary_tier": { "$ref": "#/$defs/tier" },
+        "additional_tiers": { "$ref": "#/$defs/tier_array" },
+        "enforcement_status": { "$ref": "#/$defs/enforcement_status" },
+        "execution_basis_ids": { "$ref": "#/$defs/string_array" },
+        "surface_associations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/surface_association" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "last_reviewed": { "const": "2026-07-11" },
+        "corpus_contents_assessed": { "const": false },
+        "manifest_path": { "type": "string", "minLength": 1 },
+        "corpus_path": { "type": "string", "minLength": 1 },
+        "artifact_path": { "type": "string", "minLength": 1 },
+        "discovery_id": { "type": "string", "pattern": "^DISC_[0-9A-F]{20}$" },
+        "discovery_source_kind": {
+          "enum": ["rust_unit_test", "rust_integration_test"]
+        },
+        "ignore_state": { "const": "not_ignored" }
+      },
+      "additionalProperties": false
+    },
+    "surface": {
+      "type": "object",
+      "required": [
+        "surface_id",
+        "title",
+        "area",
+        "state",
+        "target_ids",
+        "direct_target_ids",
+        "partial_target_ids"
+      ],
+      "properties": {
+        "surface_id": { "$ref": "#/$defs/surface_id" },
+        "title": { "type": "string", "minLength": 1 },
+        "area": { "$ref": "#/$defs/area" },
+        "state": { "$ref": "#/$defs/surface_state" },
+        "target_ids": { "$ref": "#/$defs/target_id_array" },
+        "direct_target_ids": { "$ref": "#/$defs/target_id_array" },
+        "partial_target_ids": { "$ref": "#/$defs/target_id_array" }
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": ["surface_id", "state", "reason", "target_ids"],
+      "properties": {
+        "surface_id": { "$ref": "#/$defs/surface_id" },
+        "state": { "$ref": "#/$defs/gap_state" },
+        "reason": { "$ref": "#/$defs/gap_reason" },
+        "target_ids": { "$ref": "#/$defs/target_id_array" }
+      },
+      "additionalProperties": false
+    },
+    "count_map_surface_state": {
+      "type": "object",
+      "required": ["cargo_fuzz_target", "smoke_only", "partial_only", "unmapped"],
+      "properties": {
+        "cargo_fuzz_target": { "type": "integer", "minimum": 0 },
+        "smoke_only": { "type": "integer", "minimum": 0 },
+        "partial_only": { "type": "integer", "minimum": 0 },
+        "unmapped": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "count_map_tier": {
+      "type": "object",
+      "required": ["pr_smoke", "nightly", "manual_extended"],
+      "properties": {
+        "pr_smoke": { "type": "integer", "minimum": 0 },
+        "nightly": { "type": "integer", "minimum": 0 },
+        "manual_extended": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "inventory_targets",
+        "cargo_fuzz_targets",
+        "bounded_rust_smokes",
+        "required_surfaces",
+        "gap_surfaces",
+        "by_surface_state",
+        "by_primary_tier",
+        "by_additional_tier"
+      ],
+      "properties": {
+        "inventory_targets": { "const": 11 },
+        "cargo_fuzz_targets": { "const": 5 },
+        "bounded_rust_smokes": { "const": 6 },
+        "required_surfaces": { "const": 8 },
+        "gap_surfaces": { "const": 6 },
+        "by_surface_state": { "$ref": "#/$defs/count_map_surface_state" },
+        "by_primary_tier": { "$ref": "#/$defs/count_map_tier" },
+        "by_additional_tier": { "$ref": "#/$defs/count_map_tier" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

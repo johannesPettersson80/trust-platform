@@ -11,14 +11,25 @@ def validator_code_input_paths(root: Path) -> set[str]:
 
     root = root.resolve()
     paths: set[str] = {
+        ".github/workflows/ci.yml",
+        ".github/workflows/salsa-hardening.yml",
+        "Cargo.toml",
+        "crates/trust-ads-server/fuzz/.gitignore",
         "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md",
+        "fuzz/.gitignore",
         "scripts/gen_cases.py",
+        "scripts/runtime_comms_fuzz_gate.sh",
+        "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
+        "scripts/salsa_fuzz_gate.sh",
         "scripts/validate_verification_metadata.py",
         "verification/malformed-input-taxonomy.md",
         "verification/malformed-input-taxonomy.toml",
         "verification/schemas/malformed-input-taxonomy.schema.json",
         "verification/runtime-anomaly-taxonomy.toml",
         "verification/schemas/runtime-anomaly-taxonomy.schema.json",
+        "verification/fuzz-program.toml",
+        "verification/schemas/fuzz-program.schema.json",
+        "verification/gate-inventory.toml",
     }
     paths.update(
         path
