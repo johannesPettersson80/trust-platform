@@ -1,7 +1,8 @@
 # Windows ADS discovery and local simulator acceptance
 
-Status: implementation and local/device-in-loop UX proof accepted;
-`ux_accepted` remains pending the required GitHub Windows packaged-VSIX lane.
+Status: accepted; `ux_accepted` is proven by the real VS Code journey,
+device-in-loop TwinCAT checks, and the required GitHub Windows packaged-VSIX
+lane.
 
 ## Captured visual evidence
 
@@ -280,9 +281,31 @@ Acceptance checks:
 - [x] Same-computer identity comes from the local AMS router when loopback UDP does not answer.
 - [x] A direct loopback pyads-style server falls back within a bounded time when it does not answer the router handshake.
 - [x] Real TwinCAT safety proof shows unconfirmed checks never start and selected-runtime checks never interrupt live ADS I/O.
-- [ ] A newly scaffolded Windows project starts the simulator without hand-editing `runtime.toml`.
+- [x] A newly scaffolded Windows project starts the simulator without hand-editing `runtime.toml`.
 - [x] Dark, Light+, and Dark High Contrast screenshots cover success, validation, and manual-fallback states.
-- [ ] Extension tests, packaged-Windows executable proof, remote-builder gates, and TwinCAT device proof pass.
+- [x] Extension tests, packaged-Windows executable proof, remote-builder gates, and TwinCAT device proof pass.
+
+GitHub Windows packaged-VSIX proof:
+
+- Exact candidate commit: `639ad4a48909ff2ca1b7b5e8d083926a589d44c6`.
+- CI run: [29159934997](https://github.com/johannesPettersson80/trust-platform/actions/runs/29159934997),
+  `Windows VSIX ADS Smoke` job
+  [86563165876](https://github.com/johannesPettersson80/trust-platform/actions/runs/29159934997/job/86563165876),
+  completed successfully on `windows-latest`.
+- Focused Extension Host result: 47 passing, zero failing, including the real
+  Windows simulator migration/start journey and fail-closed ADS service-probe
+  safety contracts.
+- Packaged runtime proof: `trust-runtime 0.24.32`, `win32-x64`; all seven
+  phases passed (`runtime_version`, manual port 852, host/port rejection, UDP
+  Identify, local-router identity, router-assigned loopback source, and bounded
+  direct-loopback fallback).
+- Packaged VSIX SHA-256:
+  `631ea3746a7ddf99769d4fca7096b0e26f61f00ec325ae62ccd44143f3cd7f57`.
+- The staged release and packaged `trust-debug.exe` are byte-identical at
+  SHA-256 `31f11a09b3cb8846b6945d30ea6748a8d71e23852ac0042154a78db3a0a4827f`.
+- The evidence JSON reports `status=pass`, every phase `pass`, and no errors;
+  the uploaded build/test logs contain no known placeholder token or exposed
+  control credential.
 
 Evidence:
 
@@ -292,4 +315,5 @@ Evidence:
 - TwinCAT discovery, Doctor, and symbol-browse JSON.
 
 Implementer: Codex. Visual/evidence reviewer: independent Codex capture lane;
-GitHub Windows gate review pending.
+GitHub Windows packaged-VSIX evidence reviewed and accepted from exact
+candidate run 29159934997.
