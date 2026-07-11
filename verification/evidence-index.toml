@@ -1268,3 +1268,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P10_MUTATION_PROGRAM_CLOSURE_20260712"
+title = "Phase 10 focused mutation program closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-program-closure-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/check_verification_tooling_selftests.py --report docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6a-tooling-selftest-fixture-report.md && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && git diff --check 4efeb793d..70f7f6215 && ssh trust-builder 'cd $HOME/projects/trust-platform-p10-validation-3d935a063 && export CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate TMPDIR=$HOME/.cache/codex-targets/trust-platform-gate-tmp && just fmt && just clippy && just verification-veryquick && just test-all'"
+commit = "70f7f6215d9148fe28eb97160c2a5d7344746caf"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-12"
+suite_id = "supporting_local"
+producer = "codex Phase 10 focused mutation program closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-12"
