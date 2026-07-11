@@ -226,6 +226,16 @@ TOML shape convention:
   this is not the exhaustive public-doc claim inventory blocked by
   `VERIF-P4A-005`. The spec-source scanner self-test remains blocked by
   `VERIF-P1A-002`, `VERIF-P1A-003`, and `VERIF-P1A-006`.
+- Run `python3 scripts/report_conformance_alignment.py` with
+  `python3 scripts/validate_conformance_alignment_report.py` for the Phase 7
+  report-only conformance audit. It binds the public suite contract, all 16
+  categories, 21 manifests, 21 expected artifacts, the scripted in-process
+  communication case, and CI-artifact publication posture. Invariant coverage
+  comes only from an exact hand-owned catalog `discovery_id` join. The current
+  result is 0/21 linked cases, so `VERIF-P7-002` remains open and the ten v2
+  categories are explicit alignment-gap rows with semantic oracles
+  `not_assessed`. Expected artifacts are inputs, not proof that their behavior
+  is specified or correct.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and

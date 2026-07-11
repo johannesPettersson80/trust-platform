@@ -34,6 +34,7 @@ class RawResult(NamedTuple):
     disposition: str
     signal: str
     full_wiring_signal: str = ""
+    forbidden_side_effect: bool = False
 
 
 Mutation = Callable[[Validator], None]
@@ -57,6 +58,7 @@ def execute_bypass_case(row: dict[str, Any]) -> ScenarioResult:
         raw.disposition == row["expected_disposition"]
         and signal_matched
         and full_wiring_matched
+        and not raw.forbidden_side_effect
     )
     result = ScenarioResult(
         case_id=row["id"],
@@ -467,7 +469,11 @@ def _proof_red_classification(
             except ProofError as exc:
                 no_evidence = not evidence_dir.exists() or not any(evidence_dir.iterdir())
                 signal = exc.failure_kind if no_evidence else f"{exc.failure_kind}; evidence-created"
-                return RawResult("reject", signal)
+                return RawResult(
+                    "reject",
+                    signal,
+                    forbidden_side_effect=not no_evidence,
+                )
     return RawResult("accept", f"expected {expected} but proof was written")
 
 

@@ -399,6 +399,33 @@ evidence IDs shown in the Phase 6 ledger are copied explicit associations, not
 a completed trace. Their registries are live-validated; the evidence index is
 excluded from the report input digest to avoid a report/evidence digest cycle.
 
+## Conformance Alignment Boundary
+
+The Phase 7 alignment report traces the committed conformance corpus only as
+far as explicit metadata permits:
+
+```text
+public suite contract -> category -> manifest -> expected artifact
+                                      |
+                                      +-> exact catalog discovery_id -> invariant
+```
+
+The right-hand link is absent for all 21 current cases. The report must show
+`0/21` explicit invariant coverage and keep `VERIF-P7-002` open; case names,
+descriptions, source text, expected JSON, and lexical candidates cannot fill
+the link. The ten v2 category rows are alignment debt with semantic oracles
+`not_assessed`, not specification-gap records and not behavior proof.
+
+`SPEC_CONFORMANCE_CONTRACT_001` owns the public category, result, determinism,
+and generated-report contract. It is deliberately `oracle_eligible = false`
+for individual case behavior. Expected artifacts remain baselines checked by
+the runner, not independent semantic authorities.
+
+The report binds the scripted in-process communication case and the CI
+artifact publication path. It does not run a case, use a socket or hardware,
+commit a generated suite result, create evidence links, close a specification
+gap, or upgrade an invariant.
+
 The program must generate both directions:
 
 Forward trace:

@@ -48,6 +48,7 @@ verification/
     bytecode-validator-mutation-report.schema.json
     ignored-test-inventory-report.schema.json
     spec-completeness-report.schema.json
+    conformance-alignment-report.schema.json
   matrix.toml
   spec-matrix.toml
   test-catalog.toml
@@ -941,6 +942,44 @@ noncanonical JSON, or Markdown that differs from the JSON-derived rendering
 fail. Source provenance binds report code and semantic inputs without binding
 the mutable evidence index or the report's own follow-up evidence row. Full
 metadata validation remains a separate current-tree health prerequisite.
+
+### Conformance Alignment Report
+
+`VERIF-P7-001` and `VERIF-P7-003` through `VERIF-P7-006` write
+`target/gate-artifacts/verification/conformance-alignment.json`; its closed
+schema is `verification/schemas/conformance-alignment-report.schema.json`.
+The durable Markdown is a JSON-bound audit record, not a committed conformance
+run result.
+
+The case denominator is every live `conformance/cases/**/manifest.toml` fact
+from the production test scanner. Each case row binds its discovery ID,
+manifest and optional `program.st`, matching expected JSON artifact, category,
+kind, and digests. Catalog and invariant associations arise only from an exact
+`generated_test.discovery_id` join. Names, paths, descriptions, program text,
+expected output, and lexical reference candidates cannot create mappings.
+
+Zero explicit invariant coverage is a valid report result. It keeps
+`VERIF-P7-002` open and must not be repaired by inventing a broad invariant,
+semantic oracle, or area assignment. The ten v2 categories have explicit
+`coverage_gap` rows that record case/artifact presence, missing invariant
+mapping, and `semantic_oracle_state = "not_assessed"`. These are audit debt
+rows, not registered specification gaps and not evidence that product behavior
+is unspecified.
+
+The communication posture is structural: the single
+`connector_status_trace` case must have eight scripted in-process steps, no
+program source or network-shaped fields, and the reviewed pure projection call
+path. The audit performs no socket or hardware execution. Publication posture
+requires generated JSON/Markdown under the CI `gate-artifacts/` upload, only
+`.gitkeep` tracked beneath `conformance/reports/`, and no generated result
+summary embedded in the public page. Expected artifacts remain committed test
+inputs, not passing proof.
+
+Generation and at-rest validation follow the common clean-full-SHA, complete
+input-closure, canonical JSON, exact Markdown, source-tree membership, live
+recomputation, full metadata validation, and semantic-tamper rules. The report
+creates no proof, closes no gap, changes no enforcement, and leaves
+`VERIF-STOP-014` open.
 
 ### Case File
 

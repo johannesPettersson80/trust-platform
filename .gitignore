@@ -161,5 +161,7 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
 !docs/internal/references/
 !docs/internal/references/PLCopenMotion/
+conformance/reports/*
+!conformance/reports/.gitkeep
 AGENTS.md
 CLAUDE.md

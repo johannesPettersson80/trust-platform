@@ -464,3 +464,31 @@ context_refs = [
   "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-09/plcopen-import-and-root-scratch-cleanup.md",
 ]
 conflicts_with = []
+
+[[spec_sources]]
+schema_version = 1
+id = "SPEC_CONFORMANCE_CONTRACT_001"
+title = "truST public conformance suite contract"
+area = "release"
+owner = "verification"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = false
+visibility = "public"
+path = "conformance/contract.md"
+version = "current"
+last_reviewed = "2026-07-11"
+covers = [
+  "conformance_categories",
+  "summary_profiles",
+  "result_classification",
+  "deterministic_ordering",
+  "generated_report_artifact_policy",
+]
+known_limitations = [
+  "This source defines the suite and report contract; it is not a semantic oracle for individual expected artifacts.",
+  "No conformance case has an explicit invariant mapping while VERIF-P7-002 and VERIF-STOP-014 remain open.",
+  "Public conformance publication truth remains blocked by SPEC_GAP_CONFORMANCE_PUBLICATION_001.",
+]
+conflicts_with = []

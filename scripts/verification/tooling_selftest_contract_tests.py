@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from unittest import mock
 
 from scripts.verification.tooling_selftest_contract import (
     BYPASS_CONTRACT_PATH,
@@ -13,9 +14,11 @@ from scripts.verification.tooling_selftest_contract import (
     validate_bypass_contract,
 )
 from scripts.verification.tooling_selftest_scenarios import (
+    _RESULT_CACHE,
     SCENARIO_HANDLERS,
     execute_bypass_case,
 )
+from scripts.verification.prover import ProofError, ProofProducer
 
 
 class ToolingSelftestContractTests(unittest.TestCase):
@@ -85,6 +88,35 @@ class ToolingSelftestContractTests(unittest.TestCase):
         tampered = copy.deepcopy(results)
         tampered[0] = tampered[0]._replace(matched=False)
         self.assertNotEqual(render_fixture_report(contract, tampered), first)
+
+    def test_rejected_red_proof_with_created_evidence_fails_fixture(self) -> None:
+        contract = load_bypass_contract(BYPASS_CONTRACT_PATH)
+        row = next(
+            row
+            for row in contract["cases"]
+            if row["id"] == "P6A_BAD_COMPILE_ERROR_AS_RED_001"
+        )
+
+        def write_evidence_then_reject(producer: ProofProducer, _test_id: str) -> None:
+            producer.evidence_dir.mkdir(parents=True)
+            (producer.evidence_dir / "unexpected.toml").write_text("unexpected evidence\n")
+            raise ProofError("compile error", failure_kind="compile_error")
+
+        _RESULT_CACHE.pop(row["id"], None)
+        try:
+            with mock.patch.object(
+                ProofProducer,
+                "red",
+                autospec=True,
+                side_effect=write_evidence_then_reject,
+            ):
+                result = execute_bypass_case(row)
+        finally:
+            _RESULT_CACHE.pop(row["id"], None)
+
+        self.assertEqual(result.actual_disposition, "reject")
+        self.assertIn("evidence-created", result.actual_signal)
+        self.assertFalse(result.matched)
 
 
 if __name__ == "__main__":
