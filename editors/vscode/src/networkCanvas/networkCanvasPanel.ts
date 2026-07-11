@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-import { getTrustConfiguration } from "../configuration";
 import { debugChannel } from "../debug/configuration";
 import type { CommCapabilitiesResponse } from "../communication/capability";
 import type {
@@ -72,29 +71,38 @@ import {
 import {
   parseDiscoveryEnvelope,
   runNetworkCanvasDiscovery,
-  type DiscoveryMessageEnvelope,
 } from "./discoveryController";
 import { NetworkCanvasProtocolActions } from "./protocolActions";
+import {
+  AdsServiceProbeController,
+  isCurrentAdsServiceProbeRequest,
+  localRuntimeTargetForAdsProbe,
+} from "./adsServiceProbeController";
+import { DiscoveryOriginContext } from "./discoveryOriginContext";
+import {
+  networkCanvasTrustConfig,
+  workspaceConfigResource,
+} from "./networkCanvasWorkspace";
 import { networkCanvasWebviewHtml } from "./webviewHtml";
 import { NetworkCanvasFleetActions } from "./fleetActions";
 import { NetworkCanvasConfigurationActions } from "./configurationActions";
 import { becameVisible } from "./panelVisibility";
 import {
   LatestRefreshCoordinator,
+  networkCanvasRefreshDelayMs,
   type LatestRefreshContext,
 } from "./refreshCoordinator";
+import { NetworkCanvasPolling } from "./panelPolling";
 
 export const NETWORK_CANVAS_COMMAND = "trust-lsp.networkCanvas.open";
 
 const NETWORK_CANVAS_VIEW_TYPE = "trust-network-canvas";
-const REFRESH_INTERVAL_MS = 1500;
 
 let panel: vscode.WebviewPanel | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 let currentStage: NetworkCanvasStage = "welcome";
 let deviceRequested = false;
 let lastFailure: RuntimeStartFailure | undefined;
-let refreshTimer: NodeJS.Timeout | undefined;
 let activeProtocol: NetworkCanvasProtocolId = "simulated";
 let activeSchema: CommSchemaResponse | undefined;
 let lastTopology: FleetTopologyResponse | undefined;
@@ -108,18 +116,54 @@ let runtimeSetupMessage: string | undefined;
 const fleetEndpointLabels = new Map<string, string>();
 const refreshCoordinator = new LatestRefreshCoordinator();
 const discoveryRequests = new DiscoveryRequestTracker<vscode.WebviewPanel>();
+const discoveryOriginContext = new DiscoveryOriginContext();
+const polling = new NetworkCanvasPolling(refreshNetworkCanvasPanel, 1500);
 let activeDiscoveryRequest:
-  | { readonly sessionId: string; readonly requestId: number }
+  | {
+      readonly sessionId: string;
+      readonly requestId: number;
+      readonly origin: string;
+    }
   | undefined;
 let activeWebviewSessionId: string | undefined;
+function clearDiscoveryOriginContext(): void {
+  adsServiceProbeController.cancel();
+  discoveryOriginContext.clearCredentials();
+}
 
 const protocolActions = new NetworkCanvasProtocolActions({
   panel: () => panel,
   extensionContext: () => extensionContext,
   topology: () => lastTopology,
   runtimeTarget: () => activeRuntimeTarget,
+  runtimeTargetForOrigin: (originId, leaseId, browseSessionId) =>
+    discoveryOriginContext.browseTarget(
+      originId,
+      leaseId,
+      activeWebviewSessionId,
+      browseSessionId
+    ),
   refresh: refreshNetworkCanvasPanel,
   startRuntime: startConfiguredRuntime,
+});
+const adsServiceProbeController = new AdsServiceProbeController({
+  panel: () => panel,
+  extensionContext: () => extensionContext,
+  runtimeTargetForOrigin: (originId) =>
+    discoveryOriginContext.probeTarget(originId),
+  runtimeTargetOnDiscoveryComputer: () =>
+    localRuntimeTargetForAdsProbe(activeRuntimeTarget),
+  requestIsCurrent: (request) =>
+    isCurrentAdsServiceProbeRequest(
+      {
+        sessionId: request.sessionId,
+        requestId: request.requestId,
+        origin: request.origin,
+        candidate: request.candidate,
+      },
+      activeDiscoveryRequest,
+      activeWebviewSessionId
+    ),
 });
 const fleetActions = new NetworkCanvasFleetActions({
   extensionContext: () => extensionContext,
@@ -145,6 +189,12 @@ const configurationActions = new NetworkCanvasConfigurationActions({
 
 export function registerNetworkCanvasPanel(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      discoveryRequests.invalidate();
+      activeDiscoveryRequest = undefined;
+      clearDiscoveryOriginContext();
+      discoveryOriginContext.clearEndpoints();
+    }),
     vscode.commands.registerCommand(NETWORK_CANVAS_COMMAND, async () => {
       await showNetworkCanvasPanel(context);
     })
@@ -188,6 +238,8 @@ async function showNetworkCanvasPanel(
       discoveryRequests.invalidate();
       activeDiscoveryRequest = undefined;
       activeWebviewSessionId = undefined;
+      clearDiscoveryOriginContext();
+      discoveryOriginContext.clearEndpoints();
       panel = undefined;
       currentStage = "welcome";
       deviceRequested = false;
@@ -201,7 +253,7 @@ async function showNetworkCanvasPanel(
       pendingFocusNodeId = undefined;
       quickAddOpen = false;
       runtimeSetupMessage = undefined;
-      stopPolling();
+      polling.stop();
     });
     panel.onDidChangeViewState(({ webviewPanel }) => {
       const panelBecameVisible = becameVisible(
@@ -210,9 +262,10 @@ async function showNetworkCanvasPanel(
       );
       wasVisible = webviewPanel.visible;
       if (panelBecameVisible) {
-        startPolling();
+        polling.start();
         discoveryRequests.invalidate();
         activeDiscoveryRequest = undefined;
+        clearDiscoveryOriginContext();
         if (activeWebviewSessionId) {
           void webviewPanel.webview.postMessage({
             type: "discoverReset",
@@ -222,10 +275,11 @@ async function showNetworkCanvasPanel(
         void webviewPanel.webview.postMessage({ type: "browseReset" });
         void refreshNetworkCanvasPanel();
       } else if (!webviewPanel.visible) {
-        stopPolling();
+        polling.stop();
         refreshCoordinator.invalidate();
         discoveryRequests.invalidate();
         activeDiscoveryRequest = undefined;
+        clearDiscoveryOriginContext();
       }
     });
     panel.webview.onDidReceiveMessage((message: unknown) => {
@@ -233,7 +287,7 @@ async function showNetworkCanvasPanel(
     });
     context.subscriptions.push(panel);
   }
-  startPolling();
+  polling.start();
   void refreshNetworkCanvasPanel();
 }
 
@@ -406,16 +460,18 @@ async function refreshNetworkCanvasPanelOnce(
   activeSchema = nextSchema;
   runtimeSetupMessage = nextRuntimeSetupMessage;
   lastTopology = nextTopology;
+  const canvasGraph = buildCanvasGraph(
+    model,
+    displayTopology,
+    undefined,
+    attachedEndpoint,
+    managed,
+    getSelectedRuntimeId()
+  );
+  discoveryOriginContext.updateEndpointRegistry(canvasGraph, runtime);
   void panelRef.webview.postMessage({
     type: "graph",
-    graph: buildCanvasGraph(
-      model,
-      displayTopology,
-      undefined,
-      attachedEndpoint,
-      managed,
-      getSelectedRuntimeId()
-    ),
+    graph: canvasGraph,
   });
   void panelRef.webview.postMessage({
     type: "meta",
@@ -436,7 +492,7 @@ async function refreshNetworkCanvasPanelOnce(
 // §12.10 hybrid source: the primary runtime plus any configured fleet peers, each probed.
 // Peers that don't resolve to a reachable online runtime contribute nothing to the merge.
 async function resolveFleetTargets(primary: RuntimeTarget): Promise<RuntimeTarget[]> {
-  const extra = trustConfig().get<string[]>("runtime.fleetEndpoints", []);
+  const extra = networkCanvasTrustConfig().get<string[]>("runtime.fleetEndpoints", []);
   const endpoints = [
     ...new Set(
       (extra ?? [])
@@ -461,14 +517,6 @@ async function resolveFleetTargets(primary: RuntimeTarget): Promise<RuntimeTarge
   return [primary, ...peers.filter((peer): peer is RuntimeTarget => peer !== undefined)];
 }
 
-function workspaceConfigResource(): vscode.Uri | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri;
-}
-
-function trustConfig(): vscode.WorkspaceConfiguration {
-  return getTrustConfiguration(workspaceConfigResource());
-}
-
 // §0.5 Discover: run `comm.discover` for each selected protocol IN SEQUENCE (clear per-row
 // progress), then post the combined candidates. Degrades gracefully if the verb isn't there yet.
 async function handleDiscover(message: Record<string, unknown>): Promise<void> {
@@ -487,11 +535,19 @@ async function handleDiscover(message: Record<string, unknown>): Promise<void> {
   activeDiscoveryRequest = {
     sessionId: envelope.sessionId,
     requestId: envelope.requestId,
+    origin: envelope.request.origin,
   };
-  const discoveryRuntimeTarget = await resolveDiscoveryRuntimeTarget(envelope);
+  clearDiscoveryOriginContext();
+  const discoveryRuntimeTarget =
+    await discoveryOriginContext.resolveDiscoveryTarget(
+      envelope.request.origin,
+      envelope.request.originEndpoint,
+      activeRuntimeTarget
+    );
   if (!discoveryRequests.isCurrent(token, panelRef)) {
     return;
   }
+  discoveryOriginContext.pin(envelope.request.origin, discoveryRuntimeTarget);
   await runNetworkCanvasDiscovery(envelope, {
     panel: panelRef,
     extensionContext: contextRef,
@@ -501,36 +557,6 @@ async function handleDiscover(message: Record<string, unknown>): Promise<void> {
   });
 }
 
-async function resolveDiscoveryRuntimeTarget(
-  envelope: DiscoveryMessageEnvelope
-): Promise<RuntimeTarget | undefined> {
-  if (envelope.request.origin === "this_host") {
-    return undefined;
-  }
-  const endpoint = envelope.request.originEndpoint?.trim();
-  if (endpoint) {
-    return resolveRuntimeTargetFromSettings({
-      mode: "online",
-      endpoint,
-      authToken: await getControlAuthToken(endpoint),
-      endpointEnabled: true,
-      label: envelope.request.origin,
-    }).catch(() => undefined);
-  }
-  return envelope.request.origin === "runtime:local"
-    ? activeRuntimeTarget
-    : undefined;
-}
-
-function networkCanvasRefreshDelayMs(): number {
-  const value = Number(
-    process.env.TRUST_VSCODE_NETWORK_CANVAS_REFRESH_DELAY_MS ?? 0
-  );
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-  return Math.min(Math.floor(value), 10_000);
-}
 async function handleWebviewMessage(message: unknown): Promise<void> {
   if (!isRecord(message)) {
     return;
@@ -539,6 +565,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
     case "ready":
       discoveryRequests.invalidate();
       activeDiscoveryRequest = undefined;
+      clearDiscoveryOriginContext();
       activeWebviewSessionId =
         typeof message.sessionId === "string" ? message.sessionId : undefined;
       if (panel && activeWebviewSessionId) {
@@ -645,6 +672,30 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
     case "discover":
       await handleDiscover(message);
       break;
+    case "probeAdsServices":
+      if (
+        !isCurrentAdsServiceProbeRequest(
+          message,
+          activeDiscoveryRequest,
+          activeWebviewSessionId
+        )
+      ) {
+        return;
+      }
+      await adsServiceProbeController.probe(message);
+      break;
+    case "handoffDiscoveryToBrowse":
+      if (
+        discoveryOriginContext.handoffToBrowse(
+          activeDiscoveryRequest,
+          message,
+          activeWebviewSessionId
+        )
+      ) {
+        discoveryRequests.invalidate();
+        activeDiscoveryRequest = undefined;
+      }
+      break;
     case "cancelDiscover":
       if (
         activeDiscoveryRequest &&
@@ -653,7 +704,15 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       ) {
         discoveryRequests.invalidate();
         activeDiscoveryRequest = undefined;
+        clearDiscoveryOriginContext();
       }
+      break;
+    case "releaseDiscoveryOrigin":
+      discoveryOriginContext.releaseBrowse(
+        message.originRuntimeId,
+        message.leaseId,
+        message.browseSessionId
+      );
       break;
     case "browseSymbols":
       await protocolActions.browseSymbols(message);
@@ -666,7 +725,16 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       );
       break;
     case "addTags":
-      await protocolActions.addTags(message);
+      try {
+        await protocolActions.addTags(message);
+      } finally {
+        const target = isRecord(message.target) ? message.target : {};
+        discoveryOriginContext.releaseBrowse(
+          target.discovery_origin_runtime_id,
+          target.discovery_origin_lease_id,
+          message.browseSessionId
+        );
+      }
       break;
     case "addEthercatChannels":
       await protocolActions.addEthercatChannels(message);
@@ -908,22 +976,6 @@ async function startConfiguredRuntime(): Promise<void> {
   const result = await runtimeLifecycleService.startRuntime();
   lastFailure = result.ok ? undefined : result.failure;
   await refreshNetworkCanvasPanel();
-}
-
-function startPolling(): void {
-  if (refreshTimer) {
-    return;
-  }
-  refreshTimer = setInterval(() => {
-    void refreshNetworkCanvasPanel();
-  }, REFRESH_INTERVAL_MS);
-}
-
-function stopPolling(): void {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = undefined;
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

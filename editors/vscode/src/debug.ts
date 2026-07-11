@@ -1,11 +1,9 @@
 import * as fs from "fs";
-import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
 import { getTrustConfiguration } from "./configuration";
-import { localSimControl } from "./simControl";
 import {
   __testCreateDefaultConfigurationAuto,
   __testEnsureConfigurationEntryAuto,
@@ -26,15 +24,22 @@ import {
   validateConfiguration,
 } from "./debug/configuration";
 import { diagnosticsGateReason, validityLine } from "./compileGate";
-import { parseControlEndpoint } from "./runtimeControl";
+import {
+  applyLaunchControlEndpoint,
+  launchControlEndpointError,
+  prepareLaunchControl,
+} from "./debug/launchControl";
+import {
+  redactDapMessage,
+  redactDebugConfig,
+  stringifyDebugSession,
+} from "./debug/sessionLogging";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
 const HOT_RELOAD_REQUEST_TIMEOUT_MS = 30000;
 const IO_BUSY_RETRY_DELAYS_MS = [75, 150, 250, 400, 600];
 const DEBUG_STOP_WAIT_TIMEOUT_MS = 8000;
 const DEBUG_STOP_UI_SETTLE_MS = 1000;
-const TEST_CONTROL_ENDPOINT_OVERRIDE_ENV = "TRUST_UX_DEBUG_CONTROL_ENDPOINT";
-const TEST_CONTROL_AUTH_TOKEN_ENV = "TRUST_UX_DEBUG_CONTROL_AUTH_TOKEN";
 
 export type DebugReloadEvent = {
   readonly ok: boolean;
@@ -44,75 +49,6 @@ export type DebugReloadEvent = {
 
 const debugReloadEmitter = new vscode.EventEmitter<DebugReloadEvent>();
 export const onDidDebugReload = debugReloadEmitter.event;
-
-// The debug output channel is user-visible; never log the injected per-session control token.
-function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, unknown> {
-  if (config.controlAuthToken === undefined) {
-    return config as Record<string, unknown>;
-  }
-  return { ...config, controlAuthToken: "***" };
-}
-
-function applyLaunchControlEndpoint(
-  config: vscode.DebugConfiguration,
-  folder: vscode.WorkspaceFolder | undefined,
-  allowTestControlEndpointOverride: boolean
-): void {
-  if (config.request !== "launch" || config.controlEndpoint) {
-    return;
-  }
-  const testEndpoint = allowTestControlEndpointOverride
-    ? (process.env[TEST_CONTROL_ENDPOINT_OVERRIDE_ENV] ?? "").trim()
-    : "";
-  if (testEndpoint) {
-    config.controlEndpoint = testEndpoint;
-    const testToken = (process.env[TEST_CONTROL_AUTH_TOKEN_ENV] ?? "").trim();
-    if (testToken) {
-      config.controlAuthToken = testToken;
-    }
-    return;
-  }
-  const sim = localSimControl(folder?.uri.fsPath);
-  if (sim) {
-    config.controlEndpoint = sim.endpoint;
-    config.controlAuthToken = sim.authToken;
-  }
-}
-
-async function launchControlEndpointError(
-  endpoint: unknown
-): Promise<string | undefined> {
-  if (typeof endpoint !== "string") {
-    return undefined;
-  }
-  const parsed = parseControlEndpoint(endpoint);
-  if (!parsed || parsed.kind !== "tcp") {
-    return undefined;
-  }
-  if (await canConnectToTcpEndpoint(parsed.host, parsed.port)) {
-    return "The runtime port is already in use.";
-  }
-  return undefined;
-}
-
-function canConnectToTcpEndpoint(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port });
-    let finished = false;
-    const finish = (value: boolean) => {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(value);
-    };
-    socket.once("connect", () => finish(true));
-    socket.once("error", () => finish(false));
-    socket.setTimeout(300, () => finish(false));
-  });
-}
 
 function remoteAttachDebugSessionName(endpoint: string | undefined): string {
   const label = shortDebugEndpointLabel(endpoint);
@@ -179,22 +115,6 @@ function summarizeReloadCommandMessage(message: string): string {
     return firstLine;
   }
   return `${firstLine.slice(0, 157).trimEnd()}...`;
-}
-
-// Same, for a DAP message (the launch request carries the config under `arguments`).
-function redactDapMessage(value: unknown): unknown {
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-  const message = value as { arguments?: Record<string, unknown> };
-  const args = message.arguments;
-  if (args && typeof args === "object" && "controlAuthToken" in args) {
-    return {
-      ...(value as Record<string, unknown>),
-      arguments: { ...args, controlAuthToken: "***" },
-    };
-  }
-  return value;
 }
 
 type LaunchFallbackState = {
@@ -529,18 +449,21 @@ class StructuredTextDebugConfigurationProvider
     }
 
     // Pin the launch session's control server to a known per-workspace endpoint + a random
-    // per-session token (the adapter already starts a control server on launch). This lets the
+    // in-memory workspace token (the adapter already starts a control server on launch). This lets the
     // Network Canvas reach the live simulator for comm.schema/apply + fleet.topology with write
     // access, and avoids two workspaces colliding on one default socket. Explicit user configs win.
     //
     // Test-mode evidence runners can override the endpoint to force a real TCP bind conflict for
     // ERR-04. This is intentionally not a user setting: production/dev users keep the normal
-    // per-workspace Unix socket.
-    applyLaunchControlEndpoint(
+    // platform-specific per-workspace endpoint.
+    const launchControl = prepareLaunchControl(
       config,
       folder,
       this.allowTestControlEndpointOverride
     );
+    if (launchControl.migratedRuntimeToml) {
+      debugChannel().appendLine("Secured Windows local runtime control authentication in runtime.toml.");
+    }
 
     debugChannel().appendLine(
       `Resolved debug config: type=${config.type} request=${config.request} program=${config.program ?? "<none>"} cwd=${config.cwd ?? "<none>"}`
@@ -682,18 +605,10 @@ export function registerDebugAdapter(
     vscode.debug.registerDebugAdapterTrackerFactory(DEBUG_TYPE, trackerFactory)
   );
 
-  const stringifySession = (session: vscode.DebugSession): string => {
-    try {
-      return JSON.stringify(session.configuration);
-    } catch (err) {
-      return String(err);
-    }
-  };
-
   context.subscriptions.push(
     vscode.debug.onDidStartDebugSession((session) => {
       debugChannel().appendLine(
-        `Debug session started: ${session.name} type=${session.type} config=${stringifySession(session)}`
+        `Debug session started: ${session.name} type=${session.type} config=${stringifyDebugSession(session)}`
       );
       if (session.type === DEBUG_TYPE) {
         structuredTextSessions.set(structuredTextSessionKey(session), session);
@@ -705,7 +620,7 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.debug.onDidTerminateDebugSession((session) => {
       debugChannel().appendLine(
-        `Debug session terminated: ${session.name} type=${session.type} config=${stringifySession(session)}`
+        `Debug session terminated: ${session.name} type=${session.type} config=${stringifyDebugSession(session)}`
       );
       if (session.type === DEBUG_TYPE) {
         const sessionId = session.id ?? session.name;

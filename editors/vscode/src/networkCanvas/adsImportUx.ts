@@ -13,13 +13,13 @@ export function adsImportFailurePrompt(reason: string): AdsImportFailurePrompt {
     return {
       message: "Write-enabled ADS imports need a running runtime.",
       detail:
-        "truST must verify the explicit write acknowledgement before importing writable tags. Start the runtime, then import again.",
+        "truST must verify the explicit write acknowledgement before importing writable variables. Start the runtime, then import again.",
       modal: true,
       actions: [START_RUNTIME_ACTION],
     };
   }
   return {
-    message: `Could not add ADS tags: ${detail || "the import was rejected."}`,
+    message: `Could not add ADS variables: ${detail || "the import was rejected."}`,
     modal: false,
     actions: [],
   };

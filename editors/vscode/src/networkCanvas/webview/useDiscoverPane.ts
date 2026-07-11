@@ -30,6 +30,15 @@ export function useDiscoverPaneLifecycle(
     setOpen(false);
   }, [session.close]);
 
+  const handoffToBrowse = useCallback(
+    (candidate: DiscoverCandidate) => {
+      const handedOff = session.handoffToBrowse(candidate);
+      setOpen(false);
+      return handedOff;
+    },
+    [session.handoffToBrowse]
+  );
+
   const show = useCallback(() => setOpen(true), []);
   const toggle = useCallback(() => {
     if (open) {
@@ -44,6 +53,7 @@ export function useDiscoverPaneLifecycle(
     open,
     show,
     close,
+    handoffToBrowse,
     toggle,
   };
 }
@@ -55,6 +65,7 @@ export function useDiscoverActions({
   openBrowse,
   clearApplyResult,
   close,
+  handoffToBrowse,
   setSelectedId,
   setDraft,
   setEditMode,
@@ -69,6 +80,7 @@ export function useDiscoverActions({
   ) => void;
   clearApplyResult: () => void;
   close: () => void;
+  handoffToBrowse: (candidate: DiscoverCandidate) => DiscoverCandidate;
   setSelectedId: Dispatch<SetStateAction<string | undefined>>;
   setDraft: Dispatch<SetStateAction<DeviceDraft | undefined>>;
   setEditMode: Dispatch<SetStateAction<boolean>>;
@@ -79,19 +91,31 @@ export function useDiscoverActions({
   const add = useCallback(
     (candidate: DiscoverCandidate) => {
       clearApplyResult();
-      close();
       setSelectedId(undefined);
       if (browseAction(candidate.protocol)?.mode === "tags") {
+        const browseCandidate =
+          candidate.protocol === "ads"
+            ? handoffToBrowse(candidate)
+            : (close(), candidate);
         openBrowse(
-          candidate.protocol,
-          candidate.params,
-          candidate.label || candidate.protocol
+          browseCandidate.protocol,
+          browseCandidate.params,
+          browseCandidate.label || browseCandidate.protocol
         );
         return;
       }
+      close();
       setDraft(draftForDiscoveredCandidate(candidate, nodes));
     },
-    [clearApplyResult, close, nodes, openBrowse, setDraft, setSelectedId]
+    [
+      clearApplyResult,
+      close,
+      handoffToBrowse,
+      nodes,
+      openBrowse,
+      setDraft,
+      setSelectedId,
+    ]
   );
 
   const adopt = useCallback(

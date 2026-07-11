@@ -12,8 +12,10 @@ use super::transport::{
     AdsTransportError, AdsWriteRequest,
 };
 
+mod connection;
+mod source_policy;
+
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_SOURCE_PORT: u16 = 58_913;
 const DEFAULT_NOTIFICATION_CYCLE: Duration = Duration::from_millis(100);
 
 // Names mirror Beckhoff AdsDef.h; ads-rs exposes these as raw fields only.
@@ -215,20 +217,11 @@ impl AdsTransport for AdsRsTransport {
         self.notification_receiver = None;
         self.client = None;
 
-        let source = if let Some(local_net_id) = self.route.local_net_id.as_ref() {
-            ads::Source::Addr(ads::AmsAddr::new(
-                parse_ams_net_id(local_net_id)?,
-                DEFAULT_SOURCE_PORT,
-            ))
-        } else {
-            ads::Source::Auto
-        };
-        let client = ads::Client::new(
+        let client = connection::connect_ads_client(
             (self.route.host.as_str(), ads::PORT),
-            self.timeouts.into_ads(),
-            source,
-        )
-        .map_err(map_ads_error)?;
+            self.timeouts,
+            &self.route,
+        )?;
         self.notification_receiver = Some(client.get_notification_channel());
         self.client = Some(client);
         Ok(())

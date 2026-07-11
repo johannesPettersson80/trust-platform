@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { randomBytes } from "crypto";
 
 type SimulatedCancelAt = "folder" | "name" | "overwrite";
 
@@ -59,15 +60,19 @@ const VSCODE_SETTINGS_SOURCE = `{
 // simulator (trust-debug) runs from trust-lsp.toml; runtime.toml + io.toml let Devices & Connections load
 // the OFFLINE topology immediately (read by the bundled trust-runtime — phase 0 packaging) with simulated
 // I/O, so the user never hand-edits TOML to get a running, configurable project.
-const RUNTIME_CONTROL_ENDPOINT =
-  process.platform === "win32"
-    ? "tcp://127.0.0.1:9902"
-    : "unix:///tmp/trust-runtime.sock";
-
 // Full section set required by the runtime config parser (crates/trust-runtime/src/config/parser.rs) —
 // retain/watchdog/fault are NOT optional. Mirrors the proven examples/network_canvas_demo/runtime.toml
 // so the project loads offline (Devices & Connections topology) and `trust-runtime comm topology` passes.
-const RUNTIME_TOML_SOURCE = `[bundle]
+export function buildRuntimeTomlSource(platform: NodeJS.Platform): string {
+  const endpoint =
+    platform === "win32"
+      ? "tcp://127.0.0.1:9902"
+      : "unix:///tmp/trust-runtime.sock";
+  const controlAuth =
+    platform === "win32"
+      ? `auth_token = "${randomBytes(24).toString("hex")}"\n`
+      : "";
+  return `[bundle]
 version = 1
 
 [resource]
@@ -75,8 +80,8 @@ name = "Simulator"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "${RUNTIME_CONTROL_ENDPOINT}"
-mode = "production"
+endpoint = "${endpoint}"
+${controlAuth}mode = "production"
 debug_enabled = false
 
 [runtime.web]
@@ -127,6 +132,7 @@ action = "halt"
 [runtime.fault]
 policy = "halt"
 `;
+}
 
 const IO_TOML_SOURCE = `# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
 # ("Set up runtime…" → add a device) writes real drivers here when you wire one up.
@@ -232,7 +238,7 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
   );
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(targetUri, "runtime.toml"),
-    Buffer.from(RUNTIME_TOML_SOURCE)
+    Buffer.from(buildRuntimeTomlSource(process.platform))
   );
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(targetUri, "io.toml"),

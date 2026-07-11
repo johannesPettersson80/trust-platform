@@ -1,20 +1,35 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { DiscoverCandidate } from "../offlineComm";
+import type { AdsServiceProbeViewState } from "../adsServiceProbeModel";
+import {
+  offersAdsManualIdentityRecovery,
+  type DiscoveryErrorCode,
+} from "../discoveryErrors";
 import { candidateDisabledReason } from "../discoverySession";
 import {
-  adsTargetNetId,
-  candidateAdsPort,
-  parseAdsPortInput,
-  withCandidateAdsPort,
-} from "./adsTargetPort";
+  AdsDiscoveryComputerCard,
+  AdsDiscoveryControls,
+} from "./AdsDiscoveryFlow";
 import { discoveryConfidenceLabel, discoverySourceLabel } from "./connectorPresentation";
 import type {
   DiscoverOrigin,
   DiscoverProgressRow,
   DiscoverRequest,
   DiscoverRequestItem,
+  AdsDiscoveryDraft,
 } from "./discoverPaneModel";
-import { shouldShowDiscoveryUnavailable } from "./discoverPaneModel";
+import {
+  DEFAULT_ADS_DISCOVERY_DRAFT,
+  adsServiceProbeResultsNeedRecheck,
+  adsEmptyIdentityCopy,
+  applyAdsEmptyRecovery,
+  createAdsDiscoveryScanSnapshot,
+  discoveryProgressCopy,
+  shouldShowDiscoveryUnavailable,
+  shouldShowScanSelected,
+  validateAdsDiscoveryDraft,
+  type AdsDiscoveryScanSnapshot,
+} from "./discoverPaneModel";
 import { protocolName } from "./protocolMeta";
 
 // §0.5 Discover pane: goal-first device discovery. Recommended tier (zero input, safe) is checked
@@ -32,12 +47,11 @@ interface Row {
 }
 
 const RECOMMENDED: Row[] = [
-  { key: "ads", protocol: "ads", label: "TwinCAT (ADS)", note: "network broadcast" },
+  { key: "ads", protocol: "ads", label: "TwinCAT", note: "find a TwinCAT computer" },
   { key: "discovery", protocol: "discovery", label: "truST runtimes", note: "mDNS" },
   { key: "modbus-local", protocol: "modbus_tcp", label: "Modbus", note: "local network scan" },
 ];
 const TARGETED: Row[] = [
-  { key: "ads-host", protocol: "ads", label: "TwinCAT (ADS) device", note: "at host", input: "host" },
   // Discovering an external OPC-UA server to READ from is the opcua_client flow (the opcua server/
   // expose flow no longer advertises discover). Label names the thing being found.
   { key: "opcua", protocol: "opcua_client", label: "OPC UA server", note: "at host", input: "host" },
@@ -56,9 +70,13 @@ export function DiscoverPane({
   scanning,
   progress,
   results,
+  adsServiceProbes,
   error,
+  errorCode,
   sessionCurrent,
   onScan,
+  onProbeAdsServices,
+  onReset,
   onAdd,
   onAdopt,
   onClose,
@@ -68,9 +86,17 @@ export function DiscoverPane({
   scanning: boolean;
   progress: readonly DiscoverProgressRow[];
   results: readonly DiscoverCandidate[];
+  adsServiceProbes: Readonly<Record<string, AdsServiceProbeViewState>>;
   error?: string;
+  errorCode?: DiscoveryErrorCode;
   sessionCurrent: boolean;
   onScan: (req: DiscoverRequest) => void;
+  onProbeAdsServices: (
+    candidate: DiscoverCandidate,
+    ports: readonly number[],
+    origin: string
+  ) => void;
+  onReset: () => void;
   onAdd: (candidate: DiscoverCandidate) => void;
   onAdopt: (candidate: DiscoverCandidate) => void;
   onClose: () => void;
@@ -97,7 +123,12 @@ export function DiscoverPane({
     new Set(recommended.map((r) => r.key))
   );
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [adsPortDrafts, setAdsPortDrafts] = useState<Record<string, string>>({});
+  const [adsDraft, setAdsDraft] = useState<AdsDiscoveryDraft>(
+    DEFAULT_ADS_DISCOVERY_DRAFT
+  );
+  const lastAdsProbePortPlans = useRef<Map<string, string>>(new Map());
+  const adsScanSnapshot = useRef<AdsDiscoveryScanSnapshot | undefined>(undefined);
+  const [scanMode, setScanMode] = useState<"ads" | "selected">("selected");
   const [showTargeted, setShowTargeted] = useState(false);
   const [showRuntime, setShowRuntime] = useState(false);
   const selectedOrigin = origins.find((o) => o.id === origin) ?? origins[0];
@@ -107,6 +138,24 @@ export function DiscoverPane({
       ? selectedOrigin.runtimeDiscoveryDisabledReason ??
         `Start or connect ${selectedOrigin.label} before scanning from it.`
       : undefined;
+  const clearStaleIdentityResults = () => {
+    if (!sessionCurrent) {
+      return;
+    }
+    onReset();
+    adsScanSnapshot.current = undefined;
+    lastAdsProbePortPlans.current.clear();
+  };
+  const changeAdsDraft = (next: AdsDiscoveryDraft) => {
+    const identityChanged =
+      next.location !== adsDraft.location ||
+      next.host !== adsDraft.host ||
+      next.amsNetId !== adsDraft.amsNetId;
+    if (identityChanged) {
+      clearStaleIdentityResults();
+    }
+    setAdsDraft(next);
+  };
   const runtimeScanDisabledReason = (r: Row): string | undefined => {
     if (selectedStoppedRuntimeReason) {
       return selectedStoppedRuntimeReason;
@@ -123,7 +172,28 @@ export function DiscoverPane({
     );
   };
   const selectedScanRows = allRows.filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r));
-  const scanDisabled = scanning || selectedScanRows.length === 0;
+  const hasSelectedNonAdsScan = shouldShowScanSelected(
+    selectedScanRows.map((row) => row.protocol)
+  );
+  const adsSelected = checked.has("ads") && can(RECOMMENDED[0]);
+  const adsValidation = validateAdsDiscoveryDraft(adsDraft);
+  const adsHostError = adsSelected ? adsValidation.hostError : undefined;
+  const adsCustomPortError = adsSelected
+    ? adsValidation.customPortError
+    : undefined;
+  const adsAmsNetIdError = adsSelected
+    ? adsValidation.amsNetIdError
+    : undefined;
+  const adsProbeRunning = Object.values(adsServiceProbes).some(
+    (probe) => probe.probing
+  );
+  const discoveryBusy = scanning || adsProbeRunning;
+  const scanDisabled =
+    discoveryBusy ||
+    selectedScanRows.length === 0 ||
+    Boolean(adsHostError) ||
+    Boolean(adsAmsNetIdError) ||
+    Boolean(adsCustomPortError);
 
   // The schema can resolve after this pane mounts; seed the Recommended defaults once known (only
   // while nothing is checked yet, so it never overrides a user's choice).
@@ -136,7 +206,7 @@ export function DiscoverPane({
 
   useEffect(() => {
     if (scanning) {
-      setAdsPortDrafts({});
+      lastAdsProbePortPlans.current.clear();
     }
   }, [scanning]);
 
@@ -147,33 +217,88 @@ export function DiscoverPane({
       return next;
     });
 
-  const scan = () => {
-    const items: DiscoverRequestItem[] = allRows
-      .filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r))
-      .map((r) => ({
-        protocol: r.protocol,
-        cidr: r.input === "cidr" ? inputs[r.key]?.trim() || undefined : undefined,
-        host: r.input === "host" ? inputs[r.key]?.trim() || undefined : undefined,
-      }));
+  const startScan = (rows: readonly Row[], mode: "ads" | "selected") => {
+    const snapshot = createAdsDiscoveryScanSnapshot(origin, adsDraft);
+    adsScanSnapshot.current = snapshot;
+    lastAdsProbePortPlans.current.clear();
+    const items: DiscoverRequestItem[] = rows
+      .filter((r) => !runtimeScanDisabledReason(r))
+      .map((r) => {
+        if (r.protocol === "ads") {
+          return {
+            protocol: "ads",
+            host: snapshot.host,
+            targetAmsNetId: snapshot.targetAmsNetId,
+            amsPort: 851,
+          };
+        }
+        return {
+          protocol: r.protocol,
+          cidr: r.input === "cidr" ? inputs[r.key]?.trim() || undefined : undefined,
+          host: r.input === "host" ? inputs[r.key]?.trim() || undefined : undefined,
+        };
+      });
     if (items.length > 0) {
+      setScanMode(mode);
       onScan({
-        origin,
+        origin: snapshot.origin,
         originEndpoint: selectedOrigin?.controlEndpoint,
         items,
       });
     }
   };
 
+  const scan = () => startScan(selectedScanRows, "selected");
+  const findTwinCat = () => {
+    const adsRow = allRows.find((row) => row.protocol === "ads");
+    if (adsRow) {
+      startScan([adsRow], "ads");
+    }
+  };
+  const findPhase =
+    scanMode === "ads" && scanning
+      ? "finding"
+      : adsProbeRunning
+        ? "probing"
+        : "idle";
+  const adsFindDisabledReason =
+    adsHostError ??
+    adsAmsNetIdError ??
+    adsCustomPortError ??
+    runtimeScanDisabledReason(RECOMMENDED[0]);
+  const adsEmptyIdentityScan = Boolean(
+    !scanning &&
+      !error &&
+      progress.some(
+        (row) =>
+          row.protocol === "ads" &&
+          row.status === "done" &&
+          (row.count ?? 0) === 0
+      ) &&
+      !results.some((candidate) => candidate.protocol === "ads")
+  );
+  const adsIdentityRecoveryError = Boolean(
+    !scanning &&
+      error &&
+      offersAdsManualIdentityRecovery(errorCode) &&
+      adsScanSnapshot.current &&
+      !results.some((candidate) => candidate.protocol === "ads")
+  );
+  const showAdsIdentityRecovery =
+    adsEmptyIdentityScan || adsIdentityRecoveryError;
+
   const renderRow = (r: Row) => {
     const disabledReason = runtimeScanDisabledReason(r);
     return (
       <div key={r.key} style={{ ...ROW, opacity: disabledReason ? 0.68 : 1 }}>
         <input
+          aria-label={`Include ${r.label}`}
+          data-role={r.protocol === "ads" ? "ads-discovery-flow" : undefined}
           type="checkbox"
           checked={checked.has(r.key) && !disabledReason}
-          disabled={Boolean(disabledReason)}
+          disabled={Boolean(disabledReason) || discoveryBusy}
           onChange={() => {
-            if (!disabledReason) {
+            if (!disabledReason && !discoveryBusy) {
               toggle(r.key);
             }
           }}
@@ -200,6 +325,20 @@ export function DiscoverPane({
               style={{ marginTop: 4 }}
             />
           )}
+          {r.protocol === "ads" && (
+            <AdsDiscoveryControls
+              checked={checked.has(r.key)}
+              draft={adsDraft}
+              hostError={adsHostError}
+              amsNetIdError={adsAmsNetIdError}
+              customPortError={adsCustomPortError}
+              disabled={discoveryBusy}
+              findPhase={findPhase}
+              findDisabledReason={adsFindDisabledReason}
+              onFind={findTwinCat}
+              onChange={changeAdsDraft}
+            />
+          )}
         </div>
       </div>
     );
@@ -217,14 +356,25 @@ export function DiscoverPane({
 
       <div style={{ flex: 1, overflow: "auto" }}>
         <div className="trust-section">
-          <label style={LABEL}>Scan from</label>
-          <select value={origin} onChange={(e) => setOrigin(e.target.value)} className="trust-input" style={{ marginTop: 4 }}>
+          <label style={LABEL}>Discovery runs from</label>
+          <select
+            disabled={discoveryBusy}
+            value={origin}
+            onChange={(event) => {
+              if (event.target.value !== origin) {
+                clearStaleIdentityResults();
+                setOrigin(event.target.value);
+              }
+            }}
+            className="trust-input"
+            style={{ marginTop: 4 }}
+          >
             {origins.map((o) => (
               <option key={o.id} value={o.id}>{o.label}</option>
             ))}
           </select>
           <p className="trust-help" style={{ marginTop: 6 }}>
-            Choose the computer or runtime that can see the target network.
+            Choose where discovery commands run. TwinCAT location is selected separately below.
           </p>
         </div>
 
@@ -265,22 +415,53 @@ export function DiscoverPane({
           <div className="trust-section">
             {progress.map((p) => (
               <div key={p.protocol + p.label} style={{ fontSize: 10.5, color: "var(--trust-text-muted)", lineHeight: 1.5 }}>
-                {p.label} … {p.status === "scanning" ? "scanning" : `${p.count ?? 0} found`}
+                {discoveryProgressCopy(p)}
               </div>
             ))}
-            {!scanning && progress.length > 0 && results.length === 0 && (
+            {showAdsIdentityRecovery && adsScanSnapshot.current && (
+              <div
+                data-role="ads-empty-result"
+                data-state={adsIdentityRecoveryError ? "error" : "empty"}
+                style={EMPTY_RECOVERY}
+              >
+                <p className="trust-help" style={{ margin: 0 }}>
+                  {adsEmptyIdentityCopy(adsScanSnapshot.current)}
+                </p>
+                <button
+                  type="button"
+                  data-role="ads-empty-recovery"
+                  className="trust-button"
+                  onClick={() =>
+                    setAdsDraft((draft) =>
+                      adsScanSnapshot.current
+                        ? applyAdsEmptyRecovery(draft, adsScanSnapshot.current)
+                        : draft
+                    )
+                  }
+                >
+                  {adsScanSnapshot.current.location === "known_address"
+                    ? adsScanSnapshot.current.targetAmsNetId
+                      ? "Review ADS settings"
+                      : "Enter AMS Net ID"
+                    : "Use a known address"}
+                </button>
+              </div>
+            )}
+            {!scanning &&
+              !error &&
+              !adsEmptyIdentityScan &&
+              !progress.some((row) => row.status === "failed") &&
+              progress.length > 0 &&
+              results.length === 0 && (
               <p className="trust-help" style={{ marginTop: 6 }}>
                 {emptyResultCopy(selectedOrigin, hasRuntimeOriginReady)}
               </p>
             )}
             {results.map((c) => {
               const isRuntime = typeof c.params.control_endpoint === "string";
-              const isAds = c.protocol === "ads";
               const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
               const host = typeof c.params.host === "string" ? c.params.host : "";
               const displayEndpoint = formatDiscoveredEndpoint(endpoint);
-              const adsPortDraft = adsPortDrafts[c.id] ?? String(candidateAdsPort(c));
-              const adsPort = parseAdsPortInput(adsPortDraft);
               const sessionDisabledReason = candidateDisabledReason(
                 c.protocol,
                 discoverProtocols,
@@ -288,15 +469,59 @@ export function DiscoverPane({
                 !c.originRuntimeId ||
                   origins.some((candidateOrigin) => candidateOrigin.id === c.originRuntimeId)
               );
-              const actionDisabledReason =
-                sessionDisabledReason ??
-                (isAds ? adsPort.error : undefined);
+
+              if (c.protocol === "ads") {
+                const snapshot = adsScanSnapshot.current;
+                const currentPorts = snapshot
+                  ? createAdsDiscoveryScanSnapshot(snapshot.origin, adsDraft).ports
+                  : [];
+                const currentPortPlanKey = adsPortPlanKey(currentPorts);
+                const previousPortPlanKey = lastAdsProbePortPlans.current.get(c.id);
+                const serviceResultsStale = Boolean(
+                  snapshot &&
+                    adsServiceProbeResultsNeedRecheck(
+                      previousPortPlanKey,
+                      currentPortPlanKey,
+                      adsCustomPortError
+                    )
+                );
+                return (
+                  <AdsDiscoveryComputerCard
+                    key={c.id}
+                    candidate={c}
+                    probe={adsServiceProbes[c.id]}
+                    servicePorts={currentPorts}
+                    discoveryOriginLabel={selectedOrigin?.label ?? "This computer"}
+                    disabledReason={sessionDisabledReason ?? adsCustomPortError}
+                    serviceResultsStale={serviceResultsStale}
+                    onCheckServices={() => {
+                      if (!snapshot || adsCustomPortError) {
+                        return;
+                      }
+                      lastAdsProbePortPlans.current.set(c.id, currentPortPlanKey);
+                      onProbeAdsServices(c, currentPorts, snapshot.origin);
+                    }}
+                    onBrowse={(port) =>
+                      onAdd({
+                        ...c,
+                        params: {
+                          ...c.params,
+                          ams_port: port,
+                          ads_port_confirmed: true,
+                          ...(c.originRuntimeId
+                            ? { discovery_origin_runtime_id: c.originRuntimeId }
+                            : {}),
+                        },
+                      })
+                    }
+                  />
+                );
+              }
+
               const detail = isRuntime
                 ? runtimeDiscoveryDetail(host, displayEndpoint)
                 : [
-                    isAds
-                      ? `${adsTargetNetId(c.params)} · ADS port ${adsPort.port ?? adsPortDraft}`
-                      : protocolName(c.protocol),
+                    protocolName(c.protocol),
                     discoverySourceLabel(c.source),
                     discoveryConfidenceLabel(c.confidence),
                   ]
@@ -307,34 +532,6 @@ export function DiscoverPane({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "var(--trust-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</div>
                     <div style={{ fontSize: 10, color: "var(--trust-text-muted)", lineHeight: 1.25, overflowWrap: "anywhere" }}>{detail}</div>
-                    {isAds && (
-                      <label style={ADS_PORT_LABEL}>
-                        ADS port
-                        <input
-                          data-role="ads-port"
-                          type="number"
-                          min={1}
-                          max={65535}
-                          step={1}
-                          value={adsPortDraft}
-                          aria-invalid={Boolean(adsPort.error)}
-                          aria-describedby={adsPort.error ? `${c.id}-ads-port-error` : undefined}
-                          onChange={(event) =>
-                            setAdsPortDrafts((previous) => ({
-                              ...previous,
-                              [c.id]: event.target.value,
-                            }))
-                          }
-                          className="trust-input"
-                          style={ADS_PORT_INPUT}
-                        />
-                      </label>
-                    )}
-                    {isAds && adsPort.error && (
-                      <div id={`${c.id}-ads-port-error`} className="trust-field__message trust-field__message--error">
-                        {adsPort.error}
-                      </div>
-                    )}
                     {sessionDisabledReason && (
                       <div className="trust-field__message trust-field__message--error">
                         {sessionDisabledReason}
@@ -343,16 +540,13 @@ export function DiscoverPane({
                   </div>
                   <button
                     onClick={() => {
-                      if (actionDisabledReason) {
+                      if (sessionDisabledReason) {
                         return;
                       }
-                      const candidate = isAds && adsPort.port
-                        ? withCandidateAdsPort(c, adsPort.port)
-                        : c;
-                      isRuntime ? onAdopt(candidate) : onAdd(candidate);
+                      isRuntime ? onAdopt(c) : onAdd(c);
                     }}
-                    disabled={Boolean(actionDisabledReason)}
-                    title={actionDisabledReason}
+                    disabled={Boolean(sessionDisabledReason)}
+                    title={sessionDisabledReason}
                     className="trust-button"
                   >
                     {isRuntime ? "Adopt" : "+ Add"}
@@ -364,19 +558,35 @@ export function DiscoverPane({
         )}
       </div>
 
-      <div className="trust-section" style={{ display: "flex", gap: 8 }}>
-        <button
-          onClick={scan}
-          disabled={scanDisabled}
-          title={selectedScanRows.length === 0 ? "Select at least one available scan type." : undefined}
-          className={scanDisabled ? "trust-button" : "trust-button trust-button--primary"}
-          style={SCAN_BUTTON}
-        >
-          {scanning ? "Scanning…" : "Scan"}
-        </button>
-      </div>
+      {hasSelectedNonAdsScan && (
+        <div className="trust-section" style={{ display: "flex", gap: 8 }}>
+          <button
+            data-role="scan-selected"
+            onClick={scan}
+            disabled={scanDisabled}
+            title={
+              adsHostError ??
+              adsAmsNetIdError ??
+              adsCustomPortError ??
+              (selectedScanRows.length === 0
+                ? "Select at least one available scan type."
+                : undefined)
+            }
+            className="trust-button"
+            style={SCAN_BUTTON}
+          >
+            {scanning && scanMode === "selected"
+              ? `Scanning ${selectedScanRows.length} selected type${selectedScanRows.length === 1 ? "" : "s"}…`
+              : `Scan ${selectedScanRows.length} selected type${selectedScanRows.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      )}
     </aside>
   );
+}
+
+function adsPortPlanKey(ports: readonly number[]): string {
+  return ports.join(",");
 }
 
 function emptyResultCopy(origin: DiscoverOrigin | undefined, hasRuntimeOriginReady: boolean): string {
@@ -413,7 +623,7 @@ const PANEL: React.CSSProperties = {
   top: 0,
   right: 0,
   bottom: 0,
-  width: 290,
+  width: 340,
   zIndex: 7,
 };
 const ROW: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 2px" };
@@ -423,17 +633,4 @@ const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var
 const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: "var(--trust-radius-lg)", border: "1px solid var(--trust-border)", background: "var(--trust-surface)" };
 const ICON: React.CSSProperties = { minHeight: 24, padding: 0, width: 26 };
 const SCAN_BUTTON: React.CSSProperties = { flex: 1 };
-const ADS_PORT_LABEL: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  marginTop: 6,
-  color: "var(--trust-text-muted)",
-  fontSize: 10,
-};
-const ADS_PORT_INPUT: React.CSSProperties = {
-  width: 84,
-  minHeight: 24,
-  padding: "2px 6px",
-  fontSize: 11,
-};
+const EMPTY_RECOVERY: React.CSSProperties = { display: "grid", gap: 7, marginTop: 7, padding: 8, border: "1px solid var(--trust-border)", borderRadius: "var(--trust-radius-md)", background: "var(--trust-surface)" };

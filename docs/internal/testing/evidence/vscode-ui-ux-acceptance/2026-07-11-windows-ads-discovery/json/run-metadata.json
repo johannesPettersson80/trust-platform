@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-07-11T14:05:16.645Z",
+  "fixture_kind": "deterministic ADS UI fixture; not hardware proof",
+  "repo": "/home/johannes/projects/trust-platform-ads-windows-fix",
+  "extension_version": "0.24.32",
+  "network_canvas_bundle": "editors/vscode/media/networkCanvasWebview.js",
+  "network_canvas_bundle_sha256": "ec50b8fc400e3e65d4da46ceeb9e4a336f34317ef7d311f5dd469f29ca66b982",
+  "network_canvas_bundle_mtime": "2026-07-11T14:01:19.717Z",
+  "extension_host_entrypoint": "editors/vscode/out/extension.js",
+  "extension_host_entrypoint_sha256": "837faf92fe07a99d181da0cd8d6fb73b28110093190d0c856e3171f8c43a8315",
+  "extension_host_entrypoint_mtime": "2026-07-11T14:01:53.793Z",
+  "extension_host_out_js_tree": {
+    "sha256": "f18f57bcf061cf4f781ad3d886f1008591a002b5cabd495bc4b201198cdabdc6",
+    "file_count": 221,
+    "bytes": 2491840
+  },
+  "network_canvas_host_out_js_tree": {
+    "sha256": "7b3c0ae1ac59f05cb8b8d41f4d125fa93e809b0956d2c029c3d31eb87109d9a6",
+    "file_count": 47,
+    "bytes": 278248
+  },
+  "network_canvas_host_panel_sha256": "fdb87c8a1131dfc23ae59b66be537cc1f470def59da1c414b21fae4275f9d8ef",
+  "network_canvas_host_panel_mtime": "2026-07-11T14:01:52.077Z",
+  "discovery_origin_context_sha256": "fa029ba8fda9c2ebf19ed87255fff02492455a3120f22a59abaceed639286635",
+  "discovery_origin_context_mtime": "2026-07-11T14:01:51.961Z",
+  "ads_service_probe_controller_source": "editors/vscode/src/networkCanvas/adsServiceProbeController.ts",
+  "ads_service_probe_controller_source_sha256": "c2744e90bd398e6bd6def8a65c99d6ad91df2dd6ababfe3c0c3a7225f4d1e819",
+  "ads_service_probe_controller_out": "editors/vscode/out/networkCanvas/adsServiceProbeController.js",
+  "ads_service_probe_controller_out_sha256": "5a9ac64d1282229b1c78a2714ad7b93febb7d235335bfccaca8b93e44d28a763",
+  "candidate_git_head": "9c2bcc037404300d7a54974549249dfb40788160",
+  "candidate_git_status": "M .github/workflows/ci.yml\n M .github/workflows/release.yml\n M CHANGELOG.md\n M Cargo.lock\n M Cargo.toml\n M crates/trust-runtime/src/bin/trust-runtime/cli/comm.rs\n M crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs\n M crates/trust-runtime/src/bin/trust-runtime/comm.rs\n M crates/trust-runtime/src/control/comm_handlers/discover.rs\n M crates/trust-runtime/src/control/comm_handlers/discover_tests.rs\n M crates/trust-runtime/src/host/ads/backend_ads_rs.rs\n M crates/trust-runtime/src/host/ads/onboarding/discover.rs\n M crates/trust-runtime/src/host/ads/onboarding/wire.rs\n M crates/trust-runtime/tests/ads_cli_command.rs\n M docs/diagrams/architecture/runtime-ads-client.puml\n M docs/diagrams/architecture/system-architecture.puml\n M docs/diagrams/debug/debug-architecture.puml\n M docs/diagrams/generated/debug-breakpoint-after-launch-actual-observed.svg\n M docs/diagrams/generated/debug-breakpoint-after-launch-intended.svg\n M docs/diagrams/generated/debug-state-machine.svg\n M docs/diagrams/generated/full-software-map-generated.svg\n M docs/diagrams/generated/hir-semantics.svg\n M docs/diagrams/generated/lsp-request-flow.svg\n M docs/diagrams/generated/plcopen-motion-library.svg\n M docs/diagrams/generated/runtime-ads-client.svg\n M docs/diagrams/generated/runtime-ads-server.svg\n M docs/diagrams/generated/runtime-bytecode-vm-execution.svg\n M docs/diagrams/generated/runtime-cloud-planes.svg\n M docs/diagrams/generated/runtime-execution.svg\n M docs/diagrams/generated/runtime-interpreter-removal-map.svg\n M docs/diagrams/generated/step-over-sequence.svg\n M docs/diagrams/generated/syntax-pipeline.svg\n M docs/diagrams/generated/system-architecture.svg\n M docs/diagrams/generated/thread-architecture.svg\n M docs/diagrams/generated/trust-debug-architecture.svg\n M docs/diagrams/manifest.json\n M docs/internal/testing/checklists/architecture-improvements.md\n M docs/public/connect/external-systems/ads.md\n M docs/public/reference/cli/trust-runtime.md\n M docs/public/reference/config/ads-toml.md\n M docs/public/reference/version-history.md\n M docs/public/start/create-new-project.md\n M docs/public/troubleshooting.md\n M docs/release-gate-checklist.md\n M editors/vscode/media/networkCanvasWebview.js\n M editors/vscode/media/networkCanvasWebview.js.map\n M editors/vscode/package-lock.json\n M editors/vscode/package.json\n M editors/vscode/src/adsStatusSummary.ts\n M editors/vscode/src/debug.ts\n M editors/vscode/src/networkCanvas/adsImportUx.ts\n M editors/vscode/src/networkCanvas/discoveryController.ts\n M editors/vscode/src/networkCanvas/discoveryErrors.ts\n M editors/vscode/src/networkCanvas/networkCanvasPanel.ts\n M editors/vscode/src/networkCanvas/offlineComm.ts\n M editors/vscode/src/networkCanvas/protocolActions.ts\n M editors/vscode/src/networkCanvas/refreshCoordinator.ts\n M editors/vscode/src/networkCanvas/webview/AdsBrowseTargetControls.tsx\n M editors/vscode/src/networkCanvas/webview/BrowseTagsPanel.tsx\n M editors/vscode/src/networkCanvas/webview/DiscoverPane.tsx\n M editors/vscode/src/networkCanvas/webview/NetworkCanvasApp.tsx\n M editors/vscode/src/networkCanvas/webview/browseActions.ts\n M editors/vscode/src/networkCanvas/webview/browseSessionModel.ts\n M editors/vscode/src/networkCanvas/webview/discoverPaneModel.ts\n M editors/vscode/src/networkCanvas/webview/networkCanvasStyles.ts\n M editors/vscode/src/networkCanvas/webview/useBrowseSession.ts\n M editors/vscode/src/networkCanvas/webview/useDiscoverPane.ts\n M editors/vscode/src/networkCanvas/webview/useDiscoverySession.ts\n M editors/vscode/src/newProject.ts\n M editors/vscode/src/runtimeControlClient.ts\n M editors/vscode/src/simControl.ts\n M editors/vscode/src/test/suite/index.ts\n M editors/vscode/src/test/suite/network-canvas-github-issues.test.ts\n M editors/vscode/src/test/suite/runtime-control-client.test.ts\n M editors/vscode/src/test/suite/runtime-controls-contract.test.ts\n M editors/vscode/src/test/suite/ux-shell-contract.test.ts\n M scripts/prepush_ci_gate.sh\n M xtask/config/full_map_policy.json\n?? crates/trust-runtime/src/bin/trust-runtime/cli/tests/\n?? crates/trust-runtime/src/control/comm_handlers/discover/\n?? crates/trust-runtime/src/host/ads/backend_ads_rs/\n?? crates/trust-runtime/src/host/ads/onboarding/discover/\n?? crates/trust-runtime/src/host/ads/onboarding/wire/\n?? editors/vscode/src/debug/launchControl.ts\n?? editors/vscode/src/debug/sessionLogging.ts\n?? editors/vscode/src/networkCanvas/adsServiceProbeController.ts\n?? editors/vscode/src/networkCanvas/adsServiceProbeModel.ts\n?? editors/vscode/src/networkCanvas/discoveryBrowseLease.ts\n?? editors/vscode/src/networkCanvas/discoveryOriginContext.ts\n?? editors/vscode/src/networkCanvas/discoveryOriginTargets.ts\n?? editors/vscode/src/networkCanvas/networkCanvasWorkspace.ts\n?? editors/vscode/src/networkCanvas/panelPolling.ts\n?? editors/vscode/src/networkCanvas/webview/AdsDiscoveryFlow.tsx\n?? editors/vscode/src/test/suite/ads-service-probe-safety.test.ts\n?? editors/vscode/src/test/suite/debug-log-redaction.test.ts\n?? editors/vscode/src/test/suite/windows-ads-discovery-contract.test.ts\n?? editors/vscode/src/test/suite/windows-runtime-control-migration.test.ts\n?? editors/vscode/src/windowsRuntimeControlMigration.ts\n?? scripts/test_packaged_ads_runtime.py\n?? scripts/tests/",
+  "vscode_executable": "/home/johannes/projects/trust-platform/editors/vscode/.vscode-test/vscode-linux-arm64-1.128.0/code",
+  "vscode_executable_sha256": "ccab332e84e8fdcf354b5e75b1b4e33e860e2fdcc9bcbaf4a0a2fc1956218509",
+  "runtime_fixture": "fixtures/trust-runtime-ads-ui-fixture.py",
+  "runtime_fixture_sha256": "680d827acb30695c619d3a0c3e234ccea3ca1313d258cd3e1d9bafd3a647b1e4",
+  "real_runtime": "/home/johannes/projects/trust-platform-ads-windows-fix/target/ads-visual-candidate/trust-runtime",
+  "real_runtime_sha256": "34ed43ff1f97c3942a2808d014324c5d9d7f1b0cb0c9b34a45dd6a08d5d60f10",
+  "real_runtime_version": {
+    "status": 0,
+    "signal": null,
+    "stdout": "trust-runtime 0.24.32",
+    "stderr": ""
+  },
+  "trust_lsp": "/home/johannes/projects/trust-platform-ads-windows-fix/target/ads-visual-candidate/trust-lsp",
+  "trust_lsp_sha256": "929db4b756b81a8ec24b4db16e06c83b5ec294f04bd6d4172042df085615fc51",
+  "trust_lsp_version": {
+    "status": 0,
+    "signal": null,
+    "stdout": "",
+    "stderr": "2026-07-11T14:05:18.119208Z  INFO trust_lsp: Starting ST Language Server"
+  },
+  "trust_debug": "/home/johannes/projects/trust-platform-ads-windows-fix/target/ads-visual-candidate/trust-debug",
+  "trust_debug_sha256": "8fb0dcf98b7ec01daecef46dceb13893bcc02ed4bce3172862791ab02deb7ae1",
+  "trust_debug_version": {
+    "status": 0,
+    "signal": null,
+    "stdout": "",
+    "stderr": "2026-07-11T14:05:18.579198Z  INFO trust_debug: Starting trust-debug adapter"
+  }
+}

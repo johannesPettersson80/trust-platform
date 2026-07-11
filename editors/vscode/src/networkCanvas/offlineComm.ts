@@ -50,25 +50,36 @@ function runJson<T>(
   });
 }
 
-interface JsonCommandResult<T> {
+export interface JsonCommandResult<T> {
   ok: boolean;
   value?: T;
   message?: string;
 }
 
-function runJsonCommand<T>(
+export function runJsonCommand<T>(
   binary: string,
   args: string[],
-  cwd?: string
+  cwd?: string,
+  cancellationToken?: vscode.CancellationToken
 ): Promise<JsonCommandResult<T>> {
   return new Promise((resolve) => {
-    execFile(
+    let settled = false;
+    let cancellation: vscode.Disposable | undefined;
+    const finish = (result: JsonCommandResult<T>) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cancellation?.dispose();
+      resolve(result);
+    };
+    const child = execFile(
       binary,
       args,
       { cwd, timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error) {
-          resolve({
+          finish({
             ok: false,
             message:
               stderr.trim() ||
@@ -78,9 +89,9 @@ function runJsonCommand<T>(
           return;
         }
         try {
-          resolve({ ok: true, value: JSON.parse(stdout) as T });
+          finish({ ok: true, value: JSON.parse(stdout) as T });
         } catch (parseError) {
-          resolve({
+          finish({
             ok: false,
             message:
               parseError instanceof Error
@@ -90,6 +101,15 @@ function runJsonCommand<T>(
         }
       }
     );
+    const cancel = () => {
+      child.kill();
+      finish({ ok: false, message: "Command cancelled." });
+    };
+    if (cancellationToken?.isCancellationRequested) {
+      cancel();
+    } else if (cancellationToken) {
+      cancellation = cancellationToken.onCancellationRequested(cancel);
+    }
   });
 }
 
@@ -127,7 +147,7 @@ export function ensureAdsRuntimeEnabled(
   if (!fs.existsSync(runtimeTomlPath)) {
     return {
       ok: false,
-      message: "ADS tag import wrote the selected tags, but runtime.toml is missing so ADS cannot be enabled automatically.",
+      message: "ADS variable import wrote the selected variables, but runtime.toml is missing so ADS cannot be enabled automatically.",
     };
   }
 
@@ -325,7 +345,7 @@ export async function offlineAdsImportSymbols(
   if (!host) {
     return {
       applied: false,
-      message: "ADS tag import needs a target host.",
+      message: "ADS variable import needs a target host.",
     };
   }
   if (writable) {
@@ -359,7 +379,7 @@ export async function offlineAdsImportSymbols(
   if (!result.ok || !result.value) {
     return {
       applied: false,
-      message: result.message ?? "ADS tag import failed.",
+      message: result.message ?? "ADS variable import failed.",
     };
   }
   const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
@@ -376,7 +396,7 @@ export async function offlineAdsImportSymbols(
     lifecycle_effect: "restart_required",
     selected_count: result.value.selected_count,
     candidate_count: result.value.candidate_count,
-    message: `Added ${result.value.selected_count} ADS tag${
+    message: `Added ${result.value.selected_count} ADS variable${
       result.value.selected_count === 1 ? "" : "s"
     }. Restart the runtime to use the generated ST symbols.`,
     report: result.value,
@@ -389,7 +409,8 @@ export async function offlineBrowseSymbols(
   target: Record<string, unknown>,
   kind: "symbols" | "nodes" | "channels" = "symbols",
   connectionName?: string,
-  projectDir?: string
+  projectDir?: string,
+  cancellationToken?: vscode.CancellationToken
 ): Promise<BrowseSymbolsResponse | undefined> {
   const args = buildOfflineBrowseSymbolsArgs(
     protocol,
@@ -401,7 +422,8 @@ export async function offlineBrowseSymbols(
   const result = await runJsonCommand<BrowseSymbolsResponse>(
     runtimeBinary(context),
     args,
-    projectDir
+    projectDir,
+    cancellationToken
   );
   if (result.ok) {
     return result.value;
@@ -424,8 +446,14 @@ export async function offlineCommDiscover(
   context: vscode.ExtensionContext,
   protocol: string,
   origin: string,
-  scope?: { cidr?: string; host?: string; timeoutMs?: number }
-): Promise<DiscoverResponse | undefined> {
+  scope?: {
+    cidr?: string;
+    host?: string;
+    timeoutMs?: number;
+    targetAmsNetId?: string;
+    amsPort?: number;
+  }
+): Promise<DiscoverResponse> {
   const args = ["comm", "discover", "--protocol", protocol, "--origin", origin, "--json"];
   if (scope?.cidr) {
     args.push("--cidr", scope.cidr);
@@ -433,10 +461,20 @@ export async function offlineCommDiscover(
   if (scope?.host) {
     args.push("--host", scope.host);
   }
+  if (scope?.targetAmsNetId) {
+    args.push("--target-net-id", scope.targetAmsNetId);
+  }
+  if (scope?.amsPort) {
+    args.push("--ams-port", String(scope.amsPort));
+  }
   if (scope?.timeoutMs) {
     args.push("--timeout-ms", String(scope.timeoutMs));
   }
-  return runJson<DiscoverResponse>(runtimeBinary(context), args);
+  const result = await runJsonCommand<DiscoverResponse>(runtimeBinary(context), args);
+  if (!result.ok || !result.value) {
+    throw new Error(result.message ?? `${protocol} discovery failed.`);
+  }
+  return result.value;
 }
 
 // Scaffold a sibling runtime PROJECT under <fleetRoot> + register it in fleet.toml (offline, no

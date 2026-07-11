@@ -43,11 +43,12 @@ echo "Dry-run: ${DRY_RUN}"
 
 run_step "01" "Path hygiene guard" ./scripts/check_test_path_hygiene.sh
 run_step "02" "IEC log path guard" python3 ./scripts/check_iec_log_paths.py
-run_step "03" "Rust fmt check" cargo fmt --all --check
-run_step "04" "Clippy deny warnings (trust-hir + trust-lsp)" cargo clippy -p trust-hir -p trust-lsp -- -D warnings
-run_step "05" "trust-lsp unit/integration tests" cargo test -p trust-lsp --bin trust-lsp
-run_step "06" "trust-runtime cross-target warning gate" ./scripts/check_runtime_cross_target_warnings.sh
-run_step "07" "trust-runtime mesh TLS stability gate" ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8
+run_step "03" "Packaged Windows ADS gate unit contracts" env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_packaged_ads_runtime -v
+run_step "04" "Rust fmt check" cargo fmt --all --check
+run_step "05" "Clippy deny warnings (trust-hir + trust-lsp)" cargo clippy -p trust-hir -p trust-lsp -- -D warnings
+run_step "06" "trust-lsp unit/integration tests" cargo test -p trust-lsp --bin trust-lsp
+run_step "07" "trust-runtime cross-target warning gate" ./scripts/check_runtime_cross_target_warnings.sh
+run_step "08" "trust-runtime mesh TLS stability gate" ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8
 
 if [[ "${DRY_RUN}" -eq 0 ]] && ! rustup target list --installed | grep -q '^x86_64-pc-windows-gnu$'; then
   echo "Missing Rust target x86_64-pc-windows-gnu."
@@ -55,7 +56,7 @@ if [[ "${DRY_RUN}" -eq 0 ]] && ! rustup target list --installed | grep -q '^x86_
   exit 1
 fi
 
-run_step "08" "Windows test compile check (trust-lsp)" cargo check -p trust-lsp --tests --target x86_64-pc-windows-gnu
+run_step "09" "Windows test compile check (trust-lsp)" cargo check -p trust-lsp --tests --target x86_64-pc-windows-gnu
 
 echo
 echo "All pre-push gates passed."

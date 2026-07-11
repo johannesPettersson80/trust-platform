@@ -9,7 +9,7 @@ use crate::ads::{
 #[cfg(feature = "ads-wire")]
 use std::collections::BTreeMap;
 #[cfg(feature = "ads-wire")]
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 #[cfg(feature = "ads-wire")]
 use std::time::Duration;
 #[cfg(feature = "ads-wire")]
@@ -19,6 +19,9 @@ use trust_ads_core::{
 };
 use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, SymbolDescriptor, SymbolFlag};
 use trust_runtime_core::value::Value;
+
+#[cfg(feature = "ads-wire")]
+mod identity;
 
 #[cfg(feature = "ads-wire")]
 const DEFAULT_ADS_PLC_PORT: u16 = 851;
@@ -37,6 +40,16 @@ const GUARDED_WRITE_READBACK_DELAY: Duration = Duration::from_millis(50);
 /// schema types must not expose raw wire crate types.
 pub trait AdsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError>;
+    fn directed_identity(
+        &mut self,
+        target_ip: &str,
+    ) -> Result<DirectedIdentityObservation, OnboardingWireError> {
+        self.udp_identify(target_ip)
+            .map(|target| DirectedIdentityObservation {
+                target,
+                transport: DirectedIdentityTransport::Udp,
+            })
+    }
     fn udp_identify_all(
         &mut self,
         target_ip: &str,
@@ -78,6 +91,18 @@ pub trait AdsOnboardingWire {
     fn symbol_version(&mut self, target: &TargetIdentity) -> Result<u32, OnboardingWireError>;
     fn add_route(&mut self, request: &RouteAddRequest) -> Result<(), OnboardingWireError>;
     fn remove_route(&mut self, request: &RouteRemoveRequest) -> Result<(), OnboardingWireError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DirectedIdentityTransport {
+    Udp,
+    LocalRouter,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DirectedIdentityObservation {
+    pub target: TargetIdentity,
+    pub transport: DirectedIdentityTransport,
 }
 
 /// Explicit, reversible write probe requested by a user.
@@ -289,26 +314,21 @@ impl Default for AdsRsOnboardingWire {
 #[cfg(feature = "ads-wire")]
 impl AdsOnboardingWire for AdsRsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        let info = ads::udp::get_info((target_ip, ads::UDP_PORT)).map_err(|error| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                format!("ADS UDP identify failed for {target_ip}: {error}"),
-            )
-        })?;
-        Ok(TargetIdentity {
-            name: Some(info.hostname),
-            ip: target_ip.to_string(),
-            ams_net_id: info.netid.to_string(),
-            ams_port: DEFAULT_ADS_PLC_PORT,
-            tc_version: tc_version_string(info.twincat_version),
-        })
+        identity::identify_target(target_ip, self.tcp_probe_timeout).map(|result| result.target)
+    }
+
+    fn directed_identity(
+        &mut self,
+        target_ip: &str,
+    ) -> Result<DirectedIdentityObservation, OnboardingWireError> {
+        identity::identify_target(target_ip, self.tcp_probe_timeout)
     }
 
     fn udp_identify_all(
         &mut self,
         target_ip: &str,
     ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
-        udp_identify_all(target_ip, self.udp_broadcast_window)
+        identity::identify_all(target_ip, self.udp_broadcast_window)
     }
 
     fn tcp_probe_48898(&mut self, target_ip: &str) -> Result<(), OnboardingWireError> {
@@ -648,6 +668,7 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MockAdsOnboardingScenario {
     Healthy,
+    LocalRouter,
     WrongIp,
     WrongAmsNetId,
     MissingRoute,
@@ -714,6 +735,21 @@ impl AdsOnboardingWire for MockAdsOnboardingWire {
             ));
         }
         Ok(self.target.clone())
+    }
+
+    fn directed_identity(
+        &mut self,
+        target_ip: &str,
+    ) -> Result<DirectedIdentityObservation, OnboardingWireError> {
+        self.udp_identify(target_ip)
+            .map(|target| DirectedIdentityObservation {
+                target,
+                transport: if self.scenario == MockAdsOnboardingScenario::LocalRouter {
+                    DirectedIdentityTransport::LocalRouter
+                } else {
+                    DirectedIdentityTransport::Udp
+                },
+            })
     }
 
     fn udp_identify_all(
@@ -837,119 +873,6 @@ impl AdsOnboardingWire for MockAdsOnboardingWire {
 
     fn remove_route(&mut self, _request: &RouteRemoveRequest) -> Result<(), OnboardingWireError> {
         Ok(())
-    }
-}
-
-#[cfg(feature = "ads-wire")]
-fn udp_identify_all(
-    target_ip: &str,
-    receive_window: Duration,
-) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
-    let request = ads::udp::Message::new(ads::udp::ServiceId::Identify, ads::AmsAddr::default());
-    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|error| {
-        OnboardingWireError::new(
-            OnboardingWireErrorKind::UdpIdentifyBlocked,
-            format!("bind ADS UDP identify socket: {error}"),
-        )
-    })?;
-    socket.set_broadcast(true).map_err(|error| {
-        OnboardingWireError::new(
-            OnboardingWireErrorKind::UdpIdentifyBlocked,
-            format!("enable ADS UDP broadcast: {error}"),
-        )
-    })?;
-    socket
-        .set_read_timeout(Some(receive_window))
-        .map_err(|error| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                format!("set ADS UDP identify timeout: {error}"),
-            )
-        })?;
-    socket
-        .send_to(request.as_bytes(), (target_ip, ads::UDP_PORT))
-        .map_err(|error| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                format!("send ADS UDP identify to {target_ip}: {error}"),
-            )
-        })?;
-
-    let mut results = Vec::new();
-    let mut reply = [0_u8; 576];
-    loop {
-        match socket.recv_from(&mut reply) {
-            Ok((len, peer)) => {
-                let Ok(message) =
-                    ads::udp::Message::parse(&reply[..len], ads::udp::ServiceId::Identify, true)
-                else {
-                    continue;
-                };
-                let identity = target_identity_from_udp_message(&message, peer);
-                if !results.iter().any(|existing: &TargetIdentity| {
-                    existing.ip == identity.ip || existing.ams_net_id == identity.ams_net_id
-                }) {
-                    results.push(identity);
-                }
-            }
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                ) =>
-            {
-                break;
-            }
-            Err(error) => {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::UdpIdentifyBlocked,
-                    format!("receive ADS UDP identify replies: {error}"),
-                ));
-            }
-        }
-    }
-
-    if results.is_empty() {
-        Err(OnboardingWireError::new(
-            OnboardingWireErrorKind::UdpIdentifyBlocked,
-            format!("ADS UDP identify failed for {target_ip}: no target answered"),
-        ))
-    } else {
-        Ok(results)
-    }
-}
-
-#[cfg(feature = "ads-wire")]
-fn target_identity_from_udp_message(
-    message: &ads::udp::Message,
-    peer: SocketAddr,
-) -> TargetIdentity {
-    TargetIdentity {
-        name: message
-            .get_str(ads::udp::Tag::ComputerName)
-            .filter(|name| !name.is_empty())
-            .map(ToString::to_string),
-        ip: peer.ip().to_string(),
-        ams_net_id: message.get_source().netid().to_string(),
-        ams_port: DEFAULT_ADS_PLC_PORT,
-        tc_version: message
-            .get_bytes(ads::udp::Tag::TCVersion)
-            .and_then(parse_tc_version_tag)
-            .and_then(tc_version_string),
-    }
-}
-
-#[cfg(feature = "ads-wire")]
-fn parse_tc_version_tag(bytes: &[u8]) -> Option<(u8, u8, u16)> {
-    (bytes.len() >= 4).then(|| (bytes[0], bytes[1], u16::from_le_bytes([bytes[2], bytes[3]])))
-}
-
-#[cfg(feature = "ads-wire")]
-fn tc_version_string(version: (u8, u8, u16)) -> Option<String> {
-    if version == (0, 0, 0) {
-        None
-    } else {
-        Some(format!("{}.{}.{}", version.0, version.1, version.2))
     }
 }
 

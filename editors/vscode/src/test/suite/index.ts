@@ -1,15 +1,18 @@
 import Mocha from "mocha";
 
 export function run(): Promise<void> {
+  const grep = process.env.ST_VSCODE_TEST_GREP?.trim();
   const mocha = new Mocha({
     ui: "tdd",
     color: true,
+    ...(grep ? { grep } : {}),
   });
 
   mocha.suite.emit("pre-require", global, "nofile", mocha);
   require("./diagnostics.test");
   require("./check-program.integration.test");
   require("./debug-io.integration.test");
+  require("./debug-log-redaction.test");
   require("./hmi.integration.test");
   require("./lsp.integration.test");
   require("./runtime-default-settings.integration.test");
@@ -42,6 +45,9 @@ export function run(): Promise<void> {
   require("./network-canvas.test");
   require("./network-canvas-github-issues.test");
   require("./network-canvas-session-model.test");
+  require("./windows-ads-discovery-contract.test");
+  require("./ads-service-probe-safety.test");
+  require("./windows-runtime-control-migration.test");
   require("./ads-status-summary.test");
   require("./libraries-model.test");
   require("./library-code-actions.test");

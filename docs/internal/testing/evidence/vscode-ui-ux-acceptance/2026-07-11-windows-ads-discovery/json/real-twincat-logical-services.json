@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-11T15:53:08+02:00",
+  "status": "passed",
+  "purpose": "Read-only verification that the final discovery runtime checks the full preset TwinCAT logical ADS service plan against a real TwinCAT 3 target and returns structured per-service results.",
+  "discovery_computer": {
+    "host": "192.168.77.10",
+    "derived_ams_net_id": "192.168.77.10.1.1"
+  },
+  "twin_cat_target": {
+    "host": "192.168.77.11",
+    "ams_net_id": "100.67.6.217.1.1",
+    "computer_name": "TWINCAT-LAPTOP",
+    "twin_cat_version": "3.1.4026"
+  },
+  "candidate_binary": {
+    "path": "target/ads-visual-candidate/trust-runtime",
+    "sha256": "34ed43ff1f97c3942a2808d014324c5d9d7f1b0cb0c9b34a45dd6a08d5d60f10"
+  },
+  "discovery": {
+    "command": "trust-runtime comm discover --protocol ads --host 192.168.77.11 --timeout-ms 3000 --json",
+    "source": "ads_identify",
+    "confidence": "observed",
+    "candidate_count": 1
+  },
+  "service_plan": [851, 852, 853, 854, 301, 501],
+  "checks": [
+    {
+      "port": 851,
+      "service": "PLC runtime 1",
+      "status": "available",
+      "root_count": 5,
+      "leaf_symbol_count": 166,
+      "root_names": [
+        "GVL_truST_Test",
+        "Global_Variables",
+        "MAIN",
+        "TwinCAT_PreventOnlineChangeGvl",
+        "TwinCAT_SystemInfoVarList"
+      ]
+    },
+    {
+      "port": 852,
+      "service": "PLC runtime 2",
+      "status": "unavailable",
+      "error_code": "ads_port_unavailable",
+      "ads_error": "0x6 target port not found"
+    },
+    {
+      "port": 853,
+      "service": "PLC runtime 3",
+      "status": "unavailable",
+      "error_code": "ads_port_unavailable",
+      "ads_error": "0x6 target port not found"
+    },
+    {
+      "port": 854,
+      "service": "PLC runtime 4",
+      "status": "unavailable",
+      "error_code": "ads_port_unavailable",
+      "ads_error": "0x6 target port not found"
+    },
+    {
+      "port": 301,
+      "service": "Additional task 1",
+      "status": "unavailable",
+      "error_code": "ads_port_unavailable",
+      "ads_error": "0x6 target port not found"
+    },
+    {
+      "port": 501,
+      "service": "NC SAF service",
+      "status": "unavailable",
+      "error_code": "ads_port_unavailable",
+      "ads_error": "0x6 target port not found"
+    }
+  ],
+  "postcondition": {
+    "open_ads_tcp_connections_from_discovery_computer": 0,
+    "notes": "Every check completed and closed its temporary ADS connection. Non-running logical services were reported individually and did not turn the whole discovery result into zero devices."
+  }
+}

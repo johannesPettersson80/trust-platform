@@ -18,7 +18,7 @@ export interface BrowseAction {
 export function browseAction(protocol: string): BrowseAction | undefined {
   switch (protocol) {
     case "ads":
-      return { label: "Browse tags", title: "Browse tags", actionLabel: "Add tags", mode: "tags", local: false, route: true, kind: "symbols" };
+      return { label: "Browse variables", title: "Browse variables", actionLabel: "Add variables", mode: "tags", local: false, route: true, kind: "symbols" };
     case "ethercat":
       return { label: "Browse channels", title: "Browse PDO channels", actionLabel: "Add channels", mode: "tags", local: false, route: false, kind: "channels" };
     case "opcua_client":

@@ -186,15 +186,38 @@ export function useBrowseSession(
     [post]
   );
 
-  const close = useCallback(() => {
-    requestIdRef.current += 1;
-    panelRef.current = undefined;
-    dispatch({ type: "close" });
-  }, []);
+  const closePanel = useCallback(
+    (releaseDiscoveryOrigin: boolean) => {
+      const panel = panelRef.current;
+      const originRuntimeId =
+        typeof panel?.target.discovery_origin_runtime_id === "string"
+          ? panel.target.discovery_origin_runtime_id
+          : undefined;
+      const leaseId =
+        typeof panel?.target.discovery_origin_lease_id === "string"
+          ? panel.target.discovery_origin_lease_id
+          : undefined;
+      if (releaseDiscoveryOrigin && originRuntimeId) {
+        post({
+          type: "releaseDiscoveryOrigin",
+          originRuntimeId,
+          leaseId,
+          browseSessionId: sessionId,
+        });
+      }
+      requestIdRef.current += 1;
+      panelRef.current = undefined;
+      dispatch({ type: "close" });
+    },
+    [post, sessionId]
+  );
+
+  const close = useCallback(() => closePanel(true), [closePanel]);
 
   const addTags = useCallback(
     (keys: string[], writable: boolean) => {
       const panel = panelRef.current;
+      let discoveryOriginConsumedByAdd = false;
       if (panel && keys.length > 0) {
         const nodes = selectedLeaves(treeRef.current, new Set(keys));
         if (panel.protocol === "opcua_client") {
@@ -216,16 +239,20 @@ export function useBrowseSession(
         } else {
           post({
             type: panel.mode === "expose" ? "addExpose" : "addTags",
+            browseSessionId: sessionId,
             protocol: panel.protocol,
             target: panel.target,
             paths: nodes.map((node) => node.path),
             writable,
           });
+          discoveryOriginConsumedByAdd =
+            typeof panel.target.discovery_origin_runtime_id === "string";
         }
       }
-      close();
+      // The host releases a discovery-origin credential only after this add request finishes.
+      closePanel(!discoveryOriginConsumedByAdd);
     },
-    [close, post]
+    [closePanel, post, sessionId]
   );
 
   return {

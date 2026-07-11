@@ -11,7 +11,8 @@ title truST Runtime: Beckhoff ADS Client Architecture
 
 package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
     component "VS Code ADS Panel\n(runtime-child webview)" as vscodeAdsPanel
-    component "Devices & Connections\nAMS Net ID + ADS port chooser" as networkCanvasAds
+    component "Devices & Connections\none Find TwinCAT flow" as networkCanvasAds
+    component "adsServiceProbeController.ts + model\nconfirmed bounded service checks\n+ selected-runtime ads.status guard" as adsServiceProbe
     component "Runtime Pane\nsingle selected runtime context" as runtimePane
     component "Setup Web Wizard\n/setup/ads on runtime host" as setupAds
     component "CLI Backend\ntrust-runtime ads ..." as adsCli
@@ -21,6 +22,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "runtimeTarget.ts\nendpoint + mode + reachability" as runtimeTarget
     component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
     component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
+    component "control/comm_handlers/discover/ads.rs + onboarding/wire/identity.rs\nTwinCAT computer identity only\nlocal router first for loopback; UDP for LAN/known host" as commDiscoverAds
     component "control/comm_handlers/browse_symbols.rs\nport-aware Symbol Upload + structured errors" as commBrowse
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
@@ -50,6 +52,7 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
     component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
+    component "backend_ads_rs/source_policy.rs + connection.rs\nloopback router probe then Request/direct fallback\nremote Addr or Auto" as sourcePolicy
     component "mock.rs\nCI transport" as mock
 }
 
@@ -62,14 +65,21 @@ package "Compiled Runtime Model" as runtimeModel #LightGreen {
     component "RuntimeBundle::load\nloads ads.toml when enabled" as bundleLoad
 }
 
-cloud "Beckhoff TwinCAT PLC\nADS server" as twincat #LightGray
+cloud "Beckhoff TwinCAT computer" as twincat #LightGray {
+    component "Identity discovery\nlocal AMS-router open-port handshake\nor UDP 48899" as twincatIdentity
+    component "AMS router transport\nTCP 48898" as twincatRouter
+    component "Logical ADS services\nPLC 851-854 + task 301 + NC SAF 501\n+ four explicit custom" as twincatServices
+}
 component "OPC UA Gateway" as opcua #Wheat
 component "HMI + Control/Debug + Historian" as surfaces #Wheat
 
 runtimePane --> runtimeTarget : owns runtime selection
 vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)
 networkCanvasAds --> runtimeTarget : reads selected runtime
-networkCanvasAds --> commBrowse : comm.browse_symbols\ntarget AMS Net ID + ADS port
+networkCanvasAds --> commDiscoverAds : one identity request\nlocal / LAN / known address
+networkCanvasAds --> adsServiceProbe : after identity is found and the user\nconfirms other host ADS clients are stopped\nsix preset + four explicit ports (max 10)
+adsServiceProbe --> adsControl : selected-runtime ads.status preflight\nfail closed for active/unverifiable I/O
+adsServiceProbe --> commBrowse : confirmed sequential comm.browse_symbols\none logical service at a time
 networkCanvasAds --> onboardingEngine : selected symbols + same port\nimport into ads.toml
 vscodeAdsPanel --> runtimeControlClient : calls selected endpoint
 runtimeControlClient --> adsControl : JSON-line commands
@@ -81,7 +91,10 @@ onboardingEngine --> diagnosticsSchema
 adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
 adsCli --> onboardingEngine : scriptable backend
 onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
-commBrowse --> twincat : Symbol Upload on exactly\none selected ADS server port
+commDiscoverAds --> twincatIdentity : loopback router identity first;\notherwise broadcast or directed UDP Identify
+commDiscoverAds ..> adsServiceProbe : complete manual Host + AMS Net ID\nbypasses blocked UDP identity
+commBrowse --> twincatRouter : AMS request over router transport
+twincatRouter --> twincatServices : route to exactly one\nlogical target port
 onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
 onboardingEngine --> adsSnapshot : live symbol snapshot
 onboardingEngine --> generatedSt : generated ST preview/write
@@ -122,7 +135,9 @@ worker --> cache : updates reads/notifications\nand drains writes
 worker --> transport : owns network calls
 backend ..|> transport
 mock ..|> transport
-backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
+backend --> sourcePolicy
+sourcePolicy --> twincatRouter : loopback probes for router-assigned Source::Request;\ndirect simulator fallback uses Addr/Auto; remote uses pinned Addr or Auto
+backend --> twincatRouter : ADS/AMS sum-up read/write\nnotifications + symbol version
 
 scan --> adsSubsystem : apply_inputs / capture_outputs
 adsSubsystem --> cache : copy input values / queue output writes\n(no socket calls)
@@ -144,6 +159,27 @@ note right of vscodeAdsPanel
     runtime-host Doctor plus deployed
     ADS status. Authoring-only laptop
     imports never earn that badge.
+end note
+
+note right of adsServiceProbe
+    Computer identity and logical-service
+    availability are separate states. A
+    missing route or unavailable PLC port
+    never erases the discovered computer.
+    The UI never sweeps all 65,535 ports.
+
+    Every check/recheck needs fresh consent
+    because another direct TCP/ADS client can
+    interrupt live I/O between the same hosts.
+    Cancellation kills the local CLI process.
+    A selected runtime with active/recovering
+    or unverifiable ADS I/O is never probed.
+end note
+
+note right of twincatRouter
+    TCP 48898 is the AMS router socket.
+    ADS 851, 852, ... are logical services
+    inside that router, not TCP ports.
 end note
 
 note right of backend

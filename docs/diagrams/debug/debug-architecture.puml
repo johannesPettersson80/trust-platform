@@ -14,12 +14,20 @@ title IEC 61131-3 ST Debug System Architecture
 ' ============================================================
 package "VS Code Extension" as vscode #LightBlue {
     component "DebugConfigurationProvider" as configProvider <<debug/configuration.ts>>
+    component "Launch control preparation\nWindows tokenless-project migration\nthen per-workspace endpoint injection" as launchControl <<debug/launchControl.ts>>
+    component "Debug session logging\nlaunch + attach credential redaction" as sessionLogging <<debug/sessionLogging.ts>>
     component "DebugAdapterDescriptorFactory" as adapterFactory <<debug.ts>>
     component "DebugAdapterTrackerFactory" as tracker <<debug.ts>>
     component "Runtime Panel\n(Webview)" as runtimePanel <<ioPanel.ts + io-panel/*>>
+    component "Local simulator control\nper-workspace endpoint + token" as simControl <<simControl.ts>>
+    component "New Project runtime.toml builder\nplatform-safe authenticated control" as projectScaffold <<newProject.ts>>
 
-    configProvider --> adapterFactory : resolves config
+    configProvider --> launchControl : resolves launch control
+    launchControl --> adapterFactory : authenticated config
     adapterFactory --> tracker : creates tracker
+    tracker --> sessionLogging : redacts DAP + session logs
+    simControl --> configProvider : injects matching controlEndpoint\n+ controlAuthToken
+    projectScaffold ..> simControl : same platform security contract
 }
 
 note right of runtimePanel
@@ -204,6 +212,7 @@ package "ControlServer (IPC)" as controlServer #LightCoral {
 
 remoteSession -down-> controlServer : JSON IPC (debug.*)
 controlBridge -down-> controlServer : JSON IPC (debug.*)
+simControl -down-> controlServer : Unix socket on Unix; per-workspace\nloopback TCP + auth token on Windows
 
 note right of remoteSession
     Attach mode bypasses DebugRuntime and
@@ -214,6 +223,17 @@ note right of controlBridge
     Launch mode spins up a local
     control IPC for inline values
     and tooling integration.
+end note
+
+note right of simControl
+    Windows never uses an unauthenticated
+    fixed TCP endpoint. New and migrated
+    runtime.toml files have a standalone
+    project token. One VS Code workspace
+    separately reuses an in-memory endpoint
+    and random in-memory workspace token
+    for its simulator. Launch and attach
+    credentials are never written to logs.
 end note
 
 ' ============================================================
