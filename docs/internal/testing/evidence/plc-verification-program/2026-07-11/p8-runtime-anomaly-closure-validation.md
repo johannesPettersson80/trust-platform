@@ -2,8 +2,9 @@
 
 Date: 2026-07-11
 Phase 7 predicate fix: `724210c405e21068872c886e42cc028f55b096ec`
-Implementation commit: `ccdcddc3a24909dba627c757aa8cdca3c62a002b`
-Report and board checkpoint: `2c0256bd1e657c962fd258522b9271588005a917`
+Initial implementation commit: `ccdcddc3a24909dba627c757aa8cdca3c62a002b`
+Review-hardening commit: `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`
+Final report and board checkpoint: `bbb8e16949ba28c6e3a2b7ed0a2b9c21fe07efec`
 
 ## Scope
 
@@ -42,8 +43,22 @@ all closed before the implementation commit:
   rejected before live analysis or any file write.
 
 The post-hardening adversarial re-review passed 32/32 focused tests and found no
-remaining issue in those scopes. The final targeted contract run passed 58/58
-tests in 55.404 seconds.
+remaining issue in those scopes. Final review then found and closed three more
+defense-in-depth gaps before handoff:
+
+- provenance timestamps now require a real timezone-qualified ISO-8601 value
+  in both schema and semantic validation;
+- schema-invalid IDs, unhashable leaves, missing leaves, and Markdown renderer
+  inputs return validation failures instead of raising exceptions; and
+- the taxonomy schema drift check now requires the exact allocation-policy
+  phrase list instead of accepting any two strings.
+
+The duplicate hand-maintained taxonomy schema fixture was removed in favor of
+the committed schema. Direct and full-validator fixtures cover the static
+taxonomy type guard, while table-driven at-rest fixtures cover the report
+boundary. A recursive 8,250-mutation semantic and Markdown probe returned zero
+exceptions. The final targeted contract run passed 64/64 tests in 62.819
+seconds.
 
 ## Measured Audit
 
@@ -77,15 +92,15 @@ closed.
 ## Report Digests
 
 The Phase 8 report was generated independently from clean implementation commit
-`ccdcddc3a24909dba627c757aa8cdca3c62a002b` with timestamp
-`2026-07-11T16:00:00+02:00` on `linux-aarch64`.
+`bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` with timestamp
+`2026-07-11T15:45:29+02:00` on `linux-aarch64`.
 
 - JSON SHA-256:
-  `f29f6ac961f954d730ff236c3e32823e50d0d6e59353f95e093dd65267860166`
+  `4f8ded3df70ca63bfb9b078da7e25440665ca126e4e9dcec0d10851875bd180b`
 - Input SHA-256:
-  `sha256:b8c36d03b7d63a8ca5934d57826826031767d01d15b0fa3e33e7fa38c8290349`
+  `sha256:91bdfa1fffd95a3c589a1d0217a88ca3283e457f5e076825c718ceb8c9afd592`
 - Durable Markdown SHA-256:
-  `912ba7d3d61eebaf894eea1895cf275075d0a4490c942b7a53be7f5753ec5b37`
+  `11e480f45c531db142d10abc464c6c70856027c1fc624fddf3440d3f46feed10`
 
 The shared validator input closure changed, so eleven historical report pairs
 were regenerated from the same clean commit and timestamp, one pristine
@@ -94,17 +109,17 @@ zero, and all temporary worktrees were removed.
 
 | Report JSON | SHA-256 |
 | --- | --- |
-| `test-class-completeness.json` | `eff9d8d62563a37e2316aea2e1a6e15b55c1c49396d0df6b1376af69bdf8ae99` |
-| `coverage-matrix-gaps.json` | `55ba9d9a1315dc4e499313bd4fb37944f4f672f272e6991b3759f0c1ca88f86d` |
-| `malformed-input-coverage.json` | `c88be302606a999019a667bc7ea552f0e1d5c5e802c0860d88faef5803403471` |
-| `unmapped-test-debt.json` | `ff3b0578fcf766ee70205a339ff4eea9f2b6e75f3af048f80396fcdae116ad3a` |
-| `test-refactor-assessment.json` | `5b4c912cb141d7c004bbe3be7b47b4f2d17b7e31daf4099be760f42dd84b729c` |
-| `ignored-test-inventory.json` | `e91f16efedfa9163f055b7be3c53b25665710c5f128cdcdfc276c0bc9311b5b3` |
-| `invariant-seed-audit.json` | `0aaad47daa693b85ca1d3e1110cfc03e348c9bef8c6a9318c54f6b67a130e1e9` |
-| `spec-completeness.json` | `3b009cef3d709eff0ad4ce11193da73f5e40dbd54684f4daaf6ed82e96afea7a` |
-| `phase5-suite-audit.json` | `1ded443c5e6eccbec1536dafa37ce58f59fdf33b51438cbb092133b531456283` |
-| `requirement-oracle-audit.json` | `a4f02d2a01b2ba132e8e0afedd3e4d08b27a528cd1a6729448670730bab0beba` |
-| `conformance-alignment.json` | `03286024d5b5b3bb235b502f6c2cd0a7d9b5364a100f246d01d75f31ed4a5881` |
+| `test-class-completeness.json` | `6a9a71d10ca42195e9316d2e193914a07432080aa92b6854a041404eab93be9d` |
+| `coverage-matrix-gaps.json` | `ef94cf871b29cd1c15f07e070786bb623e9f51db532a31cc2ed9a505fa8f7ac3` |
+| `malformed-input-coverage.json` | `6dc3119877543da5a11cc6c71a40e58e9808095f53e8a0faf9b7cb4ce8b91243` |
+| `unmapped-test-debt.json` | `37f25fe027ef0060b9e0189125c52c78ccc6fa4decffc5794672ce08834146d2` |
+| `test-refactor-assessment.json` | `e51fd2a6f8a572e37afc3193ed971a49f9783179a0c8a97052e0187799bd5a13` |
+| `ignored-test-inventory.json` | `0b1421bf23a054f6e789d54fba07ff2e3532da61277fbadc49803195e3ecd9ce` |
+| `invariant-seed-audit.json` | `f561a3928f77cbf26be506f693e8163f423c00fd1b343e18327f468a1bf6614b` |
+| `spec-completeness.json` | `d60b708f6df0523ca5cb41360371e1c799d21418b35f72090b951499811b15c2` |
+| `phase5-suite-audit.json` | `4d2617a127a87d23ba1002b3697c806532cf7295bf98279e3e085c01c7eaf583` |
+| `requirement-oracle-audit.json` | `989e9cb0d7e62048f5949a528ab297473245d779142ce892ba03a54d77e73614` |
+| `conformance-alignment.json` | `aa9c5d862cbafd8ef83ab4e54916a5221a34911e509606aa7dcfab9add625418` |
 
 The existing-test catalog, tooling self-test report, four case tables, and
 bytecode-validator mutation inputs did not bind the changed report closure and
@@ -113,10 +128,10 @@ SHA-256 `fd8b7a7ab1f73b639b198678782072dee19dd5c2f0f9b19fb945dedf22069d4a`.
 
 ## Local Validation
 
-The canonical focused runner discovered 44 modules and passed 497/497 tests in
-503.323 seconds. The verification-tooling fixture CLI matched 27/27 cases. Both
-metadata entry points validated 330 records at the clean implementation commit
-and 331 after the Phase 8 audit evidence row was indexed.
+The canonical focused runner discovered 44 modules and passed 503/503 tests in
+315.215 seconds at the final report checkpoint. The verification-tooling
+fixture CLI matched 27/27 cases. Both metadata entry points validated 332
+records after the Phase 8 audit and closure evidence rows were indexed.
 
 The ignored-test join reported 88 discovered and registered, 63 unknown, and
 zero catalog-mapped. Catalog staleness validated six catalog rows against 3,816
@@ -159,23 +174,33 @@ git diff --check
 
 ## Remote Validation
 
-The isolated `trust-builder` clone
-`$HOME/projects/trust-platform-p8-validation-ccdcddc3a` remained clean at the
-exact implementation commit. The host was `x86_64-unknown-linux-gnu` with
+The isolated `trust-builder` clone first ran the broad Rust gates at initial
+implementation commit `ccdcddc3a24909dba627c757aa8cdca3c62a002b`.
+The hardening delta contains only Phase 8 Python validation, tests, and one
+JSON schema. The clone was then advanced to
+`bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`, renamed to
+`$HOME/projects/trust-platform-p8-validation-bb82eaf9c`, and the final Python
+surface plus exact `verification-veryquick` recipe were rerun there. The host
+was `x86_64-unknown-linux-gnu` with
 `rustc 1.95.0 (59807616e 2026-04-14)` and
 `cargo 1.95.0 (f2d3ce0bd 2026-03-21)`.
 
 ```text
 just fmt                       2.25 seconds, exit 0
 just clippy                  104.33 seconds, exit 0
-just verification-veryquick                 exit 0, 497/497 Python tests
 just test-all                568.97 seconds, exit 0, 880 passed / 19 ignored
+python3 scripts/run_verification_focused_tests.py
+                              114.68 seconds, exit 0, 503/503 tests
+just verification-veryquick  387.28 seconds, exit 0, 503/503 Python tests
 ```
 
-The remote metadata gate validated 330 records at the clean implementation
-commit. After the gate, its generated Cargo target and temporary directory were
-removed, restoring 65 GB free under `/home/johannes` and 4 GB under `/tmp`.
-The clean source clone was retained for review reproduction.
+The final remote metadata gate validated 332 records. The exact veryquick
+recipe also passed its HIR, runtime, bytecode-validator, and single-case
+conformance commands. Generated Cargo targets and temporary directories were
+removed after both gate rounds. The initial cleanup restored 65 GB free under
+`/home/johannes`; after the final cleanup the shared builder reported 51 GB
+free under `/home/johannes` and 3.8 GB under `/tmp`. The final clean source
+clone was retained for review reproduction.
 
 ## Preserved Boundaries
 
