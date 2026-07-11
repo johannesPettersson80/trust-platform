@@ -16,6 +16,7 @@ from scripts.verification.conformance_alignment import (
     RUNNER_REVIEWED_SOURCE_PATHS,
     V1_CATEGORIES,
     V2_CATEGORIES,
+    _coverage_gap,
     analyze_conformance_alignment,
 )
 from scripts.verification.conformance_alignment_contract import (
@@ -202,6 +203,26 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
             all(row["semantic_oracle_state"] == "not_assessed" for row in gaps)
         )
         self.assertTrue(all(row["gap_status"] == "open" for row in gaps))
+
+    def test_partial_category_mapping_remains_a_coverage_gap(self) -> None:
+        cases = [
+            {
+                "category": "strings",
+                "case_id": "linked_case",
+                "expected_artifact_path": "conformance/expected/linked.json",
+                "invariant_ids": ["IEC_STRING_001"],
+            },
+            {
+                "category": "strings",
+                "case_id": "unlinked_case",
+                "expected_artifact_path": "conformance/expected/unlinked.json",
+                "invariant_ids": [],
+            },
+        ]
+
+        gap = _coverage_gap("strings", cases)
+
+        self.assertEqual("missing", gap["invariant_mapping_state"])
 
     def test_catalog_join_is_discovery_id_only_and_never_lexical(self) -> None:
         with fixture_root() as temp:

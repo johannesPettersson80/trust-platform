@@ -444,7 +444,7 @@ def _category_row(category: str, cases: Sequence[Mapping[str, Any]]) -> dict[str
 
 def _coverage_gap(category: str, cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     selected = [row for row in cases if row["category"] == category]
-    mapped = any(row["invariant_ids"] for row in selected)
+    mapped = bool(selected) and all(row["invariant_ids"] for row in selected)
     return {
         "category": category,
         "case_ids": [row["case_id"] for row in selected],
