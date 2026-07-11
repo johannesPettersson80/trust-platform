@@ -92,11 +92,14 @@ def validate_mutation_report(report: Any, contract: MutationContract) -> list[st
         if not isinstance(outcome, dict):
             failures.append("mutation report has non-object outcome")
             continue
-        mutation = configured.get(outcome.get("id"))
+        mutation_id = outcome.get("id")
+        if not isinstance(mutation_id, str) or not mutation_id:
+            continue
+        mutation = configured.get(mutation_id)
         if not mutation:
             continue
         result = outcome.get("result")
-        if result not in RESULTS:
+        if not isinstance(result, str) or result not in RESULTS:
             failures.append(f"{mutation.id} has unknown mutation result {result!r}")
             continue
         counts[result] += 1

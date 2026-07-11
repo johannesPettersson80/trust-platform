@@ -278,6 +278,20 @@ class MutationReportTests(unittest.TestCase):
 
         self.assertTrue(any("JSON root" in failure for failure in failures), failures)
 
+    def test_report_validation_rejects_unhashable_outcome_fields_without_traceback(self) -> None:
+        contract = load_mutation_contract(TEST_ID, root=ROOT)
+        for field in ("id", "result"):
+            for hostile in ({}, []):
+                report = complete_caught_report(contract)
+                report["mutations"][0][field] = hostile
+                try:
+                    failures = validate_mutation_report(report, contract)
+                except Exception as exc:  # pragma: no cover
+                    self.fail(
+                        f"hostile outcome {field} raised {type(exc).__name__}: {exc}"
+                    )
+                self.assertTrue(failures)
+
     def test_report_validation_rejects_result_exit_status_mismatch(self) -> None:
         contract = load_mutation_contract(TEST_ID, root=ROOT)
         report = complete_caught_report(contract)
