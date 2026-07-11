@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `ccdcddc3a24909dba627c757aa8cdca3c62a002b` classifies 1/3,816 scanner facts
+  commit `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. Across 11 mapped areas, two of 32 required class
   slots are complete; both are in `bytecode_vm` (`mutation` and
   `negative_malformed_input`). Four planned case-table rows are visible under
@@ -420,11 +420,11 @@ Acceptance:
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
   Generated JSON SHA-256:
-  `eff9d8d62563a37e2316aea2e1a6e15b55c1c49396d0df6b1376af69bdf8ae99`.
+  `6a9a71d10ca42195e9316d2e193914a07432080aa92b6854a041404eab93be9d`.
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `ccdcddc3a24909dba627c757aa8cdca3c62a002b`
+  Clean-source report commit `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`
   assesses all 11 mapped areas and 52 invariants. The authorized family model
   remains bytecode/VM-only: 16 of 80 required invariant/family slots have
   declared cells and 64 remain structurally unassigned. The other ten areas
@@ -433,7 +433,7 @@ Acceptance:
   `spec_gap` and eight `gap_open` cells. Four catalog-bound case files
   contribute 21 blocked observations without upgrading any state. Missing
   cells receive no synthetic state. Generated JSON SHA-256:
-  `55ba9d9a1315dc4e499313bd4fb37944f4f672f272e6991b3759f0c1ca88f86d`.
+  `ef94cf871b29cd1c15f07e070786bb623e9f51db532a31cc2ed9a505fa8f7ac3`.
 - [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
   bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
   binds classes only through `malformed_input_class_ids`. The sole reviewed
@@ -455,11 +455,11 @@ Acceptance:
   and
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md`.
   The clean-source refresh at
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` produced malformed-input JSON
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` produced malformed-input JSON
   SHA-256
-  `c88be302606a999019a667bc7ea552f0e1d5c5e802c0860d88faef5803403471`
+  `6dc3119877543da5a11cc6c71a40e58e9808095f53e8a0faf9b7cb4ce8b91243`
   and unmapped-debt JSON SHA-256
-  `ff3b0578fcf766ee70205a339ff4eea9f2b6e75f3af048f80396fcdae116ad3a`.
+  `37f25fe027ef0060b9e0189125c52c78ccc6fa4decffc5794672ce08834146d2`.
   Clean implementation/evidence commits and the focused plus broad remote gate
   results are bound in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-debt-closure-validation.md`.
@@ -516,14 +516,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` inventories 3,816 facts in 670
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `5b4c912cb141d7c004bbe3be7b47b4f2d17b7e31daf4099be760f42dd84b729c`.
+  `e51fd2a6f8a572e37afc3193ed971a49f9783179a0c8a97052e0187799bd5a13`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -558,13 +558,13 @@ Acceptance:
   failure.
 
   The clean-source report at commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` inventories 88 observations:
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` inventories 88 observations:
   85 static Rust ignores, one conditional Rust ignore, one conditional VS Code
   runtime skip, and one literal Playwright skip. It reports zero discovery
   diagnostics and binds 535 Rust, 47 Node, six Playwright, 29 shell, and 21
   conformance files; shell and conformance remain explicit limitations rather
   than invented identities. Generated JSON SHA-256:
-  `e91f16efedfa9163f055b7be3c53b25665710c5f128cdcdfc276c0bc9311b5b3`.
+  `0b1421bf23a054f6e789d54fba07ff2e3532da61277fbadc49803195e3ecd9ce`.
 
   The hand-owned registry joins all 88 observations one-to-one and classifies
   63 as `unknown`, 15 as `perf_soak`, five as `lab_required`, and five as
@@ -617,7 +617,7 @@ Acceptance:
   `deferred`, `spec_gap`, or `unproven`; do not mark them `validated`.
 
   The clean-source invariant-seed audit at commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` binds all 44 written obligations
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` binds all 44 written obligations
   to 43 canonical invariants: 36 new records and eight pre-existing seed
   mappings to seven canonical records. Only `VM_SEAM_TYPE_001` and
   `VM_SEAM_TYPE_002` share a canonical invariant. Seed posture is eight
@@ -625,7 +625,7 @@ Acceptance:
   invariants remain unvalidated at S0: eight `gap_open` and 44 `spec_gap`.
   All nine safety-critical invariants name an oracle-eligible active source or
   an open focused spec gap. Generated JSON SHA-256:
-  `0aaad47daa693b85ca1d3e1110cfc03e348c9bef8c6a9318c54f6b67a130e1e9`.
+  `f561a3928f77cbf26be506f693e8163f423c00fd1b343e18327f468a1bf6614b`.
   Durable evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md`
   and
@@ -665,8 +665,8 @@ Acceptance:
   no hardware/tool or not-applicable classification was inferred.
 
   The report-only completeness audit was generated from clean commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b`. Generated JSON SHA-256:
-  `3b009cef3d709eff0ad4ce11193da73f5e40dbd54684f4daaf6ed82e96afea7a`.
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`. Generated JSON SHA-256:
+  `d60b708f6df0523ca5cb41360371e1c799d21418b35f72090b951499811b15c2`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md`.
   The audit is report-only, creates no proof, closes no spec gap, and does not
@@ -724,10 +724,10 @@ Acceptance:
   suites are reported without becoming direct requirements.
 
   The combined report-only audit was generated independently from clean source
-  commit `ccdcddc3a24909dba627c757aa8cdca3c62a002b`. It records 62 inventory
+  commit `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`. It records 62 inventory
   rows, six suite records, 33 direct commands, 11 areas, and 29 routes. Generated
   JSON SHA-256:
-  `1ded443c5e6eccbec1536dafa37ce58f59fdf33b51438cbb092133b531456283`.
+  `4d2617a127a87d23ba1002b3697c806532cf7295bf98279e3e085c01c7eaf583`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md`.
   It emits no proof, closes no spec gap, does not interpret suite inheritance,
@@ -770,8 +770,8 @@ Acceptance:
   invariants, orphan public claims, and orphan evidence.
 
   The report-only audit was generated from clean source commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b`. Generated JSON SHA-256:
-  `a4f02d2a01b2ba132e8e0afedd3e4d08b27a528cd1a6729448670730bab0beba`.
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`. Generated JSON SHA-256:
+  `989e9cb0d7e62048f5949a528ab297473245d779142ce892ba03a54d77e73614`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md`.
   It creates no proof, closes no specification gap, enables no enforcement,
@@ -861,7 +861,7 @@ Acceptance:
   public summary page is intentionally updated.
 
   The report-only audit at clean source commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` inventories 16 categories,
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` inventories 16 categories,
   21 manifests, 21 expected artifacts, 19 runtime cases, one compile-error
   case, one connector-status trace, and 20 program sources. No case has an
   explicit catalog/invariant mapping, so all 21 remain unlinked and
@@ -872,7 +872,7 @@ Acceptance:
   and connector-projection source closures. Generated reports remain CI
   artifacts under the digest-bound conformance job and public-page contract.
   Generated JSON SHA-256:
-  `03286024d5b5b3bb235b502f6c2cd0a7d9b5364a100f246d01d75f31ed4a5881`.
+  `aa9c5d862cbafd8ef83ab4e54916a5221a34911e509606aa7dcfab9add625418`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md`.
   This audit executes no conformance case, creates no proof, closes no gap,
@@ -902,7 +902,7 @@ Acceptance:
   design-review enforcement.
 
   The report-only audit at clean source commit
-  `ccdcddc3a24909dba627c757aa8cdca3c62a002b` defines the exact 19-class
+  `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` defines the exact 19-class
   Phase 8 stimulus taxonomy and 38 explicit reviewed Rust-test associations:
   27 `direct`, eight `partial`, three `context_only`, and zero
   `protective_red`. Ten classes have a non-ignored direct association, four
@@ -929,7 +929,7 @@ Acceptance:
   scan-cycle allocation gap was opened. Restart/time-base behavior remains
   blocked by the existing open `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`; it
   was neither duplicated nor closed. Generated JSON SHA-256:
-  `f29f6ac961f954d730ff236c3e32823e50d0d6e59353f95e093dd65267860166`.
+  `4f8ded3df70ca63bfb9b078da7e25440665ca126e4e9dcec0d10851875bd180b`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md`.
   The audit executes no fault, adds no fault interface or production hook,
