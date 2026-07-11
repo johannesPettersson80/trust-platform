@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v1`
-Source revision: `c25c62f87b6fe4d768c4ce47a416d1d464cff157`
-Generated: `2026-07-11T20:43:20+02:00`
+Source revision: `9eacebaa6f272d8a76f038e777279bc69067b5c2`
+Generated: `2026-07-12T00:36:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `2e630c3cf7867c610895389c04fdd65965724927fe9b2314bb34dcc3cfdbffc9`
-Input SHA-256: `sha256:5dfcc3d593c2f2a30c4d5d55d3cd67b9467c0f9647e5687e2e3e3ca3bc6b719f`
+Generated JSON SHA-256: `62eb081193af8bbb2d40d4935a7d1aaf0936cd39f8604c5455573bfbc30d30ab`
+Input SHA-256: `sha256:259ef27ff152c5a0ef5a0928aa54695d9f53c8024ecdfc8369e2ae78d8d7324c`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.

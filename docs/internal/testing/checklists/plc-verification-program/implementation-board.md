@@ -981,18 +981,39 @@ Acceptance:
 
 ## Phase 10 - Mutation, Coverage, and Test-the-Tests
 
-- [ ] `VERIF-P10-001` Define first mutation shards: bytecode validator, runtime
+- [x] `VERIF-P10-001` Define first mutation shards: bytecode validator, runtime
   value/type conversion, HIR diagnostics, parser recovery, retain/restart,
   connector status projection. The bytecode-validator pilot slice is pulled
   forward and satisfied by `VERIF-P1B-013`; the full row stays open until all
   other listed shards are defined.
-- [ ] `VERIF-P10-002` Coverage is adequacy signal, not release safety proof.
-- [ ] `VERIF-P10-003` Add mutation survivor report format.
-- [ ] `VERIF-P10-004` Safety-critical survivors require added test,
+- [x] `VERIF-P10-002` Coverage is adequacy signal, not release safety proof.
+- [x] `VERIF-P10-003` Add mutation survivor report format.
+- [x] `VERIF-P10-004` Safety-critical survivors require added test,
   unreachable/defensive-code rationale, or dead-code removal.
-- [ ] `VERIF-P10-005` Mutation/coverage runs use delivered-build confirmation
+- [x] `VERIF-P10-005` Mutation/coverage runs use delivered-build confirmation
   where relevant.
-- [ ] `VERIF-P10-006` Keep first mutation gates focused.
+- [x] `VERIF-P10-006` Keep first mutation gates focused.
+
+  The report-only Phase 10 registry at clean source commit
+  `9eacebaa6f272d8a76f038e777279bc69067b5c2` defines the six exact listed
+  shards and seven single-file selectors, capped at two mutants per shard.
+  The refreshed bytecode-validator pilot is the only measured shard: two
+  caught, zero survivors, zero unviable, zero timeouts, and zero errors. The
+  other five shards remain explicitly `planned` with empty result arrays;
+  selector and live-test binding is not execution evidence.
+
+  The closed generic report derives outcomes from raw exit/timeout fields,
+  rejects infrastructure errors, and requires every future measured survivor
+  to have one resolved allowed action plus a durable tracked reference. It
+  records zero coverage runs and null percentages. The connector-projection
+  shard cannot become measured without a delivered artifact SHA-256 and direct
+  execution confirmation. Association IDs are labels only, never killed-by or
+  executed-test claims. Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md`;
+  generated JSON SHA-256:
+  `cd41cb7c7b3536510df4dfee3004863ba8f199acc59d6f609d368b0bda95bc52`.
+  No proof, invariant promotion, spec-gap closure, product/runtime behavior,
+  CI enforcement, workflow, skill, or agent-instruction change is made.
 
 ## Phase 11 - Hardware Lab Program
 

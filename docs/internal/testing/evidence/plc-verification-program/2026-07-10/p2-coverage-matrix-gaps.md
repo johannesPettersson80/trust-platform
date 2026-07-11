@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `c25c62f87b6fe4d768c4ce47a416d1d464cff157`
-Generated: `2026-07-11T20:43:20+02:00`
+Source revision: `9eacebaa6f272d8a76f038e777279bc69067b5c2`
+Generated: `2026-07-12T00:36:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `39d10fd3e2d88e2754fe719e5db2ff23f9e89f0cfd0c4a64f69f5fbacc85e909`
-Input SHA-256: `sha256:dffb541fe85ee05c1fbf5d50f7594a62f168e54cde4ac6381f56220564bbaeed`
+Generated JSON SHA-256: `fd2162ab1cb6536be4b9517965d734e4520a5f1853e9c6de7b0b83677b686777`
+Input SHA-256: `sha256:c7b7825ccbfe80c42db9c1d026df33a8cbfa8ee79bfb9133bf2f66f6bab5a3ea`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
