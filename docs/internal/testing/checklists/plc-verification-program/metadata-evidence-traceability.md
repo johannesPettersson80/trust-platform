@@ -426,6 +426,48 @@ artifact publication path. It does not run a case, use a socket or hardware,
 commit a generated suite result, create evidence links, close a specification
 gap, or upgrade an invariant.
 
+## Runtime Anomaly Audit Boundary
+
+The Phase 8 audit traces only reviewed stimulus associations:
+
+```text
+runtime anomaly class -> explicit mapping record -> exact live discovery_id
+                      -> planned suite tier
+```
+
+The report exhausts the 19 taxonomy classes and the committed mapping
+registry. It does not claim an exhaustive semantic review of all Rust tests.
+The live Rust scanner denominator is bound provenance context; source names,
+paths, comments, lexical references, and area fallbacks never add a mapping.
+
+Because the report has no exhaustive reviewed runtime-safety test denominator,
+`VERIF-P8-002` remains open. Known unmapped tests cannot be hidden by the
+class-level summary; a later slice must give every fact in that reviewed
+denominator a mapped or reviewed-nonmapping disposition.
+
+A non-ignored direct association is reported as `mapped_runnable`. That is not
+invariant coverage, an assessed oracle, a passing gate, or proof. Partial,
+context-only, ignored, and conditional associations remain explicit gap rows,
+as do classes with no association. Planned primary and conditional suites are
+routing metadata only.
+
+The allocation-policy review binds the active normative runtime source and its
+two exact allocation-free execution statements. The restart-timebase review
+binds the existing open timer/runtime time-base gap. Neither review closes a
+gap or turns current implementation behavior into an oracle.
+
+Generation requires a clean full SHA. At-rest validation reapplies the closed
+taxonomy/schema contracts, full static metadata validation, live Rust scanner
+join, ignored-register join, exhaustive class/gap partition, canonical JSON,
+exact Markdown rendering, input digest, source-tree membership, and output-path
+binding. The evidence index and implementation board remain outside the digest
+to avoid a self-referential evidence cycle; standing rows are checked live.
+
+The audit executes no fault and creates no product test, fault interface,
+production hook, proof, invariant mapping, specification-gap closure, suite
+execution, or CI enforcement. `VERIF-P8-002`, `VERIF-P8-005`, and
+`VERIF-P8-006` stay open.
+
 The program must generate both directions:
 
 Forward trace:

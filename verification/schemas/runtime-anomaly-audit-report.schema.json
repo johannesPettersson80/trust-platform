@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/runtime-anomaly-audit-report.schema.json",
+  "title": "Phase 8 runtime anomaly audit report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "boundaries",
+    "spec_gap_reviews",
+    "classes",
+    "mappings",
+    "gap_rows",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "runtime-anomaly-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "command": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "spec_gap_reviews": { "$ref": "#/$defs/spec_gap_reviews" },
+    "classes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/class" },
+      "minItems": 19,
+      "maxItems": 19
+    },
+    "mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapping" },
+      "minItems": 1
+    },
+    "gap_rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gap" },
+      "minItems": 1
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "taxonomy_basis",
+        "mapping_basis",
+        "scanner_population",
+        "gap_basis",
+        "tier_basis",
+        "debt_is_report_failure"
+      ],
+      "properties": {
+        "taxonomy_basis": { "const": "exact_phase8_19_class_order" },
+        "mapping_basis": { "const": "explicit_reviewed_discovery_id_only" },
+        "scanner_population": { "const": "production_rust_test_facts" },
+        "gap_basis": { "const": "no_effectively_runnable_direct_mapping" },
+        "tier_basis": { "const": "planned_primary_and_conditional" },
+        "debt_is_report_failure": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "boundaries": {
+      "type": "object",
+      "required": [
+        "report_creates_proof",
+        "report_creates_invariant_coverage",
+        "report_closes_spec_gaps",
+        "semantic_oracles_assessed",
+        "faults_executed",
+        "fault_interfaces_implemented",
+        "production_fault_hooks_added",
+        "p8_002_exhaustive_mapping_row_remains_open",
+        "p8_005_fault_toggle_row_remains_open",
+        "p8_006_production_hook_guard_remains_open",
+        "runtime_or_product_behavior_changed",
+        "ci_enforcement_changed"
+      ],
+      "properties": {
+        "report_creates_proof": { "const": false },
+        "report_creates_invariant_coverage": { "const": false },
+        "report_closes_spec_gaps": { "const": false },
+        "semantic_oracles_assessed": { "const": false },
+        "faults_executed": { "const": false },
+        "fault_interfaces_implemented": { "const": false },
+        "production_fault_hooks_added": { "const": false },
+        "p8_002_exhaustive_mapping_row_remains_open": { "const": true },
+        "p8_005_fault_toggle_row_remains_open": { "const": true },
+        "p8_006_production_hook_guard_remains_open": { "const": true },
+        "runtime_or_product_behavior_changed": { "const": false },
+        "ci_enforcement_changed": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "spec_gap_reviews": {
+      "type": "object",
+      "required": ["scan_cycle_allocation_policy", "restart_timebase"],
+      "properties": {
+        "scan_cycle_allocation_policy": { "$ref": "#/$defs/allocation_review" },
+        "restart_timebase": { "$ref": "#/$defs/restart_review" }
+      },
+      "additionalProperties": false
+    },
+    "allocation_review": {
+      "type": "object",
+      "required": ["outcome", "source_ref", "source_path", "required_text", "rationale"],
+      "properties": {
+        "outcome": { "const": "written_contract_present" },
+        "source_ref": { "const": "SPEC_RUNTIME_ENGINE_001" },
+        "source_path": { "const": "docs/specs/11-runtime-engine.md" },
+        "required_text": {
+          "const": [
+            "dynamic allocation in hot path",
+            "No heap allocation during execution"
+          ]
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "restart_review": {
+      "type": "object",
+      "required": ["outcome", "spec_gap_ref", "rationale"],
+      "properties": {
+        "outcome": { "const": "existing_open_gap" },
+        "spec_gap_ref": { "const": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "class_id": {
+      "enum": [
+        "panic",
+        "timeout",
+        "deadline",
+        "watchdog",
+        "slow_device",
+        "disconnect",
+        "queue_full",
+        "stale_data",
+        "corrupt_retain",
+        "malformed_bytecode",
+        "bad_config",
+        "bad_signal",
+        "partial_web_request",
+        "disk_error",
+        "clock_step",
+        "monotonic_wall_clock_divergence",
+        "suspend_resume",
+        "timer_duration_overflow",
+        "allocation_failure_oom"
+      ]
+    },
+    "suite": { "enum": ["pr", "nightly", "release", "hardware_lab"] },
+    "state": {
+      "enum": ["mapped_runnable", "mapped_non_runnable_or_partial", "unmapped"]
+    },
+    "class": {
+      "type": "object",
+      "required": [
+        "class_id",
+        "title",
+        "primary_suite",
+        "conditional_suites",
+        "state",
+        "mapping_ids",
+        "runnable_mapping_ids",
+        "non_runnable_or_partial_mapping_ids"
+      ],
+      "properties": {
+        "class_id": { "$ref": "#/$defs/class_id" },
+        "title": { "type": "string", "minLength": 1 },
+        "primary_suite": { "$ref": "#/$defs/suite" },
+        "conditional_suites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/suite" },
+          "uniqueItems": true
+        },
+        "state": { "$ref": "#/$defs/state" },
+        "mapping_ids": { "$ref": "#/$defs/string_array" },
+        "runnable_mapping_ids": { "$ref": "#/$defs/string_array" },
+        "non_runnable_or_partial_mapping_ids": { "$ref": "#/$defs/string_array" }
+      },
+      "additionalProperties": false
+    },
+    "mapping": {
+      "type": "object",
+      "required": [
+        "mapping_id",
+        "class_id",
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "association_kind",
+        "injection_mechanism",
+        "assertion_summary",
+        "limitations",
+        "last_reviewed",
+        "primary_suite",
+        "ignore_state",
+        "ignored_registry_id",
+        "effectively_runnable"
+      ],
+      "properties": {
+        "mapping_id": { "type": "string", "pattern": "^ANOM_MAP_[A-Z0-9_]+$" },
+        "class_id": { "$ref": "#/$defs/class_id" },
+        "discovery_id": { "type": "string", "pattern": "^DISC_[0-9A-F]{20}$" },
+        "discovery_source_kind": {
+          "enum": ["rust_unit_test", "rust_integration_test"]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "association_kind": {
+          "enum": ["direct", "partial", "protective_red", "context_only"]
+        },
+        "injection_mechanism": {
+          "enum": ["ordinary_input", "test_harness", "external_harness"]
+        },
+        "assertion_summary": { "type": "string", "minLength": 1 },
+        "limitations": { "$ref": "#/$defs/string_array" },
+        "last_reviewed": { "type": "string", "pattern": "^2026-07-11$" },
+        "primary_suite": { "$ref": "#/$defs/suite" },
+        "ignore_state": { "enum": ["not_ignored", "ignored", "conditional"] },
+        "ignored_registry_id": { "type": ["string", "null"] },
+        "effectively_runnable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": ["class_id", "title", "primary_suite", "state", "mapping_ids", "reason"],
+      "properties": {
+        "class_id": { "$ref": "#/$defs/class_id" },
+        "title": { "type": "string", "minLength": 1 },
+        "primary_suite": { "$ref": "#/$defs/suite" },
+        "state": { "$ref": "#/$defs/state" },
+        "mapping_ids": { "$ref": "#/$defs/string_array" },
+        "reason": {
+          "enum": ["no_explicit_mapping", "no_effectively_runnable_direct_mapping"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "count_map_state": {
+      "type": "object",
+      "required": ["mapped_runnable", "mapped_non_runnable_or_partial", "unmapped"],
+      "properties": {
+        "mapped_runnable": { "type": "integer", "minimum": 0 },
+        "mapped_non_runnable_or_partial": { "type": "integer", "minimum": 0 },
+        "unmapped": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "count_map_suite": {
+      "type": "object",
+      "required": ["pr", "nightly", "release", "hardware_lab"],
+      "properties": {
+        "pr": { "type": "integer", "minimum": 0 },
+        "nightly": { "type": "integer", "minimum": 0 },
+        "release": { "type": "integer", "minimum": 0 },
+        "hardware_lab": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "count_map_association": {
+      "type": "object",
+      "required": ["direct", "partial", "protective_red", "context_only"],
+      "properties": {
+        "direct": { "type": "integer", "minimum": 0 },
+        "partial": { "type": "integer", "minimum": 0 },
+        "protective_red": { "type": "integer", "minimum": 0 },
+        "context_only": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "taxonomy_classes",
+        "mapping_records",
+        "scanner_denominator",
+        "effectively_runnable_mappings",
+        "ignored_or_conditional_mappings",
+        "gap_classes",
+        "by_state",
+        "by_primary_suite",
+        "by_association_kind"
+      ],
+      "properties": {
+        "taxonomy_classes": { "const": 19 },
+        "mapping_records": { "type": "integer", "minimum": 1 },
+        "scanner_denominator": { "type": "integer", "minimum": 1 },
+        "effectively_runnable_mappings": { "type": "integer", "minimum": 0 },
+        "ignored_or_conditional_mappings": { "type": "integer", "minimum": 0 },
+        "gap_classes": { "type": "integer", "minimum": 0 },
+        "by_state": { "$ref": "#/$defs/count_map_state" },
+        "by_primary_suite": { "$ref": "#/$defs/count_map_suite" },
+        "by_association_kind": { "$ref": "#/$defs/count_map_association" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

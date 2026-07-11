@@ -157,10 +157,17 @@ verification/
   evidence-index.toml
   spec-sources.toml
   spec-gaps.toml
+  runtime-anomaly-taxonomy.toml
 ```
 
 Generated reports are artifacts under `target/gate-artifacts/**` or CI
 workspace artifact paths unless a reviewed summary is intentionally committed.
+
+Phase 8 keeps the runtime-anomaly audit report-only. Its 19-class taxonomy and
+explicit Rust scanner associations create planned routing and visible test
+debt, not expected behavior, invariant coverage, fault execution, or proof.
+The exhaustive mapping row, fault-toggle row, and production-hook guard row
+remain open.
 
 The Phase 2 existing-test scanner is:
 

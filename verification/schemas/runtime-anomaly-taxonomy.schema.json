@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/runtime-anomaly-taxonomy.schema.json",
+  "title": "Runtime anomaly taxonomy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "mapping_basis",
+    "proof_posture",
+    "fault_interface_status",
+    "production_hook_policy",
+    "last_reviewed",
+    "spec_gap_reviews",
+    "classes",
+    "mappings"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "const": "RUNTIME_ANOMALY_TAXONOMY_V1" },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "const": "runtime_safety" },
+    "mapping_basis": { "const": "explicit_reviewed_discovery_id_only" },
+    "proof_posture": { "const": "association_only" },
+    "fault_interface_status": { "const": "not_implemented" },
+    "production_hook_policy": { "const": "design_review_required" },
+    "last_reviewed": { "const": "2026-07-11" },
+    "spec_gap_reviews": {
+      "type": "object",
+      "required": ["scan_cycle_allocation_policy", "restart_timebase"],
+      "properties": {
+        "scan_cycle_allocation_policy": { "$ref": "#/$defs/allocation_review" },
+        "restart_timebase": { "$ref": "#/$defs/restart_timebase_review" }
+      },
+      "additionalProperties": false
+    },
+    "classes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/class" },
+      "minItems": 19,
+      "maxItems": 19
+    },
+    "mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapping" },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "allocation_review": {
+      "type": "object",
+      "required": [
+        "outcome",
+        "source_ref",
+        "source_path",
+        "required_text",
+        "rationale"
+      ],
+      "properties": {
+        "outcome": { "const": "written_contract_present" },
+        "source_ref": { "const": "SPEC_RUNTIME_ENGINE_001" },
+        "source_path": { "const": "docs/specs/11-runtime-engine.md" },
+        "required_text": {
+          "const": [
+            "dynamic allocation in hot path",
+            "No heap allocation during execution"
+          ]
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "restart_timebase_review": {
+      "type": "object",
+      "required": ["outcome", "spec_gap_ref", "rationale"],
+      "properties": {
+        "outcome": { "const": "existing_open_gap" },
+        "spec_gap_ref": { "const": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "class": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "stimulus",
+        "primary_suite",
+        "conditional_suites",
+        "injection_boundary",
+        "rationale"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "panic",
+            "timeout",
+            "deadline",
+            "watchdog",
+            "slow_device",
+            "disconnect",
+            "queue_full",
+            "stale_data",
+            "corrupt_retain",
+            "malformed_bytecode",
+            "bad_config",
+            "bad_signal",
+            "partial_web_request",
+            "disk_error",
+            "clock_step",
+            "monotonic_wall_clock_divergence",
+            "suspend_resume",
+            "timer_duration_overflow",
+            "allocation_failure_oom"
+          ]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "stimulus": { "type": "string", "minLength": 1 },
+        "primary_suite": { "$ref": "#/$defs/suite" },
+        "conditional_suites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/suite" },
+          "uniqueItems": true
+        },
+        "injection_boundary": { "$ref": "#/$defs/injection_boundary" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "suite": {
+      "enum": ["pr", "nightly", "release", "hardware_lab"]
+    },
+    "injection_boundary": {
+      "enum": [
+        "ordinary_input",
+        "test_harness",
+        "external_harness",
+        "design_review_required"
+      ]
+    },
+    "mapping": {
+      "type": "object",
+      "required": [
+        "id",
+        "class_id",
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "association_kind",
+        "injection_mechanism",
+        "assertion_summary",
+        "limitations",
+        "last_reviewed"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ANOM_MAP_[A-Z0-9_]+$" },
+        "class_id": { "$ref": "#/$defs/class_id" },
+        "discovery_id": { "type": "string", "pattern": "^DISC_[0-9A-F]{20}$" },
+        "discovery_source_kind": {
+          "enum": ["rust_unit_test", "rust_integration_test"]
+        },
+        "path": { "type": "string", "pattern": "^crates/trust-runtime/.*\\.rs$" },
+        "name": { "type": "string", "minLength": 1 },
+        "association_kind": {
+          "enum": ["direct", "partial", "protective_red", "context_only"]
+        },
+        "injection_mechanism": {
+          "enum": ["ordinary_input", "test_harness", "external_harness"]
+        },
+        "assertion_summary": { "type": "string", "minLength": 1 },
+        "limitations": { "$ref": "#/$defs/string_array" },
+        "last_reviewed": { "const": "2026-07-11" }
+      },
+      "additionalProperties": false
+    },
+    "class_id": {
+      "enum": [
+        "panic",
+        "timeout",
+        "deadline",
+        "watchdog",
+        "slow_device",
+        "disconnect",
+        "queue_full",
+        "stale_data",
+        "corrupt_retain",
+        "malformed_bytecode",
+        "bad_config",
+        "bad_signal",
+        "partial_web_request",
+        "disk_error",
+        "clock_step",
+        "monotonic_wall_clock_divergence",
+        "suspend_resume",
+        "timer_duration_overflow",
+        "allocation_failure_oom"
+      ]
+    }
+  }
+}

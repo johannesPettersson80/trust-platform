@@ -236,6 +236,16 @@ TOML shape convention:
   categories are explicit alignment-gap rows with semantic oracles
   `not_assessed`. Expected artifacts are inputs, not proof that their behavior
   is specified or correct.
+- Run `python3 scripts/report_runtime_anomaly_audit.py` with
+  `python3 scripts/validate_runtime_anomaly_audit_report.py` for the Phase 8
+  report-only anomaly audit. The closed taxonomy contains 19 stimulus classes
+  and exact reviewed Rust scanner associations. Only non-ignored `direct`
+  associations count as effectively runnable; partial, context-only, ignored,
+  conditional, and unmapped classes remain gap rows. The 3,021-fact Rust scan
+  is provenance context, not an exhaustive semantic mapping claim. Suite tiers
+  are planned routes only. The audit executes no fault, creates no proof or
+  invariant coverage, and leaves `VERIF-P8-002`, `VERIF-P8-005`, and
+  `VERIF-P8-006` open.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and

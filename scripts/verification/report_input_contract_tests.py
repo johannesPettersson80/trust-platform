@@ -69,6 +69,8 @@ class ReportInputContractTests(unittest.TestCase):
             "verification/malformed-input-taxonomy.md",
             "verification/malformed-input-taxonomy.toml",
             "verification/schemas/malformed-input-taxonomy.schema.json",
+            "verification/runtime-anomaly-taxonomy.toml",
+            "verification/schemas/runtime-anomaly-taxonomy.schema.json",
         ):
             self.assertIn(expected, paths)
         self.assertNotIn("verification/evidence-index.toml", paths)

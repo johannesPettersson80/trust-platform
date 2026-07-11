@@ -186,6 +186,53 @@ The machine-readable source of truth for area-to-test-class requirements is
 that matrix. A drift check must fail if the metadata and this document disagree
 after the matrix lands.
 
+## Runtime Anomaly Taxonomy
+
+Phase 8 owns a closed stimulus taxonomy in
+`verification/runtime-anomaly-taxonomy.toml`. Its 19 stable class IDs, in
+reviewed board order, are:
+
+- `panic`, `timeout`, `deadline`, `watchdog`, `slow_device`, `disconnect`,
+  `queue_full`, `stale_data`, `corrupt_retain`, `malformed_bytecode`,
+  `bad_config`, `bad_signal`, `partial_web_request`, `disk_error`,
+  `clock_step`, `monotonic_wall_clock_divergence`, `suspend_resume`,
+  `timer_duration_overflow`, and `allocation_failure_oom`.
+
+The taxonomy describes injected or ordinary-input conditions. It does not
+supply expected product behavior. Every existing-test association is
+hand-reviewed and bound to one live Rust scanner `discovery_id`, source kind,
+path, and name. Names, paths, comments, reference candidates, area fallbacks,
+and similar test prose never create an association.
+
+Association kinds are `direct`, `partial`, `context_only`, and
+`protective_red`. Only a non-ignored `direct` association is effectively
+runnable for the Phase 8 gap report. That status still means only that an
+existing assertion exercises part of the named stimulus; it creates no
+invariant coverage, oracle, or proof. Partial, context-only, ignored, and
+conditional rows remain test gaps.
+
+Every class has one planned primary suite from `pr`, `nightly`, `release`, or
+`hardware_lab`, plus optional conditional suites. This is routing intent, not
+evidence that a suite ran. Simulated slow-device and disconnect cases may use
+nightly while real-device claims retain a conditional `hardware_lab` route.
+
+The scan-cycle allocation review reuses the active runtime-engine statements
+that dynamic allocation is absent from the hot path and execution performs no
+heap allocation. Allocation-failure/OOM outside that promised path remains
+test debt. Restart/time-base behavior reuses the already-open
+`SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`; tests cannot replace that missing
+contract. No duplicate gap is created.
+
+Phase 8 adds no fault toggle or production hook. `VERIF-P8-005` and
+`VERIF-P8-006` remain open until a general governed harness and an enforceable
+design-review boundary exist.
+
+The initial registry does not exhaust every semantically relevant Rust test.
+`VERIF-P8-002` therefore remains open until a reviewed runtime-safety test
+denominator gives every fact an explicit mapped or reviewed-nonmapping
+disposition. The current registry must not use its 3,021-fact scanner context
+as a substitute for that review.
+
 ## Malformed Input Taxonomy
 
 Malformed-input tests must pick from a surface-specific taxonomy. The first

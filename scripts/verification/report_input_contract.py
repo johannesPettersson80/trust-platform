@@ -17,6 +17,8 @@ def validator_code_input_paths(root: Path) -> set[str]:
         "verification/malformed-input-taxonomy.md",
         "verification/malformed-input-taxonomy.toml",
         "verification/schemas/malformed-input-taxonomy.schema.json",
+        "verification/runtime-anomaly-taxonomy.toml",
+        "verification/schemas/runtime-anomaly-taxonomy.schema.json",
     }
     paths.update(
         path

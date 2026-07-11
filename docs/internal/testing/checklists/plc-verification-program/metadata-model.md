@@ -981,6 +981,49 @@ recomputation, full metadata validation, and semantic-tamper rules. The report
 creates no proof, closes no gap, changes no enforcement, and leaves
 `VERIF-STOP-014` open.
 
+### Runtime Anomaly Taxonomy And Audit
+
+`verification/runtime-anomaly-taxonomy.toml` is a closed Phase 8 control-plane
+record. Its dedicated schema is
+`verification/schemas/runtime-anomaly-taxonomy.schema.json`. The primary
+metadata validator delegates to the per-taxonomy contract; it does not run the
+live Rust source scan.
+
+Root fields are:
+
+- `schema_version`, `id`, `title`, `area`, and `last_reviewed`;
+- the constant honesty fields `mapping_basis`, `proof_posture`,
+  `fault_interface_status`, and `production_hook_policy`;
+- `spec_gap_reviews`, `classes`, and `mappings`.
+
+Each class carries `id`, `title`, a stimulus description, `primary_suite`,
+`conditional_suites`, `injection_boundary`, and rationale. Class IDs and order
+are exact. Each mapping carries a unique mapping ID and discovery ID, exact
+scanner source kind/path/name binding, association kind, injection mechanism,
+assertion summary, limitations, and review date. Mapping prose is rejected if
+it claims proof, completed coverage, or validation.
+
+The live report is
+`target/gate-artifacts/verification/runtime-anomaly-audit.json`, with closed
+schema `verification/schemas/runtime-anomaly-audit-report.schema.json`. It
+rescans all Rust test facts through the production scanner, resolves every
+mapping exactly once, and joins ignored facts to the Phase 3 registry. Only
+`direct` plus `not_ignored` derives `mapped_runnable`; all other mapped classes
+derive `mapped_non_runnable_or_partial`, and classes with no association derive
+`unmapped`. The non-runnable and unmapped partition is reproduced as explicit
+gap rows.
+
+The report binds the taxonomy, both schemas, scanner inputs, mapped sources,
+ignored registry, specification review inputs, suite records, validator code,
+and exact Markdown. It does not claim that every semantically relevant test in
+the scanner denominator was reviewed. Debt exits successfully; malformed or
+stale identities, registry mismatch, schema drift, provenance drift, or report
+tampering fail.
+
+The first registry is intentionally non-exhaustive. It reports useful exact
+associations and class-level gaps, but `VERIF-P8-002` stays open until a
+reviewed runtime-safety denominator records a disposition for every fact.
+
 ### Case File
 
 Case files are committed data under `verification/cases/<area>/*.toml`. They are

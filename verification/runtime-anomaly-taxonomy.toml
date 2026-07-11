@@ -1,0 +1,689 @@
+schema_version = 1
+id = "RUNTIME_ANOMALY_TAXONOMY_V1"
+title = "Runtime anomaly taxonomy v1"
+area = "runtime_safety"
+mapping_basis = "explicit_reviewed_discovery_id_only"
+proof_posture = "association_only"
+fault_interface_status = "not_implemented"
+production_hook_policy = "design_review_required"
+last_reviewed = "2026-07-11"
+
+[spec_gap_reviews.scan_cycle_allocation_policy]
+outcome = "written_contract_present"
+source_ref = "SPEC_RUNTIME_ENGINE_001"
+source_path = "docs/specs/11-runtime-engine.md"
+required_text = [
+  "dynamic allocation in hot path",
+  "No heap allocation during execution",
+]
+rationale = "The active normative runtime-engine contract already excludes dynamic allocation from the scan hot path and heap allocation from execution. Allocation-failure and OOM testing outside that scope remains unmapped test debt and does not make this written scan-cycle policy absent."
+
+[spec_gap_reviews.restart_timebase]
+outcome = "existing_open_gap"
+spec_gap_ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+rationale = "The existing open gap explicitly asks for timer elapsed-time, restart, clock-reset, and runtime time-base semantics at every lifecycle boundary. Current tests cannot replace that missing contract."
+
+[[classes]]
+id = "panic"
+title = "Panic containment"
+stimulus = "A scan-cycle, I/O, or resource-thread operation panics."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "Fast deterministic harnesses can verify visible fault state, containment, and safe-output ordering without a production panic hook."
+
+[[classes]]
+id = "timeout"
+title = "Operation timeout"
+stimulus = "A bounded runtime or harness operation exceeds its configured timeout."
+primary_suite = "pr"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Short deterministic child-process and service harnesses belong in PR; broader timeout matrices belong in nightly."
+
+[[classes]]
+id = "deadline"
+title = "Execution deadline expiry"
+stimulus = "Execution begins with an expired deadline or runs beyond a bounded deadline."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "The VM and scheduler expose deterministic test deadlines; release execution remains conditional on delivered-path relevance."
+
+[[classes]]
+id = "watchdog"
+title = "Watchdog expiry"
+stimulus = "A configured execution watchdog expires during runtime work."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "Manual clocks and short watchdog budgets provide deterministic checks without changing production behavior."
+
+[[classes]]
+id = "slow_device"
+title = "Slow device response"
+stimulus = "A protocol or device response is delayed beyond the scan-thread service budget."
+primary_suite = "nightly"
+conditional_suites = ["release", "hardware_lab"]
+injection_boundary = "external_harness"
+rationale = "Loopback delay is suitable for nightly checks; real device timing remains conditional on a hardware-lab run."
+
+[[classes]]
+id = "disconnect"
+title = "Connection loss"
+stimulus = "A protocol session or transport disconnects while runtime state is active."
+primary_suite = "nightly"
+conditional_suites = ["release", "hardware_lab"]
+injection_boundary = "external_harness"
+rationale = "Reconnect and freshness behavior needs repeated loopback stress, with real transport runs reserved for the lab."
+
+[[classes]]
+id = "queue_full"
+title = "Worker queue saturation"
+stimulus = "A scan-facing producer outpaces a bounded worker handoff or queue."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "Saturation is deterministic in controlled workers, while release use remains conditional on the unresolved safe-state handoff contract."
+
+[[classes]]
+id = "stale_data"
+title = "Stale input data"
+stimulus = "A previously valid input snapshot is observed without a fresh device update."
+primary_suite = "pr"
+conditional_suites = ["nightly", "hardware_lab"]
+injection_boundary = "test_harness"
+rationale = "Freshness state machines are fast deterministic tests; prolonged and real-device freshness belongs in deeper lanes."
+
+[[classes]]
+id = "corrupt_retain"
+title = "Corrupt retain image"
+stimulus = "A retained-state image contains trailing, mutated, or integrity-invalid bytes."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Versioned file bytes are ordinary decoder input and can be checked deterministically in PR and release gates."
+
+[[classes]]
+id = "malformed_bytecode"
+title = "Malformed bytecode"
+stimulus = "A bytecode container or instruction stream is structurally malformed."
+primary_suite = "pr"
+conditional_suites = ["nightly"]
+injection_boundary = "ordinary_input"
+rationale = "Malformed encoded bytes are ordinary validator input; extended generated variation remains nightly work."
+
+[[classes]]
+id = "bad_config"
+title = "Invalid runtime configuration"
+stimulus = "Runtime or protocol configuration contains an unknown, out-of-range, or invalid value."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Configuration validation is a deterministic ordinary-input check and is release-relevant."
+
+[[classes]]
+id = "bad_signal"
+title = "Invalid or unexpected process signal"
+stimulus = "The runtime receives a signal outside its reviewed graceful-shutdown signal set."
+primary_suite = "release"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Process signals are platform-facing behavior; current valid-signal tests do not cover this anomaly."
+
+[[classes]]
+id = "partial_web_request"
+title = "Partial web request"
+stimulus = "A client sends headers and only part of a declared request body while keeping the connection open."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "external_harness"
+rationale = "Socket-level partial request behavior needs an orchestrated server/client harness and must not block unrelated control traffic."
+
+[[classes]]
+id = "disk_error"
+title = "Persistent storage error"
+stimulus = "Persistent-state load, write, flush, sync, or rename returns a storage error."
+primary_suite = "release"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Real filesystem failures are platform-sensitive release checks; injected backend failure remains a narrower association."
+
+[[classes]]
+id = "clock_step"
+title = "Clock step"
+stimulus = "A relevant time source moves discontinuously forward or backward."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "Manual time inputs can exercise steps, but accepted restart and timer semantics remain specification-blocked."
+
+[[classes]]
+id = "monotonic_wall_clock_divergence"
+title = "Monotonic and wall-clock divergence"
+stimulus = "Monotonic scheduling time and civil wall-clock time diverge materially."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "design_review_required"
+rationale = "The current clock seams do not provide a reviewed combined divergence injection contract."
+
+[[classes]]
+id = "suspend_resume"
+title = "Host suspend and resume"
+stimulus = "The host suspends runtime execution and later resumes with elapsed real time."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "external_harness"
+rationale = "Suspend/resume is OS lifecycle behavior and has no current deterministic in-process fault interface."
+
+[[classes]]
+id = "timer_duration_overflow"
+title = "Timer duration overflow"
+stimulus = "Timer elapsed time, preset time, or a time delta reaches an arithmetic duration boundary."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Extreme duration values can be supplied as ordinary inputs, but no current assertion exercises the overflow condition."
+
+[[classes]]
+id = "allocation_failure_oom"
+title = "Allocation failure or OOM"
+stimulus = "A required allocation fails or the process reaches an out-of-memory condition outside the promised allocation-free scan path."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "design_review_required"
+rationale = "No reviewed allocation-failure interface exists; a production allocation hook is prohibited without design review."
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_001"
+class_id = "panic"
+discovery_id = "DISC_30C382889325B64C5854"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_in_io_driver_faults_resource_visibly"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A panicking input driver faults the resource, records a diagnosable panic error, and is contained by the scheduler thread boundary."
+limitations = ["The panic source is a test driver, not every production panic site."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_002"
+class_id = "panic"
+discovery_id = "DISC_E6963439801BFF301755"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_applies_safe_outputs_before_faulting_resource"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A driver panic produces a visible fault and the last recorded physical output is the configured safe value."
+limitations = ["The recording driver is a harness implementation and does not establish hardware delivery."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_003"
+class_id = "panic"
+discovery_id = "DISC_96A8793BF2C3E6F579B4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_execution_panic_faults_resource_visibly"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A contained cycle-execution panic becomes a visible ResourcePanic fault on the scheduler resource."
+limitations = ["This is the scheduler unit seam rather than a delivered runtime process."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_004"
+class_id = "panic"
+discovery_id = "DISC_EEF14FDB800A7590C8F3"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "unexpected_thread_unwind_after_running_faults_control_surface"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An unwind from scheduler sleep faults the control-visible resource with a diagnosable ResourcePanic and remains joinable."
+limitations = ["The unwind is injected through a test clock."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_001"
+class_id = "timeout"
+discovery_id = "DISC_0BD76C389DCA0387316F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "timeout_flag_reports_error_for_infinite_loop_test"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A child test containing an infinite loop exits unsuccessfully and reports the configured one-second timeout."
+limitations = ["This covers the ST test command timeout, not every runtime service timeout."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_002"
+class_id = "timeout"
+discovery_id = "DISC_AD782C3AD1D808D4C4EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/agent_command/workspace_info.rs"
+name = "agent_serve_reports_run_until_timeout_with_stable_code"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The agent runtime run-until path returns a stable timeout code instead of presenting timeout as success."
+limitations = ["This covers the agent command protocol surface only."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_003"
+class_id = "timeout"
+discovery_id = "DISC_17A3C97ED5EF6F1D342D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_snapshot_timeout_is_not_a_successful_empty_snapshot"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires mesh snapshot timeout to remain distinguishable from a successful empty snapshot."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_001"
+class_id = "deadline"
+discovery_id = "DISC_55D5957DD6826E1A6C0F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs"
+name = "vm_enforces_execution_deadline"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An already-expired VM deadline on an infinite loop produces ExecutionTimeout in the cycle errors."
+limitations = ["The deadline is injected before execution rather than expiring from elapsed wall time."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_002"
+class_id = "deadline"
+discovery_id = "DISC_E35FF38A598A52B9A748"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs"
+name = "vm_forward_only_instruction_stream_enforces_execution_deadline"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A long forward-only instruction stream still observes an expired deadline and reports ExecutionTimeout."
+limitations = ["The deadline is injected as expired before the cycle."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_003"
+class_id = "deadline"
+discovery_id = "DISC_4C3F5D7171073A654EA8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_register_deadline_traps_without_fallback_or_commit"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The register backend traps on deadline without interpreter fallback or committing the workload result."
+limitations = ["This is a backend-level parity check, not a scheduler status-surface check."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_001"
+class_id = "watchdog"
+discovery_id = "DISC_C101BBAEC06311987C74"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "watchdog_faults_resource_on_overrun"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A manual-clock overrun triggers watchdog fault state and exposes the runtime error."
+limitations = ["Timing is deterministic manual-clock injection rather than an OS scheduling overrun."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_002"
+class_id = "watchdog"
+discovery_id = "DISC_3EFD5D5E736CB0C47DD6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Watchdog timeout preserves the root fault snapshot while applying the configured safe-state contract."
+limitations = ["Recorded outputs establish only the runtime handoff, not physical device receipt."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_003"
+class_id = "watchdog"
+discovery_id = "DISC_8BAF8461F95A94A773A6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_deadline_breach_before_commit_prevents_output_write"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires a watchdog deadline breach before commit to prevent a physical output write."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_001"
+class_id = "slow_device"
+discovery_id = "DISC_7159C3BA77CC33C8F48C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_read_inputs_returns_within_scan_bound_while_response_delayed"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A loopback Modbus server delays its response by 120 ms while read_inputs remains below the scan-thread bound."
+limitations = ["Loopback timing does not establish real-device or hardware-lab latency behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_002"
+class_id = "slow_device"
+discovery_id = "DISC_6C10B5D7ACB21ECE8E9D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_write_outputs_returns_within_scan_bound_while_response_delayed"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A loopback Modbus server delays its response by 120 ms while write_outputs remains below the scan-thread bound."
+limitations = ["Loopback timing does not establish real-device or hardware-lab latency behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_003"
+class_id = "slow_device"
+discovery_id = "DISC_D2A5AD5E1D2E5D50D9E4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_write_outputs_returns_within_scan_bound_while_session_connecting"
+association_kind = "context_only"
+injection_mechanism = "test_harness"
+assertion_summary = "MQTT output handoff remains bounded while session readiness is pending and health becomes degraded."
+limitations = ["Pending connection is adjacent to slow-device behavior but does not inject a delayed device response."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_001"
+class_id = "disconnect"
+discovery_id = "DISC_D0022CD29DB5061F146B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_reconnects_after_session_loss_without_scan_thread_io"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A scripted OPC UA session-loss event moves the bridge to reconnecting, respects backoff, and reconnects without scan-thread I/O."
+limitations = ["The transport is a mock and does not establish live OPC UA server behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_002"
+class_id = "disconnect"
+discovery_id = "DISC_0964F1D88F24D71AD970"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "reconnect_marks_points_stale_until_backoff_allows_connect"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An ADS disconnect marks points stale and delays reconnection until the configured backoff allows it."
+limitations = ["The transport is a mock and does not establish TwinCAT or hardware behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_003"
+class_id = "disconnect"
+discovery_id = "DISC_C3A91E2860C30B08BED4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "fail_closed_disconnected_read_returns_freshness_error"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires a disconnected MQTT read to return a freshness error rather than silently return current data."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_001"
+class_id = "queue_full"
+discovery_id = "DISC_398610728B7609607B57"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_output_handoff_is_bounded_when_scan_outpaces_worker"
+association_kind = "partial"
+injection_mechanism = "external_harness"
+assertion_summary = "Thirty-two scan-side output writes remain bounded while a delayed Modbus worker cannot keep pace."
+limitations = ["The implementation uses latest-value handoff and does not expose an explicit QueueFull result.", "The open safe-state queue-full contract is not resolved by this timing assertion."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_002"
+class_id = "queue_full"
+discovery_id = "DISC_36444246A468C534110A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_output_handoff_is_bounded_when_scan_outpaces_worker"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "Thirty-two scan-side MQTT output writes remain bounded while the worker handoff is backpressured."
+limitations = ["The implementation uses latest-value handoff and does not expose an explicit QueueFull result.", "The open safe-state queue-full contract is not resolved by this timing assertion."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_001"
+class_id = "stale_data"
+discovery_id = "DISC_B3EBD5115E6DBD66F946"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_stale_snapshot_is_returned_when_worker_reconnects"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "After a loopback Modbus connection stops responding, the last snapshot is retained and driver health becomes degraded."
+limitations = ["The assertion is for warn policy and a loopback server."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_002"
+class_id = "stale_data"
+discovery_id = "DISC_ADB41A6325C30D12D0AD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_stale_snapshot_is_returned_without_fresh_payload"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Without a fresh MQTT payload, the last known input image is returned within the scan bound and health becomes degraded."
+limitations = ["The assertion is for warn policy and a mock session."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_003"
+class_id = "stale_data"
+discovery_id = "DISC_5E088D53395CC4F852E5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_read_surfaces_stale_after_bounded_misses_and_spin_limit"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Repeated missed realtime T0 reads reach the bounded spin limit and surface stale state."
+limitations = ["This exercises the shared-memory test seam, not every protocol freshness source."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CORRUPT_RETAIN_001"
+class_id = "corrupt_retain"
+discovery_id = "DISC_6536BD14A5FAEA351CCF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_rejects_trailing_garbage"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Trailing bytes appended to a stored retain image cause load to return a trailing-data or corruption error."
+limitations = ["The test checks file decoding and does not decide startup lifecycle policy."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CORRUPT_RETAIN_002"
+class_id = "corrupt_retain"
+discovery_id = "DISC_D57F0AA703E76450F141"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_rejects_payload_mutation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A bit mutation in a stored retain image causes load to return a checksum or corruption error."
+limitations = ["The test checks file decoding and does not decide startup lifecycle policy."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_001"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_F90D4502D7B68E02847C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_roundtrip.rs"
+name = "corruption_rejected"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A corrupted string length in an encoded bytecode container is rejected as unexpected EOF or an invalid section."
+limitations = ["This is one container-field corruption and is not an exhaustive malformed-bytecode corpus."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_002"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_FB4371C17A9F9FB83CA9"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs"
+name = "vm_malformed_bytecode_fuzz_smoke_budget"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A bounded deterministic malformed-bytecode smoke corpus is rejected without escaping the VM error contract."
+limitations = ["The smoke budget is bounded and is not an extended fuzz run."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_003"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_51482BB47DB5575280CE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_rejects_malformed_operands"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A truncated instruction operand is rejected before VM application with an unexpected-end diagnostic."
+limitations = ["This checks one malformed operand shape."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_001"
+class_id = "bad_config"
+discovery_id = "DISC_78139822FEDCB8E1A379"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/config/tests.rs"
+name = "runtime_schema_rejects_unknown_keys"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "An unknown runtime configuration table is rejected with an unknown-field error."
+limitations = ["This assertion covers unknown runtime keys, not every configuration surface."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_002"
+class_id = "bad_config"
+discovery_id = "DISC_C9AB817C3804CDAD2BAF"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/config/tests.rs"
+name = "runtime_schema_rejects_invalid_ranges"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A zero runtime cycle interval is rejected with the configured minimum-range diagnostic."
+limitations = ["This assertion covers one runtime range boundary."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_003"
+class_id = "bad_config"
+discovery_id = "DISC_7CCA5C983F3BC05339EC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_point_map_rejects_invalid_type_and_scaling_config"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Invalid Modbus point type, scale, and offset configuration values are rejected during driver construction."
+limitations = ["This assertion covers selected Modbus point-map fields."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_004"
+class_id = "bad_config"
+discovery_id = "DISC_86A13C88CFA096648AFB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "typed_point_map_rejects_invalid_config"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Invalid MQTT typed-point configuration is rejected rather than accepted into the worker path."
+limitations = ["This assertion covers the MQTT typed-point map only."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PARTIAL_WEB_REQUEST_001"
+class_id = "partial_web_request"
+discovery_id = "DISC_20DF277B08348ED8A798"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
+name = "incomplete_body_route_blocks_unrelated_hmi_request_until_released"
+association_kind = "context_only"
+injection_mechanism = "external_harness"
+assertion_summary = "An incomplete declared POST body is held open and the probe observes an unrelated HMI request timing out until the slow stream closes."
+limitations = ["The ignored manual probe documents current head-of-line blocking; it is not a passing protective assertion for the desired behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_001"
+class_id = "disk_error"
+discovery_id = "DISC_CAF0750D558B8114BEC6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "requested_stop_retain_save_failure_is_visible"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "A failing RetainStore on requested stop faults the resource and leaves a visible retain-save error."
+limitations = ["The backend returns a generic injected error and does not exercise FileRetainStore ENOSPC, EIO, flush, sync, or rename failures."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_002"
+class_id = "disk_error"
+discovery_id = "DISC_B25F48AA676D50A29BB2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "retain_save_failure_prevents_output_commit_when_due"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires an injected retain-save failure due during a cycle to return an error before any physical output write."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established.", "The backend does not exercise a real filesystem error."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_001"
+class_id = "clock_step"
+discovery_id = "DISC_1F4A6A7E004592367309"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime_cloud/projection.rs"
+name = "presence_projection_contract_does_not_stale_future_heartbeat"
+association_kind = "partial"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A presence projection with now earlier than last_seen does not mark the future heartbeat stale or partitioned."
+limitations = ["This is a pure runtime-cloud projection input, not a scheduler or system-clock step."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_002"
+class_id = "clock_step"
+discovery_id = "DISC_E819B2CEA441A53E27E0"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_restart.rs"
+name = "retain_rules"
+association_kind = "context_only"
+injection_mechanism = "test_harness"
+assertion_summary = "After advancing harness time by five milliseconds, a warm restart leaves runtime current_time at zero."
+limitations = ["The assertion records current implementation behavior and cannot establish accepted restart time-base semantics while SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001 is open."]
+last_reviewed = "2026-07-11"

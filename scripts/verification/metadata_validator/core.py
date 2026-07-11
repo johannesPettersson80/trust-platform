@@ -48,6 +48,11 @@ from ..gate_inventory import (
 )
 from .case_files import validate_case_file
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
+from ..runtime_anomaly_contract import (
+    TAXONOMY_PATH as RUNTIME_ANOMALY_TAXONOMY_PATH,
+    load_runtime_anomaly_taxonomy,
+    validate_runtime_anomaly_contract,
+)
 from ..test_catalog_intent import validate_catalog_intent
 from .evidence_proof import validate_green_pairing, validate_lock_pairing
 from .integrity import (
@@ -88,6 +93,7 @@ class Validator:
         self.required_specs: dict[str, dict[str, Any]] = {}
         self.matrix: dict[str, Any] = {}
         self.seed_manifest: dict[str, Any] = {}
+        self.runtime_anomaly_taxonomy: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -220,6 +226,10 @@ class Validator:
         self.check_no_empty_strings(
             VERIFICATION / "invariant-seeds.toml", self.seed_manifest
         )
+        try:
+            self.runtime_anomaly_taxonomy = load_runtime_anomaly_taxonomy(ROOT)
+        except Exception as exc:
+            self.fail(VERIFICATION / "runtime-anomaly-taxonomy.toml", f"load failed: {exc}")
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -296,6 +306,13 @@ class Validator:
         self.validate_ignored_tests()
         self.validate_risks()
         self.validate_invariant_seeds()
+        for failure in validate_runtime_anomaly_contract(
+            ROOT,
+            self.runtime_anomaly_taxonomy,
+            spec_sources=self.spec_sources,
+            spec_gaps=self.spec_gaps,
+        ):
+            self.fail(ROOT / RUNTIME_ANOMALY_TAXONOMY_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -911,6 +928,7 @@ class Validator:
             + len(self.risks)
             + len(self.required_specs)
             + (1 if self.matrix else 0)
+            + (1 if self.runtime_anomaly_taxonomy else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")
