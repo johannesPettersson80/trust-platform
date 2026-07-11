@@ -47,6 +47,7 @@ AREA_FIELDS = {
     "required_case_families",
     "suite_tiers",
 }
+AREA_OPTIONAL_FIELDS = {"decision_ref"}
 INTENT_FIELDS = {
     "intent",
     "required_test_classes",
@@ -129,7 +130,13 @@ def validate_area_routing(
         if not isinstance(area, dict):
             failures.append(f"{label} must be an object")
             continue
-        _check_exact_fields(area, AREA_FIELDS, label, failures)
+        _check_fields_with_optional(
+            area,
+            AREA_FIELDS,
+            AREA_OPTIONAL_FIELDS,
+            label,
+            failures,
+        )
         _check_string_list(area.get("path_globs"), f"{label}.path_globs", failures, nonempty=True)
         _check_vocab(area.get("required_test_classes"), TEST_CLASSES, f"{label}.required_test_classes", failures)
         _check_vocab(area.get("required_case_families"), CASE_FAMILIES, f"{label}.required_case_families", failures)
@@ -392,6 +399,22 @@ def _check_exact_fields(
     if actual != expected:
         failures.append(
             f"{label} fields drift: missing={sorted(expected - actual)}, extra={sorted(actual - expected)}"
+        )
+
+
+def _check_fields_with_optional(
+    row: Mapping[str, Any],
+    required: set[str],
+    optional: set[str],
+    label: str,
+    failures: list[str],
+) -> None:
+    actual = set(row)
+    missing = required - actual
+    extra = actual - required - optional
+    if missing or extra:
+        failures.append(
+            f"{label} fields drift: missing={sorted(missing)}, extra={sorted(extra)}"
         )
 
 

@@ -170,6 +170,21 @@ def validate_invariants(
                     spec_sources=spec_sources,
                     spec_gaps=spec_gaps,
                 )
+        if (
+            record.get("contract_kind") == "decision_table"
+            and isinstance(cells, list)
+            and any(
+                isinstance(cell, dict)
+                and cell.get("state") in {"covered", "covered_by_fuzz"}
+                for cell in cells
+            )
+            and not record.get("behavior")
+        ):
+            fail(
+                path,
+                f"{record['id']} decision_table has applicable covered "
+                "dimensions but no behavior rows",
+            )
         for behavior in record.get("behavior", []):
             _validate_behavior(
                 fail=fail,

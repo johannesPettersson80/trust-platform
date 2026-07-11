@@ -37,6 +37,9 @@ Current seed scope:
   mapped suite definitions, and 29 stable test-taxonomy routes for Phase 5.
 - a report-only requirement/oracle audit for `VERIF-P6-001` through
   `VERIF-P6-006`, derived only from explicit invariant source and gap links.
+- a closed verification-tooling bypass fixture contract for Phase 6A. It binds
+  each known-bad case to its production catcher without claiming assertion
+  strength or simulating the not-yet-implemented spec-source scanner.
 
 TOML shape convention:
 
@@ -214,6 +217,15 @@ TOML shape convention:
   enforcement candidates without enforcing them. Public claims remain
   non-oracle context. The report does not close `VERIF-P6-007` through
   `VERIF-P6-010`.
+- Run `python3 scripts/check_verification_tooling_selftests.py` for the Phase 6A
+  known-good/known-bad fixture contract. Metadata fixtures exercise their
+  assigned validator phase directly and then the full `Validator.validate()`
+  wiring; catalog staleness, case artifacts, proof classification, and planner
+  findings stay assigned to their owning production layers. Registered public
+  claims require a proof-backed validated invariant or an explicit open gap;
+  this is not the exhaustive public-doc claim inventory blocked by
+  `VERIF-P4A-005`. The spec-source scanner self-test remains blocked by
+  `VERIF-P1A-002`, `VERIF-P1A-003`, and `VERIF-P1A-006`.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and

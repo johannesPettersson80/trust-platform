@@ -59,6 +59,7 @@ from .ignored_tests import load_checklist_row_ids, validate_ignored_test_records
 from .invariants import validate_invariants as validate_invariant_records
 from .mutation_shards import validate_committed_mutation_metadata
 from .oracle_refs import validate_oracle_ref
+from .public_claims import validate_public_claim_records
 from .schema_contracts import validate_schema_enums
 from .risks import validate_risks as validate_risk_records
 from .taxonomy import validate_taxonomy_drift
@@ -581,6 +582,21 @@ class Validator:
         for family in area.get("required_case_families", []):
             if family not in CASE_FAMILIES:
                 self.fail(path, f"planning matrix area {area_id} has unknown case family {family}")
+        decision_ref = area.get("decision_ref")
+        if decision_ref is not None:
+            source = self.spec_sources.get(decision_ref)
+            if (
+                not source
+                or source.get("authority")
+                not in {"reviewed_decision", "reviewed_deviation"}
+                or source.get("source_status") != "active"
+                or source.get("oracle_eligible") is not True
+            ):
+                self.fail(
+                    path,
+                    f"planning matrix area {area_id} decision_ref must name an "
+                    "active oracle-eligible reviewed decision/deviation",
+                )
 
     def validate_matrix_intent(self, path: Path, intent: dict[str, Any], seen_intents: set[str]) -> None:
         name = intent.get("intent")
@@ -867,18 +883,14 @@ class Validator:
         return False
 
     def validate_public_claim_links(self) -> None:
-        referenced_sources: set[str] = set()
-        for gap in self.spec_gaps.values():
-            referenced_sources.update(gap.get("candidate_spec_sources", []))
-        for invariant in self.invariants.values():
-            referenced_sources.update(invariant.get("spec", {}).get("source_refs", []))
-        for required in self.required_specs.values():
-            source_ref = required.get("source_ref")
-            if source_ref:
-                referenced_sources.add(source_ref)
-        for source in self.spec_sources.values():
-            if source.get("authority") == "public_claim" and source["id"] not in referenced_sources:
-                self.fail(source["_path"], f"public claim {source['id']} has no invariant, required-spec, or spec-gap reference")
+        validate_public_claim_records(
+            fail=self.fail,
+            spec_sources=self.spec_sources,
+            spec_gaps=self.spec_gaps,
+            invariants=self.invariants,
+            required_specs=self.required_specs,
+            evidence=self.evidence,
+        )
 
     def finish(self) -> int:
         if self.failures:

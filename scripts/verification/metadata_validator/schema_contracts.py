@@ -6,6 +6,7 @@ from typing import Any
 
 from ..area_routing import (
     AREA_FIELDS,
+    AREA_OPTIONAL_FIELDS,
     INTENT_FIELDS,
     MATRIX_ROOT_FIELDS,
     MILESTONE_SUITE_IDS,
@@ -86,14 +87,16 @@ def _validate_matrix_schema_contract(schema: dict[str, Any]) -> list[str]:
         failures.append("matrix schema areaId enum drifts from AREAS")
     if set(definitions.get("suiteId", {}).get("enum", [])) != MILESTONE_SUITE_IDS:
         failures.append("matrix schema suiteId enum drifts from milestone suites")
-    for name, expected in (
-        ("area", AREA_FIELDS),
-        ("codeArea", ROUTE_FIELDS),
-        ("intentRequirement", INTENT_FIELDS),
+    for name, required, optional in (
+        ("area", AREA_FIELDS, AREA_OPTIONAL_FIELDS),
+        ("codeArea", ROUTE_FIELDS, set()),
+        ("intentRequirement", INTENT_FIELDS, set()),
     ):
         definition = definitions.get(name, {})
-        if set(definition.get("required", [])) != expected:
+        if set(definition.get("required", [])) != required:
             failures.append(f"matrix schema {name} required fields drift")
+        if set(definition.get("properties", {})) != required | optional:
+            failures.append(f"matrix schema {name} property fields drift")
         if definition.get("additionalProperties") is not False:
             failures.append(f"matrix schema {name} must be closed")
     return failures

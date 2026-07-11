@@ -82,6 +82,23 @@ class GateInventoryTests(unittest.TestCase):
             }
             self.assertFailure(duplicate, root, "is mapped by multiple inventory records")
 
+    def test_removed_gate_script_leaves_stale_inventory_record(self) -> None:
+        with fixture_root() as root:
+            records = fixture_records(root)
+            gate_record = next(
+                record
+                for record in records.values()
+                if record["source_kind"] == "gate_script"
+            )
+            (root / gate_record["path"]).unlink()
+
+            failures = validate_gate_inventory(root, records)
+
+        self.assertTrue(
+            any("unknown live discovery_id" in failure for failure in failures),
+            failures,
+        )
+
     def test_live_identity_and_command_drift_fail_closed(self) -> None:
         with fixture_root() as root:
             baseline = fixture_records(root)

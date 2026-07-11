@@ -212,6 +212,53 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertTrue(any("intent_requirements[0] fields drift" in item for item in intent_failures))
         self.assertTrue(any("unknown values ['hardware_lab']" in item for item in suite_failures))
 
+    def test_area_decision_ref_is_optional_but_unknown_fields_stay_closed(self) -> None:
+        with_decision = copy.deepcopy(self.matrix)
+        with_decision["areas"][0]["decision_ref"] = "SPEC_IEC_DECISIONS_001"
+        with_extra = copy.deepcopy(with_decision)
+        with_extra["areas"][0]["invented"] = "value"
+
+        self.assertEqual(
+            validate_area_routing(
+                with_decision,
+                self.taxonomy,
+                canonical_areas=AREAS,
+                suite_ids=MILESTONE_SUITE_IDS,
+            ),
+            [],
+        )
+        self.assertTrue(
+            any(
+                "areas[0] fields drift" in failure
+                for failure in validate_area_routing(
+                    with_extra,
+                    self.taxonomy,
+                    canonical_areas=AREAS,
+                    suite_ids=MILESTONE_SUITE_IDS,
+                )
+            )
+        )
+
+    def test_full_validator_checks_area_decision_ref_authority(self) -> None:
+        invalid = Validator()
+        invalid.load_records()
+        invalid.matrix["areas"][0]["decision_ref"] = "SPEC_UNKNOWN_DECISION"
+        invalid.validate_matrix()
+
+        valid = Validator()
+        valid.load_records()
+        valid.matrix["areas"][0]["decision_ref"] = "SPEC_IEC_DECISIONS_001"
+        valid.validate_matrix()
+
+        self.assertTrue(
+            any("decision_ref must name an active" in item.message for item in invalid.failures),
+            [item.message for item in invalid.failures],
+        )
+        self.assertFalse(
+            any("decision_ref" in item.message for item in valid.failures),
+            [item.message for item in valid.failures],
+        )
+
     def test_full_validator_uses_loaded_milestone_suite_ids(self) -> None:
         validator = Validator()
         validator.matrix = copy.deepcopy(self.matrix)

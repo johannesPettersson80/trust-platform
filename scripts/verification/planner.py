@@ -21,7 +21,7 @@ from .area_routing import (
     intent_overlay,
     normalize_changed_path,
 )
-from .metadata_validator.constants import AREAS, INTENTS, ROOT, VERIFICATION
+from .metadata_validator.constants import AREAS, HIGH_RISKS, INTENTS, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS, test_counts_as_runnable
 
@@ -103,6 +103,10 @@ class Planner:
         }
         self.required_specs = wrapped(VERIFICATION / "spec-matrix.toml", "required_specs")
         self.spec_gap_records = wrapped(VERIFICATION / "spec-gaps.toml", "spec_gaps")
+        self.spec_sources = {
+            record["id"]: record
+            for record in wrapped(VERIFICATION / "spec-sources.toml", "spec_sources")
+        }
         self.tests = wrapped_optional(VERIFICATION / "test-catalog.toml", "tests")
 
     def classify_file(self, changed_file: str) -> list[str]:
@@ -246,7 +250,12 @@ class Planner:
             existing_tests=sorted(existing_tests),
             risk_notes=sorted(risk_notes),
             waiver_notes=sorted(waiver_notes),
-            risk_changes=baseline_risk_changes(baseline, resolved_areas, self.areas),
+            risk_changes=baseline_risk_changes(
+                baseline,
+                resolved_areas,
+                self.areas,
+                self.spec_sources,
+            ),
             baseline=baseline,
         )
 
@@ -419,6 +428,7 @@ def baseline_risk_changes(
     baseline: str | None,
     area_ids: set[str],
     current_areas: dict[str, dict[str, Any]],
+    spec_sources: dict[str, dict[str, Any]],
 ) -> list[str]:
     if not baseline:
         return []
@@ -437,13 +447,20 @@ def baseline_risk_changes(
     except tomllib.TOMLDecodeError as exc:
         return [f"baseline matrix could not be parsed at {baseline}: {exc}"]
     baseline_areas = {area["id"]: area for area in baseline_matrix.get("areas", [])}
-    return risk_changes_from_matrices(area_ids, current_areas, baseline_areas)
+    return risk_changes_from_matrices(
+        area_ids,
+        current_areas,
+        baseline_areas,
+        spec_sources=spec_sources,
+    )
 
 
 def risk_changes_from_matrices(
     area_ids: set[str],
     current_areas: dict[str, dict[str, Any]],
     baseline_areas: dict[str, dict[str, Any]],
+    *,
+    spec_sources: dict[str, dict[str, Any]] | None = None,
 ) -> list[str]:
     changes: list[str] = []
     for area_id in sorted(area_ids):
@@ -460,4 +477,35 @@ def risk_changes_from_matrices(
             changes.append(
                 f"{area_id}: high_risks {sorted(previous.get('high_risks', []))} -> {sorted(current.get('high_risks', []))}"
             )
+        removed_high_risks = set(previous.get("high_risks", [])) - set(
+            current.get("high_risks", [])
+        )
+        default_downgraded = (
+            previous.get("risk_default") in HIGH_RISKS
+            and current.get("risk_default") not in HIGH_RISKS
+        )
+        if removed_high_risks or default_downgraded:
+            decision_ref = current.get("decision_ref")
+            if not decision_ref:
+                changes.append(f"{area_id}: risk downgrade requires decision_ref")
+            elif not _valid_risk_decision(decision_ref, spec_sources):
+                changes.append(
+                    f"{area_id}: risk downgrade decision_ref {decision_ref!r} "
+                    "is not an active oracle-eligible reviewed decision/deviation"
+                )
     return changes
+
+
+def _valid_risk_decision(
+    decision_ref: Any,
+    spec_sources: dict[str, dict[str, Any]] | None,
+) -> bool:
+    if not isinstance(decision_ref, str) or not spec_sources:
+        return False
+    source = spec_sources.get(decision_ref)
+    return bool(
+        source
+        and source.get("authority") in {"reviewed_decision", "reviewed_deviation"}
+        and source.get("source_status") == "active"
+        and source.get("oracle_eligible") is True
+    )

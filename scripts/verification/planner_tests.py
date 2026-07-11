@@ -8,7 +8,7 @@ import unittest
 
 from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.metadata_validator.constants import AREAS
-from scripts.verification.planner import Planner, result_to_json
+from scripts.verification.planner import Planner, result_to_json, risk_changes_from_matrices
 
 
 class PlannerAreaRoutingTests(unittest.TestCase):
@@ -25,6 +25,7 @@ class PlannerAreaRoutingTests(unittest.TestCase):
             for area in AREAS
         ]
         planner.spec_gap_records = []
+        planner.spec_sources = {}
         planner.tests = []
         self.planner = planner
 
@@ -105,6 +106,100 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         payload = json.loads(result_to_json(result))
         self.assertEqual(payload["required_suites"], ["pr"])
         self.assertEqual(payload["conditional_suites"], ["nightly"])
+
+    def test_risk_downgrade_requires_a_valid_reviewed_decision(self) -> None:
+        baseline = {
+            "bytecode_vm": {
+                "risk_default": "wrong_result",
+                "high_risks": ["wrong_result", "silent_corruption"],
+            }
+        }
+        current = {
+            "bytecode_vm": {
+                "risk_default": "maintenance",
+                "high_risks": [],
+            }
+        }
+        valid = {
+            "SPEC_DECISION": {
+                "authority": "reviewed_decision",
+                "source_status": "active",
+                "oracle_eligible": True,
+            }
+        }
+
+        missing = risk_changes_from_matrices({"bytecode_vm"}, current, baseline)
+        invented_current = copy_matrix(current, decision_ref="SPEC_INVENTED")
+        invented = risk_changes_from_matrices(
+            {"bytecode_vm"},
+            invented_current,
+            baseline,
+            spec_sources=valid,
+        )
+        valid_current = copy_matrix(current, decision_ref="SPEC_DECISION")
+        accepted = risk_changes_from_matrices(
+            {"bytecode_vm"},
+            valid_current,
+            baseline,
+            spec_sources=valid,
+        )
+
+        self.assertTrue(any("requires decision_ref" in item for item in missing))
+        self.assertTrue(any("is not an active" in item for item in invented))
+        self.assertFalse(any("decision_ref" in item for item in accepted))
+
+    def test_risk_downgrade_rejects_wrong_authority_and_inactive_decisions(self) -> None:
+        baseline = {
+            "bytecode_vm": {
+                "risk_default": "wrong_result",
+                "high_risks": ["wrong_result"],
+            }
+        }
+        current = copy_matrix(
+            {"bytecode_vm": {"risk_default": "maintenance", "high_risks": []}},
+            decision_ref="SPEC_DECISION",
+        )
+        bad_sources = [
+            {
+                "SPEC_DECISION": {
+                    "authority": "normative_product",
+                    "source_status": "active",
+                    "oracle_eligible": True,
+                }
+            },
+            {
+                "SPEC_DECISION": {
+                    "authority": "reviewed_deviation",
+                    "source_status": "stale",
+                    "oracle_eligible": True,
+                }
+            },
+            {
+                "SPEC_DECISION": {
+                    "authority": "reviewed_decision",
+                    "source_status": "active",
+                    "oracle_eligible": False,
+                }
+            },
+        ]
+        for sources in bad_sources:
+            with self.subTest(sources=sources):
+                changes = risk_changes_from_matrices(
+                    {"bytecode_vm"},
+                    current,
+                    baseline,
+                    spec_sources=sources,
+                )
+                self.assertTrue(any("is not an active" in item for item in changes))
+
+
+def copy_matrix(
+    matrix: dict[str, dict[str, object]], *, decision_ref: str
+) -> dict[str, dict[str, object]]:
+    return {
+        area_id: {**row, "decision_ref": decision_ref}
+        for area_id, row in matrix.items()
+    }
 
 
 if __name__ == "__main__":

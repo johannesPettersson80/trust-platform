@@ -10,6 +10,7 @@ from pathlib import Path
 from scripts.verification.metadata_validator.schema_contracts import validate_schema_enums
 from scripts.verification.area_routing import (
     AREA_FIELDS,
+    AREA_OPTIONAL_FIELDS,
     INTENT_FIELDS,
     MATRIX_ROOT_FIELDS,
     MILESTONE_SUITE_IDS,
@@ -71,6 +72,10 @@ class SchemaContractsTests(unittest.TestCase):
         self.assertEqual(validate_schema_enums("matrix.schema.json", schema), [])
         self.assertEqual(set(schema["required"]), MATRIX_ROOT_FIELDS)
         self.assertEqual(set(schema["$defs"]["area"]["required"]), AREA_FIELDS)
+        self.assertEqual(
+            set(schema["$defs"]["area"]["properties"]),
+            AREA_FIELDS | AREA_OPTIONAL_FIELDS,
+        )
         self.assertEqual(set(schema["$defs"]["codeArea"]["required"]), ROUTE_FIELDS)
         self.assertEqual(set(schema["$defs"]["intentRequirement"]["required"]), INTENT_FIELDS)
         self.assertEqual(set(schema["$defs"]["areaId"]["enum"]), AREAS)
@@ -97,6 +102,11 @@ class SchemaContractsTests(unittest.TestCase):
             "lock_required"
         )
         mutations.append(missing_intent_field)
+        missing_optional_area_field = load_matrix_schema()
+        missing_optional_area_field["$defs"]["area"]["properties"].pop(
+            "decision_ref"
+        )
+        mutations.append(missing_optional_area_field)
 
         for schema in mutations:
             with self.subTest(schema=schema):
