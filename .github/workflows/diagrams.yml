@@ -1,10 +1,18 @@
 name: Render Diagrams
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/diagrams.yml"
+      - "docs/diagrams/**.puml"
+      - "docs/diagrams/**/*.puml"
+      - "scripts/render_diagrams.sh"
+      - "scripts/check_diagram_drift.py"
   push:
     branches:
       - main
     paths:
+      - ".github/workflows/diagrams.yml"
       - "docs/diagrams/**.puml"
       - "docs/diagrams/**/*.puml"
       - "scripts/render_diagrams.sh"
@@ -12,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   render:
@@ -23,10 +31,14 @@ jobs:
       - name: Render PlantUML diagrams
         run: scripts/render_diagrams.sh
 
-      - name: Commit updated diagrams
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(diagrams): update rendered PlantUML"
-          file_pattern: |
-            docs/diagrams/generated/*.svg
-            docs/diagrams/manifest.json
+      - name: Verify generated diagrams are current
+        shell: bash
+        run: |
+          changes=$(git status --porcelain --untracked-files=all -- \
+            docs/diagrams/generated docs/diagrams/manifest.json)
+          if [[ -n "$changes" ]]; then
+            echo "Generated diagrams are stale. Run scripts/render_diagrams.sh and commit the results."
+            printf '%s\n' "$changes"
+            git diff -- docs/diagrams/generated docs/diagrams/manifest.json
+            exit 1
+          fi
