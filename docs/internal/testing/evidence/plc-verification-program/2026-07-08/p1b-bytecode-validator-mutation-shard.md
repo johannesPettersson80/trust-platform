@@ -1,13 +1,14 @@
 # P1B Bytecode-Validator Mutation Shard
 
-Date: 2026-07-09; refreshed 2026-07-10 after the Phase 5 suite migration
+Date: 2026-07-09; refreshed 2026-07-12 for the Phase 10 mutation program
 
 Implemented row:
 
 - `VERIF-P1B-013`: first bytecode-validator-only mutation shard, with survivor
   reporting against committed case IDs.
 - This satisfies only the bytecode-validator slice of `VERIF-P10-001`.
-  `VERIF-P10-001`, `VERIF-P1B-012`, and `VERIF-P1B-014` remain open.
+  The Phase 10 registry now defines the other five focused shards without
+  claiming execution. `VERIF-P1B-012` and `VERIF-P1B-014` remain open.
 
 ## Scope And Method
 
@@ -15,7 +16,7 @@ Implemented row:
   validator because its implementation is assembled from `include!()` files.
   The shard therefore uses cargo-mutants single-file candidate generation and
   applies only two selected function-bypass mutants in an isolated archive of
-  commit `8511e3e2ca14e8c575f4442a44fe0051af4b522c`.
+  commit `3d935a063be65fdf0d4dbdf3ceaaa66dc9382ed1`.
 - The runner cleans only `trust-runtime` outputs in the dedicated mutation
   target before baseline, before each mutant, and after restoration. No product
   source in the working checkout is edited.
@@ -46,13 +47,13 @@ Machine report:
 
 - `p1b-bytecode-validator-mutation-report.json`
 - SHA-256:
-  `fd8b7a7ab1f73b639b198678782072dee19dd5c2f0f9b19fb945dedf22069d4a`
+  `1f979e4da3388a5eec422390f4ba9561faa9c1839c98d012cd065358ce885b83`
 
-The latest 2026-07-10 refresh was required because the Phase 5 suite and gate
-metadata migration changed the case-generator provenance digest and therefore
-the bytecode-validator case-file digest. The case IDs, mutant selectors,
-commands, and outcomes are unchanged; the shard was rerun against the final
-clean implementation commit rather than hand-editing the binding.
+The 2026-07-12 refresh binds the measured pilot to the clean Phase 10
+implementation commit. The case IDs, mutant selectors, commands, and outcomes
+are unchanged. The legacy at-rest parser was hardened against malformed
+unhashable outcome fields before the shard was rerun; the report was generated
+by the runner rather than hand-edited.
 
 ## Tests-First And Tooling Corrections
 
