@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`
-Generated: `2026-07-11T01:30:00+02:00`
+Source revision: `fa228977fee66537ea22a727555aee297bb28abe`
+Generated: `2026-07-11T08:00:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `facfb725726c7d6ac833a3478bee35036e537b04f425b79fe00b5d9632a9119d`
-Input SHA-256: `sha256:b2aef23091019e449b48b898360176f9b1833796ed1bba8987d96638c13a8dd7`
+Generated JSON SHA-256: `90575c36a91878c75407b7bff416bb82516973d92a4fe43dc019be8112fe7dff`
+Input SHA-256: `sha256:80fb083c3cde3d4bf9a6ddb369aa0afc85e9354056709fe8484625b4e56e5196`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.

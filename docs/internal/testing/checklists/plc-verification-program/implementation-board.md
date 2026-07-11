@@ -408,7 +408,7 @@ Acceptance:
 - [x] `VERIF-P2-007` Add test-class completeness report. The closed-schema,
   report-only generator separates exact scanner-fact classification from
   mapped-area required-class completeness. Refreshed clean-source report
-  commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13` classifies 1/3,816 scanner facts
+  commit `fa228977fee66537ea22a727555aee297bb28abe` classifies 1/3,816 scanner facts
   and reports 3,815 as debt. Across 11 mapped areas, two of 32 required class
   slots are complete; both are in `bytecode_vm` (`mutation` and
   `negative_malformed_input`). Four planned case-table rows are visible under
@@ -420,11 +420,11 @@ Acceptance:
   added. Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md`.
   Generated JSON SHA-256:
-  `3f18bb963e642f2a64d611fcd26929f3c100f0e328c16b13e5e5c6fcc28a63ab`.
+  `c01bd689129153b1fdfc51dccfc9a7c91892e1a8f0611d09300021d965323d6c`.
 - [x] `VERIF-P2-008` Add coverage-matrix gap report with states:
   `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
   `gap_open`, `deferred`.
-  Clean-source report commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`
+  Clean-source report commit `fa228977fee66537ea22a727555aee297bb28abe`
   assesses all 11 mapped areas and 52 invariants. The authorized family model
   remains bytecode/VM-only: 16 of 80 required invariant/family slots have
   declared cells and 64 remain structurally unassigned. The other ten areas
@@ -433,7 +433,7 @@ Acceptance:
   `spec_gap` and eight `gap_open` cells. Four catalog-bound case files
   contribute 21 blocked observations without upgrading any state. Missing
   cells receive no synthetic state. Generated JSON SHA-256:
-  `0bfd4a4e44f93291079f5a6bcc7e1aa7c55526171766a89da142fe80b9e00065`.
+  `63db14b2eef9e68ce35a7cf2bea5d5c40e217287e56a48999c4730da6d239879`.
 - [x] `VERIF-P2-009` Add malformed-input coverage report. A reviewed,
   bytecode/VM-only machine taxonomy now atomizes 28 classes and the catalog
   binds classes only through `malformed_input_class_ids`. The sole reviewed
@@ -510,14 +510,14 @@ Acceptance:
   refactor signal for that test.
 
   The clean-source report at commit
-  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13` inventories 3,816 facts in 670
+  `fa228977fee66537ea22a727555aee297bb28abe` inventories 3,816 facts in 670
   files, 24 inclusive-threshold large-file candidates, zero reviewed mixed-
   purpose or broad-claim candidates, zero exact or normalized fact-file
   duplicate groups, six same-table structural case peer groups, one shared
   case-file reference group, and zero malformed-class overlap groups. It joins
   all 456 VS Code facts to 38 registrations and records only one reviewed
   scanner duration plus five artifact durations. Generated JSON SHA-256:
-  `04ada28471c82c2c1c90596c00177325cc4692e1ed7b5792601a870d58a3ae13`.
+  `18e785e652e6ffe024c863a2286264cf0e0658b2868262f6c2aa7c66d5cadcbb`.
 
   Change dispositions remain fail-closed. Mechanical signals never authorize
   a move or rename; `split` is blocked until a multi-target contract exists;
@@ -659,8 +659,8 @@ Acceptance:
   no hardware/tool or not-applicable classification was inferred.
 
   The report-only completeness audit was generated from clean commit
-  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. Generated JSON SHA-256:
-  `facfb725726c7d6ac833a3478bee35036e537b04f425b79fe00b5d9632a9119d`.
+  `fa228977fee66537ea22a727555aee297bb28abe`. Generated JSON SHA-256:
+  `90575c36a91878c75407b7bff416bb82516973d92a4fe43dc019be8112fe7dff`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md`.
   The audit is report-only, creates no proof, closes no spec gap, and does not
@@ -678,7 +678,7 @@ Acceptance:
 - [x] `VERIF-P5-000A` Define `veryquick` environment and just-recipe mapping
   before using it in suite records; do not invent a new broad local Pi gate.
   `just verification-veryquick` is source-bound to its exact bounded command
-  sequence on `trust_builder`; its canonical Python runner discovers all 37
+  sequence on `trust_builder`; its canonical Python runner discovers all 40
   verification `*_tests.py` modules, including the Phase 3 review regressions
   and the Phase 6 requirement/oracle contract tests.
 - [ ] `VERIF-P5-000B` Phase 11 hardware lab work must build on any existing
@@ -718,10 +718,10 @@ Acceptance:
   suites are reported without becoming direct requirements.
 
   The combined report-only audit was generated independently from clean source
-  commit `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. It records 62 inventory
+  commit `fa228977fee66537ea22a727555aee297bb28abe`. It records 62 inventory
   rows, six suite records, 33 direct commands, 11 areas, and 29 routes. Generated
   JSON SHA-256:
-  `a71f06b664ccd2b20e5cbf0f048dded967d48810d0c6a7732d75ea9ca54f869e`.
+  `b44159e073e60db004e9bad8bcb7d8e0d2a7a5bb0808185730c20af7479a6ae8`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md`.
   It emits no proof, closes no spec gap, does not interpret suite inheritance,
@@ -764,8 +764,8 @@ Acceptance:
   invariants, orphan public claims, and orphan evidence.
 
   The report-only audit was generated from clean source commit
-  `d1cdfc0d98fb1452d7badba67e46aa42219e9f13`. Generated JSON SHA-256:
-  `ba33665d79b00c65d76b9c0196b55fdbe74afd923095c64f0d8401c860dac5e3`.
+  `fa228977fee66537ea22a727555aee297bb28abe`. Generated JSON SHA-256:
+  `4f32851a78ae805d7b489c94dc6105c7bcd8245a39daf5f216f2c0c61486e2a5`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md`.
   It creates no proof, closes no specification gap, enables no enforcement,
@@ -779,29 +779,62 @@ Acceptance:
 
 ## Phase 6A - Verification Tooling Self-Tests
 
-- [ ] `VERIF-P6A-001` Add known-good metadata fixture.
-- [ ] `VERIF-P6A-002` Add known-bad fixtures for missing field, unknown status,
+- [x] `VERIF-P6A-001` Add known-good metadata fixture. The named fixture runs
+  the unmodified committed metadata graph through full `Validator.validate()`;
+  it is not a second hand-maintained copy of the 324-record graph.
+- [x] `VERIF-P6A-002` Add known-bad fixtures for missing field, unknown status,
   stale path, unknown invariant, unknown suite, schema mismatch, and public
-  claim without proof/gap.
-- [ ] `VERIF-P6A-002A` Add known-bad fixtures for ignored durable evidence path,
+  claim without proof/gap. All seven are closed, machine-readable fixture
+  records and the registered-public-claim rule traverses top-level, behavior,
+  and coverage gap references before requiring validated green/lock proof.
+- [x] `VERIF-P6A-002A` Add known-bad fixtures for ignored durable evidence path,
   unknown evidence ID, mapped record with empty invariants, stale test name in an
   existing file, `validated` with empty evidence, safety-critical `validated`
-  with `gap_open`/`spec_gap`, and proof level below status requirement.
-- [ ] `VERIF-P6A-003` Add validator tests for all known-bad fixtures.
-- [ ] `VERIF-P6A-004` Add catalog scanner self-tests.
-- [ ] `VERIF-P6A-005` Add spec-source scanner self-tests.
-- [ ] `VERIF-P6A-006` Add changed-file classifier self-tests.
-- [ ] `VERIF-P6A-007` Add report-renderer golden/protective tests.
-- [ ] `VERIF-P6A-008` Add stale metadata tests for deleted/renamed tests and
-  removed scripts.
-- [ ] `VERIF-P6A-009` Add known-bad fixtures for the spec-first planner layer:
+  with `gap_open`/`spec_gap`, and proof level below status requirement. The
+  stale-name fixture uses a real fresh single-file scanner fact and is assigned
+  to live catalog staleness, not the static metadata validator.
+- [x] `VERIF-P6A-003` Add validator tests for all known-bad fixtures. Each
+  metadata mutation reaches its direct production phase and the same signal
+  through full validator wiring; other cases call their owning production API.
+- [x] `VERIF-P6A-004` Add catalog scanner self-tests. Existing source-lexer,
+  stable-identity, surface, diagnostic, schema, semantic-tamper, and output-
+  shape fixtures cover the mechanical scanner without adding a parallel scan.
+- [ ] `VERIF-P6A-005` Add spec-source scanner self-tests. This remains open:
+  `VERIF-P1A-002`, `VERIF-P1A-003`, and `VERIF-P1A-006` have not yet defined or
+  implemented the scanner, so Phase 6A does not invent its contract.
+- [x] `VERIF-P6A-006` Add changed-file classifier self-tests. Path
+  normalization, single/double-star routing, overlaps, intent overlays,
+  deleted paths, rename endpoints, malformed name-status input, and default-
+  deny behavior are pinned.
+- [x] `VERIF-P6A-007` Add report-renderer golden/protective tests. A fixed
+  generated-catalog fixture is compared byte-for-byte with an independent
+  committed golden, while semantic summary tampering and the existing at-rest
+  report suites remain protective failures.
+- [x] `VERIF-P6A-008` Add stale metadata tests for deleted/renamed tests and
+  removed scripts. The gate-inventory fixture now literally removes a live
+  `scripts/*gate*` source while retaining its row and observes a stale-ID
+  failure.
+- [x] `VERIF-P6A-009` Add known-bad fixtures for the spec-first planner layer:
   decision-table invariant missing behavior rows, case file with unknown family,
   stale case digest, case artifact that skips a case, high-risk red/green
   evidence from a non-allowlisted producer, green proof missing its paired red
   evidence, risk downgrade without `decision_ref`, and compile-error-as-red.
-- [ ] `VERIF-P6A-010` Add self-tests that assert each bypass is caught by its
+  Covered decision tables cannot omit all behavior rows. Risk downgrades remain
+  visible planner findings and may carry only an active oracle-eligible reviewed
+  decision/deviation through the optional closed matrix field.
+- [x] `VERIF-P6A-010` Add self-tests that assert each bypass is caught by its
   assigned layer. Do not claim the validator catches assertion strength; that is
-  handled by red proof and mutation shards where available.
+  handled by red proof and mutation shards where available. All honesty-critical
+  fixture fields and handler assignments are drift-pinned; 27/27 fixtures
+  produce one accept, 25 rejects, and one report-only risk finding.
+
+  Implementation commit:
+  `fa228977fee66537ea22a727555aee297bb28abe`. Fixture manifest SHA-256:
+  `f3cad5498064c06d34c704053011fe68fff71953ce72ccafa13c1913340b446e`.
+  Durable result:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6a-tooling-selftest-fixture-report.md`.
+  This slice creates no product test, proof, spec-gap closure, CI enforcement,
+  skill change, or runtime/product behavior change.
 
 Acceptance:
 
