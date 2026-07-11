@@ -41,6 +41,8 @@ jobs:
           python3 ./scripts/check_regression_test_first.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
       - name: Guard release evidence wait budget
         run: python3 ./scripts/test_check_version_release_evidence.py
+      - name: Guard deterministic diagram workflow
+        run: python3 -m unittest scripts.tests.test_diagram_workflow -v
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
