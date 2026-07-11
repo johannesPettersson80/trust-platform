@@ -1048,3 +1048,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-11"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P6_REQUIREMENT_ORACLE_CLOSURE_20260711"
+title = "Phase 6 requirement and oracle audit closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-closure-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md && python3 scripts/validate_requirement_oracle_audit_report.py --json target/gate-artifacts/verification/requirement-oracle-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md && git diff --check && ssh trust-builder 'cd $HOME/projects/trust-platform-p6-validation-1755903f4 && export CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-p6-final TMPDIR=$HOME/.cache/codex-targets/trust-platform-p6-final-tmp && just fmt && just clippy && just verification-veryquick && just test-all'"
+commit = "1755903f45dfd4d7ed366bef763e23115cca9034"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-11"
+suite_id = "supporting_local"
+producer = "codex Phase 5 review fixes and Phase 6 oracle audit closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-11"
