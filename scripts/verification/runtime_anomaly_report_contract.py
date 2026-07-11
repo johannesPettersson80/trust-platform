@@ -7,6 +7,7 @@ import json
 import re
 from collections import Counter
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from .runtime_anomaly_contract import (
@@ -92,6 +93,12 @@ SUMMARY_FIELDS = {
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 REPORT_DISCOVERY_ID_PATTERN = r"^DISC_[0-9A-F]{20}$"
+REPORT_DISCOVERY_ID_RE = re.compile(REPORT_DISCOVERY_ID_PATTERN)
+TIMESTAMP_PATTERN = (
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+)
+TIMESTAMP_RE = re.compile(TIMESTAMP_PATTERN)
 
 
 def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
@@ -152,6 +159,12 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
             failures.append(f"runtime-anomaly report boundary const for {field} drifts")
     if _definition(definitions, "digest").get("pattern") != DIGEST_RE.pattern:
         failures.append("runtime-anomaly report digest pattern drifts")
+    timestamp_schema = properties.get("timestamp", {})
+    if (
+        timestamp_schema.get("type") != "string"
+        or timestamp_schema.get("pattern") != TIMESTAMP_PATTERN
+    ):
+        failures.append("runtime-anomaly report timestamp pattern drifts")
     if properties.get("classes", {}).get("minItems") != len(CLASS_IDS):
         failures.append("runtime-anomaly report class minimum drifts")
     if properties.get("classes", {}).get("maxItems") != len(CLASS_IDS):
@@ -305,7 +318,13 @@ def validate_markdown_binding(
     if json_bytes != canonical:
         failures.append("runtime-anomaly report JSON is not canonical")
     digest = hashlib.sha256(json_bytes).hexdigest()
-    expected = render_markdown(payload, json_digest=digest)
+    try:
+        expected = render_markdown(payload, json_digest=digest)
+    except Exception:
+        failures.append(
+            "runtime-anomaly Markdown cannot be rendered from invalid report payload"
+        )
+        return failures
     if markdown != expected:
         failures.append("runtime-anomaly Markdown does not exactly match report JSON")
     return failures
@@ -318,10 +337,12 @@ def _validate_provenance(payload: Mapping[str, Any], failures: list[str]) -> Non
     commit = payload.get("commit")
     if not isinstance(commit, str) or not COMMIT_RE.fullmatch(commit):
         failures.append("runtime-anomaly commit must identify a clean full Git SHA")
-    for field in ("timestamp", "platform"):
-        value = payload.get(field)
-        if not isinstance(value, str) or not value:
-            failures.append(f"runtime-anomaly {field} must be non-empty")
+    timestamp = payload.get("timestamp")
+    if not _is_iso_timestamp(timestamp):
+        failures.append("runtime-anomaly timestamp must be ISO-8601 with a timezone")
+    platform = payload.get("platform")
+    if not isinstance(platform, str) or not platform:
+        failures.append("runtime-anomaly platform must be non-empty")
     paths = payload.get("input_paths")
     if (
         not isinstance(paths, list)
@@ -400,9 +421,25 @@ def _validate_mappings(value: Any, failures: list[str]) -> list[dict[str, Any]]:
         failures.append("runtime-anomaly mapping rows must be objects")
     ids = [row.get("mapping_id") for row in rows]
     discoveries = [row.get("discovery_id") for row in rows]
-    if ids != sorted(ids) or len(ids) != len(set(ids)):
+    valid_ids = [
+        value
+        for value in ids
+        if isinstance(value, str) and MAPPING_ID_RE.fullmatch(value)
+    ]
+    if len(valid_ids) != len(ids):
+        failures.append("runtime-anomaly mapping_id values must match the closed ID pattern")
+    elif ids != sorted(valid_ids) or len(valid_ids) != len(set(valid_ids)):
         failures.append("runtime-anomaly mapping IDs must be unique canonical order")
-    if len(discoveries) != len(set(discoveries)):
+    valid_discoveries = [
+        value
+        for value in discoveries
+        if isinstance(value, str) and REPORT_DISCOVERY_ID_RE.fullmatch(value)
+    ]
+    if len(valid_discoveries) != len(discoveries):
+        failures.append(
+            "runtime-anomaly discovery_id values must match the closed ID pattern"
+        )
+    elif len(valid_discoveries) != len(set(valid_discoveries)):
         failures.append("runtime-anomaly mapping discovery IDs must be unique")
     for row in rows:
         label = row.get("mapping_id", "<unknown>")
@@ -427,7 +464,7 @@ def _validate_mappings(value: Any, failures: list[str]) -> list[dict[str, Any]]:
         ):
             failures.append(f"runtime-anomaly mapping {label} limitations must be non-empty")
         ignore_state = row.get("ignore_state")
-        if ignore_state not in {"not_ignored", "ignored", "conditional"}:
+        if ignore_state not in ("not_ignored", "ignored", "conditional"):
             failures.append(f"runtime-anomaly mapping {label} has unknown ignore_state")
         expected_runnable = (
             row.get("association_kind") == "direct" and ignore_state == "not_ignored"
@@ -467,12 +504,16 @@ def _validate_classes(
         if not isinstance(conditional, list) or any(item not in SUITE_IDS for item in conditional):
             failures.append(f"runtime-anomaly class {class_id} conditional suites drift")
         members = mappings_by_class.get(str(class_id), [])
-        expected_ids = [member["mapping_id"] for member in members]
+        expected_ids = [member.get("mapping_id") for member in members]
         runnable = [
-            member["mapping_id"] for member in members if member["effectively_runnable"]
+            member.get("mapping_id")
+            for member in members
+            if member.get("effectively_runnable") is True
         ]
         other = [
-            member["mapping_id"] for member in members if not member["effectively_runnable"]
+            member.get("mapping_id")
+            for member in members
+            if member.get("effectively_runnable") is not True
         ]
         expected_state = (
             "mapped_runnable"
@@ -506,22 +547,29 @@ def _validate_gaps(
         row.get("class_id") for row in expected_classes
     ]:
         failures.append("runtime-anomaly gap rows are not the exhaustive class partition")
-    expected_by_id = {row["class_id"]: row for row in expected_classes}
+    expected_by_id: dict[str, dict[str, Any]] = {}
+    for source in expected_classes:
+        source_class_id = source.get("class_id")
+        if isinstance(source_class_id, str):
+            expected_by_id[source_class_id] = source
     for row in rows:
         class_id = row.get("class_id")
         if set(row) != GAP_FIELDS:
             failures.append(f"runtime-anomaly gap {class_id} fields drift")
+        if not isinstance(class_id, str):
+            failures.append("runtime-anomaly gap class_id must be a string")
+            continue
         source = expected_by_id.get(class_id)
         if source is None:
             continue
         expected = {
-            "title": source["title"],
-            "primary_suite": source["primary_suite"],
-            "state": source["state"],
-            "mapping_ids": source["mapping_ids"],
+            "title": source.get("title"),
+            "primary_suite": source.get("primary_suite"),
+            "state": source.get("state"),
+            "mapping_ids": source.get("mapping_ids"),
             "reason": (
                 "no_explicit_mapping"
-                if source["state"] == "unmapped"
+                if source.get("state") == "unmapped"
                 else "no_effectively_runnable_direct_mapping"
             ),
         }
@@ -543,9 +591,19 @@ def _validate_summary(
         return
     if set(value) != SUMMARY_FIELDS:
         failures.append("runtime-anomaly summary fields drift")
-    state_counts = Counter(row.get("state") for row in classes)
-    suite_counts = Counter(row.get("primary_suite") for row in classes)
-    association_counts = Counter(row.get("association_kind") for row in mappings)
+    state_counts = Counter(
+        row.get("state") for row in classes if isinstance(row.get("state"), str)
+    )
+    suite_counts = Counter(
+        row.get("primary_suite")
+        for row in classes
+        if isinstance(row.get("primary_suite"), str)
+    )
+    association_counts = Counter(
+        row.get("association_kind")
+        for row in mappings
+        if isinstance(row.get("association_kind"), str)
+    )
     expected = {
         "taxonomy_classes": len(classes),
         "mapping_records": len(mappings),
@@ -622,3 +680,13 @@ def _definition(definitions: Mapping[str, Any], name: str) -> Mapping[str, Any]:
 
 def _text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _is_iso_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or TIMESTAMP_RE.fullmatch(value) is None:
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset() is not None

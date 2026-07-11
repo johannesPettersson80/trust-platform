@@ -9,173 +9,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.metadata_validator.core import Validator
 from scripts.verification.runtime_anomaly_contract import (
     ALLOCATION_REQUIRED_TEXT,
     CLASS_IDS,
-    ROOT_FIELDS,
     validate_runtime_anomaly_contract,
     validate_runtime_anomaly_schema_contract,
 )
 
 
 def fixture_schema() -> dict:
-    class_fields = {
-        "id",
-        "title",
-        "stimulus",
-        "primary_suite",
-        "conditional_suites",
-        "injection_boundary",
-        "rationale",
-    }
-    mapping_fields = {
-        "id",
-        "class_id",
-        "discovery_id",
-        "discovery_source_kind",
-        "path",
-        "name",
-        "association_kind",
-        "injection_mechanism",
-        "assertion_summary",
-        "limitations",
-        "last_reviewed",
-    }
-    allocation_fields = {
-        "outcome",
-        "source_ref",
-        "source_path",
-        "required_text",
-        "rationale",
-    }
-    restart_fields = {"outcome", "spec_gap_ref", "rationale"}
-    string = {"type": "string", "minLength": 1}
-    schema = {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "additionalProperties": False,
-        "required": sorted(ROOT_FIELDS),
-        "properties": {
-            "schema_version": {"const": 1},
-            "id": {"const": "RUNTIME_ANOMALY_TAXONOMY_V1"},
-            "title": string,
-            "area": {"const": "runtime_safety"},
-            "mapping_basis": {"const": "explicit_reviewed_discovery_id_only"},
-            "proof_posture": {"const": "association_only"},
-            "fault_interface_status": {"const": "not_implemented"},
-            "production_hook_policy": {"const": "design_review_required"},
-            "last_reviewed": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
-            "spec_gap_reviews": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["scan_cycle_allocation_policy", "restart_timebase"],
-                "properties": {
-                    "scan_cycle_allocation_policy": {"$ref": "#/$defs/allocation_review"},
-                    "restart_timebase": {"$ref": "#/$defs/restart_timebase_review"},
-                },
-            },
-            "classes": {
-                "type": "array",
-                "minItems": len(CLASS_IDS),
-                "maxItems": len(CLASS_IDS),
-                "items": {"$ref": "#/$defs/class"},
-            },
-            "mappings": {
-                "type": "array",
-                "minItems": 1,
-                "items": {"$ref": "#/$defs/mapping"},
-            },
-        },
-        "$defs": {
-            "class": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": sorted(class_fields),
-                "properties": {
-                    **{field: string for field in class_fields},
-                    "id": {"enum": list(CLASS_IDS)},
-                    "primary_suite": {"enum": ["pr", "nightly", "release", "hardware_lab"]},
-                    "conditional_suites": {
-                        "type": "array",
-                        "uniqueItems": True,
-                        "items": {"enum": ["pr", "nightly", "release", "hardware_lab"]},
-                    },
-                    "injection_boundary": {
-                        "enum": [
-                            "ordinary_input",
-                            "test_harness",
-                            "external_harness",
-                            "design_review_required",
-                        ]
-                    },
-                },
-            },
-            "mapping": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": sorted(mapping_fields),
-                "properties": {
-                    **{field: string for field in mapping_fields},
-                    "id": {"type": "string", "pattern": "^ANOM_MAP_[A-Z0-9_]+$"},
-                    "class_id": {"enum": list(CLASS_IDS)},
-                    "discovery_id": {"type": "string", "pattern": "^DISC_[A-F0-9]{20}$"},
-                    "discovery_source_kind": {
-                        "enum": ["rust_integration_test", "rust_unit_test"]
-                    },
-                    "association_kind": {
-                        "enum": ["direct", "partial", "protective_red", "context_only"]
-                    },
-                    "injection_mechanism": {
-                        "enum": ["ordinary_input", "test_harness", "external_harness"]
-                    },
-                    "path": {
-                        "type": "string",
-                        "pattern": "^crates/trust-runtime/.*\\.rs$",
-                    },
-                    "limitations": {
-                        "type": "array",
-                        "minItems": 1,
-                        "uniqueItems": True,
-                        "items": string,
-                    },
-                    "last_reviewed": {
-                        "type": "string",
-                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-                    },
-                },
-            },
-            "allocation_review": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": sorted(allocation_fields),
-                "properties": {
-                    **{field: string for field in allocation_fields},
-                    "outcome": {"const": "written_contract_present"},
-                    "source_ref": {"const": "SPEC_RUNTIME_ENGINE_001"},
-                    "source_path": {"const": "docs/specs/11-runtime-engine.md"},
-                    "required_text": {
-                        "type": "array",
-                        "minItems": len(ALLOCATION_REQUIRED_TEXT),
-                        "maxItems": len(ALLOCATION_REQUIRED_TEXT),
-                        "uniqueItems": True,
-                        "items": string,
-                    },
-                },
-            },
-            "restart_timebase_review": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": sorted(restart_fields),
-                "properties": {
-                    **{field: string for field in restart_fields},
-                    "outcome": {"const": "existing_open_gap"},
-                    "spec_gap_ref": {"const": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"},
-                },
-            },
-        },
-    }
-    return schema
+    path = ROOT / "verification/schemas/runtime-anomaly-taxonomy.schema.json"
+    return json.loads(path.read_text())
 
 
 def fixture_taxonomy() -> dict:
@@ -371,6 +217,16 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
         )
         self.assertTrue(any("unknown class_id" in item for item in self.validate(unknown)))
 
+    def test_schema_invalid_mapping_class_id_returns_failures(self) -> None:
+        for value in ([], {}):
+            with self.subTest(value=value):
+                taxonomy = fixture_taxonomy()
+                taxonomy["mappings"][0]["class_id"] = value
+
+                failures = self.validate(taxonomy)
+
+                self.assertTrue(any("class_id" in failure for failure in failures), failures)
+
     def test_mapping_paths_are_safe_tracked_non_symlinked_and_match_source_kind(self) -> None:
         unsafe = fixture_taxonomy()
         unsafe["mappings"][0]["path"] = "../escape.rs"
@@ -484,6 +340,16 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
         weak_mapping_id["$defs"]["mapping"]["properties"]["id"]["pattern"] = ".*"
         weak_mapping_path = copy.deepcopy(schema)
         weak_mapping_path["$defs"]["mapping"]["properties"]["path"]["pattern"] = ".*"
+        weak_required_text = copy.deepcopy(schema)
+        weak_required_text["$defs"]["allocation_review"]["properties"][
+            "required_text"
+        ] = {
+            "type": "array",
+            "minItems": len(ALLOCATION_REQUIRED_TEXT),
+            "maxItems": len(ALLOCATION_REQUIRED_TEXT),
+            "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1},
+        }
 
         self.assertEqual([], validate_runtime_anomaly_schema_contract(schema))
         self.assertTrue(
@@ -522,6 +388,12 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                 for item in validate_runtime_anomaly_schema_contract(weak_mapping_path)
             )
         )
+        self.assertTrue(
+            any(
+                "allocation required_text schema drifts" in item
+                for item in validate_runtime_anomaly_schema_contract(weak_required_text)
+            )
+        )
 
     def test_full_metadata_validator_wires_runtime_anomaly_contract(self) -> None:
         validator = Validator()
@@ -538,6 +410,27 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
             ),
             [failure.message for failure in validator.failures],
         )
+
+    def test_full_metadata_validator_returns_failures_for_invalid_mapping_class_id(
+        self,
+    ) -> None:
+        for value in ([], {}):
+            with self.subTest(value=value):
+                validator = Validator()
+                validator.load_records()
+                validator.runtime_anomaly_taxonomy["mappings"][0]["class_id"] = value
+
+                validator.validate()
+
+                self.assertTrue(
+                    any(
+                        failure.path.as_posix()
+                        == "verification/runtime-anomaly-taxonomy.toml"
+                        and "class_id" in failure.message
+                        for failure in validator.failures
+                    ),
+                    [failure.message for failure in validator.failures],
+                )
 
 
 if __name__ == "__main__":

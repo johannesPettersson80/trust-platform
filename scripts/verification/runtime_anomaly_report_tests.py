@@ -220,6 +220,9 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
         count_map = copy.deepcopy(schema)
         count_map["$defs"]["count_map_state"]["required"].remove("unmapped")
         mutations.append((count_map, "count_map_state required fields drift"))
+        timestamp = copy.deepcopy(schema)
+        timestamp["properties"]["timestamp"] = {"type": "string", "minLength": 1}
+        mutations.append((timestamp, "timestamp pattern drifts"))
 
         for changed, signal in mutations:
             with self.subTest(signal=signal):
@@ -254,6 +257,107 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             any("current runtime-anomaly analysis" in item for item in failures),
             failures,
         )
+
+    def test_at_rest_validation_rejects_non_iso_timestamp(self) -> None:
+        payload = copy.deepcopy(self.report.to_dict())
+        payload["timestamp"] = "not-a-time"
+        payload["command"][-1] = "not-a-time"
+
+        failures = self._validate_payload_at_rest(payload)
+
+        self.assertTrue(any("ISO-8601" in failure for failure in failures), failures)
+
+    def test_at_rest_validation_returns_failures_for_malformed_mapping_ids(self) -> None:
+        mutations = (
+            ("mapping_id", None, "mapping_id"),
+            ("discovery_id", [], "discovery_id"),
+        )
+        for field, value, signal in mutations:
+            with self.subTest(field=field):
+                payload = copy.deepcopy(self.report.to_dict())
+                payload["mappings"][0][field] = value
+
+                failures = self._validate_payload_at_rest(payload)
+
+                self.assertTrue(any(signal in failure for failure in failures), failures)
+
+    def test_at_rest_validation_returns_failures_for_unhashable_leaf_types(self) -> None:
+        mutations = (
+            ("classes", "primary_suite", [], "primary_suite"),
+            ("classes", "state", {}, "state"),
+            ("mappings", "association_kind", [], "association_kind"),
+            ("mappings", "ignore_state", {}, "ignore_state"),
+            ("gap_rows", "class_id", [], "class_id"),
+        )
+        for collection, field, value, signal in mutations:
+            with self.subTest(collection=collection, field=field):
+                payload = copy.deepcopy(self.report.to_dict())
+                payload[collection][0][field] = value
+
+                failures = self._validate_payload_at_rest(payload)
+
+                self.assertTrue(any(signal in failure for failure in failures), failures)
+
+    def test_at_rest_validation_returns_failures_for_missing_leaf_fields(self) -> None:
+        class_fields = (
+            "class_id",
+            "mapping_ids",
+            "primary_suite",
+            "state",
+            "title",
+        )
+        for field in class_fields:
+            with self.subTest(collection="classes", field=field):
+                payload = copy.deepcopy(self.report.to_dict())
+                row = next(
+                    item for item in payload["classes"] if item["class_id"] == "queue_full"
+                )
+                row.pop(field)
+
+                failures = self._validate_payload_at_rest(payload)
+
+                self.assertTrue(failures)
+
+        for field in ("mapping_id", "effectively_runnable"):
+            with self.subTest(collection="mappings", field=field):
+                payload = copy.deepcopy(self.report.to_dict())
+                payload["mappings"][0].pop(field)
+
+                failures = self._validate_payload_at_rest(payload)
+
+                self.assertTrue(failures)
+
+    def _validate_payload_at_rest(self, payload: dict) -> list[str]:
+        with tempfile.TemporaryDirectory() as temp:
+            json_path = Path(temp) / "report.json"
+            markdown_path = Path(temp) / "report.md"
+            json_text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+            json_path.write_text(json_text)
+            try:
+                markdown = render_markdown(
+                    payload, json_digest=hashlib.sha256(json_text.encode()).hexdigest()
+                )
+            except (KeyError, TypeError):
+                markdown = "malformed payload cannot be rendered\n"
+            markdown_path.write_text(markdown)
+            with (
+                patch(
+                    "scripts.verification.runtime_anomaly_validation."
+                    "build_live_runtime_anomaly_state",
+                    return_value=self.state,
+                ),
+                patch(
+                    "scripts.verification.runtime_anomaly_validation.validate_source_revision",
+                    return_value=[],
+                ),
+            ):
+                return validate_report_files(
+                    ROOT,
+                    json_path,
+                    markdown_path,
+                    SCHEMA_PATH,
+                    allow_external_test_outputs=True,
+                )
 
     def test_at_rest_validation_rejects_fully_rendered_semantic_tamper(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

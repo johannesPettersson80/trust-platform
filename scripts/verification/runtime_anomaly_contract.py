@@ -367,7 +367,7 @@ def _validate_mapping(
     if not isinstance(mapping_id, str) or not MAPPING_ID_RE.fullmatch(mapping_id):
         failures.append(f"runtime-anomaly mapping {label} has invalid mapping ID")
     class_id = value.get("class_id")
-    if class_id not in known_classes:
+    if not isinstance(class_id, str) or class_id not in known_classes:
         failures.append(f"runtime-anomaly mapping {label} has unknown class_id {class_id!r}")
     discovery_id = value.get("discovery_id")
     if not isinstance(discovery_id, str) or not DISCOVERY_ID_RE.fullmatch(discovery_id):
@@ -536,13 +536,7 @@ def _validate_spec_review_schema(
         if allocation_properties.get(field, {}).get("const") != expected:
             failures.append(f"runtime-anomaly allocation schema const for {field} drifts")
     required_text = allocation_properties.get("required_text", {})
-    required_text_is_const = required_text.get("const") == list(ALLOCATION_REQUIRED_TEXT)
-    required_text_is_bounded = (
-        required_text.get("minItems") == len(ALLOCATION_REQUIRED_TEXT)
-        and required_text.get("maxItems") == len(ALLOCATION_REQUIRED_TEXT)
-        and required_text.get("uniqueItems") is True
-    )
-    if not (required_text_is_const or required_text_is_bounded):
+    if required_text.get("const") != list(ALLOCATION_REQUIRED_TEXT):
         failures.append("runtime-anomaly allocation required_text schema drifts")
     for field, expected in {
         "outcome": "existing_open_gap",
