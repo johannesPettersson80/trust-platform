@@ -939,15 +939,45 @@ Acceptance:
 
 ## Phase 9 - Fuzz and Malformed Input Program
 
-- [ ] `VERIF-P9-001` Inventory fuzz targets and fuzz-like smoke tests.
-- [ ] `VERIF-P9-002` Define required fuzz surfaces: ST lexer/parser,
+- [x] `VERIF-P9-001` Inventory fuzz targets and fuzz-like smoke tests. The
+  exact bidirectional live join contains eleven executable facts: five targets
+  from two tracked cargo-fuzz manifests and six production Rust-scanner
+  fuzz/property smokes. The three ADS targets are Phase 9 facts only; the
+  historical Phase 2 scanner denominator is unchanged.
+- [x] `VERIF-P9-002` Define required fuzz surfaces: ST lexer/parser,
   HIR/lowering input, PLCopen XML, bytecode container/instructions, protocol
-  payloads, config files, LSP incremental edits, HMI schema payloads.
-- [ ] `VERIF-P9-003` Classify each fuzz target as PR-smoke, nightly, or manual
-  extended.
-- [ ] `VERIF-P9-004` Define corpus storage rules.
+  payloads, config files, LSP incremental edits, HMI schema payloads. Twelve
+  exact reviewed associations derive two `cargo_fuzz_target`, one `smoke_only`,
+  two `partial_only`, and three `unmapped` surfaces. Six of eight surfaces
+  remain report gaps; associations create no oracle, invariant coverage, or
+  proof.
+- [x] `VERIF-P9-003` Classify each fuzz target as PR-smoke, nightly, or manual
+  extended. Primary tiers are seven `pr_smoke`, one `nightly`, and three
+  `manual_extended`; only the two root cargo-fuzz targets also name `nightly`.
+  Enforcement is seven `wired`, one `planned`, and three `manual_only`.
+  Required execution claims bind raw reviewed script/workflow bytes, script
+  modes, unique workflow trigger/job blocks, effective Cargo default members,
+  and `not_ignored` Rust facts. This row adds no CI or suite wiring and records
+  no observed execution result.
+- [x] `VERIF-P9-004` Define corpus storage rules. Both owning fuzz workspaces
+  ignore exactly `artifacts/`, `corpus/`, `coverage/`, and `target/`; effective
+  ignore behavior is checked and tracked generated corpus/crash paths are
+  forbidden. Contents and counts remain deliberately unassessed machine-local
+  discovery state, not durable evidence.
 - [ ] `VERIF-P9-005` Every minimized crash becomes deterministic regression.
-- [ ] `VERIF-P9-006` Add generated fuzz coverage/gap report.
+  This remains open and live-guarded: no exhaustive machine registry joins
+  every minimized crash artifact to a tracked deterministic regression with a
+  reviewed runnable identity. Ignore rules, an empty artifact directory, or a
+  policy sentence cannot satisfy the universal handoff.
+- [x] `VERIF-P9-006` Add generated fuzz coverage/gap report. The report-only
+  audit was generated from clean source commit
+  `c25c62f87b6fe4d768c4ce47a416d1d464cff157`; JSON SHA-256 is
+  `5bde7a684d85e4f660d8445436fa5e5151646210e8d10fc290fe57c9d7211de2`.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md`.
+  It records eleven targets, eight surfaces, six gaps, no campaign, no proof or
+  invariant coverage, no spec-gap closure, no product/runtime behavior change,
+  and no CI enforcement change.
 
 ## Phase 10 - Mutation, Coverage, and Test-the-Tests
 

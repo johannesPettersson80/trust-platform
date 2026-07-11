@@ -1,11 +1,11 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`
-Generated: `2026-07-11T15:45:29+02:00`
+Source revision: `c25c62f87b6fe4d768c4ce47a416d1d464cff157`
+Generated: `2026-07-11T20:43:20+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `0b1421bf23a054f6e789d54fba07ff2e3532da61277fbadc49803195e3ecd9ce`
-Input SHA-256: `sha256:f6c77baa7bd392647db9a0f73539d6a49abaef6ecb49ade4e0f4e03dd8b9e279`
+Generated JSON SHA-256: `0660bf114414abb9dfcbbfd7cf05d31f92729481d692a6df9cf0804c472c4a2a`
+Input SHA-256: `sha256:4aab09a6cd0b984750121efa0db51b9d55272ecf744f35406b8c18c94d2d72e2`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
