@@ -366,6 +366,13 @@ Initial required spec tags by area:
   verification metadata schemas, case-file/prover contracts, mutation/fuzz
   report contracts, and CI/report artifact semantics.
 
+Phase 10 mutation shards remain owned by their product area while the generic
+manifest/report contract belongs to `verification`. Exact invariant and test
+associations establish review scope only. They do not promote an invariant,
+close a specification gap, prove execution, or identify which test caught a
+mutant. Coverage percentages are never release-safety proof, and a delivered
+binary must be identified before a packaged-path mutation result is measured.
+
 The bytecode/VM tags are the only tags that must be complete enough for Phase
 1B. Other areas may start with open spec gaps and owners.
 

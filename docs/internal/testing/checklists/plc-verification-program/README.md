@@ -158,6 +158,7 @@ verification/
   spec-sources.toml
   spec-gaps.toml
   runtime-anomaly-taxonomy.toml
+  mutation-program.toml
 ```
 
 Generated reports are artifacts under `target/gate-artifacts/**` or CI
@@ -168,6 +169,14 @@ explicit Rust scanner associations create planned routing and visible test
 debt, not expected behavior, invariant coverage, fault execution, or proof.
 The exhaustive mapping row, fault-toggle row, and production-hook guard row
 remain open.
+
+Phase 10 defines six exact focused mutation shards and seven selected mutants.
+Only the existing bytecode-validator pilot is measured; runtime conversion,
+HIR diagnostics, parser recovery, retain/restart, and connector projection are
+planned definitions with empty result arrays. Exact live test associations do
+not claim execution or mutant causality. Mutation and coverage are adequacy
+signals only, and a future delivered-binary run must carry artifact identity
+and direct-execution confirmation before it may be measured.
 
 The Phase 2 existing-test scanner is:
 

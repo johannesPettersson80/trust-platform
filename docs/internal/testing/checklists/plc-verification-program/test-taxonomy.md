@@ -83,7 +83,7 @@ reviewed mutation shard runner.
 | `negative_malformed_input` | Bad input fails closed with right diagnostic/status. | Malformed payload/source/config, expected diagnostic/error, no partial apply unless designed. | Accepting malformed input because happy path passes. |
 | `fuzz` | Parser/decoder/validator survives broad generated input. | Target, seed/minimized corpus rules, budget, crash minimization, regression handoff. | Fuzz run with no corpus, owner, or repro path. |
 | `property` | A general invariant holds across generated values. | Generator domain, invariant, shrinking/repro path, bounded execution. | Random examples with no property. |
-| `mutation` | Tests catch changes to safety-relevant branches. | Mutant shard, invariant owner, survivor report and action. | Coverage percentage alone. |
+| `mutation` | Tests catch changes to safety-relevant branches. | Exact focused mutant shard, invariant owner, raw derived outcome, survivor report and resolved durable action; delivered artifact identity where relevant. | Coverage percentage alone, planned selector as an executed result, or association ID as a killed-by claim. |
 | `miri_sanitizer_loom` | Unsafe/concurrency assumptions hold or tool is inapplicable. | Focused target, toolchain, invariant, triage path. | Whole-workspace failure used to declare area untestable. |
 | `protocol_loopback` | Protocol logic works against controlled endpoint and reports honestly. | Local endpoint, connect/read/write/reconnect/stale/error cases. | TCP reachability as protocol truth. |
 | `hardware_lab` | Public hardware claim works on real named equipment. | Device model, firmware, topology, env vars, safety precautions, command, skipped/unproven status. | Mock proof as hardware proof. |

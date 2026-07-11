@@ -839,6 +839,23 @@ the only allowed semantics are
 `association_only_blocked_cases_not_executed`; mutation results are adequacy
 evidence, not expected-behavior proof.
 
+The generic Phase 10 control plane is separate from that bytecode-only catalog
+exception. `verification/mutation-program.toml` defines the six reviewed shard
+IDs in checklist order, at most two exact single-file selectors per shard,
+focused build/test commands, invariant ownership, and explicit
+`association_ids`. Each association must partition the shard's committed case
+or current scanner identities exactly; it is not a killed-by or executed-test
+claim. The static manifest and closed schema are validated through the primary
+metadata validator.
+
+The bytecode shard may bind the validated legacy report. Other shards remain
+`planned` until separately executed and cannot contain outcomes. A measured
+survivor requires one matching `survivor_resolutions` record with an owner,
+resolved allowed action (`add_test`, `unreachable_defensive_rationale`, or
+`dead_code_removal`), rationale, and durable tracked reference. A shard whose
+contract requires the delivered build cannot become measured without a bound
+artifact SHA-256 and direct-execution confirmation.
+
 `invariants` may be empty only while `status` is `planned` or `gap_open`.
 Records with `status` in `mapped`, `test_written`, `implemented`, or
 `validated` must reference known invariant IDs and an `oracle_ref` or

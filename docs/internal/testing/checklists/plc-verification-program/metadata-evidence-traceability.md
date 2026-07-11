@@ -139,6 +139,36 @@ mutation-report format tracked by `VERIF-P10-003`.
 - `prove.py lock` for refactors must pair `lock_compare` evidence to a
   `lock_baseline` evidence record and report any output delta.
 
+### Generic Phase 10 Mutation Survivor Report
+
+`verification/schemas/mutation-survivor-report.schema.json` is the closed
+generic report format. It keeps selector definitions, explicit association
+IDs, raw measured outcomes, survivor resolutions, delivered-build
+confirmation, and coverage posture separate.
+
+- A `planned` shard has no result artifact or result rows. A `measured` shard
+  has exactly one derived outcome for every defined mutant and a digest-bound
+  source report.
+- `caught`, `survived`, `unviable`, `timeout`, and `error` are recomputed from
+  raw build/test exits and timeout flags. Infrastructure failures cannot be
+  relabeled as caught or unviable, and a complete report cannot contain an
+  error outcome.
+- `association_ids` must equal the mutant definition and partition the shard's
+  associated identities. They remain association-only and cannot assert which
+  test executed or killed a mutant.
+- Survivor rows are exhaustive over derived `survived` outcomes and require a
+  resolved allowed action plus a durable tracked resolution reference.
+- Coverage percentages remain null when no coverage run occurred. Mutation or
+  coverage evidence is adequacy evidence and cannot create proof, invariant
+  coverage, release evidence, or specification-gap closure.
+- A measured shard marked `required_before_execution` must bind the delivered
+  artifact path and SHA-256 and confirm direct execution of that artifact.
+
+The committed JSON and Markdown are byte-canonical and exact-render bound. At
+rest, the validator rechecks the schema, complete input closure, source
+revision, live test identities, selectors, outcome derivation, survivor
+references, artifact digests, summary, and current full metadata graph.
+
 ### `prove.py` Contract
 
 `prove.py` is the only default producer allowed to create high-risk red, green,

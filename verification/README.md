@@ -40,6 +40,9 @@ Current seed scope:
 - a closed verification-tooling bypass fixture contract for Phase 6A. It binds
   each known-bad case to its production catcher without claiming assertion
   strength or simulating the not-yet-implemented spec-source scanner.
+- a report-only Phase 10 mutation program with six exact focused shards. The
+  bytecode-validator pilot is the only measured shard; the other five are
+  selector- and live-test-bound definitions with no fabricated execution.
 
 TOML shape convention:
 
@@ -290,6 +293,31 @@ TOML shape convention:
   for corpus contents. No enforced crash ledger currently joins every minimized
   artifact to a tracked deterministic regression, so `VERIF-P9-005` remains
   open; an empty artifact directory or policy sentence cannot close it.
+- `verification/mutation-program.toml` owns the six Phase 10 shard definitions
+  and seven selected mutants. Each mutant binds one tracked source digest, one
+  exact cargo-mutants selector, focused build/test commands, invariants, and
+  explicit case or scanner association IDs. Those IDs are traceability labels,
+  not claims that a named test killed a mutant. Shards are capped at two
+  mutants; broad workspace and `test-all` commands fail validation.
+- Generate and validate the durable Phase 10 report with:
+
+  ```text
+  python3 scripts/report_mutation_program.py \
+    --json-out docs/internal/testing/evidence/plc-verification-program/<date>/p10-mutation-survivor-report.json \
+    --markdown-out docs/internal/testing/evidence/plc-verification-program/<date>/p10-mutation-survivor-report.md \
+    --timestamp <fixed-iso-8601-time>
+  python3 scripts/validate_mutation_program_report.py \
+    --json docs/internal/testing/evidence/plc-verification-program/<date>/p10-mutation-survivor-report.json \
+    --markdown docs/internal/testing/evidence/plc-verification-program/<date>/p10-mutation-survivor-report.md
+  ```
+
+  The generic report derives outcomes from raw process fields and rejects
+  infrastructure failures. Every measured survivor must have exactly one
+  resolved allowed action and a durable tracked reference. Coverage remains
+  zero-run/no-percentage until a real campaign exists. A future measured
+  connector-projection shard must bind a delivered binary SHA-256 and direct
+  execution confirmation. None of these records create proof, invariant
+  coverage, spec-gap closure, release evidence, or CI enforcement.
 - Hardware-lab commands require the exact structured opt-in
   `TRUST_DIT_REQUIRE_HARDWARE=1`; only the strict script is an entrypoint, while
   the hosted or scheduled skip-capable workflow remains an inventory helper and

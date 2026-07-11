@@ -82,6 +82,8 @@ class ReportInputContractTests(unittest.TestCase):
             "verification/fuzz-program.toml",
             "verification/schemas/fuzz-program.schema.json",
             "verification/gate-inventory.toml",
+            "verification/mutation-program.toml",
+            "verification/schemas/mutation-program.schema.json",
         ):
             self.assertIn(expected, paths)
         self.assertNotIn("verification/evidence-index.toml", paths)

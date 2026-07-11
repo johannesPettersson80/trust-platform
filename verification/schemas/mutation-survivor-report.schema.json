@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/mutation-survivor-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generator", "generator_version", "report_status",
+    "input_digest", "command", "commit", "timestamp", "platform",
+    "input_paths", "output_paths", "scope", "boundaries", "tool", "shards",
+    "survivors", "coverage", "summary", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "mutation-program-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "command": { "$ref": "#/$defs/command_array" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": { "$ref": "#/$defs/string_array_nonempty" },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "tool": { "$ref": "#/$defs/tool" },
+    "shards": {
+      "type": "array", "items": { "$ref": "#/$defs/shard" },
+      "minItems": 6, "maxItems": 6
+    },
+    "survivors": { "type": "array", "items": { "$ref": "#/$defs/survivor" } },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "limitations": { "$ref": "#/$defs/string_array_nonempty" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "string_array": {
+      "type": "array", "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "string_array_nonempty": {
+      "type": "array", "items": { "type": "string", "minLength": 1 },
+      "minItems": 1, "uniqueItems": true
+    },
+    "command_array": {
+      "type": "array", "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "output_paths": {
+      "type": "object", "additionalProperties": false,
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mutation_basis", "measured_basis", "planned_basis", "survivor_basis", "coverage_basis"],
+      "properties": {
+        "mutation_basis": { "const": "six_exact_focused_shards_and_seven_single_file_selectors" },
+        "measured_basis": { "const": "validated_legacy_bytecode_pilot_only" },
+        "planned_basis": { "const": "selector_and_live_test_binding_without_execution" },
+        "survivor_basis": { "const": "derived_survived_outcomes_with_resolved_durable_action" },
+        "coverage_basis": { "const": "zero_runs_no_fabricated_percentage" }
+      }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "report_creates_proof", "report_creates_invariant_coverage",
+        "report_closes_spec_gaps", "report_is_release_evidence",
+        "new_mutation_or_coverage_run_executed_by_report", "runtime_or_product_behavior_changed",
+        "ci_enforcement_changed"
+      ],
+      "properties": {
+        "report_creates_proof": { "const": false },
+        "report_creates_invariant_coverage": { "const": false },
+        "report_closes_spec_gaps": { "const": false },
+        "report_is_release_evidence": { "const": false },
+        "new_mutation_or_coverage_run_executed_by_report": { "const": false },
+        "runtime_or_product_behavior_changed": { "const": false },
+        "ci_enforcement_changed": { "const": false }
+      }
+    },
+    "tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "selection_mode"],
+      "properties": {
+        "name": { "const": "cargo-mutants" },
+        "version": { "const": "cargo-mutants 27.0.0" },
+        "selection_mode": { "const": "single_file_list_only" }
+      }
+    },
+    "associated_test": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id_kind", "id", "source_kind", "path", "name", "ignore_state"],
+      "properties": {
+        "id_kind": { "enum": ["scanner_discovery_id", "committed_case_id"] },
+        "id": { "type": "string", "minLength": 1 },
+        "source_kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "ignore_state": { "enum": ["not_ignored", "not_applicable"] }
+      }
+    },
+    "mutation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "source_file", "source_digest", "function", "genre", "replacement", "generated_mutant_name", "build_command", "test_command", "association_ids"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source_file": { "type": "string", "minLength": 1 },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "function": { "type": "string", "minLength": 1 },
+        "genre": { "type": "string", "minLength": 1 },
+        "replacement": { "type": "string" },
+        "generated_mutant_name": { "type": "string", "minLength": 1 },
+        "build_command": { "$ref": "#/$defs/command_array" },
+        "test_command": { "$ref": "#/$defs/command_array" },
+        "association_ids": { "$ref": "#/$defs/string_array_nonempty" }
+      }
+    },
+    "result_artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "delivered_confirmation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_path", "artifact_sha256", "direct_execution_confirmed"],
+      "properties": {
+        "artifact_path": { "type": "string", "minLength": 1 },
+        "artifact_sha256": { "$ref": "#/$defs/digest" },
+        "direct_execution_confirmed": { "const": true }
+      }
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "id", "source_file", "function", "genre", "replacement",
+        "generated_mutant_name", "build_command", "build_exit_status",
+        "build_output_tail", "build_timed_out", "test_command",
+        "test_exit_status", "test_output_tail", "test_timed_out",
+        "duration_seconds", "result", "association_ids"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source_file": { "type": "string", "minLength": 1 },
+        "function": { "type": "string", "minLength": 1 },
+        "genre": { "type": "string", "minLength": 1 },
+        "replacement": { "type": "string" },
+        "generated_mutant_name": { "type": "string", "minLength": 1 },
+        "build_command": { "$ref": "#/$defs/command_array" },
+        "build_exit_status": { "type": ["integer", "null"] },
+        "build_output_tail": { "type": "string" },
+        "build_timed_out": { "type": "boolean" },
+        "test_command": { "$ref": "#/$defs/command_array" },
+        "test_exit_status": { "type": ["integer", "null"] },
+        "test_output_tail": { "type": "string" },
+        "test_timed_out": { "type": "boolean" },
+        "duration_seconds": { "minimum": 0 },
+        "result": { "enum": ["caught", "survived", "unviable", "timeout", "error"] },
+        "association_ids": { "$ref": "#/$defs/string_array_nonempty" }
+      }
+    },
+    "shard": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "id", "title", "area", "invariant_ids", "association_semantics", "owner",
+        "execution_status", "delivered_build_requirement", "delivered_binary_path",
+        "delivered_confirmation_requirements", "delivered_build_confirmation",
+        "associated_tests", "mutations",
+        "result_artifact", "results"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "invariant_ids": { "$ref": "#/$defs/string_array_nonempty" },
+        "association_semantics": { "const": "association_only_not_execution_claim" },
+        "owner": { "type": "string", "minLength": 1 },
+        "execution_status": { "enum": ["measured", "planned"] },
+        "delivered_build_requirement": { "enum": ["not_applicable_source_mutation", "required_before_execution"] },
+        "delivered_binary_path": { "type": ["string", "null"] },
+        "delivered_confirmation_requirements": { "$ref": "#/$defs/string_array" },
+        "delivered_build_confirmation": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["artifact_path", "artifact_sha256", "direct_execution_confirmed"],
+          "properties": {
+            "artifact_path": { "type": "string", "minLength": 1 },
+            "artifact_sha256": { "$ref": "#/$defs/digest" },
+            "direct_execution_confirmed": { "const": true }
+          }
+        },
+        "associated_tests": { "type": "array", "items": { "$ref": "#/$defs/associated_test" }, "minItems": 1 },
+        "mutations": { "type": "array", "items": { "$ref": "#/$defs/mutation" }, "minItems": 1, "maxItems": 2 },
+        "result_artifact": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "sha256": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/result" } }
+      }
+    },
+    "survivor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["shard_id", "mutation_id", "owner", "action", "resolution_status", "rationale", "resolution_ref"],
+      "properties": {
+        "shard_id": { "type": "string", "minLength": 1 },
+        "mutation_id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "action": { "enum": ["add_test", "unreachable_defensive_rationale", "dead_code_removal"] },
+        "resolution_status": { "const": "resolved" },
+        "rationale": { "type": "string", "minLength": 1 },
+        "resolution_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runs", "line_percent", "branch_percent", "posture"],
+      "properties": {
+        "runs": { "const": 0 },
+        "line_percent": { "type": "null" },
+        "branch_percent": { "type": "null" },
+        "posture": { "const": "adequacy_signal_not_release_safety_proof" }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["shards", "measured_shards", "planned_shards", "defined_mutants", "measured_mutants", "caught", "survived", "unviable", "timeout", "error"],
+      "properties": {
+        "shards": { "type": "integer", "minimum": 0 },
+        "measured_shards": { "type": "integer", "minimum": 0 },
+        "planned_shards": { "type": "integer", "minimum": 0 },
+        "defined_mutants": { "type": "integer", "minimum": 0 },
+        "measured_mutants": { "type": "integer", "minimum": 0 },
+        "caught": { "type": "integer", "minimum": 0 },
+        "survived": { "type": "integer", "minimum": 0 },
+        "unviable": { "type": "integer", "minimum": 0 },
+        "timeout": { "type": "integer", "minimum": 0 },
+        "error": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -30,6 +30,8 @@ def validator_code_input_paths(root: Path) -> set[str]:
         "verification/fuzz-program.toml",
         "verification/schemas/fuzz-program.schema.json",
         "verification/gate-inventory.toml",
+        "verification/mutation-program.toml",
+        "verification/schemas/mutation-program.schema.json",
     }
     paths.update(
         path
