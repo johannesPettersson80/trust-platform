@@ -1545,3 +1545,25 @@ linked_invariants = ["IEC_TIMER_001"]
 linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
 linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
 last_reviewed = "2026-07-13"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_E1_ATOMIC_CLOSURE_VALIDATION_20260713"
+title = "Phase 16 E1 atomic closure and final validation"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-13/p16-e1-closure-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md && python3 scripts/validate_ignored_test_inventory_report.py --json target/gate-artifacts/verification/ignored-test-inventory.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md && python3 scripts/validate_invariant_seed_audit_report.py --json target/gate-artifacts/verification/invariant-seed-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md && python3 scripts/validate_requirement_oracle_audit_report.py --json target/gate-artifacts/verification/requirement-oracle-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md && python3 scripts/validate_conformance_alignment_report.py --json target/gate-artifacts/verification/conformance-alignment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md && python3 scripts/validate_runtime_anomaly_audit_report.py --json target/gate-artifacts/verification/runtime-anomaly-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md && python3 scripts/validate_fuzz_program_audit_report.py --json target/gate-artifacts/verification/fuzz-program-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && git diff --check"
+commit = "5076da476c4891ad4c99d5054cecd3c0e086b8bd"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-13"
+suite_id = "supporting_local"
+producer = "codex Phase 16 E1 atomic closeout validation"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_TIMER_001"]
+linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+last_reviewed = "2026-07-13"
