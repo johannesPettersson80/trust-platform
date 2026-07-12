@@ -100,7 +100,50 @@ class EvidenceScopeTests(unittest.TestCase):
 
                 failures = validate_scope(record)
 
-                self.assert_contains(failures, "producer must be suite-approved")
+                self.assert_contains(failures, "producer must be approved by suite")
+
+    def test_suite_scoped_producer_cannot_borrow_another_suite_approval(self) -> None:
+        record = evidence_record(
+            proof_scope="broad_remote_gate",
+            suite_id="nightly",
+            platform="trust-builder-linux-x86_64",
+            command_exit_status=0,
+            producer="pr-only-gate v1",
+        )
+
+        failures = validate_scope(record)
+
+        self.assert_contains(failures, "producer must be approved by suite nightly")
+
+        targeted = evidence_record(
+            proof_kind="green",
+            proof_scope="targeted",
+            suite_id="nightly",
+            producer="pr-only-gate v1",
+        )
+
+        targeted_failures = validate_scope(targeted)
+
+        self.assert_contains(
+            targeted_failures, "producer must be approved by suite nightly"
+        )
+
+    def test_release_object_without_suite_id_uses_release_approval(self) -> None:
+        record = evidence_record(
+            proof_scope="release_public",
+            kind="release_object",
+            release_object="v1.2.3",
+            url="https://example.invalid/releases/v1.2.3",
+            producer="nightly-only-gate v1",
+        )
+        record.pop("suite_id")
+
+        failures = validate_scope(record)
+
+        self.assert_contains(failures, "producer must be approved by suite release")
+
+        record["producer"] = "reviewed-gate v1"
+        self.assertEqual(validate_scope(record), [])
 
     def test_scoped_closing_evidence_requires_clean_full_commit(self) -> None:
         for marker in ("dirty:0123456789ab", "0123456789ab"):
@@ -250,6 +293,40 @@ class InvariantPromotionEvidenceTests(unittest.TestCase):
         failures = validate_promotion(invariant, evidence)
         self.assert_contains(failures, "proof_level G2 requires broad remote gate evidence")
 
+    def test_g2_rejects_broad_evidence_older_than_targeted_closing_proof(self) -> None:
+        evidence = causal_evidence()
+        evidence["EVID_TARGETED"]["commit"] = COMMIT_B
+        evidence["EVID_BROAD"]["commit"] = COMMIT_A
+
+        failures = validate_promotion(
+            invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"]),
+            evidence,
+            ancestor_pairs={(COMMIT_A, COMMIT_B)},
+        )
+
+        self.assert_contains(
+            failures,
+            "proof_level G2 requires broad remote gate evidence at or after targeted proof",
+        )
+
+    def test_g2_accepts_equal_or_descendant_broad_evidence(self) -> None:
+        for broad_commit, ancestor_pairs in (
+            (COMMIT_A, set()),
+            (COMMIT_B, {(COMMIT_A, COMMIT_B)}),
+        ):
+            with self.subTest(broad_commit=broad_commit):
+                evidence = causal_evidence()
+                evidence["EVID_TARGETED"]["commit"] = COMMIT_A
+                evidence["EVID_BROAD"]["commit"] = broad_commit
+
+                failures = validate_promotion(
+                    invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"]),
+                    evidence,
+                    ancestor_pairs=ancestor_pairs,
+                )
+
+                self.assertEqual(failures, [])
+
     def test_r1_requires_targeted_broad_and_release_public_evidence(self) -> None:
         invariant = invariant_record(
             "R1", ["EVID_TARGETED", "EVID_BROAD", "EVID_RELEASE"]
@@ -285,6 +362,58 @@ class InvariantPromotionEvidenceTests(unittest.TestCase):
         evidence["EVID_RELEASE"]["linked_invariants"] = []
         failures = validate_promotion(invariant, evidence)
         self.assert_contains(failures, "proof_level R1 requires release/public evidence")
+
+    def test_r1_rejects_release_evidence_older_than_causal_broad_gate(self) -> None:
+        evidence = causal_evidence(include_release=True)
+        evidence["EVID_TARGETED"]["commit"] = COMMIT_A
+        evidence["EVID_BROAD"]["commit"] = COMMIT_B
+        evidence["EVID_RELEASE"]["commit"] = COMMIT_A
+
+        failures = validate_promotion(
+            invariant_record(
+                "R1", ["EVID_TARGETED", "EVID_BROAD", "EVID_RELEASE"]
+            ),
+            evidence,
+            ancestor_pairs={(COMMIT_A, COMMIT_B)},
+        )
+
+        self.assert_contains(
+            failures,
+            "proof_level R1 requires release/public evidence at or after broad gate",
+        )
+
+    def test_r1_accepts_equal_or_descendant_release_evidence(self) -> None:
+        for release_commit, ancestor_pairs in (
+            (COMMIT_B, {(COMMIT_A, COMMIT_B)}),
+            (COMMIT_C, {(COMMIT_A, COMMIT_B), (COMMIT_B, COMMIT_C)}),
+        ):
+            with self.subTest(release_commit=release_commit):
+                evidence = causal_evidence(include_release=True)
+                evidence["EVID_TARGETED"]["commit"] = COMMIT_A
+                evidence["EVID_BROAD"]["commit"] = COMMIT_B
+                evidence["EVID_RELEASE"]["commit"] = release_commit
+
+                failures = validate_promotion(
+                    invariant_record(
+                        "R1", ["EVID_TARGETED", "EVID_BROAD", "EVID_RELEASE"]
+                    ),
+                    evidence,
+                    ancestor_pairs=ancestor_pairs,
+                )
+
+                self.assertEqual(failures, [])
+
+    def test_promotion_rejects_producer_approved_only_by_wrong_suite(self) -> None:
+        evidence = causal_evidence()
+        evidence["EVID_BROAD"]["producer"] = "pr-only-gate v1"
+
+        failures = validate_promotion(
+            invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"]),
+            evidence,
+            ancestor_pairs={(COMMIT_A, COMMIT_B)},
+        )
+
+        self.assert_contains(failures, "proof_level G2 requires broad remote gate evidence")
 
     def test_lower_proof_levels_do_not_require_promotion_evidence(self) -> None:
         for proof_level in ("S0", "S1", "D1", "T1", "D2", "I1"):
@@ -365,6 +494,35 @@ class FullValidatorPromotionEvidenceTests(unittest.TestCase):
                 )
 
 
+COMMIT_A = "1111111111111111111111111111111111111111"
+COMMIT_B = "2222222222222222222222222222222222222222"
+COMMIT_C = "3333333333333333333333333333333333333333"
+
+
+def suite_records() -> dict[str, dict[str, object]]:
+    return {
+        "supporting_local": {
+            "id": "supporting_local",
+            "approved_proof_producers": [],
+        },
+        "pr": {
+            "id": "pr",
+            "approved_proof_producers": ["reviewed-gate v1", "pr-only-gate v1"],
+        },
+        "nightly": {
+            "id": "nightly",
+            "approved_proof_producers": [
+                "reviewed-gate v1",
+                "nightly-only-gate v1",
+            ],
+        },
+        "release": {
+            "id": "release",
+            "approved_proof_producers": ["reviewed-gate v1"],
+        },
+    }
+
+
 def validate_scope(record: dict[str, object]) -> list[str]:
     failures: list[str] = []
     validate_evidence_scope(
@@ -372,13 +530,16 @@ def validate_scope(record: dict[str, object]) -> list[str]:
         path=PATH,
         record=record,
         revision_exists=lambda _revision: True,
-        approved_producers={"reviewed-gate v1"},
+        suites=suite_records(),
     )
     return failures
 
 
 def validate_promotion(
-    invariant: dict[str, object], evidence: dict[str, dict[str, object]]
+    invariant: dict[str, object],
+    evidence: dict[str, dict[str, object]],
+    *,
+    ancestor_pairs: set[tuple[str, str]] | None = None,
 ) -> list[str]:
     failures: list[str] = []
     validate_invariant_promotion_evidence(
@@ -386,9 +547,43 @@ def validate_promotion(
         path=Path("verification/invariants/runtime_safety/INV.toml"),
         invariant=invariant,
         evidence=evidence,
-        approved_producers={"reviewed-gate v1"},
+        suites=suite_records(),
+        is_ancestor=lambda ancestor, descendant: (ancestor, descendant)
+        in (ancestor_pairs or set()),
     )
     return failures
+
+
+def causal_evidence(*, include_release: bool = False) -> dict[str, dict[str, object]]:
+    evidence = {
+        "EVID_TARGETED": evidence_record(
+            evidence_id="EVID_TARGETED",
+            proof_kind="green",
+            proof_scope="targeted",
+            commit=COMMIT_A,
+        ),
+        "EVID_BROAD": evidence_record(
+            evidence_id="EVID_BROAD",
+            proof_scope="broad_remote_gate",
+            suite_id="nightly",
+            platform="trust-builder-linux-x86_64",
+            command_exit_status=0,
+            producer="reviewed-gate v1",
+            commit=COMMIT_B,
+        ),
+    }
+    if include_release:
+        evidence["EVID_RELEASE"] = evidence_record(
+            evidence_id="EVID_RELEASE",
+            proof_scope="release_public",
+            kind="release_object",
+            suite_id="release",
+            release_object="v1.2.3",
+            url="https://example.invalid/releases/v1.2.3",
+            producer="reviewed-gate v1",
+            commit=COMMIT_C,
+        )
+    return evidence
 
 
 def invariant_record(

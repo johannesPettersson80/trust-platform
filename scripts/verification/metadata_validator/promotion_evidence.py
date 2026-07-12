@@ -12,6 +12,8 @@ from .constants import PROOF_SCOPES, PROVE_PRODUCER_RE, ROOT
 
 Fail = Callable[[Path, str], None]
 RevisionExists = Callable[[str], bool]
+IsAncestor = Callable[[str, str], bool]
+Suites = Mapping[str, Mapping[str, Any]]
 
 CLEAN_FULL_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 TRUST_BUILDER_PLATFORM_RE = re.compile(r"^trust-builder-linux-[a-z0-9_]+$")
@@ -34,7 +36,7 @@ def validate_evidence_scope(
     path: Path,
     record: Mapping[str, Any],
     revision_exists: RevisionExists | None = None,
-    approved_producers: set[str] | frozenset[str] = frozenset(),
+    suites: Suites | None = None,
 ) -> None:
     """Validate the closed evidence-scope vocabulary and its structural claims."""
 
@@ -60,14 +62,35 @@ def validate_evidence_scope(
     if scope == "targeted":
         if not isinstance(proof_kind, str) or proof_kind not in PROOF_PRODUCING_KINDS:
             fail(path, f"{evidence_id} proof_scope targeted requires a proof-producing proof_kind")
+        producer = str(record.get("producer", ""))
+        authorization_suite = _authorization_suite_id(record, scope)
+        if not (
+            PROVE_PRODUCER_RE.fullmatch(producer)
+            or _producer_is_approved_by_suite(
+                record,
+                suite_id=authorization_suite,
+                suites=suites or {},
+            )
+        ):
+            fail(
+                path,
+                f"{evidence_id} proof_scope targeted producer must be approved by "
+                f"suite {authorization_suite or '<invalid>'}",
+            )
         return
 
     if proof_kind != "none":
         fail(path, f"{evidence_id} proof_scope {scope} requires proof_kind none")
-    if str(record.get("producer", "")) not in approved_producers:
+    authorization_suite = _authorization_suite_id(record, scope)
+    if not _producer_is_approved_by_suite(
+        record,
+        suite_id=authorization_suite,
+        suites=suites or {},
+    ):
         fail(
             path,
-            f"{evidence_id} proof_scope {scope} producer must be suite-approved",
+            f"{evidence_id} proof_scope {scope} producer must be approved by "
+            f"suite {authorization_suite or '<invalid>'}",
         )
 
     if scope == "broad_remote_gate":
@@ -115,7 +138,8 @@ def validate_invariant_promotion_evidence(
     path: Path,
     invariant: Mapping[str, Any],
     evidence: Mapping[str, Mapping[str, Any]],
-    approved_producers: set[str] | frozenset[str] = frozenset(),
+    suites: Suites | None = None,
+    is_ancestor: IsAncestor | None = None,
 ) -> None:
     """Require cumulative, bidirectionally-linked evidence for G1/G2/R1."""
 
@@ -136,7 +160,7 @@ def validate_invariant_promotion_evidence(
             record,
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
-            approved_producers=approved_producers,
+            suites=suites or {},
         )
         for record in referenced
     ):
@@ -151,7 +175,7 @@ def validate_invariant_promotion_evidence(
             record,
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
-            approved_producers=approved_producers,
+            suites=suites or {},
         )
         for record in referenced
     ):
@@ -164,48 +188,82 @@ def validate_invariant_promotion_evidence(
     if not isinstance(proof_level, str) or proof_level not in PROMOTED_PROOF_LEVELS:
         return
 
-    if not any(
-        _is_targeted_closing_proof(
+    targeted = [
+        record
+        for record in referenced
+        if _is_targeted_closing_proof(
             record,
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
-            approved_producers=approved_producers,
+            suites=suites or {},
         )
-        for record in referenced
-    ):
+    ]
+    if not targeted:
         fail(
             path,
             f"{invariant_id} proof_level {proof_level} requires targeted "
             "green/lock proof",
         )
 
-    if proof_level in {"G2", "R1"} and not any(
-        _is_broad_remote_gate(
+    if proof_level == "G1":
+        return
+
+    broad = [
+        record
+        for record in referenced
+        if _is_broad_remote_gate(
             record,
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
-            approved_producers=approved_producers,
+            suites=suites or {},
         )
-        for record in referenced
-    ):
+    ]
+    ancestry = is_ancestor or _is_ancestor
+    causal_broad = [
+        broad_record
+        for broad_record in broad
+        if any(
+            _same_or_descendant(
+                targeted_record,
+                broad_record,
+                is_ancestor=ancestry,
+            )
+            for targeted_record in targeted
+        )
+    ]
+    if not causal_broad:
         fail(
             path,
             f"{invariant_id} proof_level {proof_level} requires broad remote "
-            "gate evidence",
+            "gate evidence at or after targeted proof",
         )
 
-    if proof_level == "R1" and not any(
-        _is_release_public(
+    if proof_level != "R1":
+        return
+
+    release = [
+        record
+        for record in referenced
+        if _is_release_public(
             record,
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
-            approved_producers=approved_producers,
+            suites=suites or {},
         )
-        for record in referenced
+    ]
+    if not any(
+        _same_or_descendant(
+            broad_record,
+            release_record,
+            is_ancestor=ancestry,
+        )
+        for broad_record in causal_broad
+        for release_record in release
     ):
         fail(
             path,
-            f"{invariant_id} proof_level R1 requires release/public evidence",
+            f"{invariant_id} proof_level R1 requires release/public evidence "
+            "at or after broad gate",
         )
 
 
@@ -214,7 +272,7 @@ def _is_targeted_closing_proof(
     *,
     invariant_id: str,
     invariant_tests: Any,
-    approved_producers: set[str] | frozenset[str],
+    suites: Suites,
 ) -> bool:
     producer = str(record.get("producer", ""))
     return (
@@ -223,7 +281,10 @@ def _is_targeted_closing_proof(
         and record.get("proof_kind") in CLOSING_PROOF_KINDS
         and _has_clean_commit(record)
         and _back_links(record, invariant_id, invariant_tests, require_all_tests=False)
-        and (bool(PROVE_PRODUCER_RE.fullmatch(producer)) or producer in approved_producers)
+        and (
+            bool(PROVE_PRODUCER_RE.fullmatch(producer))
+            or _producer_is_approved_by_record_suite(record, suites=suites)
+        )
     )
 
 
@@ -232,7 +293,7 @@ def _is_targeted_red_proof(
     *,
     invariant_id: str,
     invariant_tests: Any,
-    approved_producers: set[str] | frozenset[str],
+    suites: Suites,
 ) -> bool:
     producer = str(record.get("producer", ""))
     red_case_ids = record.get("red_case_ids")
@@ -264,7 +325,10 @@ def _is_targeted_red_proof(
         and set(red_case_ids) <= failed_cases
         and _has_clean_commit(record)
         and _back_links(record, invariant_id, invariant_tests, require_all_tests=False)
-        and (bool(PROVE_PRODUCER_RE.fullmatch(producer)) or producer in approved_producers)
+        and (
+            bool(PROVE_PRODUCER_RE.fullmatch(producer))
+            or _producer_is_approved_by_record_suite(record, suites=suites)
+        )
     )
 
 
@@ -273,7 +337,7 @@ def _is_broad_remote_gate(
     *,
     invariant_id: str,
     invariant_tests: Any,
-    approved_producers: set[str] | frozenset[str],
+    suites: Suites,
 ) -> bool:
     if record.get("proof_scope") != "broad_remote_gate":
         return False
@@ -287,7 +351,7 @@ def _is_broad_remote_gate(
         return False
     if record.get("command_exit_status") != 0:
         return False
-    if str(record.get("producer", "")) not in approved_producers:
+    if not _producer_is_approved_by_record_suite(record, suites=suites):
         return False
     if record.get("kind") == "committed_file":
         platform = record.get("platform")
@@ -303,7 +367,7 @@ def _is_release_public(
     *,
     invariant_id: str,
     invariant_tests: Any,
-    approved_producers: set[str] | frozenset[str],
+    suites: Suites,
 ) -> bool:
     return (
         record.get("proof_scope") == "release_public"
@@ -311,7 +375,11 @@ def _is_release_public(
         and record.get("kind") == "release_object"
         and record.get("suite_id") in (None, "release")
         and _has_clean_commit(record)
-        and str(record.get("producer", "")) in approved_producers
+        and _producer_is_approved_by_suite(
+            record,
+            suite_id=_authorization_suite_id(record, "release_public"),
+            suites=suites,
+        )
         and _back_links(record, invariant_id, invariant_tests, require_all_tests=True)
     )
 
@@ -346,9 +414,75 @@ def _has_clean_commit(record: Mapping[str, Any]) -> bool:
     return bool(CLEAN_FULL_COMMIT_RE.fullmatch(str(record.get("commit", ""))))
 
 
+def _authorization_suite_id(
+    record: Mapping[str, Any], proof_scope: str
+) -> str | None:
+    suite_id = record.get("suite_id")
+    if proof_scope == "release_public" and suite_id is None:
+        return "release"
+    return suite_id if isinstance(suite_id, str) and suite_id else None
+
+
+def _producer_is_approved_by_record_suite(
+    record: Mapping[str, Any], *, suites: Suites
+) -> bool:
+    suite_id = record.get("suite_id")
+    return _producer_is_approved_by_suite(
+        record,
+        suite_id=suite_id if isinstance(suite_id, str) and suite_id else None,
+        suites=suites,
+    )
+
+
+def _producer_is_approved_by_suite(
+    record: Mapping[str, Any],
+    *,
+    suite_id: str | None,
+    suites: Suites,
+) -> bool:
+    if suite_id is None:
+        return False
+    suite = suites.get(suite_id)
+    if not isinstance(suite, Mapping):
+        return False
+    approved = suite.get("approved_proof_producers")
+    if not isinstance(approved, list) or any(
+        not isinstance(producer, str) for producer in approved
+    ):
+        return False
+    return str(record.get("producer", "")) in approved
+
+
+def _same_or_descendant(
+    earlier: Mapping[str, Any],
+    later: Mapping[str, Any],
+    *,
+    is_ancestor: IsAncestor,
+) -> bool:
+    earlier_commit = str(earlier.get("commit", ""))
+    later_commit = str(later.get("commit", ""))
+    if not (
+        CLEAN_FULL_COMMIT_RE.fullmatch(earlier_commit)
+        and CLEAN_FULL_COMMIT_RE.fullmatch(later_commit)
+    ):
+        return False
+    return earlier_commit == later_commit or is_ancestor(earlier_commit, later_commit)
+
+
 def _revision_exists(revision: str) -> bool:
     result = subprocess.run(
         ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _is_ancestor(ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
         cwd=ROOT,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
