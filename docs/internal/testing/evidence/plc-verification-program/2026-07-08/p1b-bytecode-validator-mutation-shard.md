@@ -15,8 +15,8 @@ Implemented row:
 - `cargo-mutants 27.0.0` package discovery returned zero candidates for the
   validator because its implementation is assembled from `include!()` files.
   The shard therefore uses cargo-mutants single-file candidate generation and
-applies only two selected function-bypass mutants in an isolated archive of
-commit `ebca97065d73693389a0c63f2c925773dd91e9fd`.
+  applies only two selected function-bypass mutants in an isolated archive of
+  commit `5d3d0cbfb2e10ef6bd9f3a9032e1b543b22df873`.
 - The runner cleans only `trust-runtime` outputs in the dedicated mutation
   target before baseline, before each mutant, and after restoration. No product
   source in the working checkout is edited.
@@ -47,7 +47,7 @@ Machine report:
 
 - `p1b-bytecode-validator-mutation-report.json`
 - SHA-256:
-  `46952dac360f66e8fc12d1d33cb2bc9a0008cfb90ea854bae950b994e71129b2`
+  `61df3795ca2ca13ae239d1b63104417f46131bde988f2d93d841a4eda85a0fc7`
 
 The latest 2026-07-12 refresh binds the measured pilot to the clean Phase 16
 execution-readiness implementation commit. The case contract gained explicit
