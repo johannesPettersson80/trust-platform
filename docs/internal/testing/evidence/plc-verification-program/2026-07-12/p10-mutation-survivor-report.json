@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-12T20:22:00+02:00"
+    "2026-07-13T00:54:00+02:00"
   ],
-  "commit": "52970664daff57a0686c1fe996422b6ba0b38d1e",
+  "commit": "57738bf9b50c986126c333c5d53a119c19107c6c",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:e810f6b7c5e4fbcc8a6c67cf8e0f67ab80cc8d64babb42269c0347742c89faa5",
+  "input_digest": "sha256:08de840d80e8e0514febe990cee811f4af736e3073911637ab4a8929027c7f95",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -2520,7 +2520,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-12T20:22:00+02:00",
+  "timestamp": "2026-07-13T00:54:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",
