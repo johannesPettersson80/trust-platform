@@ -93,7 +93,7 @@ fn timer_variants() {
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
     harness.assert_eq("q_tof", Value::Bool(false));
-    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
+    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(10)));
 
     harness.set_input("in_tp", true);
     harness.advance_time(Duration::from_millis(5));

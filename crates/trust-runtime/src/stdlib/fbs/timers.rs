@@ -87,22 +87,20 @@ impl Tof {
                 self.et = Duration::from_nanos(next);
                 if self.et.as_nanos() >= pt.as_nanos() {
                     self.q = false;
+                    self.et = pt;
                     self.timing = false;
                 } else {
                     self.q = true;
                 }
             } else {
                 self.q = false;
-                self.et = Duration::ZERO;
             }
         }
         self.prev_in = input;
-        let et = if self.et.as_nanos() >= pt.as_nanos() {
-            pt
-        } else {
-            self.et
-        };
-        TimerOutput { q: self.q, et }
+        TimerOutput {
+            q: self.q,
+            et: self.et,
+        }
     }
 }
 

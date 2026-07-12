@@ -33,6 +33,13 @@ fn ton_tof_tp() {
     assert_eq!(out.et, Duration::from_millis(5));
     let out = tof.step(false, pt, delta);
     assert!(!out.q);
+    assert_eq!(out.et, Duration::from_millis(10));
+    let out = tof.step(false, pt, delta);
+    assert!(!out.q);
+    assert_eq!(out.et, Duration::from_millis(10));
+    let out = tof.step(true, pt, delta);
+    assert!(out.q);
+    assert_eq!(out.et, Duration::ZERO);
 
     let out = tp.step(false, pt, delta);
     assert!(!out.q);
