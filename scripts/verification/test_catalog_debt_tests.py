@@ -285,7 +285,7 @@ class UnmappedTestDebtTests(unittest.TestCase):
             failures,
         )
 
-    def test_live_repository_baseline_lists_all_3815_unmapped_identities(self) -> None:
+    def test_live_repository_baseline_lists_all_3817_unmapped_identities(self) -> None:
         scan = scan_repository(ROOT, timestamp="2026-07-10T12:00:00Z")
         catalog = tomllib.loads((ROOT / "verification/test-catalog.toml").read_text())
 
@@ -294,13 +294,13 @@ class UnmappedTestDebtTests(unittest.TestCase):
             facts=scan.inferred_facts,
         )
 
-        self.assertEqual(analysis["summary"]["scanner_facts"], 3816)
+        self.assertEqual(analysis["summary"]["scanner_facts"], 3818)
         self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 1)
-        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3815)
-        self.assertEqual(len(analysis["unmapped_tests"]), 3815)
+        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3817)
+        self.assertEqual(len(analysis["unmapped_tests"]), 3817)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
-            3815,
+            3817,
         )
 
 
