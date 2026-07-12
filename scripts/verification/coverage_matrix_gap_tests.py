@@ -369,12 +369,12 @@ class CoverageMatrixGapTests(unittest.TestCase):
                 "required_family_slots": 80,
                 "assigned_required_slots": 16,
                 "missing_required_slots": 64,
-                "additional_recorded_cells": 45,
-                "recorded_cells": 61,
+                "additional_recorded_cells": 46,
+                "recorded_cells": 62,
                 "case_files": 4,
                 "case_observations": 21,
                 "blocked_case_observations": 21,
-                "state_counts": empty_state_counts(spec_gap=53, gap_open=8),
+                "state_counts": empty_state_counts(spec_gap=52, gap_open=9, covered=1),
             },
         )
         self.assertTrue(TOOL_INPUT_PATHS.issubset(paths))
