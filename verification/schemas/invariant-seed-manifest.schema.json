@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["schema_version", "seeds"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "seeds": {
       "type": "array",
       "minItems": 44,
@@ -21,7 +21,9 @@
         "seed_id",
         "canonical_invariant_id",
         "board_row",
-        "origin"
+        "origin",
+        "lifecycle_version",
+        "lifecycle_state"
       ],
       "properties": {
         "seed_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+_[0-9]{3}$" },
@@ -39,6 +41,8 @@
           ]
         },
         "origin": { "enum": ["phase4", "preexisting"] },
+        "lifecycle_version": { "const": 1 },
+        "lifecycle_state": { "enum": ["baseline", "execution_ready"] },
         "p4_000_risk_id": { "type": "string" }
       },
       "additionalProperties": false

@@ -64,6 +64,16 @@ EXPECTED_SUMMARY = {
 }
 
 
+def resolved_restart_review() -> dict[str, object]:
+    return {
+        "outcome": "resolved_source",
+        "source_ref": "SPEC_IEC_STANDARD_FBS_CANDIDATE_001",
+        "source_path": "docs/specs/08-standard-function-blocks.md",
+        "superseded_gap_id": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+        "rationale": "The reviewed product source now owns restart and time-base semantics.",
+    }
+
+
 def report_for(state) -> RuntimeAnomalyReport:
     return RuntimeAnomalyReport(
         provenance=RuntimeAnomalyProvenance(
@@ -181,6 +191,56 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             restart["spec_gap_ref"],
         )
 
+    def test_future_resolved_restart_state_flows_through_live_report_contract(self) -> None:
+        taxonomy = copy.deepcopy(load_runtime_anomaly_taxonomy(ROOT))
+        taxonomy["spec_gap_reviews"]["restart_timebase"] = resolved_restart_review()
+
+        with patch(
+            "scripts.verification.runtime_anomaly_live.load_runtime_anomaly_taxonomy",
+            return_value=taxonomy,
+        ):
+            state = build_live_runtime_anomaly_state(
+                ROOT,
+                timestamp="2026-07-11T14:00:00+02:00",
+            )
+        report = report_for(state)
+        payload = report.to_dict()
+
+        self.assertIn("docs/specs/08-standard-function-blocks.md", state.input_paths)
+        self.assertEqual([], validate_report_payload(payload, expected_state=state))
+        self.assertIn(
+            "resolved_source", report.to_markdown(json_digest="0" * 64)
+        )
+        self.assertIn(
+            "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+            report.to_markdown(json_digest="0" * 64),
+        )
+
+    def test_report_rejects_restart_variant_hybrid_and_claim_language(self) -> None:
+        hybrid = copy.deepcopy(self.report.to_dict())
+        hybrid["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "spec_gap_ref": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+        }
+        claim = copy.deepcopy(self.report.to_dict())
+        claim["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "rationale": "This source proves full test coverage.",
+        }
+
+        self.assertTrue(
+            any(
+                "restart_timebase report fields drift" in failure
+                for failure in validate_report_payload(hybrid)
+            )
+        )
+        self.assertTrue(
+            any(
+                "forbidden proof/coverage language" in failure
+                for failure in validate_report_payload(claim)
+            )
+        )
+
     def test_report_contract_is_canonical_and_schema_bound(self) -> None:
         payload = self.report.to_dict()
         json_bytes = self.report.to_json().encode()
@@ -223,6 +283,21 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
         timestamp = copy.deepcopy(schema)
         timestamp["properties"]["timestamp"] = {"type": "string", "minLength": 1}
         mutations.append((timestamp, "timestamp pattern drifts"))
+        restart_union = copy.deepcopy(schema)
+        restart_union["$defs"]["restart_review"]["oneOf"].reverse()
+        mutations.append((restart_union, "restart review union drifts"))
+        restart_ref_sibling = copy.deepcopy(schema)
+        restart_ref_sibling["$defs"]["restart_review"]["oneOf"][0]["type"] = (
+            "string"
+        )
+        mutations.append((restart_ref_sibling, "restart review union drifts"))
+        resolved_restart = copy.deepcopy(schema)
+        resolved_restart["$defs"]["restart_resolved_source_v1"]["properties"][
+            "superseded_gap_id"
+        ] = {"type": "string"}
+        mutations.append(
+            (resolved_restart, "resolved restart const for superseded_gap_id drifts")
+        )
 
         for changed, signal in mutations:
             with self.subTest(signal=signal):

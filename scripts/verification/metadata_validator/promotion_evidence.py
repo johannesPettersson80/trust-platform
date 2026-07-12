@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping
 
+from ..proof_case_artifacts import CaseArtifactContractError, load_case_contract
 from .constants import PROOF_SCOPES, PROVE_PRODUCER_RE, ROOT
+from .integrity import RUNNABLE_TEST_STATUSES
 
 
 Fail = Callable[[Path, str], None]
 RevisionExists = Callable[[str], bool]
 IsAncestor = Callable[[str, str], bool]
 Suites = Mapping[str, Mapping[str, Any]]
+Tests = Mapping[str, Mapping[str, Any]]
+IgnoredTests = Mapping[str, Mapping[str, Any]]
 
 CLEAN_FULL_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 TRUST_BUILDER_PLATFORM_RE = re.compile(r"^trust-builder-linux-[a-z0-9_]+$")
@@ -28,6 +33,7 @@ PROOF_PRODUCING_KINDS = {
 BROAD_REMOTE_SUITE_IDS = {"pr", "nightly", "hardware_lab"}
 BROAD_REMOTE_EVIDENCE_KINDS = {"committed_file", "ci_artifact", "lab_report"}
 PROMOTED_PROOF_LEVELS = {"G1", "G2", "R1"}
+BROAD_REMOTE_CASE_PRODUCER = "broad-remote-gate.py v1"
 
 
 def validate_evidence_scope(
@@ -139,6 +145,9 @@ def validate_invariant_promotion_evidence(
     invariant: Mapping[str, Any],
     evidence: Mapping[str, Mapping[str, Any]],
     suites: Suites | None = None,
+    tests: Tests | None = None,
+    ignored_tests: IgnoredTests | None = None,
+    root: Path | None = None,
     is_ancestor: IsAncestor | None = None,
 ) -> None:
     """Require cumulative, bidirectionally-linked evidence for G1/G2/R1."""
@@ -216,6 +225,9 @@ def validate_invariant_promotion_evidence(
             invariant_id=invariant_id,
             invariant_tests=invariant.get("tests", []),
             suites=suites or {},
+            tests=tests or {},
+            ignored_tests=ignored_tests or {},
+            root=root or ROOT,
         )
     ]
     ancestry = is_ancestor or _is_ancestor
@@ -338,6 +350,9 @@ def _is_broad_remote_gate(
     invariant_id: str,
     invariant_tests: Any,
     suites: Suites,
+    tests: Tests,
+    ignored_tests: IgnoredTests,
+    root: Path,
 ) -> bool:
     if record.get("proof_scope") != "broad_remote_gate":
         return False
@@ -359,7 +374,144 @@ def _is_broad_remote_gate(
             platform
         ):
             return False
-    return _back_links(record, invariant_id, invariant_tests, require_all_tests=True)
+    if not _back_links(record, invariant_id, invariant_tests, require_all_tests=True):
+        return False
+    if record.get("producer") == BROAD_REMOTE_CASE_PRODUCER:
+        return _case_execution_matches_current_tests(
+            record,
+            invariant_tests=invariant_tests,
+            tests=tests,
+            ignored_tests=ignored_tests,
+            suite_id=suite_id,
+            root=root,
+        )
+    return True
+
+
+def _case_execution_matches_current_tests(
+    record: Mapping[str, Any],
+    *,
+    invariant_tests: Any,
+    tests: Tests,
+    ignored_tests: IgnoredTests,
+    suite_id: str,
+    root: Path,
+) -> bool:
+    executed = record.get("executed_tests")
+    if not isinstance(executed, list):
+        return False
+    by_id = {
+        entry.get("test_id"): entry
+        for entry in executed
+        if isinstance(entry, Mapping) and isinstance(entry.get("test_id"), str)
+    }
+    if not isinstance(invariant_tests, list) or any(
+        not isinstance(test_id, str) for test_id in invariant_tests
+    ):
+        return False
+    linked_tests = record.get("linked_tests")
+    if (
+        not isinstance(linked_tests, list)
+        or not linked_tests
+        or any(not isinstance(test_id, str) for test_id in linked_tests)
+        or len(linked_tests) != len(set(linked_tests))
+        or not set(invariant_tests) <= set(linked_tests)
+        or len(by_id) != len(executed)
+        or set(by_id) != set(linked_tests)
+    ):
+        return False
+    for test_id in linked_tests:
+        test = tests.get(test_id) if isinstance(test_id, str) else None
+        entry = by_id.get(test_id)
+        if not isinstance(test, Mapping) or not isinstance(entry, Mapping):
+            return False
+        suite_tiers = test.get("suite_tiers")
+        discovery_id = test.get("discovery_id")
+        if (
+            test.get("status") not in RUNNABLE_TEST_STATUSES
+            or not isinstance(suite_tiers, list)
+            or any(not isinstance(tier, str) for tier in suite_tiers)
+            or suite_id not in suite_tiers
+            or test.get("discovery_source_kind")
+            not in {"rust_integration_test", "rust_unit_test"}
+            or not isinstance(discovery_id, str)
+            or not discovery_id
+            or _is_currently_ignored(
+                test_id=test_id,
+                discovery_id=discovery_id,
+                ignored_tests=ignored_tests,
+            )
+            or entry.get("discovery_id") != discovery_id
+            or entry.get("discovery_source_kind")
+            != test.get("discovery_source_kind")
+            or entry.get("command") != test.get("command")
+            or entry.get("case_file_digest") != test.get("case_file_digest")
+            or entry.get("exit_status") != 0
+            or not _matches_current_case_contract(entry=entry, test=test, root=root)
+        ):
+            return False
+    return True
+
+
+def _is_currently_ignored(
+    *,
+    test_id: str,
+    discovery_id: str,
+    ignored_tests: IgnoredTests,
+) -> bool:
+    return any(
+        isinstance(record, Mapping)
+        and (
+            record.get("test_id") == test_id
+            or record.get("discovery_id") == discovery_id
+        )
+        for record in ignored_tests.values()
+    )
+
+
+def _matches_current_case_contract(
+    *,
+    entry: Mapping[str, Any],
+    test: Mapping[str, Any],
+    root: Path,
+) -> bool:
+    relative = test.get("case_file")
+    expected_digest = test.get("case_file_digest")
+    if (
+        not isinstance(relative, str)
+        or not relative
+        or "\\" in relative
+        or not isinstance(expected_digest, str)
+    ):
+        return False
+    parsed = PurePosixPath(relative)
+    if parsed.is_absolute() or ".." in parsed.parts or "." in parsed.parts:
+        return False
+    case_path = root / parsed
+    try:
+        case_path.resolve().relative_to(root.resolve())
+        actual_digest = "sha256:" + hashlib.sha256(case_path.read_bytes()).hexdigest()
+        contract = load_case_contract(case_path)
+    except (OSError, ValueError, CaseArtifactContractError):
+        return False
+    if actual_digest != expected_digest or entry.get("case_file_digest") != actual_digest:
+        return False
+    if not contract.case_ids or len(contract.case_ids) != len(set(contract.case_ids)):
+        return False
+    summary = entry.get("per_case_summary")
+    if not isinstance(summary, list) or not summary:
+        return False
+    summary_ids: list[str] = []
+    for item in summary:
+        if not isinstance(item, str) or not item.endswith(":passed"):
+            return False
+        case_id = item.removesuffix(":passed")
+        if not case_id:
+            return False
+        summary_ids.append(case_id)
+    return len(summary_ids) == len(set(summary_ids)) and set(summary_ids) == set(
+        contract.case_ids
+    )
 
 
 def _is_release_public(

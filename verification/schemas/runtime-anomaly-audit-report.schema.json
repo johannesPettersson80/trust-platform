@@ -170,11 +170,37 @@
       "additionalProperties": false
     },
     "restart_review": {
+      "oneOf": [
+        { "$ref": "#/$defs/restart_existing_open_gap_v1" },
+        { "$ref": "#/$defs/restart_resolved_source_v1" }
+      ]
+    },
+    "restart_existing_open_gap_v1": {
       "type": "object",
       "required": ["outcome", "spec_gap_ref", "rationale"],
       "properties": {
         "outcome": { "const": "existing_open_gap" },
         "spec_gap_ref": { "const": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "restart_resolved_source_v1": {
+      "type": "object",
+      "required": [
+        "outcome",
+        "source_ref",
+        "source_path",
+        "superseded_gap_id",
+        "rationale"
+      ],
+      "properties": {
+        "outcome": { "const": "resolved_source" },
+        "source_ref": { "type": "string", "pattern": "^SPEC_[A-Z0-9_]+$" },
+        "source_path": { "type": "string", "minLength": 1 },
+        "superseded_gap_id": {
+          "const": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+        },
         "rationale": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false

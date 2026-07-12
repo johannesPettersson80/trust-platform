@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .constants import COMMIT_RE, EVIDENCE_KINDS, PROOF_KINDS, PROVE_PRODUCER_RE
+from .broad_remote_gate_evidence import validate_broad_remote_gate_evidence
 from .evidence_proof import (
     validate_green_pairing,
     validate_lock_pairing,
@@ -55,6 +56,7 @@ def validate_evidence_records(
     evidence: Mapping[str, dict[str, Any]],
     invariants: dict[str, dict[str, Any]],
     tests: dict[str, dict[str, Any]],
+    ignored_tests: dict[str, dict[str, Any]],
     spec_gaps: dict[str, dict[str, Any]],
     suites: dict[str, dict[str, Any]],
     approved_producers: set[str],
@@ -145,6 +147,14 @@ def validate_evidence_records(
             path=path,
             record=record,
             suites=suites,
+        )
+        validate_broad_remote_gate_evidence(
+            fail=fail,
+            path=path,
+            record=record,
+            invariants=invariants,
+            tests=tests,
+            ignored_tests=ignored_tests,
         )
 
 

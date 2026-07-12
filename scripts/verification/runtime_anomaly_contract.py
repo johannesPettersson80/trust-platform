@@ -10,7 +10,13 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .metadata_validator.constants import SOURCE_AUTHORITIES
 from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS
+from .runtime_anomaly_restart_contract import (
+    RESTART_GAP_ID,
+    validate_restart_review_shape,
+    validate_restart_union_schema,
+)
 from .test_catalog_json_schema import validate_json_schema_instance
 from .test_catalog_validation import check_supported_schema_keywords, is_safe_relative_path
 
@@ -49,6 +55,7 @@ INJECTION_BOUNDARIES = (
 ASSOCIATION_KINDS = ("direct", "partial", "protective_red", "context_only")
 INJECTION_MECHANISMS = ("ordinary_input", "test_harness", "external_harness")
 DISCOVERY_SOURCE_KINDS = ("rust_integration_test", "rust_unit_test")
+RESTART_SOURCE_AUTHORITIES = SOURCE_AUTHORITIES - {"public_claim"}
 ALLOCATION_REQUIRED_TEXT = (
     "dynamic allocation in hot path",
     "No heap allocation during execution",
@@ -98,7 +105,6 @@ ALLOCATION_REVIEW_FIELDS = {
     "required_text",
     "rationale",
 }
-RESTART_REVIEW_FIELDS = {"outcome", "spec_gap_ref", "rationale"}
 
 ROOT_CONSTS = {
     "schema_version": 1,
@@ -211,6 +217,8 @@ def validate_runtime_anomaly_schema_contract(schema: Mapping[str, Any]) -> list[
         "mapping",
         "allocation_review",
         "restart_timebase_review",
+        "restart_existing_open_gap_v1",
+        "restart_resolved_source_v1",
     }
     if not isinstance(definitions, Mapping) or not required_definitions.issubset(definitions):
         failures.append("runtime-anomaly schema definitions drift")
@@ -232,11 +240,13 @@ def validate_runtime_anomaly_schema_contract(schema: Mapping[str, Any]) -> list[
         "runtime-anomaly allocation review schema",
         failures,
     )
-    _closed_object_schema(
-        restart_schema,
-        RESTART_REVIEW_FIELDS,
-        "runtime-anomaly restart review schema",
-        failures,
+    failures.extend(
+        validate_restart_union_schema(
+            schema,
+            restart_schema,
+            definitions,
+            label="runtime-anomaly restart review",
+        )
     )
 
     class_properties = _properties(class_schema)
@@ -481,26 +491,52 @@ def _validate_spec_reviews(
     )
 
     restart = value.get("restart_timebase")
+    failures.extend(validate_restart_review_shape(restart, label="restart_timebase"))
     if not isinstance(restart, Mapping):
-        failures.append("restart_timebase review must be an object")
-        restart = {}
-    elif set(restart) != RESTART_REVIEW_FIELDS:
-        failures.append("restart_timebase review fields drift from contract")
-    if restart.get("outcome") != "existing_open_gap":
-        failures.append("restart_timebase outcome must equal 'existing_open_gap'")
-    gap_ref = restart.get("spec_gap_ref")
-    if gap_ref != "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001":
-        failures.append(
-            "restart_timebase spec_gap_ref must equal "
-            "'SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001'"
+        return
+    gap = spec_gaps.get(RESTART_GAP_ID)
+    outcome = restart.get("outcome")
+    if gap is None or gap.get("status") != "spec_gap":
+        failures.append("restart_timebase requires the known superseded spec gap")
+    elif outcome == "existing_open_gap":
+        if gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS:
+            failures.append("restart_timebase existing_open_gap requires an open gap")
+    elif outcome == "resolved_source":
+        resolution_status = gap.get("resolution_status")
+        if resolution_status == "closed":
+            if gap.get("resolution_source_ref") != restart.get("source_ref"):
+                failures.append(
+                    "restart_timebase closed superseded gap must bind the "
+                    "resolved_source source_ref"
+                )
+        elif resolution_status not in OPEN_GAP_RESOLUTIONS:
+            failures.append(
+                "restart_timebase resolved_source requires an open or closed superseded gap"
+            )
+    if outcome == "resolved_source":
+        source_ref = restart.get("source_ref")
+        source = spec_sources.get(source_ref) if isinstance(source_ref, str) else None
+        if (
+            source is None
+            or source.get("source_status") != "active"
+            or source.get("oracle_eligible") is not True
+            or source.get("authority") not in RESTART_SOURCE_AUTHORITIES
+        ):
+            failures.append(
+                "restart_timebase resolved_source requires an active "
+                "oracle-eligible non-public-claim spec source"
+            )
+        source_path = restart.get("source_path")
+        if source is not None and source.get("path") != source_path:
+            failures.append(
+                "restart_timebase resolved_source source_path must match source metadata"
+            )
+        _validate_durable_path(
+            root,
+            source_path,
+            "restart_timebase resolved_source source_path",
+            failures,
         )
-    gap = spec_gaps.get("SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001")
-    if (
-        gap is None
-        or gap.get("status") != "spec_gap"
-        or gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS
-    ):
-        failures.append("restart_timebase requires an open actionable spec gap")
     _require_text(restart.get("rationale"), "restart_timebase rationale", failures)
     _reject_claim_language(restart.get("rationale"), "restart_timebase rationale", failures)
 
@@ -527,7 +563,6 @@ def _validate_spec_review_schema(
         if review_properties.get(field, {}).get("$ref") != expected:
             failures.append(f"runtime-anomaly spec review schema ref for {field} drifts")
     allocation_properties = _properties(allocation_schema)
-    restart_properties = _properties(restart_schema)
     for field, expected in {
         "outcome": "written_contract_present",
         "source_ref": "SPEC_RUNTIME_ENGINE_001",
@@ -538,12 +573,6 @@ def _validate_spec_review_schema(
     required_text = allocation_properties.get("required_text", {})
     if required_text.get("const") != list(ALLOCATION_REQUIRED_TEXT):
         failures.append("runtime-anomaly allocation required_text schema drifts")
-    for field, expected in {
-        "outcome": "existing_open_gap",
-        "spec_gap_ref": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
-    }.items():
-        if restart_properties.get(field, {}).get("const") != expected:
-            failures.append(f"runtime-anomaly restart schema const for {field} drifts")
 
 
 def _validate_durable_path(root: Path, value: Any, label: str, failures: list[str]) -> None:

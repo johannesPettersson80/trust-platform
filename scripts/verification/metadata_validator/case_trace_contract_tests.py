@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from scripts.verification.case_digests import file_digest
+from scripts.verification.execution_contract import invariant_execution_contract_digest
 from scripts.verification.metadata_validator.case_files import validate_case_file
 from scripts.verification.metadata_validator.case_trace_contract import (
     GENERATED_DECISION_TABLE_V1,
@@ -267,6 +268,15 @@ class CaseTraceContractTests(unittest.TestCase):
                     "_path": invariant_path,
                     "area": "compiler_iec",
                     "input": {},
+                    "coverage": {
+                        "cells": [
+                            {
+                                "dimension": "happy_path",
+                                "state": "gap_open",
+                                "rationale": "The trace is not yet proven.",
+                            }
+                        ]
+                    },
                     "behavior": [
                         {
                             "outcome": "accept_value",
@@ -279,6 +289,7 @@ class CaseTraceContractTests(unittest.TestCase):
             trace_digest = trace_definition_digest(cases)
             case_path = root / "verification/cases/compiler_iec/INV_TIMER.toml"
             case_path.parent.mkdir(parents=True)
+            source_digest = invariant_execution_contract_digest(invariant)
             case_path.write_text(
                 f'''schema_version = 1
 id = "CASES_INV_TIMER"
@@ -289,7 +300,7 @@ status = "planned"
 invariant = "INV_TIMER"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "{trace_digest}"
-source_digest = "{file_digest(invariant_path)}"
+source_digest = "{source_digest}"
 last_reviewed = "2026-07-12"
 
 [[case]]
@@ -321,7 +332,53 @@ trace = [
                     spec_gaps={},
                 )
 
+                lifecycle_invariant = deepcopy(invariant)
+                lifecycle_invariant.update(
+                    {
+                        "status": "validated",
+                        "proof_level": "G2",
+                        "tests": ["TEST_TIMER_TRACE"],
+                        "gates": ["pr", "nightly"],
+                        "evidence_refs": ["EVID_TIMER_RED", "EVID_TIMER_GREEN"],
+                        "spec_gap_refs": [],
+                        "missing": [],
+                        "coverage": {"cells": [{"dimension": "happy_path", "state": "covered"}]},
+                        "last_reviewed": "2026-07-13",
+                    }
+                )
+                lifecycle_failures: list[str] = []
+                validate_case_file(
+                    fail=lambda _path, message: lifecycle_failures.append(message),
+                    path=root / "verification/test-catalog.toml",
+                    test_record={
+                        "id": "TEST_TIMER_TRACE",
+                        "case_file": "verification/cases/compiler_iec/INV_TIMER.toml",
+                        "invariants": ["INV_TIMER"],
+                    },
+                    invariants={"INV_TIMER": lifecycle_invariant},
+                    spec_sources=self.spec_sources,
+                    spec_gaps={},
+                )
+
+                behavior_invariant = deepcopy(lifecycle_invariant)
+                behavior_invariant["behavior"][0]["outcome"] = "reject"
+                behavior_failures: list[str] = []
+                validate_case_file(
+                    fail=lambda _path, message: behavior_failures.append(message),
+                    path=root / "verification/test-catalog.toml",
+                    test_record={
+                        "id": "TEST_TIMER_TRACE",
+                        "case_file": "verification/cases/compiler_iec/INV_TIMER.toml",
+                        "invariants": ["INV_TIMER"],
+                    },
+                    invariants={"INV_TIMER": behavior_invariant},
+                    spec_sources=self.spec_sources,
+                    spec_gaps={},
+                )
+
         self.assertEqual(failures, [])
+        self.assertEqual(lifecycle_failures, [])
+        self.assertIn("source_digest mismatch", "\n".join(behavior_failures))
 
     def test_full_case_file_validator_rejects_unknown_root_and_case_fields(self) -> None:
         with TemporaryDirectory() as raw_dir:

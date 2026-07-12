@@ -219,9 +219,18 @@ nightly while real-device claims retain a conditional `hardware_lab` route.
 The scan-cycle allocation review reuses the active runtime-engine statements
 that dynamic allocation is absent from the hot path and execution performs no
 heap allocation. Allocation-failure/OOM outside that promised path remains
-test debt. Restart/time-base behavior reuses the already-open
-`SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`; tests cannot replace that missing
-contract. No duplicate gap is created.
+test debt. Restart/time-base behavior uses an exact schema-v1 variant. The
+committed `existing_open_gap` state binds only
+`SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`. The migration-ready
+`resolved_source` state instead binds an active, oracle-eligible spec source,
+its exact durable path, and the same ID as `superseded_gap_id`; mixed fields,
+an invented gap, or a public-claim source fails. `existing_open_gap` requires
+the gap to remain actionable. `resolved_source` permits that migration state
+while the gap is open and remains valid after closure only when the gap's
+`resolution_source_ref` is the same source. The resolved-source state remains
+an ownership review only: it creates no test coverage, proof, or gap closure.
+The committed taxonomy remains in the open-gap state until the execution slice
+reaches its reviewed migration row.
 
 Phase 8 adds no fault toggle or production hook. `VERIF-P8-005` and
 `VERIF-P8-006` remain open until a general governed harness and an enforceable

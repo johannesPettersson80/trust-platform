@@ -20,6 +20,20 @@ def validate_node(
     path: str,
     failures: list[str],
 ) -> None:
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        matches = 0
+        for branch in one_of:
+            if not isinstance(branch, dict):
+                continue
+            branch_failures: list[str] = []
+            validate_node(instance, branch, root_schema, path, branch_failures)
+            if not branch_failures:
+                matches += 1
+        if matches != 1:
+            failures.append(f"{path}: value must match exactly one schema branch")
+            return
+
     reference = schema.get("$ref")
     if isinstance(reference, str):
         target = resolve_local_reference(root_schema, reference)
@@ -27,7 +41,6 @@ def validate_node(
             failures.append(f"{path}: unresolved schema reference {reference}")
             return
         validate_node(instance, target, root_schema, path, failures)
-        return
 
     expected_type = schema.get("type")
     if expected_type is not None and not matches_type(instance, expected_type):

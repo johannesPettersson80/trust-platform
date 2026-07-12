@@ -26,6 +26,7 @@ from ..area_routing import (
     ROUTE_FIELDS,
 )
 from ..test_catalog_intent import GENERATED_SOURCE_KINDS, SUBJECT_KINDS
+from ..execution_contract import PROOF_CONTRACT_VERSION
 from .ignored_tests import (
     IGNORED_SOURCE_KINDS,
     IGNORE_CLASSES,
@@ -63,6 +64,7 @@ SCHEMA_ENUM_EXPECTATIONS = {
         "kind": EVIDENCE_KINDS,
         "proof_kind": PROOF_KINDS,
         "proof_scope": PROOF_SCOPES,
+        "proof_contract_version": {PROOF_CONTRACT_VERSION},
     },
     "ignored-test.schema.json": {
         "area": AREAS,

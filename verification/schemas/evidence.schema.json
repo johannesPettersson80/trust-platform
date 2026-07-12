@@ -32,10 +32,58 @@
     "case_artifact_path": { "type": "string" },
     "case_artifact_digest": { "type": "string" },
     "case_file_digest": { "type": "string" },
+    "proof_contract_version": { "enum": ["execution_contract_v2"] },
     "proof_contract_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "case_result_digest": { "type": "string" },
     "trust_verify_run_id": { "type": "string" },
     "command_exit_status": { "type": "integer" },
+    "remote_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "gate_started_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$" },
+    "gate_finished_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$" },
+    "gate_duration_milliseconds": { "type": "integer", "minimum": 0 },
+    "disk_preflight_passed": { "const": true },
+    "home_available_kib": { "type": "integer", "minimum": 62914560 },
+    "tmp_available_kib": { "type": "integer", "minimum": 3145728 },
+    "executed_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "test_id",
+          "discovery_id",
+          "discovery_source_kind",
+          "command",
+          "run_id",
+          "case_file_digest",
+          "case_artifact_digest",
+          "per_case_summary",
+          "exit_status"
+        ],
+        "properties": {
+          "test_id": { "type": "string", "minLength": 1 },
+          "discovery_id": { "type": "string", "minLength": 1 },
+          "discovery_source_kind": {
+            "enum": ["rust_integration_test", "rust_unit_test"]
+          },
+          "command": { "type": "string", "minLength": 1 },
+          "run_id": { "type": "string", "minLength": 1 },
+          "case_file_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "case_artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "per_case_summary": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^.+:passed$" }
+          },
+          "exit_status": { "const": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "local_source_clean_before": { "const": true },
+    "local_source_clean_after": { "const": true },
+    "remote_source_clean_before": { "const": true },
+    "remote_source_clean_after": { "const": true },
     "red_case_ids": { "type": "array", "items": { "type": "string" } },
     "per_case_summary": { "type": "array", "items": { "type": "string" } },
     "paired_red_evidence": { "type": "string" },

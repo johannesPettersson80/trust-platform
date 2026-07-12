@@ -92,8 +92,10 @@ TOML shape convention:
   use `proof_scope = "targeted"`.
 - Invariant promotion is evidence-bound: `test_written` needs targeted red,
   `implemented`/`G1` needs targeted green or lock, `G2` also needs an approved
-  successful broad remote gate, and `R1` also needs an approved release object.
-  These rules do not promote any existing record or change report-only CI.
+  successful broad remote gate whose current tests remain non-ignored and whose
+  passing case summaries exactly cover each current committed case file, and
+  `R1` also needs an approved release object. These rules do not promote any
+  existing record or change report-only CI.
 - `scripts/verification_report_gate.py` is the report-only CI front door during
   pilot burn-in. It runs the metadata/case-file gate, re-derives planner output
   for changed files, and reports uncataloged changed tests without enforcing
@@ -202,7 +204,14 @@ TOML shape convention:
   `scripts/validate_invariant_seed_audit_report.py` for the Phase 4 exhaustive
   seed/import join. It requires 44 written seeds, 43 canonical invariants, five
   review-risk links, durable non-public oracle sources for `gap_open`, and open
-  focused gaps for `spec_gap`. Every seed remains S0 and unvalidated.
+  focused gaps for `spec_gap`. Lifecycle-v1 baseline records retain the
+  imported S0 posture. Only `IEC_TIMER_001` is reviewed as `execution_ready`:
+  it may acquire known, back-linked tests/evidence and an evidence-supported
+  proof level during the Phase 16 pilot. A terminal `validated` state is
+  accepted only after full metadata health, specified source ownership, zero
+  current gaps/missing obligations, closed coverage cells, and supported
+  promotion evidence. Earlier states cannot hide a current gap. The lifecycle
+  transition is authorization, not proof.
 - Run `scripts/report_spec_completeness.py` and
   `scripts/validate_spec_completeness_report.py` for Phase 4A debt: invariants
   whose specification is not `specified`, expected-result tests without an

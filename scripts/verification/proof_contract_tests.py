@@ -7,8 +7,10 @@ import unittest
 from pathlib import Path
 
 from scripts.verification.proof_contract import (
+    PROOF_CONTRACT_VERSION,
     ProofContractError,
     proof_contract_digest,
+    proof_contract_payload,
 )
 
 
@@ -21,6 +23,9 @@ class ProofContractTests(unittest.TestCase):
             "command": "python3 test.py",
             "invariants": ["INV_A", "INV_B"],
             "suite_tiers": ["pr"],
+            "status": "mapped",
+            "spec_gap_ref": "SPEC_GAP_A",
+            "last_reviewed": "2026-07-12",
             "_path": Path("verification/test-catalog.toml"),
         }
         self.invariants = {
@@ -28,14 +33,30 @@ class ProofContractTests(unittest.TestCase):
                 "schema_version": 1,
                 "id": "INV_A",
                 "status": "gap_open",
+                "proof_level": "S0",
+                "tests": [],
+                "gates": ["pr"],
+                "evidence_refs": [],
+                "spec_gap_refs": ["SPEC_GAP_A"],
+                "missing": ["proof"],
+                "coverage": {"cells": [{"dimension": "happy_path", "state": "gap_open"}]},
                 "oracle": {"kind": "spec", "ref": "SPEC_A"},
+                "behavior": [{"outcome": "accept_value", "oracle_ref": "SPEC_A#rule"}],
+                "last_reviewed": "2026-07-12",
                 "_path": Path("verification/invariants/a.toml"),
             },
             "INV_B": {
                 "schema_version": 1,
                 "id": "INV_B",
                 "status": "gap_open",
+                "proof_level": "S0",
+                "tests": [],
+                "gates": ["pr"],
+                "evidence_refs": [],
+                "spec_gap_refs": [],
+                "missing": [],
                 "oracle": {"kind": "spec", "ref": "SPEC_B"},
+                "behavior": [{"outcome": "accept_value", "oracle_ref": "SPEC_B#rule"}],
                 "_path": Path("verification/invariants/b.toml"),
             },
         }
@@ -57,6 +78,10 @@ class ProofContractTests(unittest.TestCase):
 
         self.assertEqual(actual, expected)
         self.assertRegex(actual, r"^sha256:[0-9a-f]{64}$")
+        self.assertEqual(
+            proof_contract_payload(test=self.test, invariants=self.invariants)["contract_version"],
+            PROOF_CONTRACT_VERSION,
+        )
 
     def test_arbitrary_catalog_row_drift_changes_digest(self) -> None:
         expected = proof_contract_digest(test=self.test, invariants=self.invariants)
@@ -89,6 +114,96 @@ class ProofContractTests(unittest.TestCase):
         actual = proof_contract_digest(test=self.test, invariants=changed)
 
         self.assertNotEqual(actual, expected)
+
+    def test_catalog_and_invariant_lifecycle_progression_preserves_digest(self) -> None:
+        expected = proof_contract_digest(test=self.test, invariants=self.invariants)
+        changed_test = copy.deepcopy(self.test)
+        changed_test.update(
+            {
+                "status": "validated",
+                "suite_tiers": ["pr", "nightly", "release"],
+                "spec_gap_ref": None,
+                "last_reviewed": "2026-07-13",
+            }
+        )
+        changed_invariants = copy.deepcopy(self.invariants)
+        changed_invariants["INV_A"].update(
+            {
+                "status": "validated",
+                "proof_level": "G2",
+                "tests": ["TEST_PROOF"],
+                "gates": ["pr", "nightly"],
+                "evidence_refs": ["EVID_RED", "EVID_GREEN", "EVID_BROAD"],
+                "spec_gap_refs": [],
+                "missing": [],
+                "coverage": {"cells": [{"dimension": "happy_path", "state": "covered"}]},
+                "last_reviewed": "2026-07-13",
+            }
+        )
+
+        actual = proof_contract_digest(test=changed_test, invariants=changed_invariants)
+
+        self.assertEqual(actual, expected)
+
+    def test_coverage_scope_drift_changes_digest(self) -> None:
+        expected = proof_contract_digest(test=self.test, invariants=self.invariants)
+        changes = []
+
+        changed_dimension = copy.deepcopy(self.invariants)
+        changed_dimension["INV_A"]["coverage"]["cells"][0]["dimension"] = "boundary"
+        changes.append(changed_dimension)
+
+        added_cell = copy.deepcopy(self.invariants)
+        added_cell["INV_A"]["coverage"]["cells"].append(
+            {
+                "dimension": "boundary",
+                "state": "gap_open",
+                "rationale": "A second reviewed coverage obligation.",
+            }
+        )
+        changes.append(added_cell)
+
+        added_decision = copy.deepcopy(self.invariants)
+        added_decision["INV_A"]["coverage"]["cells"][0]["decision_ref"] = "SPEC_DECISION"
+        changes.append(added_decision)
+
+        for changed in changes:
+            with self.subTest(changed=changed):
+                self.assertNotEqual(
+                    proof_contract_digest(test=self.test, invariants=changed),
+                    expected,
+                )
+
+    def test_coverage_lifecycle_fields_preserve_digest(self) -> None:
+        expected = proof_contract_digest(test=self.test, invariants=self.invariants)
+        changed = copy.deepcopy(self.invariants)
+        cell = changed["INV_A"]["coverage"]["cells"][0]
+        cell.update(
+            {
+                "state": "covered",
+                "rationale": "The committed proof now covers this dimension.",
+                "spec_gap_ref": None,
+            }
+        )
+
+        self.assertEqual(
+            proof_contract_digest(test=self.test, invariants=changed),
+            expected,
+        )
+
+    def test_behavior_and_oracle_drift_change_digest(self) -> None:
+        expected = proof_contract_digest(test=self.test, invariants=self.invariants)
+        for mutate in (
+            lambda records: records["INV_A"]["oracle"].__setitem__("ref", "SPEC_OTHER"),
+            lambda records: records["INV_A"]["behavior"][0].__setitem__("outcome", "reject"),
+        ):
+            with self.subTest(mutate=mutate):
+                changed = copy.deepcopy(self.invariants)
+                mutate(changed)
+                self.assertNotEqual(
+                    proof_contract_digest(test=self.test, invariants=changed),
+                    expected,
+                )
 
     def test_missing_or_duplicate_invariant_reference_is_rejected(self) -> None:
         for invariant_ids, expected in (

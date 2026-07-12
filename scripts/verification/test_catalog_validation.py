@@ -121,6 +121,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "uniqueItems",
     "minLength",
     "minimum",
+    "oneOf",
 }
 
 
@@ -273,6 +274,11 @@ def check_supported_schema_keywords(
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
         check_supported_schema_keywords(additional, f"{path}.additionalProperties", failures)
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        for index, child in enumerate(one_of):
+            if isinstance(child, dict):
+                check_supported_schema_keywords(child, f"{path}.oneOf[{index}]", failures)
 
 
 def validate_payload_against_schema(payload: Any, schema: dict[str, Any]) -> list[str]:

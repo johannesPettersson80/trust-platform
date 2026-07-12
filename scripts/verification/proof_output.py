@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -133,7 +134,11 @@ def append_evidence_record(
         )
 
     separator = "" if current.endswith("\n\n") else "\n"
-    updated = current + separator + render_evidence_record(record)
+    try:
+        rendered = render_evidence_record(record)
+    except TypeError as exc:
+        raise ProofOutputError(f"cannot render generated evidence record: {exc}") from exc
+    updated = current + separator + rendered
     _atomic_write(path, updated)
     return path
 
@@ -154,6 +159,14 @@ def render_toml_value(value: Any) -> str:
         return str(value)
     if isinstance(value, list):
         return "[" + ", ".join(render_toml_value(item) for item in value) + "]"
+    if isinstance(value, Mapping):
+        entries: list[str] = []
+        for key in sorted(value):
+            if not isinstance(key, str) or not key:
+                raise TypeError(f"unsupported TOML evidence key {key!r}")
+            rendered_key = key if re.fullmatch(r"[A-Za-z0-9_-]+", key) else json.dumps(key)
+            entries.append(f"{rendered_key} = {render_toml_value(value[key])}")
+        return "{ " + ", ".join(entries) + " }"
     raise TypeError(f"unsupported TOML evidence value {value!r}")
 
 

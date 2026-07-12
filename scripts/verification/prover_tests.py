@@ -10,7 +10,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from scripts.verification.proof_contract import proof_contract_digest
+from scripts.verification.proof_contract import PROOF_CONTRACT_VERSION, proof_contract_digest
 from scripts.verification.prover import (
     ProofError,
     ProofProducer,
@@ -35,6 +35,10 @@ class RedProofProducerTests(unittest.TestCase):
             self.assertEqual(result.record["red_case_ids"], ["CASE_FAIL"])
             self.assertEqual(result.record["linked_tests"], ["TEST_RED"])
             self.assertEqual(result.record["case_file_digest"], fx.case_digest)
+            self.assertEqual(
+                result.record["proof_contract_version"],
+                PROOF_CONTRACT_VERSION,
+            )
             self.assertEqual(result.record["proof_contract_digest"], fx.contract_digest())
             self.assertTrue(result.evidence_path.exists())
 
@@ -341,6 +345,17 @@ class GreenProverTests(unittest.TestCase):
             fx.tests["TEST_RED"]["command"] = "python3 command-that-must-not-run.py"
 
             with self.assertRaisesRegex(ProofError, "proof_contract_digest"):
+                fx.prover().green("TEST_RED", "EVID_RED")
+
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
+    def test_green_refuses_legacy_proof_contract_before_running(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.write_evidence("EVID_RED", proof_contract_version=None)
+
+            with self.assertRaisesRegex(ProofError, "proof_contract_version"):
                 fx.prover().green("TEST_RED", "EVID_RED")
 
             self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
@@ -874,6 +889,7 @@ class fixture:
         red_case_ids: list[str] | None = None,
         per_case_summary: list[str] | None = None,
         producer: str = "prove.py v1",
+        proof_contract_version: str | None = PROOF_CONTRACT_VERSION,
     ) -> None:
         record = {
             "schema_version": 1,
@@ -903,8 +919,10 @@ class fixture:
                 per_case_summary if per_case_summary is not None else ["CASE_FAIL:failed"]
             ),
             "case_file_digest": case_file_digest if case_file_digest is not None else self.case_digest,
-            "proof_contract_digest": self.contract_digest(),
         }
+        if proof_contract_version is not None:
+            record["proof_contract_version"] = proof_contract_version
+        record["proof_contract_digest"] = self.contract_digest()
         path = self.evidence_dir / f"{evidence_id}.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render_test_evidence(record))
@@ -921,6 +939,7 @@ class fixture:
         proof_kind: str = "lock_baseline",
         producer: str = "prove.py v1",
         command: str = "python3 writer.py",
+        proof_contract_version: str | None = PROOF_CONTRACT_VERSION,
     ) -> None:
         summary = per_case_summary if per_case_summary is not None else ["CASE_FAIL:passed"]
         result_digest = case_result_digest_override or case_result_digest(
@@ -954,8 +973,10 @@ class fixture:
             "case_file_digest": case_file_digest if case_file_digest is not None else self.case_digest,
             "case_result_digest": result_digest,
             "case_artifact_digest": "sha256:artifact",
-            "proof_contract_digest": self.contract_digest(),
         }
+        if proof_contract_version is not None:
+            record["proof_contract_version"] = proof_contract_version
+        record["proof_contract_digest"] = self.contract_digest()
         path = self.evidence_dir / f"{evidence_id}.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render_test_evidence(record))

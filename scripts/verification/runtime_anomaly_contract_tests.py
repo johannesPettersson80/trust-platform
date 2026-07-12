@@ -17,6 +17,7 @@ from scripts.verification.runtime_anomaly_contract import (
     validate_runtime_anomaly_contract,
     validate_runtime_anomaly_schema_contract,
 )
+from scripts.verification.test_catalog_json_schema import validate_json_schema_instance
 
 
 def fixture_schema() -> dict:
@@ -108,6 +109,16 @@ def fixture_spec_sources() -> dict[str, dict]:
             "authority": "normative_product",
             "oracle_eligible": True,
         }
+    }
+
+
+def resolved_restart_review() -> dict[str, object]:
+    return {
+        "outcome": "resolved_source",
+        "source_ref": "SPEC_RUNTIME_ENGINE_001",
+        "source_path": "docs/specs/11-runtime-engine.md",
+        "superseded_gap_id": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+        "rationale": "The reviewed product source now owns restart and time-base semantics.",
     }
 
 
@@ -298,7 +309,7 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
         )
         self.assertTrue(
             any(
-                "open actionable spec gap" in item
+                "existing_open_gap requires an open gap" in item
                 for item in validate_runtime_anomaly_contract(
                     self.root,
                     taxonomy,
@@ -306,6 +317,131 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                     spec_gaps=bad_gap,
                 )
             )
+        )
+
+    def test_resolved_restart_review_binds_active_non_claim_source(self) -> None:
+        taxonomy = fixture_taxonomy()
+        taxonomy["spec_gap_reviews"]["restart_timebase"] = resolved_restart_review()
+
+        self.assertEqual([], self.validate(taxonomy))
+
+        for field, value, signal in (
+            ("source_status", "superseded", "active oracle-eligible non-public-claim"),
+            ("oracle_eligible", False, "active oracle-eligible non-public-claim"),
+            ("authority", "public_claim", "active oracle-eligible non-public-claim"),
+        ):
+            with self.subTest(field=field):
+                sources = fixture_spec_sources()
+                sources["SPEC_RUNTIME_ENGINE_001"][field] = value
+                failures = validate_runtime_anomaly_contract(
+                    self.root,
+                    taxonomy,
+                    spec_sources=sources,
+                    spec_gaps=fixture_spec_gaps(),
+                )
+                self.assertTrue(any(signal in item for item in failures), failures)
+
+    def test_restart_review_variants_reject_hybrids_and_invented_gap_ids(self) -> None:
+        existing_hybrid = fixture_taxonomy()
+        existing_hybrid["spec_gap_reviews"]["restart_timebase"]["source_ref"] = (
+            "SPEC_RUNTIME_ENGINE_001"
+        )
+        resolved_hybrid = fixture_taxonomy()
+        resolved_hybrid["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "spec_gap_ref": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+        }
+        invented = fixture_taxonomy()
+        invented["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "superseded_gap_id": "SPEC_GAP_INVENTED_001",
+        }
+
+        for taxonomy in (existing_hybrid, resolved_hybrid):
+            with self.subTest(outcome=taxonomy["spec_gap_reviews"]["restart_timebase"]):
+                failures = self.validate(taxonomy)
+                self.assertTrue(
+                    any("restart_timebase review fields drift" in item for item in failures),
+                    failures,
+                )
+        self.assertTrue(
+            any("superseded_gap_id" in item for item in self.validate(invented)),
+            self.validate(invented),
+        )
+
+    def test_existing_restart_review_rejects_premature_closed_gap(self) -> None:
+        gaps = fixture_spec_gaps()
+        gaps["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]["resolution_status"] = "closed"
+
+        failures = validate_runtime_anomaly_contract(
+            self.root,
+            fixture_taxonomy(),
+            spec_sources=fixture_spec_sources(),
+            spec_gaps=gaps,
+        )
+
+        self.assertTrue(
+            any("existing_open_gap requires an open gap" in item for item in failures),
+            failures,
+        )
+
+    def test_resolved_restart_review_accepts_open_or_source_bound_closed_gap(self) -> None:
+        taxonomy = fixture_taxonomy()
+        taxonomy["spec_gap_reviews"]["restart_timebase"] = resolved_restart_review()
+        closed = fixture_spec_gaps()
+        closed_gap = closed["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+        closed_gap["resolution_status"] = "closed"
+        closed_gap["resolution_source_ref"] = "SPEC_RUNTIME_ENGINE_001"
+
+        self.assertEqual([], self.validate(taxonomy))
+        self.assertEqual(
+            [],
+            validate_runtime_anomaly_contract(
+                self.root,
+                taxonomy,
+                spec_sources=fixture_spec_sources(),
+                spec_gaps=closed,
+            ),
+        )
+
+    def test_resolved_restart_review_rejects_unbound_closed_gap(self) -> None:
+        taxonomy = fixture_taxonomy()
+        taxonomy["spec_gap_reviews"]["restart_timebase"] = resolved_restart_review()
+
+        for resolution_ref in (None, "SPEC_OTHER_SOURCE_001"):
+            with self.subTest(resolution_ref=resolution_ref):
+                gaps = fixture_spec_gaps()
+                gap = gaps["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+                gap["resolution_status"] = "closed"
+                if resolution_ref is not None:
+                    gap["resolution_source_ref"] = resolution_ref
+                failures = validate_runtime_anomaly_contract(
+                    self.root,
+                    taxonomy,
+                    spec_sources=fixture_spec_sources(),
+                    spec_gaps=gaps,
+                )
+                self.assertTrue(
+                    any(
+                        "closed superseded gap must bind the resolved_source source_ref"
+                        in item
+                        for item in failures
+                    ),
+                    failures,
+                )
+
+    def test_resolved_restart_review_cannot_claim_test_coverage_or_proof(self) -> None:
+        taxonomy = fixture_taxonomy()
+        taxonomy["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "rationale": "This source proves complete test coverage.",
+        }
+
+        failures = self.validate(taxonomy)
+
+        self.assertTrue(
+            any("forbidden proof/coverage language" in item for item in failures),
+            failures,
         )
 
     def test_free_text_cannot_claim_proof_or_coverage(self) -> None:
@@ -350,6 +486,26 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
             "uniqueItems": True,
             "items": {"type": "string", "minLength": 1},
         }
+        widened_restart_union = copy.deepcopy(schema)
+        widened_restart_union["$defs"]["restart_timebase_review"]["oneOf"].append(
+            {"type": "object"}
+        )
+        restart_ref_sibling = copy.deepcopy(schema)
+        restart_ref_sibling["$defs"]["restart_timebase_review"]["oneOf"][0][
+            "type"
+        ] = "string"
+        open_resolved_restart = copy.deepcopy(schema)
+        open_resolved_restart["$defs"]["restart_resolved_source_v1"][
+            "additionalProperties"
+        ] = True
+        weak_open_rationale = copy.deepcopy(schema)
+        weak_open_rationale["$defs"]["restart_existing_open_gap_v1"]["properties"][
+            "rationale"
+        ] = {"type": "string"}
+        weak_resolved_source = copy.deepcopy(schema)
+        weak_resolved_source["$defs"]["restart_resolved_source_v1"]["properties"][
+            "source_ref"
+        ] = {"pattern": "^SPEC_[A-Z0-9_]+$"}
 
         self.assertEqual([], validate_runtime_anomaly_schema_contract(schema))
         self.assertTrue(
@@ -394,6 +550,70 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                 for item in validate_runtime_anomaly_schema_contract(weak_required_text)
             )
         )
+        self.assertTrue(
+            any(
+                "restart review union drifts" in item
+                for item in validate_runtime_anomaly_schema_contract(
+                    widened_restart_union
+                )
+            )
+        )
+        self.assertTrue(
+            any(
+                "restart review union drifts" in item
+                for item in validate_runtime_anomaly_schema_contract(
+                    restart_ref_sibling
+                )
+            )
+        )
+        self.assertTrue(
+            any(
+                "resolved_source schema must be a closed object" in item
+                for item in validate_runtime_anomaly_schema_contract(
+                    open_resolved_restart
+                )
+            )
+        )
+        self.assertTrue(
+            any(
+                "existing restart rationale schema drifts" in item
+                for item in validate_runtime_anomaly_schema_contract(
+                    weak_open_rationale
+                )
+            )
+        )
+        self.assertTrue(
+            any(
+                "resolved restart source_ref schema drifts" in item
+                for item in validate_runtime_anomaly_schema_contract(
+                    weak_resolved_source
+                )
+            )
+        )
+
+    def test_schema_evaluator_requires_exactly_one_restart_variant(self) -> None:
+        schema = fixture_schema()
+        existing = fixture_taxonomy()
+        resolved = fixture_taxonomy()
+        resolved["spec_gap_reviews"]["restart_timebase"] = resolved_restart_review()
+        ambiguous_schema = copy.deepcopy(schema)
+        ambiguous_schema["$defs"]["restart_timebase_review"]["oneOf"][1] = {
+            "$ref": "#/$defs/restart_existing_open_gap_v1"
+        }
+        ref_sibling_schema = copy.deepcopy(schema)
+        ref_sibling_schema["$defs"]["restart_timebase_review"]["oneOf"][0][
+            "type"
+        ] = "string"
+
+        self.assertEqual([], validate_json_schema_instance(existing, schema))
+        self.assertEqual([], validate_json_schema_instance(resolved, schema))
+        self.assertTrue(
+            any(
+                "exactly one schema branch" in failure
+                for failure in validate_json_schema_instance(existing, ambiguous_schema)
+            )
+        )
+        self.assertTrue(validate_json_schema_instance(existing, ref_sibling_schema))
 
     def test_full_metadata_validator_wires_runtime_anomaly_contract(self) -> None:
         validator = Validator()
@@ -427,6 +647,71 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                         failure.path.as_posix()
                         == "verification/runtime-anomaly-taxonomy.toml"
                         and "class_id" in failure.message
+                        for failure in validator.failures
+                    ),
+                    [failure.message for failure in validator.failures],
+                )
+
+    def test_full_metadata_validator_rejects_restart_variant_hybrid(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.runtime_anomaly_taxonomy["spec_gap_reviews"]["restart_timebase"] = {
+            **resolved_restart_review(),
+            "spec_gap_ref": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
+        }
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                failure.path.as_posix() == "verification/runtime-anomaly-taxonomy.toml"
+                and "restart_timebase review fields drift" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_full_metadata_validator_rejects_untrusted_or_premature_restart_state(
+        self,
+    ) -> None:
+        scenarios = (
+            ("inactive", "active oracle-eligible non-public-claim"),
+            ("public", "active oracle-eligible non-public-claim"),
+            ("invented_gap", "superseded_gap_id"),
+            ("closed_gap", "existing_open_gap requires an open gap"),
+        )
+        for scenario, signal in scenarios:
+            with self.subTest(scenario=scenario):
+                validator = Validator()
+                validator.load_records()
+                if scenario != "closed_gap":
+                    validator.runtime_anomaly_taxonomy["spec_gap_reviews"][
+                        "restart_timebase"
+                    ] = resolved_restart_review()
+                if scenario == "inactive":
+                    validator.spec_sources["SPEC_RUNTIME_ENGINE_001"][
+                        "source_status"
+                    ] = "superseded"
+                elif scenario == "public":
+                    validator.spec_sources["SPEC_RUNTIME_ENGINE_001"][
+                        "authority"
+                    ] = "public_claim"
+                elif scenario == "invented_gap":
+                    validator.runtime_anomaly_taxonomy["spec_gap_reviews"][
+                        "restart_timebase"
+                    ]["superseded_gap_id"] = "SPEC_GAP_INVENTED_001"
+                else:
+                    validator.spec_gaps["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"][
+                        "resolution_status"
+                    ] = "closed"
+
+                validator.validate()
+
+                self.assertTrue(
+                    any(
+                        failure.path.as_posix()
+                        == "verification/runtime-anomaly-taxonomy.toml"
+                        and signal in failure.message
                         for failure in validator.failures
                     ),
                     [failure.message for failure in validator.failures],

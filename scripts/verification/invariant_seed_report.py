@@ -13,7 +13,7 @@ from .invariant_seed_contract import SeedAuditRow
 
 
 GENERATOR = "invariant-seed-audit"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/invariant-seed-audit.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/invariant-seed-audit.md")
 SCOPE = {
@@ -25,7 +25,8 @@ SCOPE = {
 }
 LIMITATIONS = (
     "This audit proves registry completeness and metadata posture, not product behavior.",
-    "S0 associations and proof_kind none evidence do not close an invariant or specification gap.",
+    "Lifecycle authorization does not create proof, close an invariant, or close a specification gap.",
+    "Only explicitly referenced live catalog and evidence records can support an execution-ready seed.",
     "verification/evidence-index.toml is live-validated but excluded from the input digest to avoid a report-evidence cycle.",
 )
 
@@ -63,7 +64,7 @@ class SeedAuditReport:
     def to_dict(self) -> dict[str, Any]:
         rows = [row.to_dict() for row in self.rows]
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "generator": GENERATOR,
             "generator_version": GENERATOR_VERSION,
             "report_status": "complete",
@@ -93,8 +94,15 @@ def build_summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "preexisting_seed_mappings": sum(
             row["origin"] == "preexisting" for row in rows
         ),
+        "baseline_lifecycle": sum(row["lifecycle_state"] == "baseline" for row in rows),
+        "execution_ready_lifecycle": sum(
+            row["lifecycle_state"] == "execution_ready" for row in rows
+        ),
         "gap_open": sum(row["status"] == "gap_open" for row in rows),
         "spec_gap": sum(row["status"] == "spec_gap" for row in rows),
+        "test_written": sum(row["status"] == "test_written" for row in rows),
+        "implemented": sum(row["status"] == "implemented" for row in rows),
+        "validated": sum(row["status"] == "validated" for row in rows),
         "p4_000_risks": sum(row["p4_000_risk_id"] is not None for row in rows),
         "by_board_row": [
             {"board_row": board_row, "seeds": count}
@@ -125,8 +133,13 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"- Authorized merged aliases: {summary['merged_seed_aliases']}",
         f"- Newly introduced Phase 4 records: {summary['phase4_records']}",
         f"- Pre-existing seed mappings: {summary['preexisting_seed_mappings']}",
+        f"- Baseline lifecycle records: {summary['baseline_lifecycle']}",
+        f"- Execution-ready lifecycle records: {summary['execution_ready_lifecycle']}",
         f"- Gap-open records: {summary['gap_open']}",
         f"- Spec-gap records: {summary['spec_gap']}",
+        f"- Test-written records: {summary['test_written']}",
+        f"- Implemented records: {summary['implemented']}",
+        f"- Validated records: {summary['validated']}",
         f"- Imported P4-000 review risks: {summary['p4_000_risks']}",
         "",
         "| Board row | Seeds |",
@@ -139,14 +152,15 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             "",
             "## Seed Registry",
             "",
-            "| Seed | Canonical invariant | Area | Row | Origin | Status | Oracle | P4-000 risk |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Seed | Canonical invariant | Area | Row | Origin | Lifecycle | Status | Oracle | P4-000 risk |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["rows"]:
         lines.append(
             f"| `{row['seed_id']}` | `{row['canonical_invariant_id']}` | "
             f"`{row['invariant_area']}` | `{row['board_row']}` | `{row['origin']}` | "
+            f"`v{row['lifecycle_version']}:{row['lifecycle_state']}` | "
             f"`{row['status']}/{row['proof_level']}` | `{row['oracle_ref']}` | "
             f"`{row['p4_000_risk_id'] or 'none'}` |"
         )

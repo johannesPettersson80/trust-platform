@@ -1203,6 +1203,17 @@ Case rules:
 - Hand-authored state-machine files require a `state_machine` invariant. Each
   runnable case carries a non-empty ordered `trace`; every step has exactly
   `sequence`, non-empty `stimulus`, non-empty `expected`, and `oracle_ref`.
+- `generated_decision_table_v1` keeps `source_digest` as the complete invariant
+  file digest because regeneration is its provenance contract.
+  `hand_authored_state_machine_v1` instead defines `source_digest` as the
+  `invariant_execution_contract_v1` projection digest: invariant behavior,
+  input, oracle, and every other unexcluded semantic field remain frozen, while
+  `status`, `proof_level`, `tests`, `gates`, `evidence_refs`, `spec_gap_refs`,
+  `missing`, and `last_reviewed` may progress without invalidating a previously
+  reviewed trace. Coverage state, gap binding, and rationale may progress, but
+  its ordered cell set, dimensions, decision references, and future unknown
+  fields remain digest-bound. The provenance kind versions this distinction;
+  unknown provenance kinds fail closed.
   Sequence numbers are contiguous from zero, trace values are canonical JSON
   values without TOML floats, and every oracle ref resolves to an active
   eligible source. Durations and other numeric trace values use integer units;

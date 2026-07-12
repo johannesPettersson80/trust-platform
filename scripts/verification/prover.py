@@ -30,7 +30,11 @@ from .proof_case_artifacts import (
     load_json_artifact as load_json_artifact_value,
     validate_case_artifact as validate_case_artifact_value,
 )
-from .proof_contract import ProofContractError, proof_contract_digest
+from .proof_contract import (
+    PROOF_CONTRACT_VERSION,
+    ProofContractError,
+    proof_contract_digest,
+)
 from .proof_output import (
     CANONICAL_EVIDENCE_INDEX,
     ProofOutputError,
@@ -540,6 +544,13 @@ class ProofProducer:
         record: dict[str, Any],
         test: dict[str, Any],
     ) -> None:
+        version = record.get("proof_contract_version")
+        if version != PROOF_CONTRACT_VERSION:
+            raise ProofError(
+                f"{evidence_id} proof_contract_version {version!r} does not match "
+                f"{PROOF_CONTRACT_VERSION!r}",
+                failure_kind="metadata_error",
+            )
         linked_invariants = list(test.get("invariants", []))
         if record.get("linked_invariants") != linked_invariants:
             raise ProofError(
@@ -702,6 +713,7 @@ class ProofProducer:
             "trust_verify_run_id": run_id,
             "command_exit_status": command_exit_status,
             "proof_contract_digest": self.current_proof_contract_digest(test),
+            "proof_contract_version": PROOF_CONTRACT_VERSION,
         }
         if artifact_path is not None:
             record["case_artifact_path"] = str(artifact_path.relative_to(self.root))

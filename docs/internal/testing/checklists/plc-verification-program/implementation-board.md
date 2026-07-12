@@ -1183,6 +1183,15 @@ same commit, with the closure evidence linked.
   Phase 8 contract migration, broad gates, and honest promotion. The
   `VM_SEAM_DECLARED_TYPE_001` allegation currently passes and is retained as
   characterization, not manufactured into a product fix.
+
+  Execution lifecycle foundation is implemented without product behavior:
+  versioned proof/case semantic projections, the timer seed lifecycle,
+  producer-authentic broad remote case artifacts, and the Phase 8 open-gap to
+  resolved-source migration contract. The row remains open. Product execution
+  is additionally blocked by `E1-PRE-005`: Ed.3 retained function-block
+  instance semantics conflict with the current restart implementation, while
+  the reviewed product fence authorizes only the TOF ET-hold change. Resolve
+  that scope explicitly before timer decisions or cases.
 - [ ] `VERIF-P16-002` Close every spec gap. For each open record in
   `verification/spec-gaps.toml` (34 at time of writing): write the owning
   spec section, IEC decision, or recorded deviation per STOP-013, then flip

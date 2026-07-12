@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .metadata_validator.constants import ROOT as METADATA_ROOT, SCHEMA_FILES
+from .metadata_validator.core import Validator
 from .invariant_seed_contract import (
     AREAS_PATH,
     MANIFEST_PATH,
@@ -18,7 +20,7 @@ from .invariant_seed_contract import (
     load_seed_audit,
     required_review_source_paths,
 )
-from .report_input_contract import validate_bound_input_paths
+from .report_input_contract import validate_bound_input_paths, validator_code_input_paths
 from .test_catalog_common import input_digest
 
 
@@ -29,9 +31,13 @@ REPORT_CONTRACT_PATHS = {
     "scripts/validate_invariant_seed_audit_report.py",
     "scripts/verification/invariant_seed_cli.py",
     "scripts/verification/invariant_seed_contract.py",
+    "scripts/verification/invariant_seed_lifecycle.py",
     "scripts/verification/invariant_seed_live.py",
     "scripts/verification/invariant_seed_report.py",
     "scripts/verification/invariant_seed_validation.py",
+    "scripts/verification/metadata_validator/constants.py",
+    "scripts/verification/metadata_validator/integrity.py",
+    "scripts/verification/metadata_validator/promotion_evidence.py",
     "scripts/verification/report_input_contract.py",
     "scripts/verification/test_catalog_common.py",
     "scripts/verification/test_catalog_json_schema.py",
@@ -43,6 +49,7 @@ METADATA_PATHS = {
     AREAS_PATH,
     MANIFEST_PATH,
     "verification/risk-register.toml",
+    "verification/ignored-tests.toml",
     "verification/spec-gaps.toml",
     "verification/spec-sources.toml",
     "verification/test-catalog.toml",
@@ -66,13 +73,35 @@ def build_live_seed_audit_state(
     require_clean_commit: bool = False,
 ) -> LiveSeedAuditState:
     root = root.resolve()
+    _validate_metadata_health(root)
     audit = load_seed_audit(root)
     sources = _index(root / "verification/spec-sources.toml", "spec_sources")
     risks = _index(root / "verification/risk-register.toml", "risks")
     source_paths = required_review_source_paths(audit, sources, risks)
     invariant_paths = {row.invariant_path for row in audit.rows}
+    suite_paths = {
+        path.relative_to(root).as_posix()
+        for path in (root / "verification/suites").glob("*.toml")
+    }
+    validator_inputs = (
+        {
+            *validator_code_input_paths(root),
+            *(f"verification/schemas/{name}" for name in SCHEMA_FILES),
+        }
+        if root == METADATA_ROOT.resolve()
+        else set()
+    )
     input_paths = tuple(
-        sorted({*REPORT_CONTRACT_PATHS, *METADATA_PATHS, *source_paths, *invariant_paths})
+        sorted(
+            {
+                *REPORT_CONTRACT_PATHS,
+                *METADATA_PATHS,
+                *validator_inputs,
+                *source_paths,
+                *invariant_paths,
+                *suite_paths,
+            }
+        )
     )
     failures = validate_bound_input_paths(root, input_paths)
     if failures:
@@ -95,6 +124,30 @@ def build_live_seed_audit_state(
         input_digest=input_digest(root, list(input_paths)),
         audit=audit,
     )
+
+
+def _validate_metadata_health(root: Path) -> None:
+    if root != METADATA_ROOT.resolve():
+        raise ValueError(
+            "root does not identify the repository that loaded verification modules"
+        )
+    validator = Validator()
+    validator.load_records()
+    validator.validate()
+    if validator.failures:
+        raise ValueError(
+            "; ".join(
+                f"{_display_path(root, failure.path)}: {failure.message}"
+                for failure in validator.failures
+            )
+        )
+
+
+def _display_path(root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except (OSError, ValueError):
+        return path.as_posix()
 
 
 def validate_source_revision(root: Path, commit: object, input_paths: tuple[str, ...]) -> list[str]:

@@ -1,55 +1,72 @@
 # Hand-owned mapping from the written Phase 4 seed checklist to canonical invariants.
-# This registry authorizes identity only. It creates no test, proof, or gap closure.
+# This registry authorizes reviewed identity and lifecycle only.
+# It creates no test, proof, promotion, or gap closure.
 
-schema_version = 1
+schema_version = 2
 
 [[seeds]]
 seed_id = "RT_SAFE_PANIC_001"
 canonical_invariant_id = "RT_SAFE_PANIC_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_DEADLINE_001"
 canonical_invariant_id = "RT_SAFE_DEADLINE_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_STOP_001"
 canonical_invariant_id = "RT_SAFE_STOP_001"
 board_row = "VERIF-P4-003"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_IO_001"
 canonical_invariant_id = "RT_SAFE_IO_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_RETAIN_001"
 canonical_invariant_id = "RT_SAFE_RETAIN_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_RESTART_001"
 canonical_invariant_id = "RT_SAFE_RESTART_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_FORCE_001"
 canonical_invariant_id = "RT_SAFE_FORCE_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "RT_SAFE_NAN_001"
 canonical_invariant_id = "RT_SAFE_NAN_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 p4_000_risk_id = "RISK_RUNTIME_NONFINITE_INGRESS_001"
 
 [[seeds]]
@@ -57,6 +74,8 @@ seed_id = "RT_RELOAD_001"
 canonical_invariant_id = "RT_RELOAD_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 p4_000_risk_id = "RISK_RUNTIME_RELOAD_TRANSACTION_001"
 
 [[seeds]]
@@ -64,66 +83,88 @@ seed_id = "VM_SEAM_TYPE_001"
 canonical_invariant_id = "VM_SEAM_DECLARED_TYPE_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "VM_SEAM_TYPE_002"
 canonical_invariant_id = "VM_SEAM_DECLARED_TYPE_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "VM_SEAM_REF_001"
 canonical_invariant_id = "VM_SEAM_REF_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "VM_SEAM_OWNER_001"
 canonical_invariant_id = "VM_SEAM_OWNER_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "VM_SEAM_VALID_001"
 canonical_invariant_id = "VM_SEAM_VALID_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "VM_SEAM_ENC_001"
 canonical_invariant_id = "VM_SEAM_ENC_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "IEC_PARSE_RECOVER_001"
 canonical_invariant_id = "IEC_PARSE_RECOVER_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "IEC_PREC_001"
 canonical_invariant_id = "IEC_PREC_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "IEC_STRING_001"
 canonical_invariant_id = "IEC_STRING_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "IEC_SUBRANGE_001"
 canonical_invariant_id = "IEC_SUBRANGE_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "IEC_TIMER_001"
 canonical_invariant_id = "IEC_TIMER_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "execution_ready"
 p4_000_risk_id = "RISK_IEC_TIMER_SEMANTICS_001"
 
 [[seeds]]
@@ -131,54 +172,72 @@ seed_id = "PLCO_IMPORT_001"
 canonical_invariant_id = "PLCO_IMPORT_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "DEV_TEST_DISCOVERY_001"
 canonical_invariant_id = "DEV_TEST_DISCOVERY_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "DEV_COMMIT_SCOPE_001"
 canonical_invariant_id = "DEV_COMMIT_SCOPE_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_DISC_001"
 canonical_invariant_id = "PROTO_DISCOVERY_TRUTH_001"
 board_row = "VERIF-P4-004"
 origin = "preexisting"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_MODBUS_001"
 canonical_invariant_id = "PROTO_MODBUS_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_MQTT_001"
 canonical_invariant_id = "PROTO_MQTT_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_ETHERCAT_001"
 canonical_invariant_id = "PROTO_ETHERCAT_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_ADS_001"
 canonical_invariant_id = "PROTO_ADS_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PROTO_OPCUA_001"
 canonical_invariant_id = "PROTO_OPCUA_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 p4_000_risk_id = "RISK_OPCUA_CLIENT_LIFECYCLE_001"
 
 [[seeds]]
@@ -186,54 +245,72 @@ seed_id = "EDIT_RENAME_001"
 canonical_invariant_id = "EDIT_RENAME_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "EDIT_RENAME_002"
 canonical_invariant_id = "EDIT_RENAME_002"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "EDIT_LSP_POS_001"
 canonical_invariant_id = "EDIT_LSP_POS_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "EDIT_DIAG_CANCEL_001"
 canonical_invariant_id = "EDIT_DIAG_CANCEL_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "UI_STATUS_001"
 canonical_invariant_id = "UI_STATUS_001"
 board_row = "VERIF-P4-006"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "DEBUG_AUTH_001"
 canonical_invariant_id = "DEBUG_AUTH_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "DEBUG_PAUSE_001"
 canonical_invariant_id = "DEBUG_PAUSE_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "SEC_DEP_AUDIT_001"
 canonical_invariant_id = "SEC_DEP_AUDIT_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "SEC_AUTHZ_001"
 canonical_invariant_id = "SEC_AUTHZ_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 p4_000_risk_id = "RISK_RUNTIME_AUTHORIZATION_001"
 
 [[seeds]]
@@ -241,33 +318,45 @@ seed_id = "SEC_ARTIFACT_001"
 canonical_invariant_id = "SEC_ARTIFACT_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PLAT_PATH_001"
 canonical_invariant_id = "PLAT_PATH_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "PLAT_VSCODE_001"
 canonical_invariant_id = "PLAT_VSCODE_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "REL_CLAIM_001"
 canonical_invariant_id = "REL_CLAIM_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "REL_CONF_001"
 canonical_invariant_id = "REL_CONF_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"
 
 [[seeds]]
 seed_id = "REL_VERSION_001"
 canonical_invariant_id = "REL_VERSION_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
+lifecycle_version = 1
+lifecycle_state = "baseline"

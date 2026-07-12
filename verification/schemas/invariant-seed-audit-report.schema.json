@@ -21,9 +21,9 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "generator": { "const": "invariant-seed-audit" },
-    "generator_version": { "const": 1 },
+    "generator_version": { "const": 2 },
     "report_status": { "const": "complete" },
     "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "command": {
@@ -96,6 +96,8 @@
         "invariant_area",
         "board_row",
         "origin",
+        "lifecycle_version",
+        "lifecycle_state",
         "status",
         "proof_level",
         "risk",
@@ -127,8 +129,10 @@
           ]
         },
         "origin": { "enum": ["phase4", "preexisting"] },
-        "status": { "enum": ["gap_open", "spec_gap"] },
-        "proof_level": { "const": "S0" },
+        "lifecycle_version": { "const": 1 },
+        "lifecycle_state": { "enum": ["baseline", "execution_ready"] },
+        "status": { "enum": ["gap_open", "spec_gap", "test_written", "implemented", "validated"] },
+        "proof_level": { "enum": ["S0", "G1", "G2", "R1"] },
         "risk": { "type": "string", "minLength": 1 },
         "oracle_ref": { "type": "string", "minLength": 1 },
         "spec_gap_refs": {
@@ -172,8 +176,13 @@
         "merged_seed_aliases",
         "phase4_records",
         "preexisting_seed_mappings",
+        "baseline_lifecycle",
+        "execution_ready_lifecycle",
         "gap_open",
         "spec_gap",
+        "test_written",
+        "implemented",
+        "validated",
         "p4_000_risks",
         "by_board_row"
       ],
@@ -183,8 +192,13 @@
         "merged_seed_aliases": { "type": "integer", "minimum": 1 },
         "phase4_records": { "type": "integer", "minimum": 1 },
         "preexisting_seed_mappings": { "type": "integer", "minimum": 1 },
+        "baseline_lifecycle": { "const": 43 },
+        "execution_ready_lifecycle": { "const": 1 },
         "gap_open": { "type": "integer", "minimum": 0 },
         "spec_gap": { "type": "integer", "minimum": 0 },
+        "test_written": { "type": "integer", "minimum": 0 },
+        "implemented": { "type": "integer", "minimum": 0 },
+        "validated": { "type": "integer", "minimum": 0 },
         "p4_000_risks": { "type": "integer", "minimum": 5 },
         "by_board_row": {
           "type": "array",

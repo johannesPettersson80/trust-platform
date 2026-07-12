@@ -11,7 +11,10 @@ from scripts.verification.metadata_validator.core import Validator
 from scripts.verification.metadata_validator.evidence_proof import validate_green_pairing
 from scripts.verification.metadata_validator.case_files import validate_case_record
 from scripts.verification.planner import Planner, risk_changes_from_matrices
-from scripts.verification.proof_contract import proof_contract_digest
+from scripts.verification.proof_contract import (
+    PROOF_CONTRACT_VERSION,
+    proof_contract_digest,
+)
 from scripts.verification.prover import ProofError
 from scripts.verification.prover_tests import fixture
 from scripts.verification.report_gate import find_uncataloged_tests
@@ -68,18 +71,26 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
-    def test_proof_contract_corruption_is_rejected_by_full_validator(self) -> None:
+    def test_proof_contract_version_corruption_is_rejected_by_full_validator(self) -> None:
         validator = Validator()
         validator.load_records()
         evidence = next(iter(validator.evidence.values()))
+        catalog_test = validator.tests["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"]
         evidence["proof_kind"] = "red"
         evidence["proof_scope"] = "targeted"
+        evidence["linked_tests"] = [catalog_test["id"]]
+        evidence["linked_invariants"] = list(catalog_test["invariants"])
+        evidence["proof_contract_digest"] = proof_contract_digest(
+            test=catalog_test,
+            invariants=validator.invariants,
+        )
+        evidence["proof_contract_version"] = PROOF_CONTRACT_VERSION + "-corrupted"
 
         validator.validate()
 
         self.assertTrue(
             any(
-                "proof contract must link exactly one test" in failure.message
+                "unsupported proof_contract_version" in failure.message
                 for failure in validator.failures
             ),
             [failure.message for failure in validator.failures],

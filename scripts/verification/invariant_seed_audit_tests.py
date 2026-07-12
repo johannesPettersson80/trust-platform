@@ -11,6 +11,8 @@ import textwrap
 import tomllib
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from .invariant_seed_contract import (
     P4_000_SEED_IDS,
@@ -18,8 +20,18 @@ from .invariant_seed_contract import (
     load_seed_audit,
     validate_seed_records,
 )
+from .invariant_seed_lifecycle import (
+    BASELINE,
+    EXECUTION_READY,
+    LIFECYCLE_VERSION,
+)
 from .invariant_seed_live import build_live_seed_audit_state
-from .invariant_seed_report import SeedAuditProvenance, SeedAuditReport, write_reports
+from .invariant_seed_report import (
+    SeedAuditProvenance,
+    SeedAuditReport,
+    build_summary,
+    write_reports,
+)
 from .test_catalog_json_schema import validate_json_schema_instance
 from .invariant_seed_validation import (
     validate_report_files,
@@ -89,6 +101,50 @@ class SeedManifestContractTests(unittest.TestCase):
         ]
         self.assertEqual(["VM_SEAM_TYPE_001", "VM_SEAM_TYPE_002"], merged)
         self.assertEqual(5, sum(row.p4_000_risk_id is not None for row in audit.rows))
+        self.assertEqual(
+            ["IEC_TIMER_001"],
+            [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
+        )
+        self.assertTrue(
+            all(row.lifecycle_version == LIFECYCLE_VERSION for row in audit.rows)
+        )
+
+    def test_only_reviewed_timer_seed_may_enter_execution_lifecycle(self) -> None:
+        manifest = _load_manifest(self.root)
+        manifest["seeds"][0]["lifecycle_state"] = EXECUTION_READY
+        _write_manifest(self.root, manifest)
+        with self.assertRaisesRegex(ValueError, "only IEC_TIMER_001 may use execution_ready"):
+            load_seed_audit(self.root)
+
+        _write_fixture(self.root)
+        manifest = _load_manifest(self.root)
+        timer = next(row for row in manifest["seeds"] if row["seed_id"] == "IEC_TIMER_001")
+        timer["lifecycle_state"] = BASELINE
+        _write_manifest(self.root, manifest)
+        with self.assertRaisesRegex(ValueError, "IEC_TIMER_001 must use execution_ready"):
+            load_seed_audit(self.root)
+
+    def test_lifecycle_version_drift_fails_closed(self) -> None:
+        manifest = _load_manifest(self.root)
+        manifest["seeds"][0]["lifecycle_version"] = LIFECYCLE_VERSION + 1
+        _write_manifest(self.root, manifest)
+        with self.assertRaisesRegex(ValueError, "lifecycle_version must be 1|manifest schema"):
+            load_seed_audit(self.root)
+
+    def test_hostile_lifecycle_types_fail_without_traceback(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        records = copy.deepcopy(arguments["seed_records"])
+        records[0]["lifecycle_state"] = []
+        failures = validate_seed_records(**{**arguments, "seed_records": records})
+        self.assertTrue(any("unknown lifecycle_state" in item for item in failures), failures)
+
+        arguments = _loaded_contract_arguments(self.root)
+        arguments["invariants"]["IEC_TIMER_001"]["proof_level"] = []
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(
+            any("proof_level must be S0, G1, G2, or R1" in item for item in failures),
+            failures,
+        )
 
     def test_missing_seed_duplicate_mapping_and_unapproved_merge_fail(self) -> None:
         manifest = _load_manifest(self.root)
@@ -135,13 +191,13 @@ class SeedManifestContractTests(unittest.TestCase):
         invariant_path.write_text(
             invariant_path.read_text().replace("tests = []", 'tests = ["TEST_PREMATURE"]')
         )
-        with self.assertRaisesRegex(ValueError, "phase4 seed must start with empty tests"):
+        with self.assertRaisesRegex(ValueError, "baseline phase4 seed must retain empty tests"):
             load_seed_audit(self.root)
 
     def test_gap_open_requires_active_non_claim_oracle_source(self) -> None:
         sources = self.root / "verification/spec-sources.toml"
         sources.write_text(sources.read_text().replace('authority = "normative_product"', 'authority = "public_claim"'))
-        with self.assertRaisesRegex(ValueError, "gap_open oracle must use an active normative or reviewed source"):
+        with self.assertRaisesRegex(ValueError, "oracle must use an active normative or reviewed source"):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
@@ -152,7 +208,7 @@ class SeedManifestContractTests(unittest.TestCase):
                 "oracle_eligible = false",
             )
         )
-        with self.assertRaisesRegex(ValueError, "gap_open oracle source is provenance-only"):
+        with self.assertRaisesRegex(ValueError, "oracle source is provenance-only"):
             load_seed_audit(self.root)
 
     def test_spec_gap_requires_open_focused_gap_in_oracle_and_coverage(self) -> None:
@@ -180,6 +236,199 @@ class SeedManifestContractTests(unittest.TestCase):
         catalog.write_text(catalog.read_text().replace('spec_gap_ref = "SPEC_GAP_FIXTURE_001"', 'spec_gap_ref = "SPEC_GAP_OTHER_001"'))
         with self.assertRaisesRegex(ValueError, "test must remain bound to an open invariant spec gap"):
             load_seed_audit(self.root)
+
+    def test_execution_ready_requires_known_bidirectional_associations(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["tests"] = ["TEST_INVENTED"]
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(any("unknown test TEST_INVENTED" in item for item in failures), failures)
+
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["evidence_refs"] = ["EVID_INVENTED"]
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(any("unknown evidence EVID_INVENTED" in item for item in failures), failures)
+
+    def test_execution_ready_rejects_incomplete_validated_and_unsupported_promotion(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["status"] = "validated"
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(
+            any("validated requires" in item for item in failures),
+            failures,
+        )
+
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["proof_level"] = "G1"
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(
+            any("proof_level G1 requires targeted green/lock proof" in item for item in failures),
+            failures,
+        )
+
+    def test_execution_ready_accepts_terminal_validated_only_after_contract_closure(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant.update(
+            {
+                "status": "validated",
+                "proof_level": "G1",
+                "tests": ["TEST_TIMER"],
+                "evidence_refs": ["EVID_TIMER_GREEN"],
+                "spec_gap_refs": [],
+                "missing": [],
+                "spec": {
+                    "status": "specified",
+                    "source_refs": ["SPEC_SOURCE_FIXTURE_001"],
+                },
+                "oracle": {
+                    "kind": "trust_contract",
+                    "ref": "SPEC_SOURCE_FIXTURE_001",
+                },
+                "coverage": {
+                    "cells": [
+                        {
+                            "dimension": "happy_path",
+                            "state": "covered",
+                            "rationale": "Targeted proof covers the reviewed dimension.",
+                        }
+                    ]
+                },
+            }
+        )
+        arguments["tests"]["TEST_TIMER"] = {
+            "id": "TEST_TIMER",
+            "invariants": ["IEC_TIMER_001"],
+        }
+        arguments["evidence"]["EVID_TIMER_GREEN"] = {
+            "id": "EVID_TIMER_GREEN",
+            "proof_kind": "green",
+            "proof_scope": "targeted",
+            "producer": "prove.py v1",
+            "commit": "a" * 40,
+            "linked_invariants": ["IEC_TIMER_001"],
+            "linked_tests": ["TEST_TIMER"],
+        }
+
+        with patch(
+            "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
+        ) as promotion:
+            self.assertEqual([], validate_seed_records(**arguments))
+            promotion.assert_called_once()
+
+        for mutate, signal in (
+            (
+                lambda row: row["coverage"]["cells"][0].update(state="gap_open"),
+                "validated requires every coverage cell",
+            ),
+            (
+                lambda row: row.update(spec_gap_refs=["SPEC_GAP_FIXTURE_001"]),
+                "validated requires no current spec gaps",
+            ),
+            (
+                lambda row: row.update(evidence_refs=[]),
+                "validated requires linked tests and evidence",
+            ),
+            (
+                lambda row: row.update(proof_level="S0"),
+                "validated requires promoted proof_level",
+            ),
+        ):
+            with self.subTest(signal=signal):
+                changed = copy.deepcopy(arguments)
+                mutate(changed["invariants"]["IEC_TIMER_001"])
+                with patch(
+                    "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
+                ):
+                    failures = validate_seed_records(**changed)
+                self.assertTrue(any(signal in item for item in failures), failures)
+
+    def test_execution_ready_allows_known_nonproof_associations_with_open_gap(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["tests"] = ["TEST_TIMER"]
+        invariant["evidence_refs"] = ["EVID_TIMER_CONTEXT"]
+        arguments["tests"]["TEST_TIMER"] = {
+            "id": "TEST_TIMER",
+            "invariants": ["IEC_TIMER_001"],
+        }
+        arguments["evidence"]["EVID_TIMER_CONTEXT"] = {
+            "id": "EVID_TIMER_CONTEXT",
+            "proof_kind": "none",
+            "linked_invariants": ["IEC_TIMER_001"],
+        }
+        self.assertEqual([], validate_seed_records(**arguments))
+
+    def test_execution_ready_accepts_core_validated_g1_projection(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["status"] = "implemented"
+        invariant["proof_level"] = "G1"
+        invariant["tests"] = ["TEST_TIMER"]
+        invariant["evidence_refs"] = ["EVID_TIMER_GREEN"]
+        arguments["tests"]["TEST_TIMER"] = {
+            "id": "TEST_TIMER",
+            "invariants": ["IEC_TIMER_001"],
+        }
+        arguments["evidence"]["EVID_TIMER_GREEN"] = {
+            "id": "EVID_TIMER_GREEN",
+            "proof_kind": "green",
+            "proof_scope": "targeted",
+            "producer": "prove.py v1",
+            "commit": "a" * 40,
+            "linked_invariants": ["IEC_TIMER_001"],
+            "linked_tests": ["TEST_TIMER"],
+        }
+        with patch(
+            "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
+        ) as promotion:
+            self.assertEqual([], validate_seed_records(**arguments))
+            promotion.assert_called_once()
+
+    def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
+        arguments = _loaded_contract_arguments(self.root)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["status"] = "test_written"
+        invariant["tests"] = ["TEST_TIMER"]
+        invariant["evidence_refs"] = ["EVID_TIMER_RED"]
+        arguments["tests"]["TEST_TIMER"] = {
+            "id": "TEST_TIMER",
+            "invariants": ["IEC_TIMER_001"],
+        }
+        arguments["evidence"]["EVID_TIMER_RED"] = {
+            "id": "EVID_TIMER_RED",
+            "proof_kind": "red",
+            "proof_scope": "targeted",
+            "producer": "prove.py v1",
+            "commit": "a" * 40,
+            "linked_invariants": ["IEC_TIMER_001"],
+            "linked_tests": ["TEST_TIMER"],
+            "red_case_ids": ["CASE_TIMER"],
+            "per_case_summary": ["CASE_TIMER:failed"],
+            "command_exit_status": 1,
+            "failure_kind": "assertion_failure",
+            "case_file_digest": "sha256:fixture",
+        }
+        self.assertEqual([], validate_seed_records(**arguments))
+
+    def test_execution_ready_timer_gap_may_advance_without_being_hidden(self) -> None:
+        arguments = _loaded_contract_arguments(ROOT)
+        gap_id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+        arguments["spec_gaps"][gap_id]["resolution_status"] = "spec_updated"
+        self.assertEqual([], validate_seed_records(**arguments))
+
+    def test_execution_ready_cannot_hide_live_timer_gap(self) -> None:
+        arguments = _loaded_contract_arguments(ROOT)
+        invariant = arguments["invariants"]["IEC_TIMER_001"]
+        invariant["spec_gap_refs"] = []
+        failures = validate_seed_records(**arguments)
+        self.assertTrue(
+            any("spec_gap oracle must reference a listed current gap" in item for item in failures),
+            failures,
+        )
 
     def test_exact_five_p4_000_review_risks_are_bidirectionally_linked(self) -> None:
         manifest = _load_manifest(self.root)
@@ -217,9 +466,38 @@ class SeedAuditReportTests(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.root = Path(self.tempdir.name)
         _write_fixture(self.root, include_tooling=True)
+        self.metadata_health = patch(
+            "scripts.verification.invariant_seed_live._validate_metadata_health"
+        )
+        self.metadata_health.start()
 
     def tearDown(self) -> None:
+        self.metadata_health.stop()
         self.tempdir.cleanup()
+
+    def test_live_report_requires_canonical_metadata_health(self) -> None:
+        failure = SimpleNamespace(
+            path=ROOT / "verification/evidence-index.toml",
+            message="fixture green proof missing proof_contract_version",
+        )
+        invalid = SimpleNamespace(
+            failures=[failure],
+            load_records=lambda: None,
+            validate=lambda: None,
+        )
+        self.metadata_health.stop()
+        try:
+            with patch(
+                "scripts.verification.invariant_seed_live.Validator",
+                return_value=invalid,
+            ):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "fixture green proof missing proof_contract_version",
+                ):
+                    build_live_seed_audit_state(ROOT)
+        finally:
+            self.metadata_health.start()
 
     def test_live_state_and_report_revalidate_exactly_at_rest(self) -> None:
         state = build_live_seed_audit_state(
@@ -266,7 +544,7 @@ class SeedAuditReportTests(unittest.TestCase):
         )
 
         payload = json.loads(json_path.read_text())
-        payload["rows"][0]["status"] = "validated"
+        payload["rows"][0]["lifecycle_state"] = EXECUTION_READY
         json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
         failures = validate_report_files(
             self.root,
@@ -298,12 +576,44 @@ class SeedAuditReportTests(unittest.TestCase):
         self.assertTrue(any("canonical invariant-seed audit invocation" in item for item in failures), failures)
         self.assertTrue(any("summary does not match" in item for item in failures), failures)
 
+    def test_payload_rejects_colluded_lifecycle_reassignment_without_live_rows(self) -> None:
+        state = build_live_seed_audit_state(self.root)
+        payload = _payload_for_state(state)
+        timer = next(row for row in payload["rows"] if row["seed_id"] == "IEC_TIMER_001")
+        other = next(row for row in payload["rows"] if row["seed_id"] != "IEC_TIMER_001")
+        timer["lifecycle_state"] = BASELINE
+        other["lifecycle_state"] = EXECUTION_READY
+        payload["summary"] = build_summary(payload["rows"])
+        failures = validate_report_payload(payload)
+        self.assertTrue(
+            any("execution_ready lifecycle must identify only IEC_TIMER_001" in item for item in failures),
+            failures,
+        )
+
+        payload = _payload_for_state(state)
+        timer = next(row for row in payload["rows"] if row["seed_id"] == "IEC_TIMER_001")
+        timer["proof_level"] = []
+        failures = validate_report_payload(payload)
+        self.assertTrue(
+            any("proof_level is not permitted for execution_ready" in item for item in failures),
+            failures,
+        )
+
     def test_manifest_and_report_schemas_are_closed_and_drift_pinned(self) -> None:
         manifest_schema = json.loads(MANIFEST_SCHEMA_PATH.read_text())
         report_schema = json.loads(REPORT_SCHEMA_PATH.read_text())
         self.assertEqual([], validate_schema_contract(report_schema, manifest_schema=manifest_schema))
         self.assertFalse(manifest_schema["additionalProperties"])
         self.assertFalse(manifest_schema["$defs"]["seed"]["additionalProperties"])
+        self.assertEqual(2, manifest_schema["properties"]["schema_version"]["const"])
+        self.assertEqual(
+            {BASELINE, EXECUTION_READY},
+            set(
+                manifest_schema["$defs"]["seed"]["properties"]["lifecycle_state"][
+                    "enum"
+                ]
+            ),
+        )
         manifest = tomllib.loads((ROOT / "verification/invariant-seeds.toml").read_text())
         manifest["seeds"].append(copy.deepcopy(manifest["seeds"][0]))
         self.assertTrue(
@@ -377,6 +687,10 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                 "canonical_invariant_id": canonical,
                 "board_row": board_row,
                 "origin": "preexisting" if canonical in preexisting else "phase4",
+                "lifecycle_version": LIFECYCLE_VERSION,
+                "lifecycle_state": (
+                    EXECUTION_READY if seed.seed_id == "IEC_TIMER_001" else BASELINE
+                ),
                 "p4_000_risk_id": risk_by_seed.get(seed.seed_id),
             }
         )
@@ -447,7 +761,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                 '''
             ),
         )
-    _write_manifest(root, {"schema_version": 1, "seeds": records})
+    _write_manifest(root, {"schema_version": 2, "seeds": records})
     _write(
         root,
         "verification/spec-sources.toml",
@@ -558,15 +872,31 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
             '''
         ),
     )
+    _write(root, "verification/ignored-tests.toml", "ignored_tests = []\n")
+    _write(
+        root,
+        "verification/suites/pr.toml",
+        textwrap.dedent(
+            '''\
+            schema_version = 2
+            id = "pr"
+            approved_proof_producers = []
+            '''
+        ),
+    )
     if include_tooling:
         for relative in (
             "scripts/report_invariant_seed_audit.py",
             "scripts/validate_invariant_seed_audit_report.py",
             "scripts/verification/invariant_seed_cli.py",
             "scripts/verification/invariant_seed_contract.py",
+            "scripts/verification/invariant_seed_lifecycle.py",
             "scripts/verification/invariant_seed_live.py",
             "scripts/verification/invariant_seed_report.py",
             "scripts/verification/invariant_seed_validation.py",
+            "scripts/verification/metadata_validator/constants.py",
+            "scripts/verification/metadata_validator/integrity.py",
+            "scripts/verification/metadata_validator/promotion_evidence.py",
             "scripts/verification/report_input_contract.py",
             "scripts/verification/test_catalog_common.py",
             "scripts/verification/test_catalog_json_schema.py",
@@ -639,12 +969,18 @@ def _loaded_contract_arguments(root: Path) -> dict[str, object]:
         "spec_gaps": index("verification/spec-gaps.toml", "spec_gaps"),
         "risks": index("verification/risk-register.toml", "risks"),
         "tests": index("verification/test-catalog.toml", "tests"),
+        "ignored_tests": index("verification/ignored-tests.toml", "ignored_tests"),
         "evidence": index("verification/evidence-index.toml", "evidence"),
+        "suites": {
+            "pr": tomllib.loads(
+                (root / "verification/suites/pr.toml").read_text()
+            )
+        },
     }
 
 
 def _write_manifest(root: Path, manifest: dict[str, object]) -> None:
-    lines = ["schema_version = 1"]
+    lines = [f'schema_version = {manifest.get("schema_version", 2)}']
     for row in manifest["seeds"]:
         lines.extend(
             [
@@ -654,6 +990,8 @@ def _write_manifest(root: Path, manifest: dict[str, object]) -> None:
                 f'canonical_invariant_id = "{row["canonical_invariant_id"]}"',
                 f'board_row = "{row["board_row"]}"',
                 f'origin = "{row["origin"]}"',
+                f'lifecycle_version = {row["lifecycle_version"]}',
+                f'lifecycle_state = "{row["lifecycle_state"]}"',
                 *(
                     [f'p4_000_risk_id = "{row["p4_000_risk_id"]}"']
                     if row.get("p4_000_risk_id") is not None

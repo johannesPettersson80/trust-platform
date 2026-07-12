@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -293,6 +295,244 @@ class InvariantPromotionEvidenceTests(unittest.TestCase):
         failures = validate_promotion(invariant, evidence)
         self.assert_contains(failures, "proof_level G2 requires broad remote gate evidence")
 
+    def test_case_backed_broad_producer_requires_current_positive_execution_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            case_path = root / "verification/cases/runtime_safety/TIMER.toml"
+            case_path.parent.mkdir(parents=True)
+            case_path.write_text(
+                '[[case]]\nid = "CASE_ONE"\n\n[[case]]\nid = "CASE_TWO"\n'
+            )
+            case_digest = "sha256:" + hashlib.sha256(case_path.read_bytes()).hexdigest()
+            invariant = invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"])
+            current_test = {
+                "id": "TEST_ONE",
+                "status": "mapped",
+                "suite_tiers": ["pr"],
+                "discovery_id": "DISC_TEST_ONE",
+                "discovery_source_kind": "rust_integration_test",
+                "command": "cargo test -p trust-runtime --test timer TEST_ONE -- --exact",
+                "case_file": "verification/cases/runtime_safety/TIMER.toml",
+                "case_file_digest": case_digest,
+            }
+            evidence = {
+                "EVID_TARGETED": evidence_record(
+                    evidence_id="EVID_TARGETED",
+                    proof_kind="green",
+                    proof_scope="targeted",
+                ),
+                "EVID_BROAD": evidence_record(
+                    evidence_id="EVID_BROAD",
+                    proof_scope="broad_remote_gate",
+                    suite_id="pr",
+                    platform="trust-builder-linux-x86_64",
+                    command_exit_status=0,
+                    producer="broad-remote-gate.py v1",
+                    executed_tests=[
+                        {
+                            "test_id": "TEST_ONE",
+                            "discovery_id": "DISC_TEST_ONE",
+                            "discovery_source_kind": "rust_integration_test",
+                            "command": current_test["command"],
+                            "case_file_digest": case_digest,
+                            "per_case_summary": ["CASE_ONE:passed", "CASE_TWO:passed"],
+                            "exit_status": 0,
+                        }
+                    ],
+                ),
+            }
+
+            self.assertEqual(
+                validate_promotion(
+                    invariant,
+                    evidence,
+                    tests={"TEST_ONE": current_test},
+                    root=root,
+                ),
+                [],
+            )
+
+            changed = dict(current_test, command="cargo test -p trust-runtime other")
+            failures = validate_promotion(
+                invariant,
+                evidence,
+                tests={"TEST_ONE": changed},
+                root=root,
+            )
+            self.assert_contains(
+                failures, "proof_level G2 requires broad remote gate evidence"
+            )
+
+            for summary in (
+                ["CASE_ONE:passed"],
+                ["CASE_ONE:passed", "CASE_ONE:passed"],
+                ["CASE_ONE:passed", "CASE_TWO:passed", "INVENTED:passed"],
+            ):
+                with self.subTest(summary=summary):
+                    evidence["EVID_BROAD"]["executed_tests"][0][
+                        "per_case_summary"
+                    ] = summary
+                    failures = validate_promotion(
+                        invariant,
+                        evidence,
+                        tests={"TEST_ONE": current_test},
+                        root=root,
+                    )
+                    self.assert_contains(
+                        failures, "proof_level G2 requires broad remote gate evidence"
+                    )
+
+            evidence["EVID_BROAD"]["executed_tests"][0]["per_case_summary"] = [
+                "CASE_ONE:passed",
+                "CASE_TWO:passed",
+            ]
+            case_path.write_text('[[case]]\nid = "CASE_CHANGED"\n')
+            failures = validate_promotion(
+                invariant,
+                evidence,
+                tests={"TEST_ONE": current_test},
+                root=root,
+            )
+            self.assert_contains(
+                failures, "proof_level G2 requires broad remote gate evidence"
+            )
+
+            case_path.write_text(
+                '[[case]]\nid = "CASE_ONE"\n\n[[case]]\nid = "CASE_TWO"\n'
+            )
+            evidence["EVID_BROAD"].pop("executed_tests")
+            failures = validate_promotion(
+                invariant,
+                evidence,
+                tests={"TEST_ONE": current_test},
+                root=root,
+            )
+            self.assert_contains(
+                failures, "proof_level G2 requires broad remote gate evidence"
+            )
+
+    def test_case_backed_broad_evidence_rejects_hostile_tiers_and_current_ignore(self) -> None:
+        invariant = invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"])
+        current_test = {
+            "id": "TEST_ONE",
+            "status": "mapped",
+            "suite_tiers": 7,
+            "discovery_id": "DISC_TEST_ONE",
+            "discovery_source_kind": "rust_integration_test",
+            "command": "cargo test -p trust-runtime --test timer TEST_ONE -- --exact",
+            "case_file": "verification/cases/runtime_safety/TIMER.toml",
+            "case_file_digest": "sha256:" + "a" * 64,
+        }
+        evidence = {
+            "EVID_TARGETED": evidence_record(
+                evidence_id="EVID_TARGETED",
+                proof_kind="green",
+                proof_scope="targeted",
+            ),
+            "EVID_BROAD": evidence_record(
+                evidence_id="EVID_BROAD",
+                proof_scope="broad_remote_gate",
+                suite_id="pr",
+                platform="trust-builder-linux-x86_64",
+                command_exit_status=0,
+                producer="broad-remote-gate.py v1",
+                executed_tests=[],
+            ),
+        }
+
+        failures = validate_promotion(
+            invariant,
+            evidence,
+            tests={"TEST_ONE": current_test},
+        )
+        self.assert_contains(failures, "proof_level G2 requires broad remote gate evidence")
+
+        current_test["suite_tiers"] = ["pr"]
+        failures = validate_promotion(
+            invariant,
+            evidence,
+            tests={"TEST_ONE": current_test},
+            ignored_tests={
+                "IGNORED_ONE": {
+                    "test_id": "TEST_ONE",
+                    "discovery_id": "DISC_TEST_ONE",
+                }
+            },
+        )
+        self.assert_contains(failures, "proof_level G2 requires broad remote gate evidence")
+
+    def test_multi_invariant_broad_union_qualifies_each_current_invariant_subset(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            case_path = root / "verification/cases/runtime_safety/TIMER.toml"
+            case_path.parent.mkdir(parents=True)
+            case_path.write_text('[[case]]\nid = "CASE_ONE"\n')
+            digest = "sha256:" + hashlib.sha256(case_path.read_bytes()).hexdigest()
+            tests = {
+                test_id: {
+                    "id": test_id,
+                    "status": "mapped",
+                    "suite_tiers": ["pr"],
+                    "discovery_id": f"DISC_{test_id}",
+                    "discovery_source_kind": "rust_integration_test",
+                    "command": f"cargo test {test_id}",
+                    "case_file": "verification/cases/runtime_safety/TIMER.toml",
+                    "case_file_digest": digest,
+                }
+                for test_id in ("TEST_ONE", "TEST_TWO")
+            }
+            executed = [
+                {
+                    "test_id": test_id,
+                    "discovery_id": f"DISC_{test_id}",
+                    "discovery_source_kind": "rust_integration_test",
+                    "command": tests[test_id]["command"],
+                    "case_file_digest": digest,
+                    "per_case_summary": ["CASE_ONE:passed"],
+                    "exit_status": 0,
+                }
+                for test_id in ("TEST_ONE", "TEST_TWO")
+            ]
+            evidence = {
+                "EVID_TARGETED": evidence_record(
+                    evidence_id="EVID_TARGETED",
+                    proof_kind="green",
+                    proof_scope="targeted",
+                ),
+                "EVID_BROAD": evidence_record(
+                    evidence_id="EVID_BROAD",
+                    proof_scope="broad_remote_gate",
+                    suite_id="pr",
+                    platform="trust-builder-linux-x86_64",
+                    command_exit_status=0,
+                    producer="broad-remote-gate.py v1",
+                    linked_invariants=["INV", "INV_B"],
+                    linked_tests=["TEST_ONE", "TEST_TWO"],
+                    executed_tests=executed,
+                ),
+            }
+
+            self.assertEqual(
+                validate_promotion(
+                    invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"]),
+                    evidence,
+                    tests=tests,
+                    root=root,
+                ),
+                [],
+            )
+
+            del tests["TEST_TWO"]
+            failures = validate_promotion(
+                invariant_record("G2", ["EVID_TARGETED", "EVID_BROAD"]),
+                evidence,
+                tests=tests,
+                root=root,
+            )
+            self.assert_contains(
+                failures, "proof_level G2 requires broad remote gate evidence"
+            )
+
     def test_g2_rejects_broad_evidence_older_than_targeted_closing_proof(self) -> None:
         evidence = causal_evidence()
         evidence["EVID_TARGETED"]["commit"] = COMMIT_B
@@ -507,7 +747,11 @@ def suite_records() -> dict[str, dict[str, object]]:
         },
         "pr": {
             "id": "pr",
-            "approved_proof_producers": ["reviewed-gate v1", "pr-only-gate v1"],
+            "approved_proof_producers": [
+                "reviewed-gate v1",
+                "pr-only-gate v1",
+                "broad-remote-gate.py v1",
+            ],
         },
         "nightly": {
             "id": "nightly",
@@ -540,6 +784,9 @@ def validate_promotion(
     evidence: dict[str, dict[str, object]],
     *,
     ancestor_pairs: set[tuple[str, str]] | None = None,
+    tests: dict[str, dict[str, object]] | None = None,
+    ignored_tests: dict[str, dict[str, object]] | None = None,
+    root: Path | None = None,
 ) -> list[str]:
     failures: list[str] = []
     validate_invariant_promotion_evidence(
@@ -548,6 +795,9 @@ def validate_promotion(
         invariant=invariant,
         evidence=evidence,
         suites=suite_records(),
+        tests=tests or {},
+        ignored_tests=ignored_tests or {},
+        root=root,
         is_ancestor=lambda ancestor, descendant: (ancestor, descendant)
         in (ancestor_pairs or set()),
     )

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from .runtime_anomaly_restart_contract import restart_reference_text
+
 
 GENERATOR = "runtime-anomaly-audit"
 GENERATOR_VERSION = 1
@@ -44,7 +46,7 @@ LIMITATIONS = (
     "VERIF-P8-002 remains open until a reviewed runtime-safety test denominator has an explicit mapped or reviewed-nonmapping disposition for every fact.",
     "Suite tiers are planned routing metadata. This report does not wire commands, change suite enforcement, or claim that a tier ran.",
     "The allocation-policy review reuses an active written contract; allocation-failure and OOM testing remains visible debt outside that claimed scan path.",
-    "The restart-timebase review reuses the existing open IEC timer/runtime time-base gap and creates no duplicate or closure.",
+    "The restart-timebase review uses one closed schema-v1 state: existing_open_gap requires an actionable gap, while resolved_source binds an active reviewed source and any later closed gap must name that same resolution source; neither state creates test coverage, proof, or gap closure.",
     "No fault interface or production hook is added. VERIF-P8-005 and VERIF-P8-006 remain open until a governed harness and enforceable design-review boundary exist.",
     "The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation.",
 )
@@ -184,7 +186,7 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             f"- Scan-cycle allocation policy: `{allocation['outcome']}` via "
             f"`{allocation['source_ref']}` (`{allocation['source_path']}`).",
             f"- Restart time base: `{restart['outcome']}` via "
-            f"`{restart['spec_gap_ref']}`.",
+            f"{restart_reference_text(restart)}.",
             "",
             "## Planned Tier Counts",
             "",

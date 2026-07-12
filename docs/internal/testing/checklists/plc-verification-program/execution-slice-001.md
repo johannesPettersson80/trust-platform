@@ -1,6 +1,7 @@
 # Execution Slice 001 - Readiness and First Spec-to-Green Vertical
 
-Status: readiness accepted; product execution queued.
+Status: readiness accepted; lifecycle foundation implemented; product execution
+blocked on retained-function-block restart scope.
 Drafted: 2026-07-12 by the program reviewer (Fable), at the user's direction.
 Reconciled: 2026-07-12 by the implementer after current-HEAD reproduction and
 contract audit. Reviewer and implementer must remain different agents.
@@ -78,6 +79,40 @@ documentation, tests, and durable `proof_kind = "none"` closure evidence only.
 It does not create product proof, close a gap, promote an invariant, flip CI,
 or change skills/agent instructions.
 
+## Execution Lifecycle Foundation
+
+The first implementation audit found four control-plane cycles that would have
+made an honest TOF red/green sequence impossible. They are resolved before any
+timer product file changes:
+
+- [x] `E1-PRE-001` Proof and hand-authored case provenance use a versioned
+  execution-contract projection. Command, case, behavior, oracle, coverage
+  identity, and unknown fields remain frozen; only reviewed lifecycle fields
+  can advance between red, green, gap closure, and promotion.
+- [x] `E1-PRE-002` The Phase 4 seed audit has a reviewed lifecycle for only
+  `IEC_TIMER_001`. Its standalone generator/validator requires full canonical
+  metadata health, and terminal `validated` remains fail-closed on source,
+  gap, coverage, association, and promotion evidence.
+- [x] `E1-PRE-003` The `pr` broad-evidence producer is explicit and
+  report-only. It runs the fixed remote disk preflight and broad gate, then
+  proves positive execution for every selected case-file-backed test through a
+  fresh same-run artifact. Installing it creates no evidence and runs no gate.
+- [x] `E1-PRE-004` Phase 8 restart ownership is a closed two-state contract:
+  the committed open-gap state, or a resolved active source that may survive
+  atomic gap closure only when the gap names the same resolution source.
+- [ ] `E1-PRE-005` Resolve retained function-block restart scope before timer
+  decisions or cases. IEC 61131-3 Ed.3 section 6.5.6.2 states that declaring a
+  function-block instance `RETAIN` makes its instance variables retentive. The
+  current restart implementation recreates instances and rejects
+  `Value::Instance` from retained values. The TOF-only product fence does not
+  authorize that separate behavior change. Independent review must choose a
+  focused retained-FB gap/slice or deliberately broaden the product scope; no
+  timer restart outcome may hide this conflict.
+
+These foundation changes create no product test, proof, gap closure, invariant
+promotion, suite result, runtime behavior, or enforcement flip. `VERIF-P16-001`
+and every `VERIF-E1-*` product row remain open.
+
 ## Product Scope After Readiness
 
 In scope:
@@ -106,6 +141,8 @@ Out of scope:
   negative-time, or nonmonotonic-clock behavior before a reviewed decision;
 - NaN ingress, warm-restart time reset, scan-thread panic containment,
   `REF(returnvar)` escape, rename/LSP invariants;
+- retained function-block instance repair unless `E1-PRE-005` independently
+  expands the product fence and assigns the behavior to its own reviewed gap;
 - CI enforcement, any guarded row not explicitly closed by this slice,
   `VERIF-STOP-012`, `VERIF-STOP-014`, or any skill/agent-instruction update.
 
@@ -120,6 +157,9 @@ Out of scope:
   clock, warm/cold restart, TP retrigger/short-input scan boundary, and
   TIME/LTIME parity. Ambiguity goes to `docs/IEC_DECISIONS.md`; deliberate
   deviation goes to `docs/IEC_DEVIATIONS.md`.
+- `E1-PRE-005` is resolved without treating the current retained-FB behavior as
+  a timer implementation detail. Until then, no timer decision, case, or
+  product edit starts.
 - Remote-builder disk preflight per `AGENTS.md` before broad gates.
 
 ## Product Stop Rows

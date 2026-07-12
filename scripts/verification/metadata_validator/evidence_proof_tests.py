@@ -11,7 +11,7 @@ from scripts.verification.metadata_validator.evidence_proof import (
     validate_proof_contract_binding,
     validate_proof_provenance,
 )
-from scripts.verification.proof_contract import proof_contract_digest
+from scripts.verification.proof_contract import PROOF_CONTRACT_VERSION, proof_contract_digest
 from scripts.verification.prover import case_result_digest
 
 
@@ -314,6 +314,47 @@ class EvidenceProofContractBindingTests(unittest.TestCase):
 
                 self.assert_contains_failure(failures, "proof_contract_digest does not match current")
 
+    def test_lifecycle_progression_does_not_stale_proof_contract(self) -> None:
+        tests = {
+            "TEST_RED": dict(
+                DEFAULT_TEST,
+                status="validated",
+                suite_tiers=["pr", "nightly"],
+                spec_gap_ref=None,
+                last_reviewed="2026-07-13",
+            )
+        }
+        invariants = {
+            "INV": dict(
+                DEFAULT_INVARIANTS["INV"],
+                status="validated",
+                proof_level="G2",
+                tests=["TEST_RED"],
+                gates=["pr", "nightly"],
+                evidence_refs=["EVID_RED", "EVID_GREEN"],
+                spec_gap_refs=[],
+                missing=[],
+                coverage={"cells": [{"dimension": "happy_path", "state": "covered"}]},
+                last_reviewed="2026-07-13",
+            )
+        }
+
+        failures = validate_binding(red_record(), tests=tests, invariants=invariants)
+
+        self.assertEqual(failures, [])
+
+    def test_oracle_or_behavior_drift_stales_proof_contract(self) -> None:
+        for invariants in (
+            {"INV": dict(DEFAULT_INVARIANTS["INV"], oracle={"ref": "SPEC_OTHER"})},
+            {"INV": dict(DEFAULT_INVARIANTS["INV"], behavior=[{"outcome": "reject"}])},
+        ):
+            with self.subTest(invariants=invariants):
+                failures = validate_binding(red_record(), invariants=invariants)
+                self.assert_contains_failure(
+                    failures,
+                    "proof_contract_digest does not match current",
+                )
+
     def test_invariant_list_or_content_drift_is_rejected(self) -> None:
         tests = {"TEST_RED": dict(DEFAULT_TEST, invariants=[])}
         list_failures = validate_binding(red_record(), tests=tests)
@@ -330,6 +371,20 @@ class EvidenceProofContractBindingTests(unittest.TestCase):
         failures = validate_binding(record)
 
         self.assert_contains_failure(failures, "missing proof_contract_digest")
+
+    def test_missing_or_unsupported_proof_contract_version_is_rejected(self) -> None:
+        missing = red_record()
+        del missing["proof_contract_version"]
+        unsupported = red_record(proof_contract_version="full_metadata_record_v1")
+
+        self.assert_contains_failure(
+            validate_binding(missing),
+            "missing proof_contract_version",
+        )
+        self.assert_contains_failure(
+            validate_binding(unsupported),
+            "unsupported proof_contract_version",
+        )
 
     def assert_contains_failure(self, failures: list[str], expected: str) -> None:
         self.assertTrue(
@@ -401,12 +456,26 @@ DEFAULT_TEST: dict[str, object] = {
     "command": "python3 writer.py",
     "case_file_digest": "sha256:cases",
     "invariants": ["INV"],
+    "status": "mapped",
+    "suite_tiers": ["pr"],
+    "spec_gap_ref": "SPEC_GAP",
+    "last_reviewed": "2026-07-12",
 }
 DEFAULT_INVARIANTS: dict[str, dict[str, object]] = {
     "INV": {
         "id": "INV",
         "title": "Invariant",
         "status": "gap_open",
+        "proof_level": "S0",
+        "tests": [],
+        "gates": ["pr"],
+        "evidence_refs": [],
+        "spec_gap_refs": ["SPEC_GAP"],
+        "missing": ["proof"],
+        "coverage": {"cells": [{"dimension": "happy_path", "state": "gap_open"}]},
+        "oracle": {"ref": "SPEC"},
+        "behavior": [{"outcome": "accept_value"}],
+        "last_reviewed": "2026-07-12",
     }
 }
 
@@ -451,6 +520,7 @@ def green_record(**overrides: object) -> dict[str, object]:
         "linked_invariants": ["INV"],
         "case_file_digest": "sha256:cases",
         "proof_contract_digest": contract_digest(),
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "paired_red_evidence": "EVID_RED",
         "formerly_red_case_ids": ["CASE_FAIL"],
         "per_case_summary": ["CASE_FAIL:passed"],
@@ -473,6 +543,7 @@ def red_record(**overrides: object) -> dict[str, object]:
         "linked_invariants": ["INV"],
         "case_file_digest": "sha256:cases",
         "proof_contract_digest": contract_digest(),
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "red_case_ids": ["CASE_FAIL"],
         "per_case_summary": ["CASE_FAIL:failed"],
     }
@@ -492,6 +563,7 @@ def lock_baseline_record(**overrides: object) -> dict[str, object]:
         "command": "python3 writer.py",
         "case_file_digest": "sha256:cases",
         "proof_contract_digest": contract_digest(),
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "case_result_digest": case_result_digest(
             command_exit_status=int(exit_status),
             per_case_summary=list(summary) if isinstance(summary, list) else [],
@@ -515,6 +587,7 @@ def lock_compare_record(**overrides: object) -> dict[str, object]:
         "command": "python3 writer.py",
         "case_file_digest": "sha256:cases",
         "proof_contract_digest": contract_digest(),
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "case_result_digest": case_result_digest(
             command_exit_status=int(exit_status),
             per_case_summary=list(summary) if isinstance(summary, list) else [],

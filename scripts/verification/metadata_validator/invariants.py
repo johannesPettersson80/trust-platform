@@ -48,6 +48,7 @@ def validate_invariants(
     spec_sources: dict[str, dict[str, Any]],
     spec_gaps: dict[str, dict[str, Any]],
     tests: dict[str, dict[str, Any]],
+    ignored_tests: dict[str, dict[str, Any]],
     suites: dict[str, dict[str, Any]],
     evidence: dict[str, dict[str, Any]],
     approved_producers: set[str],
@@ -154,6 +155,8 @@ def validate_invariants(
             invariant=record,
             evidence=evidence,
             suites=suites,
+            tests=tests,
+            ignored_tests=ignored_tests,
         )
         check_refs(
             path,

@@ -48,6 +48,27 @@ class ProofOutputTests(unittest.TestCase):
             self.assertEqual(payload["evidence"][-1], record)
             self.assertEqual(path.read_text().count("[[evidence]]"), 2)
 
+    def test_append_round_trips_nested_executed_test_records(self) -> None:
+        with git_fixture() as fx:
+            record = evidence_record()
+            record["executed_tests"] = [
+                {
+                    "test_id": "TEST_TIMER",
+                    "command": "cargo test timer",
+                    "exit_status": 0,
+                    "per_case_summary": ["CASE_ONE:passed", "CASE_TWO:passed"],
+                }
+            ]
+
+            append_evidence_record(
+                root=fx.root,
+                evidence_index_path=fx.evidence_index,
+                record=record,
+            )
+
+            payload = tomllib.loads(fx.evidence_index.read_text())
+            self.assertEqual(payload["evidence"][-1], record)
+
     def test_append_rejects_duplicate_id_without_changing_index(self) -> None:
         with git_fixture() as fx:
             original = fx.evidence_index.read_bytes()

@@ -57,8 +57,14 @@ Optional proof fields for `prove.py` or approved gate output:
 - `failure_kind`: stable failure classification such as `assertion_failure`,
   `expected_rejection`, `compile_error`, `harness_panic`, `timeout`, or `none`.
 - `case_artifact_path`, `case_artifact_digest`, `case_file_digest`,
-  `case_result_digest`, `paired_red_evidence`, `formerly_red_case_ids`,
+  `case_result_digest`, `proof_contract_version`, `proof_contract_digest`,
+  `paired_red_evidence`, `formerly_red_case_ids`,
   `paired_lock_baseline`, `decision_ref`, and `per_case_summary`.
+- The reviewed committed broad producer additionally owns `remote_commit`,
+  `gate_started_at`, `gate_finished_at`, `gate_duration_milliseconds`, disk and
+  clean-tree preflight fields, and closed `executed_tests` entries. Each entry
+  binds a selected catalog test to its command, discovery identity, fresh run
+  ID, case-file/artifact digests, all-passing case summary, and zero exit.
 
 Optional mutation-report fields for the Phase 1B bytecode-validator pilot:
 
@@ -88,6 +94,21 @@ Evidence rules:
   durable evidence and not proof of a product claim. Its committed dated
   Markdown summary may be indexed as `proof_kind = "none"` with empty invariant
   and test links after the JSON/input digests and counts validate at rest.
+- Every proof-producing record uses `proof_contract_version =
+  "execution_contract_v2"`. The digest freezes the catalog command, path,
+  case-file digest, expected result/failure, explicit invariant list, and every
+  linked invariant's behavior/oracle projection. Catalog `status`,
+  `suite_tiers`, `spec_gap_ref`, and `last_reviewed`, plus invariant `status`,
+  `proof_level`, `tests`, `gates`, `evidence_refs`, `spec_gap_refs`, `missing`,
+  and `last_reviewed` are lifecycle bookkeeping excluded from the projection.
+  Coverage cell `state`, `spec_gap_ref`, and `rationale` may progress, but the
+  coverage object, ordered cell set, `dimension`, `decision_ref`, and unknown
+  future fields remain frozen. This permits evidence-backed promotion and
+  atomic gap closure without making existing proof unverifiable or permitting
+  post-proof scope retargeting. Behavior, command, oracle, case, coverage
+  identity, or any newly introduced unreviewed field changes the digest.
+  Missing or legacy proof-contract versions fail closed; this migration created
+  no proof records that required conversion.
 - The generated test-class completeness JSON uses the same working-artifact
   rule. Its committed dated Markdown summary may be indexed with
   `proof_kind = "none"` and empty invariant/test links only after the validator
@@ -117,7 +138,15 @@ Evidence rules:
 - `broad_remote_gate` requires `proof_kind = "none"`, a successful `pr`,
   `nightly`, or `hardware_lab` suite, a suite-approved producer, and durable
   committed, CI, or lab evidence. A committed-file record must name only a
-  `trust-builder-linux-*` platform, not a mixed local/remote label.
+  `trust-builder-linux-*` platform, not a mixed local/remote label. The
+  reviewed `broad-remote-gate.py v1` producer is stricter: current promotion
+  qualification requires a positive same-run case artifact for every current
+  invariant test, not only a successful broad Cargo exit. Each current test
+  must remain runnable, assigned to the evidence suite, absent from the current
+  ignored-test register, bound to the current case-file digest, and represented
+  by exactly the committed case IDs with no duplicates, omissions, or invented
+  IDs. Historical evidence remains structurally valid after later catalog
+  changes but stops qualifying until the current contract is rerun.
 - `release_public` requires `proof_kind = "none"`, a suite-approved producer,
   and a durable release object under the `release` suite.
 - Promotion is cumulative and bidirectionally linked. `test_written` requires
@@ -303,6 +332,7 @@ matching over unstructured terminal output is not a proof contract.
 - Requires a case artifact when the catalog row names `case_file`.
 - Writes evidence with `producer = "prove.py v1"`, `proof_kind` `red` or
   `protective_red`, `proof_scope = "targeted"`, `failure_kind`,
+  `proof_contract_version`, `proof_contract_digest`,
   `case_artifact_path`,
   `case_artifact_digest`, `case_file_digest`, `command_exit_status`, and
   `per_case_summary`.

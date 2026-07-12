@@ -280,12 +280,21 @@ Historical source text, paths, names, and lexical references never create a
 not become runnable proof or coverage through this registry.
 
 Phase 4 maps the 44 seed obligations written in `verification-areas.md` through
-`verification/invariant-seeds.toml`. The manifest uses explicit aliases only
-where an existing canonical invariant already owns the same obligation; names
-and prose similarity cannot create aliases. New seeds remain `gap_open` or
-`spec_gap` at S0 with no mapped tests or closing evidence. Five review-derived
-risks retain their tracked source provenance without treating historical fix
-evidence as proof of the registry claim.
+the schema-v2 `verification/invariant-seeds.toml`. The manifest uses explicit
+aliases only where an existing canonical invariant already owns the same
+obligation; names and prose similarity cannot create aliases. Lifecycle v1
+keeps baseline seeds at their reviewed `gap_open`/`spec_gap`, S0 posture and
+retains the original empty-association rule for Phase 4-created records. The
+only reviewed `execution_ready` seed is `IEC_TIMER_001`; that authorization may
+reference known, back-linked tests and evidence and may use only an
+evidence-supported promotion. It permits `validated` only after the canonical
+metadata validator accepts a specified active oracle, no current gaps or
+missing obligations remain, every coverage cell is closed, linked tests and
+evidence are non-empty and bidirectional, and promotion evidence supports the
+claimed level. Earlier lifecycle states must keep every current gap explicit.
+Lifecycle authorization itself creates no proof or gap closure. Five
+review-derived risks retain their tracked source provenance without treating
+historical fix evidence as proof of the registry claim.
 
 The Phase 4A specification-completeness report keeps four debt surfaces
 separate: unspecified/ambiguous invariant specs, expected-result tests without

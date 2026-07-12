@@ -11,6 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from .invariant_seed_contract import BOARD_ROW_AREAS, SeedAuditRow
+from .invariant_seed_lifecycle import (
+    BASELINE,
+    BASELINE_STATUSES,
+    EXECUTION_READY,
+    EXECUTION_STATUSES,
+    LIFECYCLE_STATES,
+    LIFECYCLE_VERSION,
+)
 from .invariant_seed_live import build_live_seed_audit_state, validate_source_revision
 from .invariant_seed_report import (
     GENERATOR,
@@ -60,6 +68,8 @@ ROW_FIELDS = {
     "invariant_area",
     "board_row",
     "origin",
+    "lifecycle_version",
+    "lifecycle_state",
     "status",
     "proof_level",
     "risk",
@@ -76,8 +86,13 @@ SUMMARY_FIELDS = {
     "merged_seed_aliases",
     "phase4_records",
     "preexisting_seed_mappings",
+    "baseline_lifecycle",
+    "execution_ready_lifecycle",
     "gap_open",
     "spec_gap",
+    "test_written",
+    "implemented",
+    "validated",
     "p4_000_risks",
     "by_board_row",
 }
@@ -92,7 +107,7 @@ def validate_report_payload(
     failures: list[str] = []
     _check_fields(payload, TOP_FIELDS, "report", failures)
     for field, expected in (
-        ("schema_version", 1),
+        ("schema_version", 2),
         ("generator", GENERATOR),
         ("generator_version", GENERATOR_VERSION),
         ("report_status", "complete"),
@@ -133,12 +148,47 @@ def validate_report_payload(
                 failures.append(f"rows[{index}] must be an object")
                 continue
             _check_fields(row, ROW_FIELDS, f"rows[{index}]", failures)
-            if row.get("status") not in {"gap_open", "spec_gap"}:
-                failures.append(f"rows[{index}].status must remain gap_open or spec_gap")
-            if row.get("proof_level") != "S0":
-                failures.append(f"rows[{index}].proof_level must remain S0")
-            if row.get("origin") == "phase4" and (row.get("test_ids") or row.get("evidence_ids")):
-                failures.append(f"rows[{index}] phase4 record carries premature associations")
+            lifecycle_state = row.get("lifecycle_state")
+            if row.get("lifecycle_version") != LIFECYCLE_VERSION:
+                failures.append(
+                    f"rows[{index}].lifecycle_version must equal {LIFECYCLE_VERSION}"
+                )
+            if (
+                not isinstance(lifecycle_state, str)
+                or lifecycle_state not in LIFECYCLE_STATES
+            ):
+                failures.append(f"rows[{index}].lifecycle_state is not reviewed")
+            if lifecycle_state == BASELINE:
+                if (
+                    not isinstance(row.get("status"), str)
+                    or row.get("status") not in BASELINE_STATUSES
+                ):
+                    failures.append(
+                        f"rows[{index}].status must remain gap_open or spec_gap"
+                    )
+                if row.get("proof_level") != "S0":
+                    failures.append(f"rows[{index}].proof_level must remain S0")
+                if row.get("origin") == "phase4" and (
+                    row.get("test_ids") or row.get("evidence_ids")
+                ):
+                    failures.append(
+                        f"rows[{index}] baseline phase4 record carries premature associations"
+                    )
+            elif lifecycle_state == EXECUTION_READY:
+                if (
+                    not isinstance(row.get("status"), str)
+                    or row.get("status") not in EXECUTION_STATUSES
+                ):
+                    failures.append(
+                        f"rows[{index}].status is not permitted for execution_ready"
+                    )
+                if (
+                    not isinstance(row.get("proof_level"), str)
+                    or row.get("proof_level") not in {"S0", "G1", "G2", "R1"}
+                ):
+                    failures.append(
+                        f"rows[{index}].proof_level is not permitted for execution_ready"
+                    )
             for field in ("spec_gap_refs", "source_refs", "test_ids", "evidence_ids"):
                 value = row.get(field)
                 if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
@@ -150,6 +200,13 @@ def validate_report_payload(
         failures.append("rows do not match current live seed audit")
     if len(rows) != 44 or len({row.get("canonical_invariant_id") for row in rows if isinstance(row, Mapping)}) != 43:
         failures.append("rows must represent 44 written seeds and 43 canonical invariants")
+    execution_ready_ids = [
+        row.get("seed_id")
+        for row in rows
+        if isinstance(row, Mapping) and row.get("lifecycle_state") == EXECUTION_READY
+    ]
+    if execution_ready_ids != ["IEC_TIMER_001"]:
+        failures.append("execution_ready lifecycle must identify only IEC_TIMER_001")
     summary = payload.get("summary")
     if not isinstance(summary, Mapping):
         failures.append("summary must be an object")
@@ -180,7 +237,7 @@ def validate_schema_contract(
         failures.append("report schema top-level fields drift from validator")
     properties = schema.get("properties", {})
     for field, expected in (
-        ("schema_version", 1),
+        ("schema_version", 2),
         ("generator", GENERATOR),
         ("generator_version", GENERATOR_VERSION),
         ("report_status", "complete"),
@@ -204,8 +261,19 @@ def validate_schema_contract(
     row = definitions.get("row", {}).get("properties", {})
     if set(row.get("board_row", {}).get("enum", [])) != set(BOARD_ROW_AREAS):
         failures.append("report schema board-row enum drifts from validator")
-    if set(row.get("status", {}).get("enum", [])) != {"gap_open", "spec_gap"}:
+    if set(row.get("status", {}).get("enum", [])) != BASELINE_STATUSES | EXECUTION_STATUSES:
         failures.append("report schema status enum drifts from validator")
+    if set(row.get("proof_level", {}).get("enum", [])) != {"S0", "G1", "G2", "R1"}:
+        failures.append("report schema proof-level enum drifts from validator")
+    if set(row.get("lifecycle_state", {}).get("enum", [])) != LIFECYCLE_STATES:
+        failures.append("report schema lifecycle-state enum drifts from validator")
+    if row.get("lifecycle_version", {}).get("const") != LIFECYCLE_VERSION:
+        failures.append("report schema lifecycle-version const drifts from validator")
+    summary_properties = definitions.get("summary", {}).get("properties", {})
+    if summary_properties.get("baseline_lifecycle", {}).get("const") != 43:
+        failures.append("report schema baseline-lifecycle const drifts from validator")
+    if summary_properties.get("execution_ready_lifecycle", {}).get("const") != 1:
+        failures.append("report schema execution-ready-lifecycle const drifts from validator")
     _require_closed_objects(schema, "$", failures)
     if manifest_schema is not None:
         _validate_manifest_schema_contract(manifest_schema, failures)
@@ -280,7 +348,14 @@ def _validate_manifest_schema_contract(schema: Mapping[str, Any], failures: list
     if set(schema.get("properties", {})) != {"schema_version", "seeds"}:
         failures.append("manifest schema properties drift from validator")
     seed = schema.get("$defs", {}).get("seed", {})
-    required = {"seed_id", "canonical_invariant_id", "board_row", "origin"}
+    required = {
+        "seed_id",
+        "canonical_invariant_id",
+        "board_row",
+        "origin",
+        "lifecycle_version",
+        "lifecycle_state",
+    }
     properties = required | {"p4_000_risk_id"}
     if set(seed.get("required", [])) != required or set(seed.get("properties", {})) != properties:
         failures.append("manifest schema seed fields drift from validator")
@@ -290,6 +365,12 @@ def _validate_manifest_schema_contract(schema: Mapping[str, Any], failures: list
         failures.append("manifest schema board-row enum drifts from validator")
     if set(seed.get("properties", {}).get("origin", {}).get("enum", [])) != {"phase4", "preexisting"}:
         failures.append("manifest schema origin enum drifts from validator")
+    if set(seed.get("properties", {}).get("lifecycle_state", {}).get("enum", [])) != LIFECYCLE_STATES:
+        failures.append("manifest schema lifecycle-state enum drifts from validator")
+    if seed.get("properties", {}).get("lifecycle_version", {}).get("const") != LIFECYCLE_VERSION:
+        failures.append("manifest schema lifecycle-version const drifts from validator")
+    if schema.get("properties", {}).get("schema_version", {}).get("const") != 2:
+        failures.append("manifest schema_version const drifts from validator")
     _require_closed_objects(schema, "$manifest", failures)
 
 

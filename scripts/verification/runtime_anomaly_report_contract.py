@@ -14,9 +14,14 @@ from .runtime_anomaly_contract import (
     ASSOCIATION_KINDS,
     CLASS_IDS,
     DISCOVERY_SOURCE_KINDS,
+    FORBIDDEN_CLAIM_RE,
     INJECTION_MECHANISMS,
     MAPPING_ID_RE,
     SUITE_IDS,
+)
+from .runtime_anomaly_restart_contract import (
+    validate_restart_review_shape,
+    validate_restart_union_schema,
 )
 from .runtime_anomaly_mapping import MAPPING_STATES
 from .runtime_anomaly_report import (
@@ -138,7 +143,6 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
             "allocation_review",
             {"outcome", "source_ref", "source_path", "required_text", "rationale"},
         ),
-        ("restart_review", {"outcome", "spec_gap_ref", "rationale"}),
         ("count_map_state", set(MAPPING_STATES)),
         ("count_map_suite", set(SUITE_IDS)),
         ("count_map_association", set(ASSOCIATION_KINDS)),
@@ -149,6 +153,14 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
             f"runtime-anomaly report {name}",
             failures,
         )
+    failures.extend(
+        validate_restart_union_schema(
+            schema,
+            _definition(definitions, "restart_review"),
+            definitions,
+            label="runtime-anomaly report restart review",
+        )
+    )
     scope_properties = _properties(_definition(definitions, "scope"))
     for field, expected in SCOPE.items():
         if scope_properties.get(field, {}).get("const") != expected:
@@ -260,13 +272,6 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
     }.items():
         if allocation_properties.get(field, {}).get("const") != expected:
             failures.append(f"runtime-anomaly report allocation const for {field} drifts")
-    restart_properties = _properties(_definition(definitions, "restart_review"))
-    for field, expected in {
-        "outcome": "existing_open_gap",
-        "spec_gap_ref": "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
-    }.items():
-        if restart_properties.get(field, {}).get("const") != expected:
-            failures.append(f"runtime-anomaly report restart const for {field} drifts")
     return sorted(set(failures))
 
 
@@ -401,14 +406,16 @@ def _validate_spec_gap_reviews(value: Any, failures: list[str]) -> dict[str, Any
     if not isinstance(restart, Mapping):
         failures.append("restart_timebase report review must be an object")
     else:
-        if set(restart) != {"outcome", "spec_gap_ref", "rationale"}:
-            failures.append("restart_timebase report fields drift")
-        if restart.get("outcome") != "existing_open_gap":
-            failures.append("restart_timebase report outcome drifts")
-        if restart.get("spec_gap_ref") != "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001":
-            failures.append("restart_timebase report spec_gap_ref drifts")
-        if not _text(restart.get("rationale")):
-            failures.append("restart_timebase report rationale must be non-empty")
+        for failure in validate_restart_review_shape(
+            restart,
+            label="restart_timebase report",
+        ):
+            failures.append(failure.replace("review fields drift from contract", "fields drift"))
+        rationale = restart.get("rationale")
+        if isinstance(rationale, str) and FORBIDDEN_CLAIM_RE.search(rationale):
+            failures.append(
+                "restart_timebase report rationale uses forbidden proof/coverage language"
+            )
     return {key: dict(item) for key, item in value.items() if isinstance(item, Mapping)}
 
 

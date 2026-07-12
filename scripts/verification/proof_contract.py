@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from typing import Any
+
+from .execution_contract import (
+    PROOF_CONTRACT_VERSION,
+    ExecutionContractError,
+    canonical_contract_digest,
+    catalog_execution_contract,
+    invariant_execution_contract,
+)
+
+__all__ = [
+    "PROOF_CONTRACT_VERSION",
+    "ProofContractError",
+    "proof_contract_digest",
+    "proof_contract_payload",
+]
 
 
 class ProofContractError(ValueError):
@@ -21,15 +34,9 @@ def proof_contract_digest(
 
     payload = proof_contract_payload(test=test, invariants=invariants)
     try:
-        canonical = json.dumps(
-            payload,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    except (TypeError, ValueError) as exc:
-        raise ProofContractError(f"proof contract is not canonical JSON: {exc}") from exc
-    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+        return canonical_contract_digest(payload)
+    except ExecutionContractError as exc:
+        raise ProofContractError(str(exc)) from exc
 
 
 def proof_contract_payload(
@@ -62,26 +69,10 @@ def proof_contract_payload(
                 f"{test_id} invariant {invariant_id} record has mismatched id "
                 f"{invariant.get('id')!r}"
             )
-        invariant_records.append(_content_record(invariant))
+        invariant_records.append(invariant_execution_contract(invariant))
 
     return {
-        "schema_version": 1,
-        "test": _content_record(test),
+        "contract_version": PROOF_CONTRACT_VERSION,
+        "test": catalog_execution_contract(test),
         "invariants": invariant_records,
     }
-
-
-def _content_record(value: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        key: _content_value(item)
-        for key, item in value.items()
-        if isinstance(key, str) and not key.startswith("_")
-    }
-
-
-def _content_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return _content_record(value)
-    if isinstance(value, list):
-        return [_content_value(item) for item in value]
-    return value

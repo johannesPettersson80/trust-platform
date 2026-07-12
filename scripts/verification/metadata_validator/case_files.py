@@ -8,8 +8,15 @@ from typing import Any, Callable
 
 from ..case_digests import current_generator_digest, file_digest
 from ..case_contract_fields import CASE_FILE_CASE_FIELDS, CASE_FILE_ROOT_FIELDS
+from ..execution_contract import (
+    ExecutionContractError,
+    invariant_execution_contract_digest,
+)
 
-from .case_trace_contract import validate_case_provenance
+from .case_trace_contract import (
+    HAND_AUTHORED_STATE_MACHINE_V1,
+    validate_case_provenance,
+)
 from .constants import CASE_FAMILIES, OUTCOMES, ROOT, SCHEMA_REQUIRED_FIELDS
 from .oracle_refs import validate_oracle_ref
 
@@ -65,7 +72,17 @@ def validate_case_file(
         fail(path, f"{test_record['id']} case_file area does not match invariant area")
 
     expected_generator_digest = current_generator_digest()
-    expected_source_digest = file_digest(invariant["_path"])
+    if case_data.get("case_provenance_kind") == HAND_AUTHORED_STATE_MACHINE_V1:
+        try:
+            expected_source_digest = invariant_execution_contract_digest(invariant)
+        except ExecutionContractError as exc:
+            fail(
+                path,
+                f"{test_record['id']} invariant execution contract is invalid: {exc}",
+            )
+            return
+    else:
+        expected_source_digest = file_digest(invariant["_path"])
     validate_case_provenance(
         fail=fail,
         path=path,

@@ -144,6 +144,9 @@ def build_live_runtime_anomaly_state(
     )
 
     paths = set(REPORT_CONTRACT_PATHS) | validator_code_input_paths(root)
+    restart_review = taxonomy["spec_gap_reviews"]["restart_timebase"]
+    if restart_review.get("outcome") == "resolved_source":
+        paths.add(restart_review["source_path"])
     paths.update(scan.input_paths)
     for suite in validator.suites.values():
         path = suite.get("_path")

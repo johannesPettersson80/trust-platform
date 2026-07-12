@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .constants import PROVE_PRODUCER_RE, ROOT
-from ..proof_contract import ProofContractError, proof_contract_digest
+from ..proof_contract import (
+    PROOF_CONTRACT_VERSION,
+    ProofContractError,
+    proof_contract_digest,
+)
 
 
 Fail = Callable[[Path, str], None]
@@ -34,6 +38,16 @@ def validate_proof_contract_binding(
     proof_kind = record.get("proof_kind")
     if proof_kind not in PROOF_KINDS:
         return
+    evidence_id = str(record.get("id", "<unknown>"))
+    version = record.get("proof_contract_version")
+    if version is None:
+        fail(path, f"{evidence_id} missing proof_contract_version")
+    elif version != PROOF_CONTRACT_VERSION:
+        fail(
+            path,
+            f"{evidence_id} unsupported proof_contract_version {version!r}; "
+            f"expected {PROOF_CONTRACT_VERSION!r}",
+        )
     _current_contract_digest(
         fail=fail,
         path=path,

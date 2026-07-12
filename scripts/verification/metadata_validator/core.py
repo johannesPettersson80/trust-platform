@@ -461,6 +461,7 @@ class Validator:
             spec_sources=self.spec_sources,
             spec_gaps=self.spec_gaps,
             tests=self.tests,
+            ignored_tests=self.ignored_tests,
             suites=self.suites,
             evidence=self.evidence,
             approved_producers=self.approved_producers(),
@@ -660,6 +661,7 @@ class Validator:
             evidence=self.evidence,
             invariants=self.invariants,
             tests=self.tests,
+            ignored_tests=self.ignored_tests,
             spec_gaps=self.spec_gaps,
             suites=self.suites,
             approved_producers=self.approved_producers(),
@@ -789,8 +791,8 @@ class Validator:
         except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as exc:
             self.fail(path, f"invariant seed audit failed: {exc}")
         records = self.seed_manifest.get("seeds")
-        if self.seed_manifest.get("schema_version") != 1 or not isinstance(records, list):
-            self.fail(path, "invariant seed manifest must use schema_version 1 and [[seeds]]")
+        if self.seed_manifest.get("schema_version") != 2 or not isinstance(records, list):
+            self.fail(path, "invariant seed manifest must use schema_version 2 and [[seeds]]")
             return
         invariant_paths = {
             invariant_id: record["_path"].relative_to(ROOT).as_posix()
@@ -809,6 +811,8 @@ class Validator:
             risks=self.risks,
             tests=self.tests,
             evidence=self.evidence,
+            suites=self.suites,
+            ignored_tests=self.ignored_tests,
         ):
             self.fail(path, failure)
 
