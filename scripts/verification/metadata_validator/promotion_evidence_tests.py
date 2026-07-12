@@ -322,6 +322,29 @@ class InvariantPromotionEvidenceTests(unittest.TestCase):
 
 
 class FullValidatorPromotionEvidenceTests(unittest.TestCase):
+    def test_full_validator_rejects_dirty_targeted_proof_scope(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        record = validator.evidence[
+            "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"
+        ]
+        record["proof_kind"] = "red"
+        record["proof_scope"] = "targeted"
+        record["producer"] = "prove.py v1"
+        record["commit"] = "dirty:0123456789ab"
+
+        validator.validate()
+
+        messages = [failure.message for failure in validator.failures]
+        self.assertTrue(
+            any(
+                "proof_scope targeted requires a clean full 40-hex commit"
+                in message
+                for message in messages
+            ),
+            messages,
+        )
+
     def test_r1_cannot_bypass_any_promotion_evidence_tier(self) -> None:
         validator = Validator()
         validator.load_records()
