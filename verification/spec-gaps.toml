@@ -261,9 +261,9 @@ blocking_question = "What are the TP, TOF, and TON ET, restart, clock-reset, and
 affected_invariants = ["IEC_TIMER_001"]
 affected_tests = []
 candidate_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
-resolution_status = "open"
+resolution_status = "spec_updated"
 closeout_evidence = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-12"
 
 [[spec_gaps]]
 schema_version = 1

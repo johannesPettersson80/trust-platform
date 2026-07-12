@@ -190,6 +190,12 @@ Implements IEC 61131-3 timers: TON (on-delay), TOF (off-delay), TP (pulse).
 
 All timers use `Clock::now()` for elapsed time calculation. Timer instances are evaluated when their owning program or task-associated function block executes; no background threads or interrupts are required.
 
+The normative TP, TON, TOF, and `*_LTIME` scan-step state machines are defined
+in [Standard Function Blocks, section 5](08-standard-function-blocks.md#5-timer-function-blocks-table-46-figure-15).
+The implementation-owned clock, call, preset, and restart boundaries are
+recorded in `docs/IEC_DECISIONS.md`. Timer traces observe executed calls only;
+they do not claim that outputs change continuously between scan steps.
+
 #### 6.4 Process Image
 
 Memory-mapped area for inputs (%I), outputs (%Q), and markers (%M).

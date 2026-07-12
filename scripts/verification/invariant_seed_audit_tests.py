@@ -423,6 +423,13 @@ class SeedManifestContractTests(unittest.TestCase):
     def test_execution_ready_cannot_hide_live_timer_gap(self) -> None:
         arguments = _loaded_contract_arguments(ROOT)
         invariant = arguments["invariants"]["IEC_TIMER_001"]
+        gap_id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+        invariant["status"] = "spec_gap"
+        invariant["oracle"]["ref"] = gap_id
+        invariant["spec_gap_refs"] = [gap_id]
+        invariant["coverage"]["cells"][0].update(
+            state="spec_gap", spec_gap_ref=gap_id
+        )
         invariant["spec_gap_refs"] = []
         failures = validate_seed_records(**arguments)
         self.assertTrue(

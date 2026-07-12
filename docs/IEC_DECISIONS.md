@@ -6,6 +6,23 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-12 - Standard timer scan-step and lifecycle policy
+
+- Area: TP, TON, TOF, and their LTIME variants
+- IEC context: IEC 61131-3 Ed.3 section 6.6.3.5.5 requires Table 46 and Figure 15 timer behavior, supports TIME and LTIME variants, and states that the effect of changing `PT` during timing is implementer-specific. Restart retention is governed separately by section 6.5.6.2.
+- Decision:
+  - Timer inputs and outputs are observed at executed function-block call boundaries. The first call initializes the elapsed-time baseline and contributes zero elapsed time. No background or continuous-time transition is implied.
+  - `PT` is sampled on every executed call while timing is active. Changing it immediately changes the active threshold; elapsed time is compared with the new non-negative value. After TOF expires, its `ET` holds the `PT` value used at expiry until the instance is rearmed.
+  - `PT <= T#0s` is treated as zero for TP, TON, and TOF.
+  - A skipped or conditional call performs no state transition. On the next executed call, elapsed time is measured from the preceding executed call, so the skipped interval is included.
+  - If the runtime clock does not advance or moves backward, that call contributes zero elapsed time and establishes the new clock baseline for the next call.
+  - Warm and cold restart reinitialize non-retained timer instances, including `Q`, `ET`, edge state, and the elapsed-time baseline. Retained function-block instance storage is a separate runtime-retention concern and is neither asserted nor changed by this timer vertical.
+  - A TP pulse is not cancelled by a sampled falling input. A new sampled FALSE-to-TRUE edge starts a new PT interval; the first timer proof keeps IN high through expiry and makes no retrigger or short-input assertion.
+  - TIME and LTIME variants use the same state transitions and clock source; `PT` and `ET` retain the variant's duration type.
+- Reason:
+  - Scan-boundary observation makes the IEC timing diagrams deterministic in a cyclic runtime while exposing implementation-owned boundaries explicitly.
+  - The first proof vertical can assert Figure 15's basic TP/TON behavior and TOF post-expiry plateau without inventing restart, clock-step, PT-change, or short-input observations.
+
 ## 2026-07-05 - Subrange runtime write enforcement
 
 - Area: ST subrange data types and runtime writes

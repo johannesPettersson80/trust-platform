@@ -125,11 +125,13 @@ oracle_eligible = true
 visibility = "public"
 path = "docs/IEC_DECISIONS.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-12"
 covers = [
   "iec_ambiguity_decisions",
   "retain_policy_decisions",
   "operator_precedence_decisions",
+  "timer_scan_boundary_decisions",
+  "timer_lifecycle_decisions",
 ]
 known_limitations = [
   "External IEC source text is not committed and must be recorded separately when used as an oracle.",
@@ -375,14 +377,16 @@ oracle_eligible = true
 visibility = "public"
 path = "docs/specs/08-standard-function-blocks.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-12"
 covers = [
   "standard_function_blocks",
   "timer_function_blocks",
   "timer_elapsed_time",
+  "timer_scan_step_semantics",
+  "timer_ltime_parity",
 ]
 known_limitations = [
-  "Timer restart and runtime time-base boundaries remain an open specification gap.",
+  "The timer contract is written, but restart, PT-change, short-input, and clock-step branches remain outside the first trace proof.",
   "This product source does not by itself establish IEC conformance.",
 ]
 conflicts_with = []

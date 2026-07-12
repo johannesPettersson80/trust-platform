@@ -1,31 +1,67 @@
 schema_version = 1
 id = "IEC_TIMER_001"
-title = "Timer elapsed-time and restart semantics are explicit"
+title = "Timer scan-step and lifecycle semantics are explicit"
 area = "compiler_iec"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "language"
-last_reviewed = "2026-07-10"
-claim = "TP, TOF, and TON elapsed-time, restart, and time-base semantics must be specified before they are treated as verified."
+last_reviewed = "2026-07-12"
+claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan state machines, including the TOF ET-equals-PT post-expiry hold until rearm."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
-missing = ["timer_restart_contract", "runtime_timebase_contract", "timer_lifecycle_cases"]
+spec_gap_refs = []
+missing = ["timer_trace_cases", "targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
 
 [spec]
-status = "ambiguous"
-source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "TOF_TIME_POST_EXPIRY_HOLD" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "After TOF reaches PT on an executed low-input scan, Q is false and ET remains PT on later low-input scans until the next executed true-input scan rearms the instance."
+
+[[behavior]]
+partition = { equals = "TOF_LTIME_POST_EXPIRY_HOLD" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TOF_LTIME follows the same post-expiry hold state machine as TOF while retaining LTIME for PT and ET."
+
+[[behavior]]
+partition = { equals = "TON_TIME_BASIC_DELAY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A basic TON trace holds IN true through PT, observes Q at the executed threshold scan, and resets on an executed false-input scan."
+
+[[behavior]]
+partition = { equals = "TP_TIME_BASIC_PULSE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A protective TP trace holds IN true through PT and observes the pulse ending on the executed threshold scan without asserting short-input or retrigger behavior."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The scan-step state machines are specified; committed trace cases and proof are not yet present."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "spec_gap"
-rationale = "Timer restart and runtime time-base behavior remain unspecified."
-spec_gap_ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+state = "gap_open"
+rationale = "Restart, PT-change, skipped-call, and nonmonotonic-clock decisions are written but intentionally unasserted by the first trace vertical."
