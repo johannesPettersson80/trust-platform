@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `fd9b8401ff55ade9c0fbd80baf74cc8fba0dcaba21d5c573dd865379687c16f6`
-Input SHA-256: `sha256:e6f5a6c84ce65c328190a1e2512e7a62400c7a4842bb95891f2c6b0be43d89a6`
+Generated JSON SHA-256: `1208c2b3e3f0dbf89ab0a528d019ddc4c565d315c0bd3a93b5e5e13a687c8fa2`
+Input SHA-256: `sha256:d5966792d63d29186f8e0d3e9cf6a186170e7a90e2c0a28287332c6779ecd550`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 52
-- Invariants without specified specs: 44
-- Tests with expected results: 6
+- Invariants without specified specs: 43
+- Tests with expected results: 7
 - Tests without oracle/spec/gap binding: 0
-- Coverage cells: 61
-- Coverage cells marked spec_gap: 53
+- Coverage cells: 62
+- Coverage cells marked spec_gap: 52
 - Bytecode pilot gaps: 8
 - Registered public-claim sources: 4
 
@@ -36,7 +36,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
-| `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | `spec_gap` | `ambiguous` | `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PROTO_ADS_001` | `protocols` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` |
@@ -91,7 +90,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | 0 | `duplicate_or_collision` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | 0 | `boundary_high` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
-| `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | 0 | `time_or_clock_fault` | `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PROTO_ADS_001` | `protocols` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` |

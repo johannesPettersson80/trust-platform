@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `347e470db037e32e153cf24a55e444a4bb6d2efb23568cd9ad7617ac1ae4be0b`
-Input SHA-256: `sha256:e74e8abce48dc083a1606c37c5994f75c669064a52cd6e7f194360e68e0fcd55`
+Generated JSON SHA-256: `18a2546715c0919aba06856460161e56d688312a41167d147799c981f0187ac8`
+Input SHA-256: `sha256:0ee40d5f02f5409f8f1ef1101a6d63d22ef553016d766a7b1ab3bfb5d7b36108`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -18,8 +18,8 @@ mean every required coverage slot is assigned or covered.
 - Required family slots: 80
 - Assigned required slots: 16
 - Missing required slots: 64
-- Additional recorded cells: 45
-- Recorded mapped-area cells: 61
+- Additional recorded cells: 46
+- Recorded mapped-area cells: 62
 - Catalog-bound case files: 4
 - Case observations: 21
 - Blocked case observations: 21
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 0 |
+| `covered` | 1 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 53 |
-| `gap_open` | 8 |
+| `spec_gap` | 52 |
+| `gap_open` | 9 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -193,7 +193,8 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `time_or_clock_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
+| `time_or_clock_fault` | `additional_recorded` | `gap_open` | none | none |
 
 ## Area: `control_security`
 

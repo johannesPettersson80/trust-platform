@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `41c292afee6fa0d3e7eb25132590f7b729493defdcc3639a52c4e0c7d7a98775`
-Input SHA-256: `sha256:207118e5ccd3e0a75a1937e758da7f48208db1c1ef421361e881c243e425053d`
+Generated JSON SHA-256: `639a5710d4b82c183430fcfb493c50bc7f97aca26e7bc1c8fa32f89cdfb40edb`
+Input SHA-256: `sha256:4380ce20aeeb1d50c7ff6290e918667afd6010ebb765d94a10040d66bdf63aa4`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,15 +17,15 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 52
 - Phase 6 mapped invariants: 34
 - Other-area invariants: 18
-- Eligible oracles: 8
-- Missing oracles: 44
-- Future enforcement candidates: 34
+- Eligible oracles: 9
+- Missing oracles: 43
+- Future enforcement candidates: 33
 
 ## Mapping Groups
 
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
-| `VERIF-P6-001` | `compiler_iec` | 5 | 2 | 3 |
+| `VERIF-P6-001` | `compiler_iec` | 5 | 3 | 2 |
 | `VERIF-P6-002` | `runtime_safety` | 10 | 4 | 6 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 0 | 6 |
@@ -48,7 +48,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `IEC_PREC_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_EXPRESSIONS_001` | `SPEC_IEC_EXPRESSIONS_001` | none |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
 | `IEC_SUBRANGE_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
-| `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` | `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` |
+| `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLCO_IMPORT_001` | `plcopen_devtools` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | none |
@@ -103,7 +103,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `EDIT_RENAME_002` | `silent_corruption` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` | `true` |
 | `IEC_PARSE_RECOVER_001` | `silent_corruption` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` | `true` |
 | `IEC_STRING_001` | `wrong_result` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `true` |
-| `IEC_TIMER_001` | `safety_critical` | `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` | `true` |
 | `PLAT_PATH_001` | `platform` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `false` |
 | `PLAT_VSCODE_001` | `compatibility` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `false` |
 | `PROTO_ADS_001` | `false_status` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` | `true` |

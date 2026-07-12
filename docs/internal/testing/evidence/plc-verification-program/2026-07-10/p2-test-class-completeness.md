@@ -1,22 +1,22 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `3adc7bb22b8899aaa7046ae1c69d09b423933d2abb1fc830a9155cd510e0559b`
-Input SHA-256: `sha256:1d68e416c4ddd46588ccd5dcad913f85086913022fb0265c050945519a908515`
+Generated JSON SHA-256: `72c346f918eab60db02cd8b5e27db5f12d8214a77bc7d8e7ce39b0cfe09a61b2`
+Input SHA-256: `sha256:ec37da429cda530cfd3aa17304045f614b8212210ee642531a39c2f63eeedc58`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3820
-- Classified scanner facts: 1
+- Scanner facts: 3821
+- Classified scanner facts: 2
 - Unmapped scanner facts: 3819
-- Catalog records: 6
-- Runnable catalog records: 2
+- Catalog records: 7
+- Runnable catalog records: 3
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
@@ -31,7 +31,7 @@ mean every scanner fact or required test class is mapped.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1369 | 1 | 1368 |
+| `rust_integration_test` | 1370 | 2 | 1368 |
 | `rust_unit_test` | 1656 | 0 | 1656 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
@@ -39,6 +39,7 @@ mean every scanner fact or required test class is mapped.
 Classified mappings:
 
 - `DISC_88F921D24D3708CEF3E1` -> `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`
+- `DISC_C5A04B37E39DDBE237C5` -> `TEST_IEC_TIMER_TRACE_001`
 
 ## Area: `bytecode_vm`
 
@@ -58,6 +59,10 @@ Classified mappings:
 | `metadata_validation` | none | none | no |
 | `negative_malformed_input` | none | none | no |
 | `unit` | none | none | no |
+
+Additional catalog classes:
+
+- `failing_regression`: runnable `TEST_IEC_TIMER_TRACE_001`; non-runnable none
 
 ## Area: `control_security`
 

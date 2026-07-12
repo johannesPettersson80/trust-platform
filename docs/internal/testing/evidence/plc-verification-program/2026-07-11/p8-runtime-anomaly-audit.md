@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `7426b2f7a9898da68240d178dc09fa3cb22bb7bd55f5edac7b90280e9f760dc9`
-Input SHA-256: `sha256:80f651933d02b8c29ea6de1bec085b191994e6f4437219b3b426d7372ceb247e`
+Generated JSON SHA-256: `a96a911f8601e04ded265bc98404cece0533d9a4a5d102d95ed5bfebd6d77552`
+Input SHA-256: `sha256:a199f28be55a2c554f02078bb70c11a117e01fc7fb9607323031d82acd41a9e8`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -15,7 +15,7 @@ It executes no fault and creates no proof or invariant coverage.
 
 - Taxonomy classes: 19
 - Explicit mapping records: 38
-- Live Rust scanner facts: 3025
+- Live Rust scanner facts: 3026
 - Effectively runnable direct mappings: 27
 - Ignored or conditional mappings: 5
 - Gap classes: 9
@@ -104,7 +104,7 @@ It executes no fault and creates no proof or invariant coverage.
 ## Spec-Gap Review
 
 - Scan-cycle allocation policy: `written_contract_present` via `SPEC_RUNTIME_ENGINE_001` (`docs/specs/11-runtime-engine.md`).
-- Restart time base: `existing_open_gap` via `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`.
+- Restart time base: `resolved_source` via `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` (`docs/specs/08-standard-function-blocks.md`), superseding `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001`.
 
 ## Planned Tier Counts
 
@@ -137,6 +137,6 @@ It executes no fault and creates no proof or invariant coverage.
 - VERIF-P8-002 remains open until a reviewed runtime-safety test denominator has an explicit mapped or reviewed-nonmapping disposition for every fact.
 - Suite tiers are planned routing metadata. This report does not wire commands, change suite enforcement, or claim that a tier ran.
 - The allocation-policy review reuses an active written contract; allocation-failure and OOM testing remains visible debt outside that claimed scan path.
-- The restart-timebase review reuses the existing open IEC timer/runtime time-base gap and creates no duplicate or closure.
+- The restart-timebase review uses one closed schema-v1 state: existing_open_gap requires an actionable gap, while resolved_source binds an active reviewed source and any later closed gap must name that same resolution source; neither state creates test coverage, proof, or gap closure.
 - No fault interface or production hook is added. VERIF-P8-005 and VERIF-P8-006 remain open until a governed harness and enforceable design-review boundary exist.
 - The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation.

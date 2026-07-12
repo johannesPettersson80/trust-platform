@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `b85e53c8731a01313b6c44907e00ceee3ccf7d33`
-Generated: `2026-07-12T15:25:00+02:00`
+Source revision: `dfd292c4f14e802810c2ec7a67aca92cb4d528f5`
+Generated: `2026-07-12T19:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `2bab79d8d021bbf1ef4159e45dd85e0f149ab6dbe1fbbb21df1d46cddbb1f6ac`
-Input SHA-256: `sha256:f5987767381e1939c71a93791b1dd6271c882877e68faa94911a6361c2dfd867`
+Generated JSON SHA-256: `227edb900caa56293ee2036512aafdda0a27fd2d24597b21e64d4c2fabbd3a5c`
+Input SHA-256: `sha256:5152317848dd66c7cbac001dc619aaceb643e83c3282b2a7ee42ab06a50b2da9`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,23 +13,23 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3820
-- Fact-bearing files: 672
+- Scanner facts: 3821
+- Fact-bearing files: 673
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 0
 - Broad multi-invariant claim candidates: 0
 - Exact fact-file duplicate groups: 0
 - Whitespace-normalized fact-file duplicate groups: 0
 - Exact case-input duplicate groups: 0
-- Same-table structural case-input peer groups: 6
+- Same-table structural case-input peer groups: 7
 - Shared case-file reference groups: 1
 - Malformed-class overlap groups: 0
 - VS Code facts: 456
 - VS Code files: 38
 - VS Code registrations: 38
 - Large registered VS Code files: 5
-- Catalog records: 6
-- Scanner facts with reviewed duration: 1
+- Catalog records: 7
+- Scanner facts with reviewed duration: 2
 - Scanner facts without reviewed duration: 3819
 - Catalog rows explicitly classified slow: 1
 - Reviewed proposal decisions: 1
@@ -67,6 +67,7 @@ a move, split, rename, fixture merge, or behavior change.
 ## Broad Invariant Claims
 
 - `TEST_BYTECODE_CONTAINER_INVALID_MAGIC` claims 1 invariants; result `single_invariant`.
+- `TEST_IEC_TIMER_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001` claims 1 invariants; result `single_invariant`.
 - `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001` claims 1 invariants; result `single_invariant`.
@@ -78,7 +79,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Exact fact-file groups: 0
 - Whitespace-normalized fact-file groups: 0
 - Exact case-input groups: 0
-- Same-table structural case-input peer groups: 6
+- Same-table structural case-input peer groups: 7
 - Shared case-file reference groups: 1
 - Explicit malformed-class overlap groups: 0
 - Free-form source-body similarity: `not_assessed`
@@ -88,6 +89,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE`, `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F`; shape `sha256:4c2dbca3a9792afb543b0301d33ce1a8bd127b78dee5e254a7c0f3350539b70f`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_D6833A8D`, `VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_58B11C2B`; shape `sha256:e0bd21a1e4c5110f2132f018441b9faa042eff4a8587ab2ce394077f907edf8d`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71`, `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955`; shape `sha256:7afbe67384583995479cd4b26ae4dfb1e78bf262fb626d55f38a7b05699ab8e3`.
+- Structural peers in `verification/cases/compiler_iec/IEC_TIMER_001.toml`: `IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD`, `IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD`, `IEC_TIMER_001_TON_TIME_BASIC_DELAY`, `IEC_TIMER_001_TP_TIME_BASIC_PULSE`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Shared case file `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: tests `TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001`; record paths `scripts/bytecode_validator_mutation.py`, `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`.
 
 ## VS Code Registration
@@ -104,10 +106,11 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3820
+- Scanner facts listed: 3821
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_88F921D24D3708CEF3E1` / `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`: `fast` at `crates/trust-runtime/tests/bytecode_container.rs`.
+- Scanner `DISC_C5A04B37E39DDBE237C5` / `TEST_IEC_TIMER_TRACE_001`: `fast` at `crates/trust-runtime/tests/iec_timer_trace_cases.rs`.
 - Artifact `TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001`: `slow` `mutation_shard_runner` at `scripts/bytecode_validator_mutation.py`; suites `nightly`.
 - Artifact `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`: `fast` `case_table_artifact` at `verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml`; suites `veryquick`.
 - Artifact `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`: `fast` `case_table_artifact` at `verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml`; suites `veryquick`.
