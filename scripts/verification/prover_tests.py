@@ -10,6 +10,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from scripts.verification.proof_contract import proof_contract_digest
 from scripts.verification.prover import (
     ProofError,
     ProofProducer,
@@ -34,6 +35,7 @@ class RedProofProducerTests(unittest.TestCase):
             self.assertEqual(result.record["red_case_ids"], ["CASE_FAIL"])
             self.assertEqual(result.record["linked_tests"], ["TEST_RED"])
             self.assertEqual(result.record["case_file_digest"], fx.case_digest)
+            self.assertEqual(result.record["proof_contract_digest"], fx.contract_digest())
             self.assertTrue(result.evidence_path.exists())
 
 
@@ -310,7 +312,54 @@ class GreenProverTests(unittest.TestCase):
             self.assertEqual(green.record["case_file_digest"], fx.case_digest)
             self.assertEqual(green.record["linked_tests"], ["TEST_RED"])
             self.assertEqual(green.record["per_case_summary"], ["CASE_FAIL:passed"])
+            self.assertEqual(
+                green.record["proof_contract_digest"],
+                red.record["proof_contract_digest"],
+            )
             self.assertTrue(green.evidence_path.exists())
+
+    def test_green_refuses_catalog_command_drift_before_running(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.write_evidence("EVID_RED")
+            fx.tests["TEST_RED"]["command"] = "python3 command-that-must-not-run.py"
+
+            with self.assertRaisesRegex(ProofError, "proof_contract_digest"):
+                fx.prover().green("TEST_RED", "EVID_RED")
+
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
+    def test_green_refuses_invariant_list_or_content_drift_before_running(self) -> None:
+        for mutation in ("list", "content"):
+            with self.subTest(mutation=mutation), fixture() as fx:
+                fx.add_case_file("CASE_FAIL")
+                fx.add_catalog_test(status="mapped")
+                fx.write_evidence("EVID_RED")
+                if mutation == "list":
+                    fx.tests["TEST_RED"]["invariants"] = []
+                else:
+                    fx.invariants["INV"]["title"] = "Changed invariant"
+
+                with self.assertRaisesRegex(
+                    ProofError,
+                    "proof_contract_digest|linked_invariants",
+                ):
+                    fx.prover().green("TEST_RED", "EVID_RED")
+
+                self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
+    def test_green_refuses_arbitrary_catalog_row_drift_before_running(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.write_evidence("EVID_RED")
+            fx.tests["TEST_RED"]["title"] = "Retitled after red proof"
+
+            with self.assertRaisesRegex(ProofError, "proof_contract_digest"):
+                fx.prover().green("TEST_RED", "EVID_RED")
+
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
 
     def test_green_rejects_non_red_pair(self) -> None:
         with fixture() as fx:
@@ -468,6 +517,7 @@ class LockProverTests(unittest.TestCase):
             self.assertEqual(baseline.record["case_file_digest"], fx.case_digest)
             self.assertEqual(baseline.record["command_exit_status"], 0)
             self.assertEqual(baseline.record["per_case_summary"], ["CASE_FAIL:passed"])
+            self.assertEqual(baseline.record["proof_contract_digest"], fx.contract_digest())
             self.assertTrue(str(baseline.record["case_result_digest"]).startswith("sha256:"))
             self.assertTrue(str(baseline.record["case_artifact_digest"]).startswith("sha256:"))
             self.assertTrue(baseline.evidence_path.exists())
@@ -492,7 +542,29 @@ class LockProverTests(unittest.TestCase):
                 baseline.record["case_artifact_digest"],
             )
             self.assertEqual(compare.record["per_case_summary"], ["CASE_FAIL:passed"])
+            self.assertEqual(
+                compare.record["proof_contract_digest"],
+                baseline.record["proof_contract_digest"],
+            )
             self.assertTrue(compare.evidence_path.exists())
+
+    def test_lock_compare_refuses_contract_drift_before_running(self) -> None:
+        for mutation in ("command", "invariant_content", "catalog_row"):
+            with self.subTest(mutation=mutation), fixture() as fx:
+                fx.add_case_file("CASE_FAIL")
+                fx.add_catalog_test(status="mapped", extra={"test_class": "behavior_lock"})
+                fx.write_lock_baseline("EVID_LOCK")
+                if mutation == "command":
+                    fx.tests["TEST_RED"]["command"] = "python3 command-that-must-not-run.py"
+                elif mutation == "invariant_content":
+                    fx.invariants["INV"]["title"] = "Changed invariant"
+                else:
+                    fx.tests["TEST_RED"]["duration_class"] = "slow"
+
+                with self.assertRaisesRegex(ProofError, "proof_contract_digest"):
+                    fx.prover().lock_compare("TEST_RED", "EVID_LOCK")
+
+                self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
 
     def test_lock_compare_rejects_missing_or_wrong_kind_baseline(self) -> None:
         with fixture() as fx:
@@ -670,6 +742,15 @@ class fixture:
         self.run_id_counter = 0
         self.proof_revision_counter = 0
         self.tests: dict[str, dict[str, object]] = {}
+        self.invariants: dict[str, dict[str, object]] = {
+            "INV": {
+                "schema_version": 1,
+                "id": "INV",
+                "title": "Proof invariant",
+                "status": "gap_open",
+                "proof_level": "S0",
+            }
+        }
         self.ignored: dict[str, dict[str, object]] = {}
         return self
 
@@ -807,6 +888,7 @@ class fixture:
                 per_case_summary if per_case_summary is not None else ["CASE_FAIL:failed"]
             ),
             "case_file_digest": case_file_digest if case_file_digest is not None else self.case_digest,
+            "proof_contract_digest": self.contract_digest(),
         }
         path = self.evidence_dir / f"{evidence_id}.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -857,6 +939,7 @@ class fixture:
             "case_file_digest": case_file_digest if case_file_digest is not None else self.case_digest,
             "case_result_digest": result_digest,
             "case_artifact_digest": "sha256:artifact",
+            "proof_contract_digest": self.contract_digest(),
         }
         path = self.evidence_dir / f"{evidence_id}.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -973,6 +1056,7 @@ class fixture:
         return ProofProducer(
             root=self.root,
             tests=self.tests,
+            invariants=self.invariants,
             ignored_tests=self.ignored,
             evidence={},
             artifact_dir=self.artifact_dir,
@@ -989,6 +1073,7 @@ class fixture:
         return ProofProducer(
             root=self.root,
             tests=self.tests,
+            invariants=self.invariants,
             ignored_tests=self.ignored,
             evidence={},
             artifact_dir=self.artifact_dir,
@@ -1000,6 +1085,12 @@ class fixture:
     def next_run_id(self) -> str:
         self.run_id_counter += 1
         return f"run-{self.run_id_counter}"
+
+    def contract_digest(self) -> str:
+        return proof_contract_digest(
+            test=self.tests["TEST_RED"],
+            invariants=self.invariants,
+        )
 
 
 def render_test_evidence(record: dict[str, object]) -> str:

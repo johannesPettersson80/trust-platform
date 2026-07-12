@@ -32,6 +32,7 @@
     "case_artifact_path": { "type": "string" },
     "case_artifact_digest": { "type": "string" },
     "case_file_digest": { "type": "string" },
+    "proof_contract_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "case_result_digest": { "type": "string" },
     "trust_verify_run_id": { "type": "string" },
     "command_exit_status": { "type": "integer" },

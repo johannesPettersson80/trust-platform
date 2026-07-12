@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .constants import PROVE_PRODUCER_RE, ROOT
+from ..proof_contract import ProofContractError, proof_contract_digest
 
 
 Fail = Callable[[Path, str], None]
@@ -18,6 +19,29 @@ IsAncestor = Callable[[str, str], bool]
 FULL_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 PROOF_KINDS = {"red", "green", "protective_red", "lock_baseline", "lock_compare"}
 CANONICAL_PROOF_PATH = "verification/evidence-index.toml"
+
+
+def validate_proof_contract_binding(
+    *,
+    fail: Fail,
+    path: Path,
+    record: dict[str, Any],
+    tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
+) -> None:
+    """Bind every prove.py proof record to its complete live metadata contract."""
+
+    proof_kind = record.get("proof_kind")
+    producer = str(record.get("producer", ""))
+    if proof_kind not in PROOF_KINDS or not PROVE_PRODUCER_RE.match(producer):
+        return
+    _current_contract_digest(
+        fail=fail,
+        path=path,
+        record=record,
+        tests=tests,
+        invariants=invariants,
+    )
 
 
 def validate_proof_provenance(
@@ -94,6 +118,7 @@ def validate_green_pairing(
     record: dict[str, Any],
     evidence: dict[str, dict[str, Any]],
     tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
     approved_producers: set[str],
 ) -> None:
     if record.get("proof_kind") != "green":
@@ -160,6 +185,15 @@ def validate_green_pairing(
     for case_id in red_case_ids:
         if case_id not in passed_cases:
             fail(path, f"{record['id']} formerly red case {case_id} is not recorded as passed")
+    _validate_paired_contract(
+        fail=fail,
+        path=path,
+        record=record,
+        paired=paired,
+        tests=tests,
+        invariants=invariants,
+        pair_label="paired red",
+    )
 
 
 def validate_lock_pairing(
@@ -169,6 +203,7 @@ def validate_lock_pairing(
     record: dict[str, Any],
     evidence: dict[str, dict[str, Any]],
     tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
     approved_producers: set[str],
 ) -> None:
     if record.get("proof_kind") != "lock_compare":
@@ -247,6 +282,85 @@ def validate_lock_pairing(
         evidence_id=record["id"],
         summary=record.get("per_case_summary", []),
     )
+    _validate_paired_contract(
+        fail=fail,
+        path=path,
+        record=record,
+        paired=paired,
+        tests=tests,
+        invariants=invariants,
+        pair_label="lock baseline",
+    )
+
+
+def _validate_paired_contract(
+    *,
+    fail: Fail,
+    path: Path,
+    record: dict[str, Any],
+    paired: dict[str, Any],
+    tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
+    pair_label: str,
+) -> None:
+    current = _current_contract_digest(
+        fail=fail,
+        path=path,
+        record=record,
+        tests=tests,
+        invariants=invariants,
+    )
+    paired_current = _current_contract_digest(
+        fail=fail,
+        path=path,
+        record=paired,
+        tests=tests,
+        invariants=invariants,
+    )
+    if record.get("proof_contract_digest") != paired.get("proof_contract_digest"):
+        fail(
+            path,
+            f"{record.get('id', '<unknown>')} proof_contract_digest does not match {pair_label}",
+        )
+    if current is not None and paired_current is not None and current != paired_current:
+        fail(
+            path,
+            f"{record.get('id', '<unknown>')} and {pair_label} resolve different current proof contracts",
+        )
+
+
+def _current_contract_digest(
+    *,
+    fail: Fail,
+    path: Path,
+    record: dict[str, Any],
+    tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
+) -> str | None:
+    evidence_id = str(record.get("id", "<unknown>"))
+    linked_tests = record.get("linked_tests")
+    if not isinstance(linked_tests, list) or len(linked_tests) != 1:
+        fail(path, f"{evidence_id} proof contract must link exactly one test")
+        return None
+    test_id = linked_tests[0]
+    if not isinstance(test_id, str) or test_id not in tests:
+        fail(path, f"{evidence_id} proof contract links unknown catalog test {test_id!r}")
+        return None
+    test = tests[test_id]
+    current_invariants = test.get("invariants")
+    if record.get("linked_invariants") != current_invariants:
+        fail(path, f"{evidence_id} linked_invariants do not match current catalog row")
+    try:
+        expected = proof_contract_digest(test=test, invariants=invariants)
+    except ProofContractError as exc:
+        fail(path, f"{evidence_id} proof contract is invalid: {exc}")
+        return None
+    actual = record.get("proof_contract_digest")
+    if actual is None:
+        fail(path, f"{evidence_id} missing proof_contract_digest")
+    elif actual != expected:
+        fail(path, f"{evidence_id} proof_contract_digest does not match current catalog and invariants")
+    return expected
 
 
 def passed_case_ids(summary: Any) -> set[str]:

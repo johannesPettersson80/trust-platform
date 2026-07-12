@@ -30,6 +30,7 @@ from .proof_case_artifacts import (
     load_json_artifact as load_json_artifact_value,
     validate_case_artifact as validate_case_artifact_value,
 )
+from .proof_contract import ProofContractError, proof_contract_digest
 from .proof_output import (
     CANONICAL_EVIDENCE_INDEX,
     ProofOutputError,
@@ -84,6 +85,7 @@ class ProofProducer:
         *,
         root: Path = ROOT,
         tests: dict[str, dict[str, Any]] | None = None,
+        invariants: dict[str, dict[str, Any]] | None = None,
         ignored_tests: dict[str, dict[str, Any]] | None = None,
         evidence: dict[str, dict[str, Any]] | None = None,
         approved_producers: set[str] | None = None,
@@ -100,10 +102,12 @@ class ProofProducer:
         if validate_metadata:
             validator = load_validated_metadata()
             tests = validator.tests
+            invariants = validator.invariants
             ignored_tests = validator.ignored_tests
             evidence = validator.evidence
             approved_producers = validator.approved_producers()
         self.tests = tests or {}
+        self.invariants = invariants or {}
         self.ignored_tests = ignored_tests or {}
         self.ignored_tests_by_test_id = index_ignored_tests_by_test_id(self.ignored_tests)
         self.evidence = evidence or {}
@@ -441,6 +445,7 @@ class ProofProducer:
                 f"{red_evidence_id} linked_tests must be exactly [{test_id!r}]",
                 failure_kind="metadata_error",
             )
+        self.require_current_proof_contract(red_evidence_id, record, test)
         if record.get("case_file_digest") != test.get("case_file_digest"):
             raise ProofError(
                 f"{red_evidence_id} case_file_digest does not match catalog row",
@@ -486,6 +491,7 @@ class ProofProducer:
                 f"{baseline_evidence_id} linked_tests must be exactly [{test_id!r}]",
                 failure_kind="metadata_error",
             )
+        self.require_current_proof_contract(baseline_evidence_id, record, test)
         if record.get("command") != test.get("command"):
             raise ProofError(
                 f"{baseline_evidence_id} command does not match catalog row",
@@ -526,6 +532,31 @@ class ProofProducer:
                 failure_kind="metadata_error",
             )
         return record
+
+    def require_current_proof_contract(
+        self,
+        evidence_id: str,
+        record: dict[str, Any],
+        test: dict[str, Any],
+    ) -> None:
+        linked_invariants = list(test.get("invariants", []))
+        if record.get("linked_invariants") != linked_invariants:
+            raise ProofError(
+                f"{evidence_id} linked_invariants do not match current catalog row",
+                failure_kind="metadata_error",
+            )
+        expected = self.current_proof_contract_digest(test)
+        if record.get("proof_contract_digest") != expected:
+            raise ProofError(
+                f"{evidence_id} proof_contract_digest does not match current catalog and invariant records",
+                failure_kind="metadata_error",
+            )
+
+    def current_proof_contract_digest(self, test: dict[str, Any]) -> str:
+        try:
+            return proof_contract_digest(test=test, invariants=self.invariants)
+        except ProofContractError as exc:
+            raise ProofError(str(exc), failure_kind="metadata_error") from exc
 
     def write_red_record(
         self,
@@ -669,6 +700,7 @@ class ProofProducer:
             "failure_kind": failure_kind,
             "trust_verify_run_id": run_id,
             "command_exit_status": command_exit_status,
+            "proof_contract_digest": self.current_proof_contract_digest(test),
         }
         if artifact_path is not None:
             record["case_artifact_path"] = str(artifact_path.relative_to(self.root))

@@ -8,8 +8,10 @@ from pathlib import Path
 from scripts.verification.metadata_validator.evidence_proof import (
     validate_green_pairing,
     validate_lock_pairing,
+    validate_proof_contract_binding,
     validate_proof_provenance,
 )
+from scripts.verification.proof_contract import proof_contract_digest
 from scripts.verification.prover import case_result_digest
 
 
@@ -18,6 +20,14 @@ class EvidenceProofTests(unittest.TestCase):
         failures = validate(green_record(), {"EVID_RED": red_record()})
 
         self.assertEqual(failures, [])
+
+    def test_green_pair_rejects_mismatched_proof_contract_digests(self) -> None:
+        failures = validate(
+            green_record(proof_contract_digest="sha256:" + "f" * 64),
+            {"EVID_RED": red_record()},
+        )
+
+        self.assert_contains_failure(failures, "proof_contract_digest does not match paired red")
 
     def test_green_rejects_non_red_pair(self) -> None:
         failures = validate(green_record(), {"EVID_RED": red_record(proof_kind="none")})
@@ -110,6 +120,14 @@ class EvidenceProofTests(unittest.TestCase):
         failures = validate_lock(lock_compare_record(), {"EVID_LOCK": lock_baseline_record()})
 
         self.assertEqual(failures, [])
+
+    def test_lock_pair_rejects_mismatched_proof_contract_digests(self) -> None:
+        failures = validate_lock(
+            lock_compare_record(proof_contract_digest="sha256:" + "f" * 64),
+            {"EVID_LOCK": lock_baseline_record()},
+        )
+
+        self.assert_contains_failure(failures, "proof_contract_digest does not match lock baseline")
 
     def test_lock_compare_rejects_missing_or_wrong_kind_baseline(self) -> None:
         missing = validate_lock(lock_compare_record(), {})
@@ -281,6 +299,45 @@ class EvidenceProofProvenanceTests(unittest.TestCase):
         self.assertIn("does not resolve to a commit", failures[0])
 
 
+class EvidenceProofContractBindingTests(unittest.TestCase):
+    def test_normal_producer_record_matches_current_contract(self) -> None:
+        self.assertEqual(validate_binding(red_record()), [])
+
+    def test_command_or_arbitrary_catalog_drift_is_rejected(self) -> None:
+        for field, value in (
+            ("command", "python3 changed.py"),
+            ("title", "Changed title"),
+        ):
+            with self.subTest(field=field):
+                tests = {"TEST_RED": dict(DEFAULT_TEST, **{field: value})}
+                failures = validate_binding(red_record(), tests=tests)
+
+                self.assert_contains_failure(failures, "proof_contract_digest does not match current")
+
+    def test_invariant_list_or_content_drift_is_rejected(self) -> None:
+        tests = {"TEST_RED": dict(DEFAULT_TEST, invariants=[])}
+        list_failures = validate_binding(red_record(), tests=tests)
+        self.assert_contains_failure(list_failures, "linked_invariants do not match current")
+
+        invariants = {"INV": dict(DEFAULT_INVARIANTS["INV"], title="Changed")}
+        content_failures = validate_binding(red_record(), invariants=invariants)
+        self.assert_contains_failure(content_failures, "proof_contract_digest does not match current")
+
+    def test_missing_proof_contract_digest_is_rejected(self) -> None:
+        record = red_record()
+        del record["proof_contract_digest"]
+
+        failures = validate_binding(record)
+
+        self.assert_contains_failure(failures, "missing proof_contract_digest")
+
+    def assert_contains_failure(self, failures: list[str], expected: str) -> None:
+        self.assertTrue(
+            any(expected in failure for failure in failures),
+            f"{expected!r} not found in {failures!r}",
+        )
+
+
 def validate(
     record: dict[str, object],
     evidence: dict[str, dict[str, object]],
@@ -294,13 +351,8 @@ def validate(
         record=record,
         evidence=evidence,
         tests=tests
-        or {
-            "TEST_RED": {
-                "id": "TEST_RED",
-                "command": "python3 writer.py",
-                "case_file_digest": "sha256:cases",
-            }
-        },
+        or {"TEST_RED": DEFAULT_TEST},
+        invariants=DEFAULT_INVARIANTS,
         approved_producers=set(),
     )
     return failures
@@ -319,16 +371,51 @@ def validate_lock(
         record=record,
         evidence=evidence,
         tests=tests
-        or {
-            "TEST_RED": {
-                "id": "TEST_RED",
-                "command": "python3 writer.py",
-                "case_file_digest": "sha256:cases",
-            }
-        },
+        or {"TEST_RED": DEFAULT_TEST},
+        invariants=DEFAULT_INVARIANTS,
         approved_producers=set(),
     )
     return failures
+
+
+def validate_binding(
+    record: dict[str, object],
+    *,
+    tests: dict[str, dict[str, object]] | None = None,
+    invariants: dict[str, dict[str, object]] | None = None,
+) -> list[str]:
+    failures: list[str] = []
+    validate_proof_contract_binding(
+        fail=lambda _path, message: failures.append(message),
+        path=Path("verification/evidence-index.toml"),
+        record=record,
+        tests=tests or {"TEST_RED": DEFAULT_TEST},
+        invariants=invariants or DEFAULT_INVARIANTS,
+    )
+    return failures
+
+
+DEFAULT_TEST: dict[str, object] = {
+    "id": "TEST_RED",
+    "title": "Red test",
+    "command": "python3 writer.py",
+    "case_file_digest": "sha256:cases",
+    "invariants": ["INV"],
+}
+DEFAULT_INVARIANTS: dict[str, dict[str, object]] = {
+    "INV": {
+        "id": "INV",
+        "title": "Invariant",
+        "status": "gap_open",
+    }
+}
+
+
+def contract_digest() -> str:
+    return proof_contract_digest(
+        test=DEFAULT_TEST,
+        invariants=DEFAULT_INVARIANTS,
+    )
 
 
 def validate_provenance(
@@ -361,7 +448,9 @@ def green_record(**overrides: object) -> dict[str, object]:
         "proof_kind": "green",
         "producer": "prove.py v1",
         "linked_tests": ["TEST_RED"],
+        "linked_invariants": ["INV"],
         "case_file_digest": "sha256:cases",
+        "proof_contract_digest": contract_digest(),
         "paired_red_evidence": "EVID_RED",
         "formerly_red_case_ids": ["CASE_FAIL"],
         "per_case_summary": ["CASE_FAIL:passed"],
@@ -381,7 +470,9 @@ def red_record(**overrides: object) -> dict[str, object]:
         "producer": "prove.py v1",
         "failure_kind": "assertion_failure",
         "linked_tests": ["TEST_RED"],
+        "linked_invariants": ["INV"],
         "case_file_digest": "sha256:cases",
+        "proof_contract_digest": contract_digest(),
         "red_case_ids": ["CASE_FAIL"],
         "per_case_summary": ["CASE_FAIL:failed"],
     }
@@ -397,8 +488,10 @@ def lock_baseline_record(**overrides: object) -> dict[str, object]:
         "proof_kind": "lock_baseline",
         "producer": "prove.py v1",
         "linked_tests": ["TEST_RED"],
+        "linked_invariants": ["INV"],
         "command": "python3 writer.py",
         "case_file_digest": "sha256:cases",
+        "proof_contract_digest": contract_digest(),
         "case_result_digest": case_result_digest(
             command_exit_status=int(exit_status),
             per_case_summary=list(summary) if isinstance(summary, list) else [],
@@ -418,8 +511,10 @@ def lock_compare_record(**overrides: object) -> dict[str, object]:
         "proof_kind": "lock_compare",
         "producer": "prove.py v1",
         "linked_tests": ["TEST_RED"],
+        "linked_invariants": ["INV"],
         "command": "python3 writer.py",
         "case_file_digest": "sha256:cases",
+        "proof_contract_digest": contract_digest(),
         "case_result_digest": case_result_digest(
             command_exit_status=int(exit_status),
             per_case_summary=list(summary) if isinstance(summary, list) else [],
