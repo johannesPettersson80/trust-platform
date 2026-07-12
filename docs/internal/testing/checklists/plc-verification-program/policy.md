@@ -6,8 +6,10 @@ stay stable and readable. Machine-readable schema details live in
 
 ## Scope
 
-This program designs a verification control plane. It does not itself fix a
-runtime, compiler, IDE, protocol, or UI bug.
+Phases 0 through 15 of this program design and validate a verification control
+plane. They do not themselves fix a runtime, compiler, IDE, protocol, or UI
+bug. Phase 16 applies that control plane to product work, but only through the
+spec-first, red-before-fix, producer-authentic evidence discipline below.
 
 In scope:
 
@@ -18,13 +20,21 @@ In scope:
 - generated reports that expose proof gaps,
 - rules for test authoring, refactoring, evidence, and release truth.
 
-Out of scope for the planning board:
+Out of scope for control-plane Phases 0 through 15:
 
 - moving existing tests into a new tree,
 - rewriting `just test-all`,
 - adding runtime/compiler/LSP behavior,
 - expanding public conformance claims before release/docs gates exist,
 - treating line count, coverage percentage, or test count as safety proof.
+
+Phase 16 product changes are in scope only after its execution-readiness rows
+are complete. Each product change must start from a reviewed written oracle,
+use a cataloged test and durable producer-authentic red evidence where behavior
+must change, keep the product fix in a separate descendant commit, and record
+paired green plus required gate evidence before promotion. A current-HEAD
+reproduction that passes invalidates the alleged defect; it must be recorded as
+characterization or behavior-lock work, never turned into an artificial red.
 
 ## Stop Gates
 

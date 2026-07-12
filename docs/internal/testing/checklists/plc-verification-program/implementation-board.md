@@ -1128,6 +1128,79 @@ validation, and first working reports exist.
 - [ ] `VERIF-P15-011` Validate updated skills route correctly.
 - [ ] `VERIF-P15-012` Record skill-sync evidence.
 
+## Phase 16 - Execution: Run the Program and Close Every Gap
+
+This is the payoff phase: everything Phases 0-10 built gets used. It starts
+after the Phase 10 slice closes and runs before or interleaved with Phases
+11-15. Work in risk order (`safety_critical`, `wrong_result`,
+`silent_corruption`, `false_status` first). Every row's done-condition is
+measured from the committed registries, not from prose. Closing a
+previously guarded open row here is expected once its work is real; update
+the matching `REQUIRED_OPEN_ROWS`-style validator pins deliberately in the
+same commit, with the closure evidence linked.
+
+- [ ] `VERIF-P16-000` Reconcile Phase 16 with the control-plane policy and
+  current-HEAD reproductions. Record alleged defects that already pass as
+  characterization work, keep product changes blocked, and narrow the first
+  vertical to behavior that has a written oracle and a reproducible defect.
+- [ ] `VERIF-P16-000A` Make proof output producer-authentic and durable:
+  `prove.py` writes directly to the tracked evidence index, refuses dirty or
+  abbreviated proof revisions, and validation requires distinct red/green
+  commits with the red commit an ancestor of green.
+- [ ] `VERIF-P16-000B` Add an honest hand-authored state-machine trace case
+  provenance and artifact contract. It must be distinct from `gen_cases.py
+  v1`, closed-schema, digest-bound, and consumable by `verification-cases` and
+  `prove.py` without inventing timer outcomes.
+- [ ] `VERIF-P16-000C` Bind promotion levels to evidence strength: `G1` needs
+  targeted green/lock evidence, `G2` additionally needs a broad remote gate,
+  and `R1` additionally needs release/public evidence. Existing S0 records and
+  report-only CI remain unchanged.
+- [ ] `VERIF-P16-001` Pilot vertical: implement
+  [execution-slice-001.md](execution-slice-001.md) end to end for the
+  confirmed `IEC_TIMER_001` TOF post-expiry ET-hold defect: reviewed timer
+  decisions, trace cases, durable red proof, minimal product fix, paired green,
+  Phase 8 contract migration, broad gates, and honest promotion. The
+  `VM_SEAM_DECLARED_TYPE_001` allegation currently passes and is retained as
+  characterization, not manufactured into a product fix.
+- [ ] `VERIF-P16-002` Close every spec gap. For each open record in
+  `verification/spec-gaps.toml` (34 at time of writing): write the owning
+  spec section, IEC decision, or recorded deviation per STOP-013, then flip
+  `resolution_status = "closed"` with closeout evidence. Done when zero
+  gaps are open.
+- [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
+  behavior rows get specified outcomes and resolving oracles; decision
+  tables regenerate through gen_cases; other contract kinds get
+  hand-authored cataloged tests (building the missing harness kinds as
+  needed); everything is routed into suites. Done when no invariant has
+  empty `tests` except those with an explicit blocked coverage cell naming
+  what blocks them (hardware lab, UI acceptance).
+- [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
+  gets recorded red proof, a product fix routed through invariant
+  discipline (changelog per release hygiene), and paired green proof via
+  `prove.py`. The known backlog is in scope and each item ends fixed-green
+  or explicitly re-scoped with rationale: STRING[n] bounds, subrange
+  writes, NaN ingress, warm-restart time reset, scan-thread panic
+  containment, `REF(returnvar)` escape, `emit_stmt` fail-open, rename
+  soundness, UTF-16 positions, cancel-clears-diagnostics, didClose dirty
+  buffer.
+- [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
+  evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
+  cells close). Done when zero invariants remain at `S0`.
+- [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
+  entry resolved (fixed, quarantined with expiry, or retired with
+  rationale); unmapped test debt mapped or retired; the three unfuzzed
+  surfaces get fuzz targets and the crash-to-regression ledger closes
+  `VERIF-P9-005`; conformance clause links close `VERIF-P7-002`; the
+  anomaly denominator closes `VERIF-P8-002`.
+- [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
+  CI as required gates (report-only posture ends); a red verification
+  suite must block merge. Then complete Phase 15 skill sync so the
+  workflow is mandated (`VERIF-STOP-012` closes here, not before).
+- [ ] `VERIF-P16-008` Final closure report: zero open spec gaps, zero `S0`
+  invariants, ledgers closed or explicitly scoped, CI enforcing, board
+  complete. Byte-reproducible like the Phase 2-10 reports, reviewed like
+  every slice.
+
 ## Review Acceptance
 
 - [x] `VERIF-REVIEW-001` Fable review returned `clear-with-edits` (2026-07-08);
