@@ -310,3 +310,9 @@ Runtime note:
 - [x] TP_LTIME
 - [x] TON_LTIME
 - [x] TOF_LTIME
+
+Execution evidence: `TEST_IEC_TIMER_TRACE_001` runs real Structured Text for
+TOF/TIME, TOF/LTIME, TON/TIME, and TP/TIME scan-step traces. Paired red/green
+evidence binds the TOF post-expiry `ET = PT` correction. Restart, PT-change,
+skipped-call, nonmonotonic-clock, and TP short-input/retrigger branches remain
+explicit test debt and are not implied by these checked implementation rows.

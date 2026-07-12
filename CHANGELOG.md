@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.29`
+Target release: `v0.24.30`
 
 ### Added
 
@@ -315,6 +315,9 @@ Target release: `v0.24.29`
 
 ### Fixed
 
+- trust-runtime: TOF and TOF_LTIME now hold `ET = PT` after the off-delay
+  expires while `IN` remains false, matching IEC 61131-3 Ed.3 Figure 15(c),
+  until a later true-input scan rearms the timer.
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.
