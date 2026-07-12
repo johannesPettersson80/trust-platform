@@ -1155,6 +1155,11 @@ same commit, with the closure evidence linked.
   targeted green/lock evidence, `G2` additionally needs a broad remote gate,
   and `R1` additionally needs release/public evidence. Existing S0 records and
   report-only CI remain unchanged.
+- [ ] `VERIF-P16-000D` Record independent acceptance of the complete readiness
+  implementation. Until this row is closed, the canonical report gate must
+  surface every runtime/compiler/LSP/IDE/UI product path as blocked. Remove its
+  standing-open validator pin and flip this row in the same reviewed commit;
+  CI itself remains report-only until `VERIF-P16-007`.
 - [ ] `VERIF-P16-001` Pilot vertical: implement
   [execution-slice-001.md](execution-slice-001.md) end to end for the
   confirmed `IEC_TIMER_001` TOF post-expiry ET-hold defect: reviewed timer

@@ -145,6 +145,7 @@ path = "crates/trust-runtime/tests/known.rs"
     def test_build_report_is_report_only_when_gate_and_planner_fail(self) -> None:
         results = [
             CommandResult("verification_metadata_gate", ["gate"], 1, "metadata failed", ""),
+            CommandResult("phase16_readiness", ["readiness"], 1, "product change blocked", ""),
             CommandResult("plan_tests", ["plan"], 3, '{"verdict":"spec_gap"}\n', ""),
         ]
 
@@ -168,7 +169,41 @@ path = "crates/trust-runtime/tests/known.rs"
         self.assertEqual(report_exit_code(report, strict=True), 1)
         self.assertEqual(report.planner_exit_code, 3)
         self.assertEqual(report.uncataloged_tests, ["crates/trust-runtime/tests/new_case.rs"])
+        self.assertEqual(report.commands[1].name, "phase16_readiness")
         self.assertIn("report-only", render_markdown(report))
+
+    def test_build_report_routes_product_paths_through_phase16_readiness(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_runner(command: list[str]) -> CommandResult:
+            commands.append(command)
+            return CommandResult("fixture", command, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            catalog = root / "verification/test-catalog.toml"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text("")
+            report = build_report(
+                root=root,
+                changed_files=["crates/trust-runtime/src/stdlib/timers.rs"],
+                intent="bugfix",
+                baseline=None,
+                command_runner=fake_runner,
+                run_planner=False,
+            )
+
+        self.assertEqual(len(report.commands), 2)
+        self.assertEqual(
+            commands[1],
+            [
+                "python3",
+                "-m",
+                "scripts.verification.phase16_readiness",
+                "--changed-file=crates/trust-runtime/src/stdlib/timers.rs",
+            ],
+        )
+        self.assertEqual(report_exit_code(report, strict=False), 0)
 
     def test_report_json_is_stable_and_includes_uncataloged_tests(self) -> None:
         result = CommandResult("verification_metadata_gate", ["gate"], 0, "ok", "")

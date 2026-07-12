@@ -9,6 +9,7 @@ from .constants import COMMIT_RE, EVIDENCE_KINDS, PROOF_KINDS, PROVE_PRODUCER_RE
 from .evidence_proof import (
     validate_green_pairing,
     validate_lock_pairing,
+    validate_proof_contract_binding,
     validate_proof_provenance,
 )
 from .promotion_evidence import validate_evidence_scope
@@ -114,6 +115,7 @@ def validate_evidence_records(
             record=record,
             evidence=evidence_records,
             tests=tests,
+            invariants=invariants,
             approved_producers=approved_producers,
         )
         validate_lock_pairing(
@@ -122,7 +124,15 @@ def validate_evidence_records(
             record=record,
             evidence=evidence_records,
             tests=tests,
+            invariants=invariants,
             approved_producers=approved_producers,
+        )
+        validate_proof_contract_binding(
+            fail=fail,
+            path=path,
+            record=record,
+            tests=tests,
+            invariants=invariants,
         )
         validate_proof_provenance(
             fail=fail,
@@ -134,7 +144,7 @@ def validate_evidence_records(
             fail=fail,
             path=path,
             record=record,
-            approved_producers=approved_producers,
+            suites=suites,
         )
 
 

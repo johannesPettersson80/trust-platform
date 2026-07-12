@@ -268,6 +268,10 @@ SCHEMA_REQUIRED_FIELDS = {
         "helper_version",
         "case_provenance_kind",
         "trace_definition_digest",
+        "trust_verify_test_id",
+        "trust_verify_run_id",
+        "trust_verify_case_file_digest",
+        "trust_verify_artifact_dir",
         "cases",
     ],
     "case-file.schema.json": [

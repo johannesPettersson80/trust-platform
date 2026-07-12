@@ -45,7 +45,7 @@ REPORT_MARKDOWN = (
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
     "mapping_records": 38,
-    "scanner_denominator": 3023,
+    "scanner_denominator": 3025,
     "effectively_runnable_mappings": 27,
     "ignored_or_conditional_mappings": 5,
     "gap_classes": 9,

@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 python3 scripts/validate_verification_metadata.py
+python3 -m scripts.verification.phase16_readiness
 python3 - <<'PY' | while IFS= read -r invariant; do
 import sys
 import tomllib

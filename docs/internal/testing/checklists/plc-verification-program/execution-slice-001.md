@@ -49,8 +49,9 @@ error model.
 
 ## Readiness Gate
 
-No runtime/compiler/LSP/IDE/UI product file may change until all four board
-rows `VERIF-P16-000` through `VERIF-P16-000C` are complete and reviewed.
+No runtime/compiler/LSP/IDE/UI product file may change until all four readiness
+rows `VERIF-P16-000` through `VERIF-P16-000C` are complete and independent
+acceptance closes `VERIF-P16-000D`.
 
 - `VERIF-P16-000`: policy and slice scope match the current-HEAD audit. A
   passing reproduction cannot be represented as red.
@@ -62,6 +63,9 @@ rows `VERIF-P16-000` through `VERIF-P16-000C` are complete and reviewed.
   closed-schema and digest-bound.
 - `VERIF-P16-000C`: `G1`, `G2`, and `R1` are rejected unless targeted, broad
   remote, and release/public evidence respectively is present and linked.
+- `VERIF-P16-000D`: the canonical report gate sees changed product paths and
+  reports them blocked until independent readiness acceptance is recorded.
+  The check is intentionally nonblocking in CI until `VERIF-P16-007`.
 
 The readiness slice changes verification tooling, metadata schemas, program
 documentation, tests, and durable `proof_kind = "none"` closure evidence only.

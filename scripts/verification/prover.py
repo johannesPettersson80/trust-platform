@@ -337,6 +337,7 @@ class ProofProducer:
             failed_case_ids, blocked_case_ids, per_case_summary = validate_case_artifact(
                 artifact=artifact,
                 expected_test_id=test_id,
+                expected_case_file=str(case_file),
                 expected_run_id=run_id,
                 expected_artifact_dir=str(self.artifact_dir),
                 expected_case_file_digest=str(case_file_digest),
@@ -790,6 +791,7 @@ def validate_case_artifact(
     *,
     artifact: dict[str, Any],
     expected_test_id: str,
+    expected_case_file: str,
     expected_run_id: str,
     expected_artifact_dir: str,
     expected_case_file_digest: str,
@@ -801,6 +803,7 @@ def validate_case_artifact(
         return validate_case_artifact_value(
             artifact=artifact,
             expected_test_id=expected_test_id,
+            expected_case_file=expected_case_file,
             expected_run_id=expected_run_id,
             expected_artifact_dir=expected_artifact_dir,
             expected_case_file_digest=expected_case_file_digest,

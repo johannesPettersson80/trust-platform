@@ -78,20 +78,35 @@ class CaseArtifactProvenanceTests(unittest.TestCase):
         artifact = {
             "schema_version": 1,
             "test_id": "TEST_TRACE",
+            "case_file": "verification/cases/compiler_iec/TRACE.toml",
             "case_file_digest": "sha256:cases",
+            "helper_version": "verification-cases v1",
             "case_provenance_kind": "hand_authored_state_machine_v1",
             "trace_definition_digest": "sha256:" + "b" * 64,
             "trust_verify_test_id": "TEST_TRACE",
             "trust_verify_run_id": "run-trace",
             "trust_verify_case_file_digest": "sha256:cases",
             "trust_verify_artifact_dir": "target/trace",
-            "cases": [{"id": "CASE_TRACE", "result": "passed"}],
+            "cases": [
+                {
+                    "id": "CASE_TRACE",
+                    "family": "happy_path",
+                    "result": "passed",
+                    "spec_gap_ref": None,
+                    "observed_error": None,
+                    "observed_status": "ok",
+                    "state_delta": "unchanged",
+                    "before": None,
+                    "after": None,
+                }
+            ],
         }
 
         with self.assertRaisesRegex(ProofError, "trace_definition_digest mismatch"):
             validate_case_artifact(
                 artifact=artifact,
                 expected_test_id="TEST_TRACE",
+                expected_case_file="verification/cases/compiler_iec/TRACE.toml",
                 expected_run_id="run-trace",
                 expected_artifact_dir="target/trace",
                 expected_case_file_digest="sha256:cases",
@@ -995,7 +1010,7 @@ class fixture:
                         "test_id": os.environ["TRUST_VERIFY_TEST_ID"],
                         "case_file": "verification/cases/bytecode_vm/TEST_CASES.toml",
                         "case_file_digest": os.environ["TRUST_VERIFY_CASE_FILE_DIGEST"],
-                        "helper_version": "test-helper",
+                        "helper_version": "verification-cases v1",
                         "case_provenance_kind": (
                             "hand_authored_state_machine_v1"
                             if mode == "wrong_provenance"
@@ -1033,14 +1048,26 @@ class fixture:
                     "test_id": "TEST_RED",
                     "case_file": "verification/cases/bytecode_vm/TEST_CASES.toml",
                     "case_file_digest": self.case_digest,
-                    "helper_version": "test-helper",
+                    "helper_version": "verification-cases v1",
                     "case_provenance_kind": "generated_decision_table_v1",
                     "trace_definition_digest": None,
                     "trust_verify_test_id": "TEST_RED",
                     "trust_verify_run_id": run_id,
                     "trust_verify_case_file_digest": self.case_digest,
                     "trust_verify_artifact_dir": str(self.artifact_dir),
-                    "cases": [{"id": case_id, "family": "happy_path", "result": result}],
+                    "cases": [
+                        {
+                            "id": case_id,
+                            "family": "happy_path",
+                            "result": result,
+                            "spec_gap_ref": None,
+                            "observed_error": None,
+                            "observed_status": None,
+                            "state_delta": "unchanged",
+                            "before": None,
+                            "after": None,
+                        }
+                    ],
                 }
             )
         )

@@ -288,19 +288,34 @@ def proof_skipped_case_artifact() -> RawResult:
     artifact = {
         "schema_version": 1,
         "test_id": "TEST_P6A",
+        "case_file": "verification/cases/bytecode_vm/P6A.toml",
         "case_file_digest": "sha256:cases",
+        "helper_version": "verification-cases v1",
         "case_provenance_kind": "generated_decision_table_v1",
         "trace_definition_digest": None,
         "trust_verify_test_id": "TEST_P6A",
         "trust_verify_run_id": "run-p6a",
         "trust_verify_case_file_digest": "sha256:cases",
         "trust_verify_artifact_dir": "target/p6a",
-        "cases": [{"id": "CASE_P6A", "result": "skipped"}],
+        "cases": [
+            {
+                "id": "CASE_P6A",
+                "family": "happy_path",
+                "result": "skipped",
+                "spec_gap_ref": None,
+                "observed_error": None,
+                "observed_status": None,
+                "state_delta": "unchanged",
+                "before": None,
+                "after": None,
+            }
+        ],
     }
     try:
         validate_case_artifact(
             artifact=artifact,
             expected_test_id="TEST_P6A",
+            expected_case_file="verification/cases/bytecode_vm/P6A.toml",
             expected_run_id="run-p6a",
             expected_artifact_dir="target/p6a",
             expected_case_file_digest="sha256:cases",
@@ -339,6 +354,7 @@ def evidence_green_missing_red_pair() -> RawResult:
         record=record,
         evidence={},
         tests={"TEST_P6A": {"id": "TEST_P6A", "case_file_digest": "sha256:cases"}},
+        invariants={},
         approved_producers=set(),
     )
     return RawResult("reject" if failures else "accept", "\n".join(failures))

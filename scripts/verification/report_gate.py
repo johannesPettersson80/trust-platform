@@ -95,6 +95,13 @@ def build_report(
     commands: list[CommandResult] = [
         runner(["scripts/verification_metadata_gate.sh"]),
     ]
+    readiness_command = [
+        "python3",
+        "-m",
+        "scripts.verification.phase16_readiness",
+        *(f"--changed-file={path}" for path in normalized),
+    ]
+    commands.append(runner(readiness_command))
     planner_exit_code: int | None = None
     planner_json: dict[str, object] | None = None
     if run_planner and normalized:
@@ -151,6 +158,8 @@ def default_runner(root: Path) -> CommandRunner:
 def command_name(command: list[str]) -> str:
     if command[:1] == ["scripts/verification_metadata_gate.sh"]:
         return "verification_metadata_gate"
+    if command[:3] == ["python3", "-m", "scripts.verification.phase16_readiness"]:
+        return "phase16_readiness"
     if len(command) >= 2 and command[1] == "scripts/plan_tests.py":
         return "plan_tests"
     return Path(command[0]).name if command else "unknown"

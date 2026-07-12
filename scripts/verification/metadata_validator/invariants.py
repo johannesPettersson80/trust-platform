@@ -153,7 +153,7 @@ def validate_invariants(
             path=path,
             invariant=record,
             evidence=evidence,
-            approved_producers=approved_producers,
+            suites=suites,
         )
         check_refs(
             path,

@@ -11,6 +11,7 @@ from scripts.verification.metadata_validator.core import Validator
 from scripts.verification.metadata_validator.evidence_proof import validate_green_pairing
 from scripts.verification.metadata_validator.case_files import validate_case_record
 from scripts.verification.planner import Planner, risk_changes_from_matrices
+from scripts.verification.proof_contract import proof_contract_digest
 from scripts.verification.prover import ProofError
 from scripts.verification.prover_tests import fixture
 from scripts.verification.report_gate import find_uncataloged_tests
@@ -64,6 +65,23 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
 
         self.assertTrue(
             any("shard/test binding mismatch" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_proof_contract_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        evidence = next(iter(validator.evidence.values()))
+        evidence["proof_kind"] = "red"
+        evidence["proof_scope"] = "targeted"
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "proof contract must link exactly one test" in failure.message
+                for failure in validator.failures
+            ),
             [failure.message for failure in validator.failures],
         )
 
@@ -268,11 +286,19 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
 
     def test_manual_safety_evidence_cannot_feed_green_pairing(self) -> None:
         failures: list[str] = []
+        catalog_test = {
+            "id": "TEST_RED",
+            "invariants": [],
+            "case_file_digest": "sha256:cases",
+        }
+        contract_digest = proof_contract_digest(test=catalog_test, invariants={})
         green = {
             "id": "EVID_GREEN",
             "proof_kind": "green",
             "producer": "prove.py v1",
             "linked_tests": ["TEST_RED"],
+            "linked_invariants": [],
+            "proof_contract_digest": contract_digest,
             "case_file_digest": "sha256:cases",
             "paired_red_evidence": "EVID_RED",
             "formerly_red_case_ids": ["CASE_FAIL"],
@@ -285,6 +311,8 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             "producer": "manual",
             "failure_kind": "assertion_failure",
             "linked_tests": ["TEST_RED"],
+            "linked_invariants": [],
+            "proof_contract_digest": contract_digest,
             "case_file_digest": "sha256:cases",
             "red_case_ids": ["CASE_FAIL"],
             "per_case_summary": ["CASE_FAIL:failed"],
@@ -295,7 +323,8 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
             path=ROOT / "verification/evidence-index.toml",
             record=green,
             evidence={"EVID_RED": red},
-            tests={"TEST_RED": {"id": "TEST_RED", "case_file_digest": "sha256:cases"}},
+            tests={"TEST_RED": catalog_test},
+            invariants={},
             approved_producers=set(),
         )
 

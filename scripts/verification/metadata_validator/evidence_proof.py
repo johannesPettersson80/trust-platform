@@ -29,11 +29,10 @@ def validate_proof_contract_binding(
     tests: dict[str, dict[str, Any]],
     invariants: dict[str, dict[str, Any]],
 ) -> None:
-    """Bind every prove.py proof record to its complete live metadata contract."""
+    """Bind every proof-producing record to its complete live metadata contract."""
 
     proof_kind = record.get("proof_kind")
-    producer = str(record.get("producer", ""))
-    if proof_kind not in PROOF_KINDS or not PROVE_PRODUCER_RE.match(producer):
+    if proof_kind not in PROOF_KINDS:
         return
     _current_contract_digest(
         fail=fail,
