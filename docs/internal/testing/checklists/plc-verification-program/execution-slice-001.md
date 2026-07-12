@@ -4,6 +4,8 @@ Status: readiness implemented; independent acceptance pending; product execution
 Drafted: 2026-07-12 by the program reviewer (Fable), at the user's direction.
 Reconciled: 2026-07-12 by the implementer after current-HEAD reproduction and
 contract audit. Reviewer and implementer must remain different agents.
+Readiness closure evidence:
+[p16-execution-readiness-closure-validation.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-closure-validation.md).
 
 ## Purpose
 
