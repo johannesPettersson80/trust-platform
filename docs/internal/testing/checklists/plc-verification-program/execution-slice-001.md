@@ -1,6 +1,6 @@
 # Execution Slice 001 - Readiness and First Spec-to-Green Vertical
 
-Status: readiness active; product execution queued.
+Status: readiness implemented; independent acceptance pending; product execution queued.
 Drafted: 2026-07-12 by the program reviewer (Fable), at the user's direction.
 Reconciled: 2026-07-12 by the implementer after current-HEAD reproduction and
 contract audit. Reviewer and implementer must remain different agents.

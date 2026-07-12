@@ -1139,22 +1139,34 @@ previously guarded open row here is expected once its work is real; update
 the matching `REQUIRED_OPEN_ROWS`-style validator pins deliberately in the
 same commit, with the closure evidence linked.
 
-- [ ] `VERIF-P16-000` Reconcile Phase 16 with the control-plane policy and
+- [x] `VERIF-P16-000` Reconcile Phase 16 with the control-plane policy and
   current-HEAD reproductions. Record alleged defects that already pass as
   characterization work, keep product changes blocked, and narrow the first
   vertical to behavior that has a written oracle and a reproducible defect.
-- [ ] `VERIF-P16-000A` Make proof output producer-authentic and durable:
+- [x] `VERIF-P16-000A` Make proof output producer-authentic and durable:
   `prove.py` writes directly to the tracked evidence index, refuses dirty or
   abbreviated proof revisions, and validation requires distinct red/green
   commits with the red commit an ancestor of green.
-- [ ] `VERIF-P16-000B` Add an honest hand-authored state-machine trace case
+- [x] `VERIF-P16-000B` Add an honest hand-authored state-machine trace case
   provenance and artifact contract. It must be distinct from `gen_cases.py
   v1`, closed-schema, digest-bound, and consumable by `verification-cases` and
   `prove.py` without inventing timer outcomes.
-- [ ] `VERIF-P16-000C` Bind promotion levels to evidence strength: `G1` needs
+- [x] `VERIF-P16-000C` Bind promotion levels to evidence strength: `G1` needs
   targeted green/lock evidence, `G2` additionally needs a broad remote gate,
   and `R1` additionally needs release/public evidence. Existing S0 records and
   report-only CI remain unchanged.
+
+  Readiness implementation: `ebca97065` added durable proof output, clean
+  revision ancestry, trace-case provenance, and the initial promotion contract;
+  `e91c396b8`, `cb1cf2f7d`, and `be90cc29a` closed promotion causality,
+  proof-metadata freezing, and case/artifact schema gaps; `551db78e4` and
+  `5d3d0cbfb` wired the report-only product fence through the canonical gate,
+  including root `hmi/**`. The bytecode-validator mutation shard was rerun at
+  clean source `5d3d0cbfb` with 2 caught and zero survivors or infrastructure
+  outcomes (report SHA-256 `61df3795ca2ca13ae239d1b63104417f46131bde988f2d93d841a4eda85a0fc7`).
+  No product behavior, spec-gap status, invariant proof level, CI enforcement,
+  skill, agent instruction, version, or release metadata changed. Independent
+  acceptance remains deliberately open in `VERIF-P16-000D`.
 - [ ] `VERIF-P16-000D` Record independent acceptance of the complete readiness
   implementation. Until this row is closed, the canonical report gate must
   surface every runtime/compiler/LSP/IDE/UI product path as blocked. Remove its
