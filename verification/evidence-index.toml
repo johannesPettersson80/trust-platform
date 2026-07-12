@@ -1312,3 +1312,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_EXECUTION_READINESS_ACCEPTANCE_20260712"
+title = "Phase 16 execution-readiness independent acceptance and fence correction"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p16-execution-readiness-independent-acceptance.md"
+command = "python3 -m unittest scripts.verification.phase16_readiness_tests scripts.verification.mutation_program_report_tests && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && git diff --check"
+commit = "24f83f8d926affb7702186fd1be9c0a56e165ffd"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-12"
+suite_id = "supporting_local"
+producer = "claude independent readiness review; codex review-fix implementation"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-12"

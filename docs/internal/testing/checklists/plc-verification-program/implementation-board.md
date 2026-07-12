@@ -1166,8 +1166,12 @@ same commit, with the closure evidence linked.
   outcomes (report SHA-256 `61df3795ca2ca13ae239d1b63104417f46131bde988f2d93d841a4eda85a0fc7`).
   No product behavior, spec-gap status, invariant proof level, CI enforcement,
   skill, agent instruction, version, or release metadata changed. Independent
-  acceptance remains deliberately open in `VERIF-P16-000D`.
-- [ ] `VERIF-P16-000D` Record independent acceptance of the complete readiness
+  review accepted the complete readiness implementation at `24f83f8d9` and
+  found one report-only product-fence under-match. The closure adds
+  `third_party/**`, root `Cargo.toml`, and root `Cargo.lock` with a tests-first
+  regression fixture and records the acceptance in
+  `EVID_P16_EXECUTION_READINESS_ACCEPTANCE_20260712`.
+- [x] `VERIF-P16-000D` Record independent acceptance of the complete readiness
   implementation. Until this row is closed, the canonical report gate must
   surface every runtime/compiler/LSP/IDE/UI product path as blocked. Remove its
   standing-open validator pin and flip this row in the same reviewed commit;

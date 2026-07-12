@@ -1,11 +1,13 @@
 # Execution Slice 001 - Readiness and First Spec-to-Green Vertical
 
-Status: readiness implemented; independent acceptance pending; product execution queued.
+Status: readiness accepted; product execution queued.
 Drafted: 2026-07-12 by the program reviewer (Fable), at the user's direction.
 Reconciled: 2026-07-12 by the implementer after current-HEAD reproduction and
 contract audit. Reviewer and implementer must remain different agents.
 Readiness closure evidence:
 [p16-execution-readiness-closure-validation.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-closure-validation.md).
+Independent acceptance:
+[p16-execution-readiness-independent-acceptance.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-independent-acceptance.md).
 
 ## Purpose
 

@@ -287,7 +287,7 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertNotIn("VERIF-P10-001", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P10-003", REQUIRED_OPEN_ROWS)
         self.assertIn("VERIF-P16-001", REQUIRED_OPEN_ROWS)
-        self.assertIn("VERIF-P16-000D", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P16-000D", REQUIRED_OPEN_ROWS)
         self.assertEqual([], validate_open_board_rows(board))
         row = REQUIRED_OPEN_ROWS[0]
         self.assertTrue(validate_open_board_rows(board.replace(f"- [ ] `{row}`", f"- [x] `{row}`")))

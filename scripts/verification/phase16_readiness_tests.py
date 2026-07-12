@@ -41,6 +41,20 @@ class Phase16ReadinessTests(unittest.TestCase):
         self.assertTrue(any(PHASE16_REVIEW_ROW in failure for failure in failures))
         self.assertTrue(any("hmi/overview.toml" in failure for failure in failures))
 
+    def test_vendored_code_and_root_dependency_manifests_are_product_paths(self) -> None:
+        for path in (
+            "third_party/tiverse-mmap/src/lib.rs",
+            "Cargo.toml",
+            "Cargo.lock",
+        ):
+            with self.subTest(path=path):
+                failures = validate_phase16_readiness(board_text(), [path])
+
+                self.assertTrue(
+                    any(PHASE16_REVIEW_ROW in failure for failure in failures)
+                )
+                self.assertTrue(any(path in failure for failure in failures))
+
     def test_open_readiness_rows_keep_product_paths_blocked(self) -> None:
         failures = validate_phase16_readiness(
             board_text(readiness=" "),
