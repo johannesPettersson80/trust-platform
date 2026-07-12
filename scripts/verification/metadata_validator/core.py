@@ -21,13 +21,9 @@ from .constants import (
     AREAS,
     BLOCKS_VALUES,
     CASE_FAMILIES,
-    COMMIT_RE,
-    EVIDENCE_KINDS,
     GAP_CLASSES,
     HIGH_RISKS,
     INTENTS,
-    PROOF_KINDS,
-    PROVE_PRODUCER_RE,
     RESOLUTION_STATUSES,
     RISKS,
     ROOT,
@@ -64,7 +60,7 @@ from ..runtime_anomaly_contract import (
     validate_runtime_anomaly_contract,
 )
 from ..test_catalog_intent import validate_catalog_intent
-from .evidence_proof import validate_green_pairing, validate_lock_pairing
+from .evidence_records import validate_evidence_records
 from .integrity import (
     test_counts_as_runnable,
     validate_open_spec_gap_references,
@@ -654,85 +650,20 @@ class Validator:
                 self.fail(path, f"planning matrix intent {name} must set boolean {field}")
 
     def validate_evidence(self) -> None:
-        required = [
-            "schema_version",
-            "id",
-            "title",
-            "area",
-            "owner",
-            "status",
-            "kind",
-            "commit",
-            "platform",
-            "date",
-            "producer",
-            "generated_report_version",
-            "linked_invariants",
-            "linked_tests",
-            "last_reviewed",
-        ]
-        approved_producers = self.approved_producers()
-        for record in self.evidence.values():
-            path = record["_path"]
-            self.require(path, record, required, "evidence")
-            self.check_common(path, record)
-            if record.get("kind") not in EVIDENCE_KINDS:
-                self.fail(path, f"{record['id']} has unknown evidence kind {record.get('kind')!r}")
-            if not COMMIT_RE.match(str(record.get("commit", ""))):
-                self.fail(path, f"{record['id']} has invalid commit marker {record.get('commit')!r}")
-            if record.get("proof_kind") and record["proof_kind"] not in PROOF_KINDS:
-                self.fail(path, f"{record['id']} has unknown proof_kind {record['proof_kind']!r}")
-            if not record.get("suite_id") and not record.get("release_object"):
-                self.fail(path, f"{record['id']} must name suite_id or release_object")
-            self.check_refs(path, record.get("linked_invariants", []), self.invariants, "invariant", record["id"])
-            self.check_refs(path, record.get("linked_tests", []), self.tests, "test", record["id"])
-            self.check_refs(
-                path,
-                record.get("linked_spec_gaps", []),
-                self.spec_gaps,
-                "spec gap",
-                record["id"],
-            )
-            if record.get("suite_id") and record["suite_id"] not in self.suites:
-                self.fail(path, f"{record['id']} references unknown suite_id {record['suite_id']}")
-            if record.get("kind") == "committed_file":
-                evidence_path = record.get("path")
-                if not evidence_path:
-                    self.fail(path, f"{record['id']} committed_file evidence missing path")
-                else:
-                    self.validate_durable_path(path, record["id"], evidence_path)
-            elif record.get("kind") == "ci_artifact":
-                for field in ("workflow", "run_id", "artifact", "retention_days"):
-                    if field not in record:
-                        self.fail(path, f"{record['id']} ci_artifact evidence missing {field}")
-            elif record.get("kind") == "release_object":
-                for field in ("release_object", "url"):
-                    if field not in record:
-                        self.fail(path, f"{record['id']} release_object evidence missing {field}")
-            elif record.get("kind") == "lab_report":
-                for field in ("path", "device_model", "firmware", "topology", "env_vars", "environment"):
-                    if field not in record:
-                        self.fail(path, f"{record['id']} lab_report evidence missing {field}")
-            if record.get("proof_kind") in {"red", "green", "lock_compare"} and self.links_high_risk(record):
-                producer = record.get("producer")
-                if not (PROVE_PRODUCER_RE.match(str(producer)) or producer in approved_producers):
-                    self.fail(path, f"{record['id']} high-risk red/green proof producer {producer!r} is not allowlisted")
-            validate_green_pairing(
-                fail=self.fail,
-                path=path,
-                record=record,
-                evidence=self.evidence,
-                tests=self.tests,
-                approved_producers=approved_producers,
-            )
-            validate_lock_pairing(
-                fail=self.fail,
-                path=path,
-                record=record,
-                evidence=self.evidence,
-                tests=self.tests,
-                approved_producers=approved_producers,
-            )
+        validate_evidence_records(
+            fail=self.fail,
+            require=self.require,
+            check_common=self.check_common,
+            check_refs=self.check_refs,
+            validate_durable_path=self.validate_durable_path,
+            links_high_risk=self.links_high_risk,
+            evidence=self.evidence,
+            invariants=self.invariants,
+            tests=self.tests,
+            spec_gaps=self.spec_gaps,
+            suites=self.suites,
+            approved_producers=self.approved_producers(),
+        )
 
     def validate_durable_path(self, path: Path, evidence_id: str, value: str) -> None:
         evidence_path = ROOT / value

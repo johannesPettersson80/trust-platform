@@ -4,13 +4,87 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from .constants import PROVE_PRODUCER_RE
+from .constants import PROVE_PRODUCER_RE, ROOT
 
 
 Fail = Callable[[Path, str], None]
+RevisionExists = Callable[[str], bool]
+IsAncestor = Callable[[str, str], bool]
+FULL_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+PROOF_KINDS = {"red", "green", "protective_red", "lock_baseline", "lock_compare"}
+CANONICAL_PROOF_PATH = "verification/evidence-index.toml"
+
+
+def validate_proof_provenance(
+    *,
+    fail: Fail,
+    path: Path,
+    record: dict[str, Any],
+    evidence: dict[str, dict[str, Any]],
+    revision_exists: RevisionExists | None = None,
+    is_ancestor: IsAncestor | None = None,
+) -> None:
+    """Require durable clean revisions and a real red-before-green history."""
+
+    if record.get("proof_kind") not in PROOF_KINDS:
+        return
+    evidence_id = str(record.get("id", "<unknown>"))
+    revision = record.get("commit")
+    if not isinstance(revision, str) or not FULL_COMMIT_RE.fullmatch(revision):
+        fail(path, f"{evidence_id} proof requires a clean full 40-hex commit")
+        return
+    exists = revision_exists or _revision_exists
+    ancestor = is_ancestor or _is_ancestor
+    if not exists(revision):
+        fail(path, f"{evidence_id} proof commit {revision} does not resolve to a commit")
+        return
+
+    producer = str(record.get("producer", ""))
+    if PROVE_PRODUCER_RE.match(producer):
+        if record.get("kind") != "committed_file":
+            fail(path, f"{evidence_id} prove.py proof kind must be committed_file")
+        if record.get("path") != CANONICAL_PROOF_PATH:
+            fail(path, f"{evidence_id} prove.py proof path must be {CANONICAL_PROOF_PATH}")
+
+    if record.get("proof_kind") != "green":
+        return
+    paired = evidence.get(record.get("paired_red_evidence"))
+    if not isinstance(paired, dict):
+        return
+    red_revision = paired.get("commit")
+    if not isinstance(red_revision, str) or not FULL_COMMIT_RE.fullmatch(red_revision):
+        return
+    if red_revision == revision:
+        fail(path, f"{evidence_id} red and green proof must use distinct commits")
+    elif not ancestor(red_revision, revision):
+        fail(path, f"{evidence_id} red commit {red_revision} is not an ancestor of green commit {revision}")
+
+
+def _revision_exists(revision: str) -> bool:
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _is_ancestor(before: str, after: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", before, after],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
 
 
 def validate_green_pairing(

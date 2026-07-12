@@ -23,6 +23,13 @@ from typing import Any
 from .metadata_validator.constants import PROVE_PRODUCER_RE, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 from .metadata_validator.integrity import test_counts_as_runnable
+from .proof_output import (
+    CANONICAL_EVIDENCE_INDEX,
+    ProofOutputError,
+    ProofRevisionSession,
+    append_evidence_record,
+    render_evidence_record,
+)
 
 
 EXIT_OK = 0
@@ -65,6 +72,13 @@ class CommandRun:
     per_case_summary: list[str]
 
 
+@dataclass(frozen=True)
+class CaseProofContract:
+    case_ids: list[str]
+    provenance_kind: str
+    trace_definition_digest: str | None
+
+
 class ProofProducer:
     def __init__(
         self,
@@ -76,7 +90,10 @@ class ProofProducer:
         approved_producers: set[str] | None = None,
         artifact_dir: Path | None = None,
         evidence_dir: Path | None = None,
+        evidence_index_path: Path | None = None,
         run_id_factory: Any | None = None,
+        revision_provider: Any | None = None,
+        ancestry_checker: Any | None = None,
         command_timeout_seconds: float = 1800,
         validate_metadata: bool = True,
     ) -> None:
@@ -94,10 +111,22 @@ class ProofProducer:
         self.approved_producers = approved_producers or set()
         self.artifact_dir = artifact_dir or root / "target/gate-artifacts/cases"
         self.evidence_dir = evidence_dir or root / "target/gate-artifacts/prove"
+        standalone_output = evidence_dir is not None and evidence_index_path is None
+        self.evidence_index_path = (
+            None
+            if standalone_output
+            else evidence_index_path or root / CANONICAL_EVIDENCE_INDEX
+        )
         self.run_id_factory = run_id_factory or (lambda: uuid.uuid4().hex)
+        self.proof_revision = ProofRevisionSession(
+            root=root,
+            revision_provider=revision_provider,
+            ancestry_checker=ancestry_checker,
+        )
         self.command_timeout_seconds = command_timeout_seconds
 
     def red(self, test_id: str) -> ProofResult:
+        self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         run = self.run_cataloged_command(test_id, test)
 
@@ -128,8 +157,10 @@ class ProofProducer:
         raise ProofError(f"{test_id} is not red", failure_kind="none")
 
     def green(self, test_id: str, red_evidence_id: str) -> ProofResult:
+        self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         red_evidence = self.lookup_red_evidence(red_evidence_id, test_id, test)
+        self.run_provenance_check(self.proof_revision.require_red_before_current, red_evidence)
         run = self.run_cataloged_command(test_id, test)
 
         formerly_red_case_ids = list(red_evidence["red_case_ids"])
@@ -175,6 +206,7 @@ class ProofProducer:
         )
 
     def lock_baseline(self, test_id: str) -> ProofResult:
+        self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         self.require_case_file_backed_test(test_id, test)
         run = self.run_cataloged_command(test_id, test)
@@ -193,6 +225,7 @@ class ProofProducer:
         )
 
     def lock_compare(self, test_id: str, baseline_evidence_id: str) -> ProofResult:
+        self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         self.require_case_file_backed_test(test_id, test)
         baseline = self.lookup_lock_baseline(baseline_evidence_id, test_id, test)
@@ -244,6 +277,9 @@ class ProofProducer:
                 failure_kind="metadata_error",
             )
 
+        case_contract = (
+            load_case_contract(self.root / str(case_file)) if case_file else None
+        )
         artifact_path = self.artifact_dir / f"{test_id}.json" if case_file else None
         if artifact_path and artifact_path.exists():
             artifact_path.unlink()
@@ -290,14 +326,20 @@ class ProofProducer:
         if artifact_path and artifact_path.exists():
             case_artifact_digest = sha256_file(artifact_path)
             artifact = load_json_artifact(artifact_path)
-            expected_case_ids = load_case_ids(self.root / str(case_file))
+            if case_contract is None:
+                raise ProofError(
+                    f"{test_id} case proof contract was not loaded",
+                    failure_kind="metadata_error",
+                )
             failed_case_ids, blocked_case_ids, per_case_summary = validate_case_artifact(
                 artifact=artifact,
                 expected_test_id=test_id,
                 expected_run_id=run_id,
                 expected_artifact_dir=str(self.artifact_dir),
                 expected_case_file_digest=str(case_file_digest),
-                expected_case_ids=expected_case_ids,
+                expected_case_ids=case_contract.case_ids,
+                expected_case_provenance_kind=case_contract.provenance_kind,
+                expected_trace_definition_digest=case_contract.trace_definition_digest,
             )
 
         if case_file and artifact is None:
@@ -383,7 +425,7 @@ class ProofProducer:
     ) -> dict[str, Any]:
         record = self.evidence.get(red_evidence_id)
         if record is None:
-            record = load_generated_evidence(self.evidence_dir / f"{red_evidence_id}.toml", red_evidence_id)
+            record = load_generated_evidence(self.generated_evidence_path(red_evidence_id), red_evidence_id)
         if record.get("proof_kind") not in {"red", "protective_red"}:
             raise ProofError(
                 f"{red_evidence_id} is not red/protective_red proof",
@@ -426,7 +468,7 @@ class ProofProducer:
         record = self.evidence.get(baseline_evidence_id)
         if record is None:
             record = load_generated_evidence(
-                self.evidence_dir / f"{baseline_evidence_id}.toml",
+                self.generated_evidence_path(baseline_evidence_id),
                 baseline_evidence_id,
             )
         if record.get("proof_kind") != "lock_baseline":
@@ -600,7 +642,10 @@ class ProofProducer:
         case_artifact_digest: str | None,
         case_file_digest: str | None,
     ) -> tuple[dict[str, Any], Path]:
-        evidence_path = self.evidence_dir / f"{record_id}.toml"
+        evidence_path = self.evidence_index_path or self.evidence_dir / f"{record_id}.toml"
+        revision = self.proof_revision.active_revision
+        if revision is None:
+            raise ProofError("proof source revision was not acquired", failure_kind="metadata_error")
         record: dict[str, Any] = {
             "schema_version": 1,
             "id": record_id,
@@ -611,7 +656,7 @@ class ProofProducer:
             "kind": "committed_file",
             "path": str(evidence_path.relative_to(self.root)),
             "command": test["command"],
-            "commit": dirty_commit_marker(self.root),
+            "commit": revision,
             "platform": platform.platform(),
             "date": dt.date.today().isoformat(),
             "suite_id": first_or_default(test.get("suite_tiers"), "veryquick"),
@@ -621,6 +666,7 @@ class ProofProducer:
             "linked_tests": [test["id"]],
             "last_reviewed": dt.date.today().isoformat(),
             "proof_kind": proof_kind,
+            "proof_scope": "targeted",
             "failure_kind": failure_kind,
             "trust_verify_run_id": run_id,
             "command_exit_status": command_exit_status,
@@ -639,9 +685,31 @@ class ProofProducer:
         evidence_path: Path,
         artifact_path: Path | None,
     ) -> ProofResult:
-        self.evidence_dir.mkdir(parents=True, exist_ok=True)
-        evidence_path.write_text(render_evidence_record(record))
+        self.run_provenance_check(self.proof_revision.confirm)
+        try:
+            if self.evidence_index_path is not None:
+                append_evidence_record(
+                    root=self.root,
+                    evidence_index_path=self.evidence_index_path,
+                    record=record,
+                )
+            else:
+                self.evidence_dir.mkdir(parents=True, exist_ok=True)
+                evidence_path.write_text(render_evidence_record(record))
+        except ProofOutputError as exc:
+            raise ProofError(str(exc), failure_kind="metadata_error") from exc
         return ProofResult(record=record, evidence_path=evidence_path, artifact_path=artifact_path)
+
+    def run_provenance_check(self, check: Any, *args: Any) -> Any:
+        try:
+            return check(*args)
+        except ProofOutputError as exc:
+            raise ProofError(str(exc), failure_kind="metadata_error") from exc
+
+    def generated_evidence_path(self, evidence_id: str) -> Path:
+        if self.evidence_index_path is not None:
+            return self.evidence_index_path
+        return self.evidence_dir / f"{evidence_id}.toml"
 
 
 def load_validated_metadata() -> Validator:
@@ -683,7 +751,7 @@ def load_generated_evidence(path: Path, evidence_id: str) -> dict[str, Any]:
     raise ProofError(f"paired red evidence file {path} does not contain {evidence_id}", failure_kind="metadata_error")
 
 
-def load_case_ids(path: Path) -> list[str]:
+def load_case_contract(path: Path) -> CaseProofContract:
     try:
         data = tomllib.loads(path.read_text())
     except Exception as exc:
@@ -696,7 +764,34 @@ def load_case_ids(path: Path) -> list[str]:
         if not isinstance(case, dict) or not isinstance(case.get("id"), str):
             raise ProofError(f"case file {path} has a case without id", failure_kind="metadata_error")
         ids.append(case["id"])
-    return ids
+    provenance_kind = data.get(
+        "case_provenance_kind", "generated_decision_table_v1"
+    )
+    if provenance_kind not in {
+        "generated_decision_table_v1",
+        "hand_authored_state_machine_v1",
+    }:
+        raise ProofError(
+            f"case file {path} has unknown case_provenance_kind {provenance_kind!r}",
+            failure_kind="metadata_error",
+        )
+    trace_digest = data.get("trace_definition_digest")
+    if provenance_kind == "generated_decision_table_v1":
+        if trace_digest is not None:
+            raise ProofError(
+                f"generated case file {path} must not name trace_definition_digest",
+                failure_kind="metadata_error",
+            )
+    elif not isinstance(trace_digest, str):
+        raise ProofError(
+            f"hand-authored case file {path} requires trace_definition_digest",
+            failure_kind="metadata_error",
+        )
+    return CaseProofContract(
+        case_ids=ids,
+        provenance_kind=provenance_kind,
+        trace_definition_digest=trace_digest,
+    )
 
 
 def validate_case_artifact(
@@ -707,10 +802,18 @@ def validate_case_artifact(
     expected_artifact_dir: str,
     expected_case_file_digest: str,
     expected_case_ids: list[str],
+    expected_case_provenance_kind: str,
+    expected_trace_definition_digest: str | None,
 ) -> tuple[list[str], list[str], list[str]]:
     require_equal(artifact, "schema_version", 1)
     require_equal(artifact, "test_id", expected_test_id)
     require_equal(artifact, "case_file_digest", expected_case_file_digest)
+    require_equal(
+        artifact, "case_provenance_kind", expected_case_provenance_kind
+    )
+    require_equal(
+        artifact, "trace_definition_digest", expected_trace_definition_digest
+    )
     require_equal(artifact, "trust_verify_test_id", expected_test_id)
     require_equal(artifact, "trust_verify_run_id", expected_run_id)
     require_equal(artifact, "trust_verify_case_file_digest", expected_case_file_digest)
@@ -823,38 +926,6 @@ def first_or_default(value: Any, default: str) -> str:
     if isinstance(value, list) and value:
         return str(value[0])
     return default
-
-
-def dirty_commit_marker(root: Path) -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    head = result.stdout.strip() if result.returncode == 0 else "unknown"
-    return f"dirty:{head[:12]}" if head != "unknown" else "dirty:unknown"
-
-
-def render_evidence_record(record: dict[str, Any]) -> str:
-    lines = ["[[evidence]]"]
-    for key, value in record.items():
-        lines.append(f"{key} = {render_toml_value(value)}")
-    return "\n".join(lines) + "\n"
-
-
-def render_toml_value(value: Any) -> str:
-    if isinstance(value, str):
-        return json.dumps(value)
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, list):
-        return "[" + ", ".join(render_toml_value(item) for item in value) + "]"
-    raise TypeError(f"unsupported TOML evidence value {value!r}")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

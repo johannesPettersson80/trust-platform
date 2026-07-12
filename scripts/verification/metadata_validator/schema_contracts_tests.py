@@ -57,6 +57,20 @@ class SchemaContractsTests(unittest.TestCase):
 
         self.assertIn("schema enum for test_class drifts from validator vocabulary", failures)
 
+    def test_case_file_provenance_schema_drift_is_rejected(self) -> None:
+        schema = load_case_file_schema()
+        self.assertEqual(validate_schema_enums("case-file.schema.json", schema), [])
+        schema["properties"]["case_provenance_kind"]["enum"].append(
+            "unreviewed_generator_v9"
+        )
+
+        failures = validate_schema_enums("case-file.schema.json", schema)
+
+        self.assertIn(
+            "schema enum for case_provenance_kind drifts from validator vocabulary",
+            failures,
+        )
+
     def test_suite_v2_schema_matches_validator_contract(self) -> None:
         schema = load_suite_schema()
 
@@ -119,6 +133,10 @@ def load_catalog_schema() -> dict:
 
 def load_suite_schema() -> dict:
     return json.loads((ROOT / "verification/schemas/suite.schema.json").read_text())
+
+
+def load_case_file_schema() -> dict:
+    return json.loads((ROOT / "verification/schemas/case-file.schema.json").read_text())
 
 
 def load_matrix_schema() -> dict:

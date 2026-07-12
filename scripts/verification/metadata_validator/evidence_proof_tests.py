@@ -8,6 +8,7 @@ from pathlib import Path
 from scripts.verification.metadata_validator.evidence_proof import (
     validate_green_pairing,
     validate_lock_pairing,
+    validate_proof_provenance,
 )
 from scripts.verification.prover import case_result_digest
 
@@ -224,6 +225,62 @@ class EvidenceProofTests(unittest.TestCase):
         )
 
 
+class EvidenceProofProvenanceTests(unittest.TestCase):
+    RED_COMMIT = "1" * 40
+    GREEN_COMMIT = "2" * 40
+
+    def test_valid_red_before_green_provenance_has_no_failures(self) -> None:
+        failures = validate_provenance(
+            green_record(commit=self.GREEN_COMMIT),
+            {"EVID_RED": red_record(commit=self.RED_COMMIT)},
+            known={self.RED_COMMIT, self.GREEN_COMMIT},
+            ancestors={(self.RED_COMMIT, self.GREEN_COMMIT)},
+        )
+
+        self.assertEqual(failures, [])
+
+    def test_proof_records_require_clean_full_commit(self) -> None:
+        for commit in ("dirty:" + "1" * 12, "1" * 12, "not-a-commit"):
+            with self.subTest(commit=commit):
+                failures = validate_provenance(red_record(commit=commit), {})
+
+                self.assertIn("clean full 40-hex commit", failures[0])
+
+    def test_prove_records_require_canonical_durable_path(self) -> None:
+        failures = validate_provenance(
+            red_record(commit=self.RED_COMMIT, path="target/gate-artifacts/prove/EVID_RED.toml"),
+            {},
+            known={self.RED_COMMIT},
+        )
+
+        self.assertIn("path must be verification/evidence-index.toml", failures[0])
+
+    def test_green_rejects_equal_or_non_ancestral_revision(self) -> None:
+        equal = validate_provenance(
+            green_record(commit=self.RED_COMMIT),
+            {"EVID_RED": red_record(commit=self.RED_COMMIT)},
+            known={self.RED_COMMIT},
+            ancestors={(self.RED_COMMIT, self.RED_COMMIT)},
+        )
+        self.assertIn("must use distinct commits", equal[0])
+
+        non_ancestor = validate_provenance(
+            green_record(commit=self.GREEN_COMMIT),
+            {"EVID_RED": red_record(commit=self.RED_COMMIT)},
+            known={self.RED_COMMIT, self.GREEN_COMMIT},
+        )
+        self.assertIn("is not an ancestor", non_ancestor[0])
+
+    def test_proof_rejects_revision_absent_from_repository(self) -> None:
+        failures = validate_provenance(
+            red_record(commit=self.RED_COMMIT),
+            {},
+            known=set(),
+        )
+
+        self.assertIn("does not resolve to a commit", failures[0])
+
+
 def validate(
     record: dict[str, object],
     evidence: dict[str, dict[str, object]],
@@ -274,9 +331,33 @@ def validate_lock(
     return failures
 
 
+def validate_provenance(
+    record: dict[str, object],
+    evidence: dict[str, dict[str, object]],
+    *,
+    known: set[str] | None = None,
+    ancestors: set[tuple[str, str]] | None = None,
+) -> list[str]:
+    failures: list[str] = []
+    known_revisions = known or set()
+    ancestor_pairs = ancestors or set()
+    validate_proof_provenance(
+        fail=lambda _path, message: failures.append(message),
+        path=Path("verification/evidence-index.toml"),
+        record=record,
+        evidence=evidence,
+        revision_exists=lambda commit: commit in known_revisions,
+        is_ancestor=lambda before, after: (before, after) in ancestor_pairs,
+    )
+    return failures
+
+
 def green_record(**overrides: object) -> dict[str, object]:
     record: dict[str, object] = {
         "id": "EVID_GREEN",
+        "kind": "committed_file",
+        "path": "verification/evidence-index.toml",
+        "commit": "2" * 40,
         "proof_kind": "green",
         "producer": "prove.py v1",
         "linked_tests": ["TEST_RED"],
@@ -293,6 +374,9 @@ def green_record(**overrides: object) -> dict[str, object]:
 def red_record(**overrides: object) -> dict[str, object]:
     record: dict[str, object] = {
         "id": "EVID_RED",
+        "kind": "committed_file",
+        "path": "verification/evidence-index.toml",
+        "commit": "1" * 40,
         "proof_kind": "red",
         "producer": "prove.py v1",
         "failure_kind": "assertion_failure",

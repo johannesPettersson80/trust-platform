@@ -23,7 +23,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
-case_file_digest = "sha256:af1abd62b9bda503e96aab288ce64ff0b87a361cd4af7071693fb68ea0045d2c"
+case_file_digest = "sha256:4ad6489804038221e6b11933c6caef5a697d6ae3db95eeffcdc6fbfa55a8d587"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -46,7 +46,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:d0de75ab798c3e375c5372638ee3483347404eda400274e75906f9152658edda"
+case_file_digest = "sha256:4c4c8e985fc390629b4828ef5cac4caf39af29d93484a1c71ff5a977a2b3e13a"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -69,7 +69,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:5bbeb8964eaa27c74e9efeba3510983b84ba1bc5d7844e27b7364f405d81cfdd"
+case_file_digest = "sha256:592ef6e4dba143c10e72b0c75fa868acec0af01dc01d942e240f394688af0ff6"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -92,7 +92,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:7f0a574272871cfa13fdb93e76d2ca85980849762385bfa3ae16f2e0801fe085"
+case_file_digest = "sha256:8617e0a7385af749e13286271b78d082049f7f7a24aa886dc99034737502d380"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -141,7 +141,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:7f0a574272871cfa13fdb93e76d2ca85980849762385bfa3ae16f2e0801fe085"
+case_file_digest = "sha256:8617e0a7385af749e13286271b78d082049f7f7a24aa886dc99034737502d380"
 mutation_shard_id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
 mutation_runner = "bytecode-validator-mutation.py v1"
 mutation_tool = "cargo-mutants-single-file-adapter"

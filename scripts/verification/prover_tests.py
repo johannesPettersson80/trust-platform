@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import textwrap
+import tomllib
 import unittest
 from pathlib import Path
 
-from scripts.verification.prover import ProofError, ProofProducer, case_result_digest, sha256_file
+from scripts.verification.prover import (
+    ProofError,
+    ProofProducer,
+    case_result_digest,
+    sha256_file,
+    validate_case_artifact,
+)
 
 
 class RedProofProducerTests(unittest.TestCase):
@@ -21,11 +29,101 @@ class RedProofProducerTests(unittest.TestCase):
             result = fx.prover().red("TEST_RED")
 
             self.assertEqual(result.record["proof_kind"], "red")
+            self.assertEqual(result.record["proof_scope"], "targeted")
             self.assertEqual(result.record["failure_kind"], "assertion_failure")
             self.assertEqual(result.record["red_case_ids"], ["CASE_FAIL"])
             self.assertEqual(result.record["linked_tests"], ["TEST_RED"])
             self.assertEqual(result.record["case_file_digest"], fx.case_digest)
             self.assertTrue(result.evidence_path.exists())
+
+
+class DurableProofProducerTests(unittest.TestCase):
+    def test_red_appends_producer_record_to_tracked_evidence_index(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("failed", exit_code=1)
+            fx.initialize_git()
+
+            result = fx.default_durable_prover().red("TEST_RED")
+
+            self.assertEqual(result.evidence_path, fx.verification / "evidence-index.toml")
+            records = tomllib.loads(result.evidence_path.read_text())["evidence"]
+            self.assertEqual(records[-1], result.record)
+            self.assertEqual(result.record["path"], "verification/evidence-index.toml")
+            self.assertEqual(result.record["proof_scope"], "targeted")
+            self.assertEqual(result.record["commit"], fx.git("rev-parse", "HEAD"))
+            self.assertRegex(result.record["commit"], r"^[0-9a-f]{40}$")
+
+    def test_red_refuses_dirty_tree_before_running_test(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("failed", exit_code=1)
+            fx.initialize_git()
+            original_index = (fx.verification / "evidence-index.toml").read_bytes()
+            (fx.root / "unrelated.txt").write_text("dirty\n")
+
+            with self.assertRaisesRegex(ProofError, "clean Git worktree"):
+                fx.default_durable_prover().red("TEST_RED")
+
+            self.assertEqual((fx.verification / "evidence-index.toml").read_bytes(), original_index)
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
+
+class CaseArtifactProvenanceTests(unittest.TestCase):
+    def test_hand_authored_trace_digest_mismatch_is_rejected(self) -> None:
+        artifact = {
+            "schema_version": 1,
+            "test_id": "TEST_TRACE",
+            "case_file_digest": "sha256:cases",
+            "case_provenance_kind": "hand_authored_state_machine_v1",
+            "trace_definition_digest": "sha256:" + "b" * 64,
+            "trust_verify_test_id": "TEST_TRACE",
+            "trust_verify_run_id": "run-trace",
+            "trust_verify_case_file_digest": "sha256:cases",
+            "trust_verify_artifact_dir": "target/trace",
+            "cases": [{"id": "CASE_TRACE", "result": "passed"}],
+        }
+
+        with self.assertRaisesRegex(ProofError, "trace_definition_digest mismatch"):
+            validate_case_artifact(
+                artifact=artifact,
+                expected_test_id="TEST_TRACE",
+                expected_run_id="run-trace",
+                expected_artifact_dir="target/trace",
+                expected_case_file_digest="sha256:cases",
+                expected_case_ids=["CASE_TRACE"],
+                expected_case_provenance_kind="hand_authored_state_machine_v1",
+                expected_trace_definition_digest="sha256:" + "a" * 64,
+            )
+
+    def test_green_requires_and_records_a_later_descendant_commit(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("failed", exit_code=1)
+            fx.initialize_git()
+            red = fx.default_durable_prover().red("TEST_RED")
+            red_revision = red.record["commit"]
+            fx.git("add", "verification/evidence-index.toml")
+            fx.git("commit", "-qm", "record red proof")
+            fx.add_writer("passed", exit_code=0)
+            fx.git("add", "writer.py")
+            fx.git("commit", "-qm", "fix behavior")
+
+            green = fx.default_durable_prover().green("TEST_RED", red.record["id"])
+
+            self.assertNotEqual(green.record["commit"], red_revision)
+            self.assertEqual(
+                fx.git("merge-base", "--is-ancestor", str(red_revision), str(green.record["commit"])),
+                "",
+            )
+            records = tomllib.loads(green.evidence_path.read_text())["evidence"]
+            self.assertEqual(records[-1], green.record)
+
+
+class RedProofProducerAdditionalTests(unittest.TestCase):
 
     def test_stale_artifact_is_removed_and_cannot_be_red(self) -> None:
         with fixture() as fx:
@@ -52,6 +150,18 @@ class RedProofProducerTests(unittest.TestCase):
 
             self.assertEqual(raised.exception.failure_kind, "metadata_error")
             self.assertIn("TRUST_VERIFY_RUN_ID", str(raised.exception))
+
+    def test_case_provenance_mismatch_is_rejected(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("wrong_provenance", exit_code=1)
+
+            with self.assertRaises(ProofError) as raised:
+                fx.prover().red("TEST_RED")
+
+            self.assertEqual(raised.exception.failure_kind, "metadata_error")
+            self.assertIn("case_provenance_kind mismatch", str(raised.exception))
 
     def test_non_artifact_command_failure_is_not_red(self) -> None:
         with fixture() as fx:
@@ -558,9 +668,35 @@ class fixture:
         self.case_file = self.case_dir / "TEST_CASES.toml"
         self.case_digest = ""
         self.run_id_counter = 0
+        self.proof_revision_counter = 0
         self.tests: dict[str, dict[str, object]] = {}
         self.ignored: dict[str, dict[str, object]] = {}
         return self
+
+    def initialize_git(self) -> None:
+        (self.root / ".gitignore").write_text("/target/\n")
+        (self.verification / "evidence-index.toml").write_text(
+            "[[evidence]]\n"
+            'schema_version = 1\n'
+            'id = "EVID_EXISTING"\n'
+            'proof_kind = "none"\n'
+        )
+        self.git("init", "-q")
+        self.git("config", "user.email", "verification@example.invalid")
+        self.git("config", "user.name", "Verification Tests")
+        self.git("add", ".")
+        self.git("commit", "-qm", "fixture")
+
+    def git(self, *args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=self.root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+        return result.stdout.strip()
 
     def __exit__(self, *exc: object) -> None:
         self.temp.cleanup()
@@ -653,7 +789,7 @@ class fixture:
             "kind": "committed_file",
             "path": f"target/gate-artifacts/prove/{evidence_id}.toml",
             "command": "python3 writer.py",
-            "commit": "dirty:abcdef1",
+            "commit": "f" * 40,
             "platform": "test",
             "date": "2026-07-09",
             "suite_id": "veryquick",
@@ -704,7 +840,7 @@ class fixture:
             "kind": "committed_file",
             "path": f"target/gate-artifacts/prove/{evidence_id}.toml",
             "command": command,
-            "commit": "dirty:abcdef1",
+            "commit": "f" * 40,
             "platform": "test",
             "date": "2026-07-09",
             "suite_id": "veryquick",
@@ -777,6 +913,12 @@ class fixture:
                         "case_file": "verification/cases/bytecode_vm/TEST_CASES.toml",
                         "case_file_digest": os.environ["TRUST_VERIFY_CASE_FILE_DIGEST"],
                         "helper_version": "test-helper",
+                        "case_provenance_kind": (
+                            "hand_authored_state_machine_v1"
+                            if mode == "wrong_provenance"
+                            else "generated_decision_table_v1"
+                        ),
+                        "trace_definition_digest": None,
                         "trust_verify_test_id": os.environ["TRUST_VERIFY_TEST_ID"],
                         "trust_verify_run_id": run_id,
                         "trust_verify_case_file_digest": os.environ["TRUST_VERIFY_CASE_FILE_DIGEST"],
@@ -809,6 +951,8 @@ class fixture:
                     "case_file": "verification/cases/bytecode_vm/TEST_CASES.toml",
                     "case_file_digest": self.case_digest,
                     "helper_version": "test-helper",
+                    "case_provenance_kind": "generated_decision_table_v1",
+                    "trace_definition_digest": None,
                     "trust_verify_test_id": "TEST_RED",
                     "trust_verify_run_id": run_id,
                     "trust_verify_case_file_digest": self.case_digest,
@@ -818,7 +962,14 @@ class fixture:
             )
         )
 
-    def prover(self, *, command_timeout_seconds: float = 120) -> ProofProducer:
+    def prover(
+        self,
+        *,
+        command_timeout_seconds: float = 120,
+        durable: bool = False,
+    ) -> ProofProducer:
+        self.proof_revision_counter += 1
+        proof_revision = f"{self.proof_revision_counter:040x}"
         return ProofProducer(
             root=self.root,
             tests=self.tests,
@@ -826,8 +977,23 @@ class fixture:
             evidence={},
             artifact_dir=self.artifact_dir,
             evidence_dir=self.evidence_dir,
+            evidence_index_path=(self.verification / "evidence-index.toml") if durable else None,
+            revision_provider=None if durable else (lambda: proof_revision),
+            ancestry_checker=None if durable else (lambda _before, _after: True),
             run_id_factory=self.next_run_id,
             command_timeout_seconds=command_timeout_seconds,
+            validate_metadata=False,
+        )
+
+    def default_durable_prover(self) -> ProofProducer:
+        return ProofProducer(
+            root=self.root,
+            tests=self.tests,
+            ignored_tests=self.ignored,
+            evidence={},
+            artifact_dir=self.artifact_dir,
+            run_id_factory=self.next_run_id,
+            command_timeout_seconds=120,
             validate_metadata=False,
         )
 

@@ -11,15 +11,65 @@
     "owner",
     "status",
     "invariant",
-    "generator",
-    "generator_digest",
     "source_digest",
     "last_reviewed",
     "case"
   ],
   "properties": {
     "schema_version": { "const": 1 },
-    "case": { "type": "array" }
+    "case_provenance_kind": {
+      "enum": [
+        "generated_decision_table_v1",
+        "hand_authored_state_machine_v1"
+      ]
+    },
+    "generator": { "const": "gen_cases.py v1" },
+    "generator_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "source_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "trace_definition_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "case": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "trace": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/traceStep" }
+          }
+        }
+      }
+    }
   },
+  "$defs": {
+    "traceStep": {
+      "type": "object",
+      "required": ["sequence", "stimulus", "expected", "oracle_ref"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 0 },
+        "stimulus": { "type": "object", "minProperties": 1 },
+        "expected": { "type": "object", "minProperties": 1 },
+        "oracle_ref": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["generator", "generator_digest"],
+      "properties": {
+        "case_provenance_kind": { "const": "generated_decision_table_v1" }
+      },
+      "not": { "required": ["trace_definition_digest"] }
+    },
+    {
+      "required": ["case_provenance_kind", "trace_definition_digest"],
+      "properties": {
+        "case_provenance_kind": { "const": "hand_authored_state_machine_v1" },
+        "generator": false,
+        "generator_digest": false
+      }
+    }
+  ],
   "additionalProperties": true
 }

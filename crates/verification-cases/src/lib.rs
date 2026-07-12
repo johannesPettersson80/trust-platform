@@ -13,11 +13,18 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+mod case_trace;
+mod model;
+mod stamp;
+
+use case_trace::validate_case_file_provenance;
+pub use case_trace::{TraceStep, GENERATED_DECISION_TABLE_V1, HAND_AUTHORED_STATE_MACHINE_V1};
+pub use model::{
+    CaseArtifactEntry, CaseExecution, CaseFile, CaseRecord, CaseResult, CaseRunArtifact,
+};
+use stamp::read_trust_verify_stamp;
+
 pub const HELPER_VERSION: &str = "verification-cases v1";
-const TRUST_VERIFY_TEST_ID: &str = "TRUST_VERIFY_TEST_ID";
-const TRUST_VERIFY_RUN_ID: &str = "TRUST_VERIFY_RUN_ID";
-const TRUST_VERIFY_CASE_FILE_DIGEST: &str = "TRUST_VERIFY_CASE_FILE_DIGEST";
-const TRUST_VERIFY_ARTIFACT_DIR: &str = "TRUST_VERIFY_ARTIFACT_DIR";
 
 #[macro_export]
 macro_rules! run_case_file {
@@ -91,83 +98,6 @@ pub struct StateSnapshot {
     pub diagnostics: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct CaseFile {
-    pub schema_version: u32,
-    pub id: String,
-    pub title: String,
-    pub area: String,
-    pub owner: String,
-    pub status: String,
-    pub invariant: String,
-    pub generator: String,
-    pub generator_digest: String,
-    pub source_digest: String,
-    pub last_reviewed: String,
-    #[serde(rename = "case")]
-    pub cases: Vec<CaseRecord>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct CaseRecord {
-    pub id: String,
-    pub family: String,
-    pub input: BTreeMap<String, toml::Value>,
-    pub state: Option<String>,
-    pub spec_gap_ref: Option<String>,
-    pub expect: Option<toml::Value>,
-}
-
-impl CaseRecord {
-    #[must_use]
-    pub fn is_blocked(&self) -> bool {
-        self.state.as_deref() == Some("blocked")
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CaseResult {
-    Passed,
-    Failed,
-    Skipped,
-    Blocked,
-}
-
-#[derive(Clone, Debug)]
-pub struct CaseExecution {
-    pub result: CaseResult,
-    pub observed_error: Option<String>,
-    pub observed_status: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct CaseRunArtifact {
-    pub schema_version: u32,
-    pub test_id: String,
-    pub case_file: String,
-    pub case_file_digest: String,
-    pub helper_version: String,
-    pub trust_verify_test_id: Option<String>,
-    pub trust_verify_run_id: Option<String>,
-    pub trust_verify_case_file_digest: Option<String>,
-    pub trust_verify_artifact_dir: Option<String>,
-    pub cases: Vec<CaseArtifactEntry>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct CaseArtifactEntry {
-    pub id: String,
-    pub family: String,
-    pub result: CaseResult,
-    pub spec_gap_ref: Option<String>,
-    pub observed_error: Option<String>,
-    pub observed_status: Option<String>,
-    pub state_delta: Option<String>,
-    pub before: Option<StateSnapshot>,
-    pub after: Option<StateSnapshot>,
-}
-
 #[derive(Debug, Error)]
 pub enum CaseRunError {
     #[error("failed to read case file {path}: {source}")]
@@ -186,6 +116,8 @@ pub enum CaseRunError {
     DigestMismatch { expected: String, actual: String },
     #[error("unsupported case file schema_version {actual}; expected 1")]
     UnsupportedSchemaVersion { actual: u32 },
+    #[error("invalid case-file provenance: {message}")]
+    InvalidCaseProvenance { message: String },
     #[error("incomplete TRUST_VERIFY environment; missing {missing}")]
     IncompleteTrustVerifyStamp { missing: String },
     #[error("TRUST_VERIFY environment variable {name} is not valid UTF-8")]
@@ -254,6 +186,8 @@ where
             actual: case_file.schema_version,
         });
     }
+    let (case_provenance_kind, trace_definition_digest) =
+        validate_case_file_provenance(&case_file)?;
     let stamp = read_trust_verify_stamp(config, &digest)?;
 
     let mut entries = Vec::with_capacity(case_file.cases.len());
@@ -267,6 +201,8 @@ where
         case_file: config.case_file.to_string_lossy().into_owned(),
         case_file_digest: digest,
         helper_version: HELPER_VERSION.to_string(),
+        case_provenance_kind,
+        trace_definition_digest,
         trust_verify_test_id: stamp.test_id,
         trust_verify_run_id: stamp.run_id,
         trust_verify_case_file_digest: stamp.case_file_digest,
@@ -294,104 +230,6 @@ pub fn case_file_digest(path: impl AsRef<Path>) -> Result<String, CaseRunError> 
 fn digest_bytes(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("sha256:{digest:x}")
-}
-
-#[derive(Default)]
-struct TrustVerifyStamp {
-    test_id: Option<String>,
-    run_id: Option<String>,
-    case_file_digest: Option<String>,
-    artifact_dir: Option<String>,
-}
-
-fn read_trust_verify_stamp(
-    config: &RunConfig,
-    case_file_digest: &str,
-) -> Result<TrustVerifyStamp, CaseRunError> {
-    let test_id = read_stamp_env(TRUST_VERIFY_TEST_ID)?;
-    let run_id = read_stamp_env(TRUST_VERIFY_RUN_ID)?;
-    let digest = read_stamp_env(TRUST_VERIFY_CASE_FILE_DIGEST)?;
-    let artifact_dir = read_stamp_env(TRUST_VERIFY_ARTIFACT_DIR)?;
-
-    let present = [
-        test_id.is_some(),
-        run_id.is_some(),
-        digest.is_some(),
-        artifact_dir.is_some(),
-    ];
-    if present.iter().all(|present| !present) {
-        return Ok(TrustVerifyStamp::default());
-    }
-    if present.iter().any(|present| !present) {
-        let mut missing = Vec::new();
-        if test_id.is_none() {
-            missing.push(TRUST_VERIFY_TEST_ID);
-        }
-        if run_id.is_none() {
-            missing.push(TRUST_VERIFY_RUN_ID);
-        }
-        if digest.is_none() {
-            missing.push(TRUST_VERIFY_CASE_FILE_DIGEST);
-        }
-        if artifact_dir.is_none() {
-            missing.push(TRUST_VERIFY_ARTIFACT_DIR);
-        }
-        return Err(CaseRunError::IncompleteTrustVerifyStamp {
-            missing: missing.join(", "),
-        });
-    }
-
-    let test_id = required_stamp_value(test_id, TRUST_VERIFY_TEST_ID)?;
-    let run_id = required_stamp_value(run_id, TRUST_VERIFY_RUN_ID)?;
-    let digest = required_stamp_value(digest, TRUST_VERIFY_CASE_FILE_DIGEST)?;
-    let artifact_dir = required_stamp_value(artifact_dir, TRUST_VERIFY_ARTIFACT_DIR)?;
-
-    require_stamp_match(TRUST_VERIFY_TEST_ID, &config.test_id, &test_id)?;
-    require_stamp_match(TRUST_VERIFY_CASE_FILE_DIGEST, case_file_digest, &digest)?;
-    let expected_artifact_dir = config.artifact_dir.to_string_lossy();
-    require_stamp_match(
-        TRUST_VERIFY_ARTIFACT_DIR,
-        expected_artifact_dir.as_ref(),
-        &artifact_dir,
-    )?;
-
-    Ok(TrustVerifyStamp {
-        test_id: Some(test_id),
-        run_id: Some(run_id),
-        case_file_digest: Some(digest),
-        artifact_dir: Some(artifact_dir),
-    })
-}
-
-fn read_stamp_env(name: &'static str) -> Result<Option<String>, CaseRunError> {
-    std::env::var_os(name)
-        .map(|value| {
-            value
-                .into_string()
-                .map_err(|_| CaseRunError::InvalidTrustVerifyStamp { name })
-        })
-        .transpose()
-}
-
-fn require_stamp_match(
-    name: &'static str,
-    expected: &str,
-    actual: &str,
-) -> Result<(), CaseRunError> {
-    if expected == actual {
-        return Ok(());
-    }
-    Err(CaseRunError::TrustVerifyStampMismatch {
-        name,
-        expected: expected.to_string(),
-        actual: actual.to_string(),
-    })
-}
-
-fn required_stamp_value(value: Option<String>, name: &'static str) -> Result<String, CaseRunError> {
-    value.ok_or_else(|| CaseRunError::IncompleteTrustVerifyStamp {
-        missing: name.to_string(),
-    })
 }
 
 fn run_one_case<P, E, F>(
@@ -600,6 +438,8 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
         let written = fs::read_to_string(dir.join("artifacts/TEST_RUNNABLE.json")).unwrap();
         assert!(written.contains("\"case_file_digest\""));
         assert!(written.contains("\"helper_version\""));
+        assert_eq!(artifact.case_provenance_kind, "generated_decision_table_v1");
+        assert_eq!(artifact.trace_definition_digest, None);
     }
 
     #[test]

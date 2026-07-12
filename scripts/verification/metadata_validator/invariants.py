@@ -28,6 +28,7 @@ from .oracle_refs import (
     validate_partition_contract,
 )
 from .integrity import OPEN_GAP_RESOLUTIONS
+from .promotion_evidence import validate_invariant_promotion_evidence
 
 Fail = Callable[[Path, str], None]
 Require = Callable[[Path, dict[str, Any], list[str], str], None]
@@ -146,6 +147,13 @@ def validate_invariants(
             evidence,
             "evidence",
             record["id"],
+        )
+        validate_invariant_promotion_evidence(
+            fail=fail,
+            path=path,
+            invariant=record,
+            evidence=evidence,
+            approved_producers=approved_producers,
         )
         check_refs(
             path,

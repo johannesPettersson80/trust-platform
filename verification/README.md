@@ -15,6 +15,8 @@ Current seed scope:
 - first public-docs claim scan with explicit gaps,
 - exhaustive code-area planning and changed-file routing for `plan_tests.py`.
 - bytecode/VM-only decision-table case generator pilot for `gen_cases.py`.
+- validated hand-authored state-machine trace provenance for cases that cannot
+  honestly use `gen_cases.py v1`.
 - bytecode/VM-only transform seed artifacts under `verification/seeds/**`.
 - bytecode-validator-only mutation shard metadata and survivor reporting for
   `VERIF-P1B-013`.
@@ -77,8 +79,21 @@ TOML shape convention:
   committed case tables. It records blocked cases without execution, wraps
   runnable cases with `StateProbe` snapshots, and writes JSON artifacts under
   the workspace-root `target/gate-artifacts/cases/`. It requires the cataloged
-  case-file digest before execution. It does not create durable evidence;
-  `prove.py` owns that later phase.
+  case-file digest before execution. Generated decision tables retain exact
+  generator provenance; hand-authored state-machine cases carry closed ordered
+  trace steps plus a canonical trace-definition digest. Artifacts copy the
+  provenance kind and trace digest. The helper does not create durable evidence;
+  `prove.py` owns that phase.
+- Production `prove.py red|green|lock` refuses a dirty tree, records the clean
+  full HEAD SHA, and appends producer-authentic proof directly to the tracked
+  `verification/evidence-index.toml`. It checks the tree again after the
+  cataloged command, binds artifact provenance, and requires a distinct
+  descendant green commit from the paired red commit. All proof-producing rows
+  use `proof_scope = "targeted"`.
+- Invariant promotion is evidence-bound: `test_written` needs targeted red,
+  `implemented`/`G1` needs targeted green or lock, `G2` also needs an approved
+  successful broad remote gate, and `R1` also needs an approved release object.
+  These rules do not promote any existing record or change report-only CI.
 - `scripts/verification_report_gate.py` is the report-only CI front door during
   pilot burn-in. It runs the metadata/case-file gate, re-derives planner output
   for changed files, and reports uncataloged changed tests without enforcing

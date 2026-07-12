@@ -9,10 +9,22 @@
     "case_file",
     "case_file_digest",
     "helper_version",
+    "case_provenance_kind",
+    "trace_definition_digest",
     "cases"
   ],
   "properties": {
     "schema_version": { "const": 1 },
+    "case_provenance_kind": {
+      "enum": [
+        "generated_decision_table_v1",
+        "hand_authored_state_machine_v1"
+      ]
+    },
+    "trace_definition_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "trust_verify_test_id": { "type": ["string", "null"] },
     "trust_verify_run_id": { "type": ["string", "null"] },
     "trust_verify_case_file_digest": { "type": ["string", "null"] },

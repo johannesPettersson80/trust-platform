@@ -1134,8 +1134,11 @@ reviewed runtime-safety denominator records a disposition for every fact.
 ### Case File
 
 Case files are committed data under `verification/cases/<area>/*.toml`. They are
-not a new source of product truth; they are derived from invariant behavior rows
-or from deterministic mechanical transforms of a committed seed artifact.
+not a new source of product truth. `generated_decision_table_v1` files are
+derived from invariant behavior rows or deterministic mechanical transforms of
+a committed seed artifact. `hand_authored_state_machine_v1` files copy reviewed
+ordered stimuli and expected states from oracle-backed behavior without claiming
+`gen_cases.py` provenance.
 
 ```toml
 schema_version = 1
@@ -1145,6 +1148,7 @@ area = "bytecode_vm"
 owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_SUBRANGE_001"
+case_provenance_kind = "generated_decision_table_v1"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:<generator-source-digest>"
 source_digest = "sha256:<invariant-record-digest>"
@@ -1172,8 +1176,9 @@ Required fields:
 - `owner`
 - `status`
 - `invariant`
-- `generator`
-- `generator_digest`
+- `case_provenance_kind` when the legacy generated default is not used
+- `generator` and `generator_digest` for `generated_decision_table_v1`, or
+  `trace_definition_digest` for `hand_authored_state_machine_v1`
 - `source_digest`
 - `last_reviewed`
 - each `case.id`
@@ -1195,6 +1200,17 @@ Case rules:
   such as `WSTRING` or `BOOL_TO_REAL_SLOT` as literal test values.
 - Transform-backed case files must name the committed seed artifact and
   generator. `gen_cases.py --check` must reproduce the committed table exactly.
+- Hand-authored state-machine files require a `state_machine` invariant. Each
+  runnable case carries a non-empty ordered `trace`; every step has exactly
+  `sequence`, non-empty `stimulus`, non-empty `expected`, and `oracle_ref`.
+  Sequence numbers are contiguous from zero, trace values are finite canonical
+  JSON values, and every oracle ref resolves to an active eligible source.
+- The trace-definition digest is SHA-256 over canonical case IDs and trace
+  definitions and is recomputed independently by the metadata validator and
+  `verification-cases`. A blocked row may omit its trace only while its existing
+  `spec_gap_ref` remains open; it cannot contribute to red/green closure.
+- Generated provenance forbids trace fields. Hand-authored provenance forbids
+  `generator` and `generator_digest`; relabeling one mode as the other fails.
 
 ### Case Artifact
 
@@ -1215,6 +1231,8 @@ Required fields:
 - `case_file`
 - `case_file_digest`
 - `helper_version`
+- `case_provenance_kind`
+- `trace_definition_digest` (`null` for generated decision tables)
 - `trust_verify_test_id`, `trust_verify_run_id`,
   `trust_verify_case_file_digest`, and `trust_verify_artifact_dir` when
   `prove.py` exports the matching `TRUST_VERIFY_*` environment variables
@@ -1229,6 +1247,9 @@ artifact, `prove.py` must verify the stamped values before accepting the
 artifact. The helper fails before case execution when only some stamp variables
 are present or when stamped `TEST_ID`, case-file digest, or artifact directory
 does not match the current run configuration.
+`prove.py` additionally requires the artifact's provenance kind and trace digest
+to equal the committed case file. The case-file digest still binds the complete
+source; the explicit fields prevent one case mode from impersonating another.
 
 For `prove.py lock`, the raw case-artifact digest is provenance only because
 freshness stamps intentionally change between runs. The stable behavior-lock

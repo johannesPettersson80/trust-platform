@@ -26,13 +26,21 @@ from .constants import (
     GAP_CLASSES,
     PROOF_KINDS,
     PROOF_LEVELS,
+    PROOF_SCOPES,
     RISKS,
     STATUSES,
     TEST_CLASSES,
 )
+from .case_trace_contract import CASE_PROVENANCE_KINDS
 
 
 SCHEMA_ENUM_EXPECTATIONS = {
+    "case-artifact.schema.json": {
+        "case_provenance_kind": CASE_PROVENANCE_KINDS,
+    },
+    "case-file.schema.json": {
+        "case_provenance_kind": CASE_PROVENANCE_KINDS,
+    },
     "catalog.schema.json": {
         "subject_kind": SUBJECT_KINDS,
         "discovery_source_kind": GENERATED_SOURCE_KINDS,
@@ -41,6 +49,7 @@ SCHEMA_ENUM_EXPECTATIONS = {
     "evidence.schema.json": {
         "kind": EVIDENCE_KINDS,
         "proof_kind": PROOF_KINDS,
+        "proof_scope": PROOF_SCOPES,
     },
     "ignored-test.schema.json": {
         "area": AREAS,

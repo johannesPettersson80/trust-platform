@@ -27,6 +27,7 @@
     "linked_tests": { "type": "array", "items": { "type": "string" } },
     "linked_spec_gaps": { "type": "array", "items": { "type": "string" } },
     "proof_kind": { "enum": ["red", "green", "lock_baseline", "lock_compare", "protective_red", "none"] },
+    "proof_scope": { "enum": ["targeted", "broad_remote_gate", "release_public"] },
     "failure_kind": { "type": "string" },
     "case_artifact_path": { "type": "string" },
     "case_artifact_digest": { "type": "string" },

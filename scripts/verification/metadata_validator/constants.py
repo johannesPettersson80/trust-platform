@@ -214,6 +214,7 @@ TEST_CLASSES = {
 }
 EVIDENCE_KINDS = {"committed_file", "ci_artifact", "release_object", "lab_report"}
 PROOF_KINDS = {"red", "green", "lock_baseline", "lock_compare", "protective_red", "none"}
+PROOF_SCOPES = {"targeted", "broad_remote_gate", "release_public"}
 SCHEMA_FILES = {
     "bytecode-validator-mutation-report.schema.json",
     "invariant.schema.json",
@@ -265,6 +266,8 @@ SCHEMA_REQUIRED_FIELDS = {
         "case_file",
         "case_file_digest",
         "helper_version",
+        "case_provenance_kind",
+        "trace_definition_digest",
         "cases",
     ],
     "case-file.schema.json": [
@@ -275,8 +278,6 @@ SCHEMA_REQUIRED_FIELDS = {
         "owner",
         "status",
         "invariant",
-        "generator",
-        "generator_digest",
         "source_digest",
         "last_reviewed",
         "case",

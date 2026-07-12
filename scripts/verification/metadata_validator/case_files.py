@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from ..case_digests import current_generator_digest, file_digest
 
+from .case_trace_contract import validate_case_provenance
 from .constants import CASE_FAMILIES, OUTCOMES, ROOT, SCHEMA_REQUIRED_FIELDS
 from .oracle_refs import validate_oracle_ref
 
@@ -54,17 +55,17 @@ def validate_case_file(
         fail(path, f"{test_record['id']} case_file area does not match invariant area")
 
     expected_generator_digest = current_generator_digest()
-    if case_data.get("generator_digest") != expected_generator_digest:
-        fail(
-            path,
-            f"{test_record['id']} case_file generator_digest mismatch: expected {expected_generator_digest}, actual {case_data.get('generator_digest')}",
-        )
     expected_source_digest = file_digest(invariant["_path"])
-    if case_data.get("source_digest") != expected_source_digest:
-        fail(
-            path,
-            f"{test_record['id']} case_file source_digest mismatch: expected {expected_source_digest}, actual {case_data.get('source_digest')}",
-        )
+    validate_case_provenance(
+        fail=fail,
+        path=path,
+        test_id=test_record["id"],
+        case_data=case_data,
+        invariant=invariant,
+        spec_sources=spec_sources,
+        expected_generator_digest=expected_generator_digest,
+        expected_source_digest=expected_source_digest,
+    )
 
     cases = case_data.get("case")
     if not isinstance(cases, list) or not cases:

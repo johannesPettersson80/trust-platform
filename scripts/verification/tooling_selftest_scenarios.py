@@ -289,6 +289,8 @@ def proof_skipped_case_artifact() -> RawResult:
         "schema_version": 1,
         "test_id": "TEST_P6A",
         "case_file_digest": "sha256:cases",
+        "case_provenance_kind": "generated_decision_table_v1",
+        "trace_definition_digest": None,
         "trust_verify_test_id": "TEST_P6A",
         "trust_verify_run_id": "run-p6a",
         "trust_verify_case_file_digest": "sha256:cases",
@@ -303,6 +305,8 @@ def proof_skipped_case_artifact() -> RawResult:
             expected_artifact_dir="target/p6a",
             expected_case_file_digest="sha256:cases",
             expected_case_ids=["CASE_P6A"],
+            expected_case_provenance_kind="generated_decision_table_v1",
+            expected_trace_definition_digest=None,
         )
     except ProofError as exc:
         return RawResult("reject", str(exc))
@@ -449,6 +453,8 @@ def _proof_red_classification(
             evidence={},
             artifact_dir=root / "artifacts",
             evidence_dir=evidence_dir,
+            revision_provider=lambda: "a" * 40,
+            ancestry_checker=lambda _before, _after: True,
             validate_metadata=False,
         )
         run = CommandRun(

@@ -48,6 +48,8 @@ This is a SQLite-style proof discipline adapted to PLC risk:
 - `verification-areas.md`: domain ownership, invariant classes, harnesses, and
   initial high-risk invariant seeds.
 - `implementation-board.md`: staged implementation checklist.
+- `execution-slice-001.md`: Phase 16 readiness and the queued first
+  spec-to-green product vertical.
 - `fable-review-brief.md`: prompt and acceptance criteria for external review.
 - `../plc-verification-program-checklist.md`: short entrypoint that points here.
 
@@ -102,7 +104,9 @@ Spec-first planner pilot:
   rows or deterministic bytecode transforms; it never invents expected behavior.
 - `prove.py red|green|lock` runs cataloged commands and writes evidence records
   itself, using per-case artifacts emitted by the dev-only
-  `verification-cases` helper.
+  `verification-cases` helper. Phase 16 first closes clean/durable proof,
+  state-machine trace provenance, and evidence-bound promotion contracts before
+  any product execution.
 - Scenario/fault families such as SIGTERM, worker down, slow handshakes, and
   hardware reconnect stay out of v1 case generation until the Phase 8
   fault-injection harness exists.
@@ -124,7 +128,9 @@ Still binding during implementation:
   (`VERIF-STOP-002`),
 - nothing is marked `validated` without tests, evidence, and closed safety
   coverage cells,
-- no runtime/compiler/LSP behavior changes from this board.
+- no runtime/compiler/LSP behavior changes in control-plane Phases 0-15;
+  Phase 16 product work remains blocked until its readiness rows close and then
+  follows the spec/red/fix/green/gate discipline in `execution-slice-001.md`.
 
 ## Storage Summary
 

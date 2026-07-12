@@ -53,6 +53,7 @@ Optional proof fields for `prove.py` or approved gate output:
 
 - `proof_kind`: `red`, `green`, `lock_baseline`, `lock_compare`,
   `protective_red`, or `none`.
+- `proof_scope`: `targeted`, `broad_remote_gate`, or `release_public`.
 - `failure_kind`: stable failure classification such as `assertion_failure`,
   `expected_rejection`, `compile_error`, `harness_panic`, `timeout`, or `none`.
 - `case_artifact_path`, `case_artifact_digest`, `case_file_digest`,
@@ -79,8 +80,9 @@ Evidence rules:
   final milestone gate. Supporting local proof that is not a gate uses the
   `supporting_local` suite bucket until Phase 5 defines final suite
   composition.
-- `commit` is the tested commit, or `dirty:<base-commit>` when the worktree was
-  dirty; a bare dirty marker without the base commit is invalid.
+- Ordinary report-only evidence may use the tested commit or
+  `dirty:<base-commit>`. Proof-producing records and every record with
+  `proof_scope` require a clean full 40-hex commit that resolves in Git.
 - The generated existing-test catalog JSON under
   `target/gate-artifacts/verification/` is a reproducible working artifact, not
   durable evidence and not proof of a product claim. Its committed dated
@@ -108,6 +110,20 @@ Evidence rules:
   previously-green case regressed, no case was skipped without a waiver, and
   the case-file digest did not change unless the changed case table has its own
   reviewed decision or spec-gap closeout.
+- `targeted` is reserved for `red`, `protective_red`, `green`,
+  `lock_baseline`, and `lock_compare`. Every such proof kind must carry that
+  scope. `prove.py` proof records use a clean full SHA and the canonical tracked
+  path `verification/evidence-index.toml`.
+- `broad_remote_gate` requires `proof_kind = "none"`, a successful `pr`,
+  `nightly`, or `hardware_lab` suite, a suite-approved producer, and durable
+  committed, CI, or lab evidence. A committed-file record must name only a
+  `trust-builder-linux-*` platform, not a mixed local/remote label.
+- `release_public` requires `proof_kind = "none"`, a suite-approved producer,
+  and a durable release object under the `release` suite.
+- Promotion is cumulative and bidirectionally linked. `test_written` requires
+  targeted red/protective evidence; `implemented` and `G1` require targeted
+  green/lock evidence; `G2` additionally requires broad remote evidence linked
+  to all invariant tests; `R1` additionally requires release/public evidence.
 
 ### Bytecode-Validator Mutation Report Contract
 
@@ -175,6 +191,14 @@ references, artifact digests, summary, and current full metadata graph.
 and lock evidence. It is deterministic wrapper tooling around cataloged
 commands and generated case artifacts; it must not decide product behavior.
 
+Production proof output is appended atomically to the tracked
+`verification/evidence-index.toml`. Before the command and again before append,
+the producer requires a clean worktree at the same full HEAD SHA. Duplicate IDs,
+alternate/untracked/ignored destinations, symlinked destinations, and a source
+revision that changes during execution fail without writing proof. Standalone
+ignored evidence files remain available only through explicit test injection;
+they are not the production CLI default.
+
 Command surface:
 
 ```text
@@ -227,6 +251,8 @@ Case-artifact checks:
 - The artifact parses as `case-artifact.schema.json`.
 - `artifact.test_id` equals the requested `TEST_ID`.
 - `artifact.case_file_digest` equals the catalog row's `case_file_digest`.
+- `artifact.case_provenance_kind` and `artifact.trace_definition_digest` equal
+  the committed case contract (`null` trace digest for generated tables).
 - `artifact.case_file` names the catalog row's `case_file` or a canonical
   equivalent; the digest remains the authority.
 - Artifact stamp fields match the `TRUST_VERIFY_*` values for this run.
@@ -274,7 +300,8 @@ matching over unstructured terminal output is not a proof contract.
   spuriously time out; timeout is recorded as non-red `timeout`.
 - Requires a case artifact when the catalog row names `case_file`.
 - Writes evidence with `producer = "prove.py v1"`, `proof_kind` `red` or
-  `protective_red`, `failure_kind`, `case_artifact_path`,
+  `protective_red`, `proof_scope = "targeted"`, `failure_kind`,
+  `case_artifact_path`,
   `case_artifact_digest`, `case_file_digest`, `command_exit_status`, and
   `per_case_summary`.
 - Red proof identifies red case IDs and failure source. `compile_error`,
@@ -290,6 +317,9 @@ matching over unstructured terminal output is not a proof contract.
 
 - Requires `--red-evidence` naming known red/protective-red evidence for the
   same `TEST_ID`.
+- The red record's clean full commit must be distinct from and an ancestor of
+  the green record's clean full commit. This is checked before execution and
+  again at rest with Git ancestry, not inferred from timestamps or row order.
 - The paired record must have `proof_kind` `red` or `protective_red`,
   `producer = "prove.py vN"` or an approved gate, the same `TEST_ID` in
   `linked_tests` as the only linked test, the same `case_file_digest` as both
@@ -375,10 +405,11 @@ Adversarial self-test fixtures:
 - lock compare baseline for a different `TEST_ID`
 - lock compare case-file digest drift without `decision_ref`
 
-Accepted risk: a hand-authored evidence record can forge `producer =
-"prove.py v1"` text at rest. The defense is re-runnability, review,
-same-run artifact stamping, and the later verification-gate/CI ratchet; the
-producer string alone is provenance, not cryptographic proof.
+Accepted risk: a hand-authored evidence record can still forge `producer =
+"prove.py v1"` text at rest. The production CLI now removes the normal need to
+edit such a row and the validator binds clean revision, canonical destination,
+run stamps, case provenance, pairing, and ancestry. Re-runnability, review, and
+the later CI ratchet remain necessary; the producer string is not a signature.
 
 Producer vocabulary:
 
