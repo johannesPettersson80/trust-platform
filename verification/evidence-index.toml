@@ -1465,3 +1465,39 @@ linked_invariants = ["IEC_TIMER_001"]
 linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
 linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
 last_reviewed = "2026-07-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260712_7108E6781D88"
+title = "Reviewed PR broad gate for IEC_TIMER_001"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "accb3393ae727c28a440a28318a027367b9d7b90"
+remote_commit = "accb3393ae727c28a440a28318a027367b9d7b90"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-12"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["IEC_TIMER_001"]
+linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-12"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:62df398bab6cebfb1ba7e63895c9b01c6619710ab23d5528bcc1473522dbf003", case_file_digest = "sha256:68567779c24d44fc1ce1cda7696086aac6284b5788305511d2f416f66e12be50", command = "cargo test -p trust-runtime --test iec_timer_trace_cases timer_state_machine_trace_cases -- --exact", discovery_id = "DISC_C5A04B37E39DDBE237C5", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD:passed", "IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD:passed", "IEC_TIMER_001_TON_TIME_BASIC_DELAY:passed", "IEC_TIMER_001_TP_TIME_BASIC_PULSE:passed"], run_id = "ade46fafc74f4ca18577d60df9ab8d97", test_id = "TEST_IEC_TIMER_TRACE_001" }]
+gate_started_at = "2026-07-12T17:29:21Z"
+gate_finished_at = "2026-07-12T17:40:04Z"
+gate_duration_milliseconds = 643553
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 63879888
+tmp_available_kib = 4153028
