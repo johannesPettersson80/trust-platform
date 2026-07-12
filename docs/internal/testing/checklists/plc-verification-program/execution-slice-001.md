@@ -8,6 +8,8 @@ Readiness closure evidence:
 [p16-execution-readiness-closure-validation.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-closure-validation.md).
 Independent acceptance:
 [p16-execution-readiness-independent-acceptance.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-independent-acceptance.md).
+Acceptance closure validation:
+[p16-execution-readiness-acceptance-closure-validation.md](../../evidence/plc-verification-program/2026-07-12/p16-execution-readiness-acceptance-closure-validation.md).
 
 ## Purpose
 
