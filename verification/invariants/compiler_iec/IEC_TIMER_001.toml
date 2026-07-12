@@ -10,11 +10,11 @@ claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
-tests = []
+tests = ["TEST_IEC_TIMER_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = []
-missing = ["timer_trace_cases", "targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
+missing = ["targeted_red_proof", "targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
 
 [spec]
 status = "specified"
@@ -59,7 +59,7 @@ rationale = "A protective TP trace holds IN true through PT and observes the pul
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "The scan-step state machines are specified; committed trace cases and proof are not yet present."
+rationale = "The scan-step state machines and trace cases are committed; targeted red/green proof is not yet present."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"

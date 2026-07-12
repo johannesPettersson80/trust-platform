@@ -13,6 +13,17 @@ data = tomllib.loads(Path("verification/test-catalog.toml").read_text())
 for record in data.get("tests", []):
     if "case_file" not in record:
         continue
+    case_path = Path(record["case_file"])
+    case_data = tomllib.loads(case_path.read_text())
+    provenance = case_data.get("case_provenance_kind", "generated_decision_table_v1")
+    if provenance == "hand_authored_state_machine_v1":
+        continue
+    if provenance != "generated_decision_table_v1":
+        print(
+            f"{record.get('id', '<unknown>')} has unsupported case provenance {provenance!r}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     invariants = record.get("invariants", [])
     if len(invariants) != 1:
         print(f"{record.get('id', '<unknown>')} case_file row must name exactly one invariant", file=sys.stderr)

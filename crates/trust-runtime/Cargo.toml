@@ -70,6 +70,9 @@ ethercrab = { version = "0.6", optional = true }
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
+[dev-dependencies]
+verification-cases.workspace = true
+
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }

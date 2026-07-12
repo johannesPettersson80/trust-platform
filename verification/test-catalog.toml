@@ -182,3 +182,29 @@ related_case_ids = [
   "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9",
 ]
 survivor_action = "Keep SPEC_GAP_BYTECODE_VALIDATOR_001 open; after the contract specifies stack-underflow rejection, strengthen the active full-validator regression and rerun this shard."
+
+[[tests]]
+schema_version = 2
+id = "TEST_IEC_TIMER_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C5A04B37E39DDBE237C5"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/iec_timer_trace_cases.rs"
+name = "timer_state_machine_trace_cases"
+command = "cargo test -p trust-runtime --test iec_timer_trace_cases timer_state_machine_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+expected_result = "Every committed TP, TON, TOF, and LTIME trace executes through real Structured Text and matches the reviewed scan-step oracle; TOF holds ET at PT after expiry until rearm."
+expected_failure_mode = "A timer trace diverges from its reviewed Q/ET state sequence, the runner does not emit a same-run artifact, or a case/command/oracle binding changes without review."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_TIMER_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/compiler_iec/IEC_TIMER_001.toml"
+case_file_digest = "sha256:68567779c24d44fc1ce1cda7696086aac6284b5788305511d2f416f66e12be50"
+last_reviewed = "2026-07-12"

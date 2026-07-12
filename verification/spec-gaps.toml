@@ -259,9 +259,9 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "What are the TP, TOF, and TON ET, restart, clock-reset, and runtime time-base semantics at every lifecycle boundary?"
 affected_invariants = ["IEC_TIMER_001"]
-affected_tests = []
+affected_tests = ["TEST_IEC_TIMER_TRACE_001"]
 candidate_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
-resolution_status = "spec_updated"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-12"
 
