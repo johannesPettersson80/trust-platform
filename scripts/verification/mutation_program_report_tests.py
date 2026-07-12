@@ -286,7 +286,7 @@ class MutationProgramReportTests(unittest.TestCase):
         board = (ROOT / "docs/internal/testing/checklists/plc-verification-program/implementation-board.md").read_text()
         self.assertNotIn("VERIF-P10-001", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P10-003", REQUIRED_OPEN_ROWS)
-        self.assertIn("VERIF-P16-001", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P16-001", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P16-000D", REQUIRED_OPEN_ROWS)
         self.assertEqual([], validate_open_board_rows(board))
         row = REQUIRED_OPEN_ROWS[0]

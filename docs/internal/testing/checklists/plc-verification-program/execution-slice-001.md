@@ -100,18 +100,17 @@ timer product file changes:
 - [x] `E1-PRE-004` Phase 8 restart ownership is a closed two-state contract:
   the committed open-gap state, or a resolved active source that may survive
   atomic gap closure only when the gap names the same resolution source.
-- [ ] `E1-PRE-005` Resolve retained function-block restart scope before timer
-  decisions or cases. IEC 61131-3 Ed.3 section 6.5.6.2 states that declaring a
-  function-block instance `RETAIN` makes its instance variables retentive. The
-  current restart implementation recreates instances and rejects
-  `Value::Instance` from retained values. The TOF-only product fence does not
-  authorize that separate behavior change. Independent review must choose a
-  focused retained-FB gap/slice or deliberately broaden the product scope; no
-  timer restart outcome may hide this conflict.
+- [x] `E1-PRE-005` Resolve retained function-block restart scope before timer
+  decisions or cases. Independent review accepted the decision that retained
+  function-block storage and restore semantics are separate deferred work, not
+  a blocker for the TOF scan-step correction. This slice does not treat the
+  current retained-instance behavior as conformant, broaden the TOF product
+  fence, or assert any timer restart outcome.
 
-These foundation changes create no product test, proof, gap closure, invariant
-promotion, suite result, runtime behavior, or enforcement flip. `VERIF-P16-001`
-and every `VERIF-E1-*` product row remain open.
+At the foundation checkpoint these changes created no product test, proof, gap
+closure, invariant promotion, suite result, runtime behavior, or enforcement
+flip. The follow-on product rows remained open until the complete E1 vertical
+received independent acceptance at reviewed checkpoint `053b0143`.
 
 ## Product Scope After Readiness
 
@@ -141,8 +140,8 @@ Out of scope:
   negative-time, or nonmonotonic-clock behavior before a reviewed decision;
 - NaN ingress, warm-restart time reset, scan-thread panic containment,
   `REF(returnvar)` escape, rename/LSP invariants;
-- retained function-block instance repair unless `E1-PRE-005` independently
-  expands the product fence and assigns the behavior to its own reviewed gap;
+- retained function-block instance storage or restore repair; `E1-PRE-005`
+  defers that behavior to separate reviewed scope without blocking TOF;
 - CI enforcement, any guarded row not explicitly closed by this slice,
   `VERIF-STOP-012`, `VERIF-STOP-014`, or any skill/agent-instruction update.
 
@@ -157,9 +156,9 @@ Out of scope:
   clock, warm/cold restart, TP retrigger/short-input scan boundary, and
   TIME/LTIME parity. Ambiguity goes to `docs/IEC_DECISIONS.md`; deliberate
   deviation goes to `docs/IEC_DEVIATIONS.md`.
-- `E1-PRE-005` is resolved without treating the current retained-FB behavior as
-  a timer implementation detail. Until then, no timer decision, case, or
-  product edit starts.
+- `E1-PRE-005` is resolved by deferring retained-FB storage and restore to
+  separate reviewed scope. Timer restart behavior remains unasserted and the
+  current retained-FB behavior is not declared conformant.
 - Remote-builder disk preflight per `AGENTS.md` before broad gates.
 
 ## Product Stop Rows
@@ -190,44 +189,44 @@ Out of scope:
 
 ## Product Rows
 
-These rows remain queued until the readiness gate closes. Flip board row
-`VERIF-P16-001` only when every row below is complete.
+These rows ran only after the readiness gate closed. Independent review
+accepted every row at checkpoint `053b0143`, authorizing the board closure.
 
-- [ ] `VERIF-E1-000` Baseline freeze. Record clean commit, branch, current timer
+- [x] `VERIF-E1-000` Baseline freeze. Record clean commit, branch, current timer
   reproduction, and remote-builder disk preflight.
-- [ ] `VERIF-E1-001` Write and commit the timer resolving spec and reviewed
+- [x] `VERIF-E1-001` Write and commit the timer resolving spec and reviewed
   decisions. Correct the existing timer diagrams and prose, update the FB
   index, add explicit invariant behavior rows and coverage cells, and keep
   `SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001` open with a `spec_updated` posture.
-- [ ] `VERIF-E1-002` Add the committed hand-authored timer trace case file and
+- [x] `VERIF-E1-002` Add the committed hand-authored timer trace case file and
   cataloged shipped-path runner. It must run every trace through real ST,
   produce one `verification-cases` artifact containing pass and fail cases,
   and exit nonzero when any case fails.
-- [ ] `VERIF-E1-003` Capture durable pre-fix red with `prove.py red`. The TOF
+- [x] `VERIF-E1-003` Capture durable pre-fix red with `prove.py red`. The TOF
   post-expiry case must fail for the specified value mismatch; protective TP
   and TON cases may pass in the same artifact. A plain failing Rust exit
   without a fresh bound case artifact is not behavioral red.
-- [ ] `VERIF-E1-004` Implement the minimal TOF ET-hold fix. Update the existing
+- [x] `VERIF-E1-004` Implement the minimal TOF ET-hold fix. Update the existing
   shipped-path expectation that currently pins zero on the following scan.
   Do not change TP unless a separately specified failing case proves a defect.
-- [ ] `VERIF-E1-005` Capture paired green at a clean descendant commit with the
+- [x] `VERIF-E1-005` Capture paired green at a clean descendant commit with the
   unchanged test/case contract. Run the targeted timer suites.
-- [ ] `VERIF-E1-006` Migrate the Phase 8 timer allocation/restart review from
+- [x] `VERIF-E1-006` Migrate the Phase 8 timer allocation/restart review from
   the open-gap const to the resolved product source, tests first. Regenerate
   the runtime-anomaly report and every affected closure-bound report.
-- [ ] `VERIF-E1-007` Close the timer gap atomically: set its resolution source
+- [x] `VERIF-E1-007` Close the timer gap atomically: set its resolution source
   and closeout evidence, remove invariant/risk/taxonomy live refs, and prove
   the aggregate affected-test set. Do not close while any referenced decision
   remains unresolved.
-- [ ] `VERIF-E1-008` Run broad gates on `trust-builder`: `just fmt`, `just
+- [x] `VERIF-E1-008` Run broad gates on `trust-builder`: `just fmt`, `just
   clippy`, `just test-all`, plus `api_smoke`, `debug_control`,
   `complete_program`, and `runtime_reliability`. Record broad evidence and
   promote only to the supported level; stop below `validated` if a coverage
   cell remains open.
-- [ ] `VERIF-E1-009` Apply release hygiene for the product behavior change:
+- [x] `VERIF-E1-009` Apply release hygiene for the product behavior change:
   changelog, standard-function coverage, decisions/deviations, version and
   merge-time tag/release obligations as required by `AGENTS.md`.
-- [ ] `VERIF-E1-010` Record durable slice evidence, regenerate affected
+- [x] `VERIF-E1-010` Record durable slice evidence, regenerate affected
   reports, update metadata/board, and obtain independent review.
 
 ## Minimum Validation

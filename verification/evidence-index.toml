@@ -1523,3 +1523,25 @@ linked_invariants = ["IEC_TIMER_001"]
 linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
 linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
 last_reviewed = "2026-07-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_E1_INDEPENDENT_ACCEPTANCE_20260713"
+title = "Phase 16 E1 independent acceptance and authorized closure"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-13/p16-e1-independent-acceptance.md"
+command = "python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && git diff --check"
+commit = "053b0143b24ed30e7078352b90f1bc64a7720e3a"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-13"
+suite_id = "supporting_local"
+producer = "claude independent Phase 16 E1 review; codex authorized closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_TIMER_001"]
+linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+last_reviewed = "2026-07-13"

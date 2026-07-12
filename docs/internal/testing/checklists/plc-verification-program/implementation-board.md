@@ -1176,7 +1176,7 @@ same commit, with the closure evidence linked.
   surface every runtime/compiler/LSP/IDE/UI product path as blocked. Remove its
   standing-open validator pin and flip this row in the same reviewed commit;
   CI itself remains report-only until `VERIF-P16-007`.
-- [ ] `VERIF-P16-001` Pilot vertical: implement
+- [x] `VERIF-P16-001` Pilot vertical: implement
   [execution-slice-001.md](execution-slice-001.md) end to end for the
   confirmed `IEC_TIMER_001` TOF post-expiry ET-hold defect: reviewed timer
   decisions, trace cases, durable red proof, minimal product fix, paired green,
@@ -1184,14 +1184,16 @@ same commit, with the closure evidence linked.
   `VM_SEAM_DECLARED_TYPE_001` allegation currently passes and is retained as
   characterization, not manufactured into a product fix.
 
-  Execution lifecycle foundation is implemented without product behavior:
-  versioned proof/case semantic projections, the timer seed lifecycle,
-  producer-authentic broad remote case artifacts, and the Phase 8 open-gap to
-  resolved-source migration contract. The row remains open. Product execution
-  is additionally blocked by `E1-PRE-005`: Ed.3 retained function-block
-  instance semantics conflict with the current restart implementation, while
-  the reviewed product fence authorizes only the TOF ET-hold change. Resolve
-  that scope explicitly before timer decisions or cases.
+  The frozen lifecycle foundation and the complete E1 product vertical were
+  independently accepted at reviewed checkpoint `053b0143`. The vertical
+  binds the timer specification and decisions to hand-authored real-ST traces,
+  producer-authentic red and green proof, the minimal TOF ET-hold correction,
+  Phase 8 migration and gap closure, broad remote evidence, and honest G2
+  promotion. `E1-PRE-005` is resolved by deferring retained function-block
+  storage and restore semantics to separate reviewed scope; this slice asserts
+  no restart outcome and does not declare current retained-instance behavior
+  conformant. Acceptance is recorded in
+  `EVID_P16_E1_INDEPENDENT_ACCEPTANCE_20260713`.
 - [ ] `VERIF-P16-002` Close every spec gap. For each open record in
   `verification/spec-gaps.toml` (34 at time of writing): write the owning
   spec section, IEC decision, or recorded deviation per STOP-013, then flip

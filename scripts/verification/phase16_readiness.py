@@ -42,12 +42,6 @@ def validate_phase16_readiness(board: str, changed_files: list[str]) -> list[str
         if len(states.get(row_id, [])) != 1:
             failures.append(f"{row_id} must appear exactly once on the implementation board")
 
-    pilot_states = states.get(PHASE16_PILOT_ROW, [])
-    if len(pilot_states) == 1 and pilot_states[0]:
-        failures.append(
-            f"{PHASE16_PILOT_ROW} must remain open until the full product vertical closes"
-        )
-
     product_paths = sorted(
         {
             normalized

@@ -82,16 +82,23 @@ class Phase16ReadinessTests(unittest.TestCase):
             [],
         )
 
-    def test_missing_duplicate_and_premature_pilot_rows_fail_closed(self) -> None:
+    def test_missing_and_duplicate_rows_fail_closed(self) -> None:
         missing = board_text().replace(
             f"- [ ] `{PHASE16_REVIEW_ROW}` fixture\n", ""
         )
         duplicate = board_text() + f"- [ ] `{PHASE16_REVIEW_ROW}` duplicate\n"
-        premature = board_text(pilot="x")
 
         self.assertTrue(any("exactly once" in failure for failure in validate_phase16_readiness(missing, [])))
         self.assertTrue(any("exactly once" in failure for failure in validate_phase16_readiness(duplicate, [])))
-        self.assertTrue(any(PHASE16_PILOT_ROW in failure for failure in validate_phase16_readiness(premature, [])))
+
+    def test_reviewed_closed_pilot_row_is_accepted(self) -> None:
+        self.assertEqual(
+            validate_phase16_readiness(
+                board_text(review="x", pilot="x"),
+                ["crates/trust-runtime/src/stdlib/timers.rs"],
+            ),
+            [],
+        )
 
     def test_cli_returns_nonzero_for_a_blocked_product_change(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
