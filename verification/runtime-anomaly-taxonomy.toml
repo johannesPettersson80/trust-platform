@@ -19,9 +19,11 @@ required_text = [
 rationale = "The active normative runtime-engine contract already excludes dynamic allocation from the scan hot path and heap allocation from execution. Allocation-failure and OOM testing outside that scope remains unmapped test debt and does not make this written scan-cycle policy absent."
 
 [spec_gap_reviews.restart_timebase]
-outcome = "existing_open_gap"
-spec_gap_ref = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
-rationale = "The existing open gap explicitly asks for timer elapsed-time, restart, clock-reset, and runtime time-base semantics at every lifecycle boundary. Current tests cannot replace that missing contract."
+outcome = "resolved_source"
+source_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+source_path = "docs/specs/08-standard-function-blocks.md"
+superseded_gap_id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+rationale = "The active normative timer source and reviewed decision log now define executed-scan, restart, PT, clock-step, and TIME/LTIME boundaries and supersede the prior gap. This association-only review creates no runnable assertion or adequacy claim."
 
 [[classes]]
 id = "panic"
@@ -685,5 +687,5 @@ name = "retain_rules"
 association_kind = "context_only"
 injection_mechanism = "test_harness"
 assertion_summary = "After advancing harness time by five milliseconds, a warm restart leaves runtime current_time at zero."
-limitations = ["The assertion records current implementation behavior and cannot establish accepted restart time-base semantics while SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001 is open."]
+limitations = ["The assertion records current implementation behavior only; it does not exercise the written timer decisions or establish adequacy."]
 last_reviewed = "2026-07-11"

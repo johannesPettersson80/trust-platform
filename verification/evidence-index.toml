@@ -1443,3 +1443,25 @@ case_file_digest = "sha256:68567779c24d44fc1ce1cda7696086aac6284b5788305511d2f41
 paired_red_evidence = "EVID_TEST_IEC_TIMER_TRACE_001_RED"
 formerly_red_case_ids = ["IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD", "IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD"]
 per_case_summary = ["IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD:passed", "IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD:passed", "IEC_TIMER_001_TON_TIME_BASIC_DELAY:passed", "IEC_TIMER_001_TP_TIME_BASIC_PULSE:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_IEC_TIMER_GAP_CLOSEOUT_20260712"
+title = "IEC timer specification gap closeout and Phase 8 migration"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p16-e1-timer-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 -m unittest scripts.verification.runtime_anomaly_contract_tests scripts.verification.runtime_anomaly_report_tests scripts.verification.invariant_seed_audit_tests"
+commit = "c56dc050a14173b8b2d2f010e601ac57a9f01192"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-12"
+suite_id = "supporting_local"
+producer = "codex Phase 16 timer specification closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_TIMER_001"]
+linked_tests = ["TEST_IEC_TIMER_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+last_reviewed = "2026-07-12"

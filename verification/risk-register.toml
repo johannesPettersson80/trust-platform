@@ -25,14 +25,14 @@ area = "compiler_iec"
 risk = "safety_critical"
 owner = "language"
 status = "planned"
-last_reviewed = "2026-07-10"
-description = "The external review confirmed unresolved TP, TOF, and TON elapsed-time, restart, and time-base boundaries."
-mitigation = "Keep the invariant at S0 until the focused timer gap is resolved and linked tests and proof are produced."
+last_reviewed = "2026-07-12"
+description = "The external review identified TP, TOF, and TON elapsed-time, restart, and time-base boundaries that required an explicit product contract and targeted evidence."
+mitigation = "The focused timer contract is written and the TOF scan-step defect has paired targeted red/green evidence; keep residual timer-boundary test debt explicit until separate cases exist."
 source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
 related_invariants = ["IEC_TIMER_001"]
-related_spec_gaps = ["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]
+related_spec_gaps = []
 related_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
-evidence_refs = []
+evidence_refs = ["EVID_IEC_TIMER_GAP_CLOSEOUT_20260712"]
 
 [[risks]]
 schema_version = 1

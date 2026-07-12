@@ -678,16 +678,18 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
             ("inactive", "active oracle-eligible non-public-claim"),
             ("public", "active oracle-eligible non-public-claim"),
             ("invented_gap", "superseded_gap_id"),
-            ("closed_gap", "existing_open_gap requires an open gap"),
+            (
+                "closed_gap_source_mismatch",
+                "closed superseded gap must bind the resolved_source source_ref",
+            ),
         )
         for scenario, signal in scenarios:
             with self.subTest(scenario=scenario):
                 validator = Validator()
                 validator.load_records()
-                if scenario != "closed_gap":
-                    validator.runtime_anomaly_taxonomy["spec_gap_reviews"][
-                        "restart_timebase"
-                    ] = resolved_restart_review()
+                validator.runtime_anomaly_taxonomy["spec_gap_reviews"][
+                    "restart_timebase"
+                ] = resolved_restart_review()
                 if scenario == "inactive":
                     validator.spec_sources["SPEC_RUNTIME_ENGINE_001"][
                         "source_status"
@@ -700,10 +702,6 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                     validator.runtime_anomaly_taxonomy["spec_gap_reviews"][
                         "restart_timebase"
                     ]["superseded_gap_id"] = "SPEC_GAP_INVENTED_001"
-                else:
-                    validator.spec_gaps["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"][
-                        "resolution_status"
-                    ] = "closed"
 
                 validator.validate()
 

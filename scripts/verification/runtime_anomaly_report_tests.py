@@ -45,7 +45,7 @@ REPORT_MARKDOWN = (
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
     "mapping_records": 38,
-    "scanner_denominator": 3025,
+    "scanner_denominator": 3026,
     "effectively_runnable_mappings": 27,
     "ignored_or_conditional_mappings": 5,
     "gap_classes": 9,
@@ -178,17 +178,21 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
         self.assertTrue(all(row["ignored_registry_id"] for row in ignored))
         self.assertTrue(all(not row["effectively_runnable"] for row in ignored))
 
-    def test_p8_001a_reuses_written_source_and_existing_gap(self) -> None:
+    def test_p8_001a_reuses_written_sources_and_resolved_gap(self) -> None:
         reviews = self.state.spec_gap_reviews
 
         allocation = reviews["scan_cycle_allocation_policy"]
         self.assertEqual("written_contract_present", allocation["outcome"])
         self.assertEqual("SPEC_RUNTIME_ENGINE_001", allocation["source_ref"])
         restart = reviews["restart_timebase"]
-        self.assertEqual("existing_open_gap", restart["outcome"])
+        self.assertEqual("resolved_source", restart["outcome"])
+        self.assertEqual(
+            "SPEC_IEC_STANDARD_FBS_CANDIDATE_001",
+            restart["source_ref"],
+        )
         self.assertEqual(
             "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001",
-            restart["spec_gap_ref"],
+            restart["superseded_gap_id"],
         )
 
     def test_future_resolved_restart_state_flows_through_live_report_contract(self) -> None:

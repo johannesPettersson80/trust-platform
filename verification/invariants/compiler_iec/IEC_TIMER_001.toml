@@ -3,18 +3,22 @@ id = "IEC_TIMER_001"
 title = "Timer scan-step and lifecycle semantics are explicit"
 area = "compiler_iec"
 risk = "safety_critical"
-status = "test_written"
+status = "implemented"
 owner = "language"
 last_reviewed = "2026-07-12"
 claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan state machines, including the TOF ET-equals-PT post-expiry hold until rearm."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
 tests = ["TEST_IEC_TIMER_TRACE_001"]
 gates = []
-evidence_refs = ["EVID_TEST_IEC_TIMER_TRACE_001_RED"]
+evidence_refs = [
+  "EVID_TEST_IEC_TIMER_TRACE_001_RED",
+  "EVID_TEST_IEC_TIMER_TRACE_001_GREEN",
+  "EVID_IEC_TIMER_GAP_CLOSEOUT_20260712",
+]
 spec_gap_refs = []
-missing = ["targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
+missing = ["broad_remote_gate", "unasserted_timer_boundary_cases"]
 
 [spec]
 status = "specified"
@@ -58,8 +62,8 @@ rationale = "A protective TP trace holds IN true through PT and observes the pul
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The scan-step state machines and trace cases are committed; targeted red/green proof is not yet present."
+state = "covered"
+rationale = "The cataloged real-ST timer trace has paired producer-authentic red and green evidence for the committed scan-step cases."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
