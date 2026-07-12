@@ -145,10 +145,9 @@ fn validate_trace_shapes(cases: &[CaseRecord]) -> Result<(), CaseRunError> {
 fn is_canonical_trace_value(value: &toml::Value) -> bool {
     match value {
         toml::Value::String(_) | toml::Value::Integer(_) | toml::Value::Boolean(_) => true,
-        toml::Value::Float(_) => false,
+        toml::Value::Float(_) | toml::Value::Datetime(_) => false,
         toml::Value::Array(values) => values.iter().all(is_canonical_trace_value),
         toml::Value::Table(values) => values.values().all(is_canonical_trace_value),
-        toml::Value::Datetime(_) => false,
     }
 }
 
