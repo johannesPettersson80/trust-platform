@@ -93,7 +93,7 @@ def is_product_path(path: str) -> bool:
         return True
     if path.startswith("crates/"):
         return not path.startswith("crates/verification-cases/")
-    return path.startswith(("editors/", "libraries/"))
+    return path.startswith(("editors/", "hmi/", "libraries/"))
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

@@ -32,6 +32,15 @@ class Phase16ReadinessTests(unittest.TestCase):
         self.assertTrue(any(PHASE16_REVIEW_ROW in failure for failure in failures))
         self.assertTrue(any("timers.rs" in failure for failure in failures))
 
+    def test_root_hmi_assets_are_product_paths(self) -> None:
+        failures = validate_phase16_readiness(
+            board_text(),
+            ["hmi/overview.toml"],
+        )
+
+        self.assertTrue(any(PHASE16_REVIEW_ROW in failure for failure in failures))
+        self.assertTrue(any("hmi/overview.toml" in failure for failure in failures))
+
     def test_open_readiness_rows_keep_product_paths_blocked(self) -> None:
         failures = validate_phase16_readiness(
             board_text(readiness=" "),
