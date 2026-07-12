@@ -23,6 +23,13 @@ from typing import Any
 from .metadata_validator.constants import PROVE_PRODUCER_RE, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 from .metadata_validator.integrity import test_counts_as_runnable
+from .proof_case_artifacts import (
+    CaseArtifactContractError,
+    CaseProofContract,
+    load_case_contract as load_case_contract_value,
+    load_json_artifact as load_json_artifact_value,
+    validate_case_artifact as validate_case_artifact_value,
+)
 from .proof_output import (
     CANONICAL_EVIDENCE_INDEX,
     ProofOutputError,
@@ -38,7 +45,6 @@ EXIT_USAGE = 5
 EXIT_METADATA_INVALID = 6
 EXIT_PROOF_ERROR = 7
 PRODUCER = "prove.py v1"
-CASE_RESULTS = {"passed", "failed", "skipped", "blocked"}
 
 
 class MetadataValidationError(RuntimeError):
@@ -70,13 +76,6 @@ class CommandRun:
     failed_case_ids: list[str]
     blocked_case_ids: list[str]
     per_case_summary: list[str]
-
-
-@dataclass(frozen=True)
-class CaseProofContract:
-    case_ids: list[str]
-    provenance_kind: str
-    trace_definition_digest: str | None
 
 
 class ProofProducer:
@@ -727,12 +726,9 @@ def load_validated_metadata() -> Validator:
 
 def load_json_artifact(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text())
-    except Exception as exc:
-        raise ProofError(f"failed to parse case artifact {path}: {exc}", failure_kind="metadata_error") from exc
-    if not isinstance(value, dict):
-        raise ProofError(f"case artifact {path} is not an object", failure_kind="metadata_error")
-    return value
+        return load_json_artifact_value(path)
+    except CaseArtifactContractError as exc:
+        raise ProofError(str(exc), failure_kind="metadata_error") from exc
 
 
 def load_generated_evidence(path: Path, evidence_id: str) -> dict[str, Any]:
@@ -753,45 +749,9 @@ def load_generated_evidence(path: Path, evidence_id: str) -> dict[str, Any]:
 
 def load_case_contract(path: Path) -> CaseProofContract:
     try:
-        data = tomllib.loads(path.read_text())
-    except Exception as exc:
-        raise ProofError(f"failed to parse case file {path}: {exc}", failure_kind="metadata_error") from exc
-    cases = data.get("case", [])
-    if not isinstance(cases, list):
-        raise ProofError(f"case file {path} has no [[case]] table", failure_kind="metadata_error")
-    ids: list[str] = []
-    for case in cases:
-        if not isinstance(case, dict) or not isinstance(case.get("id"), str):
-            raise ProofError(f"case file {path} has a case without id", failure_kind="metadata_error")
-        ids.append(case["id"])
-    provenance_kind = data.get(
-        "case_provenance_kind", "generated_decision_table_v1"
-    )
-    if provenance_kind not in {
-        "generated_decision_table_v1",
-        "hand_authored_state_machine_v1",
-    }:
-        raise ProofError(
-            f"case file {path} has unknown case_provenance_kind {provenance_kind!r}",
-            failure_kind="metadata_error",
-        )
-    trace_digest = data.get("trace_definition_digest")
-    if provenance_kind == "generated_decision_table_v1":
-        if trace_digest is not None:
-            raise ProofError(
-                f"generated case file {path} must not name trace_definition_digest",
-                failure_kind="metadata_error",
-            )
-    elif not isinstance(trace_digest, str):
-        raise ProofError(
-            f"hand-authored case file {path} requires trace_definition_digest",
-            failure_kind="metadata_error",
-        )
-    return CaseProofContract(
-        case_ids=ids,
-        provenance_kind=provenance_kind,
-        trace_definition_digest=trace_digest,
-    )
+        return load_case_contract_value(path)
+    except CaseArtifactContractError as exc:
+        raise ProofError(str(exc), failure_kind="metadata_error") from exc
 
 
 def validate_case_artifact(
@@ -805,56 +765,19 @@ def validate_case_artifact(
     expected_case_provenance_kind: str,
     expected_trace_definition_digest: str | None,
 ) -> tuple[list[str], list[str], list[str]]:
-    require_equal(artifact, "schema_version", 1)
-    require_equal(artifact, "test_id", expected_test_id)
-    require_equal(artifact, "case_file_digest", expected_case_file_digest)
-    require_equal(
-        artifact, "case_provenance_kind", expected_case_provenance_kind
-    )
-    require_equal(
-        artifact, "trace_definition_digest", expected_trace_definition_digest
-    )
-    require_equal(artifact, "trust_verify_test_id", expected_test_id)
-    require_equal(artifact, "trust_verify_run_id", expected_run_id)
-    require_equal(artifact, "trust_verify_case_file_digest", expected_case_file_digest)
-    require_equal(artifact, "trust_verify_artifact_dir", expected_artifact_dir)
-    cases = artifact.get("cases")
-    if not isinstance(cases, list):
-        raise ProofError("case artifact cases field is not an array", failure_kind="metadata_error")
-
-    expected = set(expected_case_ids)
-    seen: set[str] = set()
-    failed: list[str] = []
-    blocked: list[str] = []
-    summary: list[str] = []
-    for case in cases:
-        if not isinstance(case, dict):
-            raise ProofError("case artifact contains a non-object case", failure_kind="metadata_error")
-        case_id = case.get("id")
-        result = case.get("result")
-        if not isinstance(case_id, str):
-            raise ProofError("case artifact contains a case without id", failure_kind="metadata_error")
-        if case_id in seen:
-            raise ProofError(f"duplicate case artifact id {case_id}", failure_kind="metadata_error")
-        if case_id not in expected:
-            raise ProofError(f"unknown case artifact id {case_id}", failure_kind="metadata_error")
-        seen.add(case_id)
-        if result not in CASE_RESULTS:
-            raise ProofError(
-                f"unknown case result {result!r} for case {case_id}",
-                failure_kind="metadata_error",
-            )
-        if result == "skipped":
-            raise ProofError(f"case {case_id} was skipped without waiver", failure_kind="metadata_error")
-        if result == "failed":
-            failed.append(case_id)
-        if result == "blocked":
-            blocked.append(case_id)
-        summary.append(f"{case_id}:{result}")
-    missing = sorted(expected - seen)
-    if missing:
-        raise ProofError(f"case artifact missing cases {missing}", failure_kind="metadata_error")
-    return failed, blocked, summary
+    try:
+        return validate_case_artifact_value(
+            artifact=artifact,
+            expected_test_id=expected_test_id,
+            expected_run_id=expected_run_id,
+            expected_artifact_dir=expected_artifact_dir,
+            expected_case_file_digest=expected_case_file_digest,
+            expected_case_ids=expected_case_ids,
+            expected_case_provenance_kind=expected_case_provenance_kind,
+            expected_trace_definition_digest=expected_trace_definition_digest,
+        )
+    except CaseArtifactContractError as exc:
+        raise ProofError(str(exc), failure_kind="metadata_error") from exc
 
 
 def passed_case_ids(summary: list[str]) -> set[str]:
@@ -864,21 +787,6 @@ def passed_case_ids(summary: list[str]) -> set[str]:
         if sep and status == "passed":
             result.add(case_id)
     return result
-
-
-def require_equal(artifact: dict[str, Any], field: str, expected: Any) -> None:
-    actual = artifact.get(field)
-    if actual != expected:
-        label = {
-            "trust_verify_test_id": "TRUST_VERIFY_TEST_ID",
-            "trust_verify_run_id": "TRUST_VERIFY_RUN_ID",
-            "trust_verify_case_file_digest": "TRUST_VERIFY_CASE_FILE_DIGEST",
-            "trust_verify_artifact_dir": "TRUST_VERIFY_ARTIFACT_DIR",
-        }.get(field, field)
-        raise ProofError(
-            f"case artifact {label} mismatch: expected {expected!r}, actual {actual!r}",
-            failure_kind="metadata_error",
-        )
 
 
 def sha256_file(path: Path) -> str:
