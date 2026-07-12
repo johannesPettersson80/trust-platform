@@ -250,12 +250,14 @@ Case-artifact checks:
 
 - The artifact parses as `case-artifact.schema.json`.
 - `artifact.test_id` equals the requested `TEST_ID`.
+- `artifact.case_file` equals the catalog row's `case_file` exactly and
+  `artifact.helper_version` equals `verification-cases v1`.
 - `artifact.case_file_digest` equals the catalog row's `case_file_digest`.
 - `artifact.case_provenance_kind` and `artifact.trace_definition_digest` equal
   the committed case contract (`null` trace digest for generated tables).
-- `artifact.case_file` names the catalog row's `case_file` or a canonical
-  equivalent; the digest remains the authority.
 - Artifact stamp fields match the `TRUST_VERIFY_*` values for this run.
+- The artifact root and every per-case result contain exactly the reviewed
+  schema fields; missing or unknown fields fail before result classification.
 - Every committed case ID appears exactly once.
 - No unknown case IDs appear.
 - A blocked case is allowed only while the catalog/invariant still names the

@@ -120,14 +120,21 @@ fn validate_trace_shapes(cases: &[CaseRecord]) -> Result<(), CaseRunError> {
                     ),
                 });
             }
+            if step.stimulus.values().any(contains_toml_float)
+                || step.expected.values().any(contains_toml_float)
+            {
+                return Err(CaseRunError::InvalidCaseProvenance {
+                    message: format!(
+                        "case {} trace values must not contain TOML floats; use integer units for cross-language digest parity",
+                        case.id
+                    ),
+                });
+            }
             if !step.stimulus.values().all(is_canonical_trace_value)
                 || !step.expected.values().all(is_canonical_trace_value)
             {
                 return Err(CaseRunError::InvalidCaseProvenance {
-                    message: format!(
-                        "case {} trace values must be canonical JSON with finite numbers",
-                        case.id
-                    ),
+                    message: format!("case {} trace values must be canonical JSON", case.id),
                 });
             }
         }
@@ -138,10 +145,19 @@ fn validate_trace_shapes(cases: &[CaseRecord]) -> Result<(), CaseRunError> {
 fn is_canonical_trace_value(value: &toml::Value) -> bool {
     match value {
         toml::Value::String(_) | toml::Value::Integer(_) | toml::Value::Boolean(_) => true,
-        toml::Value::Float(value) => value.is_finite(),
+        toml::Value::Float(_) => false,
         toml::Value::Array(values) => values.iter().all(is_canonical_trace_value),
         toml::Value::Table(values) => values.values().all(is_canonical_trace_value),
         toml::Value::Datetime(_) => false,
+    }
+}
+
+fn contains_toml_float(value: &toml::Value) -> bool {
+    match value {
+        toml::Value::Float(_) => true,
+        toml::Value::Array(values) => values.iter().any(contains_toml_float),
+        toml::Value::Table(values) => values.values().any(contains_toml_float),
+        _ => false,
     }
 }
 
@@ -168,7 +184,9 @@ fn trace_definition_digest(cases: &[CaseRecord]) -> Result<String, CaseRunError>
 mod tests {
     use crate::{CaseFile, CaseRunArtifact};
 
-    use super::{validate_case_file_provenance, HAND_AUTHORED_STATE_MACHINE_V1};
+    use super::{
+        trace_definition_digest, validate_case_file_provenance, HAND_AUTHORED_STATE_MACHINE_V1,
+    };
 
     #[test]
     fn hand_authored_trace_provenance_is_artifact_ready() {
@@ -261,5 +279,39 @@ trace = [
             digest.as_deref(),
             Some("sha256:e9fc05d0b2987cdaaf7e429b785bcd9e6f35aef6895e8f75c7f2a25666a414cf")
         );
+    }
+
+    #[test]
+    fn finite_toml_float_is_rejected_before_trace_digesting() {
+        let mut case_file: CaseFile = toml::from_str(
+            r#"schema_version = 1
+id = "CASES_TRACE_FLOAT"
+title = "Float trace"
+area = "compiler_iec"
+owner = "verification"
+status = "planned"
+invariant = "INV_TRACE"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:placeholder"
+source_digest = "sha256:source"
+last_reviewed = "2026-07-12"
+
+[[case]]
+id = "TRACE_FLOAT"
+family = "happy_path"
+input = { scenario = "TRACE_FLOAT" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_TIMER#state-machine" }
+trace = [
+  { sequence = 0, stimulus = { nested = [{ epsilon = 1e-7 }] }, expected = { elapsed_ns = 1 }, oracle_ref = "SPEC_TIMER#state-machine" },
+]
+"#,
+        )
+        .unwrap();
+        case_file.trace_definition_digest =
+            Some(trace_definition_digest(&case_file.cases).unwrap());
+
+        let error = validate_case_file_provenance(&case_file).unwrap_err();
+
+        assert!(error.to_string().contains("must not contain TOML floats"));
     }
 }

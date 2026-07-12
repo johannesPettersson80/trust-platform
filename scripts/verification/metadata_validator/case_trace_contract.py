@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from pathlib import Path
 from typing import Any, Callable
 
 from .oracle_refs import validate_oracle_ref
+from ..case_contract_fields import TRACE_STEP_FIELDS
 
 
 Fail = Callable[[Path, str], None]
@@ -19,7 +19,6 @@ CASE_PROVENANCE_KINDS = {
     GENERATED_DECISION_TABLE_V1,
     HAND_AUTHORED_STATE_MACHINE_V1,
 }
-TRACE_STEP_FIELDS = {"sequence", "stimulus", "expected", "oracle_ref"}
 
 
 def trace_definition_digest(cases: Any) -> str:
@@ -193,11 +192,16 @@ def _validate_trace_case(
         for field in ("stimulus", "expected"):
             if not isinstance(step.get(field), dict) or not step.get(field):
                 fail(path, f"{label} trace {field} must be a non-empty table")
+            elif _contains_toml_float(step[field]):
+                fail(
+                    path,
+                    f"{label} trace {field} must not contain TOML floats; "
+                    "use integer units for cross-language digest parity",
+                )
             elif not _is_canonical_trace_value(step[field]):
                 fail(
                     path,
-                    f"{label} trace {field} must contain only canonical JSON "
-                    "values with finite numbers",
+                    f"{label} trace {field} must contain only canonical JSON values",
                 )
         validate_oracle_ref(
             fail=fail,
@@ -211,8 +215,6 @@ def _validate_trace_case(
 def _is_canonical_trace_value(value: Any) -> bool:
     if value is None or isinstance(value, (str, bool, int)):
         return True
-    if isinstance(value, float):
-        return math.isfinite(value)
     if isinstance(value, list):
         return all(_is_canonical_trace_value(item) for item in value)
     if isinstance(value, dict):
@@ -220,4 +222,14 @@ def _is_canonical_trace_value(value: Any) -> bool:
             isinstance(key, str) and _is_canonical_trace_value(item)
             for key, item in value.items()
         )
+    return False
+
+
+def _contains_toml_float(value: Any) -> bool:
+    if isinstance(value, float):
+        return True
+    if isinstance(value, list):
+        return any(_contains_toml_float(item) for item in value)
+    if isinstance(value, dict):
+        return any(_contains_toml_float(item) for item in value.values())
     return False

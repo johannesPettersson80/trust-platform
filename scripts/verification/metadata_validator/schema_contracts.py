@@ -4,6 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..case_contract_fields import (
+    CASE_ARTIFACT_CASE_FIELDS,
+    CASE_ARTIFACT_HELPER_VERSION,
+    CASE_ARTIFACT_ROOT_FIELDS,
+    CASE_ARTIFACT_SNAPSHOT_FIELDS,
+    CASE_FILE_REQUIRED_ROOT_FIELDS,
+    CASE_FILE_ROOT_FIELDS,
+    GENERATED_BLOCKED_CASE_FIELDS,
+    GENERATED_RUNNABLE_CASE_FIELDS,
+    HAND_AUTHORED_RUNNABLE_CASE_FIELDS,
+    TRACE_STEP_FIELDS,
+)
+
 from ..area_routing import (
     AREA_FIELDS,
     AREA_OPTIONAL_FIELDS,
@@ -79,7 +92,121 @@ def validate_schema_enums(name: str, schema: dict[str, Any]) -> list[str]:
             failures.append(f"schema enum for {field} drifts from validator vocabulary")
     if name == "matrix.schema.json":
         failures.extend(_validate_matrix_schema_contract(schema))
+    elif name == "case-file.schema.json":
+        failures.extend(_validate_case_file_schema_contract(schema))
+    elif name == "case-artifact.schema.json":
+        failures.extend(_validate_case_artifact_schema_contract(schema))
     return failures
+
+
+def _validate_case_file_schema_contract(schema: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    _check_closed_object(
+        schema,
+        CASE_FILE_REQUIRED_ROOT_FIELDS,
+        CASE_FILE_ROOT_FIELDS,
+        "case-file schema root",
+        failures,
+    )
+    definitions = schema.get("$defs", {})
+    for name, fields in (
+        ("generatedBlockedCase", GENERATED_BLOCKED_CASE_FIELDS),
+        ("generatedRunnableCase", GENERATED_RUNNABLE_CASE_FIELDS),
+        ("handAuthoredRunnableCase", HAND_AUTHORED_RUNNABLE_CASE_FIELDS),
+        ("traceStep", TRACE_STEP_FIELDS),
+    ):
+        _check_closed_object(
+            definitions.get(name, {}),
+            fields,
+            fields,
+            f"case-file schema {name}",
+            failures,
+        )
+    if definitions.get("handAuthoredBlockedCase") != {
+        "$ref": "#/$defs/generatedBlockedCase"
+    }:
+        failures.append("case-file schema handAuthoredBlockedCase contract drift")
+    for name in ("inputMap", "expectMap", "traceValueMap"):
+        definition = definitions.get(name, {})
+        if (
+            definition.get("type") != "object"
+            or definition.get("minProperties") != 1
+            or definition.get("additionalProperties") != {}
+        ):
+            failures.append(
+                f"case-file schema {name} must be an explicitly dynamic non-empty map"
+            )
+    branches = schema.get("oneOf", [])
+    if not isinstance(branches, list) or len(branches) != 2:
+        failures.append("case-file schema provenance branches drift")
+    else:
+        generated, hand_authored = branches
+        if set(generated.get("required", [])) != {"generator", "generator_digest"}:
+            failures.append("case-file schema generated required fields drift")
+        if set(hand_authored.get("required", [])) != {
+            "case_provenance_kind",
+            "trace_definition_digest",
+        }:
+            failures.append("case-file schema hand-authored required fields drift")
+    return failures
+
+
+def _validate_case_artifact_schema_contract(schema: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    _check_closed_object(
+        schema,
+        CASE_ARTIFACT_ROOT_FIELDS,
+        CASE_ARTIFACT_ROOT_FIELDS,
+        "case-artifact schema root",
+        failures,
+    )
+    properties = schema.get("properties", {})
+    if properties.get("helper_version", {}).get("const") != CASE_ARTIFACT_HELPER_VERSION:
+        failures.append("case-artifact schema helper_version const drift")
+    cases = properties.get("cases", {})
+    if cases.get("minItems") != 1 or cases.get("items") != {
+        "$ref": "#/$defs/caseResult"
+    }:
+        failures.append("case-artifact schema cases binding drift")
+    definitions = schema.get("$defs", {})
+    _check_closed_object(
+        definitions.get("caseResult", {}),
+        CASE_ARTIFACT_CASE_FIELDS,
+        CASE_ARTIFACT_CASE_FIELDS,
+        "case-artifact schema caseResult",
+        failures,
+    )
+    _check_closed_object(
+        definitions.get("stateSnapshot", {}),
+        CASE_ARTIFACT_SNAPSHOT_FIELDS,
+        CASE_ARTIFACT_SNAPSHOT_FIELDS,
+        "case-artifact schema stateSnapshot",
+        failures,
+    )
+    snapshot_properties = definitions.get("stateSnapshot", {}).get("properties", {})
+    if snapshot_properties.get("target") != {}:
+        failures.append("case-artifact schema target must remain explicitly dynamic")
+    if snapshot_properties.get("siblings", {}).get("additionalProperties") != {}:
+        failures.append("case-artifact schema siblings must remain explicitly dynamic")
+    return failures
+
+
+def _check_closed_object(
+    schema: Any,
+    required: frozenset[str],
+    properties: frozenset[str],
+    label: str,
+    failures: list[str],
+) -> None:
+    if not isinstance(schema, dict):
+        failures.append(f"{label} must be an object schema")
+        return
+    if set(schema.get("required", [])) != required:
+        failures.append(f"{label} required fields drift")
+    if set(schema.get("properties", {})) != properties:
+        failures.append(f"{label} property fields drift")
+    if schema.get("additionalProperties") is not False:
+        failures.append(f"{label} must be closed")
 
 
 def _validate_matrix_schema_contract(schema: dict[str, Any]) -> list[str]:

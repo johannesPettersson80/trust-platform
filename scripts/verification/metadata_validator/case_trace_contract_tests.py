@@ -205,8 +205,19 @@ class CaseTraceContractTests(unittest.TestCase):
         self.validate(case_data)
 
         joined = "\n".join(self.failures)
-        self.assertIn("finite numbers", joined)
-        self.assertIn("not canonical JSON", joined)
+        self.assertIn("must not contain TOML floats", joined)
+        self.assertIn("canonical JSON", joined)
+
+    def test_trace_values_reject_finite_toml_float_before_digesting(self) -> None:
+        case_data = self.hand_case()
+        case_data["case"][0]["trace"][0]["stimulus"]["nested"] = [
+            {"epsilon": 1e-7}
+        ]
+        case_data["trace_definition_digest"] = trace_definition_digest(case_data["case"])
+
+        self.validate(case_data)
+
+        self.assertIn("must not contain TOML floats", "\n".join(self.failures))
 
     def test_blocked_hand_authored_case_forbids_asserted_trace(self) -> None:
         case_data = self.hand_case()
@@ -311,6 +322,71 @@ trace = [
                 )
 
         self.assertEqual(failures, [])
+
+    def test_full_case_file_validator_rejects_unknown_root_and_case_fields(self) -> None:
+        with TemporaryDirectory() as raw_dir:
+            root = Path(raw_dir)
+            invariant_path = root / "verification/invariants/compiler_iec/INV_TIMER.toml"
+            invariant_path.parent.mkdir(parents=True)
+            invariant_path.write_text("id = \"INV_TIMER\"\n")
+            invariant = deepcopy(self.invariant)
+            invariant.update(
+                {
+                    "_path": invariant_path,
+                    "area": "compiler_iec",
+                    "input": {},
+                    "behavior": [],
+                }
+            )
+            case_path = root / "verification/cases/compiler_iec/INV_TIMER.toml"
+            case_path.parent.mkdir(parents=True)
+            case_path.write_text(
+                f'''schema_version = 1
+id = "CASES_INV_TIMER"
+title = "Timer trace"
+area = "compiler_iec"
+owner = "runtime"
+status = "planned"
+invariant = "INV_TIMER"
+generator = "gen_cases.py v1"
+generator_digest = "{GENERATOR_DIGEST}"
+source_digest = "{file_digest(invariant_path)}"
+last_reviewed = "2026-07-12"
+unreviewed_root = true
+
+[[case]]
+id = "TRACE_ONE"
+family = "happy_path"
+input = {{ scenario = "TRACE_ONE" }}
+state = "blocked"
+spec_gap_ref = "SPEC_GAP_TIMER"
+unreviewed_case = true
+'''
+            )
+            failures: list[str] = []
+            with patch(
+                "scripts.verification.metadata_validator.case_files.ROOT",
+                root,
+            ), patch(
+                "scripts.verification.metadata_validator.case_files.current_generator_digest",
+                return_value=GENERATOR_DIGEST,
+            ):
+                validate_case_file(
+                    fail=lambda _path, message: failures.append(message),
+                    path=root / "verification/test-catalog.toml",
+                    test_record={
+                        "id": "TEST_TIMER_TRACE",
+                        "case_file": "verification/cases/compiler_iec/INV_TIMER.toml",
+                        "invariants": ["INV_TIMER"],
+                    },
+                    invariants={"INV_TIMER": invariant},
+                    spec_sources=self.spec_sources,
+                    spec_gaps={"SPEC_GAP_TIMER": {"resolution_status": "open"}},
+                )
+
+        joined = "\n".join(failures)
+        self.assertIn("case_file root fields must be exactly", joined)
+        self.assertIn("case fields must be exactly", joined)
 
 
 if __name__ == "__main__":

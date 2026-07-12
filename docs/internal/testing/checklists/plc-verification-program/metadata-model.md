@@ -1203,14 +1203,21 @@ Case rules:
 - Hand-authored state-machine files require a `state_machine` invariant. Each
   runnable case carries a non-empty ordered `trace`; every step has exactly
   `sequence`, non-empty `stimulus`, non-empty `expected`, and `oracle_ref`.
-  Sequence numbers are contiguous from zero, trace values are finite canonical
-  JSON values, and every oracle ref resolves to an active eligible source.
+  Sequence numbers are contiguous from zero, trace values are canonical JSON
+  values without TOML floats, and every oracle ref resolves to an active
+  eligible source. Durations and other numeric trace values use integer units;
+  even finite TOML floats are forbidden because Python and Rust JSON encoders
+  need not serialize them identically for the trace-definition digest.
 - The trace-definition digest is SHA-256 over canonical case IDs and trace
   definitions and is recomputed independently by the metadata validator and
   `verification-cases`. A blocked row may omit its trace only while its existing
   `spec_gap_ref` remains open; it cannot contribute to red/green closure.
 - Generated provenance forbids trace fields. Hand-authored provenance forbids
   `generator` and `generator_digest`; relabeling one mode as the other fails.
+- The case-file root and each `[[case]]` table are closed contracts. Unknown
+  fields fail both metadata validation and Rust helper deserialization. The
+  `input` and `expect` tables, plus the trace `stimulus` and `expected` tables,
+  remain explicitly dynamic value maps; their enclosing records are closed.
 
 ### Case Artifact
 
@@ -1234,10 +1241,11 @@ Required fields:
 - `case_provenance_kind`
 - `trace_definition_digest` (`null` for generated decision tables)
 - `trust_verify_test_id`, `trust_verify_run_id`,
-  `trust_verify_case_file_digest`, and `trust_verify_artifact_dir` when
-  `prove.py` exports the matching `TRUST_VERIFY_*` environment variables
+  `trust_verify_case_file_digest`, and `trust_verify_artifact_dir` (required
+  keys that are `null` only for an unstamped standalone helper run)
 - `cases`
-- per-case `id`, `result`, observed error/status, and state-delta verdict
+- per-case `id`, `family`, `result`, `spec_gap_ref`, observed error/status,
+  state-delta verdict, and before/after snapshots
 
 The artifact is not durable evidence by itself. The test helper writes only
 harness-observed facts. `prove.py` owns command, commit, platform, timing,
@@ -1250,6 +1258,10 @@ does not match the current run configuration.
 `prove.py` additionally requires the artifact's provenance kind and trace digest
 to equal the committed case file. The case-file digest still binds the complete
 source; the explicit fields prevent one case mode from impersonating another.
+The artifact root and each per-case result are closed contracts. `prove.py`
+requires `helper_version = "verification-cases v1"` and exact equality between
+`artifact.case_file` and the catalog `case_file`; a digest match cannot excuse
+different path text or an unreviewed helper implementation.
 
 For `prove.py lock`, the raw case-artifact digest is provenance only because
 freshness stamps intentionally change between runs. The stable behavior-lock

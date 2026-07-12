@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..case_digests import current_generator_digest, file_digest
+from ..case_contract_fields import CASE_FILE_CASE_FIELDS, CASE_FILE_ROOT_FIELDS
 
 from .case_trace_contract import validate_case_provenance
 from .constants import CASE_FAMILIES, OUTCOMES, ROOT, SCHEMA_REQUIRED_FIELDS
@@ -38,6 +39,15 @@ def validate_case_file(
         return
 
     required = SCHEMA_REQUIRED_FIELDS["case-file.schema.json"]
+    validate_exact_fields(
+        fail,
+        path,
+        test_record["id"],
+        "case_file root",
+        case_data,
+        CASE_FILE_ROOT_FIELDS,
+        allow_missing=True,
+    )
     for field in required:
         if field not in case_data:
             fail(path, f"{test_record['id']} case_file missing {field}")
@@ -89,6 +99,15 @@ def validate_case_record(
     if not isinstance(case, dict):
         fail(path, f"{test_id} case_file has non-table case entry")
         return
+    validate_exact_fields(
+        fail,
+        path,
+        test_id,
+        "case",
+        case,
+        CASE_FILE_CASE_FIELDS,
+        allow_missing=True,
+    )
     for field in ("id", "family", "input"):
         if field not in case:
             fail(path, f"{test_id} case missing {field}")
@@ -174,3 +193,24 @@ def copy_expected_behavior(behavior: dict[str, Any]) -> dict[str, Any]:
         "oracle_ref",
     ]
     return {field: behavior[field] for field in fields if field in behavior}
+
+
+def validate_exact_fields(
+    fail: Fail,
+    path: Path,
+    test_id: str,
+    label: str,
+    value: dict[str, Any],
+    allowed: frozenset[str],
+    *,
+    allow_missing: bool = False,
+) -> None:
+    actual = set(value)
+    unknown = sorted(actual - allowed)
+    missing = [] if allow_missing else sorted(allowed - actual)
+    if unknown or missing:
+        fail(
+            path,
+            f"{test_id} {label} fields must be exactly the closed contract; "
+            f"missing={missing}, unknown={unknown}",
+        )

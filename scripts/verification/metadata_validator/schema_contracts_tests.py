@@ -71,6 +71,36 @@ class SchemaContractsTests(unittest.TestCase):
             failures,
         )
 
+    def test_case_file_and_artifact_schemas_pin_closed_field_contracts(self) -> None:
+        case_schema = load_case_file_schema()
+        artifact_schema = load_case_artifact_schema()
+
+        self.assertEqual(validate_schema_enums("case-file.schema.json", case_schema), [])
+        self.assertEqual(
+            validate_schema_enums("case-artifact.schema.json", artifact_schema), []
+        )
+
+        mutations = []
+        open_root = copy.deepcopy(case_schema)
+        open_root["additionalProperties"] = True
+        mutations.append(("case-file.schema.json", open_root))
+        open_case = copy.deepcopy(case_schema)
+        open_case["$defs"]["generatedBlockedCase"]["additionalProperties"] = True
+        mutations.append(("case-file.schema.json", open_case))
+        implicit_input = copy.deepcopy(case_schema)
+        implicit_input["$defs"]["inputMap"].pop("additionalProperties")
+        mutations.append(("case-file.schema.json", implicit_input))
+        open_artifact_case = copy.deepcopy(artifact_schema)
+        open_artifact_case["$defs"]["caseResult"]["additionalProperties"] = True
+        mutations.append(("case-artifact.schema.json", open_artifact_case))
+        missing_artifact_field = copy.deepcopy(artifact_schema)
+        missing_artifact_field["required"].remove("helper_version")
+        mutations.append(("case-artifact.schema.json", missing_artifact_field))
+
+        for name, schema in mutations:
+            with self.subTest(name=name):
+                self.assertTrue(validate_schema_enums(name, schema))
+
     def test_suite_v2_schema_matches_validator_contract(self) -> None:
         schema = load_suite_schema()
 
@@ -137,6 +167,10 @@ def load_suite_schema() -> dict:
 
 def load_case_file_schema() -> dict:
     return json.loads((ROOT / "verification/schemas/case-file.schema.json").read_text())
+
+
+def load_case_artifact_schema() -> dict:
+    return json.loads((ROOT / "verification/schemas/case-artifact.schema.json").read_text())
 
 
 def load_matrix_schema() -> dict:

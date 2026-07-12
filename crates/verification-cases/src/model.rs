@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{StateSnapshot, TraceStep};
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaseFile {
     pub schema_version: u32,
     pub id: String,
@@ -26,6 +27,7 @@ pub struct CaseFile {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaseRecord {
     pub id: String,
     pub family: String,
@@ -86,4 +88,66 @@ pub struct CaseArtifactEntry {
     pub state_delta: Option<String>,
     pub before: Option<StateSnapshot>,
     pub after: Option<StateSnapshot>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CaseFile;
+
+    #[test]
+    fn case_file_rejects_unknown_root_and_case_fields() {
+        let root_error = toml::from_str::<CaseFile>(
+            r#"schema_version = 1
+id = "CASES_UNKNOWN_ROOT"
+title = "Unknown root"
+area = "bytecode_vm"
+owner = "verification"
+status = "planned"
+invariant = "INV"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:generator"
+source_digest = "sha256:source"
+last_reviewed = "2026-07-12"
+unreviewed_root = true
+
+[[case]]
+id = "CASE"
+family = "happy_path"
+input = { scenario = "RUN" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP"
+"#,
+        )
+        .unwrap_err();
+        assert!(root_error
+            .to_string()
+            .contains("unknown field `unreviewed_root`"));
+
+        let case_error = toml::from_str::<CaseFile>(
+            r#"schema_version = 1
+id = "CASES_UNKNOWN_CASE"
+title = "Unknown case"
+area = "bytecode_vm"
+owner = "verification"
+status = "planned"
+invariant = "INV"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:generator"
+source_digest = "sha256:source"
+last_reviewed = "2026-07-12"
+
+[[case]]
+id = "CASE"
+family = "happy_path"
+input = { scenario = "RUN" }
+state = "blocked"
+spec_gap_ref = "SPEC_GAP"
+unreviewed_case = true
+"#,
+        )
+        .unwrap_err();
+        assert!(case_error
+            .to_string()
+            .contains("unknown field `unreviewed_case`"));
+    }
 }

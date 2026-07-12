@@ -8,6 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .case_contract_fields import (
+    CASE_ARTIFACT_CASE_FIELDS,
+    CASE_ARTIFACT_HELPER_VERSION,
+    CASE_ARTIFACT_ROOT_FIELDS,
+)
+
 
 CASE_RESULTS = {"passed", "failed", "skipped", "blocked"}
 CASE_PROVENANCE_KINDS = {
@@ -81,6 +87,7 @@ def validate_case_artifact(
     *,
     artifact: dict[str, Any],
     expected_test_id: str,
+    expected_case_file: str,
     expected_run_id: str,
     expected_artifact_dir: str,
     expected_case_file_digest: str,
@@ -88,9 +95,12 @@ def validate_case_artifact(
     expected_case_provenance_kind: str,
     expected_trace_definition_digest: str | None,
 ) -> tuple[list[str], list[str], list[str]]:
+    require_exact_fields(artifact, CASE_ARTIFACT_ROOT_FIELDS, "root")
     require_equal(artifact, "schema_version", 1)
     require_equal(artifact, "test_id", expected_test_id)
+    require_equal(artifact, "case_file", expected_case_file)
     require_equal(artifact, "case_file_digest", expected_case_file_digest)
+    require_equal(artifact, "helper_version", CASE_ARTIFACT_HELPER_VERSION)
     require_equal(
         artifact, "case_provenance_kind", expected_case_provenance_kind
     )
@@ -117,6 +127,7 @@ def validate_case_artifact(
             raise CaseArtifactContractError(
                 "case artifact contains a non-object case"
             )
+        require_exact_fields(case, CASE_ARTIFACT_CASE_FIELDS, "case")
         case_id = case.get("id")
         result = case.get("result")
         if not isinstance(case_id, str):
@@ -145,6 +156,19 @@ def validate_case_artifact(
     if missing:
         raise CaseArtifactContractError(f"case artifact missing cases {missing}")
     return failed, blocked, summary
+
+
+def require_exact_fields(
+    value: dict[str, Any], expected: frozenset[str], label: str
+) -> None:
+    actual = set(value)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unknown = sorted(actual - expected)
+        raise CaseArtifactContractError(
+            f"case artifact {label} fields must be exactly {sorted(expected)}; "
+            f"missing={missing}, unknown={unknown}"
+        )
 
 
 def require_equal(artifact: dict[str, Any], field: str, expected: Any) -> None:
