@@ -231,6 +231,9 @@ Target release: `v0.24.30`
 
 ### Changed
 
+- branding: replaced font-dependent truST wordmarks and product icons with
+  self-contained path-based assets across the public documentation, runtime Web
+  IDE, and packaged VS Code extension.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
