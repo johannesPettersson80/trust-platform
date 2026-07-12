@@ -3,7 +3,7 @@ id = "IEC_TIMER_001"
 title = "Timer scan-step and lifecycle semantics are explicit"
 area = "compiler_iec"
 risk = "safety_critical"
-status = "gap_open"
+status = "test_written"
 owner = "language"
 last_reviewed = "2026-07-12"
 claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan state machines, including the TOF ET-equals-PT post-expiry hold until rearm."
@@ -12,9 +12,9 @@ contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
 tests = ["TEST_IEC_TIMER_TRACE_001"]
 gates = []
-evidence_refs = []
+evidence_refs = ["EVID_TEST_IEC_TIMER_TRACE_001_RED"]
 spec_gap_refs = []
-missing = ["targeted_red_proof", "targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
+missing = ["targeted_green_proof", "broad_remote_gate", "unasserted_timer_boundary_cases"]
 
 [spec]
 status = "specified"
