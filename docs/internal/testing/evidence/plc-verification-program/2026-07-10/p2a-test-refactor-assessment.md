@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `9eacebaa6f272d8a76f038e777279bc69067b5c2`
-Generated: `2026-07-12T00:36:00+02:00`
+Source revision: `aecec2e9a79a9f3101b5e85947a37a34f8d71517`
+Generated: `2026-07-12T10:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `ae8c0cd50a074880a7f76c653b890278674deb3d38e8dc26bb9ac1f34afd2cbb`
-Input SHA-256: `sha256:515c2b11493c73b4f9b94608bfa2c997cb80977a6cbdb6c432f77232f90b738e`
+Generated JSON SHA-256: `0d7c405236ba4fe657d1a937e5299e4c27b114515f2d7db213cae7607e403607`
+Input SHA-256: `sha256:fa831ff14b1a45a4ee5d6a8ea67f08c51c8b03588271aeb0f8ad664d4f124a68`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,8 +13,8 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3816
-- Fact-bearing files: 670
+- Scanner facts: 3820
+- Fact-bearing files: 672
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 0
 - Broad multi-invariant claim candidates: 0
@@ -30,7 +30,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Large registered VS Code files: 5
 - Catalog records: 6
 - Scanner facts with reviewed duration: 1
-- Scanner facts without reviewed duration: 3815
+- Scanner facts without reviewed duration: 3819
 - Catalog rows explicitly classified slow: 1
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -104,7 +104,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3816
+- Scanner facts listed: 3820
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_88F921D24D3708CEF3E1` / `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`: `fast` at `crates/trust-runtime/tests/bytecode_container.rs`.

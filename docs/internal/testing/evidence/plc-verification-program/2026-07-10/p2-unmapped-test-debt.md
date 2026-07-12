@@ -1,20 +1,20 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `9eacebaa6f272d8a76f038e777279bc69067b5c2`
-Generated: `2026-07-12T00:36:00+02:00`
+Source revision: `aecec2e9a79a9f3101b5e85947a37a34f8d71517`
+Generated: `2026-07-12T10:45:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `20a711ad9bf735b72c7898b7852d55a146e8e4b0922ab4eabde20afccd3d7278`
-Input SHA-256: `sha256:7f583e426b8f0277ae64c08433c098be16c06ab668d52382fb605efb3ceaf007`
+Generated JSON SHA-256: `d5e6910de91970a53bad32c1920c58a49accb9450841b40f8376b97098ec94c7`
+Input SHA-256: `sha256:7387a8cc70821f109685ad4c0fe649cc6eeacdb53a9a9362660bfe8e6bb06a59`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3816
+- Scanner facts: 3820
 - Mapped scanner facts: 1
-- Unmapped scanner facts: 3815
+- Unmapped scanner facts: 3819
 - Generated-test catalog rows: 1
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 85
@@ -28,7 +28,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1369 | 1 | 1368 |
-| `rust_unit_test` | 1652 | 0 | 1652 |
+| `rust_unit_test` | 1656 | 0 | 1656 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -3128,6 +3128,9 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_BF353CF9E6FDD42E514D` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_06.rs` | `canonical_ast_similarity_clears_high_threshold_for_structural_equivalence` | `not_ignored` |
 | `DISC_51DF2D1159582D47FC75` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_06.rs` | `canonical_ast_similarity_drops_below_contamination_threshold_for_structural_change` | `not_ignored` |
 | `DISC_AA77C85739530FB74348` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_06.rs` | `canonical_ast_strips_comments_and_identifier_values` | `not_ignored` |
+| `DISC_B88734C266501D2AF32C` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `finite_toml_float_is_rejected_before_trace_digesting` | `not_ignored` |
+| `DISC_DE0884DB9274146F41BB` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `hand_authored_trace_provenance_is_artifact_ready` | `not_ignored` |
+| `DISC_31C7CA5475CFABF17E4A` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `unicode_trace_digest_matches_metadata_validator_contract` | `not_ignored` |
 | `DISC_87302EF69E1E2E42E300` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `blocked_cases_are_recorded_without_executing_the_runner` | `not_ignored` |
 | `DISC_1A7BDF97311D84EE779B` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `default_artifact_dir_is_workspace_target_gate_artifacts` | `not_ignored` |
 | `DISC_9F1F50D5688D15E30213` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `expected_case_file_digest_is_enforced_before_execution` | `not_ignored` |
@@ -3138,6 +3141,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_3418DE949E799427C04E` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `runnable_cases_capture_snapshots_and_state_delta` | `not_ignored` |
 | `DISC_D097DB1E2FB45715FC5E` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `schema_version_mismatch_is_rejected_before_execution` | `not_ignored` |
 | `DISC_FD838D2673518C6E333A` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `trust_verify_env_stamps_are_recorded_in_artifact` | `not_ignored` |
+| `DISC_C19E83C321C481A8A26B` | `rust_unit_test` | `crates/verification-cases/src/model.rs` | `case_file_rejects_unknown_root_and_case_fields` | `not_ignored` |
 | `DISC_BF51D273F54F7F04E17B` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/ci/broken/src/tests.st` | `CI_Fails` | `not_ignored` |
 | `DISC_5D5012DB3A3EBBFDB859` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/ci/green/src/tests.st` | `CI_AlsoPasses` | `not_ignored` |
 | `DISC_72893A98D712EA02D73B` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/ci/green/src/tests.st` | `CI_Passes` | `not_ignored` |
