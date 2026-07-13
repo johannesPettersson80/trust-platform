@@ -241,6 +241,11 @@ fn coerce_scalar_to_io(value: Value, target: TypeId) -> Result<Value, RuntimeErr
                 Value::Real(val) => val,
                 _ => crate::numeric::to_f64(&value)? as f32,
             };
+            if !val.is_finite() {
+                return Err(RuntimeError::IoDriver(
+                    "typed REAL process-image value must be finite".into(),
+                ));
+            }
             Ok(Value::DWord(val.to_bits()))
         }
         TypeId::TIME => match value {
@@ -274,6 +279,11 @@ fn coerce_scalar_to_io(value: Value, target: TypeId) -> Result<Value, RuntimeErr
                 Value::LReal(val) => val,
                 _ => crate::numeric::to_f64(&value)?,
             };
+            if !val.is_finite() {
+                return Err(RuntimeError::IoDriver(
+                    "typed LREAL process-image value must be finite".into(),
+                ));
+            }
             Ok(Value::LWord(val.to_bits()))
         }
         _ => Err(RuntimeError::TypeMismatch),

@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-runtime: typed process-image `REAL` and `LREAL` output bindings now
+  reject non-finite values transactionally before changing `%Q`/`%M` bytes or
+  committing output to a physical driver.
 - trust-runtime: finite `REAL` `EXP` and `EXPT` calls now fault before
   assignment when their basic-single result would be NaN or infinity instead
   of storing a non-finite process value.

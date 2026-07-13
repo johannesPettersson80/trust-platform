@@ -212,6 +212,7 @@ impl IoInterface {
 
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
         let bindings = self.bindings.clone();
+        let mut pending = Vec::new();
         for binding in bindings {
             if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
                 continue;
@@ -229,8 +230,22 @@ impl IoInterface {
             } else {
                 value.clone()
             };
-            self.write(&binding.address, value)?;
+            pending.push((binding.address, value));
         }
+
+        let mut staged = Self {
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            memory: self.memory.clone(),
+            bindings: Vec::new(),
+            hierarchical: self.hierarchical.clone(),
+        };
+        for (address, value) in pending {
+            staged.write(&address, value)?;
+        }
+        self.outputs = staged.outputs;
+        self.memory = staged.memory;
+        self.hierarchical = staged.hierarchical;
         Ok(())
     }
 
