@@ -206,7 +206,7 @@
         },
         "assertion_summary": { "type": "string", "minLength": 1 },
         "limitations": { "$ref": "#/$defs/string_array" },
-        "last_reviewed": { "const": "2026-07-11" }
+        "last_reviewed": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
       },
       "additionalProperties": false
     },

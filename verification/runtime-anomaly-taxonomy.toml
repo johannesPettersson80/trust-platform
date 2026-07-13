@@ -680,12 +680,12 @@ last_reviewed = "2026-07-11"
 [[mappings]]
 id = "ANOM_MAP_CLOCK_STEP_002"
 class_id = "clock_step"
-discovery_id = "DISC_E819B2CEA441A53E27E0"
+discovery_id = "DISC_2CC9B67E44CB8284B149"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_restart.rs"
-name = "retain_rules"
+name = "in_process_restart_preserves_monotonic_time"
 association_kind = "context_only"
 injection_mechanism = "test_harness"
-assertion_summary = "After advancing harness time by five milliseconds, a warm restart leaves runtime current_time at zero."
-limitations = ["The assertion records current implementation behavior only; it does not exercise the written timer decisions or establish adequacy."]
-last_reviewed = "2026-07-11"
+assertion_summary = "After advancing harness time by five milliseconds, in-process warm and cold restart preserve runtime current_time at five milliseconds."
+limitations = ["This exercises the reviewed restart clock-preservation decision, not an external scheduler or system-clock step, and does not establish clock-step anomaly adequacy."]
+last_reviewed = "2026-07-13"

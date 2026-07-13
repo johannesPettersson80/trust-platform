@@ -168,6 +168,14 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
     def test_known_good_contract_validates(self) -> None:
         self.assertEqual([], self.validate(fixture_taxonomy()))
 
+    def test_mapping_review_dates_can_advance_independently(self) -> None:
+        taxonomy = fixture_taxonomy()
+        taxonomy["mappings"][0]["last_reviewed"] = "2026-07-13"
+        schema = fixture_schema()
+
+        self.assertEqual([], validate_json_schema_instance(taxonomy, schema))
+        self.assertEqual([], self.validate(taxonomy))
+
     def test_classes_are_exactly_the_board_order_and_closed(self) -> None:
         missing = fixture_taxonomy()
         missing["classes"].pop()
