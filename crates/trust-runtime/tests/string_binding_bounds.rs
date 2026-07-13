@@ -35,6 +35,39 @@ END_PROGRAM
 }
 
 #[test]
+fn function_output_copyback_respects_receiving_string_capacity() {
+    let source = r#"
+FUNCTION Produce : BOOL
+VAR_OUTPUT
+    text : STRING[20];
+END_VAR
+text := 'ABCDEFGHIJKLMNOPQRST';
+Produce := TRUE;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    narrow : STRING[5] := 'OLD';
+END_VAR
+Produce(narrow);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(
+        harness.get_output("narrow"),
+        Some(Value::String("ABCDE".into())),
+        "function VAR_OUTPUT copy-back must honor the receiver's STRING[5] capacity"
+    );
+}
+
+#[test]
 fn function_block_inout_rejects_mismatched_string_capacity() {
     let source = r#"
 FUNCTION_BLOCK Observe
@@ -68,7 +101,7 @@ FUNCTION_BLOCK Producer
 VAR_OUTPUT
     text : WSTRING[6];
 END_VAR
-text := "ÅBCDEF";
+text := "ABCDEF";
 END_FUNCTION_BLOCK
 
 PROGRAM Main
@@ -89,7 +122,7 @@ END_PROGRAM
     );
     assert_eq!(
         harness.get_output("narrow"),
-        Some(Value::WString("ÅBC".into())),
+        Some(Value::WString("ABC".into())),
         "VAR_OUTPUT copy-back must count Unicode scalar values for WSTRING[3]"
     );
 }
@@ -106,7 +139,7 @@ END_FUNCTION_BLOCK
 PROGRAM Main
 VAR
     fb : Observe;
-    caller_text : WSTRING[6] := "ÅBCDEF";
+    caller_text : WSTRING[6] := "ABCDEF";
 END_VAR
 fb(text := caller_text);
 END_PROGRAM
@@ -119,6 +152,26 @@ END_PROGRAM
         error.to_string().contains("error[E205]:"),
         "expected the VAR_IN_OUT type rejection category, got {error}"
     );
+}
+
+#[test]
+fn bounded_string_initializers_count_unicode_scalar_values() {
+    let source = r#"
+PROGRAM Main
+VAR
+    narrow : STRING[1] := 'Å';
+    wide : WSTRING[1] := "Å";
+END_VAR
+END_PROGRAM
+"#;
+
+    let harness = TestHarness::from_source(source)
+        .expect("one Unicode scalar must fit STRING[1] and WSTRING[1]");
+    assert_eq!(
+        harness.get_output("narrow"),
+        Some(Value::String("Å".into()))
+    );
+    assert_eq!(harness.get_output("wide"), Some(Value::WString("Å".into())));
 }
 
 #[test]
