@@ -410,6 +410,15 @@ The runtime loads retained values during resource startup and writes them on shu
 periodically (policy defined in the runtime configuration). The periodic cadence is
 rate-limited and only writes when retained values have changed.
 
+The file-backed retain boundary accepts `REAL` and `LREAL` values only when
+they are finite. This rule is recursive through retained arrays and structures
+and applies to both serialization and deserialization, including legacy retain
+images. A rejected save does not replace the last durable snapshot. A loaded
+snapshot containing `NaN`, positive infinity, or negative infinity is rejected
+as a whole before any retained global is applied; the runtime does not clamp,
+normalize, or substitute a default value. In-process floating-point execution
+outside the file-backed retain boundary is unaffected by this rule.
+
 **Power-loss guidance:** retained values are only guaranteed to persist if the most recent
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
 Unflushed changes may be lost on sudden power loss (implementer-specific).

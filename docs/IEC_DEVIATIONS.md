@@ -6,6 +6,29 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite file-backed retained values
+
+- ID: DEV-039
+- Area: Runtime retain persistence
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and defines
+  retentive-variable restart behavior, but it does not define truST's
+  implementer-specific file-backed retain image format or admission policy.
+- Deviation:
+  - truST rejects retained `REAL`/`LREAL` values containing `NaN`, positive
+    infinity, or negative infinity when saving or loading a file-backed retain
+    snapshot. The rule applies recursively to arrays and structures.
+  - A rejected save leaves the last durable snapshot unchanged. A rejected
+    load applies no entries from the snapshot and leaves the runtime's retained
+    values unchanged.
+  - The runtime does not clamp, normalize, or replace a non-finite retained
+    value with a default.
+- Impact:
+  - Projects cannot persist non-finite values through truST's file-backed retain
+    store as ordinary process state.
+- Mitigation:
+  - Use `IS_VALID` and project logic to convert intentional non-finite internal
+    state into an explicit finite status/value pair before persistence.
+
 ## 2026-07-13 - Reject out-of-range runtime mesh numeric inputs
 
 - ID: DEV-038
