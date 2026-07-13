@@ -123,10 +123,9 @@ function extensionRoot(): string {
 }
 
 function readSource(relativePath: string): string {
-  return fs.readFileSync(
-    path.join(extensionRoot(), "src", relativePath),
-    "utf8",
-  );
+  return fs
+    .readFileSync(path.join(extensionRoot(), "src", relativePath), "utf8")
+    .replace(/\r\n?/g, "\n");
 }
 
 function readMedia(relativePath: string): string {
