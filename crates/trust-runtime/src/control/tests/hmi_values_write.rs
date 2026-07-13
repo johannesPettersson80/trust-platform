@@ -741,7 +741,8 @@ fn hmi_write_rejects_non_finite_real_text() {
     let source = r#"
 PROGRAM Main
 VAR
-    setpoint : REAL := 1.0;
+    real_setpoint : REAL := 1.0;
+    lreal_setpoint : LREAL := 2.0;
 END_VAR
 END_PROGRAM
 "#;
@@ -751,31 +752,52 @@ END_PROGRAM
         r#"
 [write]
 enabled = true
-allow = ["resource/RESOURCE/program/Main/field/setpoint"]
+allow = [
+    "resource/RESOURCE/program/Main/field/real_setpoint",
+    "resource/RESOURCE/program/Main/field/lreal_setpoint",
+]
 "#,
     );
 
     let mut state = hmi_test_state(source);
     set_hmi_project_root(&mut state, &root);
 
-    let response = handle_request_value(
-        json!({
-            "id": 75,
-            "type": "hmi.write",
-            "params": {
-                "id": "resource/RESOURCE/program/Main/field/setpoint",
-                "value": "NaN"
-            }
-        }),
-        &state,
-        None,
-    );
-    assert!(!response.ok, "non-finite hmi.write must be rejected");
-    assert_eq!(
-        response.error.as_deref(),
-        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/setpoint'")
-    );
-    assert!(state.debug.drain_var_writes().is_empty());
+    let rejected = [
+        ("real_setpoint", "NaN"),
+        ("real_setpoint", "inf"),
+        ("real_setpoint", "-inf"),
+        ("real_setpoint", "3.5e38"),
+        ("lreal_setpoint", "NaN"),
+        ("lreal_setpoint", "inf"),
+        ("lreal_setpoint", "-inf"),
+    ];
+    for (index, (field, value)) in rejected.into_iter().enumerate() {
+        let target = format!("resource/RESOURCE/program/Main/field/{field}");
+        let response = handle_request_value(
+            json!({
+                "id": 75 + index,
+                "type": "hmi.write",
+                "params": {
+                    "id": target,
+                    "value": value,
+                }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            !response.ok,
+            "non-finite or width-overflowing hmi.write {field}={value} must be rejected"
+        );
+        assert_eq!(
+            response.error.as_deref(),
+            Some(format!("invalid hmi.write value for target '{target}'").as_str())
+        );
+        assert!(
+            state.debug.drain_var_writes().is_empty(),
+            "rejected hmi.write {field}={value} must not queue a debug write"
+        );
+    }
 
     fs::remove_dir_all(root).ok();
 }
