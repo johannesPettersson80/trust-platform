@@ -461,6 +461,17 @@ when enabled:
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
 
+##### 6.9.1 Managed debug floating-point ingress
+
+In a managed local debug session, `stIoWrite` and `stIoForce` interpret values
+for declared `REAL` and `LREAL` addresses as semantic decimal values. They
+reject NaN, positive infinity, negative infinity, overflow to a non-finite
+declared value, and raw integer encodings of non-finite IEEE bit patterns
+before queueing, forcing, or changing the process image. A rejected request
+returns a failed DAP response and preserves both the previous process-image
+value and the previous force state. Attach-mode requests remain governed by
+the separate runtime control endpoint contract. (DEV-040)
+
 #### 6.10 Configuration and Resources
 
 IEC configurations may declare multiple resources. Each resource is scheduled independently in its own OS thread. (IEC 61131-3 Ed.3, §6.8.1; Table 62)

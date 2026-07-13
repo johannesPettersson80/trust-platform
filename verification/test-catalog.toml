@@ -28,6 +28,106 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
+id = "TEST_IEC_STRING_IMPORTED_CAPACITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_55DE77B00C6511880E2E"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "compiler_iec"
+path = "crates/trust-hir/src/db/queries/database/database_tests_part_01.rs"
+name = "analyze_salsa_preserves_cross_file_constant_string_capacity_on_in_out_parameters"
+command = "cargo test -p trust-hir db::queries::database::tests::analyze_salsa_preserves_cross_file_constant_string_capacity_on_in_out_parameters -- --exact"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_STRING_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+spec_gap_ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+expected_result = "Imported function and function-block VAR_IN_OUT parameters preserve the same project-constant-derived STRING capacity as their caller arguments."
+expected_failure_mode = "A cross-file constant-derived formal becomes unbounded during symbol import and rejects an equal-capacity caller argument."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_STRING_IMPORTED_CAPACITY_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_IEC_STRING_IMPORTED_MISMATCH_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F7316A527BB51A15C20F"
+discovery_source_kind = "rust_unit_test"
+test_class = "integration"
+area = "compiler_iec"
+path = "crates/trust-hir/src/db/queries/database/database_tests_part_01.rs"
+name = "analyze_salsa_rejects_mismatched_cross_file_constant_string_capacity"
+command = "cargo test -p trust-hir db::queries::database::tests::analyze_salsa_rejects_mismatched_cross_file_constant_string_capacity -- --exact"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_STRING_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+spec_gap_ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+expected_result = "A STRING[11] caller remains incompatible with an imported STRING[12] VAR_IN_OUT formal after project-constant resolution."
+expected_failure_mode = "The importer treats unresolved capacity as a wildcard or accepts a genuine cross-file capacity mismatch."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_STRING_IMPORTED_MISMATCH_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DEBUG_MANAGED_REAL_NONFINITE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_200665EACFA567BA9AB5"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-debug/src/adapter/tests_part_01.rs"
+name = "dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects"
+command = "cargo test -p trust-debug adapter::tests::tests_part_01::dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects -- --exact"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#managed-debug-floating-point-ingress"
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+expected_result = "Managed stIoWrite and stIoForce reject REAL NaN, infinities, and width overflow before changing process-image or force state."
+expected_failure_mode = "The adapter reports success, writes non-finite REAL bits, or records a persistent force before the next runtime scan faults."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DEBUG_MANAGED_REAL_NONFINITE_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DEBUG_MANAGED_LREAL_NONFINITE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_716FA81FC2506FBA1592"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-debug/src/adapter/tests_part_01.rs"
+name = "dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values"
+command = "cargo test -p trust-debug adapter::tests::tests_part_01::dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values -- --exact"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#managed-debug-floating-point-ingress"
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+expected_result = "Managed stIoWrite and stIoForce parse LREAL as a finite semantic decimal value and reject non-finite text or raw IEEE bit encodings without side effects."
+expected_failure_mode = "The adapter accepts a raw LWORD infinity/NaN encoding, rejects an ordinary finite LREAL decimal, or changes process-image or force state on rejection."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DEBUG_MANAGED_LREAL_NONFINITE_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
 id = "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_547AC119BF2B3BEFB960"
