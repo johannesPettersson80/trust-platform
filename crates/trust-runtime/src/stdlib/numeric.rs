@@ -116,10 +116,7 @@ fn unary_real(args: &[Value], f: impl Fn(f64) -> f64) -> Result<Value, RuntimeEr
     match args[0] {
         Value::Real(v) => {
             let result = f(v as f64);
-            if !result.is_finite() {
-                return Err(RuntimeError::Overflow);
-            }
-            Ok(Value::Real(result as f32))
+            checked_real_result(result)
         }
         Value::LReal(v) => {
             let result = f(v);
@@ -181,10 +178,7 @@ fn expt(args: &[Value]) -> Result<Value, RuntimeError> {
     match base {
         Value::Real(v) => {
             let result = (*v as f64).powf(exp);
-            if !result.is_finite() {
-                return Err(RuntimeError::Overflow);
-            }
-            Ok(Value::Real(result as f32))
+            checked_real_result(result)
         }
         Value::LReal(v) => {
             let result = v.powf(exp);
@@ -195,6 +189,17 @@ fn expt(args: &[Value]) -> Result<Value, RuntimeError> {
         }
         _ => Err(RuntimeError::TypeMismatch),
     }
+}
+
+fn checked_real_result(result: f64) -> Result<Value, RuntimeError> {
+    if !result.is_finite() {
+        return Err(RuntimeError::Overflow);
+    }
+    let result = result as f32;
+    if !result.is_finite() {
+        return Err(RuntimeError::Overflow);
+    }
+    Ok(Value::Real(result))
 }
 
 fn mov(args: &[Value]) -> Result<Value, RuntimeError> {

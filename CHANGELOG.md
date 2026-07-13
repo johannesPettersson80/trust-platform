@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-runtime: finite `REAL` `EXP` and `EXPT` calls now fault before
+  assignment when their basic-single result would be NaN or infinity instead
+  of storing a non-finite process value.
 - trust-runtime: finite `REAL` binary arithmetic now faults before assignment
   when its basic-single result would be NaN or infinity instead of storing a
   non-finite process value.
