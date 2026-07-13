@@ -1130,7 +1130,6 @@ on_error = "warn"
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn fail_closed_disconnected_read_returns_freshness_error() {
     let state = Arc::new(Mutex::new(MockState {
         connected: false,
@@ -1159,14 +1158,16 @@ reconnect_ms = 1
     let err = driver
         .read_inputs(&mut inputs)
         .expect_err("disconnected MQTT read must fail closed");
-    assert!(
-        err.to_string().contains("fresh") || err.to_string().contains("disconnect"),
-        "expected freshness/disconnect error, got {err}"
-    );
+    match err {
+        RuntimeError::IoFreshness(message) => assert!(
+            message.contains("mqtt"),
+            "expected MQTT freshness context, got {message}"
+        ),
+        other => panic!("expected MQTT freshness error, got {other}"),
+    }
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn fail_closed_publish_failure_returns_output_error() {
     let state = Arc::new(Mutex::new(MockState {
         connected: true,
@@ -1200,7 +1201,6 @@ broker = "127.0.0.1:1883"
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn fail_closed_connect_failure_is_observable() {
     let state = Arc::new(Mutex::new(MockState::default()));
     let attempts = Arc::new(AtomicUsize::new(0));

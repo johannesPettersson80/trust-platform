@@ -9,6 +9,7 @@ mod modbus_support;
 use modbus_support::{
     start_closing_modbus_server, start_delayed_modbus_server, start_modbus_server, ModbusTestState,
 };
+use trust_runtime::error::RuntimeError;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
@@ -768,7 +769,6 @@ fn modbus_driver_drop_is_bounded_while_worker_waits_for_first_response() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn modbus_exception_is_not_reported_as_generic_transport() {
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
@@ -785,13 +785,11 @@ fn modbus_exception_is_not_reported_as_generic_transport() {
     let err = driver
         .read_inputs(&mut inputs)
         .expect_err("Modbus exception must be observable");
-    let text = err.to_string();
-    assert!(
-        text.contains("exception"),
-        "expected Modbus exception, got {err}"
-    );
-    assert!(
-        !text.starts_with("i/o driver error"),
-        "Modbus exception should not use the generic transport error variant: {err}"
-    );
+    match err {
+        RuntimeError::IoAddress(message) => assert!(
+            message.contains("modbus exception"),
+            "expected Modbus exception context, got {message}"
+        ),
+        other => panic!("expected Modbus address/exception error, got {other}"),
+    }
 }

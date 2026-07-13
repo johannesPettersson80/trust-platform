@@ -314,24 +314,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_2A6A13834385AB7C9A1D"
-discovery_id = "DISC_2A6A13834385AB7C9A1D"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/io/mqtt/tests.rs"
-name = "fail_closed_connect_failure_is_observable"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "protocols"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_2D0B462DA31DE705F6EC"
 discovery_id = "DISC_2D0B462DA31DE705F6EC"
 discovery_source_kind = "rust_integration_test"
@@ -880,42 +862,6 @@ public_claim_impact = "A missing or skipped run cannot prove EtherCAT storage be
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_A3BEFC6AEFD5123C849D"
-discovery_id = "DISC_A3BEFC6AEFD5123C849D"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/modbus_driver.rs"
-name = "modbus_exception_is_not_reported_as_generic_transport"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "protocols"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_A58F9A1B38CF9A02367C"
-discovery_id = "DISC_A58F9A1B38CF9A02367C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/io/mqtt/tests.rs"
-name = "fail_closed_publish_failure_returns_output_error"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "protocols"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_A5BFD4D2FEC4A5FE7C73"
 discovery_id = "DISC_A5BFD4D2FEC4A5FE7C73"
 discovery_source_kind = "rust_unit_test"
@@ -1124,24 +1070,6 @@ ignore_reason = "red test for runtime-safety fail-closed Phase 8"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "control_security"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_C3A91E2860C30B08BED4"
-discovery_id = "DISC_C3A91E2860C30B08BED4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/io/mqtt/tests.rs"
-name = "fail_closed_disconnected_read_returns_freshness_error"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "protocols"
 status = "gap_open"
 ignore_class = "unknown"
 reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
