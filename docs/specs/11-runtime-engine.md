@@ -196,6 +196,17 @@ The implementation-owned clock, call, preset, and restart boundaries are
 recorded in `docs/IEC_DECISIONS.md`. Timer traces observe executed calls only;
 they do not claim that outputs change continuously between scan steps.
 
+##### Timer Restart and Time-Base Contract
+
+A newly constructed runtime starts its monotonic time at zero. An in-process
+warm or cold restart does not create a new clock epoch: it preserves the
+runtime's current monotonic time while reinitializing non-retained timer
+instances and task timing baselines at that value. The first executed timer
+call after restart contributes zero elapsed time. Subsequent elapsed time is
+measured from the preserved post-restart baseline, so a restart cannot make the
+runtime clock move backward or charge pre-restart elapsed time to a new timer
+instance.
+
 #### 6.4 Process Image
 
 Memory-mapped area for inputs (%I), outputs (%Q), and markers (%M).

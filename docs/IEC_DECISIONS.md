@@ -16,12 +16,12 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - `PT <= T#0s` is treated as zero for TP, TON, and TOF.
   - A skipped or conditional call performs no state transition. On the next executed call, elapsed time is measured from the preceding executed call, so the skipped interval is included.
   - If the runtime clock does not advance or moves backward, that call contributes zero elapsed time and establishes the new clock baseline for the next call.
-  - Warm and cold restart reinitialize non-retained timer instances, including `Q`, `ET`, edge state, and the elapsed-time baseline. Retained function-block instance storage is a separate runtime-retention concern and is neither asserted nor changed by this timer vertical.
+  - Warm and cold restart reinitialize non-retained timer instances, including `Q`, `ET`, edge state, and the elapsed-time baseline. An in-process restart preserves the runtime's current monotonic time and establishes each new timer and task baseline at that value; only construction of a new runtime starts a new zero-based time epoch. The first executed timer call after restart therefore contributes zero elapsed time without rewinding the runtime clock. Retained function-block instance storage is a separate runtime-retention concern and is neither asserted nor changed by this timer vertical.
   - A TP pulse is not cancelled by a sampled falling input. A new sampled FALSE-to-TRUE edge starts a new PT interval; the first timer proof keeps IN high through expiry and makes no retrigger or short-input assertion.
   - TIME and LTIME variants use the same state transitions and clock source; `PT` and `ET` retain the variant's duration type.
 - Reason:
   - Scan-boundary observation makes the IEC timing diagrams deterministic in a cyclic runtime while exposing implementation-owned boundaries explicitly.
-  - The first proof vertical can assert Figure 15's basic TP/TON behavior and TOF post-expiry plateau without inventing restart, clock-step, PT-change, or short-input observations.
+  - The first proof vertical asserted Figure 15's basic TP/TON behavior and TOF post-expiry plateau. Later traces may assert the reviewed restart, clock-step, PT-change, and short-input decisions independently.
 
 ## 2026-07-05 - Subrange runtime write enforcement
 
