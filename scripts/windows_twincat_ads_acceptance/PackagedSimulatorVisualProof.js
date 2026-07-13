@@ -22,6 +22,20 @@ function createSimulatorObservations(vscode) {
   };
 }
 
+function isStartingAction(action) {
+  return action?.state === "busy" &&
+    action.disabled === true &&
+    action.text === "Starting…";
+}
+
+function isBlockedStartingAction(action) {
+  return action?.clicked === false && isStartingAction(action);
+}
+
+function isSimulatorVisualState(simulator, health, label) {
+  return simulator?.health === health && simulator.statusText === label;
+}
+
 async function createScreenshotProof({
   cdp,
   pageSession,
@@ -69,4 +83,10 @@ async function createScreenshotProof({
   };
 }
 
-module.exports = { createScreenshotProof, createSimulatorObservations };
+module.exports = {
+  createScreenshotProof,
+  createSimulatorObservations,
+  isBlockedStartingAction,
+  isSimulatorVisualState,
+  isStartingAction,
+};

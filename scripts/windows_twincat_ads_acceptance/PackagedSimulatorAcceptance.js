@@ -23,7 +23,7 @@ const {
 } = require("./PackagedAdsLiveValuesAcceptance");
 const { requestIoStateEvent } = require("./PackagedDapState");
 const { sleep, waitFor } = require("./AcceptanceWait");
-const { createScreenshotProof, createSimulatorObservations } = require("./PackagedSimulatorVisualProof");
+const { createScreenshotProof, createSimulatorObservations, isBlockedStartingAction, isSimulatorVisualState, isStartingAction } = require("./PackagedSimulatorVisualProof");
 
 const extensionRoot = requiredPath("TRUST_PACKAGED_EXTENSION_ROOT");
 const projectRoot = requiredPath("TRUST_PACKAGED_SIMULATOR_PROJECT");
@@ -308,7 +308,7 @@ exports.run = async function run() {
       return evalInDoc(
         canvasSession,
         ".react-flow",
-        `var sim=[...d.querySelectorAll('.react-flow__node')].find(function(node){return /Simulator/i.test(node.innerText||'');});var card=sim?.querySelector('[data-role="runtime-card"]');var status=sim?.querySelector('[data-role="status-pill"]');return {simulator:sim?{text:(sim.innerText||'').replace(/\\s+/g,' ').trim(),surfaceTone:card?.getAttribute('data-surface-tone')||'',statusText:(status?.innerText||'').trim()}:null,canvasText:(d.body.innerText||'').replace(/\\s+/g,' ').trim()};`
+        `var sim=[...d.querySelectorAll('.react-flow__node')].find(function(node){return /Simulator/i.test(node.innerText||'');});var card=sim?.querySelector('[data-role="runtime-card"]');var status=sim?.querySelector('[data-role="status-pill"]');return {simulator:sim?{text:(sim.innerText||'').replace(/\\s+/g,' ').trim(),health:card?.getAttribute('data-health')||'',surfaceTone:card?.getAttribute('data-surface-tone')||'',statusText:(status?.innerText||'').trim()}:null,canvasText:(d.body.innerText||'').replace(/\\s+/g,' ').trim()};`
       );
     }
 
@@ -339,29 +339,27 @@ exports.run = async function run() {
       proof.journey.start_attempts += 1;
       const click = await clickAction("start");
       check(`${name}-click-accepted`, click.clicked, click);
-      const sidebar = await waitFor(
+      const sidebarStarting = waitFor(
         sidebarSnapshot,
-        (value) => value.action.state === "busy" || /Starting/i.test(value.action.text),
+        (value) => isStartingAction(value.action),
         `${name} sidebar Starting`,
         15_000
       );
-      const statusText = await waitFor(
+      const statusStarting = waitFor(
         pageText,
         (value) => /truST:\s*Simulator starting/i.test(value),
         `${name} status bar Starting`,
         15_000
       );
+      const canvasStarting = devicesOpen ? waitFor(
+        canvasSnapshot,
+        (value) => isSimulatorVisualState(value.simulator, "starting", "Starting…"),
+        `${name} canvas Starting`, 15_000
+      ) : Promise.resolve(undefined);
+      const sidebar = await sidebarStarting;
       const duplicate = await clickAction("busy");
-      const duplicateBlocked = !duplicate.clicked && duplicate.disabled === true;
-      let canvas;
-      if (devicesOpen) {
-        canvas = await waitFor(
-          canvasSnapshot,
-          (value) => value.simulator?.statusText === "Starting",
-          `${name} canvas Starting`,
-          15_000
-        );
-      }
+      const duplicateBlocked = isBlockedStartingAction(duplicate);
+      const [statusText, canvas] = await Promise.all([statusStarting, canvasStarting]);
       proof.journey.starting_states_observed += 1;
       if (duplicateBlocked) proof.journey.blocked_duplicate_start_clicks += 1;
       const state = {
@@ -374,10 +372,10 @@ exports.run = async function run() {
       };
       check(
         `${name}-starting-is-one-disabled-attempt`,
-        sidebar.action.disabled &&
+        isStartingAction(sidebar.action) &&
           state.status_bar_starting &&
           duplicateBlocked &&
-          (!devicesOpen || canvas?.simulator?.statusText === "Starting"),
+          (!devicesOpen || isSimulatorVisualState(canvas?.simulator, "starting", "Starting…")),
         state
       );
       return state;
@@ -400,7 +398,7 @@ exports.run = async function run() {
       if (devicesOpen) {
         canvas = await waitFor(
           canvasSnapshot,
-          (value) => value.simulator?.statusText === "Running",
+          (value) => isSimulatorVisualState(value.simulator, "connected", "Running"),
           `${name} canvas Running`,
           20_000
         );
@@ -442,7 +440,7 @@ exports.run = async function run() {
       );
       const canvas = await waitFor(
         canvasSnapshot,
-        (value) => value.simulator?.statusText === "Stopped",
+        (value) => isSimulatorVisualState(value.simulator, "stopped", "Stopped"),
         `${name} canvas Stopped`,
         20_000
       );
@@ -597,7 +595,7 @@ exports.run = async function run() {
     );
     check(
       "running-surfaces-agree",
-      firstDevices.simulator?.statusText === "Running" &&
+      isSimulatorVisualState(firstDevices.simulator, "connected", "Running") &&
         proof.journey.first_devices_running.status_bar_running &&
         proof.journey.first_running_before_devices.sidebar_action.text === "Stop",
       proof.journey.first_devices_running
@@ -613,7 +611,7 @@ exports.run = async function run() {
     check(
       "stopped-surfaces-agree-after-stop",
       proof.journey.stopped_with_devices_open.sidebar_action.text === "Start" &&
-        proof.journey.stopped_with_devices_open.canvas_simulator.statusText === "Stopped" &&
+        isSimulatorVisualState(proof.journey.stopped_with_devices_open.canvas_simulator, "stopped", "Stopped") &&
         proof.journey.stopped_with_devices_open.status_bar_stopped,
       proof.journey.stopped_with_devices_open
     );
@@ -654,7 +652,7 @@ exports.run = async function run() {
       proof.journey.debug_sessions_started === 2 &&
         proof.journey.debug_sessions_terminated === 1 &&
         proof.journey.second_running_with_devices_open.sidebar_action.text === "Stop" &&
-        proof.journey.second_running_with_devices_open.canvas_simulator.statusText === "Running" &&
+        isSimulatorVisualState(proof.journey.second_running_with_devices_open.canvas_simulator, "connected", "Running") &&
         proof.journey.second_running_with_devices_open.status_bar_running,
       {
         debug_sessions_started: proof.journey.debug_sessions_started,
@@ -731,7 +729,7 @@ exports.run = async function run() {
     check(
       "pre-ads-stopped-surfaces-agree",
       proof.journey.pre_ads_stopped.sidebar_action.text === "Start" &&
-        proof.journey.pre_ads_stopped.canvas_simulator.statusText === "Stopped" &&
+        isSimulatorVisualState(proof.journey.pre_ads_stopped.canvas_simulator, "stopped", "Stopped") &&
         proof.journey.pre_ads_stopped.status_bar_stopped &&
         proof.journey.debug_sessions_terminated === 2,
       proof.journey.pre_ads_stopped
@@ -771,7 +769,7 @@ exports.run = async function run() {
       check(
         "final-stopped-surfaces-agree",
         proof.journey.final_stopped.sidebar_action.text === "Start" &&
-          proof.journey.final_stopped.canvas_simulator.statusText === "Stopped" &&
+          isSimulatorVisualState(proof.journey.final_stopped.canvas_simulator, "stopped", "Stopped") &&
           proof.journey.final_stopped.status_bar_stopped &&
           proof.journey.debug_sessions_terminated === 3,
         proof.journey.final_stopped

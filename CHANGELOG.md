@@ -353,10 +353,13 @@ Target release: `v0.24.33`
 - ci: Windows release gating now packages the real `win32-x64` VSIX, binds it
   to the exact candidate commit, retains that byte-identical candidate for the
   TwinCAT laptop, and runs the packaged Simulator Start/Stop/auth journey with
-  persistent screenshots. The package gate requires the embedded runtime,
-  debug adapter, and LSP Windows binaries, proves the native same-computer ADS
-  path, returns structured local-router/runtime failures, and never opens a raw
-  TCP `48898` self-connection.
+  persistent screenshots. Its restart proof reads the canvas runtime card's
+  semantic lifecycle health while independently checking the visible
+  `Starting…` label, so punctuation cannot hide or falsely reject the Starting
+  state. The package gate requires the embedded runtime, debug adapter, and LSP
+  Windows binaries, proves the native same-computer ADS path, returns structured
+  local-router/runtime failures, and never opens a raw TCP `48898`
+  self-connection.
 - scripts: added one-command private Windows/TwinCAT acceptance for the exact
   CI VSIX, covering zero-input discovery, logical ADS services `851`-`854`,
   `301`, `501`, Advanced custom ports, native Doctor source/target AMS address

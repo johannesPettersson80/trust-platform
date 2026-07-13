@@ -10,6 +10,7 @@ from pathlib import Path
 from .windows_twincat_ads_acceptance_support import (
     PACKAGED_ADS_IMPORT_PROOF,
     PACKAGED_EXTENSION_INSTALL,
+    SIMULATOR_VISUAL_PROOF,
     function_body,
 )
 
@@ -207,6 +208,19 @@ class SimulatorContractsMixin:
         self.assertIn("truST:\\s*Simulator running", source)
         self.assertIn("truST:\\s*Simulator stopped", source)
         self.assertIn("truST:\\s*Simulator starting", source)
+        self.assertIn("health:card?.getAttribute('data-health')||''", source)
+        self.assertIn(
+            'isSimulatorVisualState(value.simulator, "starting", "Starting…")',
+            source,
+        )
+        self.assertIn('action?.state === "busy"', self.simulator_visual_proof)
+        self.assertIn('action?.clicked === false', self.simulator_visual_proof)
+        self.assertIn('simulator?.health === health', self.simulator_visual_proof)
+        self.assertIn('simulator.statusText === label', self.simulator_visual_proof)
+        self.assertNotIn('value.simulator?.statusText === "Starting"', source)
+        canvas_observer = source.index("const canvasStarting = devicesOpen")
+        sidebar_observation = source.index("const sidebar = await sidebarStarting")
+        self.assertLess(canvas_observer, sidebar_observation)
         self.assertNotIn('executeCommand("trust-lsp.debug.start"', source)
         self.assertNotIn("startDebugging(", source)
         first_start = source.index('beginStartAttempt("first-start", false)')
@@ -224,6 +238,43 @@ class SimulatorContractsMixin:
         self.assertLess(second_start, pre_ads_stop)
         self.assertLess(pre_ads_stop, ads_ui)
         self.assertLess(ads_ui, final_stop)
+
+    def test_packaged_visual_state_requires_semantics_copy_and_busy_lock(self) -> None:
+        script = (
+            "const p=require(process.argv[1]);"
+            "const state=(health,statusText)=>({health,statusText});"
+            "console.log(JSON.stringify({"
+            "starting:p.isStartingAction({state:'busy',disabled:true,text:'Starting…'}),"
+            "wrongAction:p.isStartingAction({state:'stop',disabled:true,text:'Starting…'}),"
+            "blocked:p.isBlockedStartingAction({clicked:false,state:'busy',disabled:true,text:'Starting…'}),"
+            "disabledStopped:p.isBlockedStartingAction({clicked:false,state:'start',disabled:true,text:'Start'}),"
+            "startingVisual:p.isSimulatorVisualState(state('starting','Starting…'),'starting','Starting…'),"
+            "staleLabel:p.isSimulatorVisualState(state('starting','Stopped'),'starting','Starting…'),"
+            "staleHealth:p.isSimulatorVisualState(state('stopped','Starting…'),'starting','Starting…'),"
+            "running:p.isSimulatorVisualState(state('connected','Running'),'connected','Running'),"
+            "stopped:p.isSimulatorVisualState(state('stopped','Stopped'),'stopped','Stopped')}));"
+        )
+        completed = subprocess.run(
+            ["node", "-e", script, str(SIMULATOR_VISUAL_PROOF)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "starting": True,
+                "wrongAction": False,
+                "blocked": True,
+                "disabledStopped": False,
+                "startingVisual": True,
+                "staleLabel": False,
+                "staleHealth": False,
+                "running": True,
+                "stopped": True,
+            },
+        )
 
     def test_packaged_simulator_reproduces_auth_and_live_values_regressions(self) -> None:
         self.assertIn("disposable_tokenless_project = $true", self.simulator_runner)
