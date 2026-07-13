@@ -129,7 +129,6 @@ slot = 2
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn ethercat_image_size_mismatch_faults_under_warn_policy() {
     let params: toml::Value = toml::from_str(
         r#"

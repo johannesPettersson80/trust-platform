@@ -1,5 +1,4 @@
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 8"]
 fn control_audit_send_failure_records_audit_dropped_event() {
     let mut state = hmi_test_state(
         r#"
@@ -29,7 +28,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 8"]
 fn debug_feature_disabled_returns_structured_feature_disabled_response() {
     let state = hmi_test_state(
         r#"

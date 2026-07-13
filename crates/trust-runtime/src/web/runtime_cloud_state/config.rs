@@ -182,7 +182,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "red test for runtime-safety fail-closed Phase 8"]
     fn runtime_cloud_corrupt_config_state_does_not_reset_to_default() {
         let path = temp_state_path("corrupt-config");
         std::fs::write(&path, "{not valid json").expect("write corrupt state");

@@ -42,7 +42,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn debug_queued_lvalue_write_failure_is_observable() {
     let mut runtime = Runtime::new();
     let debug = runtime.enable_debug();
@@ -66,7 +65,6 @@ fn debug_queued_lvalue_write_failure_is_observable() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn debug_queued_global_write_unknown_target_fails() {
     let mut runtime = Runtime::new();
     let debug = runtime.enable_debug();

@@ -664,7 +664,6 @@ allow = ["resource/RESOURCE/program/Main/field/label"]
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn hmi_write_rejects_out_of_range_subrange_value() {
     let source = r#"
 PROGRAM Main

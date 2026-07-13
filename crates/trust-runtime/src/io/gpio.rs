@@ -813,7 +813,6 @@ sysfs_base = "/tmp/gpio"
     }
 
     #[test]
-    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
     fn gpio_read_failure_updates_driver_health() {
         let mut driver = driver_with_backend(FailingBackend {
             fail_read: true,
@@ -832,7 +831,6 @@ sysfs_base = "/tmp/gpio"
     }
 
     #[test]
-    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
     fn gpio_write_failure_updates_driver_health() {
         let mut driver = driver_with_backend(FailingBackend {
             fail_read: false,

@@ -661,7 +661,6 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn retain_save_failure_prevents_output_commit_when_due() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let mut runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
@@ -685,7 +684,6 @@ fn retain_save_failure_prevents_output_commit_when_due() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn safe_state_write_failure_is_reported_without_losing_root_fault() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let mut runtime = output_runtime(writes.clone(), RecordingDriver::failing(writes.clone()));
