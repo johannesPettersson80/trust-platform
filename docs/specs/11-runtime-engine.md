@@ -268,6 +268,9 @@ Driver health is exposed via `ctl status` and the TUI.
 - Runtime exchange is worker-backed: scan-cycle reads/writes use bounded
   snapshot/handoff state while Modbus TCP connect/read/write round trips happen
   on the Modbus worker.
+- A completed worker read preserves its typed protocol error at the scan-cycle
+  boundary. In particular, a Modbus exception remains an `IoAddress` error and
+  is not replaced by a generic unavailable-snapshot transport error.
 
 2. **MQTT (baseline profile)**
 - Topic bridge between broker payloads and process image bytes.
@@ -289,6 +292,10 @@ Driver health is exposed via `ctl status` and the TUI.
 - Runtime exchange is worker-backed: broker connect/poll/publish and
   reconnection happen on the MQTT worker, while scan-cycle reads/writes use
   bounded snapshot/handoff state.
+- Under the default `fault` policy, disconnected or stale MQTT input reads and
+  bounded reads with no available snapshot return `IoFreshness`. Completed
+  connection failures retain their connection context at the worker boundary;
+  they are not replaced by a generic unavailable-snapshot message.
 - Reconnection is non-blocking; runtime cycle remains deterministic.
 - Security baseline rejects insecure remote brokers unless explicitly overridden.
 - Sparkplug B non-goals in this profile: command subscriptions, device-level

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.31`
+Target release: `v0.24.32`
 
 ### Added
 
@@ -318,6 +318,10 @@ Target release: `v0.24.31`
 
 ### Fixed
 
+- trust-runtime: bounded MQTT and Modbus input workers now preserve the typed
+  error from a completed protocol read instead of replacing MQTT connection
+  context and Modbus exception responses with a generic unavailable-snapshot
+  transport error; MQTT reads without a fresh snapshot report `IoFreshness`.
 - trust-runtime: watchdog faults before physical output commit no longer
   re-send the pending process-image output when no safe-state outputs are
   configured; the resource faults visibly without issuing a driver write.

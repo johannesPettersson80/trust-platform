@@ -14,6 +14,7 @@ struct MqttWorkerState {
     completed_input_seq: u64,
     latest_inputs: Option<Vec<u8>>,
     last_snapshot_at: Option<Instant>,
+    input_error: Option<RuntimeError>,
     last_error: Option<SmolStr>,
     pending_output: Option<(u64, Vec<u8>)>,
     output_inflight: bool,
@@ -31,6 +32,7 @@ impl MqttWorkerState {
             completed_input_seq: 0,
             latest_inputs: None,
             last_snapshot_at: None,
+            input_error: None,
             last_error: None,
             pending_output: None,
             output_inflight: false,
@@ -96,6 +98,11 @@ impl MqttWorker {
                 };
                 state.last_error = Some(SmolStr::new("mqtt input refresh pending"));
             }
+            if state.completed_input_seq >= seq {
+                if let Some(error) = state.input_error.clone() {
+                    return Err(error);
+                }
+            }
         }
         if let Some(result) = self.copy_latest_inputs(inputs) {
             return result;
@@ -106,7 +113,7 @@ impl MqttWorker {
             state.health = mqtt_policy_health("mqtt input snapshot unavailable", self.policy);
             state.last_error = Some(SmolStr::new("mqtt input snapshot unavailable"));
         }
-        mqtt_result_from_health(&state.health)
+        mqtt_read_result_from_health(&state.health)
     }
 
     fn write_outputs(&self, outputs: &[u8]) -> Result<(), RuntimeError> {
@@ -168,7 +175,7 @@ impl MqttWorker {
         if len < inputs.len() {
             inputs[len..].fill(0);
         }
-        Some(mqtt_result_from_health(&state.health))
+        Some(mqtt_read_result_from_health(&state.health))
     }
 }
 
@@ -228,6 +235,7 @@ fn run_mqtt_worker(
             }
             let mut inputs = vec![0u8; input_len];
             let result = driver.read_inputs(&mut inputs);
+            let input_error = result.as_ref().err().cloned();
             let health = driver.health();
             let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
             if result.is_ok() && matches!(health, IoDriverHealth::Ok) {
@@ -239,6 +247,7 @@ fn run_mqtt_worker(
                 state.next_reconnect = Instant::now() + driver.config.reconnect;
                 state.last_error = mqtt_health_error(&health);
             }
+            state.input_error = input_error;
             state.completed_input_seq = seq;
             state.health = health;
         }
@@ -267,6 +276,13 @@ fn reconnect_ready(shared: &Arc<Mutex<MqttWorkerState>>) -> bool {
 fn mqtt_result_from_health(health: &IoDriverHealth) -> Result<(), RuntimeError> {
     match health {
         IoDriverHealth::Faulted { error } => Err(RuntimeError::IoTransport(error.clone())),
+        IoDriverHealth::Ok | IoDriverHealth::Degraded { .. } => Ok(()),
+    }
+}
+
+fn mqtt_read_result_from_health(health: &IoDriverHealth) -> Result<(), RuntimeError> {
+    match health {
+        IoDriverHealth::Faulted { error } => Err(RuntimeError::IoFreshness(error.clone())),
         IoDriverHealth::Ok | IoDriverHealth::Degraded { .. } => Ok(()),
     }
 }
