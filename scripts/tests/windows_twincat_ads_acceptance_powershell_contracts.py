@@ -27,6 +27,24 @@ from .windows_twincat_ads_acceptance_support import (
 
 
 class PowerShellContractsMixin:
+    def test_generic_lists_are_materialized_through_to_array(self) -> None:
+        conversions = (
+            (self.acceptance_plan, "$ports.ToArray()", "@($ports)"),
+            (self.simulator_launcher, "$validated.ToArray()", "@($validated)"),
+            (self.runner, "$binaryEvidence.ToArray()", "@($binaryEvidence)"),
+            (self.runner, "$found.ToArray()", "@($found)"),
+            (self.runner, "$services.ToArray()", "@($services)"),
+            (self.runner, "$targetEvidence.ToArray()", "@($targetEvidence)"),
+            (
+                self.packaged_ads_ui_crosscheck,
+                "$mismatches.ToArray()",
+                "@($mismatches)",
+            ),
+        )
+        for source, safe, unsafe in conversions:
+            self.assertIn(safe, source)
+            self.assertNotIn(unsafe, source)
+
     @unittest.skipUnless(shutil.which("pwsh"), "pwsh is not installed on this Linux host")
     def test_powershell_parser_reports_no_errors_when_pwsh_is_available(self) -> None:
         for path in (

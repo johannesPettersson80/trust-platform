@@ -496,7 +496,7 @@ $routeEvidence = [pscustomobject]@{{
 $report = [pscustomobject]@{{
     writes_enabled = $false
     target = [pscustomobject]@{{ ams_net_id = $netId; ip = '127.0.0.1'; ams_port = $targetPort }}
-    steps = @($steps); overall = 'pass'
+    steps = @($steps.ToArray()); overall = 'pass'
 }}
 $candidate = [pscustomobject]@{{ ams_net_id = $netId; host = '127.0.0.1' }}
 $proof = Assert-NativeDoctorProof -Report $report -Candidate $candidate `

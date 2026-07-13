@@ -40,7 +40,7 @@ function Resolve-AdsAcceptanceProbePorts {
     $ports = New-Object 'System.Collections.Generic.List[int]'
     foreach ($port in $requiredPorts) { [void]$ports.Add($port) }
     foreach ($port in $customPorts) { [void]$ports.Add($port) }
-    return @($ports)
+    return @($ports.ToArray())
 }
 
 function Assert-ExactTrustRuntimeVersion {

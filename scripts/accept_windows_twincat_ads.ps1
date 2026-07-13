@@ -208,7 +208,7 @@ function Expand-PackagedRuntime {
                 path = $Path
                 target_platform = 'win32-x64'
                 version = $version
-                binaries = @($binaryEvidence)
+                binaries = @($binaryEvidence.ToArray())
             }
         }
     }
@@ -247,7 +247,7 @@ function Get-TcAdsDllEvidence {
     if ($found.Count -eq 0) {
         throw 'TcAdsDll.dll was not found in the trusted Windows system or TwinCAT installation paths; native ADS success cannot be claimed.'
     }
-    return @($found)
+    return @($found.ToArray())
 }
 
 function Get-ProvenNativeCandidates {
@@ -577,12 +577,12 @@ try {
         [void]$targetEvidence.Add([pscustomobject][ordered]@{
             candidate = $candidate
             responding_ads_ports = @($respondingPorts)
-            services = @($services)
+            services = @($services.ToArray())
             doctor_851 = $doctor
             accepted_851 = $null -ne $doctor
         })
     }
-    $evidence.targets = @($targetEvidence)
+    $evidence.targets = @($targetEvidence.ToArray())
     $uiCrosscheck = Test-PackagedAdsUiAgainstCliServices `
         -SimulatorEvidence $evidence.simulator -CliTargets $evidence.targets `
         -ExpectedTargetNetId $ExpectedTargetNetId -ExpectedAdsPorts $evidence.probe_ports

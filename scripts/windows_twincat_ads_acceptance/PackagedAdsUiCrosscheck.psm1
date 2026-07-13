@@ -143,7 +143,7 @@ function Test-PackagedAdsUiAgainstCliServices {
             service_statuses_match = $mismatches.Count -eq 0
             imported_read_only_variable = $importedReadOnly
             imported_variable_rendered_in_live_values = $liveValuesProven
-            mismatches = @($mismatches)
+            mismatches = @($mismatches.ToArray())
         }
     }
 }

@@ -23,7 +23,7 @@ function Get-ValidatedExpectedCustomAdsPorts {
     if ($validated.Count -lt 1 -or $validated.Count -gt 4) {
         throw 'Packaged ADS UI acceptance requires between one and four unique custom ADS service ports.'
     }
-    return @($validated)
+    return @($validated.ToArray())
 }
 
 function Invoke-PackagedSimulatorAcceptance {
