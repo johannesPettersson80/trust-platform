@@ -234,7 +234,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             f"`{row['path']}` | {_escape(row['message'])} |"
         )
     lines.extend(["", "## Boundaries", ""])
-    for name, value in payload["boundaries"].items():
+    for name in BOUNDARIES:
+        value = payload["boundaries"][name]
         lines.append(f"- `{name}`: `{str(value).lower()}`")
     lines.extend(["", "## Limitations", ""])
     lines.extend(f"- {item}" for item in payload["limitations"])

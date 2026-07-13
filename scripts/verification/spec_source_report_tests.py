@@ -406,6 +406,15 @@ class SpecSourceReportContractTests(unittest.TestCase):
         )
         self.assertEqual([], validate_markdown_binding(self.payload, json_bytes, markdown))
 
+    def test_markdown_is_stable_after_canonical_json_reload(self) -> None:
+        json_bytes = self.report.to_json().encode()
+        digest = hashlib.sha256(json_bytes).hexdigest()
+
+        self.assertEqual(
+            self.report.to_markdown(json_digest=digest),
+            render_markdown(json.loads(json_bytes), json_digest=digest),
+        )
+
     def test_semantic_tamper_fails_live_recompute(self) -> None:
         tampered = copy.deepcopy(self.payload)
         tampered["documents"][0]["review_state"] = "unreviewed_candidate"
