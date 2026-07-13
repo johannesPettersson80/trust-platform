@@ -348,7 +348,8 @@ END_PROGRAM
     assert_eq!(location.file_id, 0);
     assert_eq!(location.start, increment_location.start);
 
-    control.continue_run();
     running.store(false, Ordering::SeqCst);
+    control.clear_breakpoints();
+    control.continue_run();
     handle.join().unwrap();
 }
