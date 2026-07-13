@@ -6,6 +6,25 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite ADS input values
+
+- ID: DEV-037
+- Area: Runtime ADS floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
+  `IS_VALID` for detecting `NaN` and infinity, but it does not define how an
+  ADS client or server must admit those values into PLC storage.
+- Deviation:
+  - truST rejects ADS `REAL`/`LREAL` client reads, notifications, and server
+    writes containing `NaN`, positive infinity, or negative infinity.
+  - Rejection occurs before client cache acceptance, server write queuing, or
+    PLC storage mutation and also applies to non-finite array elements.
+- Impact:
+  - ADS peers cannot use non-finite values as ordinary floating-point process
+    inputs in truST.
+- Mitigation:
+  - Validate or normalize the value at the ADS peer when a project intentionally
+    uses non-finite values for out-of-band signaling.
+
 ## 2026-07-13 - Reject non-finite OPC UA client input samples
 
 - ID: DEV-036

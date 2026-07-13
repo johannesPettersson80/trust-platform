@@ -739,6 +739,128 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
 }
 
 #[test]
+fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
+    let values = [
+        (
+            "REAL NaN",
+            TypeId::REAL,
+            real_type(),
+            Value::Real(12.5),
+            Value::Real(f32::NAN),
+            4,
+        ),
+        (
+            "REAL positive infinity",
+            TypeId::REAL,
+            real_type(),
+            Value::Real(12.5),
+            Value::Real(f32::INFINITY),
+            4,
+        ),
+        (
+            "REAL negative infinity",
+            TypeId::REAL,
+            real_type(),
+            Value::Real(12.5),
+            Value::Real(f32::NEG_INFINITY),
+            4,
+        ),
+        (
+            "LREAL NaN",
+            TypeId::LREAL,
+            AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+            Value::LReal(12.5),
+            Value::LReal(f64::NAN),
+            8,
+        ),
+        (
+            "LREAL positive infinity",
+            TypeId::LREAL,
+            AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+            Value::LReal(12.5),
+            Value::LReal(f64::INFINITY),
+            8,
+        ),
+        (
+            "LREAL negative infinity",
+            TypeId::LREAL,
+            AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+            Value::LReal(12.5),
+            Value::LReal(f64::NEG_INFINITY),
+            8,
+        ),
+    ];
+
+    for mode in [UpdateMode::Poll, UpdateMode::Notify] {
+        for (case, type_id, data_type, initial, non_finite, size) in &values {
+            let mut runtime = runtime_with_globals(vec![(
+                "line1_temp",
+                *type_id,
+                initial.clone(),
+                RetainPolicy::NonRetain,
+            )]);
+            let mut point = point_config(
+                "line1_temp",
+                "MAIN.Temperature",
+                data_type.clone(),
+                PointAccess::Read,
+                false,
+            );
+            point.mode = mode;
+            let connection = connection_with_points(vec![point]);
+            let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+            let symbol =
+                SymbolDescriptor::new("MAIN.Temperature", data_type.clone(), 0x4020, 0, *size)
+                    .with_flag(SymbolFlag::Read)
+                    .with_flag(SymbolFlag::Write);
+            let mut transport = MockAdsTransport::new(vec![symbol]);
+            if mode == UpdateMode::Poll {
+                transport.set_value("line1_temp", non_finite.clone(), PointQuality::good(10));
+            }
+            let (mut bridge, mut worker) =
+                AdsConnectionBridge::with_transport(transport, bindings).expect("bridge");
+            worker.tick(0).expect("connect ADS worker");
+            if mode == UpdateMode::Notify {
+                worker
+                    .transport_mut()
+                    .emit_notification("line1_temp", non_finite.clone(), PointQuality::good(10))
+                    .expect("emit non-finite ADS notification");
+                worker.tick(1).expect("drain ADS notification");
+            }
+
+            assert_eq!(
+                bridge.state(),
+                AdsConnectionState::Connected,
+                "{case} in {mode:?} mode must not disconnect the ADS session"
+            );
+            let status = bridge.status("line1_temp").expect("point status");
+            assert_eq!(
+                status.quality.state,
+                QualityState::Error,
+                "{case} in {mode:?} mode must report point-data error quality"
+            );
+            assert!(
+                status
+                    .quality
+                    .detail
+                    .as_deref()
+                    .is_some_and(|detail| !detail.is_empty()),
+                "{case} in {mode:?} mode must expose diagnostic detail"
+            );
+
+            bridge
+                .apply_inputs(runtime.storage_mut(), 11)
+                .expect("rejecting input must preserve scan execution");
+            assert_eq!(
+                runtime.storage().get_global("line1_temp"),
+                Some(initial),
+                "{case} in {mode:?} mode must not reach PLC variable storage"
+            );
+        }
+    }
+}
+
+#[test]
 fn read_write_binding_seeds_write_baseline_from_first_good_read() {
     let mut runtime = runtime_with_globals(vec![(
         "line1_setpoint",

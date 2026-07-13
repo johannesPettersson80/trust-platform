@@ -562,6 +562,63 @@ mod tests {
     }
 
     #[test]
+    fn rejects_non_finite_real_and_lreal_scalars() {
+        let cases = [
+            (
+                "REAL NaN",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::NAN.to_le_bytes().to_vec(),
+            ),
+            (
+                "REAL positive infinity",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "REAL negative infinity",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::NEG_INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL NaN",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::NAN.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL positive infinity",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL negative infinity",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::NEG_INFINITY.to_le_bytes().to_vec(),
+            ),
+        ];
+
+        for (case, descriptor, bytes) in cases {
+            let result = value_from_ads_bytes(&descriptor, &bytes);
+            assert!(result.is_err(), "{case} decoded successfully as {result:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_real_array_with_non_finite_element() {
+        let descriptor = AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real)
+            .with_dimensions(vec![ArrayDimension { lower: 1, upper: 3 }]);
+        let bytes = [1.0f32, f32::NAN, 3.0]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+
+        let result = value_from_ads_bytes(&descriptor, &bytes);
+        assert!(
+            result.is_err(),
+            "REAL array containing NaN decoded successfully as {result:?}"
+        );
+    }
+
+    #[test]
     fn string_mapping_uses_declared_capacity_and_terminator() {
         let descriptor = AdsDataTypeDescriptor::string("STRING(8)", 8);
         let mut bytes = b"Pump".to_vec();

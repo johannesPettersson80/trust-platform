@@ -341,6 +341,20 @@ Driver health is exposed via `ctl status` and the TUI.
   structures, subnormal values, signed zero, and other protocol/API/retained
   ingress boundaries require their own reviewed contracts.
 
+5. **ADS floating-point ingress**
+- ADS `REAL`/`LREAL` values entering through client reads/notifications or ADS
+  server writes are accepted only when every scalar value is finite. The same
+  rule applies to each `REAL`/`LREAL` array element.
+- `NaN`, positive infinity, and negative infinity are rejected by the typed ADS
+  decoder before a client sample is accepted, a server write is queued, or PLC
+  variable storage is modified.
+- A rejected client sample reports point-data error quality and leaves the
+  previous PLC target unchanged; it does not require the ADS session itself to
+  disconnect. A rejected server write returns invalid-data status and queues no
+  write.
+- The runtime does not clamp, normalize, or substitute a default value. ADS
+  egress, subnormal values, and signed zero are outside this rule.
+
 Protocol roadmap priority after OPC UA baseline:
 - First: MQTT
 - Next: EtherNet/IP
