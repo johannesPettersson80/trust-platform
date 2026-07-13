@@ -62,6 +62,66 @@ END_PROGRAM
 }
 
 #[test]
+fn function_block_wstring_output_copyback_respects_receiving_capacity() {
+    let source = r#"
+FUNCTION_BLOCK Producer
+VAR_OUTPUT
+    text : WSTRING[6];
+END_VAR
+text := "ÅBCDEF";
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fb : Producer;
+    narrow : WSTRING[3] := "OLD";
+END_VAR
+fb(text => narrow);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(
+        harness.get_output("narrow"),
+        Some(Value::WString("ÅBC".into())),
+        "VAR_OUTPUT copy-back must count Unicode scalar values for WSTRING[3]"
+    );
+}
+
+#[test]
+fn function_block_inout_rejects_mismatched_wstring_capacity() {
+    let source = r#"
+FUNCTION_BLOCK Observe
+VAR_IN_OUT
+    text : WSTRING[3];
+END_VAR
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fb : Observe;
+    caller_text : WSTRING[6] := "ÅBCDEF";
+END_VAR
+fb(text := caller_text);
+END_PROGRAM
+"#;
+
+    let error = CompileSession::from_source(source)
+        .build_runtime()
+        .expect_err("WSTRING[6] must not bind implicitly to WSTRING[3] VAR_IN_OUT");
+    assert!(
+        error.to_string().contains("error[E205]:"),
+        "expected the VAR_IN_OUT type rejection category, got {error}"
+    );
+}
+
+#[test]
 fn function_block_input_and_equal_width_inout_preserve_string_bounds() {
     let source = r#"
 FUNCTION_BLOCK Echo
