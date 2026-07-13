@@ -6,6 +6,26 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite simulation coupling thresholds
+
+- ID: DEV-041
+- Area: File-backed simulation configuration
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
+  does not define truST's implementer-specific `simulation.toml` coupling
+  policy.
+- Deviation:
+  - The `simulation.toml` loader rejects a `[[couplings]].threshold` containing
+    `NaN`, positive infinity, or negative infinity before activating the
+    configuration.
+  - Rejection does not normalize, clamp, or substitute a threshold. Finite
+    threshold comparison behavior is unchanged.
+- Impact:
+  - Simulation files cannot use a non-finite value as an ordinary coupling
+    decision threshold.
+- Mitigation:
+  - Model exceptional simulation state explicitly with finite values and
+    scripted disturbances.
+
 ## 2026-07-13 - Reject non-finite managed-debug I/O values
 
 - ID: DEV-040

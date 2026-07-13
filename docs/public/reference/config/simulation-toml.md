@@ -63,7 +63,7 @@ Couplings copy or transform one I/O point into another after a delay.
 | --- | --- | --- | --- |
 | `source` | IEC address | yes | Source I/O address. |
 | `target` | IEC address | yes | Target I/O address. |
-| `threshold` | float | no | Optional decision threshold. |
+| `threshold` | float | no | Optional finite decision threshold; NaN and infinities are rejected. |
 | `delay_ms` | integer | no | Delay before the effect is applied. |
 | `on_true` | string | no | Value written when the condition evaluates true. |
 | `on_false` | string | no | Value written when the condition evaluates false. |
