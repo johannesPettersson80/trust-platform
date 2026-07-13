@@ -58,9 +58,11 @@ covers = [
   "safe_halt",
   "retain_restart",
   "hmi_write_authz",
+  "opcua_nonfinite_ingress",
 ]
 known_limitations = [
   "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",
+  "Non-finite ingress is specified here only for OPC UA client scalar input; other protocol, API, and retained-value boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
 ]
 conflicts_with = []
 

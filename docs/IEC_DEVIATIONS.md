@@ -6,6 +6,26 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite OPC UA client input samples
+
+- ID: DEV-036
+- Area: Runtime OPC UA client floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
+  `IS_VALID` for detecting `NaN` and infinity, but it does not define how a
+  host OPC UA client must admit those values into PLC storage.
+- Deviation:
+  - truST rejects OPC UA client `Float`/`Double` input samples containing
+    `NaN`, positive infinity, or negative infinity before cache acceptance or
+    PLC storage mutation.
+  - The affected point becomes faulted and the previous PLC value is retained.
+  - The value is not normalized, clamped, or replaced with a default.
+- Impact:
+  - An OPC UA server cannot use non-finite scalar values as ordinary
+    `REAL`/`LREAL` process inputs in truST.
+- Mitigation:
+  - Validate or normalize the source value at the OPC UA server when a project
+    intentionally uses non-finite values for out-of-band signaling.
+
 ## 2026-07-13 - Watchdog output-commit and empty safe-state policy
 
 - ID: DEV-035

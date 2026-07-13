@@ -325,6 +325,22 @@ Driver health is exposed via `ctl status` and the TUI.
 - Explicit v1 non-goals: no functional safety/SIL claims and no advanced motion
   profile support.
 
+4. **OPC UA client floating-point ingress**
+- A `Good` sample for a configured `Float`/`REAL` or `Double`/`LREAL` input
+  point is accepted only when the value is finite.
+- `NaN`, positive infinity, and negative infinity are rejected before the
+  sample becomes an accepted cache value or is written to PLC variable
+  storage.
+- A rejected sample marks the affected point **faulted**, exposes diagnostic
+  detail, and leaves the PLC target unchanged. The runtime does not clamp,
+  normalize, or substitute a default value.
+- A previously accepted finite value may remain visible for diagnostics, but
+  a faulted point does not apply it as a fresh input. A later finite `Good`
+  sample may recover through the normal subscription path.
+- This rule is limited to OPC UA client scalar ingress. OPC UA egress, arrays,
+  structures, subnormal values, signed zero, and other protocol/API/retained
+  ingress boundaries require their own reviewed contracts.
+
 Protocol roadmap priority after OPC UA baseline:
 - First: MQTT
 - Next: EtherNet/IP
