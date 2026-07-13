@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.33`
+Target release: `v0.24.34`
 
 ### Added
 
@@ -317,6 +317,14 @@ Target release: `v0.24.33`
   native-call path.
 
 ### Fixed
+
+- trust-hir/trust-runtime: compile-time bounded `STRING[n]` and `WSTRING[n]`
+  literal checks now count Unicode scalar values; call binding rejects
+  width-changing `VAR_IN_OUT`, and function/function-block output copy-back
+  honors the receiving declaration's capacity. Metadata-free legacy v1.1
+  bytecode now fails closed when a local string output target's declared type
+  cannot be recovered; compiler and runtime must be upgraded together for this
+  boundary.
 
 - trust-runtime: in-process warm and cold restarts now preserve monotonic
   runtime time while reinitializing timer and task baselines at the preserved

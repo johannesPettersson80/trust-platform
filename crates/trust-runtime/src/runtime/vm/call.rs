@@ -24,8 +24,8 @@ mod tests;
 
 use self::bindings::{
     bind_builtin_function_block_arguments, bind_vm_call_arguments,
-    bind_vm_function_block_arguments, clone_value_with_profile, unpack_native_call_payload,
-    VmNativeArg,
+    bind_vm_function_block_arguments, clone_value_with_profile, normalize_output_copyback_value,
+    unpack_native_call_payload, VmNativeArg,
 };
 use self::stdlib::dispatch_native_stdlib_call;
 pub(super) use self::symbols::{preparse_native_symbol_spec, resolve_native_symbol_specs};
@@ -328,6 +328,7 @@ fn execute_native_vm_pou_call(
         .map_err(VmTrap::from)?
     };
 
+    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
     for binding in out_bindings {
         let value = result
             .locals
@@ -340,7 +341,18 @@ fn execute_native_vm_pou_call(
                     format!("native call output slot {} out of bounds", binding.slot).into(),
                 )
             })?;
-        binding.target.write(runtime, caller_frame, value)?;
+        let value = normalize_output_copyback_value(
+            runtime,
+            module,
+            caller_frame,
+            &binding.target,
+            binding.target_type_idx,
+            value,
+        )?;
+        prepared_outputs.push((binding.target, value));
+    }
+    for (target, value) in prepared_outputs {
+        target.write(runtime, caller_frame, value)?;
     }
 
     Ok(result.return_value.unwrap_or(Value::Null))
@@ -388,6 +400,7 @@ fn execute_native_vm_function_block_call(
         .map_err(VmTrap::from)?;
     }
 
+    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
     for binding in out_bindings {
         runtime
             .vm_register_profile
@@ -405,7 +418,18 @@ fn execute_native_vm_function_block_call(
             }
             value
         };
-        binding.target.write(runtime, caller_frame, value)?;
+        let value = normalize_output_copyback_value(
+            runtime,
+            module,
+            caller_frame,
+            &binding.target,
+            binding.target_type_idx,
+            value,
+        )?;
+        prepared_outputs.push((binding.target, value));
+    }
+    for (target, value) in prepared_outputs {
+        target.write(runtime, caller_frame, value)?;
     }
 
     Ok(())
@@ -435,6 +459,7 @@ fn execute_native_builtin_function_block_call(
     fbs::execute_builtin_in_storage(&mut runtime.storage, now, instance_id, kind)
         .map_err(VmTrap::Runtime)?;
 
+    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
     for binding in out_bindings {
         runtime
             .vm_register_profile
@@ -452,7 +477,10 @@ fn execute_native_builtin_function_block_call(
             }
             value
         };
-        binding.target.write(runtime, caller_frame, value)?;
+        prepared_outputs.push((binding.target, value));
+    }
+    for (target, value) in prepared_outputs {
+        target.write(runtime, caller_frame, value)?;
     }
 
     Ok(())

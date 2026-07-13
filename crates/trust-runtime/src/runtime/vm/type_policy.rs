@@ -1,6 +1,6 @@
 use crate::bytecode::{TypeData, TypeTable};
 use crate::error::RuntimeError;
-use crate::value::{normalize_assignment_for_target, truncate_string_elements, Value};
+use crate::value::{normalize_assignment_for_target, truncate_string_elements, RefSegment, Value};
 
 use super::VmModule;
 
@@ -23,6 +23,43 @@ pub(super) fn normalize_vm_value_for_ref(
         return Ok(value);
     };
     normalize_vm_value_for_type(module, type_idx, value)
+}
+
+pub(super) fn vm_string_primitive_for_type(module: &VmModule, type_idx: u32) -> Option<u16> {
+    vm_string_shape_for_type(module, type_idx).map(|(prim_id, _)| prim_id)
+}
+
+pub(super) fn vm_string_shape_for_type(module: &VmModule, type_idx: u32) -> Option<(u16, u16)> {
+    resolved_primitive_shape(&module.types, type_idx, 0)
+        .filter(|(prim_id, _)| matches!(prim_id, 24 | 25))
+}
+
+pub(super) fn vm_type_for_path(
+    module: &VmModule,
+    type_idx: u32,
+    path: &[RefSegment],
+) -> Option<u32> {
+    let mut current = type_idx;
+    for segment in path {
+        current = resolved_alias_type(&module.types, current, 0)?;
+        let entry = module.types.entries.get(current as usize)?;
+        current = match (segment, &entry.data) {
+            (RefSegment::Index(_), TypeData::Array { elem_type_id, .. }) => *elem_type_id,
+            (RefSegment::Field(name), TypeData::Struct { fields } | TypeData::Union { fields }) => {
+                fields
+                    .iter()
+                    .find(|field| {
+                        module
+                            .strings
+                            .get(field.name_idx as usize)
+                            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(name))
+                    })?
+                    .type_id
+            }
+            _ => return None,
+        };
+    }
+    resolved_alias_type(&module.types, current, 0)
 }
 
 fn normalize_value_for_type_table(
@@ -113,6 +150,38 @@ fn resolved_primitive_id(types: &TypeTable, type_idx: u32, depth: usize) -> Opti
             ..
         } => resolved_primitive_id(types, *target_type_id, depth + 1),
         _ => None,
+    }
+}
+
+fn resolved_primitive_shape(types: &TypeTable, type_idx: u32, depth: usize) -> Option<(u16, u16)> {
+    if depth >= TYPE_POLICY_MAX_DEPTH {
+        return None;
+    }
+    let entry = types.entries.get(type_idx as usize)?;
+    match &entry.data {
+        TypeData::Primitive {
+            prim_id,
+            max_length,
+        } => Some((*prim_id, *max_length)),
+        TypeData::Alias { target_type_id }
+        | TypeData::Subrange {
+            base_type_id: target_type_id,
+            ..
+        } => resolved_primitive_shape(types, *target_type_id, depth + 1),
+        _ => None,
+    }
+}
+
+fn resolved_alias_type(types: &TypeTable, type_idx: u32, depth: usize) -> Option<u32> {
+    if depth >= TYPE_POLICY_MAX_DEPTH {
+        return None;
+    }
+    let entry = types.entries.get(type_idx as usize)?;
+    match &entry.data {
+        TypeData::Alias { target_type_id } => {
+            resolved_alias_type(types, *target_type_id, depth + 1)
+        }
+        _ => Some(type_idx),
     }
 }
 

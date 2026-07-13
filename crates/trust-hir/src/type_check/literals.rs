@@ -372,8 +372,9 @@ fn string_literal_len(text: &str, is_wide: bool) -> Option<u32> {
                 continue;
             }
         }
+        let scalar = text[i..end].chars().next()?;
         count += 1;
-        i += 1;
+        i += scalar.len_utf8();
     }
     Some(count)
 }

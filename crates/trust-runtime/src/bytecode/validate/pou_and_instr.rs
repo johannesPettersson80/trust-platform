@@ -8,6 +8,7 @@ fn validate_pou_index(
     bodies: &[u8],
 ) -> Result<(), BytecodeError> {
     let mut seen_pou_ids = HashSet::new();
+    validate_pou_local_ref_partition(ref_table, index)?;
     for entry in &index.entries {
         if !seen_pou_ids.insert(entry.id) {
             return Err(BytecodeError::InvalidSection(
@@ -89,6 +90,46 @@ fn validate_pou_index(
         validate_stack_shape(types, const_pool, code)?;
         validate_const_compat(types, const_pool, ref_table, var_meta, code)?;
         validate_param_direction_calls(strings, types, var_meta, index, entry, code)?;
+    }
+    Ok(())
+}
+
+fn validate_pou_local_ref_partition(
+    ref_table: &RefTable,
+    index: &PouIndex,
+) -> Result<(), BytecodeError> {
+    let mut claimed_refs = HashSet::new();
+    let mut claimed_owners = HashSet::new();
+    for pou in &index.entries {
+        let end = pou
+            .local_ref_start
+            .checked_add(pou.local_ref_count)
+            .ok_or_else(|| BytecodeError::InvalidSection("POU local ref range overflow".into()))?;
+        let mut owner_id = None;
+        for ref_idx in pou.local_ref_start..end {
+            if !claimed_refs.insert(ref_idx) {
+                return Err(BytecodeError::InvalidSection(
+                    "POU local ref ranges overlap".into(),
+                ));
+            }
+            let reference = ref_table.entries.get(ref_idx as usize).ok_or_else(|| {
+                BytecodeError::InvalidSection("POU local ref range out of bounds".into())
+            })?;
+            match owner_id {
+                Some(expected) if expected != reference.owner_id => {
+                    return Err(BytecodeError::InvalidSection(
+                        "POU local ref range contains multiple frame owners".into(),
+                    ));
+                }
+                None => owner_id = Some(reference.owner_id),
+                Some(_) => {}
+            }
+        }
+        if owner_id.is_some_and(|owner| !claimed_owners.insert(owner)) {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref ranges share a frame owner".into(),
+            ));
+        }
     }
     Ok(())
 }

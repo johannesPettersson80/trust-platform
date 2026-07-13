@@ -29,7 +29,14 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_start,
                 local_ref_count,
                 for_temp_pairs,
-            } = self.local_scope_for_body(None, &[], &program.temps, &program.body)?;
+            } = self.local_scope_for_body(
+                id,
+                &program.name,
+                None,
+                &[],
+                &program.temps,
+                &program.body,
+            )?;
             let mut ctx = CodegenContext::new(
                 instance_id,
                 None,
@@ -66,7 +73,7 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_start,
                 local_ref_count,
                 for_temp_pairs,
-            } = self.local_scope_for_body(None, &[], &fb.temps, &fb.body)?;
+            } = self.local_scope_for_body(id, &fb.name, None, &[], &fb.temps, &fb.body)?;
             let self_fields = self.self_fields_for_owner(&fb.name)?;
             let mut ctx = CodegenContext::new(
                 None,
@@ -104,7 +111,14 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_start,
                 local_ref_count,
                 for_temp_pairs,
-            } = self.local_scope_for_body(Some(&func.name), &func.params, &func.locals, &func.body)?;
+            } = self.local_scope_for_body(
+                id,
+                &func.name,
+                Some((&func.name, func.return_type)),
+                &func.params,
+                &func.locals,
+                &func.body,
+            )?;
             let static_refs = self.static_refs_for_function(func)?;
             let mut ctx = CodegenContext::new(
                 None,
@@ -203,7 +217,9 @@ impl<'a> BytecodeEncoder<'a> {
             local_ref_count,
             for_temp_pairs,
         } = self.local_scope_for_body(
-            method.return_type.as_ref().map(|_| &method.name),
+            id,
+            &method.name,
+            method.return_type.map(|type_id| (&method.name, type_id)),
             &method.params,
             &method.locals,
             &method.body,

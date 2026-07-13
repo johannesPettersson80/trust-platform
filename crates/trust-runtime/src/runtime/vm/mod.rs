@@ -149,7 +149,7 @@ impl VmModule {
             Some(SectionData::VarMeta(meta)) => Some(meta),
             _ => None,
         };
-        let ref_types = build_ref_type_map(var_meta);
+        let ref_types = build_ref_type_map(var_meta)?;
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
             var_meta,
@@ -332,15 +332,17 @@ impl VmModule {
     }
 }
 
-fn build_ref_type_map(var_meta: Option<&VarMeta>) -> HashMap<u32, u32> {
+fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32>, RuntimeError> {
     let Some(var_meta) = var_meta else {
-        return HashMap::new();
+        return Ok(HashMap::new());
     };
-    var_meta
-        .entries
-        .iter()
-        .map(|entry| (entry.ref_idx, entry.type_id))
-        .collect()
+    let mut ref_types = HashMap::new();
+    for entry in &var_meta.entries {
+        if ref_types.insert(entry.ref_idx, entry.type_id).is_some() {
+            return Err(invalid_bytecode("duplicate VAR_META ref index"));
+        }
+    }
+    Ok(ref_types)
 }
 
 #[derive(Debug, Clone)]
