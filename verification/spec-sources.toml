@@ -60,10 +60,12 @@ covers = [
   "hmi_write_authz",
   "opcua_nonfinite_ingress",
   "ads_nonfinite_ingress",
+  "mesh_numeric_ingress",
+  "file_retain_nonfinite_ingress",
 ]
 known_limitations = [
   "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",
-  "Non-finite ingress is specified here only for OPC UA client scalar input and ADS REAL/LREAL client/server input; other protocol, API, and retained-value boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
+  "Non-finite ingress is specified here for OPC UA client scalar input, ADS REAL/LREAL client/server input, runtime mesh numeric input, and file-backed retained values; other protocol, API, and in-memory boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
 ]
 conflicts_with = []
 
