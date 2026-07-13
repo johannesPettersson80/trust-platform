@@ -203,6 +203,56 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5FF8968BF2E1CC6926BC"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_numeric.rs"
+name = "real_named_numeric_functions_reject_single_width_overflow"
+command = "cargo test -p trust-runtime --test stdlib_numeric real_named_numeric_functions_reject_single_width_overflow -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#real-named-numerical-function-overflow"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "Finite REAL EXP and EXPT calls reject results that become non-finite at basic-single width."
+expected_failure_mode = "The standard library returns Value::Real containing infinity after unchecked f64-to-f32 narrowing."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AEDAB26C7EA182A1DA20"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/errors_policy.rs"
+name = "real_named_numeric_overflow_faults_before_assignment_store"
+command = "cargo test -p trust-runtime --test errors_policy real_named_numeric_overflow_faults_before_assignment_store -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#real-named-numerical-function-overflow"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "Compiled ST EXP and EXPT overflow report RuntimeError::Overflow before STORE and preserve the target's previous finite value."
+expected_failure_mode = "The bytecode VM silently stores infinity and completes the scan without an arithmetic fault."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
 id = "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_547AC119BF2B3BEFB960"
@@ -346,7 +396,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:5a798f68bd9d302cbd91e653280451d20b1049a202479e22cf36cdb67a670f54"
+case_file_digest = "sha256:a0ce74614d1b7709b48c2134eaf11b3b899d725caa4a72f636c6d9f4d37bfc68"
 last_reviewed = "2026-07-13"
 
 [[tests]]
