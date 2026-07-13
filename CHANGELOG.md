@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.35`
+Target release: `v0.24.36`
 
 ### Added
 
@@ -318,6 +318,10 @@ Target release: `v0.24.35`
 
 ### Fixed
 
+- trust-runtime: mesh subscriptions now reject integer values outside the
+  subscribed IEC type's range and reject floating-point conversions that would
+  produce a non-finite PLC value instead of silently wrapping or storing
+  infinity.
 - trust-runtime: OPC UA client `Float`/`Double` input samples now reject `NaN`
   and positive or negative infinity before cache acceptance, mark the affected
   point faulted, and leave the PLC target unchanged.
