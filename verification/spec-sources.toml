@@ -92,6 +92,35 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_VM_VALUE_SEMANTICS_001"
+title = "truST VM declared-value semantics"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/10-runtime-semantics.md"
+version = "current"
+last_reviewed = "2026-07-13"
+covers = [
+  "runtime_value_tags",
+  "declared_type_materialization",
+  "numeric_assignment_widening",
+  "pou_parameter_copy_in_widening",
+  "subrange_runtime_write_enforcement",
+  "subrange_runtime_write_semantics",
+]
+known_limitations = [
+  "STRING bounds, unrepresentable numeric conversions, wrong-type subrange writes, and stable VM error identifiers remain open specification boundaries.",
+  "This product contract does not by itself establish IEC conformance or crafted-bytecode validation behavior.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_DEBUG_ADAPTER_001"
 title = "truST debug adapter contract"
 area = "editor_safety"
@@ -130,11 +159,12 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DECISIONS.md"
 version = "current"
-last_reviewed = "2026-07-12"
+last_reviewed = "2026-07-13"
 covers = [
   "iec_ambiguity_decisions",
   "retain_policy_decisions",
   "operator_precedence_decisions",
+  "subrange_runtime_write_decisions",
   "timer_scan_boundary_decisions",
   "timer_lifecycle_decisions",
 ]

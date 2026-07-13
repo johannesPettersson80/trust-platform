@@ -24,13 +24,13 @@ last_reviewed = "2026-07-09"
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-title = "VM declared-type and runtime-tag semantics need a written contract"
+title = "Residual VM bounded-value and incompatible-conversion semantics need a written contract"
 area = "bytecode_vm"
 risk = "wrong_result"
 owner = "trust-runtime"
 status = "spec_gap"
 gap_class = "ambiguous_behavior"
-blocking_question = "Where must implicit widening, STRING bounds, subranges, and reference-store conversions be materialized or rejected?"
+blocking_question = "What exact behavior applies to STRING[n] over-bound writes, unrepresentable numeric assignments, wrong-type subrange writes, and reference-store conversions?"
 affected_invariants = [
   "VM_SEAM_DECLARED_TYPE_001",
   "VM_SEAM_STRING_BOUND_001",
@@ -40,10 +40,11 @@ affected_tests = []
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",
+  "SPEC_VM_VALUE_SEMANTICS_001",
 ]
 resolution_status = "open"
 closeout_evidence = []
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-13"
 
 [[spec_gaps]]
 schema_version = 1
@@ -83,14 +84,22 @@ affected_invariants = [
   "VM_SEAM_STRING_BOUND_001",
   "VM_SEAM_SUBRANGE_001",
 ]
-affected_tests = ["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"]
+affected_tests = [
+  "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
+  "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001",
+  "TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001",
+  "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
+  "TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001",
+  "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
+]
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",
+  "SPEC_VM_VALUE_SEMANTICS_001",
 ]
 resolution_status = "open"
 closeout_evidence = []
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-13"
 
 [[spec_gaps]]
 schema_version = 1

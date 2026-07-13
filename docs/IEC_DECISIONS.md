@@ -31,6 +31,7 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Runtime writes into subrange-typed storage are checked against the declared bounds.
   - Out-of-range execution-time assignment, function/FB parameter copy-in, dynamic-reference writes, HMI/control writes, and retain reload surface a deterministic runtime error.
   - The runtime must not silently clamp, wrap, or store an out-of-range value.
+  - A rejected write is not committed: the target retains the exact value it held before the attempted write.
   - Declaration-initialization edge cases remain out of this Phase 11 decision unless a separate initializer-specific proof row is opened.
 - Reason:
   - Existing specs already describe subrange range violations as errors; Phase 11 proof showed the runtime currently stores out-of-range values silently.

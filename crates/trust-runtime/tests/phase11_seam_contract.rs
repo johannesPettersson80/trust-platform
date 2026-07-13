@@ -1179,10 +1179,10 @@ END_PROGRAM
         "out-of-range subrange assignment must fail visibly; limited={:?}",
         harness.get_output("limited")
     );
-    assert_ne!(
+    assert_eq!(
         harness.get_output("limited"),
-        Some(Value::Int(100)),
-        "out-of-range subrange assignment must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange assignment must leave the prior value unchanged"
     );
 }
 
@@ -1226,10 +1226,10 @@ END_PROGRAM
         "out-of-range subrange FB input binding must fail visibly; \
          fb.limited={fb_limited:?}; fb.observed={fb_observed:?}"
     );
-    assert_ne!(
+    assert_eq!(
         fb_limited,
-        Some(Value::Int(100)),
-        "out-of-range subrange FB input binding must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange FB input binding must leave the prior value unchanged"
     );
 }
 
@@ -1255,10 +1255,10 @@ END_PROGRAM
         harness.get_output("limited"),
         harness.get_output("rLimited")
     );
-    assert_ne!(
+    assert_eq!(
         harness.get_output("limited"),
-        Some(Value::Int(100)),
-        "out-of-range subrange REF write must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange REF write must leave the prior value unchanged"
     );
 }
 

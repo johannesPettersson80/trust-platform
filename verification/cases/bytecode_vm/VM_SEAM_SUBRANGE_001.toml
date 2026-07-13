@@ -7,36 +7,32 @@ status = "planned"
 invariant = "VM_SEAM_SUBRANGE_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:2642475a595a42eb9e0d2ccab4658780f5602ac92d5f8f1891328e0ef8023032"
-source_digest = "sha256:0b2d08529f28d06e454ec8d5af530fd1117b91206c3557e6ccdd92dc7d05ee64"
-last_reviewed = "2026-07-09"
+source_digest = "sha256:5a13b07e7f938d592cce29ebab047ebbd89031ce2766201e1792924264aba93e"
+last_reviewed = "2026-07-13"
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_MIN_AE132E71"
 family = "boundary_low"
 input = { source_partition = { min = 0, max = 100 }, value = 0 }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_MAX_AE132E71"
 family = "boundary_high"
 input = { source_partition = { min = 0, max = 100 }, value = 100 }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_BELOW_MIN_F2BC55A3"
 family = "below_min"
 input = { source_partition = { below = 0 }, value = -1 }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_ABOVE_MAX_2EDDED03"
 family = "above_max"
 input = { source_partition = { above = 100 }, value = 101 }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_WRONG_TYPE_817CB4E0"

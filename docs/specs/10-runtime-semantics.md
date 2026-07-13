@@ -199,7 +199,22 @@ same declared runtime type and value. This rule does not authorize narrowing or
 otherwise incompatible conversions; those remain rejected according to the
 semantic type-compatibility rules.
 
-#### 2.4 Time/Date Representation
+#### 2.4 Subrange Runtime Writes
+
+Subrange lower and upper bounds are inclusive. Assignment, POU parameter
+copy-in, and dynamic-reference writes into subrange-typed storage validate the
+incoming value before modifying the target. An out-of-range value produces a
+visible runtime error and leaves the target at its previous value; the runtime
+must not clamp, wrap, or partially store the rejected value. The same rule
+applies at HMI/control and retain-reload write boundaries when declared
+subrange type information is available. Declaration-initialization behavior,
+wrong-type conversion, and stable error identifiers remain separate contract
+boundaries.
+
+This product rule implements the reviewed subrange decision in
+`docs/IEC_DECISIONS.md` and does not extend it to those unresolved boundaries.
+
+#### 2.5 Time/Date Representation
 
 IEC 61131-3 defines LTIME/LDATE/LTOD/LDT as signed 64-bit nanosecond counts with fixed
 epochs, while TIME/DATE/TOD/DT have implementer-specific range and precision
@@ -286,7 +301,7 @@ runtime behavior (CODESYS/TwinCAT-style):
 
 Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
 
-#### 2.5 Default Values
+#### 2.6 Default Values
 
 Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 §6.4.2, Table 10; §6.4.4.2; §6.4.4.10.2):
 

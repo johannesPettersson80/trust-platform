@@ -709,6 +709,29 @@ allow = ["resource/RESOURCE/program/Main/field/limited"]
         state.debug.drain_var_writes().is_empty(),
         "rejected subrange hmi.write must not queue a debug write"
     );
+    let values = handle_request_value(
+        json!({
+            "id": 77,
+            "type": "hmi.values.get",
+            "params": {
+                "ids": ["resource/RESOURCE/program/Main/field/limited"]
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(values.ok, "subrange value read must succeed: {:?}", values.error);
+    assert_eq!(
+        values
+            .result
+            .as_ref()
+            .and_then(|result| result.get("values"))
+            .and_then(|values| values.get("resource/RESOURCE/program/Main/field/limited"))
+            .and_then(|value| value.get("v"))
+            .and_then(serde_json::Value::as_i64),
+        Some(0),
+        "rejected subrange hmi.write must leave the prior value unchanged"
+    );
 
     fs::remove_dir_all(root).ok();
 }
