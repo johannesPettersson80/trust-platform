@@ -350,24 +350,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_2DF32E01941660BF1A3C"
-discovery_id = "DISC_2DF32E01941660BF1A3C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/eval/tests/pou_function.rs"
-name = "function_input_default_failure_returns_init_failed"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_2EEB083ACDA59C7173DC"
 discovery_id = "DISC_2EEB083ACDA59C7173DC"
 discovery_source_kind = "rust_integration_test"
@@ -450,24 +432,6 @@ ignore_reason = "red test for runtime-safety fail-closed Phase 8"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "runtime_safety"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_4375CD7D7381F6012287"
-discovery_id = "DISC_4375CD7D7381F6012287"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/runtime/vm/local_init.rs"
-name = "vm_return_slot_default_failure_returns_init_failed"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
 status = "gap_open"
 ignore_class = "unknown"
 reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
@@ -916,24 +880,6 @@ public_claim_impact = "A missing or skipped run cannot prove EtherCAT storage be
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_A06DF7FD3DD0AA8532B9"
-discovery_id = "DISC_A06DF7FD3DD0AA8532B9"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/eval/tests/pou_function.rs"
-name = "function_local_default_failure_returns_init_failed"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_A3BEFC6AEFD5123C849D"
 discovery_id = "DISC_A3BEFC6AEFD5123C849D"
 discovery_source_kind = "rust_integration_test"
@@ -1186,24 +1132,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_C322445040BB29FD414A"
-discovery_id = "DISC_C322445040BB29FD414A"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/runtime/vm/local_init.rs"
-name = "vm_local_default_failure_returns_init_failed"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_C3A91E2860C30B08BED4"
 discovery_id = "DISC_C3A91E2860C30B08BED4"
 discovery_source_kind = "rust_unit_test"
@@ -1290,24 +1218,6 @@ status = "mapped"
 ignore_class = "perf_soak"
 reason = "This is a long or resource-intensive measurement intended for an explicit performance or soak lane."
 unblock_condition = "Run it through a named performance or soak command; do not add it to a fast suite from mechanical metadata."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_E3F480EBCF048676B771"
-discovery_id = "DISC_E3F480EBCF048676B771"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/eval/tests/pou_function.rs"
-name = "function_return_default_failure_returns_init_failed"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
