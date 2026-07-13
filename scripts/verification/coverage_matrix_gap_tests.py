@@ -364,17 +364,17 @@ class CoverageMatrixGapTests(unittest.TestCase):
             analysis["summary"],
             {
                 "mapped_areas": 11,
-                "mapped_area_invariants": 52,
+                "mapped_area_invariants": 53,
                 "out_of_scope_invariants": 0,
                 "required_family_slots": 80,
                 "assigned_required_slots": 16,
                 "missing_required_slots": 64,
-                "additional_recorded_cells": 46,
-                "recorded_cells": 62,
+                "additional_recorded_cells": 48,
+                "recorded_cells": 64,
                 "case_files": 4,
-                "case_observations": 21,
-                "blocked_case_observations": 21,
-                "state_counts": empty_state_counts(spec_gap=52, gap_open=9, covered=1),
+                "case_observations": 27,
+                "blocked_case_observations": 14,
+                "state_counts": empty_state_counts(spec_gap=49, gap_open=11, covered=4),
             },
         )
         self.assertTrue(TOOL_INPUT_PATHS.issubset(paths))

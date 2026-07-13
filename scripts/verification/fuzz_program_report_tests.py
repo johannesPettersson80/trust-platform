@@ -40,6 +40,7 @@ EXPECTED_STATES = {
 class FuzzProgramReportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        (ROOT / "target").mkdir(exist_ok=True)
         cls.state = build_live_fuzz_program_state(
             ROOT,
             timestamp="2026-07-11T18:00:00+02:00",

@@ -32,6 +32,7 @@ from .mutation_program_validation import validate_report_files
 class MutationProgramReportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        (ROOT / "target").mkdir(exist_ok=True)
         cls.state = build_live_mutation_program_state(ROOT, require_clean_commit=False)
         cls.report = MutationProgramReport.from_state(cls.state)
         cls.payload = cls.report.payload
