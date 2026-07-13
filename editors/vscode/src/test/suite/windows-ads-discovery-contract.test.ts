@@ -3,47 +3,42 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { runNetworkCanvasDiscovery } from "../../networkCanvas/discoveryController";
+import {
+  deduplicateDiscoveryCandidates,
+  discoveryControlTimeoutMs,
+  runNetworkCanvasDiscovery,
+} from "../../networkCanvas/discoveryController";
 import { DiscoveryRequestTracker } from "../../networkCanvas/discoverySession";
 import { DiscoveryOriginTargetStore } from "../../networkCanvas/discoveryOriginTargets";
 import { isCurrentAdsServiceProbeRequest } from "../../networkCanvas/adsServiceProbeController";
+import { isDiscoveryErrorCode } from "../../networkCanvas/discoveryErrors";
 import { planBrowseOpen } from "../../networkCanvas/webview/browseSessionModel";
-import { localSimControl } from "../../simControl";
+import { confirmedAdsBrowseRetryTarget } from "../../networkCanvas/webview/adsTargetPort";
+import {
+  localSimControl,
+  simulatorControlFromDebugConfiguration,
+} from "../../simControl";
 import type { RuntimeTarget } from "../../runtimeTarget";
 import type {
   BrowseSymbolsResponse,
   DiscoverResponse,
 } from "../../networkCanvas/offlineComm";
 
-type AdsDiscoveryLocationId =
-  | "same_computer"
-  | "local_network"
-  | "known_address";
-
 interface AdsDiscoveryModelContract {
-  readonly ADS_DISCOVERY_LOCATIONS: readonly {
-    readonly id: AdsDiscoveryLocationId;
-    readonly label: string;
-    readonly recommended: boolean;
-  }[];
   readonly PLC_RUNTIME_PORTS: readonly number[];
-  readonly COMMON_TWINCAT_SERVICE_PORTS: readonly number[];
-  readonly AUTOMATIC_TWINCAT_SERVICE_PORTS: readonly number[];
-  adsDiscoveryFields(
-    location: AdsDiscoveryLocationId,
-    advanced: boolean
-  ): readonly string[];
+  readonly COMMON_ADS_SERVICE_PORTS: readonly number[];
+  readonly AUTOMATIC_ADS_SERVICE_PORTS: readonly number[];
+  adsDiscoveryFields(advanced: boolean): readonly string[];
   validateAdsDiscoveryHost(host: string): string | undefined;
   validateAdsAmsNetId(value: string): string | undefined;
-  autoSelectTwinCatServicePort(availablePorts: readonly number[]): number | undefined;
-  twinCatServicePresentation(port: number): {
+  autoSelectAdsServicePort(availablePorts: readonly number[]): number | undefined;
+  adsServicePresentation(port: number): {
     readonly primary: string;
     readonly secondary: string;
   };
   createAdsDiscoveryScanSnapshot(
     origin: string,
     draft: {
-      readonly location: AdsDiscoveryLocationId;
       readonly host: string;
       readonly amsNetId: string;
       readonly customPorts: string;
@@ -51,11 +46,19 @@ interface AdsDiscoveryModelContract {
     }
   ): {
     readonly origin: string;
-    readonly location: AdsDiscoveryLocationId;
     readonly host?: string;
     readonly targetAmsNetId?: string;
     readonly ports: readonly number[];
   };
+  createAutomaticAdsDiscoveryItems(snapshot: {
+    readonly host?: string;
+    readonly targetAmsNetId?: string;
+  }): readonly {
+    readonly protocol: string;
+    readonly host?: string;
+    readonly targetAmsNetId?: string;
+    readonly amsPort?: number;
+  }[];
 }
 
 interface OfflineCommModule {
@@ -92,8 +95,8 @@ interface AdsServiceProbeResult {
 
 interface AdsServiceProbeModelContract {
   readonly PLC_RUNTIME_PORTS: readonly number[];
-  readonly COMMON_TWINCAT_SERVICE_PORTS: readonly number[];
-  readonly AUTOMATIC_TWINCAT_SERVICE_PORTS: readonly number[];
+  readonly COMMON_ADS_SERVICE_PORTS: readonly number[];
+  readonly AUTOMATIC_ADS_SERVICE_PORTS: readonly number[];
   readonly MAX_ADS_SERVICE_PROBES: number;
   planAdsServicePorts(customPorts: readonly number[]): readonly number[];
   parseCustomAdsPorts(input: string): {
@@ -107,6 +110,9 @@ interface AdsServiceProbeModelContract {
   autoSelectUsableAdsService(
     results: readonly AdsServiceProbeResult[]
   ): number | undefined;
+  didAnyAdsServiceRespond(
+    results: readonly AdsServiceProbeResult[]
+  ): boolean;
   probeAdsServicesSequentially(
     ports: readonly number[],
     probe: (port: number) => Promise<BrowseSymbolsResponse>
@@ -119,6 +125,10 @@ function extensionRoot(): string {
 
 function readSource(relativePath: string): string {
   return fs.readFileSync(path.join(extensionRoot(), "src", relativePath), "utf8");
+}
+
+function readMedia(relativePath: string): string {
+  return fs.readFileSync(path.join(extensionRoot(), "media", relativePath), "utf8");
 }
 
 function adsDiscoveryModel(): AdsDiscoveryModelContract {
@@ -147,129 +157,58 @@ function extractControlToken(runtimeToml: string): string {
 }
 
 suite("Windows ADS discovery and simulator regression contract", function () {
-  test("offers one TwinCAT flow with explicit target-location choices", () => {
-    const model = adsDiscoveryModel();
 
-    assert.deepStrictEqual(model.ADS_DISCOVERY_LOCATIONS, [
-      {
-        id: "same_computer",
-        label: "On the discovery computer",
-        recommended: false,
-      },
-      {
-        id: "local_network",
-        label: "On the discovery computer's network",
-        recommended: true,
-      },
-      {
-        id: "known_address",
-        label: "At known address",
-        recommended: false,
-      },
-    ]);
-
-    const pane = readSource("networkCanvas/webview/DiscoverPane.tsx");
-    const adsFlow = readSource("networkCanvas/webview/AdsDiscoveryFlow.tsx");
-    const discoveryUi = `${pane}\n${adsFlow}`;
-    const rowDefinitions = pane.slice(0, pane.indexOf("export function DiscoverPane"));
-    assert.strictEqual(
-      (rowDefinitions.match(/protocol:\s*"ads"/g) ?? []).length,
-      1,
-      "Discover must render one TwinCAT flow, not separate broadcast and targeted ADS checkboxes."
-    );
-    assert.ok(!rowDefinitions.includes('key: "ads-host"'));
+  test("keeps ADS discovery alive for the native scan plus several LAN windows", () => {
+    assert.strictEqual(discoveryControlTimeoutMs("ads"), 15_000);
     assert.ok(
-      discoveryUi.includes("Discovery runs from"),
-      "The execution origin must be named separately from the TwinCAT target location."
+      discoveryControlTimeoutMs("ads") > 5_000 + 4 * 900,
+      "Four sequential LAN windows plus native discovery must not be cut off by the old 8 s request timeout."
     );
-    assert.ok(
-      discoveryUi.includes("Where is TwinCAT?"),
-      "The target-location choice must not be presented as another scan origin."
-    );
-    assert.ok(discoveryUi.includes("Find TwinCAT"));
-    assert.ok(discoveryUi.includes("Finding TwinCAT…"));
-    assert.ok(discoveryUi.includes("selected type"));
-    assert.ok(discoveryUi.includes("ads-find-twincat"));
-    assert.ok(discoveryUi.includes('row.status === "failed"'));
-    assert.match(
-      discoveryUi,
-      /!error[\s\S]*row\.status === "failed"[\s\S]*results\.length === 0/,
-      "A failed discovery must not also render the Nothing found state."
-    );
+    assert.strictEqual(discoveryControlTimeoutMs("opcua"), 8_000);
   });
+
+
+
+
+
 
   test("progressively discloses known-address and advanced ADS identity fields", () => {
     const model = adsDiscoveryModel();
 
-    assert.deepStrictEqual(model.adsDiscoveryFields("same_computer", false), []);
-    assert.deepStrictEqual(model.adsDiscoveryFields("local_network", false), []);
-    assert.deepStrictEqual(model.adsDiscoveryFields("same_computer", true), ["ads_port"]);
-    assert.deepStrictEqual(model.adsDiscoveryFields("local_network", true), ["ads_port"]);
-    assert.deepStrictEqual(model.adsDiscoveryFields("known_address", false), ["host"]);
-    assert.deepStrictEqual(model.adsDiscoveryFields("known_address", true), [
+    assert.deepStrictEqual(model.adsDiscoveryFields(false), []);
+    assert.deepStrictEqual(model.adsDiscoveryFields(true), [
       "host",
       "ams_net_id",
       "ads_port",
     ]);
 
-    assert.strictEqual(model.validateAdsDiscoveryHost("192.168.77.11"), undefined);
+    assert.strictEqual(model.validateAdsDiscoveryHost("192.168.50.42"), undefined);
     assert.strictEqual(model.validateAdsDiscoveryHost("plc-line-1"), undefined);
     assert.match(
-      model.validateAdsDiscoveryHost("192.168.77.11:851") ?? "",
+      model.validateAdsDiscoveryHost("192.168.50.42:851") ?? "",
       /host.*without.*port|do not include.*port/i,
       "ADS Host/IP must reject host:port inline instead of running a doomed scan."
     );
-    assert.strictEqual(model.validateAdsAmsNetId("100.67.6.217.1.1"), undefined);
+    assert.strictEqual(model.validateAdsAmsNetId("10.20.30.40.1.1"), undefined);
     assert.strictEqual(model.validateAdsAmsNetId(""), undefined);
     assert.match(model.validateAdsAmsNetId("100.67.6.999.1.1") ?? "", /six.*0.*255/i);
     assert.match(model.validateAdsAmsNetId("100.67.6.1.1") ?? "", /six.*0.*255/i);
     const adsFlow = readSource("networkCanvas/webview/AdsDiscoveryFlow.tsx");
+    const discoverPane = readSource("networkCanvas/webview/DiscoverPane.tsx");
     assert.ok(adsFlow.includes("Advanced settings need attention"));
     assert.ok(adsFlow.includes('data-role="ads-advanced-attention"'));
     assert.ok(adsFlow.includes("Expand"));
-  });
-
-  test("snapshots discovery origin and service ports at Scan click", () => {
-    const model = adsDiscoveryModel();
-    const snapshot = model.createAdsDiscoveryScanSnapshot("runtime:a", {
-      location: "known_address",
-      host: "192.168.77.11",
-      amsNetId: "100.67.6.217.1.1",
-      customPorts: "9000, 9001",
-      advanced: true,
-    });
-
-    assert.deepStrictEqual(snapshot, {
-      origin: "runtime:a",
-      location: "known_address",
-      host: "192.168.77.11",
-      targetAmsNetId: "100.67.6.217.1.1",
-      ports: [851, 852, 853, 854, 301, 501, 9000, 9001],
-    });
-    assert.strictEqual(snapshot.origin, "runtime:a");
-    assert.deepStrictEqual(snapshot.ports, [851, 852, 853, 854, 301, 501, 9000, 9001]);
-
-    const collapsed = model.createAdsDiscoveryScanSnapshot("runtime:a", {
-      location: "known_address",
-      host: "192.168.77.11",
-      amsNetId: "100.67.6.217.1.1",
-      customPorts: "9000",
-      advanced: false,
-    });
-    assert.strictEqual(
-      collapsed.targetAmsNetId,
-      "100.67.6.217.1.1",
-      "Collapsing Advanced must not silently discard a persisted manual identity."
+    assert.ok(adsFlow.includes('data-role="ads-known-host"'));
+    assert.ok(
+      !discoverPane.includes('data-role="ads-scan-origin"') &&
+        discoverPane.includes("discoveryOriginForMode(mode, hardwareOrigin)"),
+      "the ordinary ADS action must always mean this computer and its local network; hardware scan origin is a separate concern"
     );
-    assert.deepStrictEqual(collapsed.ports, [851, 852, 853, 854, 301, 501, 9000]);
-
-    const pane = `${readSource("networkCanvas/webview/DiscoverPane.tsx")}\n${readSource(
-      "networkCanvas/webview/AdsDiscoveryFlow.tsx"
-    )}`;
-    assert.ok(pane.includes("createAdsDiscoveryScanSnapshot"));
-    assert.ok(pane.includes("adsScanSnapshot"));
-    assert.ok(pane.includes("Advanced settings applied"));
   });
+
+
+
+
 
   test("pins the exact discovery runtime and rejects stale or mismatched probes", () => {
     const runtimeA: RuntimeTarget = {
@@ -365,12 +304,12 @@ suite("Windows ADS discovery and simulator regression contract", function () {
     );
   });
 
-  test("offers bounded TwinCAT service checks and auto-selects only an unambiguous result", () => {
+  test("offers bounded ADS service checks and auto-selects only an unambiguous result", () => {
     const model = adsDiscoveryModel();
 
     assert.deepStrictEqual(model.PLC_RUNTIME_PORTS, [851, 852, 853, 854]);
-    assert.deepStrictEqual(model.COMMON_TWINCAT_SERVICE_PORTS, [301, 501]);
-    assert.deepStrictEqual(model.AUTOMATIC_TWINCAT_SERVICE_PORTS, [
+    assert.deepStrictEqual(model.COMMON_ADS_SERVICE_PORTS, [301, 501]);
+    assert.deepStrictEqual(model.AUTOMATIC_ADS_SERVICE_PORTS, [
       851,
       852,
       853,
@@ -378,64 +317,94 @@ suite("Windows ADS discovery and simulator regression contract", function () {
       301,
       501,
     ]);
-    assert.strictEqual(model.autoSelectTwinCatServicePort([]), undefined);
-    assert.strictEqual(model.autoSelectTwinCatServicePort([852]), 852);
+    assert.strictEqual(model.autoSelectAdsServicePort([]), undefined);
+    assert.strictEqual(model.autoSelectAdsServicePort([852]), 852);
     assert.strictEqual(
-      model.autoSelectTwinCatServicePort([851, 852]),
+      model.autoSelectAdsServicePort([851, 852]),
       undefined,
       "Multiple available PLC runtimes require an explicit user choice."
     );
-    assert.deepStrictEqual(model.twinCatServicePresentation(851), {
-      primary: "PLC runtime 1",
-      secondary: "ADS 851",
+    assert.deepStrictEqual(model.adsServicePresentation(851), {
+      primary: "ADS 851",
+      secondary: "PLC runtime 1",
     });
-    assert.deepStrictEqual(model.twinCatServicePresentation(854), {
-      primary: "PLC runtime 4",
-      secondary: "ADS 854",
+    assert.deepStrictEqual(model.adsServicePresentation(854), {
+      primary: "ADS 854",
+      secondary: "PLC runtime 4",
     });
-    assert.deepStrictEqual(model.twinCatServicePresentation(9000), {
-      primary: "Custom service",
-      secondary: "ADS 9000",
+    assert.deepStrictEqual(model.adsServicePresentation(9000), {
+      primary: "ADS 9000",
+      secondary: "Custom ADS service",
     });
-    assert.deepStrictEqual(model.twinCatServicePresentation(301), {
-      primary: "Additional task 1",
-      secondary: "ADS 301",
+    assert.deepStrictEqual(model.adsServicePresentation(301), {
+      primary: "ADS 301",
+      secondary: "Common ADS service",
     });
-    assert.deepStrictEqual(model.twinCatServicePresentation(501), {
-      primary: "NC SAF service",
-      secondary: "ADS 501",
+    assert.deepStrictEqual(model.adsServicePresentation(501), {
+      primary: "ADS 501",
+      secondary: "Common ADS service",
     });
 
-    const pane = `${readSource("networkCanvas/webview/DiscoverPane.tsx")}\n${readSource(
-      "networkCanvas/webview/AdsDiscoveryFlow.tsx"
-    )}`;
+    const pane = [
+      readSource("networkCanvas/webview/DiscoverPane.tsx"),
+      readSource("networkCanvas/webview/AdsDiscoveryFlow.tsx"),
+      readSource("networkCanvas/webview/discoverPaneModel.ts"),
+    ].join("\n");
     assert.ok(
-      pane.includes("AUTOMATIC_TWINCAT_SERVICE_PORTS"),
-      "The confirmed service check must include standard services 851-854, 301, and 501."
+      pane.includes("AUTOMATIC_ADS_SERVICE_PORTS"),
+      "The automatic service check must include standard services 851-854, 301, and 501."
     );
-    assert.ok(pane.includes('data-role="ads-probe-safety-confirmation"'));
-    assert.ok(pane.includes('data-role="ads-check-services"'));
+    assert.ok(pane.includes("autoAdsProbeCandidates"));
+    assert.ok(!pane.includes('data-role="ads-probe-safety-confirmation"'));
+    assert.ok(!pane.includes('data-role="ads-check-services"'));
+    assert.ok(pane.includes('data-role="ads-recheck-services"'));
     assert.ok(!pane.includes("requestedAdsProbeIds"));
     assert.ok(
       pane.includes("Advanced"),
       "Custom ADS port and manual AMS identity must stay behind progressive disclosure."
     );
     for (const role of [
-      "ads-location",
       "ads-host",
       "ads-advanced-toggle",
       "ads-custom-ports",
       "ads-computer",
       "ads-identity-status",
-      "ads-probe-safety",
-      "ads-probe-safety-confirmation",
-      "ads-check-services",
+      "ads-probe-progress",
+      "ads-recheck-services",
+      "ads-service-results",
       "ads-plc-runtime",
       "ads-browse-variables",
     ]) {
       assert.ok(pane.includes(`data-role=\"${role}\"`), `Missing CDP role ${role}.`);
     }
-    assert.ok(pane.includes("Entered manually — identity not verified yet"));
+    assert.ok(
+      pane.includes("Address entered manually · waiting for an ADS response")
+    );
+    assert.ok(
+      pane.includes("Address entered manually · ADS service responded")
+    );
+    assert.ok(
+      pane.includes('observedIdentityOnly') &&
+        pane.includes('"ads_service_status"') &&
+        pane.includes('=== "identity_only"') &&
+        pane.includes('"identity-only"') &&
+        pane.includes("Identity found · ADS services not confirmed") &&
+        /observedIdentityOnly\s*\?\s*DECLARED_IDENTITY/.test(pane),
+      "an observed AMS identity without any responding service must stay visible as an amber partial result, not a green success",
+    );
+    assert.ok(
+      pane.includes('data-role="ads-computer-name"') &&
+        pane.includes('title={name}') &&
+        pane.includes('overflowWrap: "anywhere"') &&
+        !/const COMPUTER_NAME[^;]+textOverflow:\s*"ellipsis"/s.test(pane),
+      "long discovered computer names must wrap visibly instead of hiding their identity behind an ellipsis",
+    );
+    assert.ok(
+      pane.includes("<fieldset") &&
+        pane.includes("<legend") &&
+        pane.includes("Responding ADS services for {name}"),
+      "responding logical ports must be one named service-choice group"
+    );
     assert.ok(pane.includes('case "ads_local_router"'));
     assert.ok(pane.includes('return "Local AMS router"'));
   });
@@ -444,8 +413,8 @@ suite("Windows ADS discovery and simulator regression contract", function () {
     const plan = planBrowseOpen(
       "ads",
       {
-        host: "192.168.77.11",
-        ams_net_id: "100.67.6.217.1.1",
+        host: "192.168.50.42",
+        ams_net_id: "10.20.30.40.1.1",
         ams_port: 851,
         ads_port_confirmed: true,
       },
@@ -457,13 +426,48 @@ suite("Windows ADS discovery and simulator regression contract", function () {
     assert.strictEqual(plan.request?.protocol, "ads");
     assert.strictEqual(plan.request?.kind, "symbols");
     assert.strictEqual(plan.request?.target.ams_port, 851);
+
+    const controls = readSource(
+      "networkCanvas/webview/AdsBrowseTargetControls.tsx"
+    );
+    assert.ok(
+      controls.includes("if (confirmedByDiscovery)") &&
+        controls.includes('data-role="ads-confirmed-service"') &&
+        controls.indexOf("if (confirmedByDiscovery)") <
+          controls.indexOf('data-role="ads-browse-port"'),
+      "a service selected in Discover must render as a read-only summary, not a second port editor and Browse action"
+    );
+    assert.ok(controls.includes("ADS service selected in Discover"));
+    assert.ok(controls.includes('data-role="ads-retry-confirmed-browse"'));
+
+    const selectedTarget = {
+      host: "192.168.50.42",
+      ams_net_id: "10.20.30.40.1.1",
+      ams_port: 851,
+      ads_port_confirmed: true,
+    };
+    assert.strictEqual(
+      confirmedAdsBrowseRetryTarget(selectedTarget, false, false),
+      undefined,
+      "The successful one-click handoff must not show a second browse action."
+    );
+    assert.strictEqual(
+      confirmedAdsBrowseRetryTarget(selectedTarget, false, true),
+      selectedTarget,
+      "Recovery must retry the exact service selected in Discover."
+    );
+    assert.strictEqual(
+      confirmedAdsBrowseRetryTarget(selectedTarget, true, true),
+      undefined,
+      "Retry must not fan out while a browse is already running."
+    );
   });
 
   test("plans a bounded ordered ADS service probe without changing host discovery", () => {
     const probes = adsServiceProbeModel();
     assert.deepStrictEqual(probes.PLC_RUNTIME_PORTS, [851, 852, 853, 854]);
-    assert.deepStrictEqual(probes.COMMON_TWINCAT_SERVICE_PORTS, [301, 501]);
-    assert.deepStrictEqual(probes.AUTOMATIC_TWINCAT_SERVICE_PORTS, [
+    assert.deepStrictEqual(probes.COMMON_ADS_SERVICE_PORTS, [301, 501]);
+    assert.deepStrictEqual(probes.AUTOMATIC_ADS_SERVICE_PORTS, [
       851,
       852,
       853,
@@ -472,6 +476,26 @@ suite("Windows ADS discovery and simulator regression contract", function () {
       501,
     ]);
     assert.strictEqual(probes.MAX_ADS_SERVICE_PROBES, 10);
+    assert.strictEqual(
+      probes.didAnyAdsServiceRespond([
+        { port: 301, status: "unsupported", symbolCount: 0, usable: false },
+      ]),
+      true,
+      "A service that rejects symbol upload still proved that ADS responded."
+    );
+    assert.strictEqual(
+      probes.didAnyAdsServiceRespond([
+        { port: 501, status: "empty", symbolCount: 0, usable: false },
+      ]),
+      true,
+      "An empty service still proved that ADS responded."
+    );
+    assert.strictEqual(
+      probes.didAnyAdsServiceRespond([
+        { port: 851, status: "unavailable", symbolCount: 0, usable: false },
+      ]),
+      false
+    );
     assert.deepStrictEqual(
       probes.planAdsServicePorts([854, 9000, 851, 9001, 9000, 9002, 9003, 9004]),
       [851, 852, 853, 854, 301, 501, 9000, 9001, 9002, 9003],
@@ -501,7 +525,7 @@ suite("Windows ADS discovery and simulator regression contract", function () {
       discover.indexOf("export async function offlineFleetRuntimeAdd")
     );
     assert.ok(!discoverFunction.includes("ams_port"));
-    assert.ok(!discoverFunction.includes("AUTOMATIC_TWINCAT_SERVICE_PORTS"));
+    assert.ok(!discoverFunction.includes("AUTOMATIC_ADS_SERVICE_PORTS"));
 
     const controller = readSource("networkCanvas/adsServiceProbeController.ts");
     assert.ok(
@@ -517,34 +541,46 @@ suite("Windows ADS discovery and simulator regression contract", function () {
   test("classifies ADS service probe outcomes and selects only one usable runtime", () => {
     const probes = adsServiceProbeModel();
     const available = probes.classifyAdsServiceProbe(851, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       tree: [
         { id: "a", name: "A", path: "GVL.A" },
         { id: "b", name: "B", path: "GVL.B" },
       ],
     });
     const unsupported = probes.classifyAdsServiceProbe(301, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       tree: [],
       error: { code: "symbol_upload_unsupported", message: "not supported" },
     });
     const empty = probes.classifyAdsServiceProbe(852, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       tree: [],
       error: { code: "empty_symbol_table", message: "no symbols" },
     });
     const unavailable = probes.classifyAdsServiceProbe(853, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       tree: [],
       error: { code: "ads_port_unavailable", message: "target port not found" },
     });
     const routeMissing = probes.classifyAdsServiceProbe(854, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       route: { status: "missing" },
       tree: [],
     });
     const checkFailed = probes.classifyAdsServiceProbe(9000, {
+      schema_version: 1,
       protocol: "ads",
+      kind: "symbols",
       tree: [],
       error: { code: "symbol_upload_failed", message: "invalid AMS Net ID" },
     });
@@ -622,11 +658,15 @@ suite("Windows ADS discovery and simulator regression contract", function () {
         active -= 1;
         return port === 851
           ? {
+              schema_version: 1,
               protocol: "ads",
+              kind: "symbols",
               tree: [{ id: "x", name: "X", path: "GVL.X" }],
             }
           : {
+              schema_version: 1,
               protocol: "ads",
+              kind: "symbols",
               tree: [],
               error: {
                 code: "ads_port_unavailable",
@@ -654,8 +694,23 @@ suite("Windows ADS discovery and simulator regression contract", function () {
       async (port) => {
         calls.push(port);
         return port === 852
-          ? { protocol: "ads", route: { status: "missing" }, tree: [] }
-          : { protocol: "ads", tree: [] };
+          ? {
+              schema_version: 1,
+              protocol: "ads",
+              kind: "symbols",
+              route: { status: "missing" },
+              tree: [],
+            }
+          : {
+              schema_version: 1,
+              protocol: "ads",
+              kind: "symbols",
+              tree: [],
+              error: {
+                code: "empty_symbol_table",
+                message: "no symbols",
+              },
+            };
       }
     );
 
@@ -698,11 +753,17 @@ suite("Windows ADS discovery and simulator regression contract", function () {
     }
   });
 
+
+
+
+
+
+
   test("controller classifies UDP Identify no-reply as a recoverable error and never converts it into 0 found", async () => {
     const offline = offlineCommModule();
     const originalDiscover = offline.offlineCommDiscover;
     const stderr =
-      "ADS discovery failed: UdpIdentifyBlocked: ADS UDP identify failed for 192.168.77.11: no target answered";
+      "ADS discovery failed: UdpIdentifyBlocked: ADS UDP identify failed for 192.168.50.42: no target answered; ads-wire fallback unavailable";
     offline.offlineCommDiscover = async () => {
       throw new Error(stderr);
     };
@@ -727,7 +788,7 @@ suite("Windows ADS discovery and simulator regression contract", function () {
           requestId: 7,
           request: {
             origin: "this_host",
-            items: [{ protocol: "ads", host: "192.168.77.11" }],
+            items: [{ protocol: "ads", host: "192.168.50.42" }],
           },
         },
         {
@@ -747,14 +808,25 @@ suite("Windows ADS discovery and simulator regression contract", function () {
     assert.ok(failure, "A CLI discovery failure must reach the visible error state.");
     assert.strictEqual(
       failure.error,
-      "TwinCAT identity did not answer UDP discovery. Enter the target AMS Net ID to continue manually."
+      "No ADS device answered. Make sure it is running and that your firewall allows truST on this network. Try again, or use Advanced if you know its address."
     );
     assert.ok(
       !String(failure.error).includes("UdpIdentifyBlocked") &&
-        !String(failure.error).includes("no target answered"),
+        !String(failure.error).includes("no target answered") &&
+        !/UDP|router|10060|10054|ads-wire/i.test(String(failure.error)),
       "Typed wire details must select recovery without leaking backend vocabulary into the UI."
     );
     assert.strictEqual(failure.errorCode, "ads_udp_identify_blocked");
+    assert.strictEqual(
+      failure.warning,
+      undefined,
+      "a terminal zero-result failure must not claim that responding-device results are shown"
+    );
+    assert.deepStrictEqual(
+      failure.errorDetails,
+      [stderr],
+      "zero-result command failures must retain raw evidence for collapsed Technical details"
+    );
     assert.deepStrictEqual(failure.candidates, []);
     assert.strictEqual(
       posted.some(
@@ -818,4 +890,6 @@ suite("Windows ADS discovery and simulator regression contract", function () {
       Object.defineProperty(process, "platform", descriptor);
     }
   });
+
+
 });

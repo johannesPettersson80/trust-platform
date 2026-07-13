@@ -19,6 +19,24 @@ export interface SimControl {
   authToken: string;
 }
 
+/**
+ * Returns the exact control channel injected into an active simulator launch.
+ *
+ * The debug session is the authority here: deriving the credentials again from
+ * a workspace path can select the wrong folder in a multi-root workspace and
+ * can leave Devices & Connections probing an unrelated configured runtime.
+ */
+export function simulatorControlFromDebugConfiguration(
+  configuration: unknown
+): SimControl | undefined {
+  if (!isRecord(configuration) || configuration.request !== "launch") {
+    return undefined;
+  }
+  const endpoint = normalizedString(configuration.controlEndpoint);
+  const authToken = normalizedString(configuration.controlAuthToken);
+  return endpoint && authToken ? { endpoint, authToken } : undefined;
+}
+
 const cache = new Map<string, SimControl>();
 
 export function localSimControl(workspacePath?: string): SimControl | undefined {
@@ -44,4 +62,14 @@ export function localSimControl(workspacePath?: string): SimControl | undefined 
 function windowsWorkspacePort(hash: string): number {
   const base = Number.parseInt(hash, 16);
   return 20_000 + (base % 20_000);
+}
+
+function normalizedString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

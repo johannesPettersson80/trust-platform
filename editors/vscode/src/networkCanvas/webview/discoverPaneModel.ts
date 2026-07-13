@@ -6,36 +6,12 @@ import {
 } from "../adsServiceProbeModel";
 
 export {
-  AUTOMATIC_TWINCAT_SERVICE_PORTS,
-  COMMON_TWINCAT_SERVICE_PORTS,
+  AUTOMATIC_ADS_SERVICE_PORTS,
+  COMMON_ADS_SERVICE_PORTS,
   PLC_RUNTIME_PORTS,
 } from "../adsServiceProbeModel";
 
-export type AdsDiscoveryLocationId =
-  | "same_computer"
-  | "local_network"
-  | "known_address";
-
-export const ADS_DISCOVERY_LOCATIONS = [
-  {
-    id: "same_computer",
-    label: "On the discovery computer",
-    recommended: false,
-  },
-  {
-    id: "local_network",
-    label: "On the discovery computer's network",
-    recommended: true,
-  },
-  {
-    id: "known_address",
-    label: "At known address",
-    recommended: false,
-  },
-] as const;
-
 export interface AdsDiscoveryDraft {
-  readonly location: AdsDiscoveryLocationId;
   readonly host: string;
   readonly amsNetId: string;
   readonly customPorts: string;
@@ -43,7 +19,6 @@ export interface AdsDiscoveryDraft {
 }
 
 export const DEFAULT_ADS_DISCOVERY_DRAFT: AdsDiscoveryDraft = {
-  location: "local_network",
   host: "",
   amsNetId: "",
   customPorts: "",
@@ -52,7 +27,6 @@ export const DEFAULT_ADS_DISCOVERY_DRAFT: AdsDiscoveryDraft = {
 
 export interface AdsDiscoveryScanSnapshot {
   readonly origin: string;
-  readonly location: AdsDiscoveryLocationId;
   readonly host?: string;
   readonly targetAmsNetId?: string;
   readonly ports: readonly number[];
@@ -65,19 +39,35 @@ export function createAdsDiscoveryScanSnapshot(
   const customPorts = parseCustomAdsPorts(draft.customPorts).ports;
   return {
     origin,
-    location: draft.location,
-    host:
-      draft.location === "same_computer"
-        ? "127.0.0.1"
-        : draft.location === "known_address"
-          ? draft.host.trim() || undefined
-          : undefined,
-    targetAmsNetId:
-      draft.location === "known_address"
-        ? draft.amsNetId.trim() || undefined
-        : undefined,
+    host: draft.host.trim() || undefined,
+    targetAmsNetId: draft.amsNetId.trim() || undefined,
     ports: planAdsServicePorts(customPorts),
   };
+}
+
+/**
+ * The ordinary ADS action always searches both places a first-time user expects:
+ * the AMS router on the discovery computer and that computer's local network.
+ * A known address is additive recovery evidence, not a mutually exclusive mode.
+ */
+export function createAutomaticAdsDiscoveryItems(
+  snapshot: Pick<AdsDiscoveryScanSnapshot, "host" | "targetAmsNetId">
+): readonly DiscoverRequestItem[] {
+  const host = snapshot.host?.trim();
+  const isLoopback =
+    host === "127.0.0.1" || host?.toLowerCase() === "localhost";
+  // Discovery establishes device identity only. Logical ADS services are
+  // checked separately through `snapshot.ports`; attaching 851 here would turn
+  // a default into unverified candidate data before any ADS service replied.
+  const items: DiscoverRequestItem[] = [{ protocol: "ads" }];
+  if (host && (!isLoopback || snapshot.targetAmsNetId)) {
+    items.push({
+      protocol: "ads",
+      host,
+      targetAmsNetId: snapshot.targetAmsNetId,
+    });
+  }
+  return items;
 }
 
 export interface DiscoverOrigin {
@@ -96,24 +86,14 @@ export interface DiscoverRequestItem {
   readonly amsPort?: number;
 }
 
-export function adsDiscoveryFields(
-  location: AdsDiscoveryLocationId,
-  advanced: boolean
-): readonly string[] {
-  const fields: string[] = location === "known_address" ? ["host"] : [];
-  if (advanced) {
-    if (location === "known_address") {
-      fields.push("ams_net_id");
-    }
-    fields.push("ads_port");
-  }
-  return fields;
+export function adsDiscoveryFields(advanced: boolean): readonly string[] {
+  return advanced ? ["host", "ams_net_id", "ads_port"] : [];
 }
 
 export function validateAdsDiscoveryHost(host: string): string | undefined {
   const value = host.trim();
   if (!value) {
-    return "Enter the TwinCAT Host or IP.";
+    return "Enter the known ADS Host or IP.";
   }
   if (
     value.includes("://") ||
@@ -150,26 +130,25 @@ export function validateAdsDiscoveryDraft(draft: AdsDiscoveryDraft): {
 } {
   return {
     hostError:
-      draft.location === "known_address"
+      draft.host.trim().length > 0
         ? validateAdsDiscoveryHost(draft.host)
-        : undefined,
+        : draft.amsNetId.trim().length > 0
+          ? "Enter a known Host or IP when supplying an AMS Net ID."
+          : undefined,
     // Persisted Advanced values remain active while collapsed, so validate them too.
-    amsNetIdError:
-      draft.location === "known_address"
-        ? validateAdsAmsNetId(draft.amsNetId)
-        : undefined,
+    amsNetIdError: validateAdsAmsNetId(draft.amsNetId),
     customPortError: parseCustomAdsPorts(draft.customPorts).error,
   };
 }
 
-export function autoSelectTwinCatServicePort(
+export function autoSelectAdsServicePort(
   availablePorts: readonly number[]
 ): number | undefined {
   const unique = [...new Set(availablePorts)];
   return unique.length === 1 ? unique[0] : undefined;
 }
 
-export function twinCatServicePresentation(port: number): {
+export function adsServicePresentation(port: number): {
   readonly primary: string;
   readonly secondary: string;
 } {
@@ -177,15 +156,13 @@ export function twinCatServicePresentation(port: number): {
     port as (typeof PLC_RUNTIME_PORTS)[number]
   );
   return {
-    primary:
+    primary: `ADS ${port}`,
+    secondary:
       commonIndex >= 0
         ? `PLC runtime ${commonIndex + 1}`
-        : port === 301
-          ? "Additional task 1"
-          : port === 501
-            ? "NC SAF service"
-            : "Custom service",
-    secondary: `ADS ${port}`,
+        : port === 301 || port === 501
+          ? "Common ADS service"
+            : "Custom ADS service",
   };
 }
 
@@ -193,6 +170,13 @@ export interface DiscoverRequest {
   readonly origin: string;
   readonly originEndpoint?: string;
   readonly items: readonly DiscoverRequestItem[];
+}
+
+export function discoveryOriginForMode(
+  mode: "ads" | "selected",
+  hardwareOrigin: string
+): string {
+  return mode === "ads" ? "this_host" : hardwareOrigin;
 }
 
 export interface DiscoverProgressRow {
@@ -204,6 +188,9 @@ export interface DiscoverProgressRow {
 
 export function discoveryProgressCopy(row: DiscoverProgressRow): string {
   if (row.status === "scanning") {
+    if (row.protocol === "ads") {
+      return "Searching this computer and local network…";
+    }
     return `${row.label} … scanning`;
   }
   if (row.status === "failed") {
@@ -212,8 +199,8 @@ export function discoveryProgressCopy(row: DiscoverProgressRow): string {
   if (row.protocol === "ads") {
     const count = row.count ?? 0;
     return count === 0
-      ? "No TwinCAT computer found"
-      : `${row.label} … ${count} computer${count === 1 ? "" : "s"} found`;
+      ? `${row.label} … no ADS devices found`
+      : `${row.label} … ${count} ADS device${count === 1 ? "" : "s"} found`;
   }
   return `${row.label} … ${row.count ?? 0} found`;
 }
@@ -238,25 +225,51 @@ export function adsServiceProbeResultsNeedRecheck(
 export function adsEmptyIdentityCopy(
   snapshot: AdsDiscoveryScanSnapshot
 ): string {
-  if (snapshot.location === "known_address") {
+  if (snapshot.host) {
     const target = snapshot.host ? ` at ${snapshot.host}` : " at the known address";
     return snapshot.targetAmsNetId
-      ? `No TwinCAT identity answered${target}. Check the Host, AMS Net ID, route, and Windows firewall, then try again.`
-      : `No TwinCAT identity answered${target}. UDP Identify may be blocked; open Advanced and enter the AMS Net ID to use a manual identity fallback.`;
+      ? `No ADS device answered${target}. Check the address and AMS Net ID, make sure the device is running, and confirm your firewall allows truST on this network.`
+      : `No ADS device answered${target}. Check the address, make sure the device is running, and confirm your firewall allows truST on this network. If you know its AMS Net ID, add it in Advanced.`;
   }
-  if (snapshot.location === "same_computer") {
-    return "No TwinCAT identity answered on the discovery computer. Confirm TwinCAT is running, or use its known Host and AMS Net ID if UDP Identify is blocked.";
-  }
-  return "No TwinCAT identity answered on the local network. Confirm TwinCAT is running and allowed through Windows Firewall, or use a known Host and AMS Net ID.";
+  return "No ADS devices answered on this computer or the local network. Make sure the device is running and that your firewall allows truST on this network, then try again. If you know its address, use Advanced.";
 }
 
 export function applyAdsEmptyRecovery(
   draft: AdsDiscoveryDraft,
-  snapshot: AdsDiscoveryScanSnapshot
+  _snapshot: AdsDiscoveryScanSnapshot
 ): AdsDiscoveryDraft {
-  return snapshot.location === "known_address"
-    ? { ...draft, advanced: true }
-    : { ...draft, location: "known_address" };
+  return { ...draft, advanced: true };
+}
+
+export type AdsRecoveryFocusRole =
+  | "ads-host"
+  | "ads-ams-net-id"
+  | "ads-custom-ports";
+
+export function adsEmptyRecoveryFocusRole(
+  snapshot: AdsDiscoveryScanSnapshot,
+  errors: {
+    readonly hostError?: string;
+    readonly amsNetIdError?: string;
+    readonly customPortError?: string;
+  }
+): AdsRecoveryFocusRole {
+  if (!snapshot.host) {
+    return "ads-host";
+  }
+  if (!snapshot.targetAmsNetId) {
+    return "ads-ams-net-id";
+  }
+  if (errors.hostError) {
+    return "ads-host";
+  }
+  if (errors.amsNetIdError) {
+    return "ads-ams-net-id";
+  }
+  if (errors.customPortError) {
+    return "ads-custom-ports";
+  }
+  return "ads-host";
 }
 
 export interface DiscoverCanvasNode {

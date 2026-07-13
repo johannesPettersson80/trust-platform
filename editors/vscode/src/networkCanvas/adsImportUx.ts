@@ -1,4 +1,4 @@
-export const START_RUNTIME_ACTION = "Start runtime";
+export const OPEN_RUN_ACTION = "Open truST sidebar";
 
 export interface AdsImportFailurePrompt {
   readonly message: string;
@@ -13,13 +13,15 @@ export function adsImportFailurePrompt(reason: string): AdsImportFailurePrompt {
     return {
       message: "Write-enabled ADS imports need a running runtime.",
       detail:
-        "truST must verify the explicit write acknowledgement before importing writable variables. Start the runtime, then import again.",
+        "Open the truST sidebar and start the selected target, then import again.",
       modal: true,
-      actions: [START_RUNTIME_ACTION],
+      actions: [OPEN_RUN_ACTION],
     };
   }
   return {
-    message: `Could not add ADS variables: ${detail || "the import was rejected."}`,
+    message: "Could not add ADS variables.",
+    detail:
+      "The selected runtime could not complete the ADS import. Reconnect or update it, then try again.",
     modal: false,
     actions: [],
   };

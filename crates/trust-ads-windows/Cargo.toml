@@ -1,0 +1,22 @@
+[package]
+name = "trust-ads-windows"
+description = "Safe Windows TcAdsDll transport boundary for truST"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+libloading.workspace = true
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_SystemInformation", "Win32_UI_Shell"] }
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

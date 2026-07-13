@@ -1,54 +1,140 @@
 import * as vscode from "vscode";
 
-import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
+import { getTrustConfiguration } from "./configuration";
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
-import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
-import { getControlAuthToken } from "./runtimeAuth";
+import { runtimeStatusPayload } from "./io-panel/status";
 import {
-  classifyRuntimeStartFailure,
-  type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
-  type NetworkCanvasRuntimeFailureKind as RuntimeStartFailureKind,
-} from "./networkCanvas/runtimeFailures";
+  findLifecycleSessionForAttempt,
+  lifecycleStartAttemptId,
+  RuntimeLifecycleAttemptRegistry,
+} from "./debug/startAttempt";
 import {
-  probeEndpointReachable,
-  runtimeStatusPayload,
-} from "./io-panel/status";
-import type { IoState, RuntimeStatusPayload } from "./io-panel/types";
+  debugSessionAcceptancePath,
+  selectLifecycleDebugSession,
+} from "./debug/sessionSelection";
 import {
-  isRuntimeControlAuthError,
-  requestRuntimeStatus,
-  runtimeControlAuthErrorKind,
-} from "./runtimeControlClient";
+  runtimeLifecyclePhase,
+  type LifecyclePhase,
+} from "./lifecycleEntryFailure";
+import {
+  DEBUG_START_COMMAND_TIMEOUT_MS,
+  normalizeIoState,
+  runtimeFailureScopeForSession,
+  runtimeOperationConflict,
+  runtimeOperationChangesPhase,
+  runtimeTargetForSession,
+  SESSION_START_STABILITY_MS,
+  SESSION_WAIT_POLL_MS,
+  SESSION_WAIT_TIMEOUT_MS,
+  structuredTextSessionKey,
+  withTimeout,
+  type RuntimeLifecycleChange,
+  type RuntimeLifecycleFailureScope,
+  type RuntimeLifecycleOperationKind,
+  type RuntimeLifecycleOperationState,
+  type RuntimeLifecycleResult,
+  type RuntimeLifecycleSnapshot,
+  type RuntimeLifecycleTarget,
+  type RuntimeStartFailure,
+} from "./runtimeLifecycleModel";
+import {
+  RuntimeLifecycleLiveValues,
+  type RuntimeIoStateRequestOptions,
+} from "./runtimeLifecycleLiveValues";
+import { RuntimeConfigTargetTracker } from "./runtimeConfigTargetTracker";
+import { startOnlineRuntimeConnection } from "./runtimeOnlineConnection";
+import type { LocalSimulatorPreparationResult } from "./localSimulatorPreparation";
+import {
+  coordinateLocalSimulatorStart,
+  type LocalSimulatorProjectValidator,
+} from "./localSimulatorStartCoordinator";
+import {
+  runOwnedDebugTransition,
+  type OwnedDebugTransitionOutcome,
+} from "./runtimeDebugTransition";
+import {
+  terminateRejectedSession,
+  waitForLifecycleSession as waitForLifecycleSessionResult,
+  waitForSessionPresence,
+  waitForSessionStable,
+} from "./runtimeSessionReadiness";
+import { registerRuntimeLifecycleEvents } from "./runtimeLifecycleEvents";
+import { runRuntimeStopOperation } from "./runtimeStopOperation";
+import { selectRuntimeSessionTarget } from "./runtimeSessionAuthority";
+import {
+  startLocalSimulatorDebugSession,
+  type LocalSimulatorDebugStart,
+} from "./localSimulatorDebugStart";
 
-const SESSION_WAIT_TIMEOUT_MS = 8000;
-const SESSION_WAIT_POLL_MS = 100;
-const SESSION_START_STABILITY_MS = 2500;
-const DEBUG_START_COMMAND_TIMEOUT_MS = 6000;
-const IO_NEXT_SCAN_TIMEOUT_MS = 1200;
-const IO_NEXT_SCAN_POLL_MS = 60;
+export {
+  isStructuralRuntimeLifecycleChange,
+  normalizeIoState,
+  runtimeOperationChangesPhase,
+  withTimeout,
+  type RuntimeLifecycleChange,
+  type RuntimeLifecycleFailureScope,
+  type RuntimeLifecycleOperationKind,
+  type RuntimeLifecycleOperationState,
+  type RuntimeLifecycleResult,
+  type RuntimeLifecycleSnapshot,
+  type RuntimeLifecycleTarget,
+  type RuntimeStartFailure,
+  type RuntimeStartFailureKind,
+} from "./runtimeLifecycleModel";
 
-export type { RuntimeStartFailure, RuntimeStartFailureKind };
+type LocalRuntimeDebugStop = (
+  session: vscode.DebugSession,
+) => Thenable<unknown>;
+type RuntimeSessionTargetSelection = (
+  session: vscode.DebugSession,
+) => Thenable<void>;
 
-export type RuntimeLifecycleResult =
-  | { readonly ok: true; readonly message: string }
-  | { readonly ok: false; readonly failure: RuntimeStartFailure };
+export type LocalSimulatorStartResult = LocalSimulatorPreparationResult;
+export type RuntimeExclusiveOperationResult<T> =
+  | { readonly acquired: true; readonly value: T }
+  | { readonly acquired: false; readonly reason: string };
 
-export type RuntimeLifecycleSnapshot = {
-  readonly status: RuntimeStatusPayload;
-  readonly ioState: IoState;
-  readonly starting: boolean;
-  readonly failure?: RuntimeStartFailure;
-};
-
-const EMPTY_IO_STATE: IoState = { inputs: [], outputs: [], memory: [] };
-
-class RuntimeLifecycleService {
+export class RuntimeLifecycleService {
   private readonly sessions = new Map<string, vscode.DebugSession>();
-  private readonly changeEmitter = new vscode.EventEmitter<void>();
+  private readonly acceptedSessions = new Set<string>();
+  private readonly rejectedSessions = new Set<string>();
+  private readonly operations = new RuntimeLifecycleAttemptRegistry();
+  private readonly runtimeConfigTargets = new RuntimeConfigTargetTracker();
+  private readonly changeEmitter =
+    new vscode.EventEmitter<RuntimeLifecycleChange>();
   private registered = false;
-  private lastIoState: IoState = EMPTY_IO_STATE;
+  private readonly liveValues: RuntimeLifecycleLiveValues;
   private starting = false;
   private failure: RuntimeStartFailure | undefined;
+  private failureScope: RuntimeLifecycleFailureScope | undefined;
+  private externalTransitionTarget: RuntimeLifecycleTarget | undefined;
+
+  constructor(
+    private readonly executeLocalSimulatorDebugStart: LocalSimulatorDebugStart =
+      startLocalSimulatorDebugSession,
+    private readonly executeRuntimeDebugStop: LocalRuntimeDebugStop = (
+      session,
+    ) => vscode.debug.stopDebugging(session),
+    private readonly selectAcceptedSessionTarget: RuntimeSessionTargetSelection =
+      selectRuntimeSessionTarget,
+    private readonly sessionStabilityMs = SESSION_START_STABILITY_MS,
+  ) {
+    this.liveValues = new RuntimeLifecycleLiveValues({
+      acceptedSession: () => this.acceptedLifecycleSession(),
+      isAcceptedAndTracked: (session) => {
+        const key = structuredTextSessionKey(session);
+        return (
+          this.acceptedSessions.has(key) && this.sessions.get(key) === session
+        );
+      },
+      persistFailure: (failure, session) => {
+        this.failure = failure;
+        this.failureScope = runtimeFailureScopeForSession(session);
+        this.emitChanged();
+      },
+      emitIoChange: () => this.emitChanged("io"),
+    });
+  }
 
   readonly onDidChange = this.changeEmitter.event;
 
@@ -57,191 +143,268 @@ class RuntimeLifecycleService {
       return;
     }
     this.registered = true;
-
-    const activeSession = vscode.debug.activeDebugSession;
-    if (activeSession && activeSession.type === DEBUG_TYPE) {
-      this.trackStructuredTextSession(activeSession);
-    }
-
-    context.subscriptions.push(
-      vscode.debug.onDidReceiveDebugSessionCustomEvent((event) => {
-        if (event.event !== "stIoState" || event.session.type !== DEBUG_TYPE) {
-          return;
-        }
-        this.lastIoState = normalizeIoState(event.body);
-        this.emitChanged();
-      })
-    );
-
-    context.subscriptions.push(
-      vscode.debug.onDidStartDebugSession((session) => {
-        if (session.type !== DEBUG_TYPE) {
-          return;
-        }
-        this.trackStructuredTextSession(session);
+    this.runtimeConfigTargets.capture(vscode.window.activeTextEditor);
+    registerRuntimeLifecycleEvents(context, {
+      sessions: this.sessions,
+      acceptedSessions: this.acceptedSessions,
+      rejectedSessions: this.rejectedSessions,
+      operations: this.operations,
+      starting: () => this.starting,
+      setStarting: (value) => {
+        this.starting = value;
+      },
+      setTransitionTarget: (value) => {
+        this.externalTransitionTarget = value;
+      },
+      clearFailure: () => {
         this.failure = undefined;
-        this.starting = false;
-        void this.requestIoState();
-        this.emitChanged();
-      })
-    );
-
-    context.subscriptions.push(
-      vscode.debug.onDidTerminateDebugSession((session) => {
-        if (session.type !== DEBUG_TYPE) {
-          return;
-        }
-        this.untrackStructuredTextSession(session);
-        if (!this.getStructuredTextSession()) {
-          this.lastIoState = EMPTY_IO_STATE;
-        }
-        this.starting = false;
-        this.emitChanged();
-      })
-    );
-
-    context.subscriptions.push(
-      vscode.debug.onDidChangeActiveDebugSession((session) => {
-        if (session && session.type === DEBUG_TYPE) {
-          this.trackStructuredTextSession(session);
-          void this.requestIoState();
-        }
-        this.emitChanged();
-      })
-    );
-
-    context.subscriptions.push(
-      vscode.workspace.onDidChangeConfiguration((event) => {
-        if (
-          affectsTrustConfiguration(event, "runtime.controlEndpoint") ||
-          affectsTrustConfiguration(event, "runtime.controlEndpointEnabled") ||
-          affectsTrustConfiguration(event, "runtime.inlineValuesEnabled") ||
-          affectsTrustConfiguration(event, "runtime.mode")
-        ) {
-          this.emitChanged();
-        }
-      })
-    );
+        this.failureScope = undefined;
+      },
+      setIoState: (value) => {
+        this.liveValues.setIoState(value);
+      },
+      setAdsState: (value) => {
+        this.liveValues.setAdsState(value);
+      },
+      getSession: () => this.getStructuredTextSession(),
+      requestIoState: (session) => void this.requestIoState({ session }),
+      requestAdsState: () => void this.requestAdsState(),
+      acceptExternal: (session) => void this.acceptExternalSession(session),
+      terminateUnaccepted: (session) =>
+        void this.terminateUnacceptedSession(session),
+      captureEditor: (editor) => this.runtimeConfigTargets.capture(editor),
+      emit: (kind) => this.emitChanged(kind),
+    });
   }
 
   getStructuredTextSession(): vscode.DebugSession | undefined {
     const active = vscode.debug.activeDebugSession;
-    if (active && active.type === DEBUG_TYPE) {
-      return active;
+    const trackedActive =
+      active?.type === DEBUG_TYPE &&
+      this.sessions.has(structuredTextSessionKey(active))
+        ? active
+        : undefined;
+    return selectLifecycleDebugSession(
+      trackedActive,
+      this.sessions.values(),
+      structuredTextSessionKey,
+      (session) => this.acceptedSessions.has(structuredTextSessionKey(session)),
+      (session) => this.sessionDisposition(session) === "rejected",
+    );
+  }
+
+  /** The sole session authorized for user-visible runtime operations. */
+  acceptedDebugSession(): vscode.DebugSession | undefined {
+    return this.acceptedLifecycleSession();
+  }
+
+  phase(): LifecyclePhase {
+    const session = this.getStructuredTextSession();
+    return runtimeLifecyclePhase(
+      this.starting,
+      session?.configuration.request,
+      !!session && this.acceptedSessions.has(structuredTextSessionKey(session)),
+    );
+  }
+
+  operationState(): RuntimeLifecycleOperationState | undefined {
+    return this.operations.current();
+  }
+
+  transitionTarget(): RuntimeLifecycleTarget | undefined {
+    if (!this.starting) {
+      return undefined;
     }
-    for (const session of this.sessions.values()) {
-      return session;
+    return this.operations.current()?.target ?? this.externalTransitionTarget;
+  }
+
+  activeTarget(): RuntimeLifecycleTarget | undefined {
+    const session = this.acceptedLifecycleSession();
+    return session ? runtimeTargetForSession(session) : undefined;
+  }
+
+  async runExclusiveOperation<T>(
+    kind: RuntimeLifecycleOperationKind,
+    target: RuntimeLifecycleTarget,
+    operation: (operationId: string) => Thenable<T>,
+  ): Promise<RuntimeExclusiveOperationResult<T>> {
+    if (this.starting || this.operations.active()) {
+      return {
+        acquired: false,
+        reason:
+          "A runtime operation is already in progress. Wait for it to finish.",
+      };
     }
-    return undefined;
+    const operationId = this.operations.begin(kind, target);
+    const changesPhase = runtimeOperationChangesPhase(kind);
+    if (changesPhase) {
+      this.starting = true;
+      this.failure = undefined;
+      this.failureScope = undefined;
+    }
+    this.emitChanged();
+    try {
+      return { acquired: true, value: await operation(operationId) };
+    } finally {
+      this.operations.reject(operationId);
+      if (changesPhase) {
+        this.starting = false;
+      }
+      this.emitChanged();
+    }
+  }
+
+  localFailure(): RuntimeStartFailure | undefined {
+    return this.failureScope?.kind === "remote" ? undefined : this.failure;
   }
 
   runtimeConfigTarget(): vscode.Uri | undefined {
-    const activeSession = this.getStructuredTextSession();
-    if (activeSession?.workspaceFolder) {
-      return activeSession.workspaceFolder.uri;
-    }
-    const editor = vscode.window.activeTextEditor;
-    if (editor) {
-      const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
-      if (folder) {
-        return folder.uri;
-      }
-    }
-    return vscode.workspace.workspaceFolders?.[0]?.uri;
+    return this.runtimeConfigTargets.target(this.getStructuredTextSession());
   }
 
   runtimeConfigScope(
-    target: vscode.Uri | undefined
+    target: vscode.Uri | undefined,
   ): vscode.ConfigurationTarget {
-    return target
-      ? vscode.ConfigurationTarget.WorkspaceFolder
-      : vscode.ConfigurationTarget.Workspace;
+    return this.runtimeConfigTargets.scope(target);
   }
 
   async snapshot(): Promise<RuntimeLifecycleSnapshot> {
+    const status = await runtimeStatusPayload({
+      runtimeConfigTarget: () => this.runtimeConfigTarget(),
+      getStructuredTextSession: () => this.getStructuredTextSession(),
+      isSessionAccepted: (session) =>
+        this.acceptedSessions.has(structuredTextSessionKey(session)),
+    });
     return {
-      status: await runtimeStatusPayload({
-        runtimeConfigTarget: () => this.runtimeConfigTarget(),
-        getStructuredTextSession: () => this.getStructuredTextSession(),
-      }),
-      ioState: this.lastIoState,
+      status,
+      ioState: this.liveValues.currentIoState(),
+      adsState: this.liveValues.currentAdsState(),
       starting: this.starting,
+      operation: this.operationState(),
+      transitionTarget: this.transitionTarget(),
+      activeTarget: this.activeTarget(),
       failure: this.failure,
+      failureScope: this.failureScope,
     };
   }
 
-  async requestIoState(options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}): Promise<RuntimeLifecycleResult> {
-    const session = this.getStructuredTextSession();
-    if (!session) {
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: "No active Structured Text debug session.",
-        },
-      };
-    }
-    try {
-      await session.customRequest(
-        "stIoState",
-        options.afterScan === undefined ? undefined : { afterScan: options.afterScan }
-      );
-      return { ok: true, message: "I/O state requested." };
-    } catch (err) {
-      const failure = classifyRuntimeStartFailure(err);
-      const ioFailure = {
-        ...failure,
-        message: `I/O state request failed: ${failure.message}`,
-      };
-      if (options.persistFailure) {
-        this.failure = ioFailure;
-        this.emitChanged();
-      }
-      return { ok: false, failure: ioFailure };
-    }
+  async requestIoState(
+    options: RuntimeIoStateRequestOptions = {},
+  ): Promise<RuntimeLifecycleResult> {
+    return this.liveValues.requestIoState(options);
   }
 
   async requestIoStateAfterScan(
     previousScan: number | undefined,
-    options: { readonly timeoutMs?: number } = {}
+    options: { readonly timeoutMs?: number } = {},
   ): Promise<RuntimeLifecycleResult> {
-    const deadline = Date.now() + (options.timeoutMs ?? IO_NEXT_SCAN_TIMEOUT_MS);
-    let lastResult: RuntimeLifecycleResult = {
-      ok: true,
-      message: "I/O state requested.",
-    };
-    do {
-      lastResult = await this.requestIoState({ afterScan: previousScan });
-      if (!lastResult.ok) {
-        return lastResult;
-      }
-      const nextScan = this.lastIoState.scan;
-      if (
-        previousScan === undefined ||
-        nextScan === undefined ||
-        nextScan > previousScan
-      ) {
-        return lastResult;
-      }
-      await delay(IO_NEXT_SCAN_POLL_MS);
-    } while (Date.now() < deadline);
-    return lastResult;
+    return this.liveValues.requestIoStateAfterScan(previousScan, options);
   }
 
-  async setRuntimeMode(mode: unknown): Promise<void> {
+  async requestAdsState(): Promise<RuntimeLifecycleResult> {
+    return this.liveValues.requestAdsState();
+  }
+
+  async requestLiveValuesState(): Promise<RuntimeLifecycleResult> {
+    return this.liveValues.requestLiveValuesState();
+  }
+
+  async requestLiveValuesStateAfterScan(
+    previousScan: number | undefined,
+  ): Promise<RuntimeLifecycleResult> {
+    return this.liveValues.requestLiveValuesStateAfterScan(previousScan);
+  }
+
+  async setRuntimeMode(
+    mode: unknown,
+    target: vscode.Uri | undefined = this.runtimeConfigTarget(),
+  ): Promise<void> {
     const normalized = mode === "online" ? "online" : "simulate";
-    const target = this.runtimeConfigTarget();
     const config = getTrustConfiguration(target);
-    await config.update("runtime.mode", normalized, this.runtimeConfigScope(target));
+    await config.update(
+      "runtime.mode",
+      normalized,
+      this.runtimeConfigScope(target),
+    );
     this.emitChanged();
   }
 
   async startRuntime(targetLabel?: string): Promise<RuntimeLifecycleResult> {
     const status = await this.snapshot();
     if (status.status.runtimeMode === "online") {
-      return this.startOnlineRuntime(status.status, targetLabel);
+      return this.connectRemote(status.status.endpoint, targetLabel);
     }
     return this.startLocalSimulator();
+  }
+
+  async startLocalSimulator(): Promise<RuntimeLifecycleResult>;
+  async startLocalSimulator(
+    validateProject: LocalSimulatorProjectValidator,
+  ): Promise<LocalSimulatorStartResult>;
+  async startLocalSimulator(
+    validateProject?: LocalSimulatorProjectValidator,
+  ): Promise<LocalSimulatorStartResult> {
+    if (this.starting || this.operations.active()) {
+      return runtimeOperationConflict(
+        "A runtime operation is already in progress. Wait for it to finish.",
+      );
+    }
+    const accepted = this.acceptedLifecycleSession();
+    if (accepted) {
+      return accepted.configuration.request === "launch"
+        ? { ok: true, message: "Simulator already running." }
+        : runtimeOperationConflict(
+            "Disconnect the remote runtime before starting the Simulator.",
+          );
+    }
+    const attemptId = this.operations.begin("local_start", {
+      kind: "simulator",
+    });
+    this.starting = true;
+    this.failure = undefined;
+    this.failureScope = undefined;
+    this.emitChanged();
+
+    const coordinated = await coordinateLocalSimulatorStart({
+      attemptId,
+      projectRoot: this.runtimeConfigTarget(),
+      validateProject,
+      isAttemptActive: (candidate) => this.operations.active() === candidate,
+      setRuntimeMode: (mode, target) => this.setRuntimeMode(mode, target),
+      executeDebugStart: this.executeLocalSimulatorDebugStart,
+      sessionForAttempt: (candidate) => this.sessionForAttempt(candidate),
+      waitForReady: (session, timeoutMs) =>
+        this.liveValues.waitForSimulatorSessionReady(
+          session,
+          timeoutMs,
+          (key) => this.sessions.has(key),
+        ),
+      hasSession: (key) => this.sessions.has(key),
+      sessionStabilityMs: this.sessionStabilityMs,
+    });
+    if (coordinated.kind === "cancelled") {
+      return coordinated.result;
+    }
+    if (coordinated.kind === "preparation") {
+      const preparation = coordinated.result;
+      if ("validationRejected" in preparation) {
+        this.operations.reject(attemptId);
+        this.starting = false;
+        this.failure = undefined;
+        this.failureScope = undefined;
+        this.emitChanged();
+        return preparation;
+      }
+      this.operations.reject(attemptId);
+      this.starting = false;
+      this.failure = preparation.failure;
+      this.failureScope = { kind: "simulator" };
+      this.emitChanged();
+      return preparation;
+    }
+    return this.settleOwnedTransition(attemptId, coordinated.outcome, {
+      kind: "simulator",
+    });
   }
 
   // Connect (attach) to a configured remote runtime by its control endpoint. Points the runtime at
@@ -249,7 +412,7 @@ class RuntimeLifecycleService {
   // "Start" — we attach to a runtime we don't own.
   async connectRemote(
     endpoint: string,
-    targetLabel?: string
+    targetLabel?: string,
   ): Promise<RuntimeLifecycleResult> {
     const trimmed = endpoint.trim();
     if (!trimmed) {
@@ -258,273 +421,369 @@ class RuntimeLifecycleService {
         failure: { kind: "failed_spawn", message: "Runtime endpoint not set." },
       };
     }
-    const target = this.runtimeConfigTarget();
-    const config = getTrustConfiguration(target);
-    const scope = this.runtimeConfigScope(target);
-    await config.update("runtime.controlEndpoint", trimmed, scope);
-    await config.update("runtime.controlEndpointEnabled", true, scope);
-    await config.update("runtime.mode", "online", scope);
-    this.emitChanged();
-    return this.startRuntime(targetLabel);
-  }
-
-  async startLocalSimulator(): Promise<RuntimeLifecycleResult> {
+    if (this.starting || this.operations.active()) {
+      return runtimeOperationConflict(
+        "A runtime operation is already in progress. Wait for it to finish.",
+      );
+    }
+    const accepted = this.acceptedLifecycleSession();
+    if (accepted) {
+      const activeEndpoint =
+        typeof accepted.configuration.endpoint === "string"
+          ? accepted.configuration.endpoint.trim()
+          : "";
+      if (
+        accepted.configuration.request === "attach" &&
+        activeEndpoint === trimmed
+      ) {
+        return { ok: true, message: "Already connected to runtime." };
+      }
+      return runtimeOperationConflict(
+        accepted.configuration.request === "launch"
+          ? "Stop the Simulator before connecting to a remote runtime."
+          : "Disconnect the current remote runtime before connecting to another one.",
+      );
+    }
+    const targetScope: RuntimeLifecycleTarget = {
+      kind: "remote",
+      endpoint: trimmed,
+      ...(targetLabel?.trim() ? { label: targetLabel.trim() } : {}),
+    };
+    const attemptId = this.operations.begin("remote_connect", targetScope);
     this.starting = true;
     this.failure = undefined;
+    this.failureScope = undefined;
     this.emitChanged();
-    try {
-      await this.setRuntimeMode("simulate");
-      const started = await withTimeout(
-        vscode.commands.executeCommand<boolean>("trust-lsp.debug.start"),
-        DEBUG_START_COMMAND_TIMEOUT_MS,
-        "Start debugging timed out. Check the runtime port or target settings."
+    return this.connectRemoteForAttempt(
+      attemptId,
+      trimmed,
+      targetLabel,
+      true,
+      undefined,
+    );
+  }
+
+  async connectRemoteWithinOperation(
+    operationId: string,
+    endpoint: string,
+    targetLabel?: string,
+    managedRuntimeId?: string,
+  ): Promise<RuntimeLifecycleResult> {
+    const trimmed = endpoint.trim();
+    if (!trimmed) {
+      return runtimeOperationConflict("Runtime endpoint not set.");
+    }
+    if (this.operations.active() !== operationId) {
+      return runtimeOperationConflict(
+        "The managed runtime operation is no longer active.",
       );
-      if (!started) {
-        throw new Error("Start debugging did not launch a Simulator session.");
-      }
-      const session = await this.waitForStructuredTextSession(
-        SESSION_WAIT_TIMEOUT_MS
-      );
-      if (!session) {
-        throw new Error(
-          "Timed out waiting for the Simulator debug session."
+    }
+    return this.connectRemoteForAttempt(
+      operationId,
+      trimmed,
+      targetLabel,
+      false,
+      managedRuntimeId,
+    );
+  }
+
+  private async connectRemoteForAttempt(
+    attemptId: string,
+    endpoint: string,
+    targetLabel: string | undefined,
+    releaseOperation: boolean,
+    managedRuntimeId: string | undefined,
+  ): Promise<RuntimeLifecycleResult> {
+    const target = this.runtimeConfigTarget();
+    const scope = this.runtimeConfigScope(target);
+    const outcome = await runOwnedDebugTransition({
+      start: async () => {
+        const config = getTrustConfiguration(target);
+        await config.update("runtime.controlEndpoint", endpoint, scope);
+        await config.update("runtime.controlEndpointEnabled", true, scope);
+        await config.update("runtime.mode", "online", scope);
+        const status = (await this.snapshot()).status;
+        return withTimeout(
+          startOnlineRuntimeConnection(status, {
+            configurationTarget: target,
+            configurationScope: scope,
+            targetLabel,
+            lifecycleAttemptId: attemptId,
+            managedRuntimeId,
+          }),
+          DEBUG_START_COMMAND_TIMEOUT_MS,
+          "Connecting to the remote runtime timed out.",
         );
+      },
+      waitForSession: () =>
+        waitForLifecycleSessionResult(
+          () => this.sessionForAttempt(attemptId),
+          SESSION_WAIT_TIMEOUT_MS,
+        ),
+      waitForReady: (session) =>
+        this.liveValues.waitForAttachedSessionReady(
+          session,
+          SESSION_WAIT_TIMEOUT_MS,
+          (key) => this.sessions.has(key),
+        ),
+      waitForStable: (session) =>
+        waitForSessionStable(
+          session,
+          (key) => this.sessions.has(key),
+          this.sessionStabilityMs,
+        ),
+      missingSessionMessage:
+        "Timed out waiting for the remote debug attachment.",
+      unstableSessionMessage:
+        "Runtime debug attachment ended before it became stable.",
+      successMessage: "Connected to runtime.",
+    });
+    return this.settleOwnedTransition(
+      attemptId,
+      outcome,
+      {
+        kind: "remote",
+        endpoint,
+      },
+      releaseOperation,
+    );
+  }
+
+  private async settleOwnedTransition(
+    attemptId: string,
+    outcome: OwnedDebugTransitionOutcome,
+    failureScope: RuntimeLifecycleFailureScope,
+    releaseOperation = true,
+  ): Promise<RuntimeLifecycleResult> {
+    const ownedSession = outcome.session ?? this.sessionForAttempt(attemptId);
+    if (this.operations.active() !== attemptId) {
+      if (ownedSession) {
+        await this.terminateUnacceptedSession(ownedSession);
       }
-      const ioStateResult = await this.requestIoState({ persistFailure: true });
-      if (!ioStateResult.ok) {
-        this.starting = false;
-        this.failure = ioStateResult.failure;
-        this.emitChanged();
-        return ioStateResult;
-      }
-      if (!(await this.waitForSessionStillPresent(SESSION_START_STABILITY_MS))) {
-        this.starting = false;
+      return runtimeOperationConflict(
+        "Runtime operation was cancelled before it completed.",
+      );
+    }
+    if (outcome.result.ok && ownedSession) {
+      const key = structuredTextSessionKey(ownedSession);
+      await this.selectAcceptedSessionTarget(ownedSession);
+      if (
+        this.operations.active() !== attemptId ||
+        this.sessions.get(key) !== ownedSession
+      ) {
+        if (this.operations.active() !== attemptId) {
+          return runtimeOperationConflict(
+            "Runtime session ended before startup acceptance completed.",
+          );
+        }
+        if (releaseOperation) {
+          this.operations.reject(attemptId);
+          this.starting = false;
+        }
         this.failure = {
           kind: "failed_spawn",
           message:
-            "Simulator stopped during startup. Check the runtime port or target settings.",
+            "Runtime session ended before startup acceptance completed.",
         };
+        this.failureScope = failureScope;
         this.emitChanged();
         return { ok: false, failure: this.failure };
       }
-      this.starting = false;
+      // Commit acceptance only after target persistence and an exact-session
+      // recheck. Until this synchronous point every consumer sees Starting,
+      // never a transient Running session that can still disappear.
+      this.acceptedSessions.add(key);
+      if (releaseOperation) {
+        this.operations.accept(attemptId);
+        this.starting = false;
+      }
+      this.externalTransitionTarget = undefined;
       this.failure = undefined;
+      this.failureScope = undefined;
       this.emitChanged();
-      return { ok: true, message: "Simulator running." };
-    } catch (err) {
+      return outcome.result;
+    }
+    if (releaseOperation) {
+      this.operations.reject(attemptId);
       this.starting = false;
-      this.failure = classifyRuntimeStartFailure(err);
-      debugChannel().appendLine(
-        `Simulator start failed: ${this.failure.message}`
-      );
-      this.emitChanged();
-      return { ok: false, failure: this.failure };
     }
-  }
-
-  async stopRuntime(): Promise<RuntimeLifecycleResult> {
-    const activeSession = this.getStructuredTextSession();
-    if (activeSession) {
-      // `trust-lsp.debug.stop` calls vscode.debug.stopDebugging(), which resolves to `void`,
-      // NOT `true`, on a successful stop. Success is therefore verified by the session actually
-      // going away — never by the command's return value. Stop is idempotent: a session that has
-      // already disappeared after Stop is treated as SUCCESS, never as a stale-session warning.
-      try {
-        await vscode.commands.executeCommand("trust-lsp.debug.stop");
-      } catch (err) {
-        if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
-          return this.markStopped("Runtime stopped.");
-        }
-        return { ok: false, failure: classifyRuntimeStartFailure(err) };
-      }
-      if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
-        return this.markStopped("Runtime stopped.");
-      }
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: "Runtime did not stop. Check the Structured Text debug session.",
-        },
-      };
-    }
-
-    const snapshot = await this.snapshot();
-    if (snapshot.status.runtimeState === "connected") {
-      const target = this.runtimeConfigTarget();
-      const config = getTrustConfiguration(target);
-      await config.update(
-        "runtime.controlEndpointEnabled",
-        false,
-        this.runtimeConfigScope(target)
-      );
-      this.emitChanged();
-      return { ok: true, message: "Runtime endpoint disabled." };
-    }
-    // Idempotent: nothing is running, so Stop is a no-op success (no warning).
-    return this.markStopped("Runtime already stopped.");
-  }
-
-  private async startOnlineRuntime(
-    status: RuntimeStatusPayload,
-    targetLabel?: string
-  ): Promise<RuntimeLifecycleResult> {
-    const target = this.runtimeConfigTarget();
-    const config = getTrustConfiguration(target);
-    if (!status.endpointConfigured) {
-      return {
-        ok: false,
-        failure: {
-          kind: "failed_spawn",
-          message: "Runtime endpoint not set.",
-        },
-      };
-    }
-
-    if (!status.endpointEnabled) {
-      await config.update(
-        "runtime.controlEndpointEnabled",
-        true,
-        this.runtimeConfigScope(target)
-      );
-    }
-
-    const reachable = await probeEndpointReachable(status.endpoint);
-    if (!reachable) {
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: runtimeNotReachableMessage(status.endpoint),
-          detail: status.endpoint,
-        },
-      };
-    }
-
-    // §0.6.8 — token from SecretStorage first (legacy setting fallback), never plaintext-only.
-    const authToken = (await getControlAuthToken(status.endpoint)) ?? "";
-    let runtimeInfo: unknown;
-    try {
-      runtimeInfo = await requestRuntimeStatus(status.endpoint, authToken || undefined, {
-        timeoutMs: 1000,
-      });
-    } catch (err) {
-      if (isRuntimeControlAuthError(err)) {
-        const authKind = runtimeControlAuthErrorKind(err);
-        return {
-          ok: false,
-          failure: {
-            kind: "workspace_permission",
-            message:
-              authKind === "missing" || !authToken
-                ? "No auth token provided — this runtime requires one."
-                : "Auth token rejected — check it and try again.",
-          },
-        };
-      }
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: `Runtime status check failed: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        },
-      };
-    }
-    if (runtimeDebugDisabled(runtimeInfo)) {
-      return {
-        ok: false,
-        failure: {
-          kind: "failed_spawn",
+    this.externalTransitionTarget = undefined;
+    this.failure = outcome.result.ok
+      ? {
+          kind: "internal_startup",
           message:
-            "Remote debugging is disabled for this runtime. Open Devices & Connections or ask the runtime owner to enable debugging, then connect again.",
-        },
+            "Runtime operation completed without an owned debug session.",
+        }
+      : outcome.result.failure;
+    this.failureScope = failureScope;
+    debugChannel().appendLine(
+      `Runtime operation failed: ${this.failure.message}`,
+    );
+    this.emitChanged();
+    if (ownedSession) {
+      if (releaseOperation) {
+        await this.terminateUnacceptedSession(ownedSession);
+      } else {
+        setTimeout(() => void this.terminateUnacceptedSession(ownedSession), 0);
+      }
+    }
+    return { ok: false, failure: this.failure };
+  }
+
+  async stopRuntime(operationId?: string): Promise<RuntimeLifecycleResult> {
+    return runRuntimeStopOperation(operationId, {
+      activeOperation: () => this.operations.active(),
+      getSession: () => this.getStructuredTextSession(),
+      runExclusive: (kind, target, operation) =>
+        this.runExclusiveOperation(kind, target, operation),
+      executeStop: this.executeRuntimeDebugStop,
+      hasSession: (key) => this.sessions.has(key),
+      snapshot: () => this.snapshot(),
+      runtimeConfigTarget: () => this.runtimeConfigTarget(),
+      runtimeConfigScope: (target) => this.runtimeConfigScope(target),
+      markStopped: (message) => this.markStopped(message),
+      emitChanged: () => this.emitChanged(),
+    });
+  }
+
+  private sessionForAttempt(
+    attemptId: string,
+  ): vscode.DebugSession | undefined {
+    return findLifecycleSessionForAttempt(
+      vscode.debug.activeDebugSession,
+      this.sessions.values(),
+      attemptId,
+      DEBUG_TYPE,
+    );
+  }
+
+  private sessionDisposition(session: vscode.DebugSession) {
+    const key = structuredTextSessionKey(session);
+    return this.operations.disposition(
+      lifecycleStartAttemptId(session.configuration),
+      this.acceptedSessions.has(key),
+      this.rejectedSessions.has(key),
+    );
+  }
+
+  private async acceptExternalSession(
+    session: vscode.DebugSession,
+  ): Promise<void> {
+    const key = structuredTextSessionKey(session);
+    const attached =
+      debugSessionAcceptancePath(session.configuration.request) ===
+      "remote_attach";
+    const ioStateResult = attached
+      ? await this.liveValues.waitForAttachedSessionReady(
+          session,
+          SESSION_WAIT_TIMEOUT_MS,
+          (sessionKey) => this.sessions.has(sessionKey),
+        )
+      : await this.liveValues.waitForSimulatorSessionReady(
+          session,
+          SESSION_WAIT_TIMEOUT_MS,
+          (sessionKey) => this.sessions.has(sessionKey),
+        );
+    if (!this.sessions.has(key)) {
+      return;
+    }
+    if (!ioStateResult.ok) {
+      this.starting = false;
+      this.externalTransitionTarget = undefined;
+      this.failure = ioStateResult.failure;
+      this.failureScope = runtimeFailureScopeForSession(session);
+      await this.terminateUnacceptedSession(session);
+      this.emitChanged();
+      return;
+    }
+    if (
+      !(await waitForSessionStable(
+        session,
+        (sessionKey) => this.sessions.has(sessionKey),
+        this.sessionStabilityMs,
+      ))
+    ) {
+      this.starting = false;
+      this.externalTransitionTarget = undefined;
+      this.failure = {
+        kind: "failed_spawn",
+        message: attached
+          ? "Runtime debug attachment ended before it became stable."
+          : "Simulator stopped during startup. Check the runtime port or target settings.",
       };
+      this.failureScope = runtimeFailureScopeForSession(session);
+      await this.terminateUnacceptedSession(session);
+      this.emitChanged();
+      return;
     }
-    const runtimeOptions = runtimeSourceOptionsForTarget();
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    const debugConfig: vscode.DebugConfiguration = {
-      type: DEBUG_TYPE,
-      request: "attach",
-      name: remoteDebugSessionName(targetLabel, status.endpoint),
-      endpoint: status.endpoint,
-      authToken: authToken || undefined,
-      targetLabel,
-      internalConsoleOptions: "neverOpen",
-      ...runtimeOptions,
-    };
-    if (folder) {
-      debugConfig.cwd = folder.uri.fsPath;
-    }
-    try {
-      const started = await vscode.debug.startDebugging(folder, debugConfig);
-      if (!started) {
-        throw new Error("Attach failed to start.");
+    await this.selectAcceptedSessionTarget(session);
+    if (this.sessions.get(key) !== session) {
+      // A new operation/session may already own state. Never let this stale
+      // acceptance continuation overwrite it.
+      if (this.operations.active() || this.getStructuredTextSession()) {
+        return;
       }
-      return { ok: true, message: "Attached to runtime." };
-    } catch (err) {
-      return { ok: false, failure: classifyRuntimeStartFailure(err) };
+      this.starting = false;
+      this.externalTransitionTarget = undefined;
+      this.failure = {
+        kind: "failed_spawn",
+        message: "Runtime session ended before startup acceptance completed.",
+      };
+      this.failureScope = runtimeFailureScopeForSession(session);
+      this.emitChanged();
+      return;
     }
+    // External sessions use the same commit point as owned Start/Connect:
+    // persist selection, recheck exact identity, then publish acceptance.
+    this.acceptedSessions.add(key);
+    this.starting = false;
+    this.externalTransitionTarget = undefined;
+    this.failure = undefined;
+    this.failureScope = undefined;
+    this.emitChanged();
   }
 
-  private async waitForStructuredTextSession(
-    timeoutMs: number
-  ): Promise<vscode.DebugSession | undefined> {
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < timeoutMs) {
-      const session = this.getStructuredTextSession();
-      if (session) {
-        return session;
-      }
-      await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
+  private async terminateUnacceptedSession(
+    session: vscode.DebugSession,
+  ): Promise<void> {
+    const key = structuredTextSessionKey(session);
+    if (this.acceptedSessions.has(key)) {
+      return;
     }
-    return this.getStructuredTextSession();
-  }
-
-  // Returns true once no Structured Text debug session remains (the terminate event has landed and
-  // cleared our tracking map). Used by stopRuntime to verify a stop honestly instead of trusting the
-  // command's void return value.
-  private async waitForSessionGone(timeoutMs: number): Promise<boolean> {
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < timeoutMs) {
-      if (!this.getStructuredTextSession()) {
-        return true;
-      }
-      await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
-    }
-    return !this.getStructuredTextSession();
-  }
-
-  private async waitForSessionStillPresent(timeoutMs: number): Promise<boolean> {
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < timeoutMs) {
-      if (!this.getStructuredTextSession()) {
-        return false;
-      }
-      await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
-    }
-    return !!this.getStructuredTextSession();
-  }
-
-  private trackStructuredTextSession(session: vscode.DebugSession): void {
-    this.sessions.set(structuredTextSessionKey(session), session);
-  }
-
-  private untrackStructuredTextSession(session: vscode.DebugSession): void {
-    this.sessions.delete(structuredTextSessionKey(session));
+    // Remove it from lifecycle selection before the asynchronous VS Code stop
+    // finishes. Otherwise an active duplicate can transiently replace the
+    // already accepted simulator across sidebar/status/canvas snapshots.
+    this.rejectedSessions.add(key);
+    this.sessions.delete(key);
+    await terminateRejectedSession(session, (candidate) =>
+      vscode.debug.stopDebugging(candidate),
+    );
   }
 
   private markStopped(message: string): RuntimeLifecycleResult {
-    this.lastIoState = EMPTY_IO_STATE;
+    this.liveValues.reset();
+    this.acceptedSessions.clear();
+    this.operations.cancel();
     this.starting = false;
+    this.externalTransitionTarget = undefined;
     this.failure = undefined;
+    this.failureScope = undefined;
     this.emitChanged();
     return { ok: true, message };
   }
 
-  private emitChanged(): void {
-    this.changeEmitter.fire();
+  private acceptedLifecycleSession(): vscode.DebugSession | undefined {
+    const session = this.getStructuredTextSession();
+    return session &&
+      this.acceptedSessions.has(structuredTextSessionKey(session))
+      ? session
+      : undefined;
+  }
+
+  private emitChanged(
+    kind: RuntimeLifecycleChange["kind"] = "lifecycle",
+  ): void {
+    this.changeEmitter.fire({ kind });
   }
 }
 
@@ -532,150 +791,4 @@ export const runtimeLifecycleService = new RuntimeLifecycleService();
 
 export function registerRuntimeLifecycle(context: vscode.ExtensionContext): void {
   runtimeLifecycleService.register(context);
-}
-
-async function withTimeout<T>(
-  promise: Thenable<T>,
-  timeoutMs: number,
-  timeoutMessage: string
-): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
-}
-
-function structuredTextSessionKey(session: vscode.DebugSession): string {
-  return session.id ?? session.name;
-}
-
-export function normalizeIoState(value: unknown): IoState {
-  if (!isRecord(value)) {
-    return EMPTY_IO_STATE;
-  }
-  const scan =
-    typeof value.scan === "number" && Number.isFinite(value.scan)
-      ? value.scan
-      : undefined;
-  return {
-    scan,
-    inputs: normalizeIoEntries(value.inputs),
-    outputs: normalizeIoEntries(value.outputs),
-    memory: normalizeIoEntries(value.memory),
-  };
-}
-
-function normalizeIoEntries(value: unknown): IoState["inputs"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry): IoState["inputs"][number] | undefined => {
-      if (!isRecord(entry)) {
-        return undefined;
-      }
-      const address = typeof entry.address === "string" ? entry.address : "";
-      const rawValue = typeof entry.value === "string" ? entry.value : "";
-      if (!address || rawValue.length === 0) {
-        return undefined;
-      }
-      const normalized: IoState["inputs"][number] = {
-        address,
-        value: formatIoValue(rawValue),
-        forced: entry.forced === true,
-      };
-      if (typeof entry.name === "string") {
-        normalized.name = entry.name;
-      }
-      if (typeof entry.source === "string") {
-        normalized.source = entry.source;
-      }
-      const valueType =
-        typeof entry.valueType === "string"
-          ? entry.valueType
-          : typeof entry.value_type === "string"
-            ? entry.value_type
-            : typeof entry.type === "string"
-              ? entry.type
-              : undefined;
-      if (valueType) {
-        normalized.valueType = valueType.toUpperCase();
-      }
-      return normalized;
-    })
-    .filter((entry): entry is IoState["inputs"][number] => entry !== undefined);
-}
-
-function formatIoValue(rawValue: string): string {
-  const trimmed = rawValue.trim();
-  const boolMatch = /^Bool\((true|false)\)$/i.exec(trimmed);
-  if (boolMatch) {
-    return boolMatch[1].toLowerCase() === "true" ? "TRUE" : "FALSE";
-  }
-  const simpleValue = /^(?:S?Int|DInt|LInt|U?Int|UDInt|ULInt|Real|LReal|Byte|Word|DWord|LWord)\((.*)\)$/i.exec(trimmed);
-  if (simpleValue) {
-    return simpleValue[1];
-  }
-  return rawValue;
-}
-
-function runtimeDebugDisabled(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-  if (value.debug_enabled === false) {
-    return true;
-  }
-  const controlStatus = value.control_status;
-  return isRecord(controlStatus) && controlStatus.debug_enabled === false;
-}
-
-function runtimeNotReachableMessage(endpoint: string): string {
-  if (endpoint.trim().startsWith("unix://")) {
-    return "Local runtime is stopped. Start it to connect.";
-  }
-  return `Runtime is not reachable at ${shortRuntimeEndpointLabel(endpoint)}.`;
-}
-
-function remoteDebugSessionName(
-  targetLabel: string | undefined,
-  endpoint: string
-): string {
-  const label = targetLabel?.trim() || shortRuntimeEndpointLabel(endpoint);
-  return label ? `truST Remote (${label})` : "truST Remote";
-}
-
-function shortRuntimeEndpointLabel(endpoint: string): string {
-  const text = endpoint.trim();
-  if (!text) {
-    return "the configured endpoint";
-  }
-  if (text.startsWith("tcp://")) {
-    try {
-      return new URL(text).host || "the configured endpoint";
-    } catch {
-      return "the configured endpoint";
-    }
-  }
-  if (text.startsWith("unix://")) {
-    return "the local control socket";
-  }
-  return text;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

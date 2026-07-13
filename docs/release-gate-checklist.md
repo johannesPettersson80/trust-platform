@@ -10,13 +10,11 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] VS Code extension integration tests run with `ST_LSP_TEST_SERVER`.
 - [x] Windows CI packages the release-profile `win32-x64` VSIX, extracts its
   exact `trust-runtime.exe`, runs the focused migration/discovery tests in a
-  real Windows Extension Host, and requires deterministic ADS discovery and
-  same-computer identity from a local AMS-router open-port reply without a UDP
-  responder, plus router registration evidence including the selected logical
-  ADS service in the emitted AMS frame. The packaged proof also holds a direct
-  loopback server's router probe open past the production timeout, then requires
-  a second connection to emit a normal AMS/TCP frame for logical ADS `852`
-  within the bounded fallback deadline.
+  real Windows Extension Host, and reserves loopback TCP `48898` while the
+  packaged runtime browses a same-computer ADS target. The gate requires a
+  structured native-ADS result and proves that no raw TCP connection was made;
+  same-computer Windows ADS must use `TcAdsDll` and must never require or emulate
+  a self-route.
 - [x] The pre-push workflow runs the packaged ADS proof's portable unit
   contracts; execution of the extracted Windows PE remains a required Windows
   CI gate.

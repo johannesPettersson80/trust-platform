@@ -243,11 +243,18 @@ jobs:
           path: gate-artifacts/test-${{ matrix.os }}.txt
 
   windows-vsix-ads-smoke:
-    name: Windows VSIX ADS Smoke
+    name: Windows Packaged Simulator + Native ADS/TcAdsDll Contract
     runs-on: windows-latest
     timeout-minutes: 135
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Record exact checked-out candidate commit
+        id: candidate_identity
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -267,7 +274,13 @@ jobs:
       - name: Test packaged ADS gate contracts
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python -m unittest scripts.tests.test_packaged_ads_runtime -v
+        run: >-
+          python -m unittest
+          scripts.tests.test_packaged_ads_runtime
+          scripts.tests.test_windows_twincat_ads_acceptance
+          scripts.tests.test_windows_ads_candidate_manifest
+          scripts.tests.test_fetch_windows_ads_candidate
+          -v
       - name: Install Windows vendored OpenSSL Perl prerequisites
         shell: powershell
         run: |
@@ -315,7 +328,7 @@ jobs:
         env:
           ST_LSP_TEST_SERVER: ${{ github.workspace }}/editors/vscode/bin/trust-lsp.exe
           ST_DEBUG_TEST_BIN: ${{ github.workspace }}/editors/vscode/bin/trust-debug.exe
-          ST_VSCODE_TEST_GREP: Windows ADS discovery and simulator regression contract|ADS service probe safety|Windows runtime control migration|Debug log credential redaction
+          ST_VSCODE_TEST_GREP: Windows ADS discovery and simulator regression contract|Windows ADS zero-input discovery contracts|ADS service probe safety|ADS Live Values|Live Values passive lifecycle contract|Runtime lifecycle UX contracts|Windows runtime control launch preflight|UX shell ADS and lifecycle contracts|Windows runtime control migration|Debug log credential redaction
         run: |
           set -euo pipefail
           python ../../scripts/run_with_progress.py \
@@ -328,6 +341,26 @@ jobs:
       - name: Package win32-x64 VSIX
         working-directory: editors/vscode
         run: npx vsce package --target win32-x64 --out ../../gate-artifacts/trust-lsp-win32-x64-ci.vsix
+      - name: Bind candidate VSIX to this exact CI commit
+        shell: bash
+        run: |
+          python scripts/write_windows_ads_candidate_manifest.py \
+            --vsix gate-artifacts/trust-lsp-win32-x64-ci.vsix \
+            --candidate-commit-sha "${{ steps.candidate_identity.outputs.sha }}" \
+            --repository "${{ github.repository }}" \
+            --workflow-run-id "${{ github.run_id }}" \
+            --workflow-run-attempt "${{ github.run_attempt }}" \
+            --workflow-run-head-sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --workflow-event "${{ github.event_name }}" \
+            --output gate-artifacts/windows-ads-msvc-candidate.json
+      - name: Run exact packaged Windows Simulator acceptance
+        shell: powershell
+        run: |
+          .\scripts\accept_windows_packaged_simulator.ps1 `
+            -VsixPath gate-artifacts\trust-lsp-win32-x64-ci.vsix `
+            -EvidencePath gate-artifacts\windows-packaged-simulator.json `
+            -TimeoutSeconds 240
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prove packaged Windows ADS runtime
         shell: bash
         run: |
@@ -335,7 +368,40 @@ jobs:
             --vsix gate-artifacts/trust-lsp-win32-x64-ci.vsix \
             --staged-debug editors/vscode/bin/trust-debug.exe \
             --evidence gate-artifacts/windows-vsix-ads-smoke.json
-      - name: Upload Windows VSIX ADS evidence
+      - name: Assemble one-command TwinCAT laptop acceptance bundle
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          from scripts.fetch_windows_ads_candidate import ACCEPTANCE_BUNDLE_MEMBERS
+
+          output = Path("gate-artifacts/windows-ads-laptop-acceptance.zip")
+          with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+              for name in sorted(ACCEPTANCE_BUNDLE_MEMBERS):
+                  member = Path(name)
+                  if not member.is_file():
+                      raise SystemExit(f"acceptance member is missing: {member}")
+                  archive.write(member, name)
+          with zipfile.ZipFile(output) as archive:
+              generated = {entry.filename for entry in archive.infolist() if not entry.is_dir()}
+          if generated != ACCEPTANCE_BUNDLE_MEMBERS:
+              raise SystemExit("acceptance bundle member set differs from the fetch contract")
+          PY
+      - name: Retain exact Windows ADS candidate VSIX
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ads-msvc-candidate-${{ steps.candidate_identity.outputs.sha }}
+          path: |
+            gate-artifacts/trust-lsp-win32-x64-ci.vsix
+            gate-artifacts/windows-ads-msvc-candidate.json
+            gate-artifacts/windows-ads-laptop-acceptance.zip
+          if-no-files-found: error
+          retention-days: 5
+          compression-level: 0
+      - name: Upload Windows packaged Simulator and ADS evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
@@ -343,7 +409,10 @@ jobs:
           path: |
             gate-artifacts/windows-vsix-ads-build.log
             gate-artifacts/windows-vscode-ads-test.log
+            gate-artifacts/windows-packaged-simulator.json
+            gate-artifacts/windows-packaged-simulator-screenshots/**
             gate-artifacts/windows-vsix-ads-smoke.json
+            gate-artifacts/windows-ads-msvc-candidate.json
       - name: Mark gate success
         if: ${{ success() }}
         shell: bash
@@ -356,6 +425,7 @@ jobs:
           name: gate-windows-vsix-ads-smoke
           path: |
             gate-artifacts/windows-vsix-ads-smoke.txt
+            gate-artifacts/windows-packaged-simulator.json
             gate-artifacts/windows-vsix-ads-smoke.json
 
   conformance:

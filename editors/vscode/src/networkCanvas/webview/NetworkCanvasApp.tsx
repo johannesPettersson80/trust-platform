@@ -14,7 +14,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
 import { buildGraph } from "./layout";
-import { visibleFaultsForValidationState } from "./faults";
+import {
+  headerFaultsForBanner,
+  visibleFaultsForValidationState,
+} from "./faults";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./CasedEdge";
 import { AddDevicePanel } from "./AddDevicePanel";
@@ -66,7 +69,10 @@ function Canvas() {
     progress: discoverProgress,
     results: discoverResults,
     adsServiceProbes,
+    warning: discoverWarning,
+    warningDetails: discoverWarningDetails,
     error: discoverError,
+    errorDetails: discoverErrorDetails,
     errorCode: discoverErrorCode,
     sessionCurrent: discoverSessionCurrent,
     prepareReady: prepareDiscoveryReady,
@@ -131,7 +137,7 @@ function Canvas() {
     setSelectedId(nodeId);
     setFocusTargetId(nodeId);
   }, []);
-  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
+  const { graph, schema, reachable, setupMessage, lifecyclePhase, operationInProgress } = useCanvasHostState({
     handleDiscoveryMessage,
     handleBrowseMessage,
     prepareDiscoveryReady,
@@ -535,7 +541,8 @@ function Canvas() {
     graph.faults,
     applyResultLocallyStale
   );
-  const fault = visibleFaults[0];
+  const headerFaults = headerFaultsForBanner(visibleFaults, graph.banner);
+  const fault = headerFaults[0];
   const editModeValue = useMemo(
     () => ({
       editMode,
@@ -620,7 +627,7 @@ function Canvas() {
         fieldIssueCount={applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0}
         fieldIssueMessage={applyResult?.message}
         fault={fault}
-        faultCount={visibleFaults.length}
+        faultCount={headerFaults.length}
         onFocusFault={focusNode}
         filterActive={filterOpen}
         onToggleFilter={onToggleFilter}
@@ -746,13 +753,17 @@ function Canvas() {
 
         {discoverOpen && (
           <DiscoverPane
+            autoStartAds
             origins={discoverOrigins}
             discoverProtocols={discoverProtocols}
             scanning={discoverScanning}
             progress={discoverProgress}
             results={discoverResults}
             adsServiceProbes={adsServiceProbes}
+            warning={discoverWarning}
+            warningDetails={discoverWarningDetails}
             error={discoverError}
+            errorDetails={discoverErrorDetails}
             errorCode={discoverErrorCode}
             sessionCurrent={discoverSessionCurrent}
             onScan={onDiscoverScan}
@@ -797,6 +808,8 @@ function Canvas() {
             params={selectedNode.data.params as Record<string, unknown> | undefined}
             reachable={reachable}
             applyResult={applyResult}
+            lifecyclePhase={lifecyclePhase}
+            operationInProgress={operationInProgress}
             post={post}
             onFocus={focusNode}
             onBrowse={onBrowse}

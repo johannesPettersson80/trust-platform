@@ -78,19 +78,71 @@ pub enum AdsNotificationMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdsTransportErrorInfo {
+    pub code: u32,
+    pub name: String,
+}
+
+impl AdsTransportErrorInfo {
+    #[must_use]
+    pub fn new(code: u32, name: impl Into<String>) -> Self {
+        Self {
+            code,
+            name: name.into(),
+        }
+    }
+}
+
+/// Stable transport-level failure semantics that callers can classify without
+/// parsing platform-specific error messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdsTransportFailureKind {
+    TimedOut,
+    ConnectionRefused,
+    HostUnreachable,
+    NetworkUnreachable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdsTransportError {
     message: String,
+    ads_error: Option<AdsTransportErrorInfo>,
+    failure_kind: Option<AdsTransportFailureKind>,
 }
 
 impl AdsTransportError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            ads_error: None,
+            failure_kind: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_ads_error(mut self, code: u32, name: impl Into<String>) -> Self {
+        self.ads_error = Some(AdsTransportErrorInfo::new(code, name));
+        self
+    }
+
+    #[must_use]
+    pub fn with_failure_kind(mut self, failure_kind: AdsTransportFailureKind) -> Self {
+        self.failure_kind = Some(failure_kind);
+        self
     }
 
     pub fn message(&self) -> &str {
         self.message.as_str()
+    }
+
+    #[must_use]
+    pub fn ads_error(&self) -> Option<&AdsTransportErrorInfo> {
+        self.ads_error.as_ref()
+    }
+
+    #[must_use]
+    pub fn failure_kind(&self) -> Option<AdsTransportFailureKind> {
+        self.failure_kind
     }
 }
 

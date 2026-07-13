@@ -17,7 +17,11 @@ export function NetworkCanvasOverlays({
   return (
     <>
       {empty && (
-        <div className="trust-loading" style={LOADING}>
+        <div
+          className="trust-empty-state"
+          data-role="canvas-empty-state"
+          style={EMPTY_STATE}
+        >
           <svg
             width="38"
             height="38"
@@ -33,8 +37,11 @@ export function NetworkCanvasOverlays({
             <circle cx="6.6" cy="7.5" r="1" fill={t.textSubtle} stroke="none" />
             <circle cx="6.6" cy="16.5" r="1" fill={t.textSubtle} stroke="none" />
           </svg>
-          <div style={LOADING_TITLE}>Loading your devices…</div>
-          <div style={LOADING_DETAIL}>Reading the project's runtime and connections.</div>
+          <div style={EMPTY_TITLE}>No devices or runtimes yet</div>
+          <div style={EMPTY_DETAIL}>
+            Select Discover ADS devices to search this computer and the local
+            network. Start the Simulator to show this project here.
+          </div>
         </div>
       )}
       {banner && (
@@ -69,7 +76,7 @@ export function NetworkCanvasOverlays({
   );
 }
 
-const LOADING: React.CSSProperties = {
+const EMPTY_STATE: React.CSSProperties = {
   position: "absolute",
   inset: 0,
   display: "flex",
@@ -79,12 +86,12 @@ const LOADING: React.CSSProperties = {
   gap: 12,
   pointerEvents: "none",
 };
-const LOADING_TITLE: React.CSSProperties = {
+const EMPTY_TITLE: React.CSSProperties = {
   fontSize: 13.5,
   fontWeight: 600,
   color: t.textMuted,
 };
-const LOADING_DETAIL: React.CSSProperties = {
+const EMPTY_DETAIL: React.CSSProperties = {
   fontSize: 12,
   color: t.textSubtle,
   maxWidth: 300,

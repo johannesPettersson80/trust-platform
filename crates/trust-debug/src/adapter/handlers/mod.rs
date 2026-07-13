@@ -6,11 +6,13 @@
 //! - stack_trace: stackTrace request
 //! - scopes: scope enumeration
 //! - run_control: continue/pause/step
+//! - simulator_status: authoritative local simulator readiness
 
 mod breakpoints;
 mod initialize;
 mod lifecycle;
 mod run_control;
 mod scopes;
+mod simulator_status;
 mod stack_trace;
 mod threads;

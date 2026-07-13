@@ -61,7 +61,7 @@ fn apply_bundle_runtime_overrides(
 #[cfg(feature = "ads-wire")]
 fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     start_ads_runtime_with_factory(runtime, bundle, |connection| {
-        Ok(trust_runtime::ads::AdsRsTransport::new(
+        Ok(trust_runtime::ads::HostAdsTransport::new(
             connection.route.clone(),
         ))
     })

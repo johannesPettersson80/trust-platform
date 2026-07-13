@@ -29,13 +29,15 @@ export function AddPane({
   const renderItem = (item: AddPickerGroup<(typeof protocols)[number]>["items"][number]) => (
     <button
       key={item.protocol.id}
+      data-role="add-picker-item"
+      data-protocol={item.protocol.id}
       onClick={() => onChoose(item.protocol.id)}
       style={ITEM}
       title={item.purpose}
     >
       <span style={{ ...BADGE, background: protocolColor(item.protocol.id) }}>{item.badge}</span>
       <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <span style={ITEM_TITLE}>{item.title}</span>
+        <span data-role="add-picker-title" style={ITEM_TITLE}>{item.title}</span>
         {item.purpose && (
           <span style={ITEM_PURPOSE}>
             {item.purpose}
@@ -60,10 +62,11 @@ export function AddPane({
       </div>
       <div className="trust-section">
         <button className="trust-button trust-button--primary" onClick={onDiscover} style={{ width: "100%" }}>
-          Discover devices and runtimes
+          Discover ADS devices
         </button>
         <p className="trust-help" style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.3 }}>
-          Scan first when hardware is already on the network.
+          Search this computer and the local network now. Other discovery types
+          stay under their collapsed section.
         </p>
       </div>
       <div data-testid="add-picker-list" style={{ flex: 1, overflow: "auto", padding: "8px 10px" }}>

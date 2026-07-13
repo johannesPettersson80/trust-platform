@@ -1,6 +1,7 @@
 /** Owns the Network Canvas refresh timer independently from panel orchestration. */
 export class NetworkCanvasPolling {
   private timer: NodeJS.Timeout | undefined;
+  private refreshInFlight = false;
 
   constructor(
     private readonly refresh: () => void | Promise<void>,
@@ -12,7 +13,7 @@ export class NetworkCanvasPolling {
       return;
     }
     this.timer = setInterval(() => {
-      void this.refresh();
+      void this.poll();
     }, this.intervalMs);
   }
 
@@ -22,5 +23,17 @@ export class NetworkCanvasPolling {
     }
     clearInterval(this.timer);
     this.timer = undefined;
+  }
+
+  private async poll(): Promise<void> {
+    if (this.refreshInFlight) {
+      return;
+    }
+    this.refreshInFlight = true;
+    try {
+      await this.refresh();
+    } finally {
+      this.refreshInFlight = false;
+    }
   }
 }

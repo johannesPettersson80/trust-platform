@@ -11,9 +11,35 @@ export interface RuntimeControlSourceMigrationResult {
 export interface RuntimeControlProjectMigrationResult {
   readonly changed: boolean;
   readonly path?: string;
+  readonly failure?: RuntimeControlProjectMigrationFailure;
+}
+
+export interface RuntimeControlProjectMigrationFailure {
+  readonly kind: "configuration";
+  readonly code:
+    | "runtime_control_toml_malformed"
+    | "runtime_control_auth_requires_manual_configuration"
+    | "runtime_control_toml_not_writable";
+  readonly message: string;
 }
 
 const MINIMUM_CONTROL_TOKEN_LENGTH = 24;
+
+type RuntimeControlTomlForm = "table" | "dotted";
+
+interface RuntimeControlTomlLocation {
+  readonly form: RuntimeControlTomlForm;
+  readonly endpoint: string;
+  readonly endpointLine: number;
+  readonly authToken: string;
+  readonly authLine: number;
+  readonly insertionLine: number;
+}
+
+interface ParsedTomlAssignment {
+  readonly key: string;
+  readonly stringValue?: string;
+}
 
 export function migrateRuntimeControlTomlSource(
   source: string,
@@ -26,39 +52,14 @@ export function migrateRuntimeControlTomlSource(
 
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const lines = source.split(/\r?\n/);
-  const sectionStart = lines.findIndex(
-    (line) => tomlSectionName(line) === "runtime.control"
-  );
-  if (sectionStart < 0) {
+  const location = findRuntimeControlLocation(lines);
+  if (!location) {
     return unchangedSource(source);
   }
 
-  let sectionEnd = lines.length;
-  for (let index = sectionStart + 1; index < lines.length; index += 1) {
-    if (tomlSectionName(lines[index]) !== undefined) {
-      sectionEnd = index;
-      break;
-    }
-  }
-
-  let endpoint = "";
-  let endpointLine = -1;
-  let authToken = "";
-  let authLine = -1;
-  for (let index = sectionStart + 1; index < sectionEnd; index += 1) {
-    const assignment = parseTomlAssignment(lines[index]);
-    if (assignment?.key === "endpoint") {
-      endpoint = assignment.value;
-      endpointLine = index;
-    } else if (assignment?.key === "auth_token") {
-      authToken = assignment.value;
-      authLine = index;
-    }
-  }
-
   if (
-    !isLoopbackTcpEndpoint(endpoint) ||
-    (authToken.trim() && !isKnownPlaceholderToken(authToken))
+    !isLoopbackTcpEndpoint(location.endpoint) ||
+    (location.authToken.trim() && !isKnownPlaceholderToken(location.authToken))
   ) {
     return unchangedSource(source);
   }
@@ -68,22 +69,23 @@ export function migrateRuntimeControlTomlSource(
     return unchangedSource(source);
   }
 
-  if (authLine >= 0) {
-    lines[authLine] = replaceAuthToken(lines[authLine], token);
+  if (location.authLine >= 0) {
+    lines[location.authLine] = replaceAuthToken(
+      lines[location.authLine],
+      token,
+      location.form === "table" ? "auth_token" : "runtime.control.auth_token"
+    );
   } else {
-    let insertionLine = sectionEnd;
-    while (
-      insertionLine > sectionStart + 1 &&
-      lines[insertionLine - 1].trim() === ""
-    ) {
-      insertionLine -= 1;
-    }
     const indentation =
-      endpointLine >= 0 ? (lines[endpointLine].match(/^\s*/)?.[0] ?? "") : "";
+      location.endpointLine >= 0
+        ? (lines[location.endpointLine].match(/^\s*/)?.[0] ?? "")
+        : "";
+    const authKey =
+      location.form === "table" ? "auth_token" : "runtime.control.auth_token";
     lines.splice(
-      insertionLine,
+      location.insertionLine,
       0,
-      `${indentation}auth_token = ${quoteTomlBasicString(token)}`
+      `${indentation}${authKey} = ${quoteTomlBasicString(token)}`
     );
   }
 
@@ -92,29 +94,173 @@ export function migrateRuntimeControlTomlSource(
 
 export function migrateWindowsRuntimeControlProject(
   projectRoot: string | undefined,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  tokenFactory: () => string = generateControlToken
 ): RuntimeControlProjectMigrationResult {
   if (platform !== "win32" || !projectRoot) {
     return { changed: false };
   }
 
-  const runtimeToml = findRuntimeToml(projectRoot);
+  const runtimeToml = findRuntimeControlToml(projectRoot);
   if (!runtimeToml) {
     return { changed: false };
   }
 
   try {
     const source = fs.readFileSync(runtimeToml, "utf8");
-    const migration = migrateRuntimeControlTomlSource(source, platform);
-    if (!migration.changed) {
+    const preflight = inspectWindowsRuntimeControlSource(source);
+    if (preflight.failure) {
+      return { changed: false, path: runtimeToml, failure: preflight.failure };
+    }
+    if (!preflight.needsMigration) {
       return { changed: false, path: runtimeToml };
     }
+    if (!canAtomicallyReplace(runtimeToml)) {
+      return {
+        changed: false,
+        path: runtimeToml,
+        failure: runtimeControlMigrationFailure(
+          "runtime_control_toml_not_writable",
+          "Simulator control authentication could not be added because runtime.toml is not writable. Make the file writable or open it and configure the token."
+        ),
+      };
+    }
+    const migration = migrateRuntimeControlTomlSource(
+      source,
+      platform,
+      tokenFactory
+    );
+    if (!migration.changed) {
+      return {
+        changed: false,
+        path: runtimeToml,
+        failure: runtimeControlMigrationFailure(
+          "runtime_control_auth_requires_manual_configuration",
+          "Simulator control authentication in runtime.toml needs manual configuration. Open runtime.toml and configure a strong token."
+        ),
+      };
+    }
     writeAtomically(runtimeToml, migration.content);
+    const persisted = fs.readFileSync(runtimeToml, "utf8");
+    const persistedPreflight = inspectWindowsRuntimeControlSource(persisted);
+    if (persistedPreflight.failure || persistedPreflight.needsMigration) {
+      return {
+        changed: false,
+        path: runtimeToml,
+        failure:
+          persistedPreflight.failure ??
+          runtimeControlMigrationFailure(
+            "runtime_control_auth_requires_manual_configuration",
+            "Simulator control authentication in runtime.toml needs manual configuration. Open runtime.toml and configure a strong token."
+          ),
+      };
+    }
     return { changed: true, path: runtimeToml };
   } catch {
-    // The subsequent runtime load remains the source of the actionable error. Do not include
-    // generated credentials in migration errors or logs.
-    return { changed: false, path: runtimeToml };
+    // Never include source text, endpoints, or generated credentials in this
+    // typed failure. The Run surface owns the one-click file recovery.
+    return {
+      changed: false,
+      path: runtimeToml,
+      failure: runtimeControlMigrationFailure(
+        "runtime_control_toml_not_writable",
+        "Simulator control authentication could not be saved in runtime.toml. Make the file writable or open it and configure the token."
+      ),
+    };
+  }
+}
+
+type RuntimeControlSourcePreflight = {
+  readonly needsMigration: boolean;
+  readonly failure?: RuntimeControlProjectMigrationFailure;
+};
+
+function inspectWindowsRuntimeControlSource(
+  source: string
+): RuntimeControlSourcePreflight {
+  const lines = source.split(/\r?\n/);
+  const location = findRuntimeControlLocation(lines);
+  if (!location) {
+    return containsTcpRuntimeControlEvidence(lines)
+      ? {
+          needsMigration: false,
+          failure: runtimeControlMigrationFailure(
+            "runtime_control_toml_malformed",
+            "The runtime.control TCP settings in runtime.toml could not be read safely. Open runtime.toml and fix that section before starting the Simulator."
+          ),
+        }
+      : { needsMigration: false };
+  }
+  const endpoint = location.endpoint.trim();
+  if (!endpoint.toLowerCase().startsWith("tcp://")) {
+    return { needsMigration: false };
+  }
+  if (!isValidTcpEndpoint(endpoint)) {
+    return {
+      needsMigration: false,
+      failure: runtimeControlMigrationFailure(
+        "runtime_control_toml_malformed",
+        "The runtime.control TCP endpoint in runtime.toml is invalid. Open runtime.toml and fix that section before starting the Simulator."
+      ),
+    };
+  }
+  if (
+    location.authToken.trim() &&
+    !isKnownPlaceholderToken(location.authToken)
+  ) {
+    return { needsMigration: false };
+  }
+  if (!isLoopbackTcpEndpoint(endpoint)) {
+    return {
+      needsMigration: false,
+      failure: runtimeControlMigrationFailure(
+        "runtime_control_auth_requires_manual_configuration",
+        "The runtime.control TCP endpoint in runtime.toml requires a strong authentication token. truST adds one automatically only for this computer; open runtime.toml to configure this endpoint."
+      ),
+    };
+  }
+  return { needsMigration: true };
+}
+
+function runtimeControlMigrationFailure(
+  code: RuntimeControlProjectMigrationFailure["code"],
+  message: string
+): RuntimeControlProjectMigrationFailure {
+  return { kind: "configuration", code, message };
+}
+
+function containsTcpRuntimeControlEvidence(lines: readonly string[]): boolean {
+  let section = "";
+  for (const line of lines) {
+    const sectionName = tomlSectionName(line);
+    if (sectionName !== undefined) {
+      section = sectionName;
+      continue;
+    }
+    const content = stripInlineComment(line);
+    if (
+      (section === "runtime.control" && /^\s*endpoint\s*=\s*["']tcp:\/\//i.test(content)) ||
+      /^\s*runtime\.control\.endpoint\s*=\s*["']tcp:\/\//i.test(content)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function canAtomicallyReplace(target: string): boolean {
+  try {
+    const fileMode = fs.statSync(target).mode;
+    const directory = path.dirname(target);
+    const directoryMode = fs.statSync(directory).mode;
+    if ((fileMode & 0o222) === 0 || (directoryMode & 0o222) === 0) {
+      return false;
+    }
+    fs.accessSync(target, fs.constants.W_OK);
+    fs.accessSync(directory, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -140,7 +286,7 @@ function isKnownPlaceholderToken(token: string): boolean {
   );
 }
 
-function findRuntimeToml(projectRoot: string): string | undefined {
+export function findRuntimeControlToml(projectRoot: string): string | undefined {
   for (const candidate of [
     path.join(projectRoot, "runtime.toml"),
     path.join(projectRoot, "bundle", "runtime.toml"),
@@ -183,33 +329,166 @@ function tomlSectionName(line: string): string | undefined {
   return match?.[1].trim();
 }
 
+function findRuntimeControlLocation(
+  lines: readonly string[]
+): RuntimeControlTomlLocation | undefined {
+  const tableStarts: number[] = [];
+  let root = true;
+  let dottedEndpoint = "";
+  let dottedEndpointLine = -1;
+  let dottedAuthToken = "";
+  let dottedAuthLine = -1;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const sectionName = tomlSectionName(lines[index]);
+    if (sectionName === "runtime.control") {
+      tableStarts.push(index);
+    }
+    if (isTomlHeaderBoundary(lines[index])) {
+      root = false;
+    }
+
+    const assignment = parseTomlAssignment(lines[index]);
+    if (
+      assignment?.key !== "runtime.control.endpoint" &&
+      assignment?.key !== "runtime.control.auth_token"
+    ) {
+      continue;
+    }
+    if (!root || assignment.stringValue === undefined) {
+      return undefined;
+    }
+    if (assignment.key === "runtime.control.endpoint") {
+      if (dottedEndpointLine >= 0) {
+        return undefined;
+      }
+      dottedEndpoint = assignment.stringValue;
+      dottedEndpointLine = index;
+    } else {
+      if (dottedAuthLine >= 0) {
+        return undefined;
+      }
+      dottedAuthToken = assignment.stringValue;
+      dottedAuthLine = index;
+    }
+  }
+
+  const hasDottedControl = dottedEndpointLine >= 0 || dottedAuthLine >= 0;
+  if (tableStarts.length > 1 || (tableStarts.length === 1 && hasDottedControl)) {
+    return undefined;
+  }
+  if (hasDottedControl) {
+    if (dottedEndpointLine < 0) {
+      return undefined;
+    }
+    return {
+      form: "dotted",
+      endpoint: dottedEndpoint,
+      endpointLine: dottedEndpointLine,
+      authToken: dottedAuthToken,
+      authLine: dottedAuthLine,
+      insertionLine: dottedEndpointLine + 1,
+    };
+  }
+  if (tableStarts.length === 0) {
+    return undefined;
+  }
+
+  const sectionStart = tableStarts[0];
+  let sectionEnd = lines.length;
+  for (let index = sectionStart + 1; index < lines.length; index += 1) {
+    if (isTomlHeaderBoundary(lines[index])) {
+      sectionEnd = index;
+      break;
+    }
+  }
+  let endpoint = "";
+  let endpointLine = -1;
+  let authToken = "";
+  let authLine = -1;
+  for (let index = sectionStart + 1; index < sectionEnd; index += 1) {
+    const assignment = parseTomlAssignment(lines[index]);
+    if (assignment?.key !== "endpoint" && assignment?.key !== "auth_token") {
+      continue;
+    }
+    if (assignment.stringValue === undefined) {
+      return undefined;
+    }
+    if (assignment.key === "endpoint") {
+      if (endpointLine >= 0) {
+        return undefined;
+      }
+      endpoint = assignment.stringValue;
+      endpointLine = index;
+    } else {
+      if (authLine >= 0) {
+        return undefined;
+      }
+      authToken = assignment.stringValue;
+      authLine = index;
+    }
+  }
+  if (endpointLine < 0) {
+    return undefined;
+  }
+
+  let insertionLine = sectionEnd;
+  while (
+    insertionLine > sectionStart + 1 &&
+    lines[insertionLine - 1].trim() === ""
+  ) {
+    insertionLine -= 1;
+  }
+  return {
+    form: "table",
+    endpoint,
+    endpointLine,
+    authToken,
+    authLine,
+    insertionLine,
+  };
+}
+
+function isTomlHeaderBoundary(line: string): boolean {
+  return stripInlineComment(line).trimStart().startsWith("[");
+}
+
 function parseTomlAssignment(
   line: string
-): { readonly key: string; readonly value: string } | undefined {
-  const match = /^\s*([A-Za-z0-9_-]+)\s*=\s*(.*?)\s*$/.exec(
+): ParsedTomlAssignment | undefined {
+  const match = /^\s*([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\s*=\s*(.*?)\s*$/.exec(
     stripInlineComment(line)
   );
   if (!match) {
     return undefined;
   }
-  const rawValue = match[2].trim();
-  const value =
-    (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-    (rawValue.startsWith("'") && rawValue.endsWith("'"))
-      ? rawValue.slice(1, -1)
-      : rawValue;
-  return { key: match[1], value };
+  return { key: match[1], stringValue: parseSimpleTomlString(match[2]) };
 }
 
-function replaceAuthToken(line: string, token: string): string {
+function parseSimpleTomlString(value: string): string | undefined {
+  const trimmed = value.trim();
+  const basic = /^"([^"\\]*)"$/.exec(trimmed);
+  if (basic) {
+    return basic[1];
+  }
+  return /^'([^']*)'$/.exec(trimmed)?.[1];
+}
+
+function replaceAuthToken(line: string, token: string, key: string): string {
   const commentStart = inlineCommentStart(line);
   const assignment = line.slice(0, commentStart);
   const comment = line.slice(commentStart);
-  const match = /^(\s*auth_token\s*=\s*)(.*?)(\s*)$/.exec(assignment);
+  const match = new RegExp(
+    `^(\\s*${escapeRegularExpression(key)}\\s*=\\s*)(.*?)(\\s*)$`
+  ).exec(assignment);
   if (!match) {
     return line;
   }
   return `${match[1]}${quoteTomlBasicString(token)}${match[3]}${comment}`;
+}
+
+function escapeRegularExpression(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function stripInlineComment(line: string): string {
@@ -261,4 +540,15 @@ function isLoopbackTcpEndpoint(endpoint: string): boolean {
     return true;
   }
   return isIP(host) === 4 && host.split(".")[0] === "127";
+}
+
+function isValidTcpEndpoint(endpoint: string): boolean {
+  const match = /^tcp:\/\/(?:\[([^\]]+)\]|([^:/]+)):(\d+)$/.exec(
+    endpoint.trim()
+  );
+  if (!match || !(match[1] ?? match[2]).trim()) {
+    return false;
+  }
+  const port = Number(match[3]);
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
 }

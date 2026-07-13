@@ -148,6 +148,7 @@ pub fn resolve_declared_bindings(
 pub struct AdsConnectionBridge {
     bindings: Vec<AdsBinding>,
     shared: AdsSharedCache,
+    live_values: super::live_values::AdsAppliedLiveValues,
     last_queued_values: BTreeMap<String, Value>,
 }
 
@@ -156,6 +157,7 @@ impl AdsConnectionBridge {
         validate_bindings(&bindings)?;
         Ok(Self {
             shared: AdsSharedCache::new(&bindings),
+            live_values: super::live_values::AdsAppliedLiveValues::new(&bindings),
             bindings,
             last_queued_values: BTreeMap::new(),
         })
@@ -188,20 +190,23 @@ impl AdsConnectionBridge {
             .filter(|binding| point_reads(binding.point.access))
         {
             let Some(quality) = snapshot.qualities.get(binding.point.point_name.as_str()) else {
-                self.shared.set_quality(
-                    binding.point.point_name.as_str(),
-                    PointQuality::error(
-                        now_ms,
-                        format!(
-                            "ADS cache has no quality for '{}'",
-                            binding.point.point_name
-                        ),
+                let quality = PointQuality::error(
+                    now_ms,
+                    format!(
+                        "ADS cache has no quality for '{}'",
+                        binding.point.point_name
                     ),
                 );
+                self.shared
+                    .set_quality(binding.point.point_name.as_str(), quality.clone());
+                self.live_values
+                    .commit_quality(binding.point.point_name.as_str(), quality);
                 continue;
             };
-            self.write_quality(storage, binding, quality, now_ms);
+            let applied_quality = self.write_quality(storage, binding, quality, now_ms);
             if quality.state != QualityState::Good {
+                self.live_values
+                    .commit_quality(binding.point.point_name.as_str(), applied_quality);
                 continue;
             }
             let Some(value) = snapshot
@@ -209,16 +214,17 @@ impl AdsConnectionBridge {
                 .get(binding.point.point_name.as_str())
                 .cloned()
             else {
-                self.shared.set_quality(
-                    binding.point.point_name.as_str(),
-                    PointQuality::error(
-                        now_ms,
-                        format!(
-                            "ADS cache has good quality without value for '{}'",
-                            binding.point.point_name
-                        ),
+                let quality = PointQuality::error(
+                    now_ms,
+                    format!(
+                        "ADS cache has good quality without value for '{}'",
+                        binding.point.point_name
                     ),
                 );
+                self.shared
+                    .set_quality(binding.point.point_name.as_str(), quality.clone());
+                self.live_values
+                    .commit_quality(binding.point.point_name.as_str(), quality);
                 continue;
             };
             let baseline = if point_writes(binding.point.access) {
@@ -227,15 +233,25 @@ impl AdsConnectionBridge {
                 None
             };
             if !storage.write_by_ref(binding.reference.clone(), value) {
-                self.shared.set_quality(
-                    binding.point.point_name.as_str(),
-                    PointQuality::error(
-                        now_ms,
-                        format!("failed to write ADS input '{}'", binding.point.point_name),
-                    ),
+                let quality = PointQuality::error(
+                    now_ms,
+                    format!("failed to write ADS input '{}'", binding.point.point_name),
                 );
+                self.shared
+                    .set_quality(binding.point.point_name.as_str(), quality.clone());
+                self.live_values
+                    .commit_quality(binding.point.point_name.as_str(), quality);
                 continue;
             }
+            let applied_value = storage
+                .read_by_ref(binding.reference.clone())
+                .cloned()
+                .unwrap_or(Value::Null);
+            self.live_values.commit_value(
+                binding.point.point_name.as_str(),
+                applied_value,
+                applied_quality,
+            );
             if let Some(value) = baseline {
                 self.last_queued_values
                     .insert(binding.point.point_name.clone(), value);
@@ -255,19 +271,43 @@ impl AdsConnectionBridge {
             .iter()
             .filter(|binding| point_writes(binding.point.access))
         {
-            if let Some(quality) = snapshot.qualities.get(binding.point.point_name.as_str()) {
-                self.write_quality(storage, binding, quality, now_ms);
-            }
-            let Some(value) = storage.read_by_ref(binding.reference.clone()).cloned() else {
-                self.shared.set_quality(
-                    binding.point.point_name.as_str(),
+            let cache_quality = snapshot
+                .qualities
+                .get(binding.point.point_name.as_str())
+                .cloned()
+                .unwrap_or_else(|| {
                     PointQuality::error(
                         now_ms,
-                        format!("failed to read ADS output '{}'", binding.point.point_name),
-                    ),
+                        format!(
+                            "ADS cache has no quality for '{}'",
+                            binding.point.point_name
+                        ),
+                    )
+                });
+            let written_quality = self.write_quality(storage, binding, &cache_quality, now_ms);
+            let Some(value) = storage.read_by_ref(binding.reference.clone()).cloned() else {
+                let quality = PointQuality::error(
+                    now_ms,
+                    format!("failed to read ADS output '{}'", binding.point.point_name),
                 );
+                self.shared
+                    .set_quality(binding.point.point_name.as_str(), quality.clone());
+                self.live_values
+                    .commit_quality(binding.point.point_name.as_str(), quality);
                 continue;
             };
+            let applied_quality = if point_reads(binding.point.access) {
+                self.live_values
+                    .quality(binding.point.point_name.as_str())
+                    .unwrap_or(written_quality)
+            } else {
+                written_quality
+            };
+            self.live_values.commit_value(
+                binding.point.point_name.as_str(),
+                value.clone(),
+                applied_quality,
+            );
             if self
                 .last_queued_values
                 .get(binding.point.point_name.as_str())
@@ -289,22 +329,23 @@ impl AdsConnectionBridge {
         binding: &AdsBinding,
         quality: &PointQuality,
         now_ms: u64,
-    ) {
+    ) -> PointQuality {
         let Some(reference) = binding.quality_reference.clone() else {
-            return;
+            return quality.clone();
         };
         if !storage.write_by_ref(reference, quality_value(quality.state)) {
-            self.shared.set_quality(
-                binding.point.point_name.as_str(),
-                PointQuality::error(
-                    now_ms,
-                    format!(
-                        "failed to write ADS quality '{}_quality'",
-                        binding.point.point_name
-                    ),
+            let error = PointQuality::error(
+                now_ms,
+                format!(
+                    "failed to write ADS quality '{}_quality'",
+                    binding.point.point_name
                 ),
             );
+            self.shared
+                .set_quality(binding.point.point_name.as_str(), error.clone());
+            return error;
         }
+        quality.clone()
     }
 
     pub fn mark_reconnecting(&self, now_ms: u64, detail: impl Into<String>) {
@@ -330,6 +371,14 @@ impl AdsConnectionBridge {
             .pending_writes
             .get(point_name)
             .cloned()
+    }
+
+    pub(crate) fn initialize_live_values(&mut self, storage: &VariableStorage) {
+        self.live_values.initialize(&self.bindings, storage);
+    }
+
+    pub(crate) fn live_value_entries(&self, connection: &str) -> Vec<super::AdsLiveValueEntry> {
+        self.live_values.entries(connection, &self.bindings)
     }
 }
 

@@ -91,6 +91,13 @@ export function NetworkCanvasHeader({
         Filter
       </button>
       <button
+        onClick={onToggleDiscover}
+        title="Find ADS devices on this computer and the local network"
+        style={toolbarButtonStyle(discoverActive, "primary")}
+      >
+        Discover ADS devices
+      </button>
+      <button
         onClick={onAdd}
         disabled={!addTargetLabel}
         title={
@@ -98,16 +105,9 @@ export function NetworkCanvasHeader({
             ? `Add a device or connection to ${addTargetLabel}`
             : "Open or set up a runtime before adding a device or connection"
         }
-        style={toolbarButtonStyle(addActive, "primary", !addTargetLabel)}
+        style={toolbarButtonStyle(addActive, "default", !addTargetLabel)}
       >
         + Add
-      </button>
-      <button
-        onClick={onToggleDiscover}
-        title="Find devices on the network"
-        style={toolbarButtonStyle(discoverActive)}
-      >
-        Discover
       </button>
       <button
         onClick={onToggleEdit}

@@ -10,9 +10,10 @@ skinparam ranksep 40
 title truST Runtime: Beckhoff ADS Client Architecture
 
 package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
-    component "VS Code ADS Panel\n(runtime-child webview)" as vscodeAdsPanel
-    component "Devices & Connections\none Find TwinCAT flow" as networkCanvasAds
-    component "adsServiceProbeController.ts + model\nconfirmed bounded service checks\n+ selected-runtime ads.status guard" as adsServiceProbe
+    component "Live Values\nread-only I/O + ADS rows; opens only on request" as vscodeAdsPanel
+    component "Devices & Connections\none Discover ADS devices action" as networkCanvasAds
+    component "adsServiceProbeController.ts + model\nautomatic bounded logical-service checks\n+ selected-runtime ads.status guard" as adsServiceProbe
+    component "RuntimeLifecycleService\none accepted debug session\n+ passive stAdsState ownership" as runtimeLifecycle
     component "Runtime Pane\nsingle selected runtime context" as runtimePane
     component "Setup Web Wizard\n/setup/ads on runtime host" as setupAds
     component "CLI Backend\ntrust-runtime ads ..." as adsCli
@@ -21,8 +22,9 @@ package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
 package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "runtimeTarget.ts\nendpoint + mode + reachability" as runtimeTarget
     component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
-    component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
-    component "control/comm_handlers/discover/ads.rs + onboarding/wire/identity.rs\nTwinCAT computer identity only\nlocal router first for loopback; UDP for LAN/known host" as commDiscoverAds
+    component "control/ads_handlers/*\nads.identity / doctor / status / route / live_values" as adsControl
+    component "trust-debug adapter/ads.rs\nstAdsState local snapshot or remote ads.live_values" as debugAdsState
+    component "control/comm_handlers/discover/ads.rs + onboarding/wire/identity.rs\nADS computer identity only\nnative router for Windows-local; UDP for LAN/known host" as commDiscoverAds
     component "control/comm_handlers/browse_symbols.rs\nport-aware Symbol Upload + structured errors" as commBrowse
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
@@ -51,9 +53,16 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "client/worker.rs\nbackground transport owner" as worker
     component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
-    component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
-    component "backend_ads_rs/source_policy.rs + connection.rs\nloopback router probe then Request/direct fallback\nremote Addr or Auto" as sourcePolicy
+    component "backend_host.rs\nHostAdsTransport backend selection" as hostBackend
+    component "backend_windows.rs\nsame-computer native-router adapter" as windowsBackend
+    component "backend_ads_rs.rs + connection.rs\nremote direct ADS/TCP backend\n(feature = ads-wire)" as backend
     component "mock.rs\nCI transport" as mock
+}
+
+package "trust-ads-windows\n(safe TcAdsDll boundary)" as windowsAds #PaleTurquoise {
+    component "TcAdsDll / AdsPort safe API\nRAII port + typed errors" as windowsSafeApi
+    component "Private extern system FunctionTable\nchecked pointers, lengths, and ABI" as windowsFfi
+    component "Trusted DLL loader\nSystem32 or OS-derived Beckhoff paths" as windowsLoader
 }
 
 package "Compiled Runtime Model" as runtimeModel #LightGreen {
@@ -66,22 +75,23 @@ package "Compiled Runtime Model" as runtimeModel #LightGreen {
 }
 
 cloud "Beckhoff TwinCAT computer" as twincat #LightGray {
-    component "Identity discovery\nlocal AMS-router open-port handshake\nor UDP 48899" as twincatIdentity
-    component "AMS router transport\nTCP 48898" as twincatRouter
+    component "Identity discovery\ninstalled router API when local on Windows\nor UDP 48899 on the LAN" as twincatIdentity
+    component "AMS router\nTcAdsDll local API or remote TCP 48898" as twincatRouter
     component "Logical ADS services\nPLC 851-854 + task 301 + NC SAF 501\n+ four explicit custom" as twincatServices
 }
 component "OPC UA Gateway" as opcua #Wheat
 component "HMI + Control/Debug + Historian" as surfaces #Wheat
 
 runtimePane --> runtimeTarget : owns runtime selection
-vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)
+vscodeAdsPanel --> runtimeLifecycle : renders the accepted session's\nI/O and ADS snapshot only
+runtimeLifecycle --> debugAdsState : stAdsState request/event
 networkCanvasAds --> runtimeTarget : reads selected runtime
-networkCanvasAds --> commDiscoverAds : one identity request\nlocal / LAN / known address
-networkCanvasAds --> adsServiceProbe : after identity is found and the user\nconfirms other host ADS clients are stopped\nsix preset + four explicit ports (max 10)
+networkCanvasAds --> commDiscoverAds : one action searches this computer + LAN;\nAdvanced adds known address / AMS Net ID
+networkCanvasAds --> adsServiceProbe : after identity is found, automatically check\n851-854 + 301 + 501; Advanced adds four (max 10)
 adsServiceProbe --> adsControl : selected-runtime ads.status preflight\nfail closed for active/unverifiable I/O
 adsServiceProbe --> commBrowse : confirmed sequential comm.browse_symbols\none logical service at a time
 networkCanvasAds --> onboardingEngine : selected symbols + same port\nimport into ads.toml
-vscodeAdsPanel --> runtimeControlClient : calls selected endpoint
+debugAdsState --> runtimeControlClient : remote accepted session only
 runtimeControlClient --> adsControl : JSON-line commands
 setupAds --> adsWebRoutes : HTTP calls on runtime host
 adsWebRoutes --> adsControl : same command handlers
@@ -90,15 +100,16 @@ adsWebRoutes --> diagnosticsSchema
 onboardingEngine --> diagnosticsSchema
 adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
 adsCli --> onboardingEngine : scriptable backend
-onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
-commDiscoverAds --> twincatIdentity : loopback router identity first;\notherwise broadcast or directed UDP Identify
+onboardingEngine --> twincat : ADS identity / doctor;\nroute-add only for remote hosts that require it
+commDiscoverAds --> twincatIdentity : Windows-local native router identity;\notherwise broadcast or directed UDP Identify
 commDiscoverAds ..> adsServiceProbe : complete manual Host + AMS Net ID\nbypasses blocked UDP identity
 commBrowse --> twincatRouter : AMS request over router transport
 twincatRouter --> twincatServices : route to exactly one\nlogical target port
 onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
 onboardingEngine --> adsSnapshot : live symbol snapshot
 onboardingEngine --> generatedSt : generated ST preview/write
-adsControl --> adsSubsystem : status from live workers
+adsControl --> adsSubsystem : status + read-only live snapshot\nfrom runtime-owned workers/storage
+debugAdsState --> adsSubsystem : local simulator snapshot
 
 runtimeToml --> bundleLoad : enables runtime ADS\nand config path
 bundleLoad --> contracts : parse ads.toml\nat bundle load
@@ -133,11 +144,16 @@ adsSubsystem --> bridge : owns bridges
 adsSubsystem --> worker : owns worker threads
 worker --> cache : updates reads/notifications\nand drains writes
 worker --> transport : owns network calls
+hostBackend ..|> transport
+hostBackend --> windowsBackend : Windows + target resolves to this computer
+hostBackend --> backend : all remote targets; all non-Windows hosts
+windowsBackend --> windowsSafeApi
+windowsSafeApi --> windowsFfi
+windowsSafeApi --> windowsLoader
+windowsFfi --> twincatRouter : installed router API; no raw self-TCP\nand no synthetic self-route
 backend ..|> transport
 mock ..|> transport
-backend --> sourcePolicy
-sourcePolicy --> twincatRouter : loopback probes for router-assigned Source::Request;\ndirect simulator fallback uses Addr/Auto; remote uses pinned Addr or Auto
-backend --> twincatRouter : ADS/AMS sum-up read/write\nnotifications + symbol version
+backend --> twincatRouter : remote ADS/AMS sum-up read/write\nnotifications + symbol version
 
 scan --> adsSubsystem : apply_inputs / capture_outputs
 adsSubsystem --> cache : copy input values / queue output writes\n(no socket calls)
@@ -168,10 +184,11 @@ note right of adsServiceProbe
     never erases the discovered computer.
     The UI never sweeps all 65,535 ports.
 
-    Every check/recheck needs fresh consent
-    because another direct TCP/ADS client can
-    interrupt live I/O between the same hosts.
-    Cancellation kills the local CLI process.
+    The normal action checks the six documented
+    logical services automatically. Known host,
+    AMS Net ID, and up to four custom services
+    stay under Advanced/recovery. Cancellation
+    kills the local CLI process.
     A selected runtime with active/recovering
     or unverifiable ADS I/O is never probed.
 end note
@@ -182,11 +199,19 @@ note right of twincatRouter
     inside that router, not TCP ports.
 end note
 
-note right of backend
-    External ads crate is confined to
-    backend_ads_rs.rs behind ads-wire.
+note right of hostBackend
+    The platform decision is centralized here:
+    same-computer Windows targets use TcAdsDll;
+    remote targets retain direct ADS/TCP.
     AdsTransport signatures expose only
     trust-owned domain types.
+end note
+
+note right of runtimeLifecycle
+    Play commits exactly one accepted session.
+    Sidebar, status bar, canvas, and Live Values
+    project that authority; Play does not open
+    the Live Values webview.
 end note
 
 note bottom of core

@@ -5,10 +5,10 @@ import type {
 } from "./offlineComm";
 
 export const PLC_RUNTIME_PORTS = [851, 852, 853, 854] as const;
-export const COMMON_TWINCAT_SERVICE_PORTS = [301, 501] as const;
-export const AUTOMATIC_TWINCAT_SERVICE_PORTS = [
+export const COMMON_ADS_SERVICE_PORTS = [301, 501] as const;
+export const AUTOMATIC_ADS_SERVICE_PORTS = [
   ...PLC_RUNTIME_PORTS,
-  ...COMMON_TWINCAT_SERVICE_PORTS,
+  ...COMMON_ADS_SERVICE_PORTS,
 ] as const;
 export const MAX_ADS_SERVICE_PROBES = 10;
 
@@ -78,16 +78,16 @@ export function parseCustomAdsPorts(input: string): {
     }
   }
   const additionalCount = ports.filter(
-    (port) => !AUTOMATIC_TWINCAT_SERVICE_PORTS.includes(
-      port as (typeof AUTOMATIC_TWINCAT_SERVICE_PORTS)[number]
+    (port) => !AUTOMATIC_ADS_SERVICE_PORTS.includes(
+      port as (typeof AUTOMATIC_ADS_SERVICE_PORTS)[number]
     )
   ).length;
   const maxAdditional =
-    MAX_ADS_SERVICE_PROBES - AUTOMATIC_TWINCAT_SERVICE_PORTS.length;
+    MAX_ADS_SERVICE_PROBES - AUTOMATIC_ADS_SERVICE_PORTS.length;
   if (additionalCount > maxAdditional) {
     return {
       ports,
-      error: `Add up to ${maxAdditional} additional ADS service ports (${MAX_ADS_SERVICE_PROBES} total including preset TwinCAT services 851–854, 301, and 501).`,
+      error: `Add up to ${maxAdditional} additional ADS service ports (${MAX_ADS_SERVICE_PROBES} total including preset ADS services 851–854, 301, and 501).`,
     };
   }
   return { ports };
@@ -98,7 +98,7 @@ export function planAdsServicePorts(
 ): readonly number[] {
   const planned: number[] = [];
   const seen = new Set<number>();
-  for (const port of [...AUTOMATIC_TWINCAT_SERVICE_PORTS, ...customPorts]) {
+  for (const port of [...AUTOMATIC_ADS_SERVICE_PORTS, ...customPorts]) {
     if (
       planned.length >= MAX_ADS_SERVICE_PROBES ||
       !Number.isSafeInteger(port) ||
@@ -118,6 +118,19 @@ export function classifyAdsServiceProbe(
   port: number,
   response: BrowseSymbolsResponse
 ): AdsServiceProbeResult {
+  const contractError = adsBrowseResponseContractError(response);
+  if (contractError) {
+    return {
+      port,
+      status: "check_failed",
+      symbolCount: 0,
+      usable: false,
+      error: {
+        code: "invalid_browse_response",
+        message: contractError,
+      },
+    };
+  }
   if (response.route?.status === "missing") {
     return withOptionalEvidence(
       {
@@ -135,7 +148,17 @@ export function classifyAdsServiceProbe(
     return { port, status: "available", symbolCount, usable: true };
   }
   if (!response.error) {
-    return { port, status: "empty", symbolCount: 0, usable: false };
+    return {
+      port,
+      status: "check_failed",
+      symbolCount: 0,
+      usable: false,
+      error: {
+        code: "unexplained_empty_browse_response",
+        message:
+          "ADS browse returned no variables and no explicit empty-service result.",
+      },
+    };
   }
 
   const status: AdsServiceProbeStatus =
@@ -152,11 +175,83 @@ export function classifyAdsServiceProbe(
   );
 }
 
+/**
+ * A parseable JSON value is not proof that an ADS service answered. Only the
+ * versioned browse contract emitted by trust-runtime may contribute a
+ * responding logical-service row.
+ */
+export function adsBrowseResponseContractError(
+  response: BrowseSymbolsResponse
+): string | undefined {
+  const raw = response as unknown as Record<string, unknown>;
+  if (raw.schema_version !== 1) {
+    return "ADS browse response has an unsupported or missing schema version.";
+  }
+  if (raw.protocol !== "ads" || raw.kind !== "symbols") {
+    return "ADS browse response has the wrong protocol or result kind.";
+  }
+  if (!Array.isArray(raw.tree) || !validSymbolTree(raw.tree)) {
+    return "ADS browse response has an invalid symbol tree.";
+  }
+  if (
+    raw.error !== undefined &&
+    (!isRecord(raw.error) ||
+      typeof raw.error.code !== "string" ||
+      raw.error.code.trim().length === 0 ||
+      typeof raw.error.message !== "string" ||
+      raw.error.message.trim().length === 0)
+  ) {
+    return "ADS browse response has invalid structured error evidence.";
+  }
+  if (
+    raw.route !== undefined &&
+    (!isRecord(raw.route) ||
+      typeof raw.route.status !== "string" ||
+      !["missing", "not_required", "ok"].includes(raw.route.status))
+  ) {
+    return "ADS browse response has invalid route evidence.";
+  }
+  return undefined;
+}
+
 export function autoSelectUsableAdsService(
   results: readonly AdsServiceProbeResult[]
 ): number | undefined {
   const usable = results.filter((result) => result.usable);
   return usable.length === 1 ? usable[0].port : undefined;
+}
+
+export function isRespondingAdsServiceResult(
+  result: AdsServiceProbeResult
+): boolean {
+  return (
+    result.status === "available" ||
+    result.status === "unsupported" ||
+    result.status === "empty"
+  );
+}
+
+export function groupAdsServiceProbeResults(
+  results: readonly AdsServiceProbeResult[]
+): {
+  readonly responding: readonly AdsServiceProbeResult[];
+  readonly diagnostics: readonly AdsServiceProbeResult[];
+} {
+  const responding: AdsServiceProbeResult[] = [];
+  const diagnostics: AdsServiceProbeResult[] = [];
+  for (const result of results) {
+    (isRespondingAdsServiceResult(result) ? responding : diagnostics).push(
+      result
+    );
+  }
+  return { responding, diagnostics };
+}
+
+/** True when an ADS service answered, even if it has no browsable symbol table. */
+export function didAnyAdsServiceRespond(
+  results: readonly AdsServiceProbeResult[]
+): boolean {
+  return results.some(isRespondingAdsServiceResult);
 }
 
 /** Keeps a deliberate choice, but never turns an earlier automatic choice into consent. */
@@ -180,25 +275,6 @@ export function resolveSelectedAdsServicePort(
   return autoSelectUsableAdsService(results);
 }
 
-export function shouldShowAdsServiceCheckConfirmation(
-  probe: AdsServiceProbeViewState | undefined,
-  serviceResultsStale: boolean,
-  recheckRequested: boolean
-): boolean {
-  if (!probe || serviceResultsStale || recheckRequested) {
-    return true;
-  }
-  if (probe.probing || !probe.completed) {
-    return false;
-  }
-  return Boolean(
-    probe.error ||
-      probe.results.length === 0 ||
-      probe.results.some((result) => result.status === "check_failed") ||
-      !probe.results.some((result) => result.usable)
-  );
-}
-
 export async function probeAdsServicesSequentially(
   ports: readonly number[],
   probe: (port: number) => Promise<BrowseSymbolsResponse>,
@@ -216,10 +292,11 @@ export async function probeAdsServicesSequentially(
     }
     const result = classifyAdsServiceProbe(port, await probe(port));
     results.push(result);
-    if (
-      result.status === "route_missing" ||
-      result.status === "check_failed"
-    ) {
+    // A missing reciprocal route is target-wide, so later logical ports cannot
+    // succeed until recovery is completed. Other failures can be specific to
+    // one ADS service; keep checking the remaining requested ports so a broken
+    // or protected service on 851 never hides a responding 852/301/501.
+    if (result.status === "route_missing") {
       break;
     }
   }
@@ -236,6 +313,29 @@ function countLeafSymbols(nodes: readonly SymbolNode[]): number {
     }
   }
   return count;
+}
+
+function validSymbolTree(nodes: readonly unknown[]): boolean {
+  return nodes.every((node) => {
+    if (
+      !isRecord(node) ||
+      typeof node.id !== "string" ||
+      node.id.trim().length === 0 ||
+      typeof node.name !== "string" ||
+      node.name.trim().length === 0 ||
+      typeof node.path !== "string" ||
+      node.path.trim().length === 0
+    ) {
+      return false;
+    }
+    return node.children === undefined
+      ? true
+      : Array.isArray(node.children) && validSymbolTree(node.children);
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function withOptionalEvidence(

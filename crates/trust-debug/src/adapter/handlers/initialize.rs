@@ -45,6 +45,7 @@ impl DebugAdapter {
             args.columns_start_at1.unwrap_or(true),
         );
         self.launch_state = LaunchState::default();
+        self.simulator_launch_succeeded = false;
 
         let capabilities = Capabilities {
             supports_configuration_done_request: Some(true),
@@ -124,6 +125,7 @@ impl DebugAdapter {
         args: LaunchArguments,
     ) -> DispatchOutcome {
         self.launch_state.set_configured();
+        self.simulator_launch_succeeded = false;
         if self.runner.is_some() {
             self.stop_runner();
         }
@@ -154,6 +156,7 @@ impl DebugAdapter {
                         .collect::<Vec<_>>();
                     events.append(&mut breakpoint_events);
                     self.emit_io_state_event_from_runtime(&mut events);
+                    self.emit_ads_state_event_from_runtime(&mut events);
                     let mut actions = LaunchActions::default();
                     if stop_on_entry {
                         actions.pause_after_launch = true;
@@ -170,6 +173,7 @@ impl DebugAdapter {
                         };
                     }
                     actions.start_runner_after_launch = true;
+                    self.simulator_launch_succeeded = true;
                     self.launch_state.set_post_launch(actions);
                     events.push(self.debug_output_message(
                         "[trust-debug] runner start scheduled (post-launch)",
@@ -208,6 +212,7 @@ impl DebugAdapter {
                 ..DispatchOutcome::default()
             };
         }
+        self.simulator_launch_succeeded = true;
         self.launch_state.set_post_launch(actions);
         events
             .push(self.debug_output_message("[trust-debug] runner start scheduled (post-launch)"));

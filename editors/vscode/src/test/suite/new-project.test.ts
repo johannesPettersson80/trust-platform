@@ -2,6 +2,7 @@ import * as assert from "assert";
 import { spawnSync } from "child_process";
 import * as vscode from "vscode";
 import { STHmiApplyPatchTool, STHmiGetLayoutTool } from "../../lm-tools";
+import { deleteWorkspaceTreeStrict } from "./workspace-cleanup";
 
 const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
@@ -20,17 +21,6 @@ async function pathExists(uri: vscode.Uri): Promise<boolean> {
     return true;
   } catch {
     return false;
-  }
-}
-
-async function deleteTreeIfExists(uri: vscode.Uri): Promise<void> {
-  try {
-    await vscode.workspace.fs.delete(uri, {
-      recursive: true,
-      useTrash: false,
-    });
-  } catch {
-    // Test cleanup only.
   }
 }
 
@@ -131,16 +121,10 @@ suite("New project command (VS Code)", function () {
       );
       if (index !== undefined && index >= 0) {
         vscode.workspace.updateWorkspaceFolders(index, 1);
+        await delay(200);
       }
     }
-    try {
-      await vscode.workspace.fs.delete(fixturesRoot, {
-        recursive: true,
-        useTrash: false,
-      });
-    } catch {
-      // Ignore cleanup failures in test teardown.
-    }
+    await deleteWorkspaceTreeStrict(fixturesRoot);
   });
 
   test("creates scaffold in an empty target directory", async () => {
@@ -219,7 +203,7 @@ suite("New project command (VS Code)", function () {
       /driver\s*=\s*"simulated"/.test(ioToml),
       "io.toml must default to the simulated driver (runs with no hardware)."
     );
-    await deleteTreeIfExists(targetUri);
+    await deleteWorkspaceTreeStrict(targetUri);
   });
 
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
@@ -308,7 +292,7 @@ suite("New project command (VS Code)", function () {
       await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")),
       true
     );
-    await deleteTreeIfExists(targetUri);
+    await deleteWorkspaceTreeStrict(targetUri);
   });
 
   test("generated ST parses cleanly and TOML is usable by build", async function () {

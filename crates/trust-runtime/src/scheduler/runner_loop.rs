@@ -18,10 +18,7 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
-fn cycle_deadline_from(
-    start: std::time::Instant,
-    timeout: Duration,
-) -> Option<std::time::Instant> {
+fn cycle_deadline_from(start: std::time::Instant, timeout: Duration) -> Option<std::time::Instant> {
     if timeout.as_nanos() <= 0 {
         return Some(start);
     }
@@ -234,6 +231,7 @@ fn run_resource_loop_core<C, F>(
             set_resource_state(&state, ResourceState::Faulted);
             break;
         }
+        runner.publish_ads_live_values();
         if watchdog.enabled {
             let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {
@@ -317,28 +315,32 @@ fn try_automatic_restart<C: Clock + Clone>(
     true
 }
 
-fn apply_automatic_restart_backoff<C: Clock + Clone>(
-    runner: &ResourceRunner<C>,
-    attempt: u32,
-) {
+fn apply_automatic_restart_backoff<C: Clock + Clone>(runner: &ResourceRunner<C>, attempt: u32) {
     let backoff = automatic_restart_backoff(runner.cycle_interval, attempt);
     if backoff.as_nanos() <= 0 {
         thread::yield_now();
         return;
     }
-    let deadline = Duration::from_nanos(runner.clock.now().as_nanos().saturating_add(backoff.as_nanos()));
+    let deadline = Duration::from_nanos(
+        runner
+            .clock
+            .now()
+            .as_nanos()
+            .saturating_add(backoff.as_nanos()),
+    );
     runner.clock.sleep_until(deadline);
 }
 
 fn automatic_restart_backoff(cycle_interval: Duration, attempt: u32) -> Duration {
-    let base = cycle_interval
-        .as_nanos()
-        .clamp(
-            AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
-        );
+    let base = cycle_interval.as_nanos().clamp(
+        AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
+        AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
+    );
     let multiplier = 1_i64 << attempt.saturating_sub(1).min(8);
-    Duration::from_nanos(base.saturating_mul(multiplier).min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS))
+    Duration::from_nanos(
+        base.saturating_mul(multiplier)
+            .min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS),
+    )
 }
 
 #[derive(Debug)]
@@ -394,7 +396,9 @@ where
         }
         Err(payload) => {
             debug_assert!(sentinel.panicked_mid_cycle());
-            Err(runner.runtime.resource_panic(panic_payload_message(payload)))
+            Err(runner
+                .runtime
+                .resource_panic(panic_payload_message(payload)))
         }
     }
 }
@@ -671,10 +675,7 @@ mod runner_loop_poison_tests {
 
         assert!(matches!(
             err,
-            RuntimeError::RestartLimitExceeded {
-                attempts: 3,
-                ..
-            }
+            RuntimeError::RestartLimitExceeded { attempts: 3, .. }
         ));
     }
 
@@ -686,10 +687,7 @@ mod runner_loop_poison_tests {
 
         assert!(first.as_nanos() > 0);
         assert!(second >= first);
-        assert_eq!(
-            capped.as_nanos(),
-            AUTOMATIC_RESTART_BACKOFF_CAP_NANOS
-        );
+        assert_eq!(capped.as_nanos(), AUTOMATIC_RESTART_BACKOFF_CAP_NANOS);
     }
 }
 
@@ -724,6 +722,9 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         }
         ResourceCommand::AdsStatus { respond_to } => {
             let _ = respond_to.send(runtime.ads_status_report());
+        }
+        ResourceCommand::AdsLiveValues { respond_to } => {
+            let _ = respond_to.send(runtime.ads_live_values_snapshot());
         }
         ResourceCommand::OpcUaClientStatus { respond_to } => {
             let _ = respond_to.send(runtime.opcua_client_status_report());

@@ -6,6 +6,11 @@ import type {
 } from "../../communication/schemaForm";
 import { visibleSchemaFields } from "../../communication/schemaForm";
 import { coerce, Field } from "./SchemaFields";
+import {
+  addPickerBadge,
+  addPickerPurpose,
+  addPickerTitle,
+} from "./grouping";
 import { t } from "./theme";
 
 interface Props {
@@ -75,6 +80,11 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
   const lastInitializedKey = useRef<string>("");
 
   const protocol = protocols.find((p) => p.id === protocolId);
+  const protocolSelectionLocked = Boolean(
+    preselectProtocol && protocol?.id === preselectProtocol
+  );
+  const selectedProtocolTitle = protocol ? addPickerTitle(protocol) : "";
+  const selectedProtocolPurpose = protocol ? addPickerPurpose(protocol) : "";
   const applyResultSignature = useMemo(
     () =>
       applyResult
@@ -192,7 +202,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
       <header className="trust-inspector__header">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="trust-inspector__eyebrow">Devices & Connections / Add device or connection</div>
-          <div className="trust-inspector__title">{protocol ? `Add ${protocol.title}` : "Add device"}</div>
+          <div className="trust-inspector__title">{selectedProtocolTitle || "Add device"}</div>
           {target?.name && <div className="trust-inspector__eyebrow" style={{ marginTop: 2 }}>on {target.name}</div>}
         </div>
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
@@ -205,22 +215,40 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
           </p>
         ) : (
           <>
-            <div className="trust-field">
-              <label>Protocol</label>
-              <select
-                className="trust-input"
-                value={protocolId}
-                onChange={(e) => setProtocolId(e.target.value)}
-              >
-                {protocols.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {protocol?.purpose && (
-              <p className="trust-help" style={{ marginBottom: 14 }}>{protocol.purpose}</p>
+            {protocolSelectionLocked && protocol ? (
+              <div className="trust-field">
+                <label>Connection type</label>
+                <div
+                  data-role="locked-protocol"
+                  data-protocol={protocol.id}
+                  aria-label={`Selected connection type: ${selectedProtocolTitle}`}
+                  style={LOCKED_PROTOCOL}
+                >
+                  <span style={LOCKED_BADGE}>
+                    {addPickerBadge(protocol.id, protocol.id)}
+                  </span>
+                  <strong>{selectedProtocolTitle}</strong>
+                </div>
+              </div>
+            ) : (
+              <div className="trust-field">
+                <label>Connection type</label>
+                <select
+                  data-role="protocol-selector"
+                  className="trust-input"
+                  value={protocolId}
+                  onChange={(e) => setProtocolId(e.target.value)}
+                >
+                  {protocols.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {addPickerTitle(candidate)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {selectedProtocolPurpose && (
+              <p data-role="selected-protocol-purpose" className="trust-help" style={{ marginBottom: 14 }}>{selectedProtocolPurpose}</p>
             )}
 
             {visibleFields.map((field) => (
@@ -267,6 +295,28 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     </aside>
   );
 }
+
+const LOCKED_PROTOCOL: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  minHeight: 32,
+  padding: "6px 8px",
+  border: "1px solid var(--trust-border)",
+  borderRadius: "var(--trust-radius)",
+  background: "var(--trust-surface-raised)",
+  color: "var(--trust-text)",
+};
+
+const LOCKED_BADGE: React.CSSProperties = {
+  flex: "none",
+  padding: "2px 6px",
+  borderRadius: 4,
+  background: "var(--trust-accent)",
+  color: "var(--trust-on-accent)",
+  fontSize: 9,
+  fontWeight: 800,
+};
 
 const iconBtn: React.CSSProperties = {
   border: "none",

@@ -10,32 +10,36 @@ you add and configure a device without editing TOML by hand.
 ## Open it
 
 In the truST view, click **Devices & Connections**. The graph opens as an editor tab titled
-**truST · Devices & Connections**.
+**Devices & Connections**.
 
 ## Read the graph
 
-![Devices & Connections: a host card with a stopped truST runtime and a simulated I/O endpoint](../assets/images/vscode/vscode-devices-overview.png)
+![Devices & Connections showing This computer, a stopped Simulator, and Simulated I/O](../assets/images/vscode/vscode-devices-overview.png)
 
-*Devices & Connections shows your whole topology as a node graph — here one host, one runtime (Stopped, shown grey), and a Simulated I/O endpoint. Nothing is green until the runtime is running and the connection is proven.*
+*Devices & Connections shows the local topology as one graph — here This
+computer contains a stopped Simulator and its Simulated I/O endpoint.*
 
 The graph nests **Host → Runtime → Endpoint**:
 
-- **Host** (e.g. `raspberrypi`) — the machine the runtime runs on; its badge is *reachability*
+- **Host** (for example **This computer**) — the machine the runtime runs on; its badge is *reachability*
   (**Reachable**), not the runtime's run state.
-- **Runtime** (e.g. `truST runtime`) — your runtime, shown **Stopped** in grey until you start it. truST
+- **Runtime** (for example **Simulator**) — your runtime, shown **Stopped** in grey until you start it. truST
   never shows a fabricated green: a node is green only when it is genuinely running/connected.
 - **Endpoints** — each device or service on the runtime, with a role badge (here **Simulated · I/O**).
   As you add devices, Modbus, MQTT, OPC UA, and other endpoints appear here, and the external systems they
   link out to render as connected nodes.
 
-The footer summarizes the topology (**1 host · 1 runtime · 1 endpoint**).
+The footer summarizes the topology and runtime state (**1 host · 1 runtime ·
+Simulator stopped**).
 
 ## Toolbar
 
 - **Search** — find a node, link, or fault.
 - **Filter** — show or hide protocols. Filtering never hides a faulted device.
-- **Discover** — scan for devices, servers, and other runtimes. *Discovered* means *seen*, not connected
-  or live.
+- **Discover ADS devices** — search this computer and the local network for ADS
+  devices, then show the logical ADS services that actually respond. Known
+  addresses, AMS Net IDs, and custom service ports stay under **Advanced** for
+  recovery.
 - **Edit** — enter edit mode, where each runtime and host shows a **+** slot to add a device, runtime, or
   host.
 
@@ -47,7 +51,7 @@ See the per-protocol guides for each one:
 
 | Need | Protocol |
 | --- | --- |
-| Connect to a Beckhoff/TwinCAT PLC, or expose truST to TwinCAT | ADS / TwinCAT |
+| Connect to an ADS device, or expose truST as an ADS device | ADS |
 | Expose runtime variables to SCADA, HMI, or a historian | OPC UA |
 | Read/write register-oriented equipment | Modbus TCP |
 | Publish or subscribe through a broker | MQTT |

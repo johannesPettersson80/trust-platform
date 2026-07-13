@@ -9,37 +9,54 @@ inputs during commissioning.
 
 ## Open it
 
-Click **Live Values** in the truST view (it also opens automatically when you Start the simulator). It
-opens as a **Live Values** editor tab on the right.
+Click **Live Values** in the truST view. It opens as a **Live Values** editor tab
+on the right. Starting the simulator does not open or focus this tab.
 
 ## Before you start
 
-With nothing running, Live Values shows a **Stopped** state and a **Start** button — there is no live data
-to show yet.
+With nothing running, Live Values shows that the Simulator is stopped and that
+there is no live data. It does not contain a second Start/Stop control. Start the
+selected target from the Run card, then return to this tab.
 
-![Live Values stopped: a Start button and "No active Structured Text debug session"](../assets/images/vscode/vscode-live-values-stopped.png)
+![Live Values stopped with no duplicate runtime controls](../assets/images/vscode/vscode-live-values-stopped.png)
 
-*Before you start, Live Values honestly says there is nothing to show — press Start to run the simulator.*
+*Before Start, Live Values reports the stopped Simulator and tells you where to
+start it; the values pane stays focused on values.*
 
 ## Live I/O while it runs
 
 Once the simulator is running, the **I/O** tree fills in, grouped into **Inputs**, **Outputs**, and
 **Memory**. Each row shows the symbol, its address (e.g. `%IX0.0`), its current value, and per-row
-controls — **W** (write), **F** (force), **R** (release).
+actions. **Write** applies a one-time value and **Force** pins a value. While a
+force is active, that row's **Force** action becomes **Release**.
 
-![Live Values running: Inputs and Outputs with current values and W/F/R controls](../assets/images/vscode/vscode-live-values-running.png)
+![Live Values running with Inputs and Outputs plus Write and Force actions](../assets/images/vscode/vscode-live-values-running.png)
 
-*Live I/O once the simulator is running — each signal shows its value and per-row Write / Force / Release controls.*
+*Live I/O once the simulator is running — each signal shows its value with
+clear Write and Force actions.*
+
+## ADS values
+
+When the project contains imported ADS variables, expand **Connected variables
+→ ADS**. Each row shows the generated name, current value, IEC type, and runtime
+quality (**Good**, **Stale**, or **Error**) together with the source connection
+and remote symbol details.
+
+ADS rows are read-only in Live Values. Configure ADS writes explicitly in the
+project rather than treating a commissioning value table as an unguarded write
+surface. If an entry is stale, failed, or does not match the supported snapshot
+contract, Live Values shows that problem instead of displaying it as healthy.
 
 ## Write a value
 
-Click **W** on a row and enter a value. The write is applied and the row updates. A write sets the value
+Click **Write** on a row and enter a value. The write is applied and the row updates. A write sets the value
 once; the program can change it again on the next scan.
 
 ## Force a value
 
-Click **F** to **force** a value — it stays pinned at your value regardless of what the program does.
-A forced value is unmistakable: it carries a green **FORCED** badge, and a **Release all forces** button
+Click **Force** to pin a value regardless of what the program does. A forced
+value is unmistakable: it carries a yellow **FORCED** badge, its row action
+becomes **Release**, and a **Release all forces** button
 appears in the header with a count.
 
 ![An input forced TRUE, badged FORCED, with "Release all forces (1)" in the header](../assets/images/vscode/vscode-live-values-force.png)
@@ -48,7 +65,7 @@ appears in the header with a count.
 
 ## Release forces
 
-- **R** on a row releases that one force.
+- **Release** on a forced row releases that one force.
 - **Release all forces (N)** in the header clears every override at once — the safety action to get back
   to live behaviour quickly.
 

@@ -21,19 +21,20 @@ import {
   preferredStructuredTextUri,
   runtimeSourceOptions,
   selectWorkspaceFolderPathForMode,
-  validateConfiguration,
 } from "./debug/configuration";
 import { diagnosticsGateReason, validityLine } from "./compileGate";
 import {
-  applyLaunchControlEndpoint,
-  launchControlEndpointError,
+  launchControlPreparationError,
   prepareLaunchControl,
 } from "./debug/launchControl";
 import {
   redactDapMessage,
-  redactDebugConfig,
+  redactDebugText,
   stringifyDebugSession,
 } from "./debug/sessionLogging";
+import { registerDebugStartCommand } from "./debug/startCommand";
+import { runtimeLifecycleService } from "./runtimeLifecycle";
+import { sameRuntimeDebugSession } from "./runtimeSessionAuthority";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
 const HOT_RELOAD_REQUEST_TIMEOUT_MS = 30000;
@@ -123,8 +124,6 @@ type LaunchFallbackState = {
 };
 
 const launchFallbackState = new Map<string, LaunchFallbackState>();
-const structuredTextSessions = new Map<string, vscode.DebugSession>();
-
 type IoCommandArgs = {
   address?: string;
   value?: string;
@@ -141,34 +140,6 @@ type ExpressionCommandArgs = {
   value?: string;
 };
 
-function structuredTextSessionKey(session: vscode.DebugSession): string {
-  return session.id ?? session.name;
-}
-
-function structuredTextSession(): vscode.DebugSession | undefined {
-  const active = vscode.debug.activeDebugSession;
-  if (active && active.type === DEBUG_TYPE) {
-    return active;
-  }
-  for (const session of structuredTextSessions.values()) {
-    return session;
-  }
-  return undefined;
-}
-
-function sameDebugSession(
-  left: vscode.DebugSession | undefined,
-  right: vscode.DebugSession
-): boolean {
-  if (!left) {
-    return false;
-  }
-  if (left.id && right.id) {
-    return left.id === right.id;
-  }
-  return left.name === right.name && left.type === right.type;
-}
-
 async function waitForStructuredTextSessionTerminated(
   session: vscode.DebugSession,
   timeoutMs = DEBUG_STOP_WAIT_TIMEOUT_MS
@@ -181,7 +152,7 @@ async function waitForStructuredTextSessionTerminated(
     };
     const timer = setTimeout(() => finish(false), timeoutMs);
     const disposable = vscode.debug.onDidTerminateDebugSession((terminated) => {
-      if (sameDebugSession(terminated, session)) {
+      if (sameRuntimeDebugSession(terminated, session)) {
         finish(true);
       }
     });
@@ -427,7 +398,7 @@ class StructuredTextDebugConfigurationProvider
       Object.assign(config, runtimeOptions);
     } else {
       if (!config.program) {
-        const configUri = await ensureConfigurationEntryAuto();
+        const configUri = await ensureConfigurationEntryAuto(folder);
         if (!configUri) {
           return null;
         }
@@ -435,7 +406,7 @@ class StructuredTextDebugConfigurationProvider
       } else {
         const programUri = vscode.Uri.file(config.program);
         if (!(await isConfigurationFile(programUri))) {
-          const configUri = await ensureConfigurationEntryAuto();
+          const configUri = await ensureConfigurationEntryAuto(folder);
           if (!configUri) {
             return null;
           }
@@ -463,6 +434,9 @@ class StructuredTextDebugConfigurationProvider
     );
     if (launchControl.migratedRuntimeToml) {
       debugChannel().appendLine("Secured Windows local runtime control authentication in runtime.toml.");
+    }
+    if (launchControl.failure) {
+      throw launchControlPreparationError(launchControl.failure);
     }
 
     debugChannel().appendLine(
@@ -557,7 +531,7 @@ class StructuredTextDebugAdapterTrackerFactory
         }
       },
       onError: (error) => {
-        channel.appendLine(`[DAP] error: ${error}`);
+        channel.appendLine(`[DAP] error: ${redactDebugText(error)}`);
       },
       onExit: (code, signal) => {
         channel.appendLine(
@@ -611,7 +585,6 @@ export function registerDebugAdapter(
         `Debug session started: ${session.name} type=${session.type} config=${stringifyDebugSession(session)}`
       );
       if (session.type === DEBUG_TYPE) {
-        structuredTextSessions.set(structuredTextSessionKey(session), session);
         markSessionProgram(session);
       }
     })
@@ -628,7 +601,6 @@ export function registerDebugAdapter(
         if (current?.fallbackTimer) {
           clearTimeout(current.fallbackTimer);
         }
-        structuredTextSessions.delete(structuredTextSessionKey(session));
         launchFallbackState.delete(sessionId);
         clearSessionProgram(session);
       }
@@ -650,108 +622,14 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       captureStructuredTextEditor(editor);
-      void maybeReloadForEditor(editor);
+      void maybeReloadForEditor(
+        editor,
+        runtimeLifecycleService.acceptedDebugSession(),
+      );
     })
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "trust-lsp.debug.start",
-      async (programOverride?: string | vscode.Uri) => {
-        let programUri: vscode.Uri | undefined;
-        let folder: vscode.WorkspaceFolder | undefined;
-
-        if (typeof programOverride === "string" && programOverride.trim()) {
-          programUri = vscode.Uri.file(programOverride);
-        } else if (programOverride instanceof vscode.Uri) {
-          programUri = programOverride;
-        }
-
-        if (programUri) {
-          if (!(await isConfigurationFile(programUri))) {
-            vscode.window.showErrorMessage(
-              "Debugging requires a CONFIGURATION entry file."
-            );
-            return false;
-          }
-        } else {
-          programUri = await ensureConfigurationEntryAuto();
-          if (!programUri) {
-            return false;
-          }
-        }
-
-        folder = vscode.workspace.getWorkspaceFolder(programUri);
-        if (!folder) {
-          folder = vscode.workspace.workspaceFolders?.[0];
-        }
-
-        const diagnostics = vscode.languages.getDiagnostics(programUri);
-        if (
-          diagnostics.some(
-            (diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error
-          )
-        ) {
-          vscode.window.showErrorMessage(
-            "Configuration has errors. Fix them before starting a debug session."
-          );
-          return false;
-        }
-        if (!(await validateConfiguration(programUri))) {
-          return false;
-        }
-
-        const program = programUri.fsPath;
-        debugChannel().appendLine(`Start debugging command: program=${program}`);
-
-        const runtimeOptions = runtimeSourceOptions(programUri);
-        const config: vscode.DebugConfiguration = {
-          type: DEBUG_TYPE,
-          request: "launch",
-          name: "truST Simulator",
-          program,
-          internalConsoleOptions: "neverOpen",
-          ...runtimeOptions,
-        };
-
-        if (folder) {
-          config.cwd = folder.uri.fsPath;
-        }
-        applyLaunchControlEndpoint(
-          config,
-          folder,
-          context.extensionMode === vscode.ExtensionMode.Test
-        );
-        const launchEndpointError = await launchControlEndpointError(
-          config.controlEndpoint
-        );
-        if (launchEndpointError) {
-          throw new Error(launchEndpointError);
-        }
-
-        const pendingTimer = setTimeout(() => {
-          const active = vscode.debug.activeDebugSession;
-          debugChannel().appendLine(
-            `startDebugging still pending after 5s: active=${active?.name ?? "<none>"} type=${active?.type ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
-          );
-        }, 5000);
-        try {
-          const started = await vscode.debug.startDebugging(folder, config);
-          clearTimeout(pendingTimer);
-          debugChannel().appendLine(
-            `startDebugging result: ${started} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
-          );
-          return started;
-        } catch (err: unknown) {
-          clearTimeout(pendingTimer);
-          debugChannel().appendLine(
-            `startDebugging error: ${err instanceof Error ? err.message : String(err)} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
-          );
-          throw err;
-        }
-      }
-    )
-  );
+  context.subscriptions.push(registerDebugStartCommand(context));
 
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.debug.attach", async () => {
@@ -782,7 +660,7 @@ export function registerDebugAdapter(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.debug.stop", async () => {
-      const session = structuredTextSession();
+      const session = runtimeLifecycleService.acceptedDebugSession();
       if (!session) {
         return false;
       }
@@ -812,7 +690,7 @@ export function registerDebugAdapter(
         if (!address) {
           throw new Error("Missing I/O address.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -829,7 +707,7 @@ export function registerDebugAdapter(
         if (!address) {
           throw new Error("Missing I/O address.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -846,7 +724,7 @@ export function registerDebugAdapter(
         if (!address) {
           throw new Error("Missing I/O address.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -863,7 +741,7 @@ export function registerDebugAdapter(
         if (!expression) {
           throw new Error("Missing expression.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -883,7 +761,7 @@ export function registerDebugAdapter(
         if (!expression) {
           throw new Error("Missing expression.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -903,7 +781,7 @@ export function registerDebugAdapter(
         if (!expression) {
           throw new Error("Missing expression.");
         }
-        const session = structuredTextSession();
+        const session = runtimeLifecycleService.acceptedDebugSession();
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
@@ -926,8 +804,8 @@ export function registerDebugAdapter(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.debug.reload", async () => {
-      const session = vscode.debug.activeDebugSession;
-      if (!session || session.type !== DEBUG_TYPE) {
+      const session = runtimeLifecycleService.acceptedDebugSession();
+      if (!session) {
         const message = "No active Structured Text debug session to update.";
         vscode.window.showErrorMessage(
           message

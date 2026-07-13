@@ -8,6 +8,7 @@ pub struct ResourceHandle<C: Clock + Clone> {
     clock: C,
     join: Option<thread::JoinHandle<()>>,
     cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    ads_live_values: Arc<Mutex<crate::ads::AdsLiveValuesSnapshot>>,
 }
 
 impl<C: Clock + Clone> ResourceHandle<C> {
@@ -20,6 +21,7 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             last_error: self.last_error.clone(),
             clock: self.clock.clone(),
             cmd_tx: self.cmd_tx.clone(),
+            ads_live_values: self.ads_live_values.clone(),
         }
     }
     /// Signal the resource thread to stop.
@@ -66,6 +68,7 @@ pub struct ResourceControl<C: Clock + Clone> {
     last_error: Arc<Mutex<Option<RuntimeError>>>,
     clock: C,
     cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    ads_live_values: Arc<Mutex<crate::ads::AdsLiveValuesSnapshot>>,
 }
 
 impl<C: Clock + Clone> ResourceControl<C> {
@@ -77,6 +80,10 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let state = Arc::new(Mutex::new(ResourceState::Ready));
         let last_error = Arc::new(Mutex::new(None));
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let ads_live_values = Arc::new(Mutex::new(crate::ads::AdsLiveValuesSnapshot::new(
+            0,
+            Vec::new(),
+        )));
         (
             Self {
                 stop,
@@ -84,6 +91,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 last_error,
                 clock,
                 cmd_tx,
+                ads_live_values,
             },
             cmd_rx,
         )
@@ -101,6 +109,10 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let state = Arc::new(Mutex::new(initial_state));
         let last_error = Arc::new(Mutex::new(initial_error));
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let ads_live_values = Arc::new(Mutex::new(crate::ads::AdsLiveValuesSnapshot::new(
+            0,
+            Vec::new(),
+        )));
         (
             Self {
                 stop,
@@ -108,6 +120,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 last_error,
                 clock,
                 cmd_tx,
+                ads_live_values,
             },
             cmd_rx,
         )
@@ -152,6 +165,29 @@ impl<C: Clock + Clone> ResourceControl<C> {
         self.cmd_tx
             .send(command)
             .map_err(|_| RuntimeError::ControlError("command channel closed".into()))
+    }
+
+    /// Read the last complete scan-owned ADS live-values snapshot immediately.
+    pub fn ads_live_values_snapshot(
+        &self,
+    ) -> Result<crate::ads::AdsLiveValuesSnapshot, RuntimeError> {
+        self.ads_live_values
+            .lock()
+            .map(|snapshot| snapshot.clone())
+            .map_err(|_| RuntimeError::ControlError("ADS live-values cache poisoned".into()))
+    }
+
+    /// Publish one complete scan-owned ADS live-values snapshot.
+    pub fn publish_ads_live_values_snapshot(
+        &self,
+        snapshot: crate::ads::AdsLiveValuesSnapshot,
+    ) -> Result<(), RuntimeError> {
+        let mut current = self
+            .ads_live_values
+            .lock()
+            .map_err(|_| RuntimeError::ControlError("ADS live-values cache poisoned".into()))?;
+        *current = snapshot;
+        Ok(())
     }
 }
 

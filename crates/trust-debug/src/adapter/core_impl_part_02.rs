@@ -77,6 +77,8 @@ impl DebugAdapter {
         let io_logger = dap_log.clone();
         let io_seq = Arc::clone(&self.next_seq);
         let io_state_cache = Arc::clone(&self.last_io_state);
+        let ads_state_cache = Arc::clone(&self.last_ads_state);
+        let ads_runtime = self.session.runtime_handle();
         let io_thread = thread::spawn(move || {
             let mut last_sent = Instant::now() - IO_EVENT_MIN_INTERVAL;
             while let Ok(snapshot) = io_rx.recv() {
@@ -85,39 +87,76 @@ impl DebugAdapter {
                     latest = next;
                 }
                 let body = io_state_from_snapshot(latest);
-                let mut should_emit = true;
+                let scan = body.scan;
+                let mut should_emit_io = true;
                 if let Ok(mut cache) = io_state_cache.lock() {
                     if let Some(previous) = cache.as_ref() {
                         if previous == &body {
-                            should_emit = false;
+                            should_emit_io = false;
                         }
                     }
-                    if should_emit {
+                    if should_emit_io {
                         *cache = Some(body.clone());
                     }
                 }
-                if !should_emit {
+                let ads_body = ads_runtime
+                    .lock()
+                    .map(|runtime| {
+                        let mut snapshot = runtime.ads_live_values_snapshot();
+                        if let Some(scan) = scan {
+                            snapshot.scan = scan;
+                        }
+                        snapshot
+                    })
+                    .ok();
+                let mut should_emit_ads = ads_body.is_some();
+                if let (Some(ads_body), Ok(mut cache)) =
+                    (ads_body.as_ref(), ads_state_cache.lock())
+                {
+                    if cache.as_ref() == Some(ads_body) {
+                        should_emit_ads = false;
+                    } else {
+                        *cache = Some(ads_body.clone());
+                    }
+                }
+                if !should_emit_io && !should_emit_ads {
                     continue;
                 }
                 let elapsed = last_sent.elapsed();
                 if elapsed < IO_EVENT_MIN_INTERVAL {
                     thread::sleep(IO_EVENT_MIN_INTERVAL - elapsed);
                 }
-                let event = Event {
-                    seq: io_seq.fetch_add(1, Ordering::Relaxed),
-                    message_type: MessageType::Event,
-                    event: "stIoState".to_string(),
-                    body: Some(body),
-                };
-                let serialized = match serde_json::to_string(&event) {
-                    Ok(serialized) => serialized,
-                    Err(_) => continue,
-                };
-                if let Some(logger) = &io_logger {
-                    let _ = write_protocol_log(logger, "->", &serialized);
+                if should_emit_io {
+                    let event = Event {
+                        seq: io_seq.fetch_add(1, Ordering::Relaxed),
+                        message_type: MessageType::Event,
+                        event: "stIoState".to_string(),
+                        body: Some(body),
+                    };
+                    if let Ok(serialized) = serde_json::to_string(&event) {
+                        if let Some(logger) = &io_logger {
+                            let _ = write_protocol_log(logger, "->", &serialized);
+                        }
+                        if write_message_locked(&io_writer, &serialized).is_err() {
+                            break;
+                        }
+                    }
                 }
-                if write_message_locked(&io_writer, &serialized).is_err() {
-                    break;
+                if should_emit_ads {
+                    let event = Event {
+                        seq: io_seq.fetch_add(1, Ordering::Relaxed),
+                        message_type: MessageType::Event,
+                        event: "stAdsState".to_string(),
+                        body: ads_body,
+                    };
+                    if let Ok(serialized) = serde_json::to_string(&event) {
+                        if let Some(logger) = &io_logger {
+                            let _ = write_protocol_log(logger, "->", &serialized);
+                        }
+                        if write_message_locked(&io_writer, &serialized).is_err() {
+                            break;
+                        }
+                    }
                 }
                 last_sent = Instant::now();
             }

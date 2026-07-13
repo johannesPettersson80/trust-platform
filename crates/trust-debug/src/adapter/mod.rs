@@ -8,6 +8,7 @@
 //! - util: small shared helpers
 //! - tests: adapter unit tests
 
+mod ads;
 mod control_bridge;
 mod core;
 mod handlers;
@@ -37,7 +38,9 @@ use trust_runtime::eval::expr::Expr;
 use trust_runtime::memory::{FrameId, InstanceId};
 use trust_runtime::value::{ArrayValue, StructValue, ValueRef};
 
-use crate::protocol::{AttachArguments, IoStateEventBody, LaunchArguments, Request};
+use crate::protocol::{
+    AdsStateEventBody, AttachArguments, IoStateEventBody, LaunchArguments, Request,
+};
 use crate::runtime::DebugRuntime;
 
 use self::control_bridge::DebugControlServer;
@@ -222,7 +225,9 @@ pub struct DebugAdapter {
     watch_cache: HashMap<String, Expr>,
     runner: Option<DebugRunner>,
     control_server: Option<DebugControlServer>,
+    simulator_launch_succeeded: bool,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,
+    last_ads_state: Arc<Mutex<Option<AdsStateEventBody>>>,
     forced_io_addresses: Arc<Mutex<HashSet<String>>>,
     launch_state: LaunchState,
     pause_expected: Arc<AtomicBool>,

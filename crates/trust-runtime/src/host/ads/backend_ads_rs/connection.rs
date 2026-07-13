@@ -22,7 +22,7 @@ where
 {
     let address = address
         .to_socket_addrs()
-        .map_err(|error| AdsTransportError::new(format!("resolve ADS server address: {error}")))?
+        .map_err(|error| super::map_io_error("resolve ADS server address", error))?
         .next()
         .ok_or_else(|| AdsTransportError::new("ADS server address resolved to no socket"))?;
     let sources = ads_source_candidates_for_route(route)?;
@@ -57,19 +57,13 @@ fn detect_loopback_server_kind(
     timeouts: AdsRsTimeouts,
 ) -> Result<LoopbackServerKind, AdsTransportError> {
     let mut stream = TcpStream::connect_timeout(&address, bounded_timeout(timeouts.connect))
-        .map_err(|error| {
-            AdsTransportError::new(format!("connect local ADS router probe: {error}"))
-        })?;
+        .map_err(|error| super::map_io_error("connect local ADS router probe", error))?;
     stream
         .set_read_timeout(Some(bounded_timeout(timeouts.read)))
-        .map_err(|error| {
-            AdsTransportError::new(format!("set local ADS router probe read timeout: {error}"))
-        })?;
+        .map_err(|error| super::map_io_error("set local ADS router probe read timeout", error))?;
     stream
         .set_write_timeout(Some(bounded_timeout(timeouts.write)))
-        .map_err(|error| {
-            AdsTransportError::new(format!("set local ADS router probe write timeout: {error}"))
-        })?;
+        .map_err(|error| super::map_io_error("set local ADS router probe write timeout", error))?;
 
     const OPEN_PORT: [u8; 8] = [0, 16, 2, 0, 0, 0, 0, 0];
     if stream.write_all(&OPEN_PORT).is_err() {
@@ -80,9 +74,10 @@ fn detect_loopback_server_kind(
         return if is_direct_server_probe_failure(&error) {
             Ok(LoopbackServerKind::Direct)
         } else {
-            Err(AdsTransportError::new(format!(
-                "read local AMS router probe reply: {error}"
-            )))
+            Err(super::map_io_error(
+                "read local AMS router probe reply",
+                error,
+            ))
         };
     }
     if reply[..6] != [0, 16, 8, 0, 0, 0] {
@@ -91,9 +86,7 @@ fn detect_loopback_server_kind(
 
     let close_port = [1, 0, 2, 0, 0, 0, reply[12], reply[13]];
     stream.write_all(&close_port).map_err(|error| {
-        AdsTransportError::new(format!(
-            "close temporary local AMS router probe port: {error}"
-        ))
+        super::map_io_error("close temporary local AMS router probe port", error)
     })?;
     Ok(LoopbackServerKind::Router)
 }
@@ -124,6 +117,21 @@ mod tests {
     use trust_ads_core::{AdsSecurityPolicy, AmsNetId, TransportSecurity};
 
     use super::*;
+
+    #[test]
+    fn refused_loopback_probe_preserves_structured_connection_failure() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve local port");
+        let address = listener.local_addr().expect("reserved address");
+        drop(listener);
+
+        let error = detect_loopback_server_kind(address, AdsRsTimeouts::default())
+            .expect_err("closed local port must refuse the probe");
+
+        assert_eq!(
+            error.failure_kind(),
+            Some(crate::ads::AdsTransportFailureKind::ConnectionRefused)
+        );
+    }
 
     #[test]
     fn direct_loopback_server_falls_back_after_bounded_router_probe() {

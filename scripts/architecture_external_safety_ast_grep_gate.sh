@@ -46,6 +46,8 @@ run_pattern() {
   local raw="$RAW_TMP_DIR/${label}.json"
   local normalized="$NORMALIZED_TMP_DIR/${label}.json"
 
+  local scan_status
+  set +e
   (
     cd "$ROOT"
     "$AST_GREP_BIN" run \
@@ -58,15 +60,32 @@ run_pattern() {
       --globs "!**/*tests.rs" \
       crates third_party
   ) >"$raw"
+  scan_status=$?
+  set -e
+  if ((scan_status > 1)); then
+    echo "error: ast-grep rule '$label' failed with status $scan_status" >&2
+    return "$scan_status"
+  fi
 
   jq --arg rule "$label" '
-    .[]
+    def unsafe_alias_offset($text):
+      ([$text | split("\n") | to_entries[]
+        | select(.value | contains("unsafe extern \"system\" fn"))
+        | .key][0] // 0);
+    .[] as $match
     | {
         rule: $rule,
-        path: .file,
-        line: (.range.start.line + 1),
-        column: (.range.start.column + 1),
-        text: .text
+        path: $match.file,
+        line: (
+          $match.range.start.line
+          + (if ($rule | startswith("unsafe_extern_system_fn_type_"))
+             then unsafe_alias_offset($match.text)
+             else 0
+             end)
+          + 1
+        ),
+        column: ($match.range.start.column + 1),
+        text: $match.text
       }
   ' "$raw" >"$normalized"
 }
@@ -76,6 +95,8 @@ run_pattern "unsafe_impl" 'unsafe impl $TRAIT for $TYPE { $$$BODY }'
 run_pattern "unsafe_fn_no_return" 'unsafe fn $NAME($$$ARGS) { $$$BODY }'
 run_pattern "unsafe_fn_return" 'unsafe fn $NAME($$$ARGS) -> $RET { $$$BODY }'
 run_pattern "unsafe_fn_generic_return" 'unsafe fn $NAME<$GENERIC>($$$ARGS) -> $RET { $$$BODY }'
+run_pattern "unsafe_extern_system_fn_type_public" 'pub type $NAME = unsafe extern "system" fn($$$ARGS) -> $RET;'
+run_pattern "unsafe_extern_system_fn_type_private" 'type $NAME = unsafe extern "system" fn($$$ARGS) -> $RET;'
 
 jq -s 'flatten' "$RAW_TMP_DIR"/*.json >"$RAW_JSON"
 jq -s '

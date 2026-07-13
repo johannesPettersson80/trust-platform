@@ -10,9 +10,8 @@ use crate::ads::diagnostics::{
     ProductionEvidence, TargetIdentity,
 };
 use crate::ads::onboarding::{
-    derive_runtime_identity_from_source, resolve_os_source_ip,
-    runtime_address_candidates_from_interfaces, ActiveAdsDeviceSnapshot, ActiveDeviceStrategy,
-    DoctorCancellation, DoctorJobProgress, DoctorOptions, IdentityRequest,
+    derive_host_ads_identity, runtime_address_candidates_from_interfaces, ActiveAdsDeviceSnapshot,
+    ActiveDeviceStrategy, DoctorCancellation, DoctorJobProgress, DoctorOptions, IdentityRequest,
 };
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
@@ -244,13 +243,14 @@ fn build_doctor_options(
     };
     let target_for_active = active_target_identity(&params);
     let active_device = query_active_device(resource, &target_for_active, Some(&local_identity))?;
+    let ams_port = requested_ams_port(&params);
 
     let mut options = DoctorOptions {
         ran_from: params.ran_from.unwrap_or(DoctorVantage::RuntimeHost),
         transport: params.transport.unwrap_or(DiagnosticTransport::Plain),
         target_ip: params.target_ip,
         expected_target_ams_net_id: params.expected_target_ams_net_id,
-        ams_port: params.ams_port.unwrap_or(851),
+        ams_port,
         local_identity: Some(local_identity),
         selected_symbol: params.selected_symbol,
         writes_enabled: params.writes_enabled,
@@ -276,23 +276,12 @@ fn derive_local_identity(params: &DoctorControlParams) -> Result<LocalIdentity, 
         target_ip: params.target_ip.clone(),
         local_net_id_override: params.local_net_id_override.clone(),
     };
-    let chosen_ip = resolve_os_source_ip(params.target_ip.as_str()).map_err(|error| {
-        format!(
-            "failed to derive runtime host ADS identity toward '{}': {error}",
-            params.target_ip
-        )
-    })?;
     let candidates = runtime_address_candidates_from_interfaces().unwrap_or_default();
-    let nic = candidates
-        .iter()
-        .find(|candidate| candidate.ip == chosen_ip)
-        .and_then(|candidate| candidate.nic.clone());
-    derive_runtime_identity_from_source(&request, chosen_ip, None, nic, candidates)
-        .map_err(|error| error.to_string())
+    derive_host_ads_identity(&request, candidates).map_err(|error| error.to_string())
 }
 
 fn active_target_identity(params: &DoctorControlParams) -> TargetIdentity {
-    params
+    let mut target = params
         .target_identity
         .clone()
         .unwrap_or_else(|| TargetIdentity {
@@ -302,9 +291,23 @@ fn active_target_identity(params: &DoctorControlParams) -> TargetIdentity {
                 .expected_target_ams_net_id
                 .clone()
                 .unwrap_or_default(),
-            ams_port: params.ams_port.unwrap_or(851),
+            ams_port: requested_ams_port(params),
             tc_version: None,
+        });
+    target.ams_port = requested_ams_port(params);
+    target
+}
+
+fn requested_ams_port(params: &DoctorControlParams) -> u16 {
+    params
+        .ams_port
+        .or_else(|| {
+            params
+                .target_identity
+                .as_ref()
+                .map(|target| target.ams_port)
         })
+        .unwrap_or(851)
 }
 
 fn query_active_device(
@@ -370,6 +373,50 @@ struct DoctorControlParams {
     ran_from: Option<DoctorVantage>,
     #[serde(default)]
     transport: Option<DiagnosticTransport>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn params(value: serde_json::Value) -> DoctorControlParams {
+        serde_json::from_value(value).expect("doctor params")
+    }
+
+    #[test]
+    fn discovered_target_port_is_preserved_when_no_override_is_supplied() {
+        let params = params(serde_json::json!({
+            "target_ip": "127.0.0.1",
+            "target_identity": {
+                "name": "Local ADS runtime",
+                "ip": "127.0.0.1",
+                "ams_net_id": "10.20.30.40.1.1",
+                "ams_port": 501,
+                "tc_version": null
+            }
+        }));
+
+        assert_eq!(requested_ams_port(&params), 501);
+        assert_eq!(active_target_identity(&params).ams_port, 501);
+    }
+
+    #[test]
+    fn explicit_advanced_port_overrides_discovered_target_port() {
+        let params = params(serde_json::json!({
+            "target_ip": "127.0.0.1",
+            "ams_port": 301,
+            "target_identity": {
+                "name": "Local ADS runtime",
+                "ip": "127.0.0.1",
+                "ams_net_id": "10.20.30.40.1.1",
+                "ams_port": 501,
+                "tc_version": null
+            }
+        }));
+
+        assert_eq!(requested_ams_port(&params), 301);
+        assert_eq!(active_target_identity(&params).ams_port, 301);
+    }
 }
 
 #[derive(Debug, Deserialize)]

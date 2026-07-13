@@ -11,7 +11,6 @@ import {
   planAdsServicePorts,
   probeAdsServicesSequentially,
 } from "./adsServiceProbeModel";
-import { classifyAdsBrowseCommandFailure } from "./adsBrowseContract";
 import {
   offlineBrowseSymbols,
   type BrowseSymbolsResponse,
@@ -28,9 +27,9 @@ export interface AdsServiceProbeControllerDependencies {
 }
 
 export const ACTIVE_ADS_CONNECTION_PROBE_SAFETY_MESSAGE =
-  "The selected runtime is currently reading TwinCAT or reconnecting. Service checks are paused to protect live PLC I/O. Stop its TwinCAT connection before checking services.";
+  "The selected runtime already owns an active ADS connection. Read-only service checks are paused to protect live PLC I/O. Stop that ADS connection before retrying.";
 export const UNKNOWN_ADS_CONNECTION_PROBE_SAFETY_MESSAGE =
-  "truST could not verify whether the selected runtime is reading TwinCAT, so service checks were paused to protect PLC I/O. Reconnect or update that runtime, then verify its TwinCAT I/O is stopped before retrying.";
+  "truST could not verify whether the selected runtime owns an ADS connection, so read-only service checks were paused to protect PLC I/O. Reconnect or update that runtime, then retry.";
 
 export function adsStatusProbeSafetyMessage(
   report: unknown
@@ -48,7 +47,9 @@ export function localRuntimeTargetForAdsProbe(
 ): RuntimeTarget | undefined {
   return target?.mode === "online" &&
     target.endpoint &&
-    isLocalControlEndpoint(target.endpoint)
+    isLocalControlEndpoint(target.endpoint) &&
+    target.reachable &&
+    target.status === "online_reachable"
     ? target
     : undefined;
 }
@@ -137,7 +138,7 @@ export class AdsServiceProbeController {
             requestId: request.requestId,
             candidateId: request.candidate.id,
             results: [],
-            error: "The selected discovery runtime is no longer reachable. Reconnect it and find TwinCAT again.",
+            error: "The selected discovery runtime is no longer reachable. Reconnect it and discover ADS devices again.",
           });
           return;
         }
@@ -307,7 +308,7 @@ export class AdsServiceProbeController {
     if (request.origin !== "this_host") {
       if (!isReachableRuntime(runtime) || !runtime.endpoint) {
         throw new Error(
-          "The selected discovery runtime is no longer reachable. Reconnect it and find TwinCAT again."
+          "The selected discovery runtime is no longer reachable. Reconnect it and discover ADS devices again."
         );
       }
       try {
@@ -372,7 +373,7 @@ function parseProbeRequest(
     label:
       typeof message.candidate.label === "string"
         ? message.candidate.label
-        : "TwinCAT computer",
+        : "ADS device",
     protocol: "ads",
     source:
       typeof message.candidate.source === "string"
@@ -402,13 +403,17 @@ function parseProbeRequest(
   };
 }
 
-function failedBrowseResponse(error: unknown): BrowseSymbolsResponse {
+export function failedBrowseResponse(error: unknown): BrowseSymbolsResponse {
   const message = error instanceof Error ? error.message : String(error);
+  // A failed control exchange is not a reply from the logical ADS service.
+  // Preserve its detail, but do not infer service availability from wording.
   return {
+    schema_version: 1,
     protocol: "ads",
+    kind: "symbols",
     tree: [],
     error: {
-      code: classifyAdsBrowseCommandFailure(message),
+      code: "control_request_failed",
       message,
     },
   };

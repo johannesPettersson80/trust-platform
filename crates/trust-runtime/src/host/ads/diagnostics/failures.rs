@@ -6,6 +6,7 @@ use super::{AdsErrorInfo, NextAction, NextActionKind};
 #[serde(rename_all = "snake_case")]
 pub enum OnboardingFailureKind {
     UdpIdentifyBlocked,
+    LocalRouterUnavailable,
     #[serde(rename = "tcp_48898_blocked")]
     Tcp48898Blocked,
     RouteMissing,
@@ -37,6 +38,12 @@ pub fn classify_onboarding_failure(kind: OnboardingFailureKind) -> FailureClassi
             kind,
             "The PLC did not answer ADS discovery.",
             "Enter the PLC IP manually or check UDP 48899 and firewall rules.",
+            NextActionKind::PickTarget,
+        ),
+        OnboardingFailureKind::LocalRouterUnavailable => classification(
+            kind,
+            "The ADS router or intended PLC runtime on this computer did not answer.",
+            "Start the local ADS router and intended PLC runtime. If both are running, repair the local ADS installation or verify the runtime AMS Net ID.",
             NextActionKind::PickTarget,
         ),
         OnboardingFailureKind::Tcp48898Blocked => classification(

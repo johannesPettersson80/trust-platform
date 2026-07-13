@@ -13,7 +13,9 @@ import {
   buildOfflineAdsImportArgs,
   buildOfflineBrowseSymbolsArgs,
   classifyAdsBrowseCommandFailure,
+  listExistingAdsSnapshotPaths,
 } from "./adsBrowseContract";
+import { enableRuntimeAdsToml } from "./runtimeAdsToml";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
@@ -131,14 +133,6 @@ function numberField(value: Record<string, unknown>, key: string): number | unde
   return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
 }
 
-function upsertTomlKey(section: string, key: string, value: string): string {
-  const re = new RegExp(`^${key}\\s*=.*$`, "m");
-  if (re.test(section)) {
-    return section.replace(re, `${key} = ${value}`);
-  }
-  return `${section.trimEnd()}\n${key} = ${value}\n`;
-}
-
 export function ensureAdsRuntimeEnabled(
   projectDir: string,
   configPath = "ads.toml"
@@ -152,26 +146,10 @@ export function ensureAdsRuntimeEnabled(
   }
 
   const before = fs.readFileSync(runtimeTomlPath, "utf8");
-  const sectionHeader = "[runtime.ads]";
-  let after = before;
-  const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRe = new RegExp(`(^${escapedHeader}\\s*$)([\\s\\S]*?)(?=^\\[|\\s*$)`, "m");
-  const match = sectionRe.exec(before);
-  if (match) {
-    let section = `${match[1]}${match[2]}`;
-    section = upsertTomlKey(section, "enabled", "true");
-    section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
-    if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
-      section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
-    }
-    after = `${before.slice(0, match.index)}${section}${before.slice(match.index + match[0].length)}`;
-  } else {
-    const suffix = before.endsWith("\n") ? "\n" : "\n\n";
-    after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
-  }
+  const after = enableRuntimeAdsToml(before, configPath);
 
   if (after !== before) {
-    fs.writeFileSync(runtimeTomlPath, after);
+    fs.writeFileSync(runtimeTomlPath, after, "utf8");
   }
   return { ok: true, changed: after !== before, runtimeTomlPath };
 }
@@ -260,6 +238,7 @@ export interface DiscoverResponse {
   schema_version?: number;
   protocol: string;
   candidates: DiscoverCandidate[];
+  warnings?: string[];
 }
 
 // §0.5.3 `comm.browse_symbols` — look INSIDE a target: its tags/nodes/channels.
@@ -278,7 +257,7 @@ export interface SymbolNode {
 }
 
 // §0.5.2 a ready-to-run AMS route setup artifact (PowerShell / StaticRoutes.xml / manual steps),
-// carried in the route_plan so the canvas can show "Create route" without handling any credentials.
+// carried in the route_plan so the canvas can show honest route-setup instructions without credentials.
 export interface RouteArtifact {
   kind?: string;
   label: string;
@@ -295,7 +274,8 @@ export interface RoutePlan {
 export interface BrowseSymbolsResponse {
   schema_version?: number;
   protocol: string;
-  // ADS route status on a LIVE browse; `status:"missing"` → offer "Create route" (carries route_plan).
+  kind?: string;
+  // ADS route status on a LIVE browse; `status:"missing"` → offer Route setup (carries route_plan).
   route?: { status?: string; route_plan?: RoutePlan };
   // Structured protocol browse failure. OPC UA and ADS use protocol-specific codes so the canvas
   // can offer honest recovery instead of collapsing every failure into an empty tree.
@@ -364,11 +344,26 @@ export async function offlineAdsImportSymbols(
   }
 
   const connectionName = stringField(target, "name") ?? "ads_import";
+  let existingSnapshotPaths: string[];
+  try {
+    existingSnapshotPaths = listExistingAdsSnapshotPaths(
+      projectDir,
+      connectionName,
+    );
+  } catch (error) {
+    return {
+      applied: false,
+      message: `ADS variable import could not read existing symbol snapshots: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
   const args = buildOfflineAdsImportArgs(
     projectDir,
     target,
     connectionName,
-    normalizedSymbols
+    normalizedSymbols,
+    existingSnapshotPaths,
   );
 
   const result = await runJsonCommand<AdsImportSymbolsReport>(
@@ -431,9 +426,16 @@ export async function offlineBrowseSymbols(
   if (protocol !== "ads") {
     return undefined;
   }
-  const message = result.message ?? "ADS symbol browse failed.";
+  return adsBrowseFailureResponse(result.message);
+}
+
+/** Preserve CLI/transport diagnostics in the same versioned contract as a successful ADS browse. */
+export function adsBrowseFailureResponse(messageValue?: string): BrowseSymbolsResponse {
+  const message = messageValue ?? "ADS symbol browse failed.";
   return {
-    protocol,
+    schema_version: 1,
+    protocol: "ads",
+    kind: "symbols",
     tree: [],
     error: {
       code: classifyAdsBrowseCommandFailure(message),

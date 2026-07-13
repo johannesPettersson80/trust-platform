@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import type { RuntimeTarget } from "../runtimeTarget";
 import {
-  START_RUNTIME_ACTION,
+  OPEN_RUN_ACTION,
   adsImportFailurePrompt,
 } from "./adsImportUx";
 import { buildExposeApplyParams } from "./exposeConfig";
@@ -30,7 +30,6 @@ export interface ProtocolActionDependencies {
     browseSessionId: string | undefined
   ) => RuntimeTarget | undefined;
   readonly refresh: () => Promise<void>;
-  readonly startRuntime: () => Promise<void>;
 }
 
 /** Owns protocol-specific browse/import mutations outside the panel lifecycle shell. */
@@ -95,7 +94,7 @@ export class NetworkCanvasProtocolActions {
         error: {
           code: "discovery_origin_unreachable",
           message:
-            "The selected discovery runtime is no longer reachable. Reconnect it and find TwinCAT again.",
+            "The selected discovery runtime is no longer reachable. Reconnect it and discover ADS devices again.",
         },
       };
     } else if (viaRuntime && runtime?.endpoint) {
@@ -348,18 +347,24 @@ export class NetworkCanvasProtocolActions {
       Boolean(message.writable)
     );
     if (report.applied) {
-      await vscode.window.showInformationMessage(report.message);
+      await vscode.window.showInformationMessage(
+        `Added ${countLabel(
+          report.selected_count ?? paths.length,
+          "ADS variable",
+        )}. Restart the Simulator, then view the imported variables in Live Values → ADS.`,
+      );
       await this.dependencies.refresh();
       return;
     }
     const prompt = adsImportFailurePrompt(report.message);
+    console.error(`[truST ADS import] ${report.message}`);
     const selected = await vscode.window.showWarningMessage(
       prompt.message,
       { modal: prompt.modal, detail: prompt.detail },
       ...prompt.actions
     );
-    if (selected === START_RUNTIME_ACTION) {
-      await this.dependencies.startRuntime();
+    if (selected === OPEN_RUN_ACTION) {
+      await vscode.commands.executeCommand("trust.home.focus");
     }
   }
 
@@ -402,10 +407,13 @@ export class NetworkCanvasProtocolActions {
         { timeoutMs: 20_000 }
       );
       if (!report?.applied) {
+        const raw = report?.message ?? "The runtime rejected the import.";
+        console.error(`[truST ADS import] ${raw}`);
+        const prompt = adsImportFailurePrompt(raw);
         await vscode.window.showWarningMessage(
-          `Could not add variables: ${
-            report?.message ?? "the runtime rejected the import."
-          }`
+          prompt.message,
+          { modal: prompt.modal, detail: prompt.detail },
+          ...prompt.actions
         );
         return;
       }
@@ -422,14 +430,17 @@ export class NetworkCanvasProtocolActions {
         `Added ${countLabel(
           report.selected_count ?? paths.length,
           "ADS variable"
-        )}. Restart the runtime to apply the generated ST symbols.`
+        )}. Restart the Simulator, then view the imported variables in Live Values → ADS.`
       );
       await this.dependencies.refresh();
     } catch (error) {
+      const raw = error instanceof Error ? error.message : String(error);
+      console.error(`[truST ADS import] ${raw}`);
+      const prompt = adsImportFailurePrompt(raw);
       await vscode.window.showWarningMessage(
-        `Could not add variables: ${
-          error instanceof Error ? error.message : String(error)
-        } (live ADS import needs an ads-wire runtime build).`
+        prompt.message,
+        { modal: prompt.modal, detail: prompt.detail },
+        ...prompt.actions
       );
     }
   }
@@ -459,9 +470,9 @@ export class NetworkCanvasProtocolActions {
 function protocolDisplayName(protocol: string): string {
   switch (protocol) {
     case "ads":
-      return "ADS client";
+      return "Read from ADS";
     case "ads_server":
-      return "ADS server";
+      return "Share over ADS";
     case "opcua":
       return "OPC UA server";
     case "opcua_client":
