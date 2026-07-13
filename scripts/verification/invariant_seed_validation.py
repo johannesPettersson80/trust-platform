@@ -15,6 +15,7 @@ from .invariant_seed_lifecycle import (
     BASELINE,
     BASELINE_STATUSES,
     EXECUTION_READY,
+    EXECUTION_READY_SEED_IDS,
     EXECUTION_STATUSES,
     LIFECYCLE_STATES,
     LIFECYCLE_VERSION,
@@ -205,8 +206,8 @@ def validate_report_payload(
         for row in rows
         if isinstance(row, Mapping) and row.get("lifecycle_state") == EXECUTION_READY
     ]
-    if execution_ready_ids != ["IEC_TIMER_001"]:
-        failures.append("execution_ready lifecycle must identify only IEC_TIMER_001")
+    if sorted(execution_ready_ids) != sorted(EXECUTION_READY_SEED_IDS):
+        failures.append("execution_ready lifecycle does not match reviewed seed IDs")
     summary = payload.get("summary")
     if not isinstance(summary, Mapping):
         failures.append("summary must be an object")
@@ -270,9 +271,10 @@ def validate_schema_contract(
     if row.get("lifecycle_version", {}).get("const") != LIFECYCLE_VERSION:
         failures.append("report schema lifecycle-version const drifts from validator")
     summary_properties = definitions.get("summary", {}).get("properties", {})
-    if summary_properties.get("baseline_lifecycle", {}).get("const") != 43:
+    execution_ready_count = len(EXECUTION_READY_SEED_IDS)
+    if summary_properties.get("baseline_lifecycle", {}).get("const") != 44 - execution_ready_count:
         failures.append("report schema baseline-lifecycle const drifts from validator")
-    if summary_properties.get("execution_ready_lifecycle", {}).get("const") != 1:
+    if summary_properties.get("execution_ready_lifecycle", {}).get("const") != execution_ready_count:
         failures.append("report schema execution-ready-lifecycle const drifts from validator")
     _require_closed_objects(schema, "$", failures)
     if manifest_schema is not None:

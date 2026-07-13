@@ -5,25 +5,35 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
-claim = "The runtime execution deadline must be armed as documented and its expiry must be visible to control and status surfaces."
+last_reviewed = "2026-07-13"
+claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
 proof_level = "S0"
-contract_kind = "fault_scenario"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = []
+tests = ["TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
 gates = []
 evidence_refs = []
-missing = ["cataloged_deadline_cases", "deadline_surface_proof"]
+missing = ["producer_authentic_red_green", "broad_remote_proof"]
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
 
 [oracle]
-kind = "reviewed_decision"
-ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "WATCHDOG_BEFORE_OUTPUT_COMMIT_WITH_EMPTY_SAFE_STATE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-production"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "When the watchdog deadline expires before physical output commit and no safe outputs are configured, the resource faults visibly and the pending process-image output is not written."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "gap_open"
-rationale = "The reviewed deadline decision exists, but accepted fault cases and proof are not linked."
+rationale = "The written watchdog output-commit behavior has a cataloged case, but paired red/green and broad remote evidence are still required."

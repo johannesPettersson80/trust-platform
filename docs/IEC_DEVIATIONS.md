@@ -6,6 +6,27 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Watchdog output-commit and empty safe-state policy
+
+- ID: DEV-035
+- Area: Runtime watchdog and physical output commit
+- IEC reference: IEC 61131-3 does not standardize truST's host-runtime watchdog
+  thresholds, fault action, or physical driver commit boundary.
+- Deviation:
+  - truST checks the watchdog deadline before the physical output-driver write.
+  - An expired deadline prevents the pending process-image output from being
+    written.
+  - Fault handling writes configured safe-state values when at least one value
+    is configured. With an empty safe-state configuration, it performs no
+    physical output write.
+- Impact:
+  - Without configured safe outputs, the device remains at its last physically
+    committed state after the watchdog fault; the uncommitted current-cycle
+    image is never used as an implicit safe state.
+- Mitigation:
+  - Configure explicit safe-state outputs for installations that require a
+    physical transition on watchdog fault.
+
 ## 2026-04-27 - `UNION` aggregate initialization as truST extension
 
 - Area: Structured Text data types and initializers

@@ -48,7 +48,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-13"
 covers = [
   "scan_cycle_architecture",
   "clock_abstraction",
@@ -157,10 +157,11 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DEVIATIONS.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-13"
 covers = [
   "iec_deviations",
   "vendor_extensions",
+  "watchdog_output_commit",
 ]
 known_limitations = [
   "Each deviation still needs linked tests before related invariants can be validated.",

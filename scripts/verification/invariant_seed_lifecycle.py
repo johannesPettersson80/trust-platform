@@ -17,7 +17,7 @@ LIFECYCLE_VERSION = 1
 BASELINE = "baseline"
 EXECUTION_READY = "execution_ready"
 LIFECYCLE_STATES = {BASELINE, EXECUTION_READY}
-EXECUTION_READY_SEED_IDS = {"IEC_TIMER_001"}
+EXECUTION_READY_SEED_IDS = {"IEC_TIMER_001", "RT_SAFE_DEADLINE_001"}
 BASELINE_STATUSES = {"gap_open", "spec_gap"}
 EXECUTION_STATUSES = {
     "gap_open",
@@ -59,9 +59,9 @@ def validate_seed_lifecycle(
         raise ValueError(f"{prefix}: unknown lifecycle_state {lifecycle_state!r}")
     if seed_id in EXECUTION_READY_SEED_IDS:
         if lifecycle_state != EXECUTION_READY:
-            raise ValueError(f"{prefix}: IEC_TIMER_001 must use execution_ready")
+            raise ValueError(f"{prefix}: reviewed execution seed must use execution_ready")
     elif lifecycle_state != BASELINE:
-        raise ValueError(f"{prefix}: only IEC_TIMER_001 may use execution_ready")
+        raise ValueError(f"{prefix}: seed is not reviewed for execution_ready")
 
     spec = invariant.get("spec")
     oracle = invariant.get("oracle")

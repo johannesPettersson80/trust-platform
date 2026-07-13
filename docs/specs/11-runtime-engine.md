@@ -327,11 +327,15 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
 **Watchdog policy (production):**
 - A watchdog monitors cycle/task execution time.
 - If the watchdog timeout elapses, the runtime raises a **FAULT** and halts the resource.
+- The output-commit deadline is checked before any physical driver write. If it
+  has elapsed, the pending process-image output is not sent to a driver.
 - Timeout thresholds and fault action are configured per resource (see §6.9) and are
   **implementer-specific** in IEC 61131-3 (recorded in `docs/IEC_DEVIATIONS.md`).
 - Default action is **safe_halt**: outputs are set to configured safe values (if provided),
   then the resource halts. For **halt** and **safe_halt**, safe-state outputs are applied
-  before halting.
+  before halting. If no safe-state output values are configured, fault handling performs
+  no physical output write; it must not re-send the pending process-image output as a
+  substitute safe state.
 
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 

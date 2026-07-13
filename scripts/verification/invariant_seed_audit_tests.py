@@ -102,18 +102,18 @@ class SeedManifestContractTests(unittest.TestCase):
         self.assertEqual(["VM_SEAM_TYPE_001", "VM_SEAM_TYPE_002"], merged)
         self.assertEqual(5, sum(row.p4_000_risk_id is not None for row in audit.rows))
         self.assertEqual(
-            ["IEC_TIMER_001"],
+            ["RT_SAFE_DEADLINE_001", "IEC_TIMER_001"],
             [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
         )
         self.assertTrue(
             all(row.lifecycle_version == LIFECYCLE_VERSION for row in audit.rows)
         )
 
-    def test_only_reviewed_timer_seed_may_enter_execution_lifecycle(self) -> None:
+    def test_only_reviewed_seeds_may_enter_execution_lifecycle(self) -> None:
         manifest = _load_manifest(self.root)
         manifest["seeds"][0]["lifecycle_state"] = EXECUTION_READY
         _write_manifest(self.root, manifest)
-        with self.assertRaisesRegex(ValueError, "only IEC_TIMER_001 may use execution_ready"):
+        with self.assertRaisesRegex(ValueError, "not reviewed for execution_ready"):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
@@ -121,7 +121,7 @@ class SeedManifestContractTests(unittest.TestCase):
         timer = next(row for row in manifest["seeds"] if row["seed_id"] == "IEC_TIMER_001")
         timer["lifecycle_state"] = BASELINE
         _write_manifest(self.root, manifest)
-        with self.assertRaisesRegex(ValueError, "IEC_TIMER_001 must use execution_ready"):
+        with self.assertRaisesRegex(ValueError, "reviewed execution seed must use execution_ready"):
             load_seed_audit(self.root)
 
     def test_lifecycle_version_drift_fails_closed(self) -> None:
@@ -317,7 +317,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            promotion.assert_called_once()
+            self.assertEqual(2, promotion.call_count)
 
         for mutate, signal in (
             (
@@ -386,7 +386,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            promotion.assert_called_once()
+            self.assertEqual(2, promotion.call_count)
 
     def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
         arguments = _loaded_contract_arguments(self.root)
@@ -587,13 +587,17 @@ class SeedAuditReportTests(unittest.TestCase):
         state = build_live_seed_audit_state(self.root)
         payload = _payload_for_state(state)
         timer = next(row for row in payload["rows"] if row["seed_id"] == "IEC_TIMER_001")
-        other = next(row for row in payload["rows"] if row["seed_id"] != "IEC_TIMER_001")
+        other = next(
+            row
+            for row in payload["rows"]
+            if row["lifecycle_state"] == BASELINE
+        )
         timer["lifecycle_state"] = BASELINE
         other["lifecycle_state"] = EXECUTION_READY
         payload["summary"] = build_summary(payload["rows"])
         failures = validate_report_payload(payload)
         self.assertTrue(
-            any("execution_ready lifecycle must identify only IEC_TIMER_001" in item for item in failures),
+            any("execution_ready lifecycle does not match reviewed seed IDs" in item for item in failures),
             failures,
         )
 
@@ -696,7 +700,9 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                 "origin": "preexisting" if canonical in preexisting else "phase4",
                 "lifecycle_version": LIFECYCLE_VERSION,
                 "lifecycle_state": (
-                    EXECUTION_READY if seed.seed_id == "IEC_TIMER_001" else BASELINE
+                    EXECUTION_READY
+                    if seed.seed_id in {"IEC_TIMER_001", "RT_SAFE_DEADLINE_001"}
+                    else BASELINE
                 ),
                 "p4_000_risk_id": risk_by_seed.get(seed.seed_id),
             }
