@@ -491,7 +491,7 @@ export function DiscoverPane({
         <button onClick={onClose} aria-label="Close" className="trust-button" style={ICON}>✕</button>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, minWidth: 0, overflowX: "hidden", overflowY: "auto" }}>
         <div className="trust-section">
           {error && !adsIdentityRecoveryError && (
             <div data-role="discovery-error">
@@ -818,7 +818,7 @@ const PANEL: React.CSSProperties = {
   top: 0,
   right: 0,
   bottom: 0,
-  width: 340,
+  width: "min(340px, 100%)",
   zIndex: 7,
 };
 const ROW: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 2px" };

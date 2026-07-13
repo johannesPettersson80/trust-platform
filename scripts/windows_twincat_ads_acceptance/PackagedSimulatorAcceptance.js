@@ -23,7 +23,18 @@ const {
 } = require("./PackagedAdsLiveValuesAcceptance");
 const { requestIoStateEvent } = require("./PackagedDapState");
 const { sleep, waitFor } = require("./AcceptanceWait");
-const { createScreenshotProof, createSimulatorObservations, isBlockedStartingAction, isSimulatorVisualState, isStartingAction } = require("./PackagedSimulatorVisualProof");
+const {
+  isSettledSimulatorCanvas,
+  isSimulatorVisualState,
+  waitForSettledSimulatorCanvas,
+} = require("./PackagedSimulatorCanvasState");
+const {
+  createSimulatorLifecycle,
+} = require("./PackagedSimulatorLifecycle");
+const {
+  createScreenshotProof,
+  createSimulatorObservations,
+} = require("./PackagedSimulatorVisualProof");
 
 const extensionRoot = requiredPath("TRUST_PACKAGED_EXTENSION_ROOT");
 const projectRoot = requiredPath("TRUST_PACKAGED_SIMULATOR_PROJECT");
@@ -333,138 +344,21 @@ exports.run = async function run() {
       );
     }
 
-    async function beginStartAttempt(name, devicesOpen) {
-      const activeBefore = activeTabLabel();
-      activeSession = undefined;
-      proof.journey.start_attempts += 1;
-      const click = await clickAction("start");
-      check(`${name}-click-accepted`, click.clicked, click);
-      const sidebarStarting = waitFor(
+    const { beginStartAttempt, stopAndWait, waitForRunning } =
+      createSimulatorLifecycle({
+        vscode,
+        proof,
+        check,
+        activeTabLabel,
+        clickAction,
         sidebarSnapshot,
-        (value) => isStartingAction(value.action),
-        `${name} sidebar Starting`,
-        15_000
-      );
-      const statusStarting = waitFor(
         pageText,
-        (value) => /truST:\s*Simulator starting/i.test(value),
-        `${name} status bar Starting`,
-        15_000
-      );
-      const canvasStarting = devicesOpen ? waitFor(
         canvasSnapshot,
-        (value) => isSimulatorVisualState(value.simulator, "starting", "Starting…"),
-        `${name} canvas Starting`, 15_000
-      ) : Promise.resolve(undefined);
-      const sidebar = await sidebarStarting;
-      const duplicate = await clickAction("busy");
-      const duplicateBlocked = isBlockedStartingAction(duplicate);
-      const [statusText, canvas] = await Promise.all([statusStarting, canvasStarting]);
-      proof.journey.starting_states_observed += 1;
-      if (duplicateBlocked) proof.journey.blocked_duplicate_start_clicks += 1;
-      const state = {
-        sidebar_action: sidebar.action,
-        canvas_simulator: canvas?.simulator,
-        status_bar_starting: /truST:\s*Simulator starting/i.test(statusText),
-        duplicate_click: duplicate,
-        active_tab_before: activeBefore,
-        active_tab_during: activeTabLabel(),
-      };
-      check(
-        `${name}-starting-is-one-disabled-attempt`,
-        isStartingAction(sidebar.action) &&
-          state.status_bar_starting &&
-          duplicateBlocked &&
-          (!devicesOpen || isSimulatorVisualState(canvas?.simulator, "starting", "Starting…")),
-        state
-      );
-      return state;
-    }
-
-    async function waitForRunning(name, devicesOpen, expectedSessionCount) {
-      const sidebar = await waitFor(
-        sidebarSnapshot,
-        (value) => value.action.state === "stop" && value.action.text === "Stop",
-        `${name} sidebar Running`,
-        60_000
-      );
-      const statusText = await waitFor(
-        pageText,
-        (value) => /truST:\s*Simulator running/i.test(value),
-        `${name} status bar Running`,
-        15_000
-      );
-      let canvas;
-      if (devicesOpen) {
-        canvas = await waitFor(
-          canvasSnapshot,
-          (value) => isSimulatorVisualState(value.simulator, "connected", "Running"),
-          `${name} canvas Running`,
-          20_000
-        );
-      }
-      const session = await waitFor(
-        async () =>
-          activeSession ||
-          (vscode.debug.activeDebugSession?.type === "structured-text"
-            ? vscode.debug.activeDebugSession
-            : undefined),
-        Boolean,
-        `${name} Structured Text debug session`,
-        15_000
-      );
-      check(
-        `${name}-debug-session-count`,
-        proof.journey.debug_sessions_started === expectedSessionCount,
-        { debug_sessions_started: proof.journey.debug_sessions_started }
-      );
-      return {
-        evidence: {
-          sidebar_action: sidebar.action,
-          sidebar_target: sidebar.target,
-          canvas_simulator: canvas?.simulator,
-          status_bar_running: /truST:\s*Simulator running/i.test(statusText),
+        clearActiveSession: () => {
+          activeSession = undefined;
         },
-        session,
-      };
-    }
-
-    async function stopAndWait(name, expectedTerminationCount) {
-      const click = await clickAction("stop");
-      check(`${name}-click-accepted`, click.clicked, click);
-      const sidebar = await waitFor(
-        sidebarSnapshot,
-        (value) => value.action.state === "start" && value.action.text === "Start",
-        `${name} sidebar Stopped`,
-        35_000
-      );
-      const canvas = await waitFor(
-        canvasSnapshot,
-        (value) => isSimulatorVisualState(value.simulator, "stopped", "Stopped"),
-        `${name} canvas Stopped`,
-        20_000
-      );
-      const statusText = await waitFor(
-        pageText,
-        (value) => /truST:\s*Simulator stopped/i.test(value),
-        `${name} status bar Stopped`,
-        15_000
-      );
-      await waitFor(
-        async () => proof.journey.debug_sessions_terminated,
-        (count) => count === expectedTerminationCount,
-        `${name} terminated Structured Text session`,
-        15_000
-      );
-      return {
-        sidebar_action: sidebar.action,
-        sidebar_target: sidebar.target,
-        sidebar_text: sidebar.bodyText,
-        canvas_simulator: canvas.simulator,
-        canvas_text: canvas.canvasText,
-        status_bar_stopped: /truST:\s*Simulator stopped/i.test(statusText),
-      };
-    }
+        activeSession: () => activeSession,
+      });
 
     const initialSidebar = await waitFor(
       sidebarSnapshot,
@@ -574,13 +468,22 @@ exports.run = async function run() {
     proof.journey.first_devices_loading_text_visible = /Loading your devices/i.test(
       firstDevices.canvasText
     );
+    const settledFirstDevices = await waitForSettledSimulatorCanvas(
+      canvasSnapshot,
+      {
+        health: "connected",
+        label: "Running",
+        description: "settled Simulated I/O inventory",
+      }
+    );
     const firstDevicesPageText = await pageText();
     const firstDevicesSidebar = await sidebarSnapshot();
     proof.journey.auth_error_visible = hasVisibleAuthError(
-      `${firstDevices.canvasText} ${firstDevicesSidebar.bodyText} ${firstDevicesPageText}`
+      `${settledFirstDevices.canvasText} ${firstDevicesSidebar.bodyText} ${firstDevicesPageText}`
     );
     proof.journey.first_devices_running = {
-      canvas_simulator: firstDevices.simulator,
+      canvas_simulator: settledFirstDevices.simulator,
+      canvas_text: settledFirstDevices.canvasText,
       status_bar_running: /truST:\s*Simulator running/i.test(firstDevicesPageText),
       active_tab: activeTabLabel(),
     };
@@ -595,7 +498,7 @@ exports.run = async function run() {
     );
     check(
       "running-surfaces-agree",
-      isSimulatorVisualState(firstDevices.simulator, "connected", "Running") &&
+      isSettledSimulatorCanvas(settledFirstDevices, "connected", "Running") &&
         proof.journey.first_devices_running.status_bar_running &&
         proof.journey.first_running_before_devices.sidebar_action.text === "Stop",
       proof.journey.first_devices_running

@@ -132,6 +132,14 @@ const FIXTURES = [
   },
 ];
 
+FIXTURES.push({
+  name: "narrow ADS discovery",
+  narrowDiscovery: true,
+  width: 232,
+  height: 900,
+  nc: FIXTURES[0].nc,
+});
+
 // Runs inside the page: flag pairs that overlap where NEITHER contains the other.
 const MEASURE = `
 function __measure(){
@@ -152,18 +160,67 @@ function __measure(){
   pre.textContent=JSON.stringify({count:items.length,overlaps:bad});
   document.body.appendChild(pre);
 }
+function __measureNarrowDiscovery(){
+  function rc(el){var r=el.getBoundingClientRect();return {x:r.left,y:r.top,r:r.right,b:r.bottom,w:r.width,h:r.height};}
+  function inside(item,bounds){return item.x>=bounds.x-1&&item.r<=bounds.r+1&&item.y>=bounds.y-1&&item.b<=bounds.b+1;}
+  function visible(el,item){var s=el&&getComputedStyle(el);return Boolean(el&&item&&item.w>0&&item.h>0&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)>0);}
+  var root=document.getElementById('root');
+  var header=root&&root.querySelector('.trust-network-header');
+  var headerControls=header&&[].slice.call(header.querySelectorAll('input,button'));
+  var discover=[].slice.call(document.querySelectorAll('button')).find(function(button){return button.textContent.trim()==='Discover ADS devices';});
+  var drawer=document.querySelector('aside[aria-label="Discover devices"]');
+  var close=drawer&&drawer.querySelector('button[aria-label="Close"]');
+  var scan=drawer&&drawer.querySelector('[data-role="ads-discover"]');
+  var controls=drawer&&[].slice.call(drawer.querySelectorAll('button,input,select'));
+  var bounds=root&&rc(root),button=discover&&rc(discover),panel=drawer&&rc(drawer),closeButton=close&&rc(close),scanButton=scan&&rc(scan);
+  var headerRects=(headerControls||[]).map(rc);
+  var escapedHeaderControls=headerRects.filter(function(control){return !bounds||!inside(control,bounds);});
+  var hiddenHeaderControls=(headerControls||[]).filter(function(control,index){return !visible(control,headerRects[index]);});
+  var escapedControls=(controls||[]).map(rc).filter(function(control){return !bounds||!inside(control,bounds);});
+  var hiddenControls=(controls||[]).filter(function(control){return !visible(control,rc(control));});
+  var pre=document.createElement('pre');pre.id='nc-geom-result';
+  pre.textContent=JSON.stringify({
+    kind:'narrow-discovery',
+    root:bounds,
+    button:button,
+    drawer:panel,
+    close:closeButton,
+    scan:scanButton,
+    buttonText:discover&&discover.textContent.trim(),
+    title:drawer&&drawer.textContent.indexOf('ADS discovery')>=0,
+    headerButtonLabels:(headerControls||[]).filter(function(control){return control.tagName==='BUTTON';}).map(function(control){return control.textContent.trim();}),
+    headerControlsInside:escapedHeaderControls.length===0,
+    headerControlsVisible:hiddenHeaderControls.length===0,
+    buttonInside:Boolean(button&&bounds&&inside(button,bounds)&&visible(discover,button)),
+    buttonUnclipped:Boolean(discover&&discover.scrollWidth<=discover.clientWidth&&discover.scrollHeight<=discover.clientHeight),
+    drawerInside:Boolean(panel&&bounds&&inside(panel,bounds)&&visible(drawer,panel)),
+    closeInside:Boolean(closeButton&&bounds&&inside(closeButton,bounds)&&visible(close,closeButton)),
+    scanInside:Boolean(scanButton&&bounds&&inside(scanButton,bounds)&&visible(scan,scanButton)),
+    scanUnclipped:Boolean(scan&&scan.scrollWidth<=scan.clientWidth&&scan.scrollHeight<=scan.clientHeight&&getComputedStyle(scan).whiteSpace==='normal'),
+    controlsInside:escapedControls.length===0,
+    controlsVisible:hiddenControls.length===0,
+    noHorizontalOverflow:Boolean(drawer&&drawer.scrollWidth<=drawer.clientWidth)
+  });
+  document.body.appendChild(pre);
+}
 `;
 
 function harnessHtml(fixture) {
+  const narrowStyle = fixture.narrowDiscovery
+    ? "#root{position:relative;width:232px!important;height:900px!important}"
+    : "";
+  const action = fixture.narrowDiscovery
+    ? `window.dispatchEvent(new MessageEvent('message',{data:{type:'meta',schema:{protocols:[{id:'ads',label:'ADS',actions:['discover'],fields:[]}]},reachable:true,lifecyclePhase:'stopped'}}));setTimeout(function(){var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return x.textContent.trim()==='Discover ADS devices';});if(b)b.click();setTimeout(__measureNarrowDiscovery,700);},200);`
+    : `${fixture.edit ? '__click("Edit");' : ""} setTimeout(__measure,1100);`;
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <link rel="stylesheet" href="file://${CSS}"/>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body,#root{width:100%;height:100%;overflow:hidden;background:#0f1116;color:#eef1f5;font-family:system-ui,sans-serif}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body,#root{width:100%;height:100%;overflow:hidden;background:#0f1116;color:#eef1f5;font-family:system-ui,sans-serif}${narrowStyle}</style>
 </head><body><div id="root"></div>
 <script>window.acquireVsCodeApi=function(){return{postMessage(){},getState(){},setState(){}}};</script>
 <script>window.__NC__=${JSON.stringify(fixture.nc)};</script>
 <script>${MEASURE}
 function __click(t){var b=[].slice.call(document.querySelectorAll("button")).find(function(x){return x.textContent.replace(/\\s+/g," ").indexOf(t)>=0;});if(b)b.click();}
-setTimeout(function(){ ${fixture.edit ? '__click("Edit");' : ""} setTimeout(__measure,1100); },800);
+setTimeout(function(){ ${action} },800);
 </script>
 <script src="file://${BUNDLE}"></script>
 </body></html>`;
@@ -193,7 +250,7 @@ function main() {
     try {
       dom = execFileSync(
         chrome,
-        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", "--window-size=1600,900", "--virtual-time-budget=5000", "--dump-dom", `file://${file}`],
+        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", `--window-size=${fixture.width || 1600},${fixture.height || 900}`, "--virtual-time-budget=5000", "--dump-dom", `file://${file}`],
         { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 }
       );
     } catch (err) {
@@ -215,7 +272,31 @@ function main() {
       failures++;
       continue;
     }
-    if (result.overlaps.length > 0) {
+    if (fixture.narrowDiscovery) {
+      const passed =
+        result.kind === "narrow-discovery" &&
+        result.buttonText === "Discover ADS devices" &&
+        result.title === true &&
+        JSON.stringify(result.headerButtonLabels) === JSON.stringify(["Discover ADS devices", "Filter", "+ Add", "Edit"]) &&
+        result.headerControlsInside === true &&
+        result.headerControlsVisible === true &&
+        result.buttonInside === true &&
+        result.buttonUnclipped === true &&
+        result.drawerInside === true &&
+        result.closeInside === true &&
+        result.scanInside === true &&
+        result.scanUnclipped === true &&
+        result.controlsInside === true &&
+        result.controlsVisible === true &&
+        result.noHorizontalOverflow === true &&
+        result.root?.w === 232;
+      if (!passed) {
+        console.error(`[canvas-geometry] ✗ ${fixture.name}: responsive discovery geometry failed ${JSON.stringify(result)}`);
+        failures++;
+      } else {
+        console.log(`[canvas-geometry] ✓ ${fixture.name}: button, drawer, and Close remain inside 232px`);
+      }
+    } else if (result.overlaps.length > 0) {
       console.error(`[canvas-geometry] ✗ ${fixture.name}: ${result.overlaps.length} overlap(s) of ${result.count} nodes`);
       for (const o of result.overlaps) {
         console.error(`    ${o}`);

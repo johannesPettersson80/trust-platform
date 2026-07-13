@@ -27,6 +27,18 @@ SIMULATOR_VISUAL_PROOF = (
     / "windows_twincat_ads_acceptance"
     / "PackagedSimulatorVisualProof.js"
 )
+SIMULATOR_CANVAS_STATE = (
+    REPO_ROOT
+    / "scripts"
+    / "windows_twincat_ads_acceptance"
+    / "PackagedSimulatorCanvasState.js"
+)
+SIMULATOR_LIFECYCLE = (
+    REPO_ROOT
+    / "scripts"
+    / "windows_twincat_ads_acceptance"
+    / "PackagedSimulatorLifecycle.js"
+)
 SIMULATOR_LAUNCHER = (
     REPO_ROOT
     / "scripts"
@@ -222,6 +234,10 @@ class WindowsTwinCatAdsAcceptanceContractSupport:
         cls.simulator_visual_proof = SIMULATOR_VISUAL_PROOF.read_text(
             encoding="utf-8"
         )
+        cls.simulator_canvas_state = SIMULATOR_CANVAS_STATE.read_text(
+            encoding="utf-8"
+        )
+        cls.simulator_lifecycle = SIMULATOR_LIFECYCLE.read_text(encoding="utf-8")
         cls.simulator_launcher = SIMULATOR_LAUNCHER.read_text(encoding="utf-8")
         cls.packaged_extension_install = PACKAGED_EXTENSION_INSTALL.read_text(
             encoding="utf-8"

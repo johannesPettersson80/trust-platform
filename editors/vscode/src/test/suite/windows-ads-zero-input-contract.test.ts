@@ -284,7 +284,8 @@ suite("Windows ADS zero-input discovery contracts", function () {
     const flow = readSource("networkCanvas/webview/AdsDiscoveryFlow.tsx");
 
     assert.ok(
-      header.includes(">\n        Discover ADS devices\n      </button>") &&
+      header.includes('className="trust-network-header__discover"') &&
+        header.includes("Discover ADS devices") &&
         app.includes("<DiscoverPane\n            autoStartAds"),
       "the canvas toolbar must name and pass through the user's primary ADS action",
     );

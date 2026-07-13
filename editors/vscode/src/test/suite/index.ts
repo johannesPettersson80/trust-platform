@@ -78,6 +78,7 @@ export function run(): Promise<void> {
   require("./network-canvas-expose.test");
   require("./network-canvas-lifecycle-failures.test");
   require("./network-canvas-github-issues.test");
+  require("./network-canvas-responsive-header.test");
   require("./network-canvas-session-model.test");
   require("./windows-ads-discovery-contract.test");
   require("./windows-ads-zero-input-contract.test");

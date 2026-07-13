@@ -681,7 +681,12 @@ function Canvas() {
 
         {/* Reserves the active drawer's width in the flex row so the canvas column narrows by exactly
             that much — the right-anchored panel lands in this gap and never covers a node. */}
-        {drawerOpen && <div aria-hidden="true" style={{ width: activeDrawerW, flexShrink: 0 }} />}
+        {drawerOpen && (
+          <div
+            aria-hidden="true"
+            style={{ width: `min(${activeDrawerW}px, 100%)`, flexShrink: 0 }}
+          />
+        )}
 
         {addSlot?.kind === "device" && (
           <AddPane

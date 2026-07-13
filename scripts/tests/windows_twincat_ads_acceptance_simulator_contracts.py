@@ -11,6 +11,8 @@ from .windows_twincat_ads_acceptance_support import (
     PACKAGED_ADS_IMPORT_PROOF,
     PACKAGED_EXTENSION_INSTALL,
     SIMULATOR_VISUAL_PROOF,
+    SIMULATOR_CANVAS_STATE,
+    SIMULATOR_LIFECYCLE,
     function_body,
 )
 
@@ -38,6 +40,8 @@ class SimulatorContractsMixin:
         self.assertLess(len(self.simulator_runner.splitlines()), 800)
         self.assertLess(len(self.simulator_extension_test.splitlines()), 800)
         self.assertLess(len(self.simulator_visual_proof.splitlines()), 100)
+        self.assertLess(len(self.simulator_canvas_state.splitlines()), 100)
+        self.assertLess(len(self.simulator_lifecycle.splitlines()), 200)
         self.assertLess(len(self.simulator_cdp.splitlines()), 300)
         self.assertLess(len(self.runtime_control_token.splitlines()), 100)
         self.assertLess(len(self.acceptance_redaction.splitlines()), 100)
@@ -195,34 +199,36 @@ class SimulatorContractsMixin:
 
     def test_packaged_simulator_drives_actual_sidebar_and_cross_surface_states(self) -> None:
         source = self.simulator_extension_test
+        lifecycle = self.simulator_lifecycle
         self.assertIn('"#action"', source)
         self.assertIn('".react-flow"', source)
         self.assertIn("button.click()", source)
-        self.assertIn("starting-is-one-disabled-attempt", source)
-        self.assertIn("-debug-session-count", source)
+        self.assertIn("starting-is-one-disabled-attempt", lifecycle)
+        self.assertIn("-debug-session-count", lifecycle)
         self.assertIn("running-surfaces-agree", source)
         self.assertIn("stopped-surfaces-agree-after-stop", source)
         self.assertIn("final-stopped-surfaces-agree", source)
         self.assertIn("second-start-after-stop-has-no-stale-session", source)
         self.assertIn("fresh-reload-start-before-devices", source)
-        self.assertIn("truST:\\s*Simulator running", source)
+        self.assertIn("truST:\\s*Simulator running", lifecycle)
         self.assertIn("truST:\\s*Simulator stopped", source)
-        self.assertIn("truST:\\s*Simulator starting", source)
+        self.assertIn("truST:\\s*Simulator starting", lifecycle)
         self.assertIn("health:card?.getAttribute('data-health')||''", source)
         self.assertIn(
             'isSimulatorVisualState(value.simulator, "starting", "Starting…")',
-            source,
+            lifecycle,
         )
         self.assertIn('action?.state === "busy"', self.simulator_visual_proof)
         self.assertIn('action?.clicked === false', self.simulator_visual_proof)
-        self.assertIn('simulator?.health === health', self.simulator_visual_proof)
-        self.assertIn('simulator.statusText === label', self.simulator_visual_proof)
-        self.assertNotIn('value.simulator?.statusText === "Starting"', source)
-        canvas_observer = source.index("const canvasStarting = devicesOpen")
-        sidebar_observation = source.index("const sidebar = await sidebarStarting")
+        self.assertIn('simulator?.health === health', self.simulator_canvas_state)
+        self.assertIn('simulator.statusText === label', self.simulator_canvas_state)
+        self.assertNotIn('value.simulator?.statusText === "Starting"', lifecycle)
+        canvas_observer = lifecycle.index("const canvasStarting = devicesOpen")
+        sidebar_observation = lifecycle.index("const sidebar = await sidebarStarting")
         self.assertLess(canvas_observer, sidebar_observation)
-        self.assertNotIn('executeCommand("trust-lsp.debug.start"', source)
-        self.assertNotIn("startDebugging(", source)
+        combined = source + lifecycle
+        self.assertNotIn('executeCommand("trust-lsp.debug.start"', combined)
+        self.assertNotIn("startDebugging(", combined)
         first_start = source.index('beginStartAttempt("first-start", false)')
         open_devices = source.index('executeCommand("trust-lsp.networkCanvas.open")')
         first_stop = source.index('stopAndWait("first-stop", 1)')
@@ -241,7 +247,7 @@ class SimulatorContractsMixin:
 
     def test_packaged_visual_state_requires_semantics_copy_and_busy_lock(self) -> None:
         script = (
-            "const p=require(process.argv[1]);"
+            "const p={...require(process.argv[1]),...require(process.argv[2])};"
             "const state=(health,statusText)=>({health,statusText});"
             "console.log(JSON.stringify({"
             "starting:p.isStartingAction({state:'busy',disabled:true,text:'Starting…'}),"
@@ -251,11 +257,21 @@ class SimulatorContractsMixin:
             "startingVisual:p.isSimulatorVisualState(state('starting','Starting…'),'starting','Starting…'),"
             "staleLabel:p.isSimulatorVisualState(state('starting','Stopped'),'starting','Starting…'),"
             "staleHealth:p.isSimulatorVisualState(state('stopped','Starting…'),'starting','Starting…'),"
+            "settled:p.isSettledSimulatorCanvas({simulator:state('connected','Running'),canvasText:'Simulator Running Simulated I/O I/O'},'connected','Running'),"
+            "empty:p.isSettledSimulatorCanvas({simulator:state('connected','Running'),canvasText:'Simulator Running No devices yet Simulated I/O'},'connected','Running'),"
+            "loading:p.isSettledSimulatorCanvas({simulator:state('connected','Running'),canvasText:'Loading your devices Simulated I/O'},'connected','Running'),"
+            "wrongSettledState:p.isSettledSimulatorCanvas({simulator:state('stopped','Stopped'),canvasText:'Simulated I/O I/O'},'connected','Running'),"
             "running:p.isSimulatorVisualState(state('connected','Running'),'connected','Running'),"
             "stopped:p.isSimulatorVisualState(state('stopped','Stopped'),'stopped','Stopped')}));"
         )
         completed = subprocess.run(
-            ["node", "-e", script, str(SIMULATOR_VISUAL_PROOF)],
+            [
+                "node",
+                "-e",
+                script,
+                str(SIMULATOR_CANVAS_STATE),
+                str(SIMULATOR_VISUAL_PROOF),
+            ],
             check=False,
             capture_output=True,
             text=True,
@@ -271,9 +287,48 @@ class SimulatorContractsMixin:
                 "startingVisual": True,
                 "staleLabel": False,
                 "staleHealth": False,
+                "settled": True,
+                "empty": False,
+                "loading": False,
+                "wrongSettledState": False,
                 "running": True,
                 "stopped": True,
             },
+        )
+
+    def test_packaged_devices_screenshots_wait_for_settled_inventory(self) -> None:
+        source = self.simulator_extension_test
+        lifecycle = self.simulator_lifecycle
+        canvas_import = source[
+            source.index("const {\n  isSettledSimulatorCanvas") : source.index(
+                '} = require("./PackagedSimulatorCanvasState");'
+            )
+        ]
+        self.assertIn("waitForSettledSimulatorCanvas", canvas_import)
+        first_settled = source.index('"settled Simulated I/O inventory"')
+        screenshot_03 = source.index('screenshots.capture("03-devices-running-consistent")')
+        self.assertLess(first_settled, screenshot_03)
+        self.assertIn(
+            'health: "connected"',
+            lifecycle[
+                lifecycle.index("async function waitForRunning") : lifecycle.index(
+                    "async function stopAndWait"
+                )
+            ],
+        )
+        self.assertIn(
+            'health: "stopped"',
+            lifecycle[lifecycle.index("async function stopAndWait") :],
+        )
+        self.assertIn("canvas_text: canvas?.canvasText", lifecycle)
+        self.assertIn("canvas_text: settledFirstDevices.canvasText", source)
+        self.assertLess(
+            source.index('await stopAndWait("first-stop", 1)'),
+            source.index('screenshots.capture("04-devices-stopped-consistent")'),
+        )
+        self.assertLess(
+            source.index('await waitForRunning(\n      "second-start"'),
+            source.index('screenshots.capture("05-devices-restarted-consistent")'),
         )
 
     def test_packaged_simulator_reproduces_auth_and_live_values_regressions(self) -> None:

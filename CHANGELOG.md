@@ -245,7 +245,9 @@ Target release: `v0.24.33`
   keeping unavailable checks in collapsed technical details. Known Host/IP,
   AMS Net ID, and up to four custom logical services are additive
   **Advanced** recovery inputs. Exactly one browsable service is selected
-  automatically; multiple browsable services require an explicit choice.
+  automatically; multiple browsable services require an explicit choice. At
+  narrow editor widths, the single discovery action reflows to a full-width
+  button instead of clipping its label.
 - vscode: the Run card now starts one accepted Simulator session without
   opening or focusing Live Values. The sidebar, status bar, and Devices &
   Connections project the same Starting/Running/Stopped lifecycle state, and

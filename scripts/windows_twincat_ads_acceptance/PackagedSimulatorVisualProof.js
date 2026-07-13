@@ -32,10 +32,6 @@ function isBlockedStartingAction(action) {
   return action?.clicked === false && isStartingAction(action);
 }
 
-function isSimulatorVisualState(simulator, health, label) {
-  return simulator?.health === health && simulator.statusText === label;
-}
-
 async function createScreenshotProof({
   cdp,
   pageSession,
@@ -87,6 +83,5 @@ module.exports = {
   createScreenshotProof,
   createSimulatorObservations,
   isBlockedStartingAction,
-  isSimulatorVisualState,
   isStartingAction,
 };
