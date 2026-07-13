@@ -42,6 +42,7 @@ ACCEPTANCE_MODULE_NAMES = frozenset(
         "AdsBrowseProof.psm1",
         "CandidateManifestProof.psm1",
         "CandidateProvenanceProof.psm1",
+        "InstalledVsixPayloadProof.psm1",
         "PackagedAdsBrowseSelection.js",
         "PackagedAdsCustomPortAcceptance.js",
         "PackagedAdsCustomPortDom.js",

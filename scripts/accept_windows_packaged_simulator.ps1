@@ -539,7 +539,8 @@ try {
     [IO.Directory]::CreateDirectory($userDataRoot) | Out-Null
     $installation = Install-IsolatedPackagedExtension -Vscode $vscode -Vsix $resolvedVsix `
         -ExtensionsRoot $extensionsRoot -UserDataRoot $userDataRoot `
-        -ExpectedVersion $metadata.version -ExtractedRoot $extractedExtensionRoot
+        -ExpectedVersion $metadata.version -ExtractedRoot $extractedExtensionRoot `
+        -VsixManifestPath (Join-Path $expandedRoot 'extension.vsixmanifest')
     $extensionRoot = [string]$installation.extension_root
     $finalEvidence.vscode.install = $installation.command
     $finalEvidence.safety_contract.isolated_vsix_installed = $true

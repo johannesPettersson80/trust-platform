@@ -30,6 +30,14 @@ class PowerShellContractsMixin:
     def test_nested_modules_do_not_force_reload_shared_acceptance_io(self) -> None:
         nested_modules = (
             (PACKAGED_EXTENSION_INSTALL, self.packaged_extension_install),
+            (
+                PACKAGED_EXTENSION_INSTALL.with_name(
+                    "InstalledVsixPayloadProof.psm1"
+                ),
+                PACKAGED_EXTENSION_INSTALL.with_name(
+                    "InstalledVsixPayloadProof.psm1"
+                ).read_text(encoding="utf-8"),
+            ),
             (SIMULATOR_LAUNCHER, self.simulator_launcher),
             (PACKAGED_ADS_UI_CROSSCHECK, self.packaged_ads_ui_crosscheck),
             (STATIC_ROUTE_PROOF, self.static_route_proof),
@@ -324,6 +332,125 @@ finally {
             completed.stdout + completed.stderr,
         )
 
+    @unittest.skipUnless(
+        shutil.which("powershell.exe"),
+        "Windows PowerShell 5.1 is unavailable",
+    )
+    def test_windows_powershell_51_installed_vsix_payload_is_exact(self) -> None:
+        proof_module = str(
+            PACKAGED_EXTENSION_INSTALL.with_name("InstalledVsixPayloadProof.psm1")
+        ).replace("'", "''")
+        command = rf"""
+$ErrorActionPreference = 'Stop'
+Import-Module '{proof_module}' -Force -DisableNameChecking
+$root = Join-Path ([IO.Path]::GetTempPath()) ('trust-vsix-payload-' + [Guid]::NewGuid().ToString('N'))
+$expectedRoot = Join-Path $root 'vsix\extension'
+$expectedManifest = Join-Path $root 'vsix\extension.vsixmanifest'
+$installedRoot = Join-Path $root 'extensions\trust-platform.trust-lsp-1.0.0-win32-x64'
+$expectedScript = Join-Path $expectedRoot 'out\extension.js'
+$installedScript = Join-Path $installedRoot 'out\extension.js'
+$expectedPackage = Join-Path $expectedRoot 'package.json'
+$installedPackage = Join-Path $installedRoot 'package.json'
+$installedManifest = Join-Path $installedRoot '.vsixmanifest'
+
+function Assert-Rejected {{
+    param(
+        [Parameter(Mandatory = $true)][string]$Case,
+        [Parameter(Mandatory = $true)][scriptblock]$Action,
+        [Parameter(Mandatory = $true)][string[]]$ExpectedMessageParts
+    )
+    try {{
+        & $Action
+        throw "Installed payload case '$Case' was accepted."
+    }}
+    catch {{
+        if ($_.Exception.Message -eq "Installed payload case '$Case' was accepted.") {{ throw }}
+        foreach ($part in $ExpectedMessageParts) {{
+            if ($_.Exception.Message -cnotlike "*$part*") {{
+                throw "Installed payload case '$Case' returned the wrong error: $($_.Exception.Message)"
+            }}
+        }}
+    }}
+}}
+
+try {{
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $expectedScript)) | Out-Null
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $installedScript)) | Out-Null
+    [IO.File]::WriteAllText($expectedScript, 'exact extension bytes')
+    [IO.File]::WriteAllText($installedScript, 'exact extension bytes')
+    [IO.File]::WriteAllText($expectedPackage, '{{"name":"trust-lsp","version":"1.0.0"}}')
+    [IO.File]::WriteAllText($installedPackage, '{{"name":"trust-lsp","version":"1.0.0","__metadata":{{"installedTimestamp":1}}}}')
+    [IO.File]::WriteAllText($expectedManifest, '<Package>alpha</Package>')
+    [IO.File]::WriteAllText($installedManifest, '<Package>alpha</Package>')
+
+    Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+        -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+
+    Remove-Item -LiteralPath $installedManifest -Force
+    Assert-Rejected -Case 'missing manifest' -ExpectedMessageParts @('missing:', '.vsixmanifest') -Action {{
+        Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+            -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+    }}
+    [IO.File]::WriteAllText($installedManifest, '<Package>alpha</Package>')
+
+    [IO.File]::WriteAllText($installedManifest, '<Package>bravo</Package>')
+    Assert-Rejected -Case 'same-size manifest mutation' -ExpectedMessageParts @('manifest', 'differs') -Action {{
+        Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+            -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+    }}
+    [IO.File]::WriteAllText($installedManifest, '<Package>alpha</Package>')
+
+    Remove-Item -LiteralPath $installedScript -Force
+    $replacement = Join-Path $installedRoot 'out\replacement.js'
+    [IO.File]::WriteAllText($replacement, 'exact extension bytes')
+    Assert-Rejected -Case 'same-count replacement' -ExpectedMessageParts @('missing:', 'out/extension.js', 'extra:', 'out/replacement.js') -Action {{
+        Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+            -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+    }}
+    Remove-Item -LiteralPath $replacement -Force
+    [IO.File]::WriteAllText($installedScript, 'exact extension bytes')
+
+    $reservedPayloadManifest = Join-Path $expectedRoot '.vsixmanifest'
+    [IO.File]::WriteAllText($reservedPayloadManifest, '<Package>alpha</Package>')
+    Assert-Rejected -Case 'reserved payload manifest' -ExpectedMessageParts @('reserved', '.vsixmanifest') -Action {{
+        Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+            -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+    }}
+    Remove-Item -LiteralPath $reservedPayloadManifest -Force
+
+    $hiddenExtra = Join-Path $installedRoot 'hidden-extra.bin'
+    [IO.File]::WriteAllText($hiddenExtra, 'must be rejected')
+    [IO.File]::SetAttributes($hiddenExtra, [IO.FileAttributes]::Hidden)
+    Assert-Rejected -Case 'hidden extra' -ExpectedMessageParts @('extra:', 'hidden-extra.bin') -Action {{
+        Assert-InstalledVsixPayload -ExtractedRoot $expectedRoot `
+            -VsixManifestPath $expectedManifest -InstalledRoot $installedRoot
+    }}
+}}
+finally {{
+    if ([IO.Directory]::Exists($root)) {{
+        [IO.Directory]::Delete($root, $true)
+    }}
+}}
+"""
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                command,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            completed.stdout + completed.stderr,
+        )
+
     def test_generic_lists_are_materialized_through_to_array(self) -> None:
         conversions = (
             (self.acceptance_plan, "$ports.ToArray()", "@($ports)"),
@@ -350,6 +477,7 @@ finally {
             MODULE,
             SIMULATOR_LAUNCHER,
             PACKAGED_EXTENSION_INSTALL,
+            PACKAGED_EXTENSION_INSTALL.with_name("InstalledVsixPayloadProof.psm1"),
             PACKAGED_ADS_UI_CROSSCHECK,
             ACCEPTANCE_PLAN,
             STATIC_ROUTE_PROOF,

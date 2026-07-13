@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'AcceptanceIo.psm1')
+Import-Module (Join-Path $PSScriptRoot 'InstalledVsixPayloadProof.psm1')
 
 function New-IsolatedUserData {
     param(
@@ -102,7 +103,8 @@ function Install-IsolatedPackagedExtension {
         [Parameter(Mandatory = $true)][string]$ExtensionsRoot,
         [Parameter(Mandatory = $true)][string]$UserDataRoot,
         [Parameter(Mandatory = $true)][string]$ExpectedVersion,
-        [Parameter(Mandatory = $true)][string]$ExtractedRoot
+        [Parameter(Mandatory = $true)][string]$ExtractedRoot,
+        [Parameter(Mandatory = $true)][string]$VsixManifestPath
     )
     $install = Invoke-VscodeCli -Vscode $Vscode -Arguments @(
         '--install-extension', $Vsix, '--force',
@@ -127,31 +129,8 @@ function Install-IsolatedPackagedExtension {
         throw "Expected exactly one isolated installed truST $ExpectedVersion extension, found $($matches.Count)."
     }
     $installedRoot = $matches[0].FullName
-    $expectedFiles = @(Get-ChildItem -LiteralPath $ExtractedRoot -File -Recurse)
-    $installedFiles = @(Get-ChildItem -LiteralPath $installedRoot -File -Recurse)
-    if ($installedFiles.Count -ne $expectedFiles.Count) {
-        throw "Installed packaged file count $($installedFiles.Count) differs from VSIX payload $($expectedFiles.Count)."
-    }
-    foreach ($expectedFile in $expectedFiles) {
-        $relative = $expectedFile.FullName.Substring($ExtractedRoot.Length).TrimStart('\', '/')
-        if ($relative -ceq 'package.json') {
-            $expectedPackage = Get-Content -LiteralPath $expectedFile.FullName -Raw | ConvertFrom-Json
-            $installedPackagePath = Join-Path $installedRoot $relative
-            $installedPackage = Get-Content -LiteralPath $installedPackagePath -Raw | ConvertFrom-Json
-            $installedPackage.PSObject.Properties.Remove('__metadata')
-            $expectedJson = $expectedPackage | ConvertTo-Json -Depth 100 -Compress
-            $installedJson = $installedPackage | ConvertTo-Json -Depth 100 -Compress
-            if ($installedJson -cne $expectedJson) {
-                throw 'Installed package.json differs from the VSIX beyond VS Code-owned __metadata.'
-            }
-            continue
-        }
-        $installed = Get-FileEvidence -Path (Join-Path $installedRoot $relative)
-        $extracted = Get-FileEvidence -Path $expectedFile.FullName
-        if ($installed.sha256 -cne $extracted.sha256 -or $installed.size_bytes -ne $extracted.size_bytes) {
-            throw "Installed packaged file differs from the exact VSIX member: $relative"
-        }
-    }
+    Assert-InstalledVsixPayload -ExtractedRoot $ExtractedRoot `
+        -VsixManifestPath $VsixManifestPath -InstalledRoot $installedRoot
     return [pscustomobject][ordered]@{
         extension_root = $installedRoot
         command = New-CommandEvidence $install

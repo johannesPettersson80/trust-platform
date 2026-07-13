@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .windows_twincat_ads_acceptance_support import (
     PACKAGED_ADS_IMPORT_PROOF,
+    PACKAGED_EXTENSION_INSTALL,
     function_body,
 )
 
@@ -132,7 +133,10 @@ class SimulatorContractsMixin:
         self.assertIn("Install-IsolatedPackagedExtension", self.simulator_runner)
         self.assertIn("installed_payload_matches_vsix", self.simulator_runner)
         self.assertIn("installed_executed_files_byte_identical", self.simulator_runner)
-        self.assertIn("__metadata", self.packaged_extension_install)
+        payload_proof = PACKAGED_EXTENSION_INSTALL.with_name(
+            "InstalledVsixPayloadProof.psm1"
+        ).read_text(encoding="utf-8")
+        self.assertIn("__metadata", payload_proof)
         self.assertIn("Disable-PackagedBinaryPathFallback", self.simulator_runner)
         self.assertIn("TRUST_PACKAGED_PATH_FALLBACK_BLOCKED", self.simulator_runner)
         self.assertIn(
@@ -148,6 +152,45 @@ class SimulatorContractsMixin:
         self.assertIn("path_fallback_blocked", self.packaged_binary_identity)
         for binary in ("trust-runtime.exe", "trust-debug.exe", "trust-lsp.exe"):
             self.assertIn(binary, self.packaged_binary_identity)
+
+    def test_installed_vsix_payload_requires_exact_manifest_and_file_set(self) -> None:
+        proof_path = PACKAGED_EXTENSION_INSTALL.with_name(
+            "InstalledVsixPayloadProof.psm1"
+        )
+        self.assertTrue(
+            proof_path.is_file(),
+            "installed VSIX payload verification must have one bounded owner",
+        )
+        proof = proof_path.read_text(encoding="utf-8")
+        self.assertLess(len(proof.splitlines()), 150)
+        self.assertIn(
+            "InstalledVsixPayloadProof.psm1", self.packaged_extension_install
+        )
+        install = function_body(
+            self.packaged_extension_install, "Install-IsolatedPackagedExtension"
+        )
+        self.assertIn("Assert-InstalledVsixPayload", install)
+        self.assertIn("-VsixManifestPath $VsixManifestPath", install)
+        self.assertIn(
+            "-VsixManifestPath (Join-Path $expandedRoot 'extension.vsixmanifest')",
+            self.simulator_runner,
+        )
+        verification = function_body(proof, "Assert-InstalledVsixPayload")
+        self.assertIn("'.vsixmanifest'", verification)
+        self.assertIn("Get-ChildItem", verification)
+        self.assertIn("-Force", verification)
+        self.assertIn("$missing", verification)
+        self.assertIn("$extra", verification)
+        self.assertIn("reserved installed manifest path", verification)
+        self.assertIn("HashSet[string]", verification)
+        self.assertIn("$expectedPathSet.Add", verification)
+        self.assertIn("$installedPathSet.Contains", verification)
+        self.assertIn("Assert-ExactManifestBytes", verification)
+        exact_manifest = function_body(proof, "Assert-ExactManifestBytes")
+        self.assertIn("Get-FileEvidence", exact_manifest)
+        self.assertIn("size_bytes", exact_manifest)
+        self.assertIn("sha256", exact_manifest)
+        self.assertIn("[IO.File]::ReadAllBytes", exact_manifest)
 
     def test_packaged_simulator_drives_actual_sidebar_and_cross_surface_states(self) -> None:
         source = self.simulator_extension_test
