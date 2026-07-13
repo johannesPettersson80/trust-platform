@@ -79,7 +79,7 @@ END_PROGRAM
 
     harness.advance_time(Duration::from_millis(10));
     harness.restart(RestartMode::Warm).unwrap();
-    assert_eq!(harness.current_time(), Duration::ZERO);
+    assert_eq!(harness.current_time(), Duration::from_millis(10));
 }
 
 #[test]

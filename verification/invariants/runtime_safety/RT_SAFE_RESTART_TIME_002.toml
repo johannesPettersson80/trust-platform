@@ -1,0 +1,50 @@
+schema_version = 1
+id = "RT_SAFE_RESTART_TIME_002"
+title = "In-process restart preserves monotonic time and rebases recreated state"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-13"
+claim = "An in-process warm or cold restart preserves monotonic runtime time, reinitializes timer and task baselines at that time, and applies the documented retain policy deterministically."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/retain"]
+tests = ["TEST_RUNTIME_RESTART_TRACE_001"]
+gates = []
+evidence_refs = []
+missing = ["producer_authentic_red_green", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001", "SPEC_IEC_DECISIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "WARM_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An in-process warm restart preserves monotonic runtime time, retains RETAIN values, initializes non-retained values, and gives the recreated timer a zero elapsed-time baseline at the preserved time."
+
+[[behavior]]
+partition = { equals = "COLD_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An in-process cold restart preserves monotonic runtime time, initializes all variables, and gives the recreated timer a zero elapsed-time baseline at the preserved time."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "The cataloged restart trace is written but has not yet completed producer-authentic red, green, and broad remote proof."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "The cataloged restart trace is written but has not yet completed producer-authentic red, green, and broad remote proof."

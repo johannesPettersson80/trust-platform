@@ -14,7 +14,7 @@ fn temp_path(name: &str) -> std::path::PathBuf {
 }
 
 #[test]
-fn retain_rules() {
+fn in_process_restart_preserves_monotonic_time() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -24,10 +24,12 @@ x := x + INT#1;
 END_PROGRAM
 "#;
 
-    let mut harness = TestHarness::from_source(source).unwrap();
-    harness.advance_time(Duration::from_millis(5));
-    harness.restart(RestartMode::Warm).unwrap();
-    assert_eq!(harness.current_time(), Duration::ZERO);
+    for mode in [RestartMode::Warm, RestartMode::Cold] {
+        let mut harness = TestHarness::from_source(source).unwrap();
+        harness.advance_time(Duration::from_millis(5));
+        harness.restart(mode).unwrap();
+        assert_eq!(harness.current_time(), Duration::from_millis(5));
+    }
 }
 
 #[test]
