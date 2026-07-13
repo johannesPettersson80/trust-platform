@@ -130,6 +130,123 @@ if ([string]::IsNullOrWhiteSpace($timestamp)) {{
                     completed.stdout + completed.stderr,
                 )
 
+    @unittest.skipUnless(
+        shutil.which("powershell.exe"),
+        "Windows PowerShell 5.1 is unavailable",
+    )
+    def test_windows_powershell_51_vscode_cli_uses_child_only_node_mode(
+        self,
+    ) -> None:
+        module = str(PACKAGED_EXTENSION_INSTALL).replace("'", "''")
+        command = (
+            "$ErrorActionPreference = 'Stop'\n"
+            f"Import-Module '{module}' -Force -DisableNameChecking\n"
+            r"""
+$root = Join-Path ([IO.Path]::GetTempPath()) ('trust vscode cli ' + [Guid]::NewGuid().ToString('N'))
+$vscode = Join-Path $root 'Code.exe'
+$cliScript = Join-Path $root 'resources\app\out\cli.js'
+$probeEvidence = Join-Path $root 'probe.txt'
+$source = @'
+using System;
+using System.IO;
+
+public static class FakeCode
+{
+    public static int Main(string[] args)
+    {
+        string path = Environment.GetEnvironmentVariable("TRUST_FAKE_VSCODE_CLI_EVIDENCE");
+        string[] lines = new string[args.Length + 2];
+        lines[0] = Environment.GetEnvironmentVariable("ELECTRON_RUN_AS_NODE") ?? "<null>";
+        lines[1] = Environment.GetEnvironmentVariable("VSCODE_DEV") ?? "<null>";
+        for (int i = 0; i < args.Length; i++)
+        {
+            lines[i + 2] = args[i];
+        }
+        File.WriteAllLines(path, lines);
+        Console.WriteLine("1.128.0");
+        return 0;
+    }
+}
+'@
+$previousElectron = [Environment]::GetEnvironmentVariable('ELECTRON_RUN_AS_NODE', 'Process')
+$previousVscodeDev = [Environment]::GetEnvironmentVariable('VSCODE_DEV', 'Process')
+$previousEvidence = [Environment]::GetEnvironmentVariable('TRUST_FAKE_VSCODE_CLI_EVIDENCE', 'Process')
+try {
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $cliScript)) | Out-Null
+    [IO.File]::WriteAllText($cliScript, '// fake VS Code CLI entrypoint')
+    Add-Type -TypeDefinition $source -Language CSharp -OutputAssembly $vscode `
+        -OutputType ConsoleApplication
+    [Environment]::SetEnvironmentVariable('ELECTRON_RUN_AS_NODE', 'parent-electron', 'Process')
+    [Environment]::SetEnvironmentVariable('VSCODE_DEV', 'parent-dev', 'Process')
+    [Environment]::SetEnvironmentVariable('TRUST_FAKE_VSCODE_CLI_EVIDENCE', $probeEvidence, 'Process')
+
+    $version = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 10
+    if ($version.timed_out -or $version.exit_code -ne 0 -or $version.stdout.Trim() -cne '1.128.0') {
+        throw 'Fake VS Code version probe failed.'
+    }
+    $versionEvidence = @(Get-Content -LiteralPath $probeEvidence)
+    $expectedVersion = @('1', '<null>', $cliScript, '--version')
+    if ($versionEvidence.Count -ne $expectedVersion.Count) {
+        throw 'Fake VS Code version probe argument count differed.'
+    }
+    for ($index = 0; $index -lt $expectedVersion.Count; $index++) {
+        if ($versionEvidence[$index] -cne $expectedVersion[$index]) {
+            throw "Fake VS Code version probe differed at index $index."
+        }
+    }
+
+    $installArguments = @(
+        '--install-extension', (Join-Path $root 'candidate package.vsix'), '--force',
+        "--extensions-dir=$(Join-Path $root 'extensions dir')",
+        "--user-data-dir=$(Join-Path $root 'user data')"
+    )
+    $install = Invoke-VscodeCli -Vscode $vscode -Arguments $installArguments -TimeoutSeconds 10
+    if ($install.timed_out -or $install.exit_code -ne 0) {
+        throw 'Fake VS Code install probe failed.'
+    }
+    $installEvidence = @(Get-Content -LiteralPath $probeEvidence)
+    $expectedInstall = @('1', '<null>', $cliScript) + $installArguments
+    if ($installEvidence.Count -ne $expectedInstall.Count) {
+        throw 'Fake VS Code install probe argument count differed.'
+    }
+    for ($index = 0; $index -lt $expectedInstall.Count; $index++) {
+        if ($installEvidence[$index] -cne $expectedInstall[$index]) {
+            throw "Fake VS Code install probe differed at index $index."
+        }
+    }
+    if ($env:ELECTRON_RUN_AS_NODE -cne 'parent-electron' -or $env:VSCODE_DEV -cne 'parent-dev') {
+        throw 'VS Code CLI invocation changed the parent process environment.'
+    }
+}
+finally {
+    [Environment]::SetEnvironmentVariable('ELECTRON_RUN_AS_NODE', $previousElectron, 'Process')
+    [Environment]::SetEnvironmentVariable('VSCODE_DEV', $previousVscodeDev, 'Process')
+    [Environment]::SetEnvironmentVariable('TRUST_FAKE_VSCODE_CLI_EVIDENCE', $previousEvidence, 'Process')
+    if ([IO.Directory]::Exists($root)) {
+        [IO.Directory]::Delete($root, $true)
+    }
+}
+"""
+        )
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                command,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            completed.stdout + completed.stderr,
+        )
+
     def test_generic_lists_are_materialized_through_to_array(self) -> None:
         conversions = (
             (self.acceptance_plan, "$ports.ToArray()", "@($ports)"),

@@ -127,7 +127,8 @@ function Invoke-CapturedProcess {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [Parameter(Mandatory = $true)][string[]]$Arguments,
-        [Parameter(Mandatory = $true)][int]$TimeoutSeconds
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [Parameter()][System.Collections.IDictionary]$EnvironmentOverrides
     )
     $startInfo = New-Object Diagnostics.ProcessStartInfo
     $startInfo.FileName = $FilePath
@@ -139,6 +140,20 @@ function Invoke-CapturedProcess {
     $utf8 = New-Object Text.UTF8Encoding($false, $false)
     $startInfo.StandardOutputEncoding = $utf8
     $startInfo.StandardErrorEncoding = $utf8
+    if ($null -ne $EnvironmentOverrides) {
+        foreach ($entry in $EnvironmentOverrides.GetEnumerator()) {
+            $name = [string]$entry.Key
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                throw 'A child process environment override had an empty name.'
+            }
+            if ($null -eq $entry.Value) {
+                $startInfo.EnvironmentVariables.Remove($name)
+            }
+            else {
+                $startInfo.EnvironmentVariables[$name] = [string]$entry.Value
+            }
+        }
+    }
 
     $process = New-Object Diagnostics.Process
     $process.StartInfo = $startInfo

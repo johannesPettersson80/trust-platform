@@ -509,22 +509,36 @@ try {
 
     $vscode = Resolve-VscodeExecutable -RepositoryRoot $repositoryRoot
     $vscodeFile = Get-FileEvidence -Path $vscode
-    $versionResult = Invoke-CapturedProcess -FilePath $vscode -Arguments @('--version') -TimeoutSeconds 30
-    if ($versionResult.timed_out -or $versionResult.exit_code -ne 0) {
-        throw 'Visual Studio Code did not return a version successfully.'
-    }
-    $vscodeVersion = @($versionResult.stdout -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })[0]
+    $versionResult = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 30
+    $versionLines = @($versionResult.stdout -split '\r?\n' | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    })
+    $vscodeVersion = if ($versionLines.Count -gt 0) { [string]$versionLines[0] } else { $null }
     $finalEvidence.vscode = [ordered]@{
         path = $vscode
         version = $vscodeVersion
         sha256 = $vscodeFile.sha256
         size_bytes = $vscodeFile.size_bytes
+        cli_script = Get-FileEvidence -Path ([string]$versionResult.arguments[0])
+        version_probe = New-CommandEvidence $versionResult
+        install = $null
+    }
+    if ($versionResult.timed_out -or $versionResult.exit_code -ne 0) {
+        throw (
+            "Visual Studio Code CLI version probe failed " +
+            "(timed_out=$($versionResult.timed_out), exit_code=$($versionResult.exit_code))."
+        )
+    }
+    if ([string]::IsNullOrWhiteSpace($vscodeVersion)) {
+        throw 'Visual Studio Code CLI returned no version.'
     }
 
     [IO.Directory]::CreateDirectory($userDataRoot) | Out-Null
-    $extensionRoot = Install-IsolatedPackagedExtension -Vscode $vscode -Vsix $resolvedVsix `
+    $installation = Install-IsolatedPackagedExtension -Vscode $vscode -Vsix $resolvedVsix `
         -ExtensionsRoot $extensionsRoot -UserDataRoot $userDataRoot `
         -ExpectedVersion $metadata.version -ExtractedRoot $extractedExtensionRoot
+    $extensionRoot = [string]$installation.extension_root
+    $finalEvidence.vscode.install = $installation.command
     $finalEvidence.safety_contract.isolated_vsix_installed = $true
     $finalEvidence.package.installed_payload_matches_vsix = $true
     $finalEvidence.package.installed_executed_files_byte_identical = $true

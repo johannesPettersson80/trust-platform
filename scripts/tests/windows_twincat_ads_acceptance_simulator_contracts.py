@@ -74,6 +74,30 @@ class SimulatorContractsMixin:
         self.assertNotIn("--install-extension", self.simulator_runner)
         self.assertIn("Install-IsolatedPackagedExtension", self.simulator_runner)
         self.assertIn("New-AcceptanceDriverExtension", self.simulator_runner)
+        self.assertIn(
+            "Invoke-VscodeCli -Vscode $vscode -Arguments @('--version')",
+            self.simulator_runner,
+        )
+        self.assertIn("version_probe = New-CommandEvidence", self.simulator_runner)
+        self.assertIn("cli_script = Get-FileEvidence", self.simulator_runner)
+        self.assertIn("function Invoke-VscodeCli", self.packaged_extension_install)
+        self.assertIn("resources\\app\\out\\cli.js", self.packaged_extension_install)
+        self.assertIn("ELECTRON_RUN_AS_NODE = '1'", self.packaged_extension_install)
+        self.assertIn("VSCODE_DEV = $null", self.packaged_extension_install)
+        install = function_body(
+            self.packaged_extension_install, "Install-IsolatedPackagedExtension"
+        )
+        self.assertIn("Invoke-VscodeCli -Vscode $Vscode", install)
+        self.assertNotIn("Invoke-CapturedProcess -FilePath $Vscode", install)
+        desktop_launch = function_body(
+            self.simulator_runner, "Invoke-VscodeAcceptance"
+        )
+        self.assertNotIn("Invoke-VscodeCli", desktop_launch)
+        self.assertNotIn("ELECTRON_RUN_AS_NODE", desktop_launch)
+        self.assertIn(
+            "$run = Invoke-VscodeAcceptance -Executable $vscode",
+            self.simulator_runner,
+        )
 
     def test_packaged_simulator_uses_exact_vsix_and_bundled_windows_binaries(self) -> None:
         for member in (

@@ -21,6 +21,21 @@ class WindowsAdsCandidateManifestTests(unittest.TestCase):
         ):
             self.assertIn(marker, workflow)
 
+    def test_ci_proves_real_windows_vscode_cli_before_packaging(self) -> None:
+        workflow = (
+            Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
+        ).read_text(encoding="utf-8")
+        focused = workflow.index("- name: Run focused Windows ADS extension tests")
+        cli_probe = workflow.index("- name: Prove Windows VS Code CLI boundary")
+        package = workflow.index("- name: Package win32-x64 VSIX")
+        self.assertLess(focused, cli_probe)
+        self.assertLess(cli_probe, package)
+        probe = workflow[cli_probe:package]
+        self.assertIn("Invoke-VscodeCli", probe)
+        self.assertIn("resources\\app\\out\\cli.js", probe)
+        self.assertIn("resources\\app\\package.json", probe)
+        self.assertIn("-TimeoutSeconds 10", probe)
+
     def test_manifest_binds_ci_commit_version_and_exact_vsix_bytes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="trust-candidate-manifest-") as temp:
             vsix = Path(temp) / "trust-lsp-0.24.33-win32-x64.vsix"

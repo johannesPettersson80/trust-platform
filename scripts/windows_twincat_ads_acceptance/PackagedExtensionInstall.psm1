@@ -46,6 +46,25 @@ function Disable-PackagedBinaryPathFallback {
     }
 }
 
+function Invoke-VscodeCli {
+    param(
+        [Parameter(Mandatory = $true)][string]$Vscode,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds
+    )
+    $resolvedVscode = (Resolve-Path -LiteralPath $Vscode -ErrorAction Stop).Path
+    $cliScript = Join-Path (Split-Path -Parent $resolvedVscode) 'resources\app\out\cli.js'
+    if (-not (Test-Path -LiteralPath $cliScript -PathType Leaf)) {
+        throw "Visual Studio Code CLI script was not found beside $resolvedVscode."
+    }
+    [string[]]$cliArguments = @($cliScript) + @($Arguments)
+    return Invoke-CapturedProcess -FilePath $resolvedVscode -Arguments $cliArguments `
+        -TimeoutSeconds $TimeoutSeconds -EnvironmentOverrides @{
+            ELECTRON_RUN_AS_NODE = '1'
+            VSCODE_DEV = $null
+        }
+}
+
 function Install-IsolatedPackagedExtension {
     param(
         [Parameter(Mandatory = $true)][string]$Vscode,
@@ -55,12 +74,17 @@ function Install-IsolatedPackagedExtension {
         [Parameter(Mandatory = $true)][string]$ExpectedVersion,
         [Parameter(Mandatory = $true)][string]$ExtractedRoot
     )
-    $install = Invoke-CapturedProcess -FilePath $Vscode -Arguments @(
+    $install = Invoke-VscodeCli -Vscode $Vscode -Arguments @(
         '--install-extension', $Vsix, '--force',
         "--extensions-dir=$ExtensionsRoot", "--user-data-dir=$UserDataRoot"
     ) -TimeoutSeconds 90
     if ($install.timed_out -or $install.exit_code -ne 0) {
-        throw 'Visual Studio Code did not install the isolated packaged VSIX.'
+        $command = New-CommandEvidence $install
+        throw (
+            "Visual Studio Code CLI did not install the isolated packaged VSIX " +
+            "(timed_out=$($command.timed_out), exit_code=$($command.exit_code), " +
+            "stderr_size_bytes=$([Text.Encoding]::UTF8.GetByteCount($command.stderr)))."
+        )
     }
     $matches = @(Get-ChildItem -LiteralPath $ExtensionsRoot -Directory | Where-Object {
         $packagePath = Join-Path $_.FullName 'package.json'
@@ -98,7 +122,10 @@ function Install-IsolatedPackagedExtension {
             throw "Installed packaged file differs from the exact VSIX member: $relative"
         }
     }
-    return $installedRoot
+    return [pscustomobject][ordered]@{
+        extension_root = $installedRoot
+        command = New-CommandEvidence $install
+    }
 }
 
 function New-AcceptanceDriverExtension {
@@ -118,6 +145,7 @@ function New-AcceptanceDriverExtension {
 Export-ModuleMember -Function @(
     'New-IsolatedUserData',
     'Disable-PackagedBinaryPathFallback',
+    'Invoke-VscodeCli',
     'Install-IsolatedPackagedExtension',
     'New-AcceptanceDriverExtension'
 )

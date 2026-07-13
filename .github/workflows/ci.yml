@@ -338,6 +338,38 @@ jobs:
             --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
             --log ../../gate-artifacts/windows-vscode-ads-test.log \
             -- npm.cmd test
+      - name: Prove Windows VS Code CLI boundary
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module .\scripts\windows_twincat_ads_acceptance\PackagedExtensionInstall.psm1 -Force
+          $candidates = @(
+            Get-ChildItem .\editors\vscode\.vscode-test -Filter Code.exe -File -Recurse |
+              Sort-Object LastWriteTimeUtc -Descending
+          )
+          if ($candidates.Count -eq 0) {
+            throw 'Focused extension tests did not leave a cached Windows VS Code executable.'
+          }
+          $vscode = $candidates[0].FullName
+          $vscodeRoot = Split-Path -Parent $vscode
+          $expectedCli = (Resolve-Path (Join-Path $vscodeRoot 'resources\app\out\cli.js')).Path
+          $product = Get-Content (Join-Path $vscodeRoot 'resources\app\package.json') -Raw |
+            ConvertFrom-Json
+          $expectedVersion = [string]$product.version
+          $probe = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 10
+          if ($probe.timed_out -or $probe.exit_code -ne 0) {
+            throw "VS Code CLI boundary failed (timed_out=$($probe.timed_out), exit_code=$($probe.exit_code)): $($probe.stderr.Trim())"
+          }
+          $versionLines = @($probe.stdout -split '\r?\n' | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+          })
+          if ($versionLines.Count -eq 0 -or $versionLines[0] -cne $expectedVersion) {
+            throw "VS Code CLI returned '$($versionLines -join ',')'; expected '$expectedVersion'."
+          }
+          if ([string]($probe.arguments[0]) -cne $expectedCli) {
+            throw 'VS Code CLI boundary did not execute the cached cli.js entrypoint.'
+          }
+          Write-Host "VS Code CLI boundary passed for $expectedVersion."
       - name: Package win32-x64 VSIX
         working-directory: editors/vscode
         run: npx vsce package --target win32-x64 --out ../../gate-artifacts/trust-lsp-win32-x64-ci.vsix
