@@ -1,11 +1,11 @@
 # Phase 10 Focused Mutation Program
 
 Generator: `mutation-program-audit v1`
-Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
-Generated: `2026-07-13T16:48:52+02:00`
+Source revision: `9ed22fddad5fd662df1dbed838730c7def0e01e2`
+Generated: `2026-07-13T19:11:10+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `55082dfd16ff3585ce1d2b97599a68f2c5cd57ceab482dfaee53ed8443e3df6b`
-Input SHA-256: `sha256:ecf2e1be41796c9f5ca4acc00ca4d74c200b587bc2827d5edae660e4b6a4a196`
+Generated JSON SHA-256: `c5df00fa36fd8530fbb170fcdaa4bf39eede40cc7de809d01213ec986a351df2`
+Input SHA-256: `sha256:5cfdaa65195f6931387b4ff43496cb260273a5d17401280a73756d3f895b64ba`
 
 This report separates one validated measured pilot from five planned focused
 shards. It creates no proof, invariant coverage, spec-gap closure, release
@@ -29,7 +29,7 @@ evidence, product behavior, or CI enforcement change.
 
 | Shard | Area | Status | Defined | Measured | Result artifact |
 | --- | --- | --- | ---: | ---: | --- |
-| `MUTATION_SHARD_BYTECODE_VALIDATOR_001` | `bytecode_vm` | `measured` | 2 | 2 | `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json` (`sha256:14f8c0651772b976105d113d49261618e6b9ac8d6407fb872042f02ef346a40d`) |
+| `MUTATION_SHARD_BYTECODE_VALIDATOR_001` | `bytecode_vm` | `measured` | 2 | 2 | `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json` (`sha256:9a55f3afc4f9a1ce946809df64f7f7c254be05bcedbd86c376b3e32c863f15bc`) |
 | `MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001` | `bytecode_vm` | `planned` | 1 | 0 | none |
 | `MUTATION_SHARD_HIR_DIAGNOSTICS_001` | `compiler_iec` | `planned` | 1 | 0 | none |
 | `MUTATION_SHARD_PARSER_RECOVERY_001` | `compiler_iec` | `planned` | 1 | 0 | none |
