@@ -187,7 +187,19 @@ wire/storage shape temporarily, but every entry point with declared type context
 must validate before storing or executing the value; validation failure returns
 a diagnostic error and never substitutes a default value.
 
-#### 2.3 Time/Date Representation
+#### 2.3 Declared-Type Materialization
+
+When semantic analysis permits an implicit numeric widening, every assignment
+or POU parameter copy-in materializes the value as the declared target type
+before the value is stored or used by the callee. In particular, an `INT` value
+assigned or passed to `REAL` storage is represented as `Value::Real`, and an
+`INT` value assigned or passed to `DINT` storage is represented as
+`Value::DInt`. The stack, register, and tier-1 execution paths must produce the
+same declared runtime type and value. This rule does not authorize narrowing or
+otherwise incompatible conversions; those remain rejected according to the
+semantic type-compatibility rules.
+
+#### 2.4 Time/Date Representation
 
 IEC 61131-3 defines LTIME/LDATE/LTOD/LDT as signed 64-bit nanosecond counts with fixed
 epochs, while TIME/DATE/TOD/DT have implementer-specific range and precision
@@ -274,7 +286,7 @@ runtime behavior (CODESYS/TwinCAT-style):
 
 Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
 
-#### 2.4 Default Values
+#### 2.5 Default Values
 
 Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 §6.4.2, Table 10; §6.4.4.2; §6.4.4.10.2):
 
@@ -656,7 +668,8 @@ pub enum StmtResult {
 
 **REF operator** (IEC 61131-3 Ed.3 §6.4.4.10.3):
 - `REF(var)` returns a reference to a declared variable or instance.
-- Applying `REF` to temporary variables (VAR_TEMP or function-local temporaries) is not permitted.
+- Applying `REF` to temporary variables (VAR_TEMP, function-local temporaries,
+  or the implicit result variable of a function or method) is not permitted.
 
 **SIZEOF operator** (vendor extension, see `DEV-016`):
 - `SIZEOF(...)` accepts either an explicit type reference or a storage operand (`name`, field/index access, dereference, `THIS.field`).

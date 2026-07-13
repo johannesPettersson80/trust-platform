@@ -4,24 +4,6 @@
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_043E03287D0BD498DBFE"
-discovery_id = "DISC_043E03287D0BD498DBFE"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "declared_dint_keeps_dint_width_after_int_assignment"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-002"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_076A01316BE505A43D6C"
 discovery_id = "DISC_076A01316BE505A43D6C"
 discovery_source_kind = "rust_integration_test"
@@ -166,24 +148,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_1D261CB173DC0CF72297"
-discovery_id = "DISC_1D261CB173DC0CF72297"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "declared_real_keeps_real_semantics_after_integer_assignment"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-001"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_20DF277B08348ED8A798"
 discovery_id = "DISC_20DF277B08348ED8A798"
 discovery_source_kind = "rust_integration_test"
@@ -198,24 +162,6 @@ status = "mapped"
 ignore_class = "manual"
 reason = "This is an orchestrated child process or explicit diagnostic probe, not a default standalone gate."
 unblock_condition = "Run it through its named parent harness or documented manual command."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_265444021E11E0C2B452"
-discovery_id = "DISC_265444021E11E0C2B452"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-012"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -257,24 +203,6 @@ required_env_vars = ["TRUST_DIT_ETHERCAT_ADAPTER"]
 hardware_topology = "Configured EtherCAT adapter and discoverable bus/module profile."
 hardware_topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
 public_claim_impact = "A missing or skipped run cannot prove the live EtherCAT hardware claim."
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_278EEBF061FD97B539D0"
-discovery_id = "DISC_278EEBF061FD97B539D0"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-004"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
@@ -357,24 +285,6 @@ path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
 name = "crafted_frame_local_ref_cannot_persist_to_global_storage"
 ignore_state = "ignored"
 ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-007"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_547AC119BF2B3BEFB960"
-discovery_id = "DISC_547AC119BF2B3BEFB960"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-012"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "bytecode_vm"
@@ -498,24 +408,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_7DBEF68950F9AC3B5F29"
-discovery_id = "DISC_7DBEF68950F9AC3B5F29"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "ref_return_name_is_rejected_before_runtime_lowering"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-006"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_7F7F305082D2D125BF56"
 discovery_id = "DISC_7F7F305082D2D125BF56"
 discovery_source_kind = "rust_integration_test"
@@ -570,24 +462,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_8E59F13125886D732DA2"
-discovery_id = "DISC_8E59F13125886D732DA2"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "parameter_copy_in_materializes_declared_numeric_widening"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-IMPL-001B"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_934C37AAF7B29C216166"
 discovery_id = "DISC_934C37AAF7B29C216166"
 discovery_source_kind = "rust_integration_test"
@@ -598,24 +472,6 @@ ignore_reason = "red test for runtime-safety fail-closed Phase 1"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_94100DB31F1CB2D16C0F"
-discovery_id = "DISC_94100DB31F1CB2D16C0F"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs"
-name = "test_ref_rejects_function_return_variable"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-005"
-ignore_mechanism = "rust_attribute"
-owner = "trust-hir"
-area = "compiler_iec"
 status = "gap_open"
 ignore_class = "unknown"
 reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
@@ -808,24 +664,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_C1C1116CE99213C96040"
-discovery_id = "DISC_C1C1116CE99213C96040"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-004"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_CE3D5672C7ABFFB9A685"
 discovery_id = "DISC_CE3D5672C7ABFFB9A685"
 discovery_source_kind = "rust_unit_test"
@@ -858,24 +696,6 @@ status = "mapped"
 ignore_class = "perf_soak"
 reason = "This is a long or resource-intensive measurement intended for an explicit performance or soak lane."
 unblock_condition = "Run it through a named performance or soak command; do not add it to a fast suite from mechanical metadata."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_D76D0BCB14E615250E0B"
-discovery_id = "DISC_D76D0BCB14E615250E0B"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-012"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -984,24 +804,6 @@ ignore_reason = "red test for runtime-safety fail-closed Phase 1"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_F1BFAEF8054FF79967E4"
-discovery_id = "DISC_F1BFAEF8054FF79967E4"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs"
-name = "test_ref_rejects_method_return_variable"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-005"
-ignore_mechanism = "rust_attribute"
-owner = "trust-hir"
-area = "compiler_iec"
 status = "gap_open"
 ignore_class = "unknown"
 reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."

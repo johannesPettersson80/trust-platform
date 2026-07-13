@@ -674,7 +674,6 @@ fn mutate_worker_first_param_direction(
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-001"]
 fn declared_real_keeps_real_semantics_after_integer_assignment() {
     let source = r#"
 PROGRAM Main
@@ -700,7 +699,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-002"]
 fn declared_dint_keeps_dint_width_after_int_assignment() {
     let source = r#"
 PROGRAM Main
@@ -726,7 +724,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-004"]
 fn declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths() {
     let source = r#"
 PROGRAM Main
@@ -753,7 +750,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-004"]
 fn declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths() {
     let source = r#"
 PROGRAM Main
@@ -780,7 +776,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-IMPL-001B"]
 fn parameter_copy_in_materializes_declared_numeric_widening() {
     let source = r#"
 FUNCTION Half : REAL
@@ -845,7 +840,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-006"]
 fn ref_return_name_is_rejected_before_runtime_lowering() {
     let source = r#"
 VAR_GLOBAL
@@ -871,7 +865,12 @@ END_PROGRAM
 "#;
 
     match TestHarness::from_source(source) {
-        Err(_) => {}
+        Err(error) => assert!(
+            error.to_string().contains(
+                "error[E202]: REF cannot take a reference to a function or method return variable"
+            ),
+            "expected the REF(return variable) diagnostic, got: {error}"
+        ),
         Ok(mut harness) => {
             harness
                 .runtime_mut()
@@ -1162,7 +1161,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 PROGRAM Main
@@ -1189,7 +1187,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 FUNCTION_BLOCK Clamp
@@ -1237,7 +1234,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 PROGRAM Main
