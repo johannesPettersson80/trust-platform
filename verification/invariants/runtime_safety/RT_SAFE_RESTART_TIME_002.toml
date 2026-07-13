@@ -7,13 +7,17 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-13"
 claim = "An in-process warm or cold restart preserves monotonic runtime time, reinitializes timer and task baselines at that time, and applies the documented retain policy deterministically."
-proof_level = "G1"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/retain"]
 tests = ["TEST_RUNTIME_RESTART_TRACE_001"]
-gates = []
-evidence_refs = ["EVID_TEST_RUNTIME_RESTART_TRACE_001_RED", "EVID_TEST_RUNTIME_RESTART_TRACE_001_GREEN"]
-missing = ["broad_remote_gate"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RESTART_TRACE_001_RED",
+  "EVID_TEST_RUNTIME_RESTART_TRACE_001_GREEN",
+  "EVID_BROAD_REMOTE_PR_20260713_64EBD180C1B0",
+]
+missing = []
 
 [spec]
 status = "specified"
@@ -47,4 +51,4 @@ rationale = "Paired producer-authentic red and green proofs cover warm and cold 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "covered"
-rationale = "Paired producer-authentic red and green proofs show the monotonic-time rewind before the fix and preserved forward time after the fix; broad remote proof remains open."
+rationale = "Paired producer-authentic red and green proofs show the monotonic-time rewind before the fix and preserved forward time after the fix, with a causal broad remote PR gate."
