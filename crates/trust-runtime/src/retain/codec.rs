@@ -157,10 +157,20 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
             out.extend_from_slice(&v.to_le_bytes());
         }
         Value::Real(v) => {
+            if !v.is_finite() {
+                return Err(RuntimeError::RetainStore(
+                    "cannot persist non-finite REAL retain value".into(),
+                ));
+            }
             out.push(ValueTag::Real as u8);
             out.extend_from_slice(&v.to_le_bytes());
         }
         Value::LReal(v) => {
+            if !v.is_finite() {
+                return Err(RuntimeError::RetainStore(
+                    "cannot persist non-finite LREAL retain value".into(),
+                ));
+            }
             out.push(ValueTag::LReal as u8);
             out.extend_from_slice(&v.to_le_bytes());
         }
@@ -279,8 +289,24 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
         x if x == ValueTag::UInt as u8 => Value::UInt(reader.read_u16()?),
         x if x == ValueTag::UDInt as u8 => Value::UDInt(reader.read_u32()?),
         x if x == ValueTag::ULInt as u8 => Value::ULInt(reader.read_u64()?),
-        x if x == ValueTag::Real as u8 => Value::Real(reader.read_f32()?),
-        x if x == ValueTag::LReal as u8 => Value::LReal(reader.read_f64()?),
+        x if x == ValueTag::Real as u8 => {
+            let value = reader.read_f32()?;
+            if !value.is_finite() {
+                return Err(RuntimeError::RetainCorruption(
+                    "non-finite REAL in retain snapshot".into(),
+                ));
+            }
+            Value::Real(value)
+        }
+        x if x == ValueTag::LReal as u8 => {
+            let value = reader.read_f64()?;
+            if !value.is_finite() {
+                return Err(RuntimeError::RetainCorruption(
+                    "non-finite LREAL in retain snapshot".into(),
+                ));
+            }
+            Value::LReal(value)
+        }
         x if x == ValueTag::Byte as u8 => Value::Byte(reader.read_u8()?),
         x if x == ValueTag::Word as u8 => Value::Word(reader.read_u16()?),
         x if x == ValueTag::DWord as u8 => Value::DWord(reader.read_u32()?),

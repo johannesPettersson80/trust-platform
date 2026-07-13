@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-runtime: file-backed retain snapshots now reject non-finite
+  `REAL`/`LREAL` values recursively on save and load, preserving the last good
+  durable image and preventing partial application of an invalid snapshot.
 - trust-runtime: mesh subscriptions now reject integer values outside the
   subscribed IEC type's range and reject floating-point conversions that would
   produce a non-finite PLC value instead of silently wrapping or storing
