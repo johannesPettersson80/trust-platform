@@ -2,8 +2,8 @@
 //!
 //! The crate dynamically loads only trusted Windows installation locations and
 //! keeps the library alive while any ADS port can call its exported functions.
-//! Raw pointers and foreign calls are confined to [`ffi`]; consumers receive a
-//! safe, byte-oriented, RAII API.
+//! Raw pointers and foreign calls are confined to the private FFI module;
+//! consumers receive a safe, byte-oriented, RAII API.
 
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
