@@ -1676,3 +1676,39 @@ case_file_digest = "sha256:bdeed873950a1645d02e91296bba9b04c7e1af91eaf196ab02cfa
 paired_red_evidence = "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED"
 formerly_red_case_ids = ["RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT"]
 per_case_summary = ["RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260713_47F0E2B3C66A"
+title = "Reviewed PR broad gate for RT_SAFE_DEADLINE_001"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "121fa076f0ceb0a6dbb5a06f6784723b91dac443"
+remote_commit = "121fa076f0ceb0a6dbb5a06f6784723b91dac443"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-13"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_SAFE_DEADLINE_001"]
+linked_tests = ["TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-13"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:c0256dd2ba3e3590291ecc4e086c5e6c113e54d84b04f88734061f63af857e22", case_file_digest = "sha256:bdeed873950a1645d02e91296bba9b04c7e1af91eaf196ab02cfa2c7c77fd838", command = "cargo test -p trust-runtime --test runtime_watchdog_output_case watchdog_deadline_before_output_commit_case -- --exact", discovery_id = "DISC_4E0EFE2F6CE2913C5C99", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT:passed"], run_id = "cfed80ec2dcd4264a4e38ec76ef13345", test_id = "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001" }]
+gate_started_at = "2026-07-13T09:07:31Z"
+gate_finished_at = "2026-07-13T09:18:13Z"
+gate_duration_milliseconds = 642269
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 69184536
+tmp_available_kib = 4115356
