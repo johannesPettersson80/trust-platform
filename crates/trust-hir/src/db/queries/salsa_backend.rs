@@ -302,10 +302,24 @@ pub(super) fn project_symbol_tables_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
 ) -> Arc<FxHashMap<FileId, Arc<SymbolTable>>> {
+    let files = project.files(db);
+    let catalog = project_type_catalog_query(db, project);
+    let provider = SalsaProjectTypeProvider {
+        db,
+        project_files: files.as_ref(),
+        catalog: catalog.as_ref(),
+    };
+    let const_roots: Vec<SyntaxNode> = files
+        .iter()
+        .map(|(_, input)| SyntaxNode::new_root(parse_green(db, *input).clone()))
+        .collect();
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
-    for (file_id, _input) in project.files(db).iter().copied() {
+    for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
-        project_tables.insert(file_id, file_symbols_query(db, project, file_id).clone());
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        let (symbols, _) = SymbolCollector::with_project_types(&provider)
+            .collect_with_project_const_roots(&root, &const_roots);
+        project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
 }

@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-hir: cross-file POU imports now preserve `STRING[n]` and `WSTRING[n]`
+  capacities derived from project constants, so equal-capacity `VAR_IN_OUT`
+  bindings no longer fail as bounded-to-unbounded mismatches.
 - trust-runtime: file-backed retain snapshots now reject non-finite
   `REAL`/`LREAL` values recursively on save and load, preserving the last good
   durable image and preventing partial application of an invalid snapshot.
