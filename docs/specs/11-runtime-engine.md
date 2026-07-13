@@ -269,6 +269,43 @@ Driver error handling is configurable per driver:
 
 Driver health is exposed via `ctl status` and the TUI.
 
+##### Floating-point boundary admission policy
+
+IEC 61131-3 Ed.3, Section 6.4.2.1, Table 10 defines `REAL` and `LREAL`
+using the IEC 60559 basic single- and double-width formats and leaves results
+involving infinity or not-a-number implementer-specific. Section 6.6.2.5.15,
+Table 39 defines `IS_VALID` so program logic can distinguish finite values from
+NaN and infinity. Those provisions do not define how an external host or
+protocol admits a value into a PLC process image. truST therefore applies the
+following fail-closed admission contract (DEV-045):
+
+| Boundary | Typed non-finite input | Required rejection effect |
+|----------|------------------------|---------------------------|
+| Typed `%I` snapshot | `REAL`/`LREAL` IEEE bits decode to NaN or either infinity | Return an I/O error before exposing a typed snapshot value; do not normalize or substitute a value. |
+| Modbus `input_points` | An `f32` register value, or its scaled engineering value, is non-finite | Reject the complete mapped read before changing any byte of the caller's input image. Previously accepted process-image bytes remain unchanged. |
+| MQTT `input_points` | An `f32` text, JSON, or binary payload, or its scaled engineering value, is non-finite | Reject the complete received payload batch before changing the caller's input image or the driver's last accepted mapped snapshot. A later valid payload must not expose values from the rejected batch. |
+| OPC UA client points | A configured `Float`/`REAL` or `Double`/`LREAL` sample is non-finite | Mark the point faulted and retain the previous PLC value, as specified below. |
+| ADS client/server points | A scalar or array `REAL`/`LREAL` value is non-finite | Reject before cache acceptance, write queuing, or PLC storage mutation, as specified below. |
+| Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
+| `hmi.write` | Text or numeric input for a declared `REAL`/`LREAL` target is non-finite or overflows the declared width | Return a failed response before queuing the write or changing PLC storage. |
+| Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
+| File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
+| `simulation.toml` coupling threshold | The configured threshold is non-finite | Reject the configuration before activation, as specified in 6.9.2. |
+
+For a declared `REAL`, validation occurs after any scaling or narrowing to IEC
+basic single width; a finite wider intermediate that becomes infinite at that
+width is rejected. `LREAL` is validated at basic double width. Rejection never
+clamps, normalizes, or substitutes a default. Error-policy handling may decide
+whether the resource faults or reports degraded health, but it cannot turn the
+rejected value into an accepted process value.
+
+Raw Modbus register mode, raw MQTT byte topics, and integer-address control
+operations carry untyped bits and cannot classify an IEEE payload by
+themselves. They do not bypass this contract: once those bits cross a declared
+`REAL`/`LREAL` binding, the typed process-image snapshot or egress preflight
+must reject a non-finite representation. This boundary policy does not change
+in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
+
 **Built-in drivers**
 
 1. **Modbus/TCP**

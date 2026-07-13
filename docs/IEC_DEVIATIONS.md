@@ -6,6 +6,33 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-14 - Reject non-finite values at typed runtime admission boundaries
+
+- ID: DEV-045
+- Area: Runtime typed I/O, protocol, API, configuration, and retain boundaries
+- IEC reference: IEC 61131-3 Ed.3 Section 6.4.2.1, Table 10 defines
+  `REAL`/`LREAL` using IEC 60559 and makes results involving infinity or
+  not-a-number implementer-specific; Section 6.6.2.5.15, Table 39 defines
+  `IS_VALID` but does not define external admission policy.
+- Deviation:
+  - truST rejects NaN, positive infinity, negative infinity, and declared-width
+    overflow at every typed runtime admission boundary enumerated in
+    `docs/specs/11-runtime-engine.md#floating-point-boundary-admission-policy`.
+  - Rejection occurs before the external value changes PLC storage or an
+    accepted driver snapshot. Multi-point Modbus reads and MQTT payload batches
+    are transactional: a rejected point cannot leak an earlier point from the
+    same rejected batch into a later scan.
+  - Untyped raw-byte/register transport remains possible, but a declared
+    `REAL`/`LREAL` binding validates the representation before exposing it as a
+    typed value. Rejection never clamps, normalizes, or substitutes a default.
+- Impact:
+  - External systems cannot use non-finite IEEE values as ordinary PLC process
+    inputs through a typed truST boundary.
+- Mitigation:
+  - Validate values at the producing system and represent exceptional state as
+    an explicit finite value/status pair. PLC programs may use `IS_VALID` for
+    in-process values where the applicable operation permits them.
+
 ## 2026-07-13 - Reject non-finite typed process-image outputs
 
 - ID: DEV-044

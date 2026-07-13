@@ -252,6 +252,57 @@ word_order = "little"
 }
 
 #[test]
+fn modbus_nonfinite_mapped_read_preserves_complete_input_image() {
+    let nan_bits = f32::NAN.to_bits();
+    let state = Arc::new(Mutex::new(ModbusTestState {
+        holding_registers: vec![
+            42,
+            (nan_bits >> 16) as u16,
+            (nan_bits & u32::from(u16::MAX)) as u16,
+        ],
+        ..ModbusTestState::default()
+    }));
+    let addr = start_modbus_server(Arc::clone(&state), 2);
+    let params: toml::Value = toml::from_str(&format!(
+        r#"
+address = "{addr}"
+unit_id = 1
+
+[[input_points]]
+image_offset = 0
+address = 0
+function = "read_holding_registers"
+data_type = "u16"
+
+[[input_points]]
+image_offset = 2
+address = 1
+function = "read_holding_registers"
+data_type = "f32"
+byte_order = "big"
+word_order = "big"
+"#
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let before = vec![0xA5; 6];
+    let mut inputs = before.clone();
+
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("non-finite mapped input must reject the complete read");
+
+    assert!(
+        err.to_string().contains("finite"),
+        "expected finite-value diagnostic, got {err}"
+    );
+    assert_eq!(
+        inputs, before,
+        "a later non-finite point must not expose earlier points from the rejected read"
+    );
+}
+
+#[test]
 fn modbus_point_map_writes_scaled_registers_and_coils() {
     let state = Arc::new(Mutex::new(ModbusTestState {
         coils: vec![false; 8],
