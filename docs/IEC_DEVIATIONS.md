@@ -6,6 +6,28 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Fault on non-finite REAL binary results
+
+- ID: DEV-042
+- Area: Runtime `REAL` binary arithmetic
+- IEC reference: IEC 61131-3 Ed.3 §6.4.2.1, Table 10 footnote e defines
+  exceptional results for basic-single floating-point arithmetic as
+  implementer-specific.
+- Deviation:
+  - For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` return
+    `RuntimeError::Overflow` when the result is not finite at basic-single
+    width.
+  - The error occurs before assignment storage, so the target retains its
+    previous value. The runtime does not clamp or store infinity or NaN.
+  - This decision does not define `LREAL`, subnormal underflow, signed zero,
+    non-finite operands, explicit conversions, or named numerical functions.
+- Impact:
+  - Programs cannot use infinity or NaN produced by these `REAL` binary
+    operators as ordinary stored process state.
+- Mitigation:
+  - Scale or range-check operands before the operation and represent exceptional
+    state with an explicit status value.
+
 ## 2026-07-13 - Reject non-finite simulation coupling thresholds
 
 - ID: DEV-041

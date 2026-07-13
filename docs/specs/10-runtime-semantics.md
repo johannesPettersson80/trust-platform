@@ -744,6 +744,17 @@ REAL → LREAL
 
 Narrowing conversions require explicit type conversion functions (e.g., `DINT_TO_INT`).
 
+#### 6.5 REAL binary arithmetic overflow
+
+For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` results are
+accepted only when the result remains finite after representation at IEC basic
+single width. Otherwise evaluation returns `RuntimeError::Overflow` before an
+assignment store, leaving the target unchanged; the runtime does not clamp or
+store infinity or NaN. This rule does not define `LREAL`, subnormal underflow,
+signed zero, non-finite operands, explicit conversions, or named numerical
+functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
+footnote e; DEV-042)
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION
