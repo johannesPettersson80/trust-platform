@@ -6,7 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.36`
+Target release: `v0.24.37`
+
+### Fixed
+
+- trust-runtime: MQTT typed input-point batches now commit their mapped
+  process-image snapshot only after every payload validates, preventing values
+  from a rejected non-finite batch from leaking into a later successful scan.
 
 ### Added
 
