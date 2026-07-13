@@ -416,24 +416,32 @@ END_VAR
 ### Assignment and parameter-binding bounds
 
 IEC 61131-3 Ed.3 section 6.6.1.2.2 permits an implementation-specific result
-when a source string is longer than its assignment target. truST applies the
-following rule consistently to `STRING` and `WSTRING`:
+when a source string is longer than its assignment target. For bounded
+`STRING[n]` and `WSTRING[n]`, truST applies the following rules:
 
 - Ordinary assignment truncates an overlong value to the target's declared
   character capacity.
 - `VAR_INPUT` copy-in truncates to the formal parameter's declared capacity
   without modifying the caller.
-- Function results and `VAR_OUTPUT` copy-back truncate to the receiving
-  target's declared capacity.
+- A function result is first bounded by its declared return capacity. Ordinary
+  assignment of that result, and function or function-block `VAR_OUTPUT`
+  copy-back, truncate to the receiving target's declared capacity.
 - `VAR_IN_OUT` requires the actual and formal to have the same string family
-  and the same declared capacity. A width mismatch is rejected with an
-  invalid-argument diagnostic instead of performing an implicit truncating
-  copy-in/copy-back conversion.
-- Truncation counts Unicode scalar values and never splits one scalar value.
+  and the same effective capacity after alias and constant-expression
+  resolution. A width mismatch, including bounded-to-unbounded binding, is
+  rejected with invalid-argument diagnostic category `E205` instead of performing an
+  implicit truncating copy-in/copy-back conversion.
+- Literal bounds and truncation count Unicode scalar values and never split one
+  scalar value.
 
 These rules apply at function and function-block call boundaries. They prevent
 call copy-back from storing a value longer than the receiving declaration and
 prevent a no-op `VAR_IN_OUT` call from silently changing caller state.
+
+This focused contract covers ordinary assignment, literal bounds, and direct
+function/function-block parameter boundaries. Cross-family conversion and
+storage-specific HMI, retain, I/O, and reference-write policies remain governed
+by their own contracts and gaps.
 
 ### Character Access
 
