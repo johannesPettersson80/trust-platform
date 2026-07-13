@@ -26,6 +26,63 @@ fn mesh_payload_propagates_source_identity_and_sequence_metadata() {
 }
 
 #[test]
+fn mesh_payload_rejects_real_overflow_to_non_finite() {
+    let payload = br#"{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":3.5e38}"#;
+
+    assert!(
+        decode_mesh_payload(payload, &Value::Real(1.0)).is_none(),
+        "finite JSON input must not overflow the local REAL target to infinity"
+    );
+}
+
+#[test]
+fn mesh_payload_rejects_integer_narrowing_overflow() {
+    let cases = [
+        ("128", Value::SInt(0)),
+        ("-129", Value::SInt(0)),
+        ("32768", Value::Int(0)),
+        ("-32769", Value::Int(0)),
+        ("2147483648", Value::DInt(0)),
+        ("-2147483649", Value::DInt(0)),
+        ("256", Value::USInt(0)),
+        ("65536", Value::UInt(0)),
+        ("4294967296", Value::UDInt(0)),
+    ];
+
+    for (raw, template) in cases {
+        let payload = format!(
+            r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#
+        );
+        assert!(
+            decode_mesh_payload(payload.as_bytes(), &template).is_none(),
+            "mesh input {raw} must not wrap when decoded against {template:?}"
+        );
+    }
+}
+
+#[test]
+fn mesh_payload_accepts_numeric_target_boundaries() {
+    let cases = [
+        ("127", Value::SInt(0), Value::SInt(127)),
+        ("-128", Value::SInt(0), Value::SInt(-128)),
+        ("32767", Value::Int(0), Value::Int(32767)),
+        ("-32768", Value::Int(0), Value::Int(-32768)),
+        ("255", Value::USInt(0), Value::USInt(255)),
+        ("65535", Value::UInt(0), Value::UInt(65535)),
+        ("4294967295", Value::UDInt(0), Value::UDInt(u32::MAX)),
+    ];
+
+    for (raw, template, expected) in cases {
+        let payload = format!(
+            r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#
+        );
+        let decoded = decode_mesh_payload(payload.as_bytes(), &template)
+            .unwrap_or_else(|| panic!("mesh input {raw} must fit {template:?}"));
+        assert_eq!(decoded.0, expected);
+    }
+}
+
+#[test]
 fn mesh_payload_encode_decode_fuzz_smoke_budget() {
     fn next(state: &mut u64) -> u64 {
         *state = state

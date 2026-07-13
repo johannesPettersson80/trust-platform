@@ -503,6 +503,13 @@ Rules:
 - **Discovery uses mDNS/Bonjour** on the local LAN only.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
+- Inbound mesh values are decoded against the current local target type. Integer
+  values outside that IEC type's range are rejected rather than wrapped, and a
+  JSON number targeting `REAL`/`LREAL` is accepted only when the resulting
+  runtime value is finite.
+- A rejected mesh value queues no local update and leaves the current PLC value
+  unchanged. The runtime does not clamp, wrap, normalize, or substitute a
+  default value.
 - TOML remains the source of truth; offline edits are supported.
 
 HMI customization (implementer-specific):

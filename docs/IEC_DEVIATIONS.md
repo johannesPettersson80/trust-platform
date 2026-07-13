@@ -6,6 +6,27 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject out-of-range runtime mesh numeric inputs
+
+- ID: DEV-038
+- Area: Runtime mesh numeric ingress
+- IEC reference: IEC 61131-3 defines the ranges of elementary integer types and
+  defines `REAL`/`LREAL` using IEC 60559, but it does not define truST's
+  implementer-specific runtime mesh transport.
+- Deviation:
+  - truST decodes an inbound mesh number against the configured local target
+    type and rejects integers outside that type's range.
+  - A mesh number targeting `REAL` or `LREAL` is rejected when conversion would
+    produce `NaN`, positive infinity, or negative infinity.
+  - Rejection queues no mesh update and leaves the local PLC value unchanged;
+    the runtime does not clamp, wrap, normalize, or substitute a default.
+- Impact:
+  - Mesh peers cannot rely on Rust-style narrowing casts or non-finite values as
+    ordinary process-data inputs.
+- Mitigation:
+  - Validate and scale values at the publishing peer so they fit the subscribed
+    IEC target type.
+
 ## 2026-07-13 - Reject non-finite ADS input values
 
 - ID: DEV-037
