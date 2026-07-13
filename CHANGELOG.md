@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-runtime: `simulation.toml` now rejects NaN and infinite coupling
+  thresholds before activating the configuration instead of silently selecting
+  a coupling branch.
 - trust-debug: managed Live Values writes and forces now parse declared
   `REAL`/`LREAL` values semantically and reject NaN, infinities, width overflow,
   and raw non-finite bit encodings before changing process-image or force state.
