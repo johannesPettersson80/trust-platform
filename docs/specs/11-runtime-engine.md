@@ -223,6 +223,8 @@ Sizes are derived from compiled program metadata at load time. On embedded targe
 
 The process image is owned by a single resource thread; no internal locking is required. Cross-resource data sharing is synchronized through the configuration-level shared globals lock (see 6.7). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
 
+##### Typed floating-point egress
+
 At end-of-cycle synchronization, typed `%Q` and `%M` bindings declared as
 `REAL` or `LREAL` accept only values that are finite at the declared width. A
 value converted to `REAL` must also remain finite after basic-single

@@ -78,6 +78,81 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_TYPED_REAL_OUTPUT_NONFINITE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6F61BF50F054D14B12B8"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/io/interface.rs"
+name = "typed_real_output_rejects_nonfinite_and_narrowing_overflow_without_write"
+command = "cargo test -p trust-runtime --lib io::tests::typed_real_output_rejects_nonfinite_and_narrowing_overflow_without_write -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#typed-floating-point-egress"
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+expected_result = "Typed REAL output rejects NaN, both infinities, and finite wider values that overflow during basic-single narrowing without changing process-image bytes."
+expected_failure_mode = "The output serializer emits non-finite REAL IEEE bits or changes the pending output image before reporting rejection."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_TYPED_REAL_OUTPUT_NONFINITE_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9DB502BC879C74994C6A"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/io/interface.rs"
+name = "typed_lreal_output_rejection_is_transactional"
+command = "cargo test -p trust-runtime --lib io::tests::typed_lreal_output_rejection_is_transactional -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#typed-floating-point-egress"
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+expected_result = "A late non-finite LREAL binding rejects the complete output transaction and preserves bytes staged for earlier finite bindings."
+expected_failure_mode = "Earlier output bindings mutate the process image before a later LREAL binding is rejected, or LREAL infinity is serialized successfully."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8925B3C0E6A786597E4B"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "nonfinite_typed_output_faults_before_driver_commit"
+command = "cargo test -p trust-runtime --test runtime_safety_fail_closed nonfinite_typed_output_faults_before_driver_commit -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#typed-floating-point-egress"
+spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+expected_result = "A non-finite typed output faults the runtime cycle before the normal physical driver receives any output image."
+expected_failure_mode = "The cycle succeeds or commits non-finite output bytes to a registered physical driver."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
 id = "TEST_DEBUG_MANAGED_REAL_NONFINITE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_200665EACFA567BA9AB5"

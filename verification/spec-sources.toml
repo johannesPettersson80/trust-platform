@@ -64,10 +64,11 @@ covers = [
   "file_retain_nonfinite_ingress",
   "managed_debug_floating_point_ingress",
   "simulation_coupling_thresholds",
+  "typed_process_image_nonfinite_egress",
 ]
 known_limitations = [
   "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",
-  "Non-finite ingress is specified here for OPC UA client scalar input, ADS REAL/LREAL client/server input, runtime mesh numeric input, file-backed retained values, managed-local debug writes/forces, and simulation.toml coupling thresholds; attach-mode debug, other protocol, API, and in-memory boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
+  "Non-finite handling is specified here for OPC UA client scalar input, ADS REAL/LREAL client/server input, runtime mesh numeric input, file-backed retained values, managed-local debug writes/forces, simulation.toml coupling thresholds, and typed process-image REAL/LREAL egress; attach-mode debug and other protocol, API, in-memory, and egress boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
 ]
 conflicts_with = []
 
