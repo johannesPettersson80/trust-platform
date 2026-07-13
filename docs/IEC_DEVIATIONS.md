@@ -6,6 +6,12 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+Classification note: an entry in this log is not automatically a claim of IEC
+non-conformance. Per the repository IEC-first rules, this file also records
+behavior that IEC explicitly leaves implementer-specific and truST product
+extensions outside IEC's scope. Each entry must state which category applies
+in its IEC reference.
+
 ## 2026-07-14 - Reject non-finite values at typed runtime admission boundaries
 
 - ID: DEV-045
@@ -13,8 +19,10 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 Ed.3 Section 6.4.2.1, Table 10 defines
   `REAL`/`LREAL` using IEC 60559 and makes results involving infinity or
   not-a-number implementer-specific; Section 6.6.2.5.15, Table 39 defines
-  `IS_VALID` but does not define external admission policy.
-- Deviation:
+  `IS_VALID` but does not define external admission policy. This entry records
+  an implementer-specific product policy, not a contradiction of an IEC
+  requirement.
+- Deviation/extension:
   - truST rejects NaN, positive infinity, negative infinity, and declared-width
     overflow at every typed runtime admission boundary enumerated in
     `docs/specs/11-runtime-engine.md#floating-point-boundary-admission-policy`.
@@ -40,7 +48,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 Ed.3 defines directly represented variables and
   `REAL`/`LREAL`, but does not define truST's process-image serialization and
   driver-commit transaction.
-- Deviation:
+- Deviation/extension:
   - Typed `%Q` and `%M` `REAL`/`LREAL` bindings reject values that are not
     finite at their declared width. Conversion to `REAL` also rejects a finite
     wider value when basic-single narrowing becomes non-finite.
@@ -63,7 +71,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 Ed.3 Tables 28-29 define `EXP` and `EXPT`, while
   §6.4.2.1 Table 10 footnote e defines exceptional basic-single
   floating-point results as implementer-specific.
-- Deviation:
+- Deviation/extension:
   - For finite `REAL` operands, `EXP` and `EXPT` return
     `RuntimeError::Overflow` when the result is not finite at basic-single
     width.
@@ -86,7 +94,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 Ed.3 §6.4.2.1, Table 10 footnote e defines
   exceptional results for basic-single floating-point arithmetic as
   implementer-specific.
-- Deviation:
+- Deviation/extension:
   - For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` return
     `RuntimeError::Overflow` when the result is not finite at basic-single
     width.
@@ -108,7 +116,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
   does not define truST's implementer-specific `simulation.toml` coupling
   policy.
-- Deviation:
+- Deviation/extension:
   - The `simulation.toml` loader rejects a `[[couplings]].threshold` containing
     `NaN`, positive infinity, or negative infinity before activating the
     configuration.
@@ -128,7 +136,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
   does not define truST's implementer-specific DAP `stIoWrite` and `stIoForce`
   requests.
-- Deviation:
+- Deviation/extension:
   - In managed local debug sessions, values submitted for declared `REAL` and
     `LREAL` addresses are interpreted as semantic decimal floating-point
     values, not as raw `DWORD`/`LWORD` bit patterns.
@@ -152,7 +160,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and defines
   retentive-variable restart behavior, but it does not define truST's
   implementer-specific file-backed retain image format or admission policy.
-- Deviation:
+- Deviation/extension:
   - truST rejects retained `REAL`/`LREAL` values containing `NaN`, positive
     infinity, or negative infinity when saving or loading a file-backed retain
     snapshot. The rule applies recursively to arrays and structures.
@@ -175,7 +183,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines the ranges of elementary integer types and
   defines `REAL`/`LREAL` using IEC 60559, but it does not define truST's
   implementer-specific runtime mesh transport.
-- Deviation:
+- Deviation/extension:
   - truST decodes an inbound mesh number against the configured local target
     type and rejects integers outside that type's range.
   - A mesh number targeting `REAL` or `LREAL` is rejected when conversion would
@@ -196,7 +204,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
   `IS_VALID` for detecting `NaN` and infinity, but it does not define how an
   ADS client or server must admit those values into PLC storage.
-- Deviation:
+- Deviation/extension:
   - truST rejects ADS `REAL`/`LREAL` client reads, notifications, and server
     writes containing `NaN`, positive infinity, or negative infinity.
   - Rejection occurs before client cache acceptance, server write queuing, or
@@ -215,7 +223,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
   `IS_VALID` for detecting `NaN` and infinity, but it does not define how a
   host OPC UA client must admit those values into PLC storage.
-- Deviation:
+- Deviation/extension:
   - truST rejects OPC UA client `Float`/`Double` input samples containing
     `NaN`, positive infinity, or negative infinity before cache acceptance or
     PLC storage mutation.
@@ -234,7 +242,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - Area: Runtime watchdog and physical output commit
 - IEC reference: IEC 61131-3 does not standardize truST's host-runtime watchdog
   thresholds, fault action, or physical driver commit boundary.
-- Deviation:
+- Deviation/extension:
   - truST checks the watchdog deadline before the physical output-driver write.
   - An expired deadline prevents the pending process-image output from being
     written.
