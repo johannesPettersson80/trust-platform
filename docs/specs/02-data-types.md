@@ -413,6 +413,28 @@ END_VAR
 - String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length. (IEC 61131-3 Ed.3, Figure 6)
 - Callable string-library functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`) are specified in `07-standard-functions.md`.
 
+### Assignment and parameter-binding bounds
+
+IEC 61131-3 Ed.3 section 6.6.1.2.2 permits an implementation-specific result
+when a source string is longer than its assignment target. truST applies the
+following rule consistently to `STRING` and `WSTRING`:
+
+- Ordinary assignment truncates an overlong value to the target's declared
+  character capacity.
+- `VAR_INPUT` copy-in truncates to the formal parameter's declared capacity
+  without modifying the caller.
+- Function results and `VAR_OUTPUT` copy-back truncate to the receiving
+  target's declared capacity.
+- `VAR_IN_OUT` requires the actual and formal to have the same string family
+  and the same declared capacity. A width mismatch is rejected with an
+  invalid-argument diagnostic instead of performing an implicit truncating
+  copy-in/copy-back conversion.
+- Truncation counts Unicode scalar values and never splits one scalar value.
+
+These rules apply at function and function-block call boundaries. They prevent
+call copy-back from storing a value longer than the receiving declaration and
+prevent a no-op `VAR_IN_OUT` call from silently changing caller state.
+
 ### Character Access
 
 ```

@@ -23,6 +23,19 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Scan-boundary observation makes the IEC timing diagrams deterministic in a cyclic runtime while exposing implementation-owned boundaries explicitly.
   - The first proof vertical asserted Figure 15's basic TP/TON behavior and TOF post-expiry plateau. Later traces may assert the reviewed restart, clock-step, PT-change, and short-input decisions independently.
 
+## 2026-07-13 - STRING and WSTRING binding-capacity policy
+
+- Area: STRING/WSTRING assignment and POU parameter binding
+- IEC context: IEC 61131-3 Ed.3 Table 10 defines declared string maxima, and section 6.6.1.2.2 makes the result of assigning a longer source string implementation-specific.
+- Decision:
+  - Ordinary assignment, `VAR_INPUT` copy-in, function result assignment, and `VAR_OUTPUT` copy-back truncate by Unicode scalar value to the receiving declaration's capacity.
+  - `VAR_IN_OUT` requires identical string family and identical declared capacity. Width-changing `VAR_IN_OUT` binding is rejected rather than converted.
+  - A rejected `VAR_IN_OUT` binding cannot mutate caller state.
+  - The same rules apply to `STRING` and `WSTRING`.
+- Reason:
+  - Truncation preserves the product's established ordinary-assignment behavior while enforcing every receiving declaration's maximum.
+  - Exact-capacity `VAR_IN_OUT` avoids an implicit round trip that can change a caller even when the called POU performs no write.
+
 ## 2026-07-05 - Subrange runtime write enforcement
 
 - Area: ST subrange data types and runtime writes

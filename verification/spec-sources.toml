@@ -169,6 +169,7 @@ covers = [
   "iec_ambiguity_decisions",
   "retain_policy_decisions",
   "operator_precedence_decisions",
+  "string_binding_capacity_decisions",
   "subrange_runtime_write_decisions",
   "timer_scan_boundary_decisions",
   "timer_lifecycle_decisions",
@@ -405,11 +406,12 @@ version = "current"
 last_reviewed = "2026-07-10"
 covers = [
   "elementary_data_types",
+  "string_assignment_binding_boundaries",
   "string_bounds",
   "subrange_types",
 ]
 known_limitations = [
-  "Assignment and parameter-binding enforcement remain candidates for focused specification closure.",
+  "The focused assignment and POU binding contract does not claim IEC certification.",
   "This product source does not by itself establish IEC conformance.",
 ]
 conflicts_with = []
