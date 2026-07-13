@@ -352,7 +352,13 @@ status = "spec_gap"
 gap_class = "missing_behavior"
 blocking_question = "At each I/O, protocol, API, and retained-value boundary, must NaN and infinity be rejected, normalized, faulted, or propagated?"
 affected_invariants = ["RT_SAFE_NAN_001"]
-affected_tests = ["TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001"]
+affected_tests = [
+  "TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001",
+]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 resolution_status = "open"
 closeout_evidence = []
