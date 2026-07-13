@@ -1777,3 +1777,39 @@ case_file_digest = "sha256:2e33873a2bbc84474e5bc403e836b773d31000bb584f702a644c8
 paired_red_evidence = "EVID_TEST_RUNTIME_RESTART_TRACE_001_RED"
 formerly_red_case_ids = ["RT_SAFE_RESTART_TIME_002_WARM_PRESERVES_TIME_AND_REINITIALIZES_STATE", "RT_SAFE_RESTART_TIME_002_COLD_PRESERVES_TIME_AND_REINITIALIZES_STATE"]
 per_case_summary = ["RT_SAFE_RESTART_TIME_002_WARM_PRESERVES_TIME_AND_REINITIALIZES_STATE:passed", "RT_SAFE_RESTART_TIME_002_COLD_PRESERVES_TIME_AND_REINITIALIZES_STATE:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260713_64EBD180C1B0"
+title = "Reviewed PR broad gate for RT_SAFE_RESTART_TIME_002"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "e1ac379a1525debd972db3cffb03bdd24f30f365"
+remote_commit = "e1ac379a1525debd972db3cffb03bdd24f30f365"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-13"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_SAFE_RESTART_TIME_002"]
+linked_tests = ["TEST_RUNTIME_RESTART_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-13"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:912226a18c421faf69982c7e796e5c85438c3620094967cc042d99f827c9e6d1", case_file_digest = "sha256:2e33873a2bbc84474e5bc403e836b773d31000bb584f702a644c8221b20aa1a2", command = "cargo test -p trust-runtime --test runtime_restart_trace_cases runtime_restart_trace_cases -- --exact", discovery_id = "DISC_21561AEEDB07941017B8", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["RT_SAFE_RESTART_TIME_002_WARM_PRESERVES_TIME_AND_REINITIALIZES_STATE:passed", "RT_SAFE_RESTART_TIME_002_COLD_PRESERVES_TIME_AND_REINITIALIZES_STATE:passed"], run_id = "cb5e28b4c1bb42e9bc9133b990878639", test_id = "TEST_RUNTIME_RESTART_TRACE_001" }]
+gate_started_at = "2026-07-13T11:35:36Z"
+gate_finished_at = "2026-07-13T11:54:01Z"
+gate_duration_milliseconds = 1105203
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 75218128
+tmp_available_kib = 3379180
