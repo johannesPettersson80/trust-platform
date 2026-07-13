@@ -3,17 +3,17 @@ id = "RT_SAFE_RESTART_TIME_002"
 title = "In-process restart preserves monotonic time and rebases recreated state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "test_written"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-13"
 claim = "An in-process warm or cold restart preserves monotonic runtime time, reinitializes timer and task baselines at that time, and applies the documented retain policy deterministically."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/retain"]
 tests = ["TEST_RUNTIME_RESTART_TRACE_001"]
 gates = []
-evidence_refs = ["EVID_TEST_RUNTIME_RESTART_TRACE_001_RED"]
-missing = ["product_fix", "paired_green", "broad_remote_gate"]
+evidence_refs = ["EVID_TEST_RUNTIME_RESTART_TRACE_001_RED", "EVID_TEST_RUNTIME_RESTART_TRACE_001_GREEN"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -41,10 +41,10 @@ rationale = "An in-process cold restart preserves monotonic runtime time, initia
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Producer-authentic red proof shows that warm and cold restart rewind runtime time while retain and recreated-state assertions match the written contract."
+state = "covered"
+rationale = "Paired producer-authentic red and green proofs cover warm and cold restart retain and recreated-state behavior through the committed trace cases."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "Producer-authentic red proof isolates the monotonic-time rewind; paired green and broad remote proof remain open."
+state = "covered"
+rationale = "Paired producer-authentic red and green proofs show the monotonic-time rewind before the fix and preserved forward time after the fix; broad remote proof remains open."
