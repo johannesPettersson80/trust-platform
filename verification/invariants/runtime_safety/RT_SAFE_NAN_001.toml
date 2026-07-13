@@ -3,29 +3,42 @@ id = "RT_SAFE_NAN_001"
 title = "Non-finite ingress cannot silently become unsafe REAL state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
-claim = "NaN and infinity ingress must not create an unreported unsafe REAL state."
+last_reviewed = "2026-07-14"
+claim = "Typed external floating-point boundaries reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
 proof_level = "S0"
-contract_kind = "decision_table"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
-missing = ["nonfinite_ingress_policy", "boundary_specific_oracles"]
+spec_gap_refs = []
+missing = ["mqtt_transactional_trace_case", "remaining_boundary_test_mapping", "targeted_red_green_proof", "broad_remote_proof"]
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "After one accepted mapped MQTT snapshot, a batch containing an earlier finite point and a later non-finite point is rejected as one transaction; a later valid point may recover, but the earlier point from the rejected batch must never become visible."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Accepted non-finite behavior at each ingress boundary is not specified."
-spec_gap_ref = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+state = "gap_open"
+rationale = "The written policy covers typed non-finite rejection, but every named boundary still requires explicit mapped execution evidence before this dimension can close."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "The MQTT batch rejection and later-recovery transaction is specified but does not yet have a committed case artifact with paired red and green proof."
