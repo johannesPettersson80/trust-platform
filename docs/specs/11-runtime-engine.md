@@ -472,6 +472,14 @@ returns a failed DAP response and preserves both the previous process-image
 value and the previous force state. Attach-mode requests remain governed by
 the separate runtime control endpoint contract. (DEV-040)
 
+##### 6.9.2 Simulation coupling thresholds
+
+The file-backed `simulation.toml` loader rejects NaN and positive or negative
+infinity in an optional `[[couplings]].threshold` before returning or
+activating the configuration. It does not normalize, clamp, or substitute a
+threshold. This contract does not govern programmatic coupling-rule
+construction or source-value admission. (DEV-041)
+
 #### 6.10 Configuration and Resources
 
 IEC configurations may declare multiple resources. Each resource is scheduled independently in its own OS thread. (IEC 61131-3 Ed.3, §6.8.1; Table 62)
