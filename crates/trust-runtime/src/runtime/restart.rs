@@ -14,7 +14,7 @@ use crate::program_model::InitializerCatalog;
 use crate::stdlib::StandardLibrary;
 use crate::task::TaskState;
 use crate::value::{
-    truncate_string_elements, ArrayValue, DateTimeProfile, Duration, EnumValue, StructValue, Value,
+    truncate_string_elements, ArrayValue, DateTimeProfile, EnumValue, StructValue, Value,
 };
 
 use super::core::Runtime;
@@ -141,7 +141,6 @@ impl Runtime {
             self.storage.set_instance_var(*id, var_name, value);
         }
 
-        self.current_time = Duration::ZERO;
         for state in self.task_state.values_mut() {
             *state = TaskState::new(self.current_time);
         }

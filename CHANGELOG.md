@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.32`
+Target release: `v0.24.33`
 
 ### Added
 
@@ -318,6 +318,10 @@ Target release: `v0.24.32`
 
 ### Fixed
 
+- trust-runtime: in-process warm and cold restarts now preserve monotonic
+  runtime time while reinitializing timer and task baselines at the preserved
+  value, preventing restart from rewinding simulation time or charging
+  pre-restart elapsed time to recreated timer instances.
 - trust-runtime: bounded MQTT and Modbus input workers now preserve the typed
   error from a completed protocol read instead of replacing MQTT connection
   context and Modbus exception responses with a generic unavailable-snapshot
