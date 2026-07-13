@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'AcceptanceIo.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'AcceptanceIo.psm1')
 
 function Read-WindowsAdsCandidateManifest {
     param([Parameter(Mandatory = $true)][string]$Path)

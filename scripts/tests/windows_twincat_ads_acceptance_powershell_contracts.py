@@ -27,6 +27,109 @@ from .windows_twincat_ads_acceptance_support import (
 
 
 class PowerShellContractsMixin:
+    def test_nested_modules_do_not_force_reload_shared_acceptance_io(self) -> None:
+        nested_modules = (
+            (PACKAGED_EXTENSION_INSTALL, self.packaged_extension_install),
+            (SIMULATOR_LAUNCHER, self.simulator_launcher),
+            (PACKAGED_ADS_UI_CROSSCHECK, self.packaged_ads_ui_crosscheck),
+            (STATIC_ROUTE_PROOF, self.static_route_proof),
+            (CANDIDATE_MANIFEST_PROOF, self.candidate_manifest_proof),
+            (CANDIDATE_PROVENANCE_PROOF, self.candidate_provenance_proof),
+            (ADS_BROWSE_PROOF, self.ads_browse_proof),
+        )
+        expected = "Import-Module (Join-Path $PSScriptRoot 'AcceptanceIo.psm1')"
+        for path, source in nested_modules:
+            with self.subTest(module=path.name):
+                imports = [
+                    line.strip()
+                    for line in source.splitlines()
+                    if "AcceptanceIo.psm1" in line
+                ]
+                self.assertEqual(imports, [expected])
+
+    @unittest.skipUnless(
+        shutil.which("powershell.exe"),
+        "Windows PowerShell 5.1 is unavailable",
+    )
+    def test_windows_powershell_51_preserves_shared_acceptance_io_exports(
+        self,
+    ) -> None:
+        import_orders = (
+            (
+                "packaged simulator",
+                (MODULE, PACKAGED_EXTENSION_INSTALL, ACCEPTANCE_PLAN),
+            ),
+            (
+                "TwinCAT ADS",
+                (
+                    MODULE,
+                    SIMULATOR_LAUNCHER,
+                    PACKAGED_ADS_UI_CROSSCHECK,
+                    ACCEPTANCE_PLAN,
+                    STATIC_ROUTE_PROOF,
+                    CANDIDATE_MANIFEST_PROOF,
+                    CANDIDATE_PROVENANCE_PROOF,
+                    ADS_BROWSE_PROOF,
+                ),
+            ),
+        )
+        exports = (
+            "Get-UtcTimestamp",
+            "Write-Utf8File",
+            "Get-ObjectProperty",
+            "Get-StringSha256",
+            "Get-FileEvidence",
+            "New-FileSnapshot",
+            "ConvertTo-NativeArgument",
+            "Invoke-CapturedProcess",
+            "New-CommandEvidence",
+            "Convert-CommandJson",
+        )
+        expected_exports = ",".join(f"'{name}'" for name in exports)
+
+        for name, paths in import_orders:
+            imports = "\n".join(
+                "Import-Module '{}' -Force -DisableNameChecking".format(
+                    str(path).replace("'", "''")
+                )
+                for path in paths
+            )
+            command = f"""
+$ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) {{
+    throw "Expected Windows PowerShell 5.1, found $($PSVersionTable.PSVersion)."
+}}
+{imports}
+$expected = @({expected_exports})
+foreach ($commandName in $expected) {{
+    Get-Command -Name $commandName -CommandType Function -ErrorAction Stop | Out-Null
+}}
+$timestamp = Get-UtcTimestamp
+if ([string]::IsNullOrWhiteSpace($timestamp)) {{
+    throw 'Get-UtcTimestamp returned an empty value.'
+}}
+[DateTimeOffset]::Parse($timestamp, [Globalization.CultureInfo]::InvariantCulture) | Out-Null
+"""
+            with self.subTest(runner=name):
+                completed = subprocess.run(
+                    [
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command",
+                        command,
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(
+                    completed.returncode,
+                    0,
+                    completed.stdout + completed.stderr,
+                )
+
     def test_generic_lists_are_materialized_through_to_array(self) -> None:
         conversions = (
             (self.acceptance_plan, "$ports.ToArray()", "@($ports)"),
