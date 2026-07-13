@@ -102,7 +102,7 @@ class SeedManifestContractTests(unittest.TestCase):
         self.assertEqual(["VM_SEAM_TYPE_001", "VM_SEAM_TYPE_002"], merged)
         self.assertEqual(5, sum(row.p4_000_risk_id is not None for row in audit.rows))
         self.assertEqual(
-            ["RT_SAFE_DEADLINE_001", "IEC_TIMER_001"],
+            ["RT_SAFE_DEADLINE_001", "RT_SAFE_NAN_001", "IEC_TIMER_001"],
             [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
         )
         self.assertTrue(
@@ -317,7 +317,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(2, promotion.call_count)
+            self.assertEqual(3, promotion.call_count)
 
         for mutate, signal in (
             (
@@ -386,7 +386,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(2, promotion.call_count)
+            self.assertEqual(3, promotion.call_count)
 
     def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
         arguments = _loaded_contract_arguments(self.root)
@@ -701,7 +701,8 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                 "lifecycle_version": LIFECYCLE_VERSION,
                 "lifecycle_state": (
                     EXECUTION_READY
-                    if seed.seed_id in {"IEC_TIMER_001", "RT_SAFE_DEADLINE_001"}
+                    if seed.seed_id
+                    in {"IEC_TIMER_001", "RT_SAFE_DEADLINE_001", "RT_SAFE_NAN_001"}
                     else BASELINE
                 ),
                 "p4_000_risk_id": risk_by_seed.get(seed.seed_id),

@@ -3,18 +3,21 @@ id = "RT_SAFE_NAN_001"
 title = "Non-finite ingress cannot silently become unsafe REAL state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Typed external floating-point boundaries reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
-tests = []
-gates = []
-evidence_refs = []
+tests = ["TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_RED",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_GREEN",
+]
 spec_gap_refs = []
-missing = ["mqtt_transactional_trace_case", "remaining_boundary_test_mapping", "targeted_red_green_proof", "broad_remote_proof"]
+missing = ["boundary_value_matrix_depth", "broad_remote_proof"]
 
 [spec]
 status = "specified"
@@ -40,5 +43,5 @@ rationale = "The written policy covers typed non-finite rejection, but every nam
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "The MQTT batch rejection and later-recovery transaction is specified but does not yet have a committed case artifact with paired red and green proof."
+state = "covered"
+rationale = "The committed MQTT state-machine trace has producer-authentic red and green proof showing the rejected-batch state leak and its transactional fix."
