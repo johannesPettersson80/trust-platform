@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-debug: managed Live Values writes and forces now parse declared
+  `REAL`/`LREAL` values semantically and reject NaN, infinities, width overflow,
+  and raw non-finite bit encodings before changing process-image or force state.
 - trust-hir: cross-file POU imports now preserve `STRING[n]` and `WSTRING[n]`
   capacities derived from project constants, so equal-capacity `VAR_IN_OUT`
   bindings no longer fail as bounded-to-unbounded mismatches.
