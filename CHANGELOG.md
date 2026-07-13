@@ -318,6 +318,9 @@ Target release: `v0.24.36`
 
 ### Fixed
 
+- trust-runtime: finite `REAL` binary arithmetic now faults before assignment
+  when its basic-single result would be NaN or infinity instead of storing a
+  non-finite process value.
 - trust-runtime: `simulation.toml` now rejects NaN and infinite coupling
   thresholds before activating the configuration instead of silently selecting
   a coupling branch.
