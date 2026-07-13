@@ -30,11 +30,11 @@ legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/20
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
 source_file = "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs"
-source_digest = "sha256:b3763b2191afb87c64549f10d2444354a1c6e4626342f823c1bcd56e470f8432"
+source_digest = "sha256:4e3f87647f0485ab1488597f63b66aad39e505971ce6801c495c9835028bdc4a"
 function = "validate_instruction_stream"
 genre = "FnValue"
 replacement = "Ok(())"
-selector_name = "pou_and_instr.rs:109:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())"
+selector_name = "pou_and_instr.rs:145:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"]
 association_ids = [

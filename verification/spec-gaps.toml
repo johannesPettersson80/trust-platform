@@ -265,11 +265,29 @@ status = "spec_gap"
 gap_class = "missing_boundary"
 blocking_question = "Where and how must STRING[n] bounds be enforced during assignment, calls, returns, and function-block parameter binding?"
 affected_invariants = ["IEC_STRING_001"]
-affected_tests = []
-candidate_spec_sources = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+affected_tests = [
+  "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+  "TEST_IEC_STRING_INOUT_ALIAS_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+]
+candidate_spec_sources = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
 resolution_status = "open"
 closeout_evidence = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-13"
 
 [[spec_gaps]]
 schema_version = 1

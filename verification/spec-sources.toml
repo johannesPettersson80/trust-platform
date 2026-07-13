@@ -403,7 +403,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-13"
 covers = [
   "elementary_data_types",
   "string_assignment_binding_boundaries",

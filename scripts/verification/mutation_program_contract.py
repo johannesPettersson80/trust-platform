@@ -136,11 +136,11 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS",
                 "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs",
-                "sha256:b3763b2191afb87c64549f10d2444354a1c6e4626342f823c1bcd56e470f8432",
+                "sha256:4e3f87647f0485ab1488597f63b66aad39e505971ce6801c495c9835028bdc4a",
                 "validate_instruction_stream",
                 "FnValue",
                 "Ok(())",
-                "pou_and_instr.rs:109:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
+                "pou_and_instr.rs:145:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"],
                 [
