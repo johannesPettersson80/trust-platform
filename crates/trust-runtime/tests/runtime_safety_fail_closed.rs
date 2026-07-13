@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
 
+use trust_hir::TypeId;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
@@ -680,6 +681,38 @@ fn retain_save_failure_prevents_output_commit_when_due() {
     assert!(
         writes.lock().expect("driver writes lock").is_empty(),
         "due retain save failure must prevent physical output writes"
+    );
+}
+
+#[test]
+fn nonfinite_typed_output_faults_before_driver_commit() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 4, 0);
+    runtime
+        .storage_mut()
+        .set_global("out", Value::Real(f32::NAN));
+    runtime.io_mut().bind_typed(
+        "out",
+        IoAddress::parse("%QD0").expect("REAL output address"),
+        TypeId::REAL,
+    );
+    runtime.add_io_driver(
+        "recorder",
+        Box::new(RecordingDriver::new(Arc::clone(&writes))),
+    );
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("non-finite typed output must fail the cycle");
+
+    assert_eq!(
+        err,
+        RuntimeError::IoDriver("typed REAL process-image value must be finite".into())
+    );
+    assert!(
+        writes.lock().expect("driver writes lock").is_empty(),
+        "rejected output must not reach the physical driver"
     );
 }
 

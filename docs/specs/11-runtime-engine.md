@@ -223,6 +223,17 @@ Sizes are derived from compiled program metadata at load time. On embedded targe
 
 The process image is owned by a single resource thread; no internal locking is required. Cross-resource data sharing is synchronized through the configuration-level shared globals lock (see 6.7). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
 
+At end-of-cycle synchronization, typed `%Q` and `%M` bindings declared as
+`REAL` or `LREAL` accept only values that are finite at the declared width. A
+value converted to `REAL` must also remain finite after basic-single
+narrowing. The runtime preflights every eligible output and marker binding
+before mutating either process-image area; any rejected value returns an
+`IoDriver` error, leaves the entire pending `%Q`/`%M` image unchanged, and
+prevents the normal driver-output commit. The runtime does not clamp,
+normalize, substitute, or emit non-finite IEEE bits. Configured safe-state
+handling after the resulting cycle fault is a separate policy boundary.
+(DEV-044)
+
 #### 6.5 I/O Drivers
 
 I/O exchange is explicit and deterministic: inputs are read into the input image at the start of each resource cycle, and outputs are written after all ready tasks complete.

@@ -564,6 +564,70 @@ mod tests {
     }
 
     #[test]
+    fn typed_real_output_rejects_nonfinite_and_narrowing_overflow_without_write() {
+        for value in [
+            Value::Real(f32::NAN),
+            Value::Real(f32::INFINITY),
+            Value::Real(f32::NEG_INFINITY),
+            Value::LReal(f64::MAX),
+        ] {
+            let mut interface = IoInterface::new();
+            interface.resize(0, 4, 0);
+            interface.outputs_mut().fill(0xA5);
+            interface.bind_typed(
+                "Output",
+                IoAddress::parse("%QD0").expect("REAL output address"),
+                TypeId::REAL,
+            );
+            let mut storage = VariableStorage::new();
+            storage.set_global("Output", value.clone());
+
+            let err = interface
+                .write_outputs(&storage)
+                .expect_err("non-finite typed REAL output must fail");
+
+            assert_eq!(
+                err,
+                RuntimeError::IoDriver(
+                    "typed REAL process-image value must be finite".into()
+                ),
+                "{value:?}"
+            );
+            assert_eq!(interface.outputs(), &[0xA5; 4], "{value:?}");
+        }
+    }
+
+    #[test]
+    fn typed_lreal_output_rejection_is_transactional() {
+        let mut interface = IoInterface::new();
+        interface.resize(0, 12, 0);
+        interface.outputs_mut().fill(0x5A);
+        interface.bind_typed(
+            "Finite",
+            IoAddress::parse("%QD0").expect("REAL output address"),
+            TypeId::REAL,
+        );
+        interface.bind_typed(
+            "Invalid",
+            IoAddress::parse("%QL4").expect("LREAL output address"),
+            TypeId::LREAL,
+        );
+        let mut storage = VariableStorage::new();
+        storage.set_global("Finite", Value::Real(1.25));
+        storage.set_global("Invalid", Value::LReal(f64::INFINITY));
+
+        let err = interface
+            .write_outputs(&storage)
+            .expect_err("non-finite typed LREAL output must fail");
+
+        assert_eq!(
+            err,
+            RuntimeError::IoDriver("typed LREAL process-image value must be finite".into())
+        );
+        assert_eq!(interface.outputs(), &[0x5A; 12]);
+    }
+
+    #[test]
     fn string_process_image_write_rejects_payload_larger_than_declared_window() {
         let mut interface = IoInterface::new();
         let mut text = IoAddress::parse("%QB0").expect("output byte address");

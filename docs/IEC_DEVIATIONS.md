@@ -6,6 +6,29 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite typed process-image outputs
+
+- ID: DEV-044
+- Area: Runtime typed `%Q`/`%M` process-image egress
+- IEC reference: IEC 61131-3 Ed.3 defines directly represented variables and
+  `REAL`/`LREAL`, but does not define truST's process-image serialization and
+  driver-commit transaction.
+- Deviation:
+  - Typed `%Q` and `%M` `REAL`/`LREAL` bindings reject values that are not
+    finite at their declared width. Conversion to `REAL` also rejects a finite
+    wider value when basic-single narrowing becomes non-finite.
+  - Every eligible binding is validated before any output or marker image
+    mutation. Rejection leaves the pending image unchanged and prevents the
+    normal driver-output commit.
+  - The runtime does not clamp, normalize, substitute, or emit non-finite IEEE
+    output bits. Configured safe-state fault handling remains separate.
+- Impact:
+  - Non-finite floating state cannot silently cross the typed process-image
+    boundary or partially update a physical-output transaction.
+- Mitigation:
+  - Validate and range-check process values before the scan reaches its output
+    phase, and model exceptional state with an explicit status value.
+
 ## 2026-07-13 - Fault on non-finite REAL named-function results
 
 - ID: DEV-043
