@@ -140,7 +140,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
                 "validate_instruction_stream",
                 "FnValue",
                 "Ok(())",
-                "pou_and_instr.rs:145:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
+                "pou_and_instr.rs:150:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"],
                 [
