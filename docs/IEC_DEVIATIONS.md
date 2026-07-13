@@ -6,6 +6,29 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Fault on non-finite REAL named-function results
+
+- ID: DEV-043
+- Area: Runtime `REAL` numerical functions
+- IEC reference: IEC 61131-3 Ed.3 Tables 28-29 define `EXP` and `EXPT`, while
+  §6.4.2.1 Table 10 footnote e defines exceptional basic-single
+  floating-point results as implementer-specific.
+- Deviation:
+  - For finite `REAL` operands, `EXP` and `EXPT` return
+    `RuntimeError::Overflow` when the result is not finite at basic-single
+    width.
+  - The error occurs before assignment storage, so the target retains its
+    previous value. The runtime does not clamp or store infinity or NaN.
+  - This decision does not define `LREAL`, non-finite operands, subnormal
+    underflow, signed zero, explicit conversions, or domain behavior for other
+    numerical functions.
+- Impact:
+  - Programs cannot use infinity or NaN produced by these `REAL` functions as
+    ordinary stored process state.
+- Mitigation:
+  - Scale or range-check operands before the call and represent exceptional
+    state with an explicit status value.
+
 ## 2026-07-13 - Fault on non-finite REAL binary results
 
 - ID: DEV-042

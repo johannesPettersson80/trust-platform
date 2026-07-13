@@ -201,6 +201,13 @@ Angle := ATAN2(DY, DX);   // Four-quadrant arctangent
 
 **Note**: ADD and MUL are extensible (can take more than 2 inputs).
 
+For finite `REAL` operands, `EXP` and `EXPT` return a value only when the
+result remains finite at IEC basic single width. A result outside that finite
+range raises `RuntimeError::Overflow` before assignment storage and leaves the
+target unchanged. The runtime does not clamp or store infinity or NaN. `LREAL`
+and other exceptional numerical-function behavior remain outside this rule;
+see `docs/specs/10-runtime-semantics.md` and DEV-043.
+
 ## 4. Bit Shift Functions (Table 30)
 
 | Function | Description | Signature |

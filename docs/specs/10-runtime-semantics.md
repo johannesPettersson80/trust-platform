@@ -755,6 +755,17 @@ signed zero, non-finite operands, explicit conversions, or named numerical
 functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
 footnote e; DEV-042)
 
+#### 6.6 REAL named numerical-function overflow
+
+For finite `REAL` operands, `EXP` and `EXPT` results are accepted only when the
+result remains finite after representation at IEC basic single width.
+Otherwise evaluation returns `RuntimeError::Overflow` before an assignment
+store, leaving the target unchanged; the runtime does not clamp or store
+infinity or NaN. This rule does not define `LREAL`, non-finite operands,
+subnormal underflow, signed zero, explicit conversions, or domain behavior for
+other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
+Table 10 footnote e; DEV-043)
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION
