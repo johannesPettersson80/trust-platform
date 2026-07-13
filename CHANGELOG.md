@@ -321,6 +321,9 @@ Target release: `v0.24.35`
 - trust-runtime: OPC UA client `Float`/`Double` input samples now reject `NaN`
   and positive or negative infinity before cache acceptance, mark the affected
   point faulted, and leave the PLC target unchanged.
+- trust-ads-core/trust-runtime: ADS `REAL`/`LREAL` client reads, notifications,
+  arrays, and server writes now reject `NaN` and both infinities before cache
+  acceptance, server write queuing, or PLC storage mutation.
 - trust-hir/trust-runtime: compile-time bounded `STRING[n]` and `WSTRING[n]`
   literal checks now count Unicode scalar values; call binding rejects
   width-changing `VAR_IN_OUT`, and function/function-block output copy-back

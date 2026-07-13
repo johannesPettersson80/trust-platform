@@ -188,6 +188,11 @@ pub enum AdsMappingError {
     },
     /// ADS bytes for `STRING` were not UTF-8.
     InvalidUtf8,
+    /// ADS `REAL` or `LREAL` bytes decoded to NaN or infinity.
+    NonFiniteValue {
+        /// Floating-point IEC type that contained the non-finite value.
+        iec_type: IecDataType,
+    },
     /// A runtime value did not match the ADS descriptor.
     ValueTypeMismatch {
         /// Expected IEC type.
@@ -227,6 +232,9 @@ impl core::fmt::Display for AdsMappingError {
                 write!(f, "ADS STRING too long: max {max} bytes, got {actual}")
             }
             Self::InvalidUtf8 => write!(f, "ADS STRING bytes are not valid UTF-8"),
+            Self::NonFiniteValue { iec_type } => {
+                write!(f, "ADS {iec_type:?} value is non-finite")
+            }
             Self::ValueTypeMismatch { expected, actual } => {
                 write!(
                     f,
@@ -372,11 +380,25 @@ fn decode_scalar(
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ])),
         IecDataType::Real => {
-            Value::Real(f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+            let value = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+            if !value.is_finite() {
+                return Err(AdsMappingError::NonFiniteValue {
+                    iec_type: IecDataType::Real,
+                });
+            }
+            Value::Real(value)
         }
-        IecDataType::Lreal => Value::LReal(f64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ])),
+        IecDataType::Lreal => {
+            let value = f64::from_le_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ]);
+            if !value.is_finite() {
+                return Err(AdsMappingError::NonFiniteValue {
+                    iec_type: IecDataType::Lreal,
+                });
+            }
+            Value::LReal(value)
+        }
         IecDataType::Byte => Value::Byte(bytes[0]),
         IecDataType::Word => Value::Word(u16::from_le_bytes([bytes[0], bytes[1]])),
         IecDataType::Dword => {
