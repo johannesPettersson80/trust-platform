@@ -124,9 +124,10 @@ covers = [
   "incompatible_narrowing_rejection",
   "subrange_runtime_write_enforcement",
   "subrange_runtime_write_semantics",
+  "real_binary_arithmetic_overflow",
 ]
 known_limitations = [
-  "STRING bounds, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, reference-store conversions, and stable VM error identifiers remain open specification boundaries.",
+  "STRING bounds, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, reference-store conversions, named REAL numerical functions, and stable VM error identifiers remain open specification boundaries.",
   "This product contract does not by itself establish IEC conformance or crafted-bytecode validation behavior.",
 ]
 conflicts_with = []

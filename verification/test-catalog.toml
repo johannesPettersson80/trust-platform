@@ -153,6 +153,56 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A778FE822F9A808E700F"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime-core/src/program_model/ops.rs"
+name = "real_arithmetic_rejects_non_finite_single_width_results"
+command = "cargo test -p trust-runtime-core program_model::ops::tests::real_arithmetic_rejects_non_finite_single_width_results -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#real-binary-arithmetic-overflow"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "REAL binary add, subtract, multiply, divide, and exponentiation reject results that become non-finite at basic-single width."
+expected_failure_mode = "The shared operator layer returns Value::Real containing infinity after unchecked f64-to-f32 narrowing."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4F07551DC5298B929A70"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/errors_policy.rs"
+name = "real_arithmetic_overflow_faults_before_assignment_store"
+command = "cargo test -p trust-runtime --test errors_policy real_arithmetic_overflow_faults_before_assignment_store -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#real-binary-arithmetic-overflow"
+spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expected_result = "Compiled ST REAL overflow reports RuntimeError::Overflow before STORE and preserves the target's previous finite value."
+expected_failure_mode = "The bytecode VM silently stores infinity and completes the scan without an arithmetic fault."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001.json"
+last_reviewed = "2026-07-13"
+
+[[tests]]
+schema_version = 2
 id = "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_547AC119BF2B3BEFB960"
@@ -296,7 +346,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:64ba0cfced032ae3059a75fc1c173b782b7c81b9d1656cd73adce26872d9709d"
+case_file_digest = "sha256:5a798f68bd9d302cbd91e653280451d20b1049a202479e22cf36cdb67a670f54"
 last_reviewed = "2026-07-13"
 
 [[tests]]
