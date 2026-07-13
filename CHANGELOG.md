@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.30`
+Target release: `v0.24.31`
 
 ### Added
 
@@ -318,6 +318,9 @@ Target release: `v0.24.30`
 
 ### Fixed
 
+- trust-runtime: watchdog faults before physical output commit no longer
+  re-send the pending process-image output when no safe-state outputs are
+  configured; the resource faults visibly without issuing a driver write.
 - trust-runtime: TOF and TOF_LTIME now hold `ET = PT` after the off-delay
   expires while `IN` remains false, matching IEC 61131-3 Ed.3 Figure 15(c),
   until a later true-input scan rearms the timer.

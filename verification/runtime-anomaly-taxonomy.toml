@@ -359,10 +359,10 @@ discovery_id = "DISC_8BAF8461F95A94A773A6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
 name = "watchdog_deadline_breach_before_commit_prevents_output_write"
-association_kind = "partial"
+association_kind = "direct"
 injection_mechanism = "test_harness"
 assertion_summary = "The test requires a watchdog deadline breach before commit to prevent a physical output write."
-limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+limitations = ["The in-memory recording driver observes runtime write calls, not physical device receipt or state."]
 last_reviewed = "2026-07-11"
 
 [[mappings]]

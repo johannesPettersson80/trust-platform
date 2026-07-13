@@ -45,9 +45,9 @@ REPORT_MARKDOWN = (
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
     "mapping_records": 38,
-    "scanner_denominator": 3026,
-    "effectively_runnable_mappings": 27,
-    "ignored_or_conditional_mappings": 5,
+    "scanner_denominator": 3027,
+    "effectively_runnable_mappings": 28,
+    "ignored_or_conditional_mappings": 4,
     "gap_classes": 9,
     "by_state": {
         "mapped_runnable": 10,
@@ -56,8 +56,8 @@ EXPECTED_SUMMARY = {
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 27,
-        "partial": 8,
+        "direct": 28,
+        "partial": 7,
         "protective_red": 0,
         "context_only": 3,
     },

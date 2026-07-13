@@ -88,6 +88,10 @@ impl IoSubsystem {
     }
 
     pub(super) fn apply_safe_state(&mut self) -> Result<(), RuntimeError> {
+        if self.safe_state.is_empty() {
+            self.update_health();
+            return Ok(());
+        }
         self.safe_state.apply(&mut self.interface)?;
         for entry in &mut self.drivers {
             entry.driver.write_outputs(self.interface.outputs())?;

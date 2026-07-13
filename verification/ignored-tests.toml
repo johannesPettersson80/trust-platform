@@ -822,24 +822,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_8BAF8461F95A94A773A6"
-discovery_id = "DISC_8BAF8461F95A94A773A6"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
-name = "watchdog_deadline_breach_before_commit_prevents_output_write"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety fail-closed Phase 1"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "runtime_safety"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_8CC0C32A02C75700E3A8"
 discovery_id = "DISC_8CC0C32A02C75700E3A8"
 discovery_source_kind = "rust_integration_test"

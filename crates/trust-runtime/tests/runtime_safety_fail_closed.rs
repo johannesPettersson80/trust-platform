@@ -625,7 +625,6 @@ fn unexpected_thread_unwind_after_running_faults_control_surface() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn watchdog_deadline_breach_before_commit_prevents_output_write() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
