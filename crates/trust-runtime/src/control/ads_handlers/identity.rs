@@ -1,6 +1,5 @@
 use crate::ads::onboarding::{
-    derive_runtime_identity_from_source, resolve_os_source_ip,
-    runtime_address_candidates_from_interfaces, IdentityRequest,
+    derive_host_ads_identity, runtime_address_candidates_from_interfaces, IdentityRequest,
 };
 
 use super::super::{ControlResponse, ControlState};
@@ -17,20 +16,11 @@ pub(in crate::control) fn handle_ads_identity(
         },
         None => return ControlResponse::error(id, "missing params".into()),
     };
-    let chosen_ip = match resolve_os_source_ip(request.target_ip.as_str()) {
-        Ok(ip) => ip,
+    let candidates = runtime_address_candidates_from_interfaces().unwrap_or_default();
+    let identity = match derive_host_ads_identity(&request, candidates) {
+        Ok(identity) => identity,
         Err(error) => return ControlResponse::error(id, error.to_string()),
     };
-    let candidates = runtime_address_candidates_from_interfaces().unwrap_or_default();
-    let nic = candidates
-        .iter()
-        .find(|candidate| candidate.ip == chosen_ip)
-        .and_then(|candidate| candidate.nic.clone());
-    let identity =
-        match derive_runtime_identity_from_source(&request, chosen_ip, None, nic, candidates) {
-            Ok(identity) => identity,
-            Err(error) => return ControlResponse::error(id, error.to_string()),
-        };
     match serde_json::to_value(identity) {
         Ok(value) => ControlResponse::ok(id, value),
         Err(error) => {

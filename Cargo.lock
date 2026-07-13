@@ -5156,7 +5156,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "serde",
  "serde_json",
@@ -5165,14 +5165,23 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
+name = "trust-ads-windows"
+version = "0.24.33"
+dependencies = [
+ "libloading",
+ "thiserror 2.0.18",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "trust-debug"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5187,7 +5196,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5206,7 +5215,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "boxcar",
  "insta",
@@ -5224,7 +5233,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5237,7 +5246,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5264,7 +5273,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5277,7 +5286,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "ads",
  "anyhow",
@@ -5329,6 +5338,7 @@ dependencies = [
  "tracing",
  "trust-ads-core",
  "trust-ads-server",
+ "trust-ads-windows",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
@@ -5343,7 +5353,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5354,7 +5364,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5365,7 +5375,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "rowan",
  "serde",
@@ -6385,7 +6395,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.32"
+version = "0.24.33"
 dependencies = [
  "anyhow",
  "serde",

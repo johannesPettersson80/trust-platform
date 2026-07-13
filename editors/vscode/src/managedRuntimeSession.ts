@@ -4,7 +4,12 @@ import {
   managedRuntimeLabel,
   type ManagedLifecycleResult,
 } from "./localRuntimeModel";
-import { runtimeLifecycleService } from "./runtimeLifecycle";
+import {
+  runtimeLifecycleService,
+  type RuntimeLifecycleResult,
+  type RuntimeLifecycleSnapshot,
+  type RuntimeLifecycleTarget,
+} from "./runtimeLifecycle";
 import { setSelectedRuntimeId } from "./selectedRuntime";
 
 export interface ManagedRuntimeAttachResult {
@@ -12,9 +17,17 @@ export interface ManagedRuntimeAttachResult {
   readonly message?: string;
 }
 
+export interface ManagedRuntimeDisconnectDependencies {
+  readonly snapshot: () => Promise<RuntimeLifecycleSnapshot>;
+  readonly stopRuntime: (
+    operationId: string,
+  ) => Promise<RuntimeLifecycleResult>;
+}
+
 export async function attachManagedRuntimeAfterStart(
   name: string,
-  result: ManagedLifecycleResult
+  result: ManagedLifecycleResult,
+  operationId?: string,
 ): Promise<ManagedRuntimeAttachResult> {
   if (!result.ok) {
     return {
@@ -36,10 +49,17 @@ export async function attachManagedRuntimeAfterStart(
   // failure below — we never fabricate a connection.
   await waitForEndpointReachable(result.controlEndpoint);
 
-  const connect = await runtimeLifecycleService.connectRemote(
-    result.controlEndpoint,
-    managedRuntimeLabel(name)
-  );
+  const connect = operationId
+    ? await runtimeLifecycleService.connectRemoteWithinOperation(
+        operationId,
+        result.controlEndpoint,
+        managedRuntimeLabel(name),
+        name,
+      )
+    : await runtimeLifecycleService.connectRemote(
+        result.controlEndpoint,
+        managedRuntimeLabel(name),
+      );
   if (!connect.ok) {
     return {
       ok: false,
@@ -52,27 +72,56 @@ export async function attachManagedRuntimeAfterStart(
 
 export async function disconnectManagedRuntimeAfterStop(
   name: string,
-  result: ManagedLifecycleResult
-): Promise<void> {
-  const snapshot = await runtimeLifecycleService.snapshot();
+  result: ManagedLifecycleResult,
+  operationId: string,
+  validatedAuthority: RuntimeLifecycleTarget | undefined,
+  lifecycle: ManagedRuntimeDisconnectDependencies = runtimeLifecycleService,
+): Promise<RuntimeLifecycleResult> {
+  const snapshot = await lifecycle.snapshot();
   const stoppedEndpoint = result.controlEndpoint?.trim();
   const attachedEndpoint = snapshot.status.endpoint.trim();
-  const attachedLabel = snapshot.status.targetLabel?.trim();
-  const managedLabel = managedRuntimeLabel(name);
   const sameEndpoint =
     !!stoppedEndpoint && attachedEndpoint === stoppedEndpoint;
-  const sameManagedTarget = attachedLabel === managedLabel;
+  const authorityEndpoint =
+    validatedAuthority?.kind === "managed" ||
+    validatedAuthority?.kind === "remote"
+      ? validatedAuthority.endpoint?.trim()
+      : undefined;
+  const sameManagedTarget =
+    validatedAuthority?.kind === "managed" &&
+    validatedAuthority.id === name &&
+    (!authorityEndpoint || authorityEndpoint === attachedEndpoint) &&
+    (!stoppedEndpoint ||
+      !authorityEndpoint ||
+      authorityEndpoint === stoppedEndpoint);
+  const sameLegacyRemoteTarget =
+    validatedAuthority?.kind === "remote" &&
+    authorityEndpoint === attachedEndpoint &&
+    sameEndpoint;
   if (
     snapshot.status.runtimeMode === "online" &&
-    snapshot.status.runtimeState === "connected" &&
-    (sameEndpoint || sameManagedTarget)
+    snapshot.status.runtimeState === "connected"
   ) {
-    await runtimeLifecycleService.stopRuntime();
-    return;
+    if (sameManagedTarget || sameLegacyRemoteTarget) {
+      return lifecycle.stopRuntime(operationId);
+    }
+    return {
+      ok: false,
+      failure: {
+        kind: "stale_runtime",
+        message:
+          `Runtime ${name} stopped, but the remaining Live Values session ` +
+          "could not be safely matched. Disconnect it before starting another runtime.",
+      },
+    };
   }
   if (!stoppedEndpoint) {
     debugChannel().appendLine(
-      `Managed runtime ${name} stopped without a reported control endpoint; no matching Live Values session was connected.`
+      `Managed runtime ${name} stopped without a reported control endpoint; no matching Live Values session was connected.`,
     );
   }
+  return {
+    ok: true,
+    message: `Managed runtime ${name} stopped; no matching Live Values session was connected.`,
+  };
 }

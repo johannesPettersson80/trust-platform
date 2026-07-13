@@ -7,10 +7,12 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::Duration;
 
 use crate::protocol::{
-    AttachArguments, Breakpoint, BreakpointLocation, BreakpointLocationsResponseBody,
-    EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope, Source, StackFrame, Variable,
+    AdsStateEventBody, AttachArguments, Breakpoint, BreakpointLocation,
+    BreakpointLocationsResponseBody, EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope,
+    Source, StackFrame, Variable,
 };
 
 type RemoteResult<T> = std::result::Result<T, String>;
@@ -70,7 +72,23 @@ pub struct RemoteSession {
 
 impl RemoteSession {
     pub fn connect(endpoint: RemoteEndpoint, token: Option<String>) -> RemoteResult<Self> {
-        let client = ControlClient::connect(endpoint.clone(), token.clone())?;
+        Self::connect_with_timeout(endpoint, token, None)
+    }
+
+    pub(super) fn connect_polling(
+        endpoint: RemoteEndpoint,
+        token: Option<String>,
+        timeout: Duration,
+    ) -> RemoteResult<Self> {
+        Self::connect_with_timeout(endpoint, token, Some(timeout))
+    }
+
+    fn connect_with_timeout(
+        endpoint: RemoteEndpoint,
+        token: Option<String>,
+        timeout: Option<Duration>,
+    ) -> RemoteResult<Self> {
+        let client = ControlClient::connect(endpoint.clone(), timeout)?;
         Ok(Self {
             endpoint,
             token,
@@ -339,6 +357,11 @@ impl RemoteSession {
         })
     }
 
+    pub fn ads_live_values(&mut self) -> RemoteResult<AdsStateEventBody> {
+        let payload = self.request("ads.live_values", None)?;
+        serde_json::from_value(payload).map_err(|error| error.to_string())
+    }
+
     pub fn io_write(&mut self, address: &str, value: &str) -> RemoteResult<()> {
         let params = json!({
             "address": address,
@@ -412,15 +435,34 @@ struct ControlClient {
 }
 
 impl ControlClient {
-    fn connect(endpoint: RemoteEndpoint, _token: Option<String>) -> RemoteResult<Self> {
+    fn connect(endpoint: RemoteEndpoint, timeout: Option<Duration>) -> RemoteResult<Self> {
         let stream = match endpoint {
             RemoteEndpoint::Tcp(addr) => {
-                ControlStream::Tcp(TcpStream::connect(addr).map_err(|err| err.to_string())?)
+                let stream = match timeout {
+                    Some(timeout) => TcpStream::connect_timeout(&addr, timeout),
+                    None => TcpStream::connect(addr),
+                }
+                .map_err(|err| err.to_string())?;
+                stream
+                    .set_read_timeout(timeout)
+                    .map_err(|err| err.to_string())?;
+                stream
+                    .set_write_timeout(timeout)
+                    .map_err(|err| err.to_string())?;
+                ControlStream::Tcp(stream)
             }
             #[cfg(unix)]
-            RemoteEndpoint::Unix(path) => ControlStream::Unix(
-                std::os::unix::net::UnixStream::connect(path).map_err(|err| err.to_string())?,
-            ),
+            RemoteEndpoint::Unix(path) => {
+                let stream =
+                    std::os::unix::net::UnixStream::connect(path).map_err(|err| err.to_string())?;
+                stream
+                    .set_read_timeout(timeout)
+                    .map_err(|err| err.to_string())?;
+                stream
+                    .set_write_timeout(timeout)
+                    .map_err(|err| err.to_string())?;
+                ControlStream::Unix(stream)
+            }
         };
         Ok(Self {
             seq: 1,

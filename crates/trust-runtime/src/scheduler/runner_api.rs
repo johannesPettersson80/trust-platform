@@ -1,6 +1,7 @@
 /// Drives a runtime with a scheduling clock.
 pub struct ResourceRunner<C: Clock + Clone> {
     runtime: Runtime,
+    ads_live_values: Arc<Mutex<crate::ads::AdsLiveValuesSnapshot>>,
     clock: C,
     cycle_interval: Duration,
     time_scale: u32,
@@ -14,8 +15,10 @@ pub struct ResourceRunner<C: Clock + Clone> {
 impl<C: Clock + Clone> ResourceRunner<C> {
     #[must_use]
     pub fn new(runtime: Runtime, clock: C, cycle_interval: Duration) -> Self {
+        let ads_live_values = Arc::new(Mutex::new(runtime.ads_live_values_snapshot()));
         Self {
             runtime,
+            ads_live_values,
             clock,
             cycle_interval,
             time_scale: 1,
@@ -79,6 +82,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     /// Restart the runtime while preserving the runner's live clock baseline.
     pub fn restart(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
         self.runtime.restart(mode)?;
+        self.publish_ads_live_values();
         let now = scaled_time(self.clock.now(), self.time_scale);
         self.runtime.reset_task_timing(now);
         Ok(())
@@ -88,7 +92,9 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub fn tick(&mut self) -> Result<(), RuntimeError> {
         let now = self.clock.now();
         self.runtime.set_current_time(now);
-        self.runtime.execute_cycle()
+        self.runtime.execute_cycle()?;
+        self.publish_ads_live_values();
+        Ok(())
     }
 
     /// Execute one cycle with shared global synchronization.
@@ -99,8 +105,19 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             shared.sync_into_locked(globals, &mut self.runtime)?;
             let result = self.runtime.execute_cycle();
             shared.sync_from_locked(globals, &self.runtime)?;
+            if result.is_ok() {
+                self.publish_ads_live_values();
+            }
             result
         })
+    }
+
+    pub(super) fn publish_ads_live_values(&self) {
+        let snapshot = self.runtime.ads_live_values_snapshot();
+        *self
+            .ads_live_values
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = snapshot;
     }
 
     /// Spawn the runner in a dedicated OS thread.
@@ -111,6 +128,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let clock = self.clock.clone();
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         let mut runner = self;
+        let ads_live_values = runner.ads_live_values.clone();
         runner.command_rx = Some(cmd_rx);
 
         let stop_thread = stop.clone();
@@ -151,6 +169,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            ads_live_values,
         })
     }
 
@@ -166,6 +185,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let clock = self.clock.clone();
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         let mut runner = self;
+        let ads_live_values = runner.ads_live_values.clone();
         runner.command_rx = Some(cmd_rx);
 
         let stop_thread = stop.clone();
@@ -213,6 +233,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            ads_live_values,
         })
     }
 }

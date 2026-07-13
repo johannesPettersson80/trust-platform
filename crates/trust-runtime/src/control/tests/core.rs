@@ -3106,7 +3106,7 @@ END_PROGRAM
         node.get("id").and_then(serde_json::Value::as_str) == Some("external:ads:5.23.91.12.1.1")
             && node.get("kind").and_then(serde_json::Value::as_str) == Some("plc")
             && node.get("name").and_then(serde_json::Value::as_str)
-                == Some("TwinCAT 5.23.91.12.1.1")
+                == Some("ADS device 5.23.91.12.1.1")
     }));
 
     let discovered = result

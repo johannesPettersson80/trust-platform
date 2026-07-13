@@ -46,6 +46,7 @@ pub(crate) fn required_role_for_control_request(
         | "ads.doctor.status"
         | "ads.route_plan"
         | "ads.status"
+        | "ads.live_values"
         | "ads.server.status"
         | "ads.server.symbols"
         | "ads.server.doctor.status"
@@ -237,6 +238,14 @@ mod tests {
     fn connectors_status_requires_viewer_role() {
         assert_eq!(
             required_role_for_control_request("connectors.status", None),
+            AccessRole::Viewer
+        );
+    }
+
+    #[test]
+    fn ads_live_values_is_read_only_viewer_access() {
+        assert_eq!(
+            required_role_for_control_request("ads.live_values", None),
             AccessRole::Viewer
         );
     }

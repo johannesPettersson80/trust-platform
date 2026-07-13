@@ -5,6 +5,7 @@ import type {
   CommSchemaResponse,
 } from "../../communication/schemaForm";
 import type { NCGraph } from "./types";
+import type { LifecyclePhase } from "../../lifecycleEntryFailure";
 
 const EMPTY_GRAPH: NCGraph = {
   kind: "graph",
@@ -38,6 +39,9 @@ export function useCanvasHostState({
   const [schema, setSchema] = useState<CommSchemaResponse | undefined>();
   const [reachable, setReachable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | undefined>();
+  const [lifecyclePhase, setLifecyclePhase] =
+    useState<LifecyclePhase>("stopped");
+  const [operationInProgress, setOperationInProgress] = useState(false);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -63,6 +67,16 @@ export function useCanvasHostState({
       }
       if (
         message &&
+        (message.type === "meta" || message.type === "lifecyclePolicy") &&
+        ["stopped", "starting", "running", "connected"].includes(
+          message.lifecyclePhase
+        )
+      ) {
+        setLifecyclePhase(message.lifecyclePhase as LifecyclePhase);
+        setOperationInProgress(Boolean(message.operationInProgress));
+      }
+      if (
+        message &&
         message.type === "focusNode" &&
         typeof message.nodeId === "string"
       ) {
@@ -85,5 +99,7 @@ export function useCanvasHostState({
     schema,
     reachable,
     setupMessage,
+    lifecyclePhase,
+    operationInProgress,
   };
 }

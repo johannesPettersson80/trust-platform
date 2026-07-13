@@ -13,6 +13,7 @@ pub(super) fn is_configuration_request(command: &str) -> bool {
             | "setFunctionBreakpoints"
             | "setInstructionBreakpoints"
             | "setDataBreakpoints"
+            | "trustSimulatorStatus"
             | "configurationDone"
     )
 }

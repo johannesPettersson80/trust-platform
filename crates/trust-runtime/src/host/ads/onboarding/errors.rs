@@ -3,6 +3,7 @@ use core::fmt;
 use crate::ads::diagnostics::{
     classify_onboarding_failure, AdsErrorInfo, FailureClassification, OnboardingFailureKind,
 };
+use crate::ads::AdsTransportFailureKind;
 
 /// Error returned by onboarding engine orchestration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,7 @@ impl std::error::Error for OnboardingError {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnboardingWireErrorKind {
     UdpIdentifyBlocked,
+    LocalRouterUnavailable,
     Tcp48898Blocked,
     RouteMissing,
     WrongAmsNetId,
@@ -47,6 +49,7 @@ impl OnboardingWireErrorKind {
     pub fn classification(self) -> FailureClassification {
         classify_onboarding_failure(match self {
             Self::UdpIdentifyBlocked => OnboardingFailureKind::UdpIdentifyBlocked,
+            Self::LocalRouterUnavailable => OnboardingFailureKind::LocalRouterUnavailable,
             Self::Tcp48898Blocked => OnboardingFailureKind::Tcp48898Blocked,
             Self::RouteMissing => OnboardingFailureKind::RouteMissing,
             Self::WrongAmsNetId => OnboardingFailureKind::WrongAmsNetId,
@@ -68,6 +71,7 @@ pub struct OnboardingWireError {
     pub kind: OnboardingWireErrorKind,
     pub detail: String,
     pub ads_error: Option<AdsErrorInfo>,
+    pub transport_failure: Option<AdsTransportFailureKind>,
 }
 
 impl OnboardingWireError {
@@ -76,11 +80,18 @@ impl OnboardingWireError {
             kind,
             detail: detail.into(),
             ads_error: None,
+            transport_failure: None,
         }
     }
 
     pub fn with_ads_error(mut self, code: u32, name: impl Into<String>) -> Self {
         self.ads_error = Some(AdsErrorInfo::new(code, name));
+        self
+    }
+
+    #[must_use]
+    pub fn with_transport_failure(mut self, failure: AdsTransportFailureKind) -> Self {
+        self.transport_failure = Some(failure);
         self
     }
 
@@ -107,23 +118,33 @@ impl std::error::Error for OnboardingWireError {}
 pub fn upload_failure_implies_missing_return_route(error: &OnboardingWireError) -> bool {
     match error.kind {
         OnboardingWireErrorKind::RouteMissing => true,
-        OnboardingWireErrorKind::NoSymbols => detail_suggests_no_reply(error.detail.as_str()),
+        OnboardingWireErrorKind::NoSymbols => structured_failure_implies_no_reply(error),
         _ => false,
     }
 }
 
-fn detail_suggests_no_reply(detail: &str) -> bool {
-    let detail = detail.to_ascii_lowercase();
-    [
-        "timed out",
-        "timeout",
-        "no reply",
-        "no response",
-        "route set",
-        "receiving reply",
-    ]
-    .iter()
-    .any(|needle| detail.contains(needle))
+/// Returns true when a harmless ADS request could be sent but no reply came
+/// back to the runtime host. A TCP connect alone cannot prove an AMS return
+/// route because the router accepts the socket before it validates reply
+/// routing.
+pub(crate) fn reply_failure_implies_missing_return_route(error: &OnboardingWireError) -> bool {
+    match error.kind {
+        OnboardingWireErrorKind::RouteMissing => true,
+        OnboardingWireErrorKind::WrongPlcPort | OnboardingWireErrorKind::NoSymbols => {
+            structured_failure_implies_no_reply(error)
+        }
+        _ => false,
+    }
+}
+
+fn structured_failure_implies_no_reply(error: &OnboardingWireError) -> bool {
+    matches!(
+        error.transport_failure,
+        Some(AdsTransportFailureKind::TimedOut | AdsTransportFailureKind::HostUnreachable)
+    ) || error
+        .ads_error
+        .as_ref()
+        .is_some_and(|error| matches!(error.code, 0x007 | 0x015 | 0x01B | 0x745))
 }
 
 #[cfg(test)]
@@ -134,9 +155,20 @@ mod tests {
     fn upload_timeout_is_classified_as_missing_return_route() {
         let error = OnboardingWireError::new(
             OnboardingWireErrorKind::NoSymbols,
-            "upload ADS symbol table: receiving reply (route set?): timed out",
-        );
+            "localized transport failure",
+        )
+        .with_transport_failure(AdsTransportFailureKind::TimedOut);
         assert!(upload_failure_implies_missing_return_route(&error));
+    }
+
+    #[test]
+    fn read_state_timeout_is_classified_as_missing_return_route() {
+        let error = OnboardingWireError::new(
+            OnboardingWireErrorKind::WrongPlcPort,
+            "localized transport failure",
+        )
+        .with_ads_error(0x745, "ADS client synchronous timeout");
+        assert!(reply_failure_implies_missing_return_route(&error));
     }
 
     #[test]
@@ -152,8 +184,19 @@ mod tests {
     fn connection_refused_is_not_route_missing() {
         let error = OnboardingWireError::new(
             OnboardingWireErrorKind::NoSymbols,
-            "connect ADS target: Connection refused",
+            "localized transport failure",
+        )
+        .with_transport_failure(AdsTransportFailureKind::ConnectionRefused);
+        assert!(!upload_failure_implies_missing_return_route(&error));
+    }
+
+    #[test]
+    fn error_text_alone_never_drives_route_recovery() {
+        let error = OnboardingWireError::new(
+            OnboardingWireErrorKind::NoSymbols,
+            "receiving reply (route set?): timed out",
         );
+
         assert!(!upload_failure_implies_missing_return_route(&error));
     }
 }

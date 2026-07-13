@@ -71,7 +71,7 @@ export function buildCommunicationCards(
         protocol,
         status: runtime.status === "simulate" ? "simulate" : "runtime_unreachable",
         detail: runtimeBlockedDetail(runtime),
-        nextStep: "Open Runtime pane",
+        nextStep: "Open truST sidebar",
       };
     }
     if (protocol.id === "ads") {
@@ -109,7 +109,7 @@ export function buildCommunicationCards(
       detail: error
         ? `Runtime capabilities are unavailable: ${error}`
         : "This runtime does not report Communication capabilities yet.",
-      nextStep: error ? "Retry or open Runtime pane" : "Update runtime or use docs",
+      nextStep: error ? "Retry or open the truST sidebar" : "Update runtime or use docs",
     };
   });
 }
@@ -209,7 +209,7 @@ function nextActionLabel(
       return "Get a build with this feature";
     case "simulate":
     case "runtime_unreachable":
-      return "Open Runtime pane";
+      return "Open truST sidebar";
     case "configured_policy":
       return "Review policy";
     case "not_configured":

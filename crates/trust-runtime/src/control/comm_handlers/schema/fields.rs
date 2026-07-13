@@ -871,7 +871,7 @@ pub(super) fn ads_server_fields() -> Vec<CommFieldSchema> {
             "string",
             json!("127.0.0.1"),
             true,
-            "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected.",
+            "Local IP address where ADS clients connect. Wildcard binds are rejected.",
         ),
         optional(field(
             "ams_net_id",

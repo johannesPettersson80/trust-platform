@@ -2,6 +2,12 @@ import { affectsTrustConfiguration, getTrustConfiguration } from "./configuratio
 import * as vscode from "vscode";
 import * as net from "net";
 
+import { ioPanelHtml } from "./io-panel/html";
+
+import {
+  EMPTY_ADS_LIVE_VALUES_STATE,
+  normalizeAdsLiveValuesState,
+} from "./adsLiveValuesModel";
 import {
   summarizeAdsStatus,
   type AdsStatusReport,
@@ -9,12 +15,24 @@ import {
 } from "./adsStatusSummary";
 import { sendRuntimeControlRequest } from "./runtimeControlClient";
 import {
+  isStructuralRuntimeLifecycleChange,
   normalizeIoState,
   runtimeLifecycleService,
   type RuntimeLifecycleResult,
 } from "./runtimeLifecycle";
+import { sameRuntimeDebugSession } from "./runtimeSessionAuthority";
+import { LatestOnlyRevision } from "./latestOnlyRevision";
+import {
+  getSelectedRuntimeId,
+  onDidChangeSelectedRuntime,
+} from "./selectedRuntime";
+import {
+  remoteLabelFromEndpoint,
+  SIMULATOR_RUNTIME_ID,
+} from "./trustHomeModel";
 
 const DEBUG_TYPE = "structured-text";
+const PRAGMA_SCAN_LINES = 20;
 
 type IoEntry = {
   name?: string;
@@ -80,7 +98,6 @@ type RuntimeAccessPayload = {
   reason?: string;
 };
 
-const PRAGMA_SCAN_LINES = 20;
 const ENDPOINT_PROBE_TTL_MS = 2000;
 const ENDPOINT_PROBE_TIMEOUT_MS = 400;
 
@@ -92,22 +109,8 @@ let endpointProbeCache:
   | { endpoint: string; reachable: boolean; checkedAt: number }
   | undefined;
 
-const structuredTextSessions = new Map<string, vscode.DebugSession>();
-
-function structuredTextSessionKey(session: vscode.DebugSession): string {
-  return session.id ?? session.name;
-}
-
-function trackStructuredTextSession(session: vscode.DebugSession): void {
-  structuredTextSessions.set(structuredTextSessionKey(session), session);
-}
-
-function untrackStructuredTextSession(session: vscode.DebugSession): void {
-  structuredTextSessions.delete(structuredTextSessionKey(session));
-}
-
 function getStructuredTextSession(): vscode.DebugSession | undefined {
-  return runtimeLifecycleService.getStructuredTextSession();
+  return runtimeLifecycleService.acceptedDebugSession();
 }
 
 
@@ -256,6 +259,7 @@ async function fetchAdsStatusSummary(
 }
 
 let panel: vscode.WebviewPanel | undefined;
+const liveValuesRevision = new LatestOnlyRevision();
 
 export function registerIoPanel(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -269,22 +273,24 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
     })
   );
   context.subscriptions.push(
-    runtimeLifecycleService.onDidChange(() => {
-      if (!panel) {
+    runtimeLifecycleService.onDidChange((change) => {
+      if (!panel || !isStructuralRuntimeLifecycleChange(change)) {
         return;
       }
-      void sendRuntimeStatus();
+      void refreshLiveValuesForLifecycle();
+    })
+  );
+  context.subscriptions.push(
+    onDidChangeSelectedRuntime(() => {
+      if (panel) {
+        void refreshLiveValuesForLifecycle();
+      }
     })
   );
 
-  const activeSession = vscode.debug.activeDebugSession;
-  if (activeSession && activeSession.type === DEBUG_TYPE) {
-    trackStructuredTextSession(activeSession);
-  }
-
   context.subscriptions.push(
     vscode.debug.onDidReceiveDebugSessionCustomEvent((event) => {
-      if (event.event !== "stIoState") {
+      if (event.event !== "stIoState" && event.event !== "stAdsState") {
         return;
       }
       if (event.session.type !== DEBUG_TYPE) {
@@ -293,49 +299,22 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
       if (!panel) {
         return;
       }
+      const accepted = runtimeLifecycleService.acceptedDebugSession();
+      if (!liveValuesEventIsAccepted(accepted, event.session)) {
+        return;
+      }
       if (event.event === "stIoState") {
         const body = event.body as IoState | undefined;
         panel.webview.postMessage({
           type: "ioState",
           payload: normalizeIoState(body),
         });
+      } else {
+        panel.webview.postMessage({
+          type: "adsState",
+          payload: normalizeAdsLiveValuesState(event.body),
+        });
       }
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.debug.onDidStartDebugSession((session) => {
-      if (session.type !== DEBUG_TYPE) {
-        return;
-      }
-      trackStructuredTextSession(session);
-      void requestIoState();
-      void sendRuntimeStatus();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.debug.onDidTerminateDebugSession((session) => {
-      if (session.type !== DEBUG_TYPE) {
-        return;
-      }
-      untrackStructuredTextSession(session);
-      postUnavailableLiveValues(terminatedSessionStatus(session));
-    })
-  );
-
-
-  context.subscriptions.push(
-    vscode.debug.onDidChangeActiveDebugSession((session) => {
-      if (!session || session.type !== DEBUG_TYPE) {
-        postUnavailableLiveValues();
-        return;
-      }
-      if (panel) {
-        void requestIoState();
-      }
-      trackStructuredTextSession(session);
-      void sendRuntimeStatus();
     })
   );
 
@@ -372,7 +351,7 @@ function showPanel(
 ): void {
   if (panel) {
     panel.reveal();
-    void requestIoState();
+    void requestLiveValuesState();
     void sendRuntimeStatus();
     if (options.openSettings) {
       panel.webview.postMessage({ type: "openSettings" });
@@ -394,14 +373,15 @@ function showPanel(
     }
   );
 
-  panel.webview.html = getHtml(panel.webview, context.extensionUri);
+  panel.webview.html = ioPanelHtml(panel.webview, context.extensionUri);
   panel.onDidDispose(() => {
+    liveValuesRevision.invalidate();
     panel = undefined;
   });
 
   panel.webview.onDidReceiveMessage(handleWebviewMessage);
 
-  void requestIoState();
+  void requestLiveValuesState();
   void sendRuntimeStatus();
   if (options.openSettings) {
     panel.webview.postMessage({ type: "openSettings" });
@@ -419,7 +399,7 @@ function postPanelStatus(message: string): void {
 
 function userFacingIoStatus(message: string): string {
   if (isNoActiveSessionMessage(message)) {
-    return "Start the runtime to see live values.";
+    return "Start the Simulator to see live values.";
   }
   if (isIoStateTransportFailureMessage(message)) {
     return "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
@@ -428,12 +408,78 @@ function userFacingIoStatus(message: string): string {
 }
 
 function liveValuesUnavailableMessage(
-  status: RuntimeStatusPayload | undefined
+  status: RuntimeStatusPayload | undefined,
+  selectedTargetId = getSelectedRuntimeId(),
 ): string {
-  if (status?.runtimeMode === "online" && status.runtimeState !== "connected") {
+  if (
+    selectedTargetId !== SIMULATOR_RUNTIME_ID &&
+    selectedTargetUsesControlEndpoint(selectedTargetId)
+  ) {
     return "Connect to the selected runtime to see live values.";
   }
-  return "Start the runtime to see live values.";
+  if (
+    selectedTargetId !== SIMULATOR_RUNTIME_ID ||
+    (status?.runtimeMode === "online" && status.runtimeState !== "connected")
+  ) {
+    return "Start the selected runtime to see live values.";
+  }
+  return "Start the Simulator to see live values.";
+}
+
+function selectedTargetUsesControlEndpoint(targetId: string): boolean {
+  return /^(?:tcp|unix):\/\//i.test(targetId.trim());
+}
+
+function statusForSelectedTarget(
+  status: RuntimeStatusPayload,
+  selectedTargetId = getSelectedRuntimeId(),
+): RuntimeStatusPayload {
+  if (selectedTargetId === SIMULATOR_RUNTIME_ID) {
+    return {
+      ...status,
+      running: false,
+      runtimeMode: "simulate",
+      runtimeState: "stopped",
+      targetLabel: "Simulator",
+      endpoint: "",
+      endpointConfigured: false,
+      endpointReachable: false,
+    };
+  }
+  if (selectedTargetUsesControlEndpoint(selectedTargetId)) {
+    return {
+      ...status,
+      running: false,
+      runtimeMode: "online",
+      runtimeState: "stopped",
+      targetLabel: remoteLabelFromEndpoint(selectedTargetId),
+      endpoint: selectedTargetId,
+      endpointConfigured: true,
+      endpointReachable: false,
+    };
+  }
+  return {
+    ...status,
+    running: false,
+    runtimeMode: "simulate",
+    runtimeState: "stopped",
+    targetLabel: selectedTargetId,
+    endpointReachable: false,
+  };
+}
+
+export function __testLiveValuesUnavailableMessage(
+  status: RuntimeStatusPayload | undefined,
+  selectedTargetId: string,
+): string {
+  return liveValuesUnavailableMessage(status, selectedTargetId);
+}
+
+export function __testStatusForSelectedTarget(
+  status: RuntimeStatusPayload,
+  selectedTargetId: string,
+): RuntimeStatusPayload {
+  return statusForSelectedTarget(status, selectedTargetId);
 }
 
 function isNoActiveSessionMessage(message: string): boolean {
@@ -461,66 +507,37 @@ function postEmptyIoState(): void {
   });
 }
 
+function postEmptyAdsState(): void {
+  panel?.webview.postMessage({
+    type: "adsState",
+    payload: EMPTY_ADS_LIVE_VALUES_STATE,
+  });
+}
+
 function postUnavailableLiveValues(
   status?: RuntimeStatusPayload,
   message?: string
 ): void {
-  const publish = () => {
-    const statusMessage = message || liveValuesUnavailableMessage(status);
-    if (status) {
-      panel?.webview.postMessage({
-        type: "runtimeStatus",
-        payload: status,
-      });
-    }
-    postEmptyIoState();
+  const statusMessage = message || liveValuesUnavailableMessage(status);
+  if (status) {
     panel?.webview.postMessage({
-      type: "status",
-      payload: statusMessage,
+      type: "runtimeStatus",
+      payload: statusForSelectedTarget(status),
     });
-  };
-  publish();
-  setTimeout(publish, 100);
-  setTimeout(publish, 500);
-}
-
-function terminatedSessionStatus(session: vscode.DebugSession): RuntimeStatusPayload {
-  const request = session.configuration?.request;
-  const isAttach = request === "attach";
-  const endpoint =
-    typeof session.configuration?.endpoint === "string"
-      ? session.configuration.endpoint.trim()
-      : typeof session.configuration?.controlEndpoint === "string"
-        ? session.configuration.controlEndpoint.trim()
-        : "";
-  const targetLabel =
-    typeof session.configuration?.targetLabel === "string" &&
-    session.configuration.targetLabel.trim()
-      ? session.configuration.targetLabel.trim()
-      : undefined;
-  return {
-    running: false,
-    inlineValuesEnabled: true,
-    runtimeMode: isAttach ? "online" : "simulate",
-    runtimeState: "stopped",
-    targetLabel,
-    endpoint,
-    endpointConfigured: endpoint.length > 0,
-    endpointEnabled: true,
-    endpointReachable: false,
-    access: {
-      allowWrite: false,
-      allowForce: false,
-      allowRelease: false,
-    },
-  };
+  }
+  postEmptyIoState();
+  postEmptyAdsState();
+  panel?.webview.postMessage({
+    type: "status",
+    payload: statusMessage,
+  });
 }
 
 function handleWebviewMessage(message: any): void {
   const type = typeof message?.type === "string" ? message.type : "";
   switch (type) {
     case "refresh":
-      void requestIoState();
+      void requestLiveValuesState();
       break;
     case "writeInput":
       void writeInput(String(message.address || ""), String(message.value || ""));
@@ -537,24 +554,6 @@ function handleWebviewMessage(message: any): void {
           ? message.addresses.map((a: unknown) => String(a))
           : []
       );
-      break;
-    case "startDebug":
-      void startDebugging();
-      break;
-    case "compile":
-      void compileActiveProgram();
-      break;
-    case "compileAndStart":
-      void compileActiveProgram({ startDebugAfter: true });
-      break;
-    case "stopDebug":
-      void stopDebugging();
-      break;
-    case "runtimeStart":
-      void handleRuntimePrimary();
-      break;
-    case "runtimeSetMode":
-      void setRuntimeMode(message.mode);
       break;
     case "requestSettings":
       panel?.webview.postMessage({
@@ -575,6 +574,7 @@ function handleWebviewMessage(message: any): void {
     case "webviewReady":
       console.info("Live Values webview ready.");
       void sendRuntimeStatus();
+      void requestLiveValuesState();
       break;
     default:
       break;
@@ -588,7 +588,6 @@ type SettingsPayload = {
   debugAdapterArgs?: string[];
   debugAdapterEnv?: Record<string, string>;
   runtimeControlEndpoint?: string;
-  runtimeControlAuthToken?: string;
   runtimeIncludeGlobs?: string[];
   runtimeExcludeGlobs?: string[];
   runtimeIgnorePragmas?: string[];
@@ -604,7 +603,6 @@ function collectSettingsSnapshot(): SettingsPayload {
     debugAdapterArgs: config.get<string[]>("debug.adapter.args") ?? [],
     debugAdapterEnv: config.get<Record<string, string>>("debug.adapter.env") ?? {},
     runtimeControlEndpoint: config.get<string>("runtime.controlEndpoint") ?? "",
-    runtimeControlAuthToken: config.get<string>("runtime.controlAuthToken") ?? "",
     runtimeIncludeGlobs: config.get<string[]>("runtime.includeGlobs") ?? [],
     runtimeExcludeGlobs: config.get<string[]>("runtime.excludeGlobs") ?? [],
     runtimeIgnorePragmas: config.get<string[]>("runtime.ignorePragmas") ?? [],
@@ -630,10 +628,6 @@ async function applySettingsUpdate(payload: SettingsPayload | undefined): Promis
     {
       key: "runtime.controlEndpoint",
       value: payload.runtimeControlEndpoint?.trim() || undefined,
-    },
-    {
-      key: "runtime.controlAuthToken",
-      value: payload.runtimeControlAuthToken?.trim() || undefined,
     },
     { key: "runtime.includeGlobs", value: payload.runtimeIncludeGlobs ?? [] },
     { key: "runtime.excludeGlobs", value: payload.runtimeExcludeGlobs ?? [] },
@@ -668,6 +662,13 @@ export function __testUserFacingIoStatus(message: string): string {
   return userFacingIoStatus(message);
 }
 
+export function liveValuesEventIsAccepted(
+  accepted: vscode.DebugSession | undefined,
+  candidate: vscode.DebugSession,
+): boolean {
+  return sameRuntimeDebugSession(accepted, candidate);
+}
+
 function runtimeConfigTarget(): vscode.Uri | undefined {
   return runtimeLifecycleService.runtimeConfigTarget();
 }
@@ -681,23 +682,49 @@ async function runtimeStatusPayload(): Promise<RuntimeStatusPayload> {
 }
 
 async function sendRuntimeStatus(): Promise<void> {
-  if (!panel) {
+  const panelRef = panel;
+  if (!panelRef) {
     return;
   }
-  const payload = await runtimeStatusPayload();
-  panel.webview.postMessage({
+  const revision = liveValuesRevision.begin();
+  const rawPayload = await runtimeStatusPayload();
+  if (!liveValuesRevision.isCurrent(revision) || panel !== panelRef) {
+    return;
+  }
+  const payload = runtimeLifecycleService.acceptedDebugSession()
+    ? rawPayload
+    : statusForSelectedTarget(rawPayload);
+  panelRef.webview.postMessage({
     type: "runtimeStatus",
     payload,
   });
 }
 
-async function requestIoState(): Promise<void> {
-  const result = await runtimeLifecycleService.requestIoState();
+async function refreshLiveValuesForLifecycle(): Promise<void> {
+  const panelRef = panel;
+  if (!panelRef) {
+    return;
+  }
+  const revision = liveValuesRevision.begin();
+  const status = await runtimeStatusPayload();
+  if (!liveValuesRevision.isCurrent(revision) || panel !== panelRef) {
+    return;
+  }
+  if (!runtimeLifecycleService.acceptedDebugSession()) {
+    postUnavailableLiveValues(status);
+    return;
+  }
+  panelRef.webview.postMessage({ type: "runtimeStatus", payload: status });
+  await requestLiveValuesState();
+}
+
+async function requestLiveValuesState(): Promise<void> {
+  const result = await runtimeLifecycleService.requestLiveValuesState();
   await handleIoStateRequestResult(result);
 }
 
 async function requestIoStateAfterScan(previousScan: number | undefined): Promise<void> {
-  const result = await runtimeLifecycleService.requestIoStateAfterScan(previousScan);
+  const result = await runtimeLifecycleService.requestLiveValuesStateAfterScan(previousScan);
   await handleIoStateRequestResult(result);
 }
 
@@ -707,6 +734,15 @@ async function currentIoScan(): Promise<number | undefined> {
 
 async function handleIoStateRequestResult(result: RuntimeLifecycleResult): Promise<void> {
   if (!result.ok) {
+    if (/^ADS state request failed:/i.test(result.failure.message)) {
+      postEmptyAdsState();
+      panel?.webview.postMessage({
+        type: "status",
+        payload:
+          "ADS variables could not be refreshed. Restart or reconnect the runtime, then retry.",
+      });
+      return;
+    }
     if (isNoActiveSessionMessage(result.failure.message)) {
       const status = await runtimeStatusPayload().catch(() => undefined);
       postUnavailableLiveValues(status);
@@ -841,120 +877,6 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
   void requestIoStateAfterScan(previousScan);
 }
 
-
-async function stopDebugging(): Promise<void> {
-  try {
-    const stopped = await vscode.commands.executeCommand<boolean>(
-      "trust-lsp.debug.stop"
-    );
-    if (!stopped) {
-      panel?.webview.postMessage({
-        type: "status",
-        payload: "Start the runtime to see live values.",
-      });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    panel?.webview.postMessage({
-      type: "status",
-      payload: userFacingIoStatus(`Stop debugging failed: ${message}`),
-    });
-  }
-}
-
-async function startDebugging(programOverride?: string): Promise<void> {
-  try {
-    const started = await vscode.commands.executeCommand<boolean>(
-      "trust-lsp.debug.start",
-      programOverride
-    );
-    if (!started) {
-      panel?.webview.postMessage({
-        type: "status",
-        payload: "Start debugging did not launch a session.",
-      });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    panel?.webview.postMessage({
-      type: "status",
-      payload: `Start debugging failed: ${message}`,
-    });
-  }
-}
-
-async function startAttachDebugging(
-  endpoint: string,
-  authToken?: string
-): Promise<boolean> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  const runtimeOptions = runtimeSourceOptions();
-  const config: vscode.DebugConfiguration = {
-    type: DEBUG_TYPE,
-    request: "attach",
-    name: "Attach Structured Text",
-    endpoint,
-    authToken,
-    internalConsoleOptions: "neverOpen",
-    ...runtimeOptions,
-  };
-  if (folder) {
-    config.cwd = folder.uri.fsPath;
-  }
-  try {
-    const started = await vscode.debug.startDebugging(folder, config);
-    if (!started) {
-      panel?.webview.postMessage({
-        type: "status",
-        payload: "Attach failed to start.",
-      });
-    }
-    return started;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    panel?.webview.postMessage({
-      type: "status",
-      payload: `Attach failed: ${message}`,
-    });
-    return false;
-  }
-}
-
-
-async function setRuntimeMode(mode: unknown): Promise<void> {
-  await runtimeLifecycleService.setRuntimeMode(mode);
-  void sendRuntimeStatus();
-}
-
-
-
-async function handleRuntimePrimary(): Promise<void> {
-  const status = await runtimeStatusPayload();
-  if (status.running || status.runtimeState === "connected") {
-    await handleRuntimeStop();
-    return;
-  }
-  await handleRuntimeStart();
-}
-
-async function handleRuntimeStart(): Promise<void> {
-  const result = await runtimeLifecycleService.startRuntime();
-  postRuntimeLifecycleResult(result);
-  void sendRuntimeStatus();
-}
-
-async function handleRuntimeStop(): Promise<void> {
-  const result = await runtimeLifecycleService.stopRuntime();
-  postRuntimeLifecycleResult(result);
-  void sendRuntimeStatus();
-}
-
-function postRuntimeLifecycleResult(result: RuntimeLifecycleResult): void {
-  panel?.webview.postMessage({
-    type: "status",
-    payload: result.ok ? result.message : result.failure.message,
-  });
-}
 
 function diagnosticCodeLabel(
   code: string | number | { value: string | number; target?: vscode.Uri } | undefined
@@ -1129,11 +1051,7 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
-type CompileOptions = {
-  startDebugAfter?: boolean;
-};
-
-async function compileActiveProgram(options: CompileOptions = {}): Promise<void> {
+async function compileActiveProgram(): Promise<void> {
   if (!panel) {
     return;
   }
@@ -1270,16 +1188,7 @@ async function compileActiveProgram(options: CompileOptions = {}): Promise<void>
   if (runtimeStatus === "error" && runtimeMessage) {
     statusMessage = runtimeMessage;
   }
-  if (options.startDebugAfter) {
-    if (errors > 0) {
-      statusMessage = `Compile blocked: ${errors} error(s). Fix errors before starting.`;
-    } else if (dirty) {
-      statusMessage = "Save all Structured Text files before starting the runtime.";
-    } else {
-      // No authoritative whole-project compile yet (phase 8) — diagnostics + reload only.
-      statusMessage = "No known errors. Starting debug session...";
-    }
-  } else if (!hasConfiguration && runtimeStatus === "skipped" && errors === 0) {
+  if (!hasConfiguration && runtimeStatus === "skipped" && errors === 0) {
     statusMessage +=
       " No CONFIGURATION found; debugging will prompt to create one.";
     const create = await vscode.window.showInformationMessage(
@@ -1298,1125 +1207,10 @@ async function compileActiveProgram(options: CompileOptions = {}): Promise<void>
     payload: statusMessage,
   });
 
-  if (options.startDebugAfter && errors === 0 && !dirty) {
-    await startDebugging();
-  }
 }
 
 function workspaceHasDirtyStructuredText(): boolean {
   return vscode.workspace.textDocuments.some(
     (doc) => doc.languageId === "structured-text" && doc.isDirty
   );
-}
-
-function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-  const nonce = getNonce();
-  const codiconUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(
-      extensionUri,
-      "node_modules",
-      "@vscode",
-      "codicons",
-      "dist",
-      "codicon.css"
-    )
-  );
-  const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, "media", "ioPanel.js")
-  );
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${
-      webview.cspSource
-    } 'unsafe-inline'; font-src ${webview.cspSource}; script-src ${
-      webview.cspSource
-    } 'nonce-${nonce}';" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Live Values</title>
-    <link href="${codiconUri}" rel="stylesheet" />
-    <style>
-      :root {
-        color-scheme: light dark;
-        /* Keep Live Values on the same product token layer as Devices & Connections and
-           the visual editors. Every role ends in a hard fallback so missing VS Code theme
-           variables cannot collapse to browser-default black text. */
-        --trust-canvas: var(--vscode-editor-background, #0f1116);
-        --trust-surface: var(--vscode-editorWidget-background, #1b1f28);
-        --trust-surface-raised: var(--vscode-editorHoverWidget-background, #222732);
-        --trust-text: var(--vscode-foreground, #cfd6e0);
-        --trust-text-muted: var(--vscode-descriptionForeground, #949cab);
-        --trust-text-subtle: var(--vscode-disabledForeground, #6b7480);
-        --trust-on-accent: var(--vscode-button-foreground, #ffffff);
-        --trust-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
-        --trust-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, #2a2f3a));
-        --trust-accent: var(--vscode-focusBorder, #4a9eff);
-        --trust-ok: var(--vscode-charts-green, var(--vscode-testing-iconPassed, #46c265));
-        --trust-warn: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground, #e0b341));
-        --trust-danger: var(--vscode-charts-red, var(--vscode-errorForeground, #f0584f));
-        --trust-input-bg: var(--vscode-input-background, #10141b);
-        --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
-        --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 18%, transparent);
-        --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
-        --trust-radius-sm: 4px;
-        --trust-radius: 6px;
-        --trust-radius-lg: 8px;
-        --trust-pill: 999px;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        font-family: var(--vscode-font-family);
-        font-size: var(--vscode-font-size);
-        margin: 0;
-        padding: 0;
-        color: var(--trust-text);
-        background: var(--trust-canvas);
-      }
-
-      header {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 8px;
-        background: var(--trust-canvas);
-        border-bottom: 1px solid var(--trust-border);
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      .header-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .header-search {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .runtime-status {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 12px;
-        color: var(--trust-text-muted);
-        flex-wrap: wrap;
-      }
-
-      .target-strip {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        min-height: 22px;
-        color: var(--trust-text-muted);
-        font-size: 11px;
-      }
-
-      .target-label {
-        color: var(--trust-text);
-        font-weight: 600;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .scan-label {
-        color: var(--trust-text-muted);
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-      }
-
-      .mode-toggle {
-        display: inline-flex;
-        align-items: center;
-        border: 1px solid var(--trust-border);
-        border-radius: 999px;
-        overflow: hidden;
-      }
-
-      .mode-button {
-        background: transparent;
-        border: none;
-        color: var(--trust-text);
-        padding: 4px 10px;
-        font-size: 11px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .mode-button.active {
-        background: var(--trust-accent);
-        color: var(--trust-on-accent);
-      }
-
-      .mode-button:disabled {
-        cursor: default;
-        opacity: 0.5;
-      }
-
-      .mode-subtitle {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-right: 8px;
-      }
-
-      .status-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .status-pill {
-        padding: 2px 8px;
-        border-radius: 999px;
-        border: 1px solid var(--trust-border);
-        background: var(--trust-surface);
-        color: var(--trust-text);
-        white-space: nowrap;
-      }
-
-      .status-pill.on,
-      .status-pill.running {
-        background: var(--trust-accent);
-        color: var(--trust-on-accent);
-        border-color: transparent;
-      }
-
-      .status-pill.off {
-        opacity: 0.7;
-      }
-
-      .status-pill.connected {
-        border-color: var(--trust-accent);
-      }
-
-      .status-pill.disconnected {
-        opacity: 0.7;
-      }
-
-      .status-action {
-        border: 1px solid var(--trust-border);
-        background: transparent;
-        color: var(--trust-text);
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 11px;
-      }
-
-      .status-action:hover {
-        background: var(--trust-surface);
-      }
-
-      .status-action:disabled {
-        cursor: default;
-        opacity: 0.5;
-      }
-
-      input#filter {
-        flex: 1 1 auto;
-        min-width: 0;
-        padding: 4px 8px;
-        border: 1px solid var(--trust-input-border);
-        border-radius: 4px;
-        background: var(--trust-input-bg);
-        color: var(--vscode-input-foreground, var(--trust-text));
-      }
-
-      /* Focus uses the panel accent (blue), not the browser default (amber = reads as a warning). */
-      input#filter:focus {
-        outline: none;
-        border-color: var(--trust-accent);
-        box-shadow: 0 0 0 1px var(--trust-accent);
-      }
-
-      input#filter::placeholder {
-        color: var(--vscode-input-placeholderForeground, var(--trust-text-muted));
-      }
-
-      .numeric-format {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        flex: 0 0 auto;
-        border: 1px solid var(--trust-border);
-        border-radius: 6px;
-        padding: 2px;
-        background: var(--trust-surface);
-      }
-
-      .numeric-format-label {
-        color: var(--trust-text-muted);
-        font-size: 10px;
-        font-weight: 700;
-        padding: 0 4px;
-        text-transform: uppercase;
-      }
-
-      .format-toggle {
-        min-width: 34px;
-        height: 22px;
-        padding: 0 6px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background: transparent;
-        color: var(--trust-text-muted);
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1;
-      }
-
-      .format-toggle:hover {
-        background: var(--trust-selected-bg);
-        color: var(--trust-text);
-      }
-
-      .format-toggle.active {
-        background: var(--trust-selected-bg);
-        border-color: var(--trust-input-border);
-        color: var(--trust-text);
-      }
-
-      .forced-filter {
-        height: 24px;
-        flex: 0 0 auto;
-        padding: 0 8px;
-        border-radius: 999px;
-        border: 1px solid var(--trust-input-border);
-        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
-        color: var(--vscode-button-secondaryForeground, var(--trust-text));
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 1;
-        white-space: nowrap;
-      }
-
-      .forced-filter:hover {
-        background: var(--vscode-button-secondaryHoverBackground, var(--trust-selected-bg));
-      }
-
-      .forced-filter.active {
-        border-color: var(--trust-warn);
-        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
-        color: var(--trust-text);
-        box-shadow: inset 2px 0 0 var(--trust-warn);
-      }
-
-      button {
-        background: var(--trust-accent);
-        border: none;
-        color: var(--trust-on-accent);
-        padding: 4px 10px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 600;
-      }
-
-      button:hover {
-        background: var(--trust-selected-strong-bg);
-      }
-
-      button:disabled {
-        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
-        border: 1px solid var(--trust-border);
-        color: var(--trust-text-subtle);
-        cursor: not-allowed;
-        opacity: 1;
-      }
-
-      button:disabled:hover {
-        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
-      }
-
-      .panel {
-        background: transparent;
-        border: none;
-        border-radius: 0;
-        padding: 8px;
-      }
-
-      .toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .icon-btn {
-        width: 28px;
-        height: 28px;
-        padding: 0;
-        border-radius: 6px;
-        border: 1px solid var(--trust-border);
-        background: transparent;
-        color: var(--trust-text);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .icon-btn .codicon {
-        font-size: 16px;
-        line-height: 1;
-      }
-
-      .icon-btn:hover {
-        background: var(--trust-selected-bg);
-      }
-
-      .icon-btn:active {
-        background: var(--trust-surface);
-      }
-
-      .icon-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-
-      .icon-btn:disabled:hover {
-        background: transparent;
-      }
-
-      .icon-btn.primary {
-        border-color: transparent;
-        background: var(--trust-accent);
-        color: var(--trust-on-accent);
-      }
-
-      .icon-btn.primary:hover {
-        background: var(--trust-selected-strong-bg);
-      }
-
-      .tree {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      details.tree-node > summary {
-        list-style: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--trust-text);
-      }
-
-      details.tree-node > summary:hover {
-        background: var(--trust-selected-bg);
-      }
-
-      details.tree-node > summary::-webkit-details-marker {
-        display: none;
-      }
-
-      details.tree-node > summary::before {
-        content: "▸";
-        display: inline-block;
-        width: 12px;
-        color: var(--trust-text-muted);
-        transform: translateY(-1px);
-      }
-
-      details.tree-node[open] > summary::before {
-        content: "▾";
-      }
-
-      .tree-node.level-1 {
-        padding-left: 12px;
-      }
-
-      .tree-node.level-2 {
-        padding-left: 22px;
-      }
-
-      .tree-node.level-3 {
-        padding-left: 32px;
-      }
-
-      .write-hint {
-        margin: 2px 4px 6px 10px;
-        color: var(--trust-text-muted);
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      .force-policy {
-        margin: 4px 12px 8px;
-        padding: 5px 8px;
-        border: 1px solid var(--trust-border-subtle);
-        border-left: 3px solid var(--trust-warn);
-        border-radius: 4px;
-        background: color-mix(in srgb, var(--trust-warn) 8%, var(--trust-surface));
-        color: var(--trust-text);
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      .force-policy.armed-target {
-        background: color-mix(in srgb, var(--trust-warn) 12%, var(--trust-surface));
-      }
-
-      /* One shared grid for the whole section so every row — BOOL or numeric, with or
-         without a write-box — lines its VALUE/TYPE/STATE/ACTIONS up under the same headers.
-         Rows use subgrid so the column tracks are shared, not re-derived per row. */
-		      .rows {
-		        display: grid;
-		        grid-template-columns:
-		          minmax(116px, 1fr)
-		          minmax(52px, max-content)
-		          minmax(38px, max-content)
-		          minmax(64px, max-content)
-          minmax(160px, max-content);
-        column-gap: 6px;
-        row-gap: 2px;
-        padding: 2px 4px 2px 10px;
-        overflow-x: auto;
-      }
-
-      .row,
-      .row-header {
-        grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: subgrid;
-        align-items: center;
-        column-gap: 6px;
-      }
-
-      .row > *,
-      .row-header > * {
-        min-width: 0;
-      }
-
-      .row {
-        padding: 2px 4px;
-        border-radius: 4px;
-        font-size: 12px;
-      }
-
-      .row-header {
-        padding: 2px 4px;
-        color: var(--trust-text-muted);
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      .row-header .actions-heading {
-        text-align: right;
-      }
-
-      .row:hover {
-        background: var(--trust-selected-bg);
-      }
-
-      /* A forced value is ALWAYS visibly marked (§0.5.5/§0.5.16): subtle amber wash + an amber
-         left accent bar so overridden rows are unmistakable without shifting the columns. */
-      .row.forced {
-        background: color-mix(in srgb, var(--trust-warn) 13%, transparent);
-        box-shadow: inset 2px 0 0 var(--trust-warn);
-      }
-		      .state-cell,
-		      .type-cell {
-		        color: var(--trust-text-muted);
-		        font-size: 11px;
-		        white-space: nowrap;
-		      }
-
-          .source-subtitle {
-            color: var(--trust-text-muted);
-            font-size: 10px;
-            line-height: 1.2;
-            overflow-wrap: anywhere;
-            white-space: normal;
-          }
-
-      .state-badge {
-        display: inline-block;
-        min-width: 64px;
-        box-sizing: border-box;
-        text-align: center;
-        padding: 1px 6px;
-        border-radius: 6px;
-        border: 1px solid var(--trust-border);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        line-height: 1.4;
-      }
-
-      .state-badge.live {
-        color: var(--trust-text-muted);
-        text-transform: uppercase;
-      }
-
-      /* A forced value is an operator OVERRIDE, not a healthy state (ISA-101 / TwinCAT / CODESYS
-         convention): mark it amber (caution), never green. */
-      .state-badge.forced {
-        color: #161616;
-        background: var(--trust-warn);
-        border-color: var(--trust-warn);
-      }
-      /* Release clears an override → a restorative secondary action. Same ghost treatment per-row
-         and for "Release all" so the two read as one control, distinct from the primary buttons. */
-      .release-all,
-      .mini-btn.release {
-        background: transparent;
-        color: var(--trust-text-muted);
-        border: 1px solid var(--trust-input-border);
-      }
-      .release-all:hover,
-      .mini-btn.release:hover {
-        background: var(--trust-selected-bg);
-        color: var(--trust-text);
-        border-color: var(--trust-text-subtle);
-      }
-
-      .row .name {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-        overflow: hidden;
-      }
-
-      .row .name > div {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .row .name .type {
-        font-size: 10px;
-        color: var(--trust-text-muted);
-      }
-
-      .row .name .address {
-        font-size: 10px;
-        color: var(--trust-text-muted);
-      }
-
-      .row .value {
-        color: var(--trust-text);
-        font-family: var(--vscode-editor-font-family);
-        font-size: 11px;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .row .actions {
-        display: flex;
-        align-items: center;
-	        gap: 4px;
-        justify-content: flex-end;
-        flex-wrap: nowrap;
-      }
-
-      .value-input {
-	        width: 46px;
-        height: 24px;
-        padding: 2px 4px;
-        border: 1px solid var(--trust-input-border);
-        border-radius: 3px;
-        background: var(--trust-input-bg);
-        color: var(--vscode-input-foreground, var(--trust-text));
-        font-family: var(--vscode-editor-font-family);
-        font-size: 11px;
-      }
-
-      .value-input:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-
-      /* Invisible placeholder that reserves the write-box slot on rows without an editable
-         field, so every section's actions column keeps the same width and the headers align. */
-      .value-input-spacer {
-	        flex: 0 0 46px;
-        height: 24px;
-      }
-
-      .value-input.bool-toggle {
-        cursor: pointer;
-        font-weight: 700;
-        text-align: center;
-      }
-
-      .value-input.bool-toggle[aria-pressed="true"] {
-        border-color: var(--trust-accent);
-        background: var(--trust-selected-bg);
-        color: var(--trust-text);
-      }
-
-      .mini-btn {
-	        min-width: 42px;
-        height: 24px;
-	        padding: 0 4px;
-        border-radius: 3px;
-        font-size: 11px;
-        font-weight: 600;
-        border: 1px solid var(--trust-input-border);
-        background: var(--vscode-button-secondaryBackground, var(--trust-surface-raised));
-        color: var(--vscode-button-secondaryForeground, var(--trust-text));
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1;
-        white-space: nowrap;
-        cursor: pointer;
-      }
-
-      /* The force/release control keeps a fixed width so its label can change between
-         "Force", "Arm force" and "Release" without resizing — and so every section's
-         actions column stays the same width, keeping the tables aligned across sections. */
-      .mini-btn.force-slot {
-	        width: 62px;
-      }
-
-      .mini-btn:hover {
-        background: var(--vscode-button-secondaryHoverBackground, var(--trust-selected-bg));
-      }
-
-      .mini-btn.active {
-        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
-        color: var(--trust-text);
-        border-color: var(--trust-warn);
-        box-shadow: inset 2px 0 0 var(--trust-warn);
-      }
-
-      .mini-btn.armed {
-        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
-        color: var(--trust-text);
-        border-color: var(--trust-warn);
-        box-shadow: inset 2px 0 0 var(--trust-warn);
-      }
-
-      .mini-btn:disabled {
-        background: var(--trust-input-bg);
-        border-color: var(--trust-input-border);
-        color: var(--trust-text-subtle);
-        box-shadow: none;
-        opacity: 1;
-        cursor: not-allowed;
-      }
-
-      .mini-btn:disabled:hover {
-        background: var(--trust-input-bg);
-      }
-
-      .empty {
-        grid-column: 1 / -1;
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        padding: 2px 6px 2px 24px;
-      }
-
-      .status {
-        display: none;
-        color: var(--trust-text);
-        font-size: 12px;
-        line-height: 1.35;
-        padding: 4px 8px;
-        border: 1px solid var(--trust-border);
-        border-radius: 4px;
-        background: var(--trust-surface);
-      }
-
-      .status:not(:empty) {
-        display: block;
-      }
-
-      .status.status-ok {
-        border-color: var(--trust-ok);
-        background: color-mix(in srgb, var(--trust-ok) 12%, var(--trust-surface));
-      }
-
-      .status.status-warn {
-        border-color: var(--trust-warn);
-        background: color-mix(in srgb, var(--trust-warn) 12%, var(--trust-surface));
-      }
-
-      .status.status-error {
-        border-color: var(--trust-danger);
-        background: color-mix(in srgb, var(--trust-danger) 12%, var(--trust-surface));
-      }
-
-      .diagnostics {
-        margin-top: 12px;
-        border: 1px solid var(--trust-border);
-        border-radius: 6px;
-        background: var(--trust-surface);
-        padding: 8px;
-      }
-
-      .diagnostics-header {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 6px;
-      }
-
-      .diagnostics-title {
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .diagnostics-summary {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-      }
-
-      .diagnostics-runtime {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-bottom: 6px;
-      }
-
-      .diagnostics-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .diagnostic-item {
-        padding: 6px 8px;
-        border-radius: 4px;
-        background: var(--trust-surface);
-        border-left: 3px solid transparent;
-      }
-
-      .diagnostic-item.error {
-        border-left-color: var(--trust-danger);
-      }
-
-      .diagnostic-item.warning {
-        border-left-color: var(--trust-warn);
-      }
-
-      .diagnostic-message {
-        font-size: 12px;
-      }
-
-      .diagnostic-meta {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-top: 2px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .runtime-view.hidden {
-        display: none;
-      }
-
-      .settings-panel {
-        display: none;
-        border: 1px solid var(--trust-border);
-        border-radius: 8px;
-        background: var(--trust-surface);
-        padding: 12px;
-      }
-
-      .settings-panel.open {
-        display: block;
-      }
-
-      .settings-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 12px;
-      }
-
-      .settings-title {
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      .settings-subtitle {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-top: 2px;
-      }
-
-      .settings-grid {
-        display: grid;
-        gap: 12px;
-      }
-
-      .settings-section {
-        border: 1px solid var(--trust-border);
-        border-radius: 6px;
-        padding: 10px;
-        background: var(--trust-surface);
-      }
-
-      .settings-section h2 {
-        margin: 0 0 8px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        color: var(--trust-text-muted);
-      }
-
-      .settings-row {
-        display: grid;
-        grid-template-columns: 160px 1fr;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      .settings-row:last-child {
-        margin-bottom: 0;
-      }
-
-      .settings-row label {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-      }
-
-      .settings-row input,
-      .settings-row textarea,
-      .settings-row select {
-        width: 100%;
-        padding: 4px 6px;
-        border: 1px solid var(--trust-input-border);
-        border-radius: 4px;
-        background: var(--trust-input-bg);
-        color: var(--vscode-input-foreground, var(--trust-text));
-        font-family: var(--vscode-editor-font-family);
-        font-size: 12px;
-      }
-
-      .settings-row textarea {
-        min-height: 56px;
-        resize: vertical;
-      }
-
-      .settings-help {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-top: 4px;
-      }
-
-      .settings-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .button-ghost {
-        background: transparent;
-        border: 1px solid var(--trust-border);
-        color: var(--trust-text);
-      }
-
-      .button-ghost:hover {
-        background: var(--trust-selected-bg);
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="header-top">
-        <div class="toolbar">
-          <button id="releaseAllForces" type="button" class="release-all" style="display:none" title="Release every forced value on this target" aria-label="Release all forces">Release all forces</button>
-          <button
-            id="settings"
-            class="icon-btn"
-            title="Open runtime settings"
-            aria-label="Open runtime settings"
-            type="button"
-          >
-            <span class="codicon codicon-settings-gear" aria-hidden="true"></span>
-          </button>
-        </div>
-        <div class="runtime-status">
-          <span id="runtimeStatusText" class="status-pill disconnected">Stopped</span>
-        </div>
-      </div>
-      <div class="target-strip" aria-label="Active Live Values target">
-        <span>Target</span>
-        <span id="targetLabel" class="target-label" title="Simulator">Simulator</span>
-        <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
-      </div>
-      <div
-        id="forcePolicy"
-        class="force-policy"
-        aria-live="polite"
-      >Force policy: simulator pins immediately; managed/remote targets require Arm force first.</div>
-      <div class="header-search">
-        <input id="filter" placeholder="Filter by name or address" />
-        <button id="forcedFilter" class="forced-filter" type="button" style="display:none" aria-pressed="false" title="No forced values">Forced</button>
-        <div class="numeric-format" aria-label="Numeric display format">
-          <span class="numeric-format-label">Format</span>
-          <button class="format-toggle active" type="button" data-numeric-format="dec" aria-pressed="true" title="Show numeric values as decimal">DEC</button>
-          <button class="format-toggle" type="button" data-numeric-format="hex" aria-pressed="false" title="Show BYTE/WORD/DWORD values as IEC hex literals">HEX</button>
-          <button class="format-toggle" type="button" data-numeric-format="bin" aria-pressed="false" title="Show BYTE/WORD/DWORD values as IEC binary literals">BIN</button>
-        </div>
-      </div>
-      <div class="status" id="status">Live Values loading...</div>
-    </header>
-
-    <div class="panel">
-      <div id="runtimeView" class="runtime-view">
-        <div id="sections" class="tree"></div>
-        <div class="diagnostics" id="diagnostics" style="display:none">
-          <div class="diagnostics-header">
-            <div class="diagnostics-title">Runtime diagnostics</div>
-            <div class="diagnostics-summary" id="diagnosticsSummary"></div>
-          </div>
-          <div class="diagnostics-runtime" id="diagnosticsRuntime"></div>
-          <div class="diagnostics-list" id="diagnosticsList"></div>
-        </div>
-      </div>
-      <div id="settingsPanel" class="settings-panel">
-        <div class="settings-header">
-          <div>
-            <div class="settings-title">Runtime Settings</div>
-            <div class="settings-subtitle">
-              Stored in workspace settings for this project.
-            </div>
-          </div>
-          <div class="settings-actions">
-            <button id="settingsSave" title="Save runtime settings" aria-label="Save runtime settings">Save</button>
-            <button id="settingsCancel" class="button-ghost" title="Close without saving" aria-label="Close without saving">Close</button>
-          </div>
-        </div>
-        <div class="settings-grid">
-          <section class="settings-section">
-            <h2>Runtime Control</h2>
-            <div class="settings-row">
-              <label for="runtimeControlEndpoint">Endpoint</label>
-              <input
-                id="runtimeControlEndpoint"
-                type="text"
-                placeholder="unix:///tmp/trust-debug.sock or tcp://127.0.0.1:9901"
-                autocomplete="off"
-              />
-            </div>
-            <div class="settings-row">
-              <label for="runtimeControlAuthToken">Auth token</label>
-              <input
-                id="runtimeControlAuthToken"
-                type="password"
-                placeholder="Optional"
-                autocomplete="off"
-              />
-            </div>
-            <div class="settings-row">
-              <label for="runtimeInlineValuesEnabled">Inline values</label>
-              <input
-                id="runtimeInlineValuesEnabled"
-                type="checkbox"
-              />
-            </div>
-            <div class="settings-help">
-              Inline values show live runtime values in the editor.
-            </div>
-          </section>
-          <section class="settings-section">
-            <h2>Runtime Sources</h2>
-            <div class="settings-row">
-              <label for="runtimeIncludeGlobs">Include globs</label>
-              <textarea
-                id="runtimeIncludeGlobs"
-                placeholder="**/*.{st,ST,pou,POU}"
-              ></textarea>
-            </div>
-            <div class="settings-row">
-              <label for="runtimeExcludeGlobs">Exclude globs</label>
-              <textarea id="runtimeExcludeGlobs"></textarea>
-            </div>
-            <div class="settings-row">
-              <label for="runtimeIgnorePragmas">Ignore pragmas</label>
-              <textarea
-                id="runtimeIgnorePragmas"
-                placeholder="@trustlsp:runtime-ignore"
-              ></textarea>
-            </div>
-            <div class="settings-help">
-              One entry per line. Leave blank to use defaults.
-            </div>
-          </section>
-          <section class="settings-section">
-            <h2>Debug Adapter</h2>
-            <div class="settings-row">
-              <label for="debugAdapterPath">Adapter path</label>
-              <input id="debugAdapterPath" type="text" autocomplete="off" />
-            </div>
-            <div class="settings-row">
-              <label for="debugAdapterArgs">Adapter args</label>
-              <textarea id="debugAdapterArgs"></textarea>
-            </div>
-            <div class="settings-row">
-              <label for="debugAdapterEnv">Adapter env</label>
-              <textarea
-                id="debugAdapterEnv"
-                placeholder="KEY=VALUE"
-              ></textarea>
-            </div>
-            <div class="settings-help">
-              Env entries can be KEY=VALUE per line or JSON.
-            </div>
-          </section>
-          <section class="settings-section">
-            <h2>Language Server</h2>
-            <div class="settings-row">
-              <label for="serverPath">Server path</label>
-              <input id="serverPath" type="text" autocomplete="off" />
-            </div>
-            <div class="settings-row">
-              <label for="traceServer">Trace level</label>
-              <select id="traceServer">
-                <option value="off">Off</option>
-                <option value="messages">Messages</option>
-                <option value="verbose">Verbose</option>
-              </select>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-
-    <script nonce="${nonce}" src="${scriptUri}"></script>
-  </body>
-</html>`;
-}
-
-function getNonce(): string {
-  let text = "";
-  const possible =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i += 1) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
 }

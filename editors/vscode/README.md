@@ -4,7 +4,7 @@
 
 - Fast diagnostics and semantic highlighting
 - Go to definition/references, rename, and formatting
-- Runtime panel with live I/O control
+- Live Values with runtime I/O and imported ADS quality
 - HMI preview panel with live schema + value updates
 - Debugging with breakpoints, step, continue, and runtime values
 - ST test workflow with CodeLens + Test Explorer
@@ -25,13 +25,30 @@ code --install-extension trust-platform.trust-lsp
 
 ---
 
-## Open the Runtime Panel (super quick)
+## Run on the Simulator
 
-1. Press `Ctrl+Shift+P`
-2. Run **`Structured Text: Open Runtime Panel`**
-3. Pick **Local** or **External**
-4. Press **Start**
-5. Set Inputs and watch Outputs update
+1. Open the truST view.
+2. Keep **Simulator (this computer)** selected in the Run card.
+3. Press **Start**.
+4. Wait for **Running**. The Run card, status bar, and Simulator node in
+   **Devices & Connections** show the same state.
+5. Open **Live Values** yourself when you want to inspect I/O. Start does not
+   open or focus it automatically.
+
+## Discover ADS Devices
+
+1. Open **Devices & Connections**.
+2. Select **Discover ADS devices**.
+3. truST searches this computer and the local network, then shows each found
+   ADS device and its responding logical services (`851`–`854`, `301`, and
+   `501`).
+4. Use **Advanced** only when you need a known Host/IP, AMS Net ID, or custom
+   logical ADS service port.
+
+On Windows, an ADS runtime on the same computer uses the installed native ADS
+router and does not need a static route back to itself. After importing ADS
+variables, open **Live Values** and expand **Connected variables → ADS** to see
+their current value, IEC type, and quality.
 
 ---
 
@@ -60,7 +77,7 @@ Open it in VS Code:
 1. Clone the repo
 2. `File -> Open Folder...`
 3. Select `trust-platform/examples/filling_line`
-4. Run `Structured Text: Open Runtime Panel`
+4. Open the truST view and press **Start** on the Run card
 
 ---
 
@@ -81,7 +98,8 @@ Open it in VS Code:
 
 - `Structured Text: New Project`
 - `Structured Text: Import PLCopen XML`
-- `Structured Text: Open Runtime Panel`
+- `Structured Text: Open Live Values`
+- `Structured Text: Open Devices & Connections`
 - `Structured Text: Open HMI Preview`
 - `Structured Text: Start Debugging`
 - `Structured Text: Attach Debugger`

@@ -2,12 +2,17 @@ import {
   classifyOpcuaBrowseError,
   type OpcuaErrorAction,
 } from "./opcuaClientModel";
+import {
+  ADS_BROWSE_FAILED_COPY,
+  adsTechnicalDetail,
+} from "./adsErrorPresentation";
 
 export interface BrowseErrorView {
   readonly code: string;
   readonly action: OpcuaErrorAction;
   readonly title: string;
   readonly detail: string;
+  readonly technicalDetail?: string;
 }
 
 export function classifyBrowseError(
@@ -27,6 +32,7 @@ export function classifyBrowseError(
         title: "ADS port unavailable",
         detail:
           "The selected ADS server did not answer. Check the port and that this server is running, then browse again.",
+        technicalDetail: adsTechnicalDetail(error.message),
       };
     case "symbol_upload_unsupported":
       return {
@@ -34,7 +40,8 @@ export function classifyBrowseError(
         action: "none",
         title: "Symbol Upload unsupported",
         detail:
-          "This ADS server is reachable but does not expose Beckhoff Symbol Upload. Enable symbol generation for that server or choose another ADS port.",
+          "This ADS server is reachable but does not expose ADS Symbol Upload. Enable symbol generation for that server or choose another ADS port.",
+        technicalDetail: adsTechnicalDetail(error.message),
       };
     case "empty_symbol_table":
       return {
@@ -43,13 +50,15 @@ export function classifyBrowseError(
         title: "No compatible symbols",
         detail:
           "The ADS server returned an empty symbol table or no symbols that truST can import.",
+        technicalDetail: adsTechnicalDetail(error.message),
       };
     default:
       return {
         code,
         action: "retry",
         title: "ADS symbol browse failed",
-        detail: fallback,
+        detail: ADS_BROWSE_FAILED_COPY,
+        technicalDetail: adsTechnicalDetail(fallback),
       };
   }
 }

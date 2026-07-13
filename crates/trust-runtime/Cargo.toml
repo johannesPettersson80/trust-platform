@@ -14,6 +14,7 @@ trust-ide.workspace = true
 trust-plcopen.workspace = true
 trust-ads-core.workspace = true
 trust-ads-server = { workspace = true, optional = true }
+trust-ads-windows = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, features = ["hir"] }
 trust-wasm-analysis.workspace = true
 smol_str.workspace = true
@@ -83,5 +84,5 @@ default = ["debug", "ethercat-wire", "ads-wire", "ads-server", "opcua-wire"]
 debug = []
 opcua-wire = ["dep:opcua"]
 ethercat-wire = ["dep:ethercrab", "dep:tokio"]
-ads-wire = ["dep:ads", "dep:crossbeam-channel"]
+ads-wire = ["dep:ads", "dep:crossbeam-channel", "dep:trust-ads-windows"]
 ads-server = ["dep:trust-ads-server"]

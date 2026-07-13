@@ -8,6 +8,7 @@ import type {
 } from "./fleetTopology";
 import type {
   NetworkCanvasDevice,
+  NetworkCanvasFailure,
   NetworkCanvasModel,
   NetworkDeviceStatus,
 } from "./model";
@@ -67,6 +68,25 @@ function mapFaults(model: NetworkCanvasModel): NCFault[] {
   }));
 }
 
+function runtimeFailureBanner(
+  failure: NetworkCanvasFailure,
+): NonNullable<NCGraph["banner"]> {
+  return {
+    kind: "error",
+    text: failure.message,
+    representedFaultIds: [`runtime:${failure.kind}`],
+    actions:
+      failure.kind === "configuration"
+        ? [
+            {
+              label: "Open runtime.toml",
+              action: "openRuntimeToml",
+            },
+          ]
+        : [{ label: "Open logs", action: "openRuntimeLogs" }],
+  };
+}
+
 function fleetGraph(
   model: NetworkCanvasModel,
   topology: FleetTopologyResponse | undefined
@@ -115,25 +135,30 @@ function fleetGraph(
       })),
     ],
     faults: mapFaults(model),
+    banner: model.failure
+      ? runtimeFailureBanner(model.failure)
+      : undefined,
     searchQuery: model.searchQuery,
   };
 }
 
 // No fleet configured: the canvas still shows a host with the local simulator as a node,
-// but it is NEVER auto-started — it renders STOPPED until the user starts it (honest health:
+// but it is NEVER auto-started — it renders STOPPED until the user starts it
+// from the truST sidebar (honest health:
 // stopped → starting → connected, or error on a failed start).
 function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
   const failure = model.failure;
   const state = model.runtime.state; // "not_started" | "starting" | "running"
   const running = state === "running";
   // The simulator is NEVER auto-started: a not-yet-started one shows as STOPPED, and the
-  // user starts it from the node. "starting" only appears after the user initiates it.
+// user starts it from the truST sidebar. "starting" only appears after the user
+// initiates that single lifecycle action.
   const health = failure
     ? "error"
     : running
       ? "connected"
       : state === "starting"
-        ? "pending"
+        ? "starting"
         : "stopped";
   const detail = failure
     ? failure.message
@@ -141,7 +166,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
       ? model.runtime.statusText
       : state === "starting"
         ? "Starting Simulator…"
-        : "Stopped — start the simulator to run it.";
+        : "Use Start in the truST sidebar to run it.";
   const endpoints = model.devices.map((device: NetworkCanvasDevice) => ({
     id: device.id,
     kind: "field",
@@ -153,20 +178,16 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     dimmed: false,
   }));
   const faults = mapFaults(model);
-  if (failure) {
-    faults.unshift({
-      id: "fault:runtime",
-      label: `Simulator: ${failure.message}`,
-      targetNodeId: LOCAL_RUNTIME_NODE_ID,
-      severity: "error",
-    });
-  }
   return {
     kind: "graph",
     title: "Devices & Connections",
-    summary: running
-      ? `1 host · 1 runtime · ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`
-      : "1 host · 1 runtime · Simulator stopped",
+    summary: failure
+      ? "1 host · 1 runtime · Simulator needs attention"
+      : running
+        ? `1 host · 1 runtime · ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`
+        : state === "starting"
+          ? "1 host · 1 runtime · Simulator starting"
+          : "1 host · 1 runtime · Simulator stopped",
     hosts: [
       {
         id: "host:this-computer",
@@ -195,25 +216,18 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     external: [],
     faults,
     banner: failure
-      ? {
-          kind: "error",
-          text: failure.message,
-          actions: [
-            { label: "Retry", action: "startLocalSimulator" },
-            { label: "Open logs", action: "openRuntimeLogs" },
-          ],
-        }
+      ? runtimeFailureBanner(failure)
       : state === "not_started"
         ? {
             kind: "info",
-            text: "Simulator is stopped.",
-            actions: [{ label: "Start simulator", action: "startLocalSimulator" }],
+            text: "Simulator is stopped. Use Start in the truST sidebar on the left.",
+            actions: [],
           }
         : running
           ? {
               kind: "info",
               text: "Simulator running.",
-              actions: [{ label: "Stop simulator", action: "stopLocalSimulator" }],
+              actions: [],
             }
           : undefined,
     searchQuery: model.searchQuery,
@@ -316,10 +330,11 @@ export function buildCanvasGraph(
   // Start/Stop/Logs them on the canvas; deduped against runtimes already shown via fleet.topology.
   managed: ReadonlyArray<ManagedRuntime> = [],
   // The selected run-target ID from selectedRuntime.ts. Used only to project selection back onto the
-  // graph/inspector, so "Set as run target" has persistent visible feedback.
+  // graph/inspector, so "Select as target" has persistent visible feedback.
   selectedRunTargetId?: string
 ): NCGraph {
   const base = model.fleet ? fleetGraph(model, topology) : localRuntimeGraph(model);
+  projectLocalSimulatorLifecycle(base, topology, model);
   const peerHosts = (peerTopology?.hosts ?? []).filter(
     (host) => !base.hosts.some((existing) => existing.id === host.host_id)
   );
@@ -343,6 +358,147 @@ export function buildCanvasGraph(
   annotateAttached(graph, attachedEndpoint);
   annotateRunTarget(graph, selectedRunTargetId);
   return graph;
+}
+
+/**
+ * Offline project topology deliberately describes its runtime as stopped. Keep
+ * that topology and its configured endpoints, but project the shared lifecycle
+ * state onto the one Simulator owned by this VS Code window. Live/self-reported
+ * and remote runtimes retain their topology-owned state.
+ */
+function projectLocalSimulatorLifecycle(
+  graph: NCGraph,
+  topology: FleetTopologyResponse | undefined,
+  model: NetworkCanvasModel
+): void {
+  if (!topology) {
+    return;
+  }
+
+  const configuredCandidates: NCRuntime[] = [];
+  const liveSimulatorCandidates: NCRuntime[] = [];
+  for (const topologyHost of topology.hosts) {
+    const graphHost = graph.hosts.find((host) => host.id === topologyHost.host_id);
+    if (!graphHost || graphHost.hostname !== "This computer") {
+      continue;
+    }
+    for (const topologyRuntime of topologyHost.runtimes) {
+      const graphRuntime = graphHost.runtimes.find(
+        (runtime) => runtime.id === topologyRuntime.runtime_id
+      );
+      if (!graphRuntime) {
+        continue;
+      }
+      if (topologyRuntime.source === "config") {
+        configuredCandidates.push(graphRuntime);
+      } else if (isLiveSimulatorRuntime(topologyRuntime)) {
+        liveSimulatorCandidates.push(graphRuntime);
+      }
+    }
+  }
+
+  // A running topology replaces its stopped project overlay and therefore owns
+  // source="self". Prefer an explicit config runtime while stopped/starting;
+  // otherwise project only one unambiguous live Simulator/RESOURCE node.
+  const candidates =
+    configuredCandidates.length > 0
+      ? configuredCandidates
+      : liveSimulatorCandidates;
+  if (candidates.length !== 1) {
+    return;
+  }
+
+  const runtime = candidates[0];
+  // The project-file and live runtime contracts may call this node
+  // `runtime:project`, `RESOURCE`, or another configuration-derived name. Once
+  // it is the one unambiguous Simulator owned by this VS Code window, normalize
+  // its identity too—not just its label/state—so every consumer applies the
+  // local lifecycle policy and never offers remote Connect controls.
+  remapGraphNodeReferences(graph, runtime.id, LOCAL_RUNTIME_NODE_ID);
+  runtime.id = LOCAL_RUNTIME_NODE_ID;
+  runtime.name = "Simulator";
+  runtime.mode = model.runtime.mode;
+  switch (model.runtime.state) {
+    case "running":
+      runtime.health = "connected";
+      runtime.detail = model.runtime.statusText;
+      break;
+    case "starting":
+      runtime.health = "starting";
+      runtime.detail = "Starting Simulator…";
+      graph.summary = simulatorLifecycleSummary(graph, "Simulator starting");
+      break;
+    case "error":
+      runtime.health = "error";
+      runtime.detail = model.failure?.message ?? model.runtime.statusText;
+      graph.summary = simulatorLifecycleSummary(
+        graph,
+        "Simulator needs attention"
+      );
+      break;
+    case "not_started":
+      runtime.health = "stopped";
+      runtime.detail = "Use Start in the truST sidebar to run it.";
+      graph.summary = simulatorLifecycleSummary(graph, "Simulator stopped");
+      break;
+  }
+}
+
+function remapGraphNodeReferences(
+  graph: NCGraph,
+  previousId: string,
+  nextId: string
+): void {
+  if (previousId === nextId) {
+    return;
+  }
+  for (const link of graph.links) {
+    if (link.from === previousId) {
+      link.from = nextId;
+    }
+    if (link.to === previousId) {
+      link.to = nextId;
+    }
+  }
+  for (const fault of graph.faults) {
+    if (fault.targetNodeId === previousId) {
+      fault.targetNodeId = nextId;
+    }
+  }
+}
+
+function isLiveSimulatorRuntime(
+  runtime: FleetTopologyRuntime
+): boolean {
+  if (runtime.source !== "self") {
+    return false;
+  }
+  const mode = runtime.mode.trim().toLowerCase();
+  const name = runtime.name.trim().toLowerCase();
+  const id = runtime.runtime_id.trim().toLowerCase();
+  return (
+    mode === "simulate" ||
+    name === "simulator" ||
+    name === "resource" ||
+    id === "simulator" ||
+    id === "resource" ||
+    id === "runtime:local" ||
+    id === "runtime:project"
+  );
+}
+
+function simulatorLifecycleSummary(graph: NCGraph, state: string): string {
+  const runtimeCount = graph.hosts.reduce(
+    (sum, host) =>
+      sum +
+      host.runtimes.length +
+      host.containers.reduce(
+        (nested, container) => nested + container.runtimes.length,
+        0
+      ),
+    0
+  );
+  return `${graph.hosts.length} host${graph.hosts.length === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"} · ${state}`;
 }
 
 // Surface managed local runtimes (fleet.toml projects we own) so Start/Stop/Logs live ON the Devices &

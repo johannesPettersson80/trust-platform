@@ -19,3 +19,5 @@ pub use failures::*;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_failures;

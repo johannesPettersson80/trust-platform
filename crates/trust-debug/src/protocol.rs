@@ -125,6 +125,18 @@ pub struct IoStateEventBody {
     pub memory: Vec<IoStateEntry>,
 }
 
+/// Custom request/event body carrying scan-owned ADS binding values.
+pub type AdsStateEventBody = trust_runtime::ads::AdsLiveValuesSnapshot;
+
+/// Readiness facts for the local simulator owned by the debug adapter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulatorStatusResponseBody {
+    pub ready: bool,
+    pub runner: bool,
+    pub control_server: bool,
+}
+
 /// Custom event body carrying variable snapshots.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
