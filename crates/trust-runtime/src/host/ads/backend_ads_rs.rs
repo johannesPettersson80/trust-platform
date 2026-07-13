@@ -569,6 +569,20 @@ mod tests {
     }
 
     #[test]
+    fn io_connection_refusal_survives_transport_mapping_without_message_parsing() {
+        let error = map_ads_error(ads::Error::Io(
+            "connecting to target",
+            std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "localized message"),
+        ));
+
+        assert_eq!(
+            error.failure_kind(),
+            Some(AdsTransportFailureKind::ConnectionRefused)
+        );
+        assert!(error.ads_error().is_none());
+    }
+
+    #[test]
     fn subscribe_rejects_poll_mode_before_connection() {
         let mut transport = AdsRsTransport::new(AdsRoute {
             name: "line1".to_string(),

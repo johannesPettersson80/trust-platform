@@ -119,21 +119,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn refused_loopback_probe_preserves_structured_connection_failure() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve local port");
-        let address = listener.local_addr().expect("reserved address");
-        drop(listener);
-
-        let error = detect_loopback_server_kind(address, AdsRsTimeouts::default())
-            .expect_err("closed local port must refuse the probe");
-
-        assert_eq!(
-            error.failure_kind(),
-            Some(crate::ads::AdsTransportFailureKind::ConnectionRefused)
-        );
-    }
-
-    #[test]
     fn direct_loopback_server_falls_back_after_bounded_router_probe() {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind direct ADS test server");
         let address = listener.local_addr().expect("direct ADS test address");
