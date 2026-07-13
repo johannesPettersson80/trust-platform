@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-13T09:31:00+02:00"
+    "2026-07-13T16:48:52+02:00"
   ],
-  "commit": "d4bcdddfd2abb12abac6c0fd876dc36d396a2565",
+  "commit": "b32dc62ee71dd66b2985f94342d5c19bd70ae559",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:9fda0d6af5d61e6e32cc72e3090ee9f663c8ac90d3ee46a87df803b4338422cd",
+  "input_digest": "sha256:ecf2e1be41796c9f5ca4acc00ca4d74c200b587bc2827d5edae660e4b6a4a196",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1468,7 +1468,9 @@
     "crates/trust-runtime/tests/runtime_events.rs",
     "crates/trust-runtime/tests/runtime_reliability.rs",
     "crates/trust-runtime/tests/runtime_restart.rs",
+    "crates/trust-runtime/tests/runtime_restart_trace_cases.rs",
     "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
+    "crates/trust-runtime/tests/runtime_watchdog_output_case.rs",
     "crates/trust-runtime/tests/scheduler_harness.rs",
     "crates/trust-runtime/tests/scheduler_resource.rs",
     "crates/trust-runtime/tests/scheduler_state.rs",
@@ -1968,6 +1970,7 @@
     "verification/invariants/runtime_safety/RT_SAFE_NAN_001.toml",
     "verification/invariants/runtime_safety/RT_SAFE_PANIC_001.toml",
     "verification/invariants/runtime_safety/RT_SAFE_RESTART_001.toml",
+    "verification/invariants/runtime_safety/RT_SAFE_RESTART_TIME_002.toml",
     "verification/invariants/runtime_safety/RT_SAFE_RETAIN_001.toml",
     "verification/invariants/runtime_safety/RT_SAFE_STOP_001.toml",
     "verification/invariants/supply_chain_platform/PLAT_PATH_001.toml",
@@ -2435,11 +2438,11 @@
             "--no-run"
           ],
           "function": "retain_on_warm",
-          "generated_mutant_name": "restart.rs:680:5: replace retain_on_warm -> bool with false",
+          "generated_mutant_name": "restart.rs:679:5: replace retain_on_warm -> bool with false",
           "genre": "FnValue",
           "id": "MUTANT_RETAIN_ON_WARM_FALSE",
           "replacement": "false",
-          "source_digest": "sha256:64755b4d18d405c498f988e411d0d5eb515f87ef7d10a9e8ecbffc193935d5fb",
+          "source_digest": "sha256:84e3cd19771568dd18497ecf2a7f0bcffce35d053525644462439e75480a6fbc",
           "source_file": "crates/trust-runtime/src/runtime/restart.rs",
           "test_command": [
             "cargo",
@@ -2535,7 +2538,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-13T09:31:00+02:00",
+  "timestamp": "2026-07-13T16:48:52+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",

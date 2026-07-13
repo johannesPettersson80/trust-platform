@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v1`
-Source revision: `d4bcdddfd2abb12abac6c0fd876dc36d396a2565`
-Generated: `2026-07-13T09:31:00+02:00`
+Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
+Generated: `2026-07-13T16:48:52+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `9d1a538ba190ede04b8ef1ef58d6bbf61227787c523cbb20f86166c3a9403655`
-Input SHA-256: `sha256:f5eb37ea694cd6ea6763c81b4d6d3413ab0c5d03f3389692f68e859b508edd5e`
+Generated JSON SHA-256: `9adea0908d90d37911396a96c83ad6813f79a186aad94c40ba9606b3626fbef8`
+Input SHA-256: `sha256:cee521a194ef30ad4eff36ff172a23d65b84e4bc5e2d821fb762a28a546ea866`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -15,9 +15,9 @@ It executes no fault and creates no proof or invariant coverage.
 
 - Taxonomy classes: 19
 - Explicit mapping records: 38
-- Live Rust scanner facts: 3026
-- Effectively runnable direct mappings: 27
-- Ignored or conditional mappings: 5
+- Live Rust scanner facts: 3028
+- Effectively runnable direct mappings: 28
+- Ignored or conditional mappings: 1
 - Gap classes: 9
 
 ## Classes
@@ -27,7 +27,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `panic` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_PANIC_001`, `ANOM_MAP_PANIC_002`, `ANOM_MAP_PANIC_003`, `ANOM_MAP_PANIC_004` | none |
 | `timeout` | `mapped_runnable` | `pr` | `nightly` | `ANOM_MAP_TIMEOUT_001`, `ANOM_MAP_TIMEOUT_002` | `ANOM_MAP_TIMEOUT_003` |
 | `deadline` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_DEADLINE_001`, `ANOM_MAP_DEADLINE_002`, `ANOM_MAP_DEADLINE_003` | none |
-| `watchdog` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_WATCHDOG_001`, `ANOM_MAP_WATCHDOG_002` | `ANOM_MAP_WATCHDOG_003` |
+| `watchdog` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_WATCHDOG_001`, `ANOM_MAP_WATCHDOG_002`, `ANOM_MAP_WATCHDOG_003` | none |
 | `slow_device` | `mapped_runnable` | `nightly` | `release`, `hardware_lab` | `ANOM_MAP_SLOW_DEVICE_001`, `ANOM_MAP_SLOW_DEVICE_002` | `ANOM_MAP_SLOW_DEVICE_003` |
 | `disconnect` | `mapped_runnable` | `nightly` | `release`, `hardware_lab` | `ANOM_MAP_DISCONNECT_001`, `ANOM_MAP_DISCONNECT_002` | `ANOM_MAP_DISCONNECT_003` |
 | `queue_full` | `mapped_non_runnable_or_partial` | `nightly` | `release` | none | `ANOM_MAP_QUEUE_FULL_001`, `ANOM_MAP_QUEUE_FULL_002` |
@@ -53,7 +53,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_BAD_CONFIG_003` | `bad_config` | `DISC_7CCA5C983F3BC05339EC` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_BAD_CONFIG_004` | `bad_config` | `DISC_86A13C88CFA096648AFB` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_CLOCK_STEP_001` | `clock_step` | `DISC_1F4A6A7E004592367309` | `partial` | `not_ignored` | `false` | `ordinary_input` |
-| `ANOM_MAP_CLOCK_STEP_002` | `clock_step` | `DISC_E819B2CEA441A53E27E0` | `context_only` | `not_ignored` | `false` | `test_harness` |
+| `ANOM_MAP_CLOCK_STEP_002` | `clock_step` | `DISC_2CC9B67E44CB8284B149` | `context_only` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_CORRUPT_RETAIN_001` | `corrupt_retain` | `DISC_6536BD14A5FAEA351CCF` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_CORRUPT_RETAIN_002` | `corrupt_retain` | `DISC_D57F0AA703E76450F141` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_DEADLINE_001` | `deadline` | `DISC_55D5957DD6826E1A6C0F` | `direct` | `not_ignored` | `true` | `test_harness` |
@@ -61,9 +61,9 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_DEADLINE_003` | `deadline` | `DISC_4C3F5D7171073A654EA8` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_DISCONNECT_001` | `disconnect` | `DISC_D0022CD29DB5061F146B` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_DISCONNECT_002` | `disconnect` | `DISC_0964F1D88F24D71AD970` | `direct` | `not_ignored` | `true` | `test_harness` |
-| `ANOM_MAP_DISCONNECT_003` | `disconnect` | `DISC_C3A91E2860C30B08BED4` | `partial` | `ignored` | `false` | `test_harness` |
+| `ANOM_MAP_DISCONNECT_003` | `disconnect` | `DISC_C3A91E2860C30B08BED4` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_DISK_ERROR_001` | `disk_error` | `DISC_CAF0750D558B8114BEC6` | `partial` | `not_ignored` | `false` | `test_harness` |
-| `ANOM_MAP_DISK_ERROR_002` | `disk_error` | `DISC_B25F48AA676D50A29BB2` | `partial` | `ignored` | `false` | `test_harness` |
+| `ANOM_MAP_DISK_ERROR_002` | `disk_error` | `DISC_B25F48AA676D50A29BB2` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_MALFORMED_BYTECODE_001` | `malformed_bytecode` | `DISC_F90D4502D7B68E02847C` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_MALFORMED_BYTECODE_002` | `malformed_bytecode` | `DISC_FB4371C17A9F9FB83CA9` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_MALFORMED_BYTECODE_003` | `malformed_bytecode` | `DISC_51482BB47DB5575280CE` | `direct` | `not_ignored` | `true` | `ordinary_input` |
@@ -82,10 +82,10 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_STALE_DATA_003` | `stale_data` | `DISC_5E088D53395CC4F852E5` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_TIMEOUT_001` | `timeout` | `DISC_0BD76C389DCA0387316F` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_002` | `timeout` | `DISC_AD782C3AD1D808D4C4EE` | `direct` | `not_ignored` | `true` | `external_harness` |
-| `ANOM_MAP_TIMEOUT_003` | `timeout` | `DISC_17A3C97ED5EF6F1D342D` | `partial` | `ignored` | `false` | `test_harness` |
+| `ANOM_MAP_TIMEOUT_003` | `timeout` | `DISC_17A3C97ED5EF6F1D342D` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_001` | `watchdog` | `DISC_C101BBAEC06311987C74` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_002` | `watchdog` | `DISC_3EFD5D5E736CB0C47DD6` | `direct` | `not_ignored` | `true` | `test_harness` |
-| `ANOM_MAP_WATCHDOG_003` | `watchdog` | `DISC_8BAF8461F95A94A773A6` | `partial` | `ignored` | `false` | `test_harness` |
+| `ANOM_MAP_WATCHDOG_003` | `watchdog` | `DISC_8BAF8461F95A94A773A6` | `direct` | `not_ignored` | `true` | `test_harness` |
 
 ## Test Gaps
 

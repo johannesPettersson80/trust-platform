@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `d4bcdddfd2abb12abac6c0fd876dc36d396a2565`
-Generated: `2026-07-13T09:31:00+02:00`
+Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
+Generated: `2026-07-13T16:48:52+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `9fd51d1b86b7b4e031960e8b68bb7dff59321c840b07109ab4e0968d56a0930d`
-Input SHA-256: `sha256:a8f2583324e257cb8b860eb9e2bb113451f4a343f00ec342d936abbd9b2b81d4`
+Generated JSON SHA-256: `83e640a3c5c8324cd3d76aac450d3d39ae5a6eb6f19ae2fd0aa9503a21001c76`
+Input SHA-256: `sha256:982ae1088b875d3a25005837d7c1462739659c0b88a0d8e6ef1fde246184577c`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -13,27 +13,27 @@ mean every required coverage slot is assigned or covered.
 ## Summary
 
 - Mapped areas: 11
-- Mapped-area invariants: 52
+- Mapped-area invariants: 53
 - Out-of-scope invariants: 0
 - Required family slots: 80
 - Assigned required slots: 16
 - Missing required slots: 64
-- Additional recorded cells: 46
-- Recorded mapped-area cells: 62
+- Additional recorded cells: 48
+- Recorded mapped-area cells: 64
 - Catalog-bound case files: 4
-- Case observations: 21
-- Blocked case observations: 21
+- Case observations: 27
+- Blocked case observations: 14
 
 ## Declared State Counts
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 1 |
+| `covered` | 4 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 52 |
-| `gap_open` | 9 |
+| `spec_gap` | 49 |
+| `gap_open` | 11 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -50,7 +50,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
 | `extra_or_unknown` | `missing_cell` | none | none | none |
-| `happy_path` | `assigned` | `spec_gap` | `VM_SEAM_DECLARED_TYPE_001_INT_EXPRESSION_TO_DINT_SLOT_9BF228AA`, `VM_SEAM_DECLARED_TYPE_001_INT_LITERAL_TO_REAL_SLOT_04979927`, `VM_SEAM_DECLARED_TYPE_001_INT_VARIABLE_TO_REAL_SLOT_C3821866` | none |
+| `happy_path` | `assigned` | `spec_gap` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
 | `wrong_type_or_shape` | `assigned` | `spec_gap` | `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_D8E1DB83` | none |
@@ -135,13 +135,13 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `above_max` | `assigned` | `spec_gap` | `VM_SEAM_SUBRANGE_001_ABOVE_MAX_2EDDED03` | none |
-| `below_min` | `assigned` | `spec_gap` | `VM_SEAM_SUBRANGE_001_BELOW_MIN_F2BC55A3` | none |
-| `boundary_high` | `missing_cell` | none | `VM_SEAM_SUBRANGE_001_MAX_AE132E71` | none |
-| `boundary_low` | `missing_cell` | none | `VM_SEAM_SUBRANGE_001_MIN_AE132E71` | none |
+| `above_max` | `assigned` | `covered` | none | none |
+| `below_min` | `assigned` | `gap_open` | none | none |
+| `boundary_high` | `missing_cell` | none | none | none |
+| `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
 | `extra_or_unknown` | `missing_cell` | none | none | none |
-| `happy_path` | `assigned` | `spec_gap` | none | none |
+| `happy_path` | `assigned` | `gap_open` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
 | `wrong_type_or_shape` | `assigned` | `spec_gap` | `VM_SEAM_SUBRANGE_001_WRONG_TYPE_817CB4E0` | none |
@@ -421,6 +421,13 @@ Required families: none
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
 | `persistence_or_recovery` | `additional_recorded` | `gap_open` | none | none |
+
+### `RT_SAFE_RESTART_TIME_002`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `persistence_or_recovery` | `additional_recorded` | `covered` | none | none |
+| `time_or_clock_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `RT_SAFE_RETAIN_001`
 

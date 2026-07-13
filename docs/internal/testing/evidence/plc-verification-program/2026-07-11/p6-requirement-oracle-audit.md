@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `d4bcdddfd2abb12abac6c0fd876dc36d396a2565`
-Generated: `2026-07-13T09:31:00+02:00`
+Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
+Generated: `2026-07-13T16:48:52+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `fe1433c8a346e3a878cf4b69788093321a61ed545f85335cd28899f538ff0170`
-Input SHA-256: `sha256:68d77bccadb5f46c45d90d4297f44aa17d5ac56d70a63730f2274ef0b0697742`
+Generated JSON SHA-256: `fab955782e4ff4d8b2dfb5efaf6258407b7a0fefd0b79c7ec94be8a07bdcd3b8`
+Input SHA-256: `sha256:f84a33fa6fb83ad2d7463e9dc9708be6ab6a5cefa463653fa516e551a85bc6b4`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -14,10 +14,10 @@ context is limited to the non-exhaustive registered source inventory.
 
 ## Summary
 
-- Invariants: 52
-- Phase 6 mapped invariants: 34
+- Invariants: 53
+- Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 9
+- Eligible oracles: 10
 - Missing oracles: 43
 - Future enforcement candidates: 33
 
@@ -26,7 +26,7 @@ context is limited to the non-exhaustive registered source inventory.
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
 | `VERIF-P6-001` | `compiler_iec` | 5 | 3 | 2 |
-| `VERIF-P6-002` | `runtime_safety` | 10 | 4 | 6 |
+| `VERIF-P6-002` | `runtime_safety` | 11 | 5 | 6 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 0 | 6 |
 | `VERIF-P6-005` | `control_security, supply_chain_platform` | 6 | 0 | 6 |
@@ -65,13 +65,14 @@ context is limited to the non-exhaustive registered source inventory.
 | `REL_CONF_001` | `release` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_CONFORMANCE_PUBLICATION_001` | `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
 | `REL_VERSION_001` | `release` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` |
-| `RT_SAFE_DEADLINE_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
+| `RT_SAFE_DEADLINE_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RT_SAFE_IO_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
 | `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` |
 | `RT_SAFE_PANIC_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_RESTART_001` | `runtime_safety` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
+| `RT_SAFE_RESTART_TIME_002` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` |
 | `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
@@ -79,13 +80,13 @@ context is limited to the non-exhaustive registered source inventory.
 | `SEC_AUTHZ_001` | `control_security` | `security` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
-| `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
+| `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `SPEC_BYTECODE_FORMAT_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
+| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Missing Oracles

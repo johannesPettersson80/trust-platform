@@ -1,23 +1,23 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `d4bcdddfd2abb12abac6c0fd876dc36d396a2565`
-Generated: `2026-07-13T09:31:00+02:00`
+Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
+Generated: `2026-07-13T16:48:52+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `65e5439cbe19b9b32863845796123ed0e43f684d123d47e67d60db381650319a`
-Input SHA-256: `sha256:1cdee2aaf3895d22ca99006a7b8daa9647c075ef68d4b339801b339d0d05ce3d`
+Generated JSON SHA-256: `d34c1335ef3b65e39662d18dbce61a922022239b5165d4d558e281cb64a1b6a8`
+Input SHA-256: `sha256:31eb8999f889442bd45d73bad628716b54cf33520812e99574918cc88ceebcf6`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
 
 ## Summary
 
-- Invariants: 52
+- Invariants: 53
 - Invariants without specified specs: 43
-- Tests with expected results: 7
+- Tests with expected results: 27
 - Tests without oracle/spec/gap binding: 0
-- Coverage cells: 62
-- Coverage cells marked spec_gap: 52
+- Coverage cells: 64
+- Coverage cells marked spec_gap: 49
 - Bytecode pilot gaps: 8
 - Registered public-claim sources: 4
 
@@ -66,7 +66,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
+| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_ERROR_MODEL_001`, `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Expected-Result Tests Without Oracle Binding
@@ -124,9 +124,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 0 | `happy_path` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 1 | `above_max` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 2 | `wrong_type_or_shape` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 0 | `happy_path` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 1 | `above_max` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 2 | `below_min` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 3 | `wrong_type_or_shape` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 0 | `missing_required` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 1 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
@@ -147,7 +144,7 @@ Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `spec_gap` | `spec_gap_record` | Which VM determinism, instruction, stack, local, reference, call-depth, and resource limits must be specified and tested independently of bytecode validator structure? | `VM_SEAM_DETERMINISM_LIMITS_001` |
 | `SPEC_GAP_VM_ERROR_MODEL_001` | `spec_gap` | `spec_gap_record` | Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, `VM_SEAM_VALID_001` |
 | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` | `spec_gap` | `spec_gap_record` | Which HIR-clean but unencodable source constructs must fail compilation rather than lower to NOP or partial bytecode? | `VM_SEAM_ENC_001` |
-| `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `spec_gap` | `spec_gap_record` | Where must implicit widening, STRING bounds, subranges, and reference-store conversions be materialized or rejected? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001` |
+| `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `spec_gap` | `spec_gap_record` | What exact behavior applies to STRING[n] over-bound writes, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, and reference-store conversions? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001` |
 | `TEST_CLASS_GAP:bytecode_vm:failing_regression` | `test_gap` | `required_test_class_slot` | Required test class failing_regression has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |
