@@ -302,6 +302,12 @@ declarations. The same checks are applied to function blocks that use `IMPLEMENT
 
 Abstract classes may declare required interface methods as ABSTRACT (IEC 61131-3 Ed.3 §6.6.5.8.3).
 
+IEC 61131-3 Ed.3 §6.6.6.5.1 defines an interface-typed variable as a reference
+to an implementing class instance. Its initial value is `NULL` when no explicit
+initializer is present. The variable must be assigned a valid implementing
+instance before a method is invoked through it; code may compare the reference
+with `NULL` before use.
+
 ```
 INTERFACE IDevice
   METHOD Start

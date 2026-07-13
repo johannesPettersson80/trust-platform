@@ -224,6 +224,10 @@ Result: audit/event send drops, debug trace flush discard, runtime-cloud corrupt
   - `cargo test -p trust-runtime --test init_fail_closed -- --ignored --nocapture`
   - `cargo test -p trust-runtime --lib default_failure_returns_init_failed -- --ignored --nocapture`
   - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
+  - IEC 61131-3 Ed.3 §6.6.6.5.1 separately defines the initial value of an
+    interface-typed variable as `NULL`; the non-ignored
+    `interface_param_defaults_to_null_reference` characterization test pins
+    that valid default and does not classify it as an initialization failure.
 - [x] `RTSAFE-P6-002` Evaluator writes reject undefined targets instead of creating globals outside explicit setup APIs. Evidence:
   - `cargo test -p trust-runtime --lib unknown_name_write_fails_without_creating_global -- --ignored --nocapture`
   - `cargo test -p trust-runtime --lib evaluator_unknown_assignment_fails_without_creating_global -- --ignored --nocapture`
