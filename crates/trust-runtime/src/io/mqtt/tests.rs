@@ -2,6 +2,8 @@ use super::*;
 use std::collections::VecDeque;
 use std::sync::atomic::AtomicUsize;
 
+include!("tests/nonfinite_case.rs");
+
 const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
 
 #[derive(Default)]
@@ -194,94 +196,7 @@ payload_format = "binary_be"
 
 #[test]
 fn nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([
-            packet("line/in/count", b"10".to_vec()),
-            packet("line/in/temp", b"1.5".to_vec()),
-        ]),
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-
-[[input_points]]
-topic = "line/in/count"
-image_offset = 0
-data_type = "u16"
-payload_format = "text"
-
-[[input_points]]
-topic = "line/in/temp"
-image_offset = 2
-data_type = "f32"
-payload_format = "text"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mapped mqtt driver");
-
-    let mut inputs = [0u8; 6];
-    driver
-        .read_inputs(&mut inputs)
-        .expect("accept initial finite mapped payload batch");
-    let accepted = inputs;
-    assert_eq!(u16::from_le_bytes([accepted[0], accepted[1]]), 10);
-    assert_eq!(
-        f32::from_le_bytes(accepted[2..6].try_into().expect("f32 bytes")),
-        1.5
-    );
-
-    {
-        let mut guard = state.lock().unwrap_or_else(|err| err.into_inner());
-        guard
-            .payloads
-            .push_back(packet("line/in/count", b"99".to_vec()));
-        guard
-            .payloads
-            .push_back(packet("line/in/temp", b"NaN".to_vec()));
-    }
-    let err = driver
-        .read_inputs(&mut inputs)
-        .expect_err("non-finite mapped payload must reject the complete batch");
-    assert!(
-        err.to_string().contains("finite"),
-        "expected finite/range diagnostic, got {err}"
-    );
-    assert_eq!(inputs, accepted, "rejected batch must not change inputs");
-
-    {
-        let mut guard = state.lock().unwrap_or_else(|err| err.into_inner());
-        guard
-            .payloads
-            .push_back(packet("line/in/temp", b"2.5".to_vec()));
-    }
-    thread::sleep(StdDuration::from_millis(5));
-    driver
-        .read_inputs(&mut inputs)
-        .expect("later finite payload should recover the mapped input");
-
-    assert_eq!(
-        u16::from_le_bytes([inputs[0], inputs[1]]),
-        10,
-        "a partial value from the rejected batch must not leak after recovery"
-    );
-    assert_eq!(
-        f32::from_le_bytes(inputs[2..6].try_into().expect("f32 bytes")),
-        2.5
-    );
+    run_nonfinite_mqtt_case();
 }
 
 #[test]

@@ -1,0 +1,22 @@
+schema_version = 1
+id = "CASES_RT_SAFE_NAN_001"
+title = "MQTT non-finite mapped-batch rejection and recovery trace"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_NAN_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:80c4e15f9a562692bfea6ac6602f11afd38c017e663a77d15781b30c21475bf5"
+source_digest = "sha256:5f64ab699bfe5ddfc41e9ccb6c9bf5add3b30e0ab5bd1b7400d7d589098f47f2"
+last_reviewed = "2026-07-14"
+
+[[case]]
+id = "RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION"
+family = "persistence_or_recovery"
+input = { scenario = "MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION" }
+expect = { outcome = "accept_value", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { action = "deliver_finite_batch", count = 10, temp_milli = 1500 }, expected = { driver_health = "ok", read_result = "accepted", visible_count = 10, visible_temp_milli = 1500 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy" },
+  { sequence = 1, stimulus = { action = "deliver_nonfinite_batch", count = 99, temp_token = "NaN" }, expected = { driver_health = "faulted", error_contains = "finite", read_result = "rejected", visible_count = 10, visible_temp_milli = 1500 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy" },
+  { sequence = 2, stimulus = { action = "deliver_finite_point_after_wait", temp_milli = 2500, wait_ms = 5 }, expected = { driver_health = "ok", read_result = "accepted", visible_count = 10, visible_temp_milli = 2500 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy" },
+]

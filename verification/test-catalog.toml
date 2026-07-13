@@ -1412,6 +1412,32 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5CA02219B3E4D1B01B31"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery"
+command = "cargo test -p trust-runtime --lib io::mqtt::tests::nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_NAN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
+expected_result = "After one accepted MQTT mapped snapshot, a batch containing an earlier finite point and a later non-finite point is rejected atomically; a later valid point recovers without exposing the rejected batch's earlier point."
+expected_failure_mode = "The rejected batch mutates the driver's accepted mapped snapshot, so a later valid payload exposes an earlier finite value from the rejected batch."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/runtime_safety/RT_SAFE_NAN_001.toml"
+case_file_digest = "sha256:a06f2d179fa2642c8bba87a339279c2c6a253920cb7a1cb2da36b77b019ae07d"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_RESTART_TRACE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_21561AEEDB07941017B8"
