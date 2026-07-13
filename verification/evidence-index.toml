@@ -1589,3 +1589,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-13"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P1A_SPEC_SOURCE_AUDIT_CLOSURE_20260713"
+title = "Phase 1A specification-source audit slice closure validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit-closure-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/validate_spec_source_audit_report.py --json target/gate-artifacts/verification/spec-source-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md && git diff --check"
+commit = "d16ee31dd4a81674e35dd483cd88091f3316fc31"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-13"
+suite_id = "supporting_local"
+producer = "codex Phase 1A specification-source audit slice closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-13"
