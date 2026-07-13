@@ -2,7 +2,7 @@
 # Scope: bytecode/VM, runtime safety, and the first public-docs truth scan.
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_BYTECODE_FORMAT_001"
 title = "truST bytecode format"
 area = "bytecode_vm"
@@ -12,6 +12,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/12-bytecode.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -34,7 +35,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_RUNTIME_ENGINE_001"
 title = "truST runtime engine"
 area = "runtime_safety"
@@ -44,6 +45,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -63,7 +65,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_RUNTIME_SEMANTICS_001"
 title = "truST runtime semantics"
 area = "runtime_safety"
@@ -73,6 +75,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -88,7 +91,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_DEBUG_ADAPTER_001"
 title = "truST debug adapter contract"
 area = "editor_safety"
@@ -98,6 +101,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/13-debug-adapter.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -113,7 +117,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_IEC_DECISIONS_001"
 title = "IEC decisions"
 area = "compiler_iec"
@@ -123,6 +127,7 @@ authority = "reviewed_decision"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/IEC_DECISIONS.md"
 version = "current"
 last_reviewed = "2026-07-12"
@@ -139,7 +144,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_IEC_DEVIATIONS_001"
 title = "IEC deviations"
 area = "compiler_iec"
@@ -149,6 +154,7 @@ authority = "reviewed_deviation"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/IEC_DEVIATIONS.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -162,7 +168,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
 title = "Runtime safety fail-closed hardening board"
 area = "runtime_safety"
@@ -172,6 +178,7 @@ authority = "reviewed_decision"
 source_status = "active"
 oracle_eligible = true
 visibility = "internal"
+locator_kind = "tracked_file"
 path = "docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -188,7 +195,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"
 title = "Source builds can build trust-runtime without a sibling OpenOT checkout"
 area = "release"
@@ -198,6 +205,7 @@ authority = "public_claim"
 source_status = "active"
 oracle_eligible = false
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/public/start/install-from-source.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -213,7 +221,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "PUBLIC_CLAIM_RUNTIME_WIRE_001"
 title = "One runtime, the right wire for each job"
 area = "protocols"
@@ -223,6 +231,7 @@ authority = "public_claim"
 source_status = "active"
 oracle_eligible = false
 visibility = "public"
+locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -238,7 +247,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"
 title = "Supported platforms list"
 area = "release"
@@ -248,10 +257,11 @@ authority = "public_claim"
 source_status = "active"
 oracle_eligible = false
 visibility = "public"
+locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
 last_reviewed = "2026-07-08"
-claim_text = "Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi."
+claim_text = "Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi"
 surface_ref = "README.md"
 covers = [
   "platform_support_public_claim",
@@ -263,7 +273,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"
 title = "Runtime and debugger behavior locked by tests"
 area = "release"
@@ -273,10 +283,11 @@ authority = "public_claim"
 source_status = "active"
 oracle_eligible = false
 visibility = "public"
+locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
 last_reviewed = "2026-07-08"
-claim_text = "Runtime + debugger: pre-1.0, behavior-locked by tests."
+claim_text = "Runtime + debugger: pre-1.0, behavior-locked by tests"
 surface_ref = "README.md"
 covers = [
   "behavior_locked_public_claim",
@@ -288,7 +299,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_EXTERNAL_REVIEW_V08_001"
 title = "PLC verification external-review finding V-08"
 area = "verification"
@@ -298,6 +309,7 @@ authority = "reviewed_decision"
 source_status = "active"
 oracle_eligible = false
 visibility = "internal"
+locator_kind = "tracked_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/review-verdict.md"
 version = "2026-07-08"
 last_reviewed = "2026-07-10"
@@ -316,7 +328,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_IEC_EXPRESSIONS_001"
 title = "truST IEC expression contract"
 area = "compiler_iec"
@@ -326,6 +338,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/05-expressions.md"
 version = "current"
 last_reviewed = "2026-07-10"
@@ -340,7 +353,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
 title = "truST IEC data-type contract candidate"
 area = "compiler_iec"
@@ -350,6 +363,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
 last_reviewed = "2026-07-10"
@@ -365,7 +379,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
 title = "truST IEC standard function-block contract candidate"
 area = "compiler_iec"
@@ -375,6 +389,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/08-standard-function-blocks.md"
 version = "current"
 last_reviewed = "2026-07-12"
@@ -392,7 +407,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_LSP_CONTRACT_001"
 title = "truST LSP product contract candidate"
 area = "editor_safety"
@@ -402,6 +417,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
 last_reviewed = "2026-07-10"
@@ -416,7 +432,7 @@ known_limitations = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
 title = "Reviewed OPC UA client lifecycle decision"
 area = "protocols"
@@ -426,6 +442,7 @@ authority = "reviewed_decision"
 source_status = "active"
 oracle_eligible = true
 visibility = "internal"
+locator_kind = "tracked_file"
 path = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-04-phase-03/opcua-client-subscription-spike.md"
 version = "2026-07-04"
 last_reviewed = "2026-07-10"
@@ -443,7 +460,7 @@ context_refs = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_PLCOPEN_IMPORT_DECISION_001"
 title = "truST PLCopen import compatibility contract"
 area = "plcopen_devtools"
@@ -453,6 +470,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
 visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"
 version = "current"
 last_reviewed = "2026-07-10"
@@ -470,7 +488,7 @@ context_refs = [
 conflicts_with = []
 
 [[spec_sources]]
-schema_version = 1
+schema_version = 2
 id = "SPEC_CONFORMANCE_CONTRACT_001"
 title = "truST public conformance suite contract"
 area = "release"
@@ -480,6 +498,7 @@ authority = "normative_product"
 source_status = "active"
 oracle_eligible = false
 visibility = "public"
+locator_kind = "tracked_file"
 path = "conformance/contract.md"
 version = "current"
 last_reviewed = "2026-07-11"
@@ -494,5 +513,34 @@ known_limitations = [
   "This source defines the suite and report contract; it is not a semantic oracle for individual expected artifacts.",
   "No conformance case has an explicit invariant mapping while VERIF-P7-002 and VERIF-STOP-014 remain open.",
   "Public conformance publication truth remains blocked by SPEC_GAP_CONFORMANCE_PUBLICATION_001.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_61131_3_ED3_EXTERNAL_001"
+title = "IEC 61131-3 Edition 3"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_external"
+source_status = "active"
+oracle_eligible = false
+visibility = "external"
+locator_kind = "external_reference"
+external_ref = "IEC 61131-3:2013 Edition 3.0"
+expected_local_path = "docs/internal/standards/iec61131-3.txt"
+retrieval_expectation = "Restore an authorized local OCR or source copy at the expected ignored path before external-standard proof work."
+version = "Edition 3.0"
+publication_date = "2013-02"
+redistributable = false
+absence_blocks_proof = true
+last_reviewed = "2026-07-13"
+covers = [
+  "iec_61131_3_external_authority",
+]
+known_limitations = [
+  "The standard text is not redistributable and its expected local bytes are never part of committed verification provenance.",
+  "This record cannot serve as an oracle until a separate reviewed availability and content-binding mechanism exists.",
 ]
 conflicts_with = []

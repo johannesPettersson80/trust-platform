@@ -483,9 +483,12 @@ claims may create obligations or context but can never be counted as oracles.
 The report lists missing-oracle invariants in the four risk classes named by
 `VERIF-P6-007`, but does not fail on them. That enforcement row remains blocked
 until `VERIF-P14-000` defines its grace rule. The report scope is committed
-verification metadata, not a scan of every possible product requirement.
-`VERIF-P1A-002`, `VERIF-P1A-003`, `VERIF-P1A-006`, `VERIF-P1A-007`, and
-`VERIF-P4A-005` therefore remain visible limits. Forward, reverse, and orphan
+verification metadata, not the separate mechanical source/public-prose audit.
+That audit now supplies the tracked document and rendered-prose denominator and
+records the non-oracle external IEC locator without binding ignored local
+bytes. Semantic source classification, conflict/checklist review, and
+public-claim disposition remain open under `VERIF-P1A-003`, `VERIF-P1A-006`,
+and `VERIF-P4A-005`. Forward, reverse, and orphan
 traceability rows `VERIF-P6-008` through `VERIF-P6-010` stay open until their
 public-claim and live-test denominators can be exhaustive. Test, gate, and
 evidence IDs shown in the Phase 6 ledger are copied explicit associations, not

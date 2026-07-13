@@ -129,32 +129,55 @@ proof.
   separate spec gap until written. Initial seed landed in
   `verification/spec-sources.toml` with bytecode/VM, runtime safety, debug/DAP,
   IEC decision/deviation, source-build, and first public-claim records.
-- [ ] `VERIF-P1A-002` Add a source scanner/report for likely spec documents:
+- [x] `VERIF-P1A-002` Add a source scanner/report for likely spec documents:
   `docs/specs/**`, `docs/internal/**`, top-level README, public docs,
-  conformance docs, release docs, and protocol/lab notes.
+  conformance docs, release docs, and protocol/lab notes. The mechanical
+  tracked-file scanner inventories 392 authored/reachable documents and 14,102
+  rendered public-prose blocks. The mutable evidence plane is excluded to
+  prevent provenance cycles except for the two explicitly registered
+  evidence-backed specification sources; tracked public snippet includes are
+  still followed recursively.
 - [ ] `VERIF-P1A-003` Classify each source by area, authority level, owner,
-  freshness, public/internal visibility, and oracle usability.
-- [ ] `VERIF-P1A-004` Emit obvious-missing-spec report by area:
+  freshness, public/internal visibility, and oracle usability. The 20
+  registered sources are classified, but 375 discovered documents remain
+  `unreviewed_candidate`; this row stays open until that denominator receives
+  reviewed dispositions.
+- [x] `VERIF-P1A-004` Emit obvious-missing-spec report by area:
   bytecode format, bytecode validator, VM value semantics, scan-cycle lifecycle,
   stop/safe-state, retain/restart, protocol status/discovery, HMI API/UI,
   source transformations, LSP sync/positions/cancellation, debug/DAP
   force-write-release lifecycle, control/RBAC/security, PLCopen import/export,
   test-harness/simulation semantics, runtime/project/HMI config schemas, CLI and
   control-socket surfaces, GPIO, runtime performance budgets, supply chain,
-  platform/package behavior, and release proof.
+  platform/package behavior, and release proof. The ordered 21-topic ledger is
+  explicit and area-bound: two source-present, eight gap, eight partial, and
+  three unrepresented, with zero broken metadata references. It creates no
+  source or gap from titles, paths, or prose similarity.
 - [x] `VERIF-P1A-005` Emit public-claim report: public/user-facing docs claims
   with no normative source, no invariant, or no proof path.
   Initial report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-08/public-docs-truth-scan-initial.md`.
 - [ ] `VERIF-P1A-006` Emit conflict/staleness report: docs that disagree, specs
   that reference removed behavior, stale checklist rows, duplicate decisions.
-- [ ] `VERIF-P1A-007` For external standards that cannot be committed, record
+  The source audit now reports explicit conflicts, registered-source review
+  dates, broken local references, and duplicate decision headings, but
+  checklist-row staleness and removed-behavior semantics remain unreviewed;
+  this row stays open.
+- [x] `VERIF-P1A-007` For external standards that cannot be committed, record
   local path, retrieval expectation, version/date, and whether absence blocks
-  proof.
-- [ ] `VERIF-P1A-008` For every missing or ambiguous bytecode/VM pilot source,
+  proof. `SPEC_IEC_61131_3_ED3_EXTERNAL_001` records Edition 3, the expected
+  ignored local path, retrieval posture, publication date, non-redistribution,
+  and proof-blocking absence without reading or provenance-binding local
+  standard bytes; it remains non-oracle.
+- [x] `VERIF-P1A-008` For every missing or ambiguous bytecode/VM pilot source,
   create a `spec_gap` row before cataloging tests as proof for that behavior.
-- [ ] `VERIF-P1A-009` Do not mark Phase 2 catalog entries as proof-mapped unless
-  their invariant can point to a spec source or spec gap.
+  All 19 bytecode/VM required-spec rows resolve explicitly: ten to active
+  sources and nine to actionable specification gaps, with zero broken rows.
+- [x] `VERIF-P1A-009` Do not mark Phase 2 catalog entries as proof-mapped unless
+  their invariant can point to a spec source or spec gap. Full metadata
+  validation rejects a mapped catalog row lacking both `oracle_ref` and
+  `spec_gap_ref`; the regression fixture removes both from the mapped
+  bytecode-container row and observes that production rejection.
 - [x] `VERIF-P1A-010` Create the required-specification matrix at
   `verification/spec-matrix.toml` with a schema. Keyed by canonical machine
   `area`; per area, list required spec kinds as coverage tags with
@@ -805,9 +828,11 @@ Acceptance:
 - [x] `VERIF-P6A-004` Add catalog scanner self-tests. Existing source-lexer,
   stable-identity, surface, diagnostic, schema, semantic-tamper, and output-
   shape fixtures cover the mechanical scanner without adding a parallel scan.
-- [ ] `VERIF-P6A-005` Add spec-source scanner self-tests. This remains open:
-  `VERIF-P1A-002`, `VERIF-P1A-003`, and `VERIF-P1A-006` have not yet defined or
-  implemented the scanner, so Phase 6A does not invent its contract.
+- [x] `VERIF-P6A-005` Add spec-source scanner self-tests. Six closed fixtures
+  call the production scanner and association analysis: known-good, missing
+  registered path, unclosed fence, stale registered claim text, escaping
+  include, and the report-only unreviewed-prose boundary. These fixtures do not
+  claim the still-open semantic classification or conflict-review rows.
 - [x] `VERIF-P6A-006` Add changed-file classifier self-tests. Path
   normalization, single/double-star routing, overlaps, intent overlays,
   deleted paths, rename endpoints, malformed name-status input, and default-

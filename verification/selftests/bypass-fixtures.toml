@@ -2,13 +2,13 @@ schema_version = 1
 id = "PLC_VERIFICATION_TOOLING_BYPASSES_V1"
 status = "mapped"
 owner = "verification"
-last_reviewed = "2026-07-11"
-spec_source_scanner_status = "blocked"
-spec_source_scanner_blocked_by = ["VERIF-P1A-002", "VERIF-P1A-003", "VERIF-P1A-006"]
+last_reviewed = "2026-07-13"
+spec_source_scanner_status = "mapped"
+spec_source_scanner_blocked_by = []
 limitations = [
   "The known-good fixture is the unmodified committed metadata graph, not a second hand-maintained copy.",
-  "The bypass registry covers VERIF-P6A-002, VERIF-P6A-002A, VERIF-P6A-009, and the assertion-strength boundary in VERIF-P6A-010.",
-  "Spec-source scanner self-tests remain blocked until the scanner contract exists.",
+  "The bypass registry covers VERIF-P6A-002, VERIF-P6A-002A, VERIF-P6A-005, VERIF-P6A-009, and the assertion-strength boundary in VERIF-P6A-010.",
+  "Spec-source scanner fixtures invoke production discovery and association analysis; unreviewed public prose remains a report-only boundary and creates no inferred classification or claim mapping.",
   "Metadata validation does not establish assertion strength; proof production and mutation evidence own that question.",
 ]
 
@@ -20,6 +20,66 @@ assigned_layer = "metadata_validator"
 executor = "metadata_known_good"
 expected_disposition = "accept"
 expected_signal = "no validation failures"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_GOOD_SPEC_SOURCE_SCAN_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_good"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_scan_known_good"
+expected_disposition = "accept"
+expected_signal = "no scanner or analysis failures"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_MISSING_REGISTERED_PATH_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_missing_registered_path"
+expected_disposition = "reject"
+expected_signal = "registered_source_missing"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_UNCLOSED_FENCE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_unclosed_fence"
+expected_disposition = "reject"
+expected_signal = "scanner_unclosed_code_fence"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_STALE_CLAIM_TEXT_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_stale_claim_text"
+expected_disposition = "reject"
+expected_signal = "public_claim_missing"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_ESCAPING_INCLUDE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_escaping_include"
+expected_disposition = "reject"
+expected_signal = "scanner_escaping_include"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BOUNDARY_SPEC_SOURCE_UNREVIEWED_PROSE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "boundary"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_unreviewed_prose"
+expected_disposition = "report"
+expected_signal = "unreviewed public prose"
 assertion_strength = "not_assessed"
 
 [[cases]]

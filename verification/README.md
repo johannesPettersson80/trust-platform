@@ -52,6 +52,19 @@ TOML shape convention:
   `verification/invariants/<area>/<INVARIANT_ID>.toml`;
 - flat registries use plural wrapper arrays, for example `[[spec_sources]]`,
   `[[spec_gaps]]`, and `[[evidence]]`;
+- specification sources use a closed schema-v2 locator contract.
+  `locator_kind = "tracked_file"` requires a canonical, tracked,
+  workspace-relative, non-symlink `path`; `locator_kind =
+  "external_reference"` instead requires the external citation, expected
+  ignored local path, retrieval expectation, publication date, and explicit
+  non-redistribution and proof-blocking flags. External-reference records are
+  non-oracle in v2; availability alone does not promote them, and their
+  expected local bytes do not enter committed provenance;
+- `SPEC_IEC_61131_3_ED3_EXTERNAL_001` records the unavailable IEC 61131-3
+  Edition 3 authority with `oracle_eligible = false`,
+  `redistributable = false`, and `absence_blocks_proof = true`. This metadata
+  posture does not complete the spec-source scanner, exhaustive source
+  classification, conflict scan, or public-claim inventory rows;
 - `verification/invariant-seeds.toml` maps the 44 written seed obligations to
   canonical invariant records. Its three reviewed aliases are identity only;
   they create no test, proof, or gap closure.
@@ -244,15 +257,24 @@ TOML shape convention:
   enforcement candidates without enforcing them. Public claims remain
   non-oracle context. The report does not close `VERIF-P6-007` through
   `VERIF-P6-010`.
+- Run `python3 scripts/report_spec_source_audit.py` with
+  `python3 scripts/validate_spec_source_audit_report.py` for the Phase 1A
+  tracked-document and rendered-public-prose census. The audit follows tracked
+  public snippet includes, binds only exact reviewed source/claim metadata,
+  excludes the mutable evidence plane except for two explicitly registered
+  evidence-backed sources, and reports unreviewed documents/prose without
+  inferring authority or proof. Its ignored external-standard path is metadata
+  only and is never read or included in report provenance.
 - Run `python3 scripts/check_verification_tooling_selftests.py` for the Phase 6A
   known-good/known-bad fixture contract. Metadata fixtures exercise their
   assigned validator phase directly and then the full `Validator.validate()`
   wiring; catalog staleness, case artifacts, proof classification, and planner
   findings stay assigned to their owning production layers. Registered public
   claims require a proof-backed validated invariant or an explicit open gap;
-  this is not the exhaustive public-doc claim inventory blocked by
-  `VERIF-P4A-005`. The spec-source scanner self-test remains blocked by
-  `VERIF-P1A-002`, `VERIF-P1A-003`, and `VERIF-P1A-006`.
+  this is not semantic review of the exhaustive public-prose denominator still
+  blocked by `VERIF-P4A-005`. Six spec-source fixtures now exercise production
+  discovery and association analysis; unreviewed prose remains a report-only
+  boundary, and `VERIF-P1A-003`/`VERIF-P1A-006` remain open.
 - Run `python3 scripts/report_conformance_alignment.py` with
   `python3 scripts/validate_conformance_alignment_report.py` for the Phase 7
   report-only conformance audit. It binds the public suite contract, all 16

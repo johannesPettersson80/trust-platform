@@ -29,8 +29,6 @@ from .constants import (
     ROOT,
     SCHEMA_FILES,
     SCHEMA_REQUIRED_FIELDS,
-    SOURCE_AUTHORITIES,
-    SOURCE_STATUSES,
     STATUSES,
     TEST_CLASSES,
     VERIFICATION,
@@ -75,6 +73,7 @@ from .schema_contracts import validate_schema_enums
 from .risks import validate_risks as validate_risk_records
 from .taxonomy import validate_taxonomy_drift
 from .spec_gap_closure import validate_spec_gap_closure
+from .spec_sources import validate_spec_source_records
 from .suites import validate_suite_records
 
 
@@ -360,42 +359,11 @@ class Validator:
         )
 
     def validate_spec_sources(self) -> None:
-        required = [
-            "schema_version",
-            "id",
-            "title",
-            "area",
-            "owner",
-            "status",
-            "authority",
-            "source_status",
-            "oracle_eligible",
-            "visibility",
-            "covers",
-            "known_limitations",
-        ]
-        for record in self.spec_sources.values():
-            path = record["_path"]
-            self.require(path, record, required, "spec source")
-            self.check_common(path, record)
-            if record.get("authority") not in SOURCE_AUTHORITIES:
-                self.fail(path, f"{record['id']} has unknown authority {record.get('authority')!r}")
-            if record.get("source_status") not in SOURCE_STATUSES:
-                self.fail(path, f"{record['id']} has unknown source_status {record.get('source_status')!r}")
-            if not isinstance(record.get("oracle_eligible"), bool):
-                self.fail(path, f"{record['id']} oracle_eligible must be boolean")
-            if record.get("authority") == "public_claim" and record.get("oracle_eligible") is not False:
-                self.fail(path, f"public claim {record['id']} must set oracle_eligible = false")
-            if "path" not in record and "external_ref" not in record:
-                self.fail(path, f"{record['id']} must have path or external_ref")
-            if "path" in record and not (ROOT / record["path"]).exists():
-                self.fail(path, f"{record['id']} path does not exist: {record['path']}")
-            if not isinstance(record.get("covers"), list) or not record["covers"]:
-                self.fail(path, f"{record['id']} must cover at least one tag")
-            if record.get("authority") == "public_claim":
-                for field in ("claim_text", "surface_ref"):
-                    if field not in record:
-                        self.fail(path, f"public claim {record['id']} missing {field}")
+        validate_spec_source_records(
+            root=ROOT,
+            records=self.spec_sources,
+            fail=self.fail,
+        )
 
     def validate_spec_gaps(self) -> None:
         required = [

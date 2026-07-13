@@ -431,8 +431,12 @@ SCHEMA_REQUIRED_FIELDS = {
         "source_status",
         "oracle_eligible",
         "visibility",
+        "locator_kind",
+        "version",
+        "last_reviewed",
         "covers",
         "known_limitations",
+        "conflicts_with",
     ],
     "suite.schema.json": [
         "schema_version",

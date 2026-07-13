@@ -299,8 +299,10 @@ historical fix evidence as proof of the registry claim.
 The Phase 4A specification-completeness report keeps four debt surfaces
 separate: unspecified/ambiguous invariant specs, expected-result tests without
 an oracle or gap, `spec_gap` coverage cells, and the bytecode pilot's disjoint
-spec-gap/test-gap denominator. Public claims are registry-only context until
-the broad claim inventory is complete, so `VERIF-P4A-005` remains open.
+spec-gap/test-gap denominator. The Phase 1A source audit now inventories every
+rendered public-prose block in its reviewed surface closure, but 14,098 blocks
+still lack hand-owned semantic dispositions. Public claims remain
+registry-only context in the Phase 4A report, so `VERIF-P4A-005` stays open.
 
 ```text
 python3 scripts/report_invariant_seed_audit.py --json-out <json> --markdown-out <md> --timestamp <time>

@@ -57,6 +57,64 @@ class SchemaContractsTests(unittest.TestCase):
 
         self.assertIn("schema enum for test_class drifts from validator vocabulary", failures)
 
+    def test_committed_spec_source_schema_matches_validator_contract(self) -> None:
+        schema = load_spec_source_schema()
+
+        self.assertEqual(validate_schema_enums("spec-source.schema.json", schema), [])
+
+    def test_spec_source_schema_vocabulary_version_and_closure_drift_are_rejected(
+        self,
+    ) -> None:
+        mutations: list[tuple[dict, str]] = []
+        for field, value in (
+            ("area", "verification"),
+            ("status", "mapped"),
+            ("authority", "reviewed_decision"),
+            ("source_status", "active"),
+            ("visibility", "internal"),
+            ("locator_kind", "tracked_file"),
+        ):
+            schema = load_spec_source_schema()
+            schema["properties"][field]["enum"].remove(value)
+            mutations.append(
+                (schema, f"schema enum for {field} drifts from validator vocabulary")
+            )
+
+        wrong_version = load_spec_source_schema()
+        wrong_version["properties"]["schema_version"]["const"] = 1
+        mutations.append((wrong_version, "spec-source schema_version const drift"))
+
+        missing_required = load_spec_source_schema()
+        missing_required["required"].remove("conflicts_with")
+        mutations.append((missing_required, "spec-source schema root required fields drift"))
+
+        missing_property = load_spec_source_schema()
+        missing_property["properties"].pop("acceptance_evidence")
+        mutations.append((missing_property, "spec-source schema root property fields drift"))
+
+        open_root = load_spec_source_schema()
+        open_root["additionalProperties"] = True
+        mutations.append((open_root, "spec-source schema root must be closed"))
+
+        wrong_tracked_branch = load_spec_source_schema()
+        wrong_tracked_branch["oneOf"][0]["properties"]["locator_kind"]["const"] = (
+            "external_reference"
+        )
+        mutations.append((wrong_tracked_branch, "spec-source tracked_file branch drift"))
+
+        missing_external_field = load_spec_source_schema()
+        missing_external_field["oneOf"][1]["required"].remove("absence_blocks_proof")
+        mutations.append(
+            (missing_external_field, "spec-source external_reference branch drift")
+        )
+
+        for schema, expected in mutations:
+            with self.subTest(expected=expected):
+                self.assertIn(
+                    expected,
+                    validate_schema_enums("spec-source.schema.json", schema),
+                )
+
     def test_case_file_provenance_schema_drift_is_rejected(self) -> None:
         schema = load_case_file_schema()
         self.assertEqual(validate_schema_enums("case-file.schema.json", schema), [])
@@ -171,6 +229,10 @@ def load_case_file_schema() -> dict:
 
 def load_case_artifact_schema() -> dict:
     return json.loads((ROOT / "verification/schemas/case-artifact.schema.json").read_text())
+
+
+def load_spec_source_schema() -> dict:
+    return json.loads((ROOT / "verification/schemas/spec-source.schema.json").read_text())
 
 
 def load_matrix_schema() -> dict:

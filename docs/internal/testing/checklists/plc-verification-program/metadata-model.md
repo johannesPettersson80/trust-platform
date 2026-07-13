@@ -275,7 +275,9 @@ gap class `conflicting_sources`.
 
 ## Schema Versioning
 
-All metadata records start with `schema_version = 1`.
+Each metadata record must use the version accepted by its owning closed schema
+and validator. A registry migration updates all committed records together;
+older versions are then rejected unless an explicit compatibility path remains.
 
 Schema changes must be handled explicitly:
 
@@ -291,6 +293,11 @@ required `subject_kind`, `expected_failure_mode`, `evidence_destination`, and
 v1 records are rejected after the migration. The mechanical existing-test
 report remains schema v1 but uses generator v2 because its hand-owned-field
 exclusion list changed.
+
+Spec-source schema v2 adds the required `locator_kind`, `version`,
+`last_reviewed`, and `conflicts_with` fields and separates tracked files from
+non-redistributable external references. All committed spec-source records
+migrate together; spec-source v1 records are rejected after the migration.
 
 The validator must fail closed when it sees:
 
@@ -567,7 +574,7 @@ Decision-table rules:
 ### Specification Source Record
 
 ```toml
-schema_version = 1
+schema_version = 2
 id = "SPEC_BYTECODE_FORMAT_001"
 title = "truST bytecode format"
 area = "bytecode_vm"
@@ -576,7 +583,8 @@ status = "mapped"
 authority = "normative_product"
 source_status = "active"
 oracle_eligible = true
-visibility = "internal"
+visibility = "public"
+locator_kind = "tracked_file"
 path = "docs/specs/12-bytecode.md"
 version = "current"
 last_reviewed = "2026-07-08"
@@ -605,9 +613,33 @@ Required fields:
 - `source_status`
 - `oracle_eligible`
 - `visibility`
-- `path` or `external_ref`
+- `locator_kind`
+- `version`
+- `last_reviewed`
 - `covers`
 - `known_limitations`
+- `conflicts_with`
+
+Specification-source schema v2 is closed: unknown fields and v1 records fail
+validation. `locator_kind` selects exactly one locator contract:
+
+- `tracked_file` requires `path`. The path must be canonical,
+  workspace-relative, a tracked regular file, and contain no symlink component.
+  External-reference fields are forbidden.
+- `external_reference` forbids `path` and requires `external_ref`,
+  `expected_local_path`, `retrieval_expectation`, `publication_date`,
+  `redistributable`, and `absence_blocks_proof`. It requires
+  `authority = "normative_external"`, `oracle_eligible = false`,
+  `redistributable = false`, and `absence_blocks_proof = true`. The expected
+  local path must be canonical, ignored, untracked, and under
+  `docs/internal/standards/`.
+
+`SPEC_IEC_61131_3_ED3_EXTERNAL_001` records IEC 61131-3 Edition 3 through the
+`external_reference` branch. Its authorized local copy is expected at
+`docs/internal/standards/iec61131-3.txt`, but that path is an availability
+expectation only. The record remains non-oracle while the copy is absent, and
+the local standard bytes must not enter committed report provenance or proof
+input closures without a separate reviewed content-binding mechanism.
 
 Public claims are committed spec-source records with `authority =
 "public_claim"`. They must include `claim_text` and `surface_ref` fields, and

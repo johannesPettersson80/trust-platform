@@ -42,10 +42,22 @@ from .constants import (
     PROOF_LEVELS,
     PROOF_SCOPES,
     RISKS,
+    SCHEMA_REQUIRED_FIELDS,
+    SOURCE_AUTHORITIES,
+    SOURCE_STATUSES,
     STATUSES,
     TEST_CLASSES,
 )
 from .case_trace_contract import CASE_PROVENANCE_KINDS
+from .spec_sources import (
+    COMMON_REQUIRED_FIELDS as SPEC_SOURCE_REQUIRED_FIELDS,
+    EXTERNAL_REFERENCE_FIELDS,
+    LOCATOR_KINDS,
+    SPEC_SOURCE_FIELDS,
+    SPEC_SOURCE_SCHEMA_VERSION,
+    TRACKED_FILE_FIELDS,
+    VISIBILITIES,
+)
 
 
 SCHEMA_ENUM_EXPECTATIONS = {
@@ -80,6 +92,14 @@ SCHEMA_ENUM_EXPECTATIONS = {
         "proof_level": PROOF_LEVELS,
     },
     "spec-gap.schema.json": {"gap_class": GAP_CLASSES},
+    "spec-source.schema.json": {
+        "area": AREAS,
+        "status": STATUSES,
+        "authority": SOURCE_AUTHORITIES,
+        "source_status": SOURCE_STATUSES,
+        "visibility": VISIBILITIES,
+        "locator_kind": LOCATOR_KINDS,
+    },
 }
 
 
@@ -98,6 +118,52 @@ def validate_schema_enums(name: str, schema: dict[str, Any]) -> list[str]:
         failures.extend(_validate_case_file_schema_contract(schema))
     elif name == "case-artifact.schema.json":
         failures.extend(_validate_case_artifact_schema_contract(schema))
+    elif name == "spec-source.schema.json":
+        failures.extend(_validate_spec_source_schema_contract(schema))
+    return failures
+
+
+def _validate_spec_source_schema_contract(schema: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    required = frozenset(SCHEMA_REQUIRED_FIELDS["spec-source.schema.json"])
+    if required != frozenset(SPEC_SOURCE_REQUIRED_FIELDS):
+        failures.append("spec-source validator required field constants drift")
+    _check_closed_object(
+        schema,
+        required,
+        frozenset(SPEC_SOURCE_FIELDS),
+        "spec-source schema root",
+        failures,
+    )
+    properties = schema.get("properties", {})
+    if (
+        properties.get("schema_version", {}).get("const")
+        != SPEC_SOURCE_SCHEMA_VERSION
+    ):
+        failures.append("spec-source schema_version const drift")
+
+    branches = schema.get("oneOf", [])
+    expected_branches = (
+        ("tracked_file", frozenset(TRACKED_FILE_FIELDS)),
+        ("external_reference", frozenset(EXTERNAL_REFERENCE_FIELDS)),
+    )
+    if not isinstance(branches, list) or len(branches) != len(expected_branches):
+        failures.append("spec-source locator branches drift")
+        return failures
+    for branch, (locator_kind, required_fields) in zip(
+        branches, expected_branches, strict=True
+    ):
+        expected = {
+            "required": list(required_fields),
+            "properties": {"locator_kind": {"const": locator_kind}},
+        }
+        if (
+            not isinstance(branch, dict)
+            or set(branch) != set(expected)
+            or set(branch.get("required", [])) != required_fields
+            or branch.get("properties") != expected["properties"]
+        ):
+            failures.append(f"spec-source {locator_kind} branch drift")
     return failures
 
 

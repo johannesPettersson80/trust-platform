@@ -98,6 +98,30 @@ EXPECTED_CASES = {
     "P6A_BAD_COMPILE_ERROR_AS_RED_001": ("VERIF-P6A-009", "proof_compile_error_as_red"),
     "P6A_BAD_HARNESS_PANIC_AS_RED_001": ("VERIF-P6A-009", "proof_harness_panic_as_red"),
     "P6A_BAD_ASSERT_NOTHING_RED_001": ("VERIF-P6A-010", "proof_assert_nothing_red"),
+    "P6A_GOOD_SPEC_SOURCE_SCAN_001": (
+        "VERIF-P6A-005",
+        "spec_source_scan_known_good",
+    ),
+    "P6A_BAD_SPEC_SOURCE_MISSING_REGISTERED_PATH_001": (
+        "VERIF-P6A-005",
+        "spec_source_missing_registered_path",
+    ),
+    "P6A_BAD_SPEC_SOURCE_UNCLOSED_FENCE_001": (
+        "VERIF-P6A-005",
+        "spec_source_unclosed_fence",
+    ),
+    "P6A_BAD_SPEC_SOURCE_STALE_CLAIM_TEXT_001": (
+        "VERIF-P6A-005",
+        "spec_source_stale_claim_text",
+    ),
+    "P6A_BAD_SPEC_SOURCE_ESCAPING_INCLUDE_001": (
+        "VERIF-P6A-005",
+        "spec_source_escaping_include",
+    ),
+    "P6A_BOUNDARY_SPEC_SOURCE_UNREVIEWED_PROSE_001": (
+        "VERIF-P6A-005",
+        "spec_source_unreviewed_prose",
+    ),
 }
 EXECUTOR_CONTRACTS = {
     "metadata_known_good": (
@@ -262,6 +286,42 @@ EXECUTOR_CONTRACTS = {
         "reject",
         "none",
     ),
+    "spec_source_scan_known_good": (
+        "known_good",
+        "spec_source_scanner",
+        "accept",
+        "no scanner or analysis failures",
+    ),
+    "spec_source_missing_registered_path": (
+        "known_bad",
+        "spec_source_scanner",
+        "reject",
+        "registered_source_missing",
+    ),
+    "spec_source_unclosed_fence": (
+        "known_bad",
+        "spec_source_scanner",
+        "reject",
+        "scanner_unclosed_code_fence",
+    ),
+    "spec_source_stale_claim_text": (
+        "known_bad",
+        "spec_source_scanner",
+        "reject",
+        "public_claim_missing",
+    ),
+    "spec_source_escaping_include": (
+        "known_bad",
+        "spec_source_scanner",
+        "reject",
+        "scanner_escaping_include",
+    ),
+    "spec_source_unreviewed_prose": (
+        "boundary",
+        "spec_source_scanner",
+        "report",
+        "unreviewed public prose",
+    ),
 }
 REQUIRED_CASE_IDS = set(EXPECTED_CASES)
 LAYERS = {
@@ -276,6 +336,7 @@ LAYERS = {
     "evidence_pairing",
     "planner_report",
     "proof_producer",
+    "spec_source_scanner",
 }
 
 
@@ -294,13 +355,9 @@ def validate_bypass_contract(contract: Any) -> list[str]:
         failures.append("bypass contract id drift")
     if contract.get("status") != "mapped":
         failures.append("bypass contract status must be mapped")
-    if contract.get("spec_source_scanner_status") != "blocked":
-        failures.append("spec-source scanner self-tests must remain blocked")
-    if contract.get("spec_source_scanner_blocked_by") != [
-        "VERIF-P1A-002",
-        "VERIF-P1A-003",
-        "VERIF-P1A-006",
-    ]:
+    if contract.get("spec_source_scanner_status") != "mapped":
+        failures.append("spec-source scanner self-tests must be mapped")
+    if contract.get("spec_source_scanner_blocked_by") != []:
         failures.append("spec-source scanner blocker list drift")
     limitations = contract.get("limitations")
     if not isinstance(limitations, list) or not limitations or not all(

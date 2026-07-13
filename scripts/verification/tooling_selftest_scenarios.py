@@ -17,6 +17,7 @@ from .planner import risk_changes_from_matrices
 from .prover import CommandRun, ProofError, ProofProducer, validate_case_artifact
 from .test_catalog_rust import scan_rust_file
 from .test_catalog_staleness import validate_catalog_staleness
+from .tooling_selftest_spec_sources import SPEC_SOURCE_SCENARIO_HANDLERS
 
 
 class ScenarioResult(NamedTuple):
@@ -527,4 +528,5 @@ SCENARIO_HANDLERS: dict[str, Handler] = {
     "proof_compile_error_as_red": proof_compile_error_as_red,
     "proof_harness_panic_as_red": proof_harness_panic_as_red,
     "proof_assert_nothing_red": proof_assert_nothing_red,
+    **SPEC_SOURCE_SCENARIO_HANDLERS,
 }

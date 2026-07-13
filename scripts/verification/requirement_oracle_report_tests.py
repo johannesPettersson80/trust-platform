@@ -238,10 +238,8 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
         self.assertEqual([], validate_open_board_rows(board))
         self.assertTrue(
             {
-                "VERIF-P1A-002",
                 "VERIF-P1A-003",
                 "VERIF-P1A-006",
-                "VERIF-P1A-007",
                 "VERIF-P1B-012",
                 "VERIF-P1B-014",
                 "VERIF-P5-000B",
