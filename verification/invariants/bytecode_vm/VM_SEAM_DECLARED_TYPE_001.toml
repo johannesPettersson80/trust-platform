@@ -5,16 +5,35 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "spec_gap"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-09"
-claim = "A type-checked assignment to declared storage must materialize or reject conversions before later VM arithmetic can observe the wrong runtime tag."
+last_reviewed = "2026-07-13"
+claim = "Reviewed numeric widening and incompatible-assignment paths must materialize the declared runtime type or reject before later VM arithmetic can observe an incorrect runtime tag; unreviewed conversion edges remain explicit."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
-tests = []
+tests = [
+  "TEST_VM_COERCION_ASSIGNMENT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_INPUT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_OUTPUT_WIDENING_001",
+  "TEST_VM_COERCION_INITIALIZER_WIDENING_001",
+  "TEST_VM_COERCION_INOUT_NARROWING_REJECTION_001",
+  "TEST_VM_COERCION_NARROWING_ASSIGNMENT_REJECTION_001",
+  "TEST_VM_COERCION_RETURN_WIDENING_001",
+  "TEST_VM_DECLARED_DINT_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_DINT_RUNTIME_TAG_001",
+  "TEST_VM_DECLARED_LITERAL_CONTEXT_001",
+  "TEST_VM_DECLARED_PARAMETER_COPY_IN_001",
+  "TEST_VM_DECLARED_REAL_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_REAL_RUNTIME_TAG_001",
+]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_VM_VALUE_SEMANTICS_001"]
-missing = ["specified_behavior_outcomes", "stable_error_code"]
+missing = [
+  "unreviewed_signed_unsigned_and_finite_range_edges",
+  "unrepresentable_conversion_behavior",
+  "stable_vm_error_code",
+  "producer_authentic_proof",
+]
 
 [input]
 name = "assignment"
@@ -23,7 +42,7 @@ declared = "target declared type"
 
 [spec]
 status = "ambiguous"
-source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_BYTECODE_FORMAT_001"]
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -32,20 +51,72 @@ ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
 [[behavior]]
 partition = { equals = "INT_LITERAL_TO_REAL_SLOT" }
 case_family = "happy_path"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-rationale = "The contract has not specified whether lowering, VM store helpers, or another seam materializes INT literal widening for REAL storage."
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A compatible INT literal assigned to REAL storage materializes as the declared REAL runtime value before later arithmetic."
 
 [[behavior]]
 partition = { equals = "INT_VARIABLE_TO_REAL_SLOT" }
 case_family = "happy_path"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-rationale = "The confirmed tag-erasure class includes INT variables stored in REAL-declared slots; expected runtime tag and later arithmetic semantics remain unspecified."
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A compatible INT variable assigned or copied into REAL storage materializes as Value::Real and preserves REAL arithmetic semantics."
 
 [[behavior]]
 partition = { equals = "INT_EXPRESSION_TO_DINT_SLOT" }
 case_family = "happy_path"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-rationale = "The contract has not specified how widened integer assignments preserve declared DINT arithmetic width after storage."
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A compatible INT expression assigned or copied into DINT storage materializes as Value::DInt and preserves DINT arithmetic width."
+
+[[behavior]]
+partition = { equals = "COMPATIBLE_LITERAL_INITIALIZER_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A compatible typed literal initializer materializes as the variable's wider declared runtime type."
+
+[[behavior]]
+partition = { equals = "COMPATIBLE_TYPED_ASSIGNMENT_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Compatible DINT-to-LINT and REAL-to-LREAL assignments preserve the value and materialize the wider declared runtime type."
+
+[[behavior]]
+partition = { equals = "POU_OUTPUT_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A DINT POU output assigned to a LINT caller target materializes as Value::LInt with the same value."
+
+[[behavior]]
+partition = { equals = "FUNCTION_RESULT_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A REAL expression assigned to an LREAL function result materializes as Value::LReal before the caller observes it."
+
+[[behavior]]
+partition = { wrong_type = "INT_ACTUAL_TO_DINT_INOUT" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Implicit conversion is forbidden for VAR_IN_OUT, so an INT actual cannot bind to a DINT formal."
+
+[[behavior]]
+partition = { wrong_type = "DINT_TO_INT_NARROWING_ASSIGNMENT" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "An implicit DINT-to-INT assignment that cannot preserve value and accuracy is rejected unless explicitly converted."
 
 [[behavior]]
 partition = { wrong_type = "BOOL_TO_REAL_SLOT" }
@@ -55,11 +126,11 @@ rationale = "Unrepresentable conversion behavior needs a written reject/trap/fau
 [[coverage.cells]]
 dimension = "happy_path"
 state = "spec_gap"
-rationale = "Widening behavior must be specified before cases are generated."
+rationale = "Mapped tests cover the reviewed widening subset, but signed/unsigned and finite-range conversion edges remain under the focused value-semantics gap."
 spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "spec_gap"
-rationale = "Reject/fault behavior for unrepresentable conversions must be specified before cases are generated."
+rationale = "E203/E205 reject the reviewed narrowing and VAR_IN_OUT mismatches, while other unrepresentable conversions remain under the focused value-semantics gap."
 spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"

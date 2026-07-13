@@ -2,31 +2,30 @@ use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn function_input_parameter_widening_executes_as_runtime_target_type() {
     let source = r#"
 FUNCTION UseDint : DINT
 VAR_INPUT
     x : DINT;
 END_VAR
-UseDint := x + DINT#1;
+UseDint := x * x;
 END_FUNCTION
 
 PROGRAM Main
 VAR
+    arg : INT := INT#200;
     result : DINT;
 END_VAR
-result := UseDint(x := 1);
+result := UseDint(x := arg);
 END_PROGRAM
 "#;
 
     let mut harness = TestHarness::from_source(source).expect("compile runtime");
     harness.cycle();
-    harness.assert_eq("result", 2i32);
+    assert_eq!(harness.get_output("result"), Some(Value::DInt(40_000)));
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn function_output_parameter_widening_executes_as_runtime_target_type() {
     let source = r#"
 FUNCTION_BLOCK Producer
@@ -39,7 +38,7 @@ END_FUNCTION_BLOCK
 PROGRAM Main
 VAR
     fb : Producer;
-    result : DINT;
+    result : LINT;
 END_VAR
 fb(out_value => result);
 END_PROGRAM
@@ -47,11 +46,10 @@ END_PROGRAM
 
     let mut harness = TestHarness::from_source(source).expect("compile runtime");
     harness.cycle();
-    harness.assert_eq("result", 1i32);
+    assert_eq!(harness.get_output("result"), Some(Value::LInt(1)));
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn assignment_widening_materializes_target_runtime_type() {
     let source = r#"
 PROGRAM Main
@@ -59,8 +57,8 @@ VAR
     whole : LINT;
     real_value : LREAL;
 END_VAR
-whole := 1;
-real_value := 1.5;
+whole := DINT#1;
+real_value := REAL#1.5;
 END_PROGRAM
 "#;
 
@@ -71,13 +69,12 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn initializer_widening_materializes_target_runtime_type() {
     let source = r#"
 PROGRAM Main
 VAR
-    whole : LINT := 1;
-    real_value : LREAL := 1.5;
+    whole : LINT := DINT#1;
+    real_value : LREAL := REAL#1.5;
 END_VAR
 END_PROGRAM
 "#;
@@ -88,11 +85,10 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn return_value_widening_executes_as_runtime_target_type() {
     let source = r#"
 FUNCTION GiveLreal : LREAL
-GiveLreal := 1.5;
+GiveLreal := REAL#1.5;
 END_FUNCTION
 
 PROGRAM Main
@@ -109,7 +105,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn inout_narrowing_is_rejected_instead_of_silent_writeback_loss() {
     let source = r#"
 FUNCTION_BLOCK Mutate
@@ -132,17 +127,12 @@ END_PROGRAM
         .build_runtime()
         .expect_err("INT VAR_IN_OUT passed to DINT must not compile silently");
     assert!(
-        err.to_string().contains("type")
-            || err.to_string().contains("assign")
-            || err.to_string().contains("conversion")
-            || err.to_string().contains("E205")
-            || err.to_string().contains("expects"),
-        "expected type/conversion rejection, got {err}"
+        err.to_string().contains("error[E205]:"),
+        "expected the specified VAR_IN_OUT type rejection, got {err}"
     );
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn narrowing_assignment_is_rejected_instead_of_silent_truncation() {
     let source = r#"
 PROGRAM Main
@@ -157,9 +147,7 @@ END_PROGRAM
         .build_runtime()
         .expect_err("narrowing assignment must not compile silently");
     assert!(
-        err.to_string().contains("type")
-            || err.to_string().contains("assign")
-            || err.to_string().contains("conversion"),
-        "expected type/conversion rejection, got {err}"
+        err.to_string().contains("error[E203]:"),
+        "expected the specified narrowing-assignment rejection, got {err}"
     );
 }

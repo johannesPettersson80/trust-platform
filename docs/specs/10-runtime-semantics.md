@@ -189,15 +189,29 @@ a diagnostic error and never substitutes a default value.
 
 #### 2.3 Declared-Type Materialization
 
-When semantic analysis permits an implicit numeric widening, every assignment
-or POU parameter copy-in materializes the value as the declared target type
-before the value is stored or used by the callee. In particular, an `INT` value
+IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion for assignments
+and input/output parameter assignment, requires it to preserve value and
+accuracy, and forbids it for `VAR_IN_OUT` assignment. Sections 6.4.4.1.2 and
+6.5.1.3 permit compatible literal or constant-expression initializers.
+
+When semantic analysis permits an implicit numeric widening, variable
+initialization, assignment, function-result assignment, and POU input/output
+parameter transfer materialize the value as the declared target type before it
+is stored or used by the callee or caller. In particular, an `INT` value
 assigned or passed to `REAL` storage is represented as `Value::Real`, and an
 `INT` value assigned or passed to `DINT` storage is represented as
 `Value::DInt`. The stack, register, and tier-1 execution paths must produce the
-same declared runtime type and value. This rule does not authorize narrowing or
-otherwise incompatible conversions; those remain rejected according to the
-semantic type-compatibility rules.
+same declared runtime type and value.
+
+Implicit conversion is never applied to `VAR_IN_OUT`: a binding that would
+require it, including an `INT` actual bound to a `DINT` formal, fails
+compilation with diagnostic category `E205`. A narrowing assignment that
+cannot preserve the source value and accuracy is rejected unless the program
+uses an explicit conversion;
+incompatible assignment uses diagnostic category `E203`. Diagnostic prose is
+not part of this contract. Signed/unsigned boundary combinations, finite-range
+REAL/integer edges, and otherwise incompatible conversions not stated here
+remain separate specification boundaries.
 
 #### 2.4 Subrange Runtime Writes
 
