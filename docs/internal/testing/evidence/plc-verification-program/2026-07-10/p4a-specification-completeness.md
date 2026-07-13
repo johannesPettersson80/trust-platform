@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `57738bf9b50c986126c333c5d53a119c19107c6c`
-Generated: `2026-07-13T00:54:00+02:00`
+Source revision: `d4bcdddfd2abb12abac6c0fd876dc36d396a2565`
+Generated: `2026-07-13T09:31:00+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `d8063ded99e31e1d496cfa65d3f236336558605a06b5b5651abea9816b531020`
-Input SHA-256: `sha256:2d7eab162d6276f0d52f22c95d369c117902d2037a3c59a1e745cf7a35fc9c3d`
+Generated JSON SHA-256: `65e5439cbe19b9b32863845796123ed0e43f684d123d47e67d60db381650319a`
+Input SHA-256: `sha256:1cdee2aaf3895d22ca99006a7b8daa9647c075ef68d4b339801b339d0d05ce3d`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -169,7 +169,7 @@ Basis: `registered_spec_sources_only`. Exhaustive public-doc scan: `no`.
 - The bytecode pilot denominator is exactly the union of open bytecode_vm spec-gap records and required bytecode_vm test-class slots lacking an effectively runnable, non-ignored catalog row.
 - The pilot does not infer hardware/tool-blocked or not-applicable entries; those classifications remain zero unless a future reviewed metadata source extends the denominator contract.
 - A test is oracle-bound only by a non-empty oracle_ref, spec_ref, or spec_gap_ref field; names, paths, expected-result prose, and inferred references never create a binding.
-- Public-claim rows are registered-spec-source context only, not a scan of public documentation; VERIF-P4A-005 remains open.
+- Public-claim rows in this report are registered-spec-source context only; the separate source audit inventories all rendered public prose, but semantic claim dispositions remain incomplete and VERIF-P4A-005 stays open.
 - verification/evidence-index.toml is live-validated but excluded from the input digest to avoid a report-evidence digest cycle; close-out evidence relationships are recomputed at rest.
 - Report debt is visibility, not proof, spec-gap closure, test adequacy, or CI enforcement.
 - Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.
