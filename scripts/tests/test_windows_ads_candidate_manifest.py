@@ -31,9 +31,10 @@ class WindowsAdsCandidateManifestTests(unittest.TestCase):
         self.assertLess(focused, cli_probe)
         self.assertLess(cli_probe, package)
         probe = workflow[cli_probe:package]
+        self.assertIn("Resolve-VscodeCliLayout", probe)
         self.assertIn("Invoke-VscodeCli", probe)
-        self.assertIn("resources\\app\\out\\cli.js", probe)
-        self.assertIn("resources\\app\\package.json", probe)
+        self.assertIn("$layout.cli_script", probe)
+        self.assertIn("$layout.package_json", probe)
         self.assertIn("-TimeoutSeconds 10", probe)
 
     def test_manifest_binds_ci_commit_version_and_exact_vsix_bytes(self) -> None:

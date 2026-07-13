@@ -509,6 +509,7 @@ try {
 
     $vscode = Resolve-VscodeExecutable -RepositoryRoot $repositoryRoot
     $vscodeFile = Get-FileEvidence -Path $vscode
+    $vscodeCliLayout = Resolve-VscodeCliLayout -Vscode $vscode
     $versionResult = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 30
     $versionLines = @($versionResult.stdout -split '\r?\n' | Where-Object {
         -not [string]::IsNullOrWhiteSpace($_)
@@ -519,7 +520,9 @@ try {
         version = $vscodeVersion
         sha256 = $vscodeFile.sha256
         size_bytes = $vscodeFile.size_bytes
+        cli_launcher = Get-FileEvidence -Path $vscodeCliLayout.launcher
         cli_script = Get-FileEvidence -Path ([string]$versionResult.arguments[0])
+        cli_package = Get-FileEvidence -Path $vscodeCliLayout.package_json
         version_probe = New-CommandEvidence $versionResult
         install = $null
     }

@@ -351,10 +351,9 @@ jobs:
             throw 'Focused extension tests did not leave a cached Windows VS Code executable.'
           }
           $vscode = $candidates[0].FullName
-          $vscodeRoot = Split-Path -Parent $vscode
-          $expectedCli = (Resolve-Path (Join-Path $vscodeRoot 'resources\app\out\cli.js')).Path
-          $product = Get-Content (Join-Path $vscodeRoot 'resources\app\package.json') -Raw |
-            ConvertFrom-Json
+          $layout = Resolve-VscodeCliLayout -Vscode $vscode
+          $expectedCli = $layout.cli_script
+          $product = Get-Content -LiteralPath $layout.package_json -Raw | ConvertFrom-Json
           $expectedVersion = [string]$product.version
           $probe = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 10
           if ($probe.timed_out -or $probe.exit_code -ne 0) {

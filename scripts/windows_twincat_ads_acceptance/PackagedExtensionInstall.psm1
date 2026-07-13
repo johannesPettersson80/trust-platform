@@ -46,20 +46,50 @@ function Disable-PackagedBinaryPathFallback {
     }
 }
 
+function Resolve-VscodeCliLayout {
+    param([Parameter(Mandatory = $true)][string]$Vscode)
+
+    $resolvedVscode = (Resolve-Path -LiteralPath $Vscode -ErrorAction Stop).Path
+    $vscodeRoot = Split-Path -Parent $resolvedVscode
+    $launcher = (Resolve-Path -LiteralPath (Join-Path $vscodeRoot 'bin\code.cmd') -ErrorAction Stop).Path
+    $launcherText = [IO.File]::ReadAllText($launcher)
+    $launcherPattern = '(?im)^\s*"%~dp0\.\.\\Code\.exe"\s+"%~dp0\.\.\\(?<relative>[^"\r\n]+)"\s+%\*\s*$'
+    $matches = [Regex]::Matches($launcherText, $launcherPattern)
+    if ($matches.Count -ne 1) {
+        throw "Expected exactly one Visual Studio Code CLI target in $launcher, found $($matches.Count)."
+    }
+    $relativeCli = $matches[0].Groups['relative'].Value
+    if ($relativeCli -notmatch '^(?:[A-Za-z0-9._-]+\\)?resources\\app\\out\\cli\.js$') {
+        throw "Visual Studio Code CLI launcher contains an unsupported target layout."
+    }
+    $rootPrefix = [IO.Path]::GetFullPath($vscodeRoot)
+    if (-not $rootPrefix.EndsWith([string][IO.Path]::DirectorySeparatorChar)) {
+        $rootPrefix += [IO.Path]::DirectorySeparatorChar
+    }
+    $cliScript = [IO.Path]::GetFullPath((Join-Path $vscodeRoot $relativeCli))
+    if (-not $cliScript.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Visual Studio Code CLI target escapes the desktop installation root.'
+    }
+    $cliScript = (Resolve-Path -LiteralPath $cliScript -ErrorAction Stop).Path
+    $appRoot = Split-Path -Parent (Split-Path -Parent $cliScript)
+    $packageJson = (Resolve-Path -LiteralPath (Join-Path $appRoot 'package.json') -ErrorAction Stop).Path
+    return [pscustomobject][ordered]@{
+        vscode = $resolvedVscode
+        launcher = $launcher
+        cli_script = $cliScript
+        package_json = $packageJson
+    }
+}
+
 function Invoke-VscodeCli {
     param(
         [Parameter(Mandatory = $true)][string]$Vscode,
         [Parameter(Mandatory = $true)][string[]]$Arguments,
         [Parameter(Mandatory = $true)][int]$TimeoutSeconds
     )
-    $resolvedVscode = (Resolve-Path -LiteralPath $Vscode -ErrorAction Stop).Path
-    $cliScript = Join-Path (Split-Path -Parent $resolvedVscode) 'resources\app\out\cli.js'
-    if (-not (Test-Path -LiteralPath $cliScript -PathType Leaf)) {
-        throw "Visual Studio Code CLI script was not found beside $resolvedVscode."
-    }
-    [string[]]$cliArguments = @($cliScript) + @($Arguments)
-    return Invoke-CapturedProcess -FilePath $resolvedVscode -Arguments $cliArguments `
-        -TimeoutSeconds $TimeoutSeconds -EnvironmentOverrides @{
+    $layout = Resolve-VscodeCliLayout -Vscode $Vscode
+    [string[]]$cliArguments = @($layout.cli_script) + @($Arguments)
+    return Invoke-CapturedProcess -FilePath $layout.vscode -Arguments $cliArguments -TimeoutSeconds $TimeoutSeconds -EnvironmentOverrides @{
             ELECTRON_RUN_AS_NODE = '1'
             VSCODE_DEV = $null
         }
@@ -145,6 +175,7 @@ function New-AcceptanceDriverExtension {
 Export-ModuleMember -Function @(
     'New-IsolatedUserData',
     'Disable-PackagedBinaryPathFallback',
+    'Resolve-VscodeCliLayout',
     'Invoke-VscodeCli',
     'Install-IsolatedPackagedExtension',
     'New-AcceptanceDriverExtension'

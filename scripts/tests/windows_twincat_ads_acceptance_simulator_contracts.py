@@ -80,8 +80,21 @@ class SimulatorContractsMixin:
         )
         self.assertIn("version_probe = New-CommandEvidence", self.simulator_runner)
         self.assertIn("cli_script = Get-FileEvidence", self.simulator_runner)
+        self.assertIn("cli_launcher = Get-FileEvidence", self.simulator_runner)
+        self.assertIn("cli_package = Get-FileEvidence", self.simulator_runner)
+        self.assertIn("function Resolve-VscodeCliLayout", self.packaged_extension_install)
         self.assertIn("function Invoke-VscodeCli", self.packaged_extension_install)
-        self.assertIn("resources\\app\\out\\cli.js", self.packaged_extension_install)
+        self.assertIn(
+            "resources\\\\app\\\\out\\\\cli", self.packaged_extension_install
+        )
+        layout = function_body(
+            self.packaged_extension_install, "Resolve-VscodeCliLayout"
+        )
+        self.assertIn("bin\\code.cmd", layout)
+        self.assertIn("[Regex]::Match", layout)
+        self.assertIn("[IO.Path]::GetFullPath", layout)
+        self.assertIn(".StartsWith(", layout)
+        self.assertIn("package.json", layout)
         self.assertIn("ELECTRON_RUN_AS_NODE = '1'", self.packaged_extension_install)
         self.assertIn("VSCODE_DEV = $null", self.packaged_extension_install)
         install = function_body(

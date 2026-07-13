@@ -144,7 +144,10 @@ if ([string]::IsNullOrWhiteSpace($timestamp)) {{
             r"""
 $root = Join-Path ([IO.Path]::GetTempPath()) ('trust vscode cli ' + [Guid]::NewGuid().ToString('N'))
 $vscode = Join-Path $root 'Code.exe'
-$cliScript = Join-Path $root 'resources\app\out\cli.js'
+$appRoot = Join-Path $root 'fc3def6774\resources\app'
+$cliScript = Join-Path $appRoot 'out\cli.js'
+$packageJson = Join-Path $appRoot 'package.json'
+$cliLauncher = Join-Path $root 'bin\code.cmd'
 $probeEvidence = Join-Path $root 'probe.txt'
 $source = @'
 using System;
@@ -174,12 +177,28 @@ $previousEvidence = [Environment]::GetEnvironmentVariable('TRUST_FAKE_VSCODE_CLI
 try {
     [IO.Directory]::CreateDirectory((Split-Path -Parent $cliScript)) | Out-Null
     [IO.File]::WriteAllText($cliScript, '// fake VS Code CLI entrypoint')
+    [IO.File]::WriteAllText($packageJson, '{"version":"1.128.0"}')
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $cliLauncher)) | Out-Null
+    [IO.File]::WriteAllText(
+        $cliLauncher,
+        "@echo off`r`nset ELECTRON_RUN_AS_NODE=1`r`n" +
+            '"%~dp0..\Code.exe" "%~dp0..\fc3def6774\resources\app\out\cli.js" %*' +
+            "`r`n"
+    )
     Add-Type -TypeDefinition $source -Language CSharp -OutputAssembly $vscode `
         -OutputType ConsoleApplication
     [Environment]::SetEnvironmentVariable('ELECTRON_RUN_AS_NODE', 'parent-electron', 'Process')
     [Environment]::SetEnvironmentVariable('VSCODE_DEV', 'parent-dev', 'Process')
     [Environment]::SetEnvironmentVariable('TRUST_FAKE_VSCODE_CLI_EVIDENCE', $probeEvidence, 'Process')
 
+    $layout = Resolve-VscodeCliLayout -Vscode $vscode
+    if (
+        $layout.cli_script -cne $cliScript -or
+        $layout.package_json -cne $packageJson -or
+        $layout.launcher -cne $cliLauncher
+    ) {
+        throw 'VS Code archive CLI layout was not resolved exactly.'
+    }
     $version = Invoke-VscodeCli -Vscode $vscode -Arguments @('--version') -TimeoutSeconds 10
     if ($version.timed_out -or $version.exit_code -ne 0 -or $version.stdout.Trim() -cne '1.128.0') {
         throw 'Fake VS Code version probe failed.'
@@ -213,6 +232,64 @@ try {
         if ($installEvidence[$index] -cne $expectedInstall[$index]) {
             throw "Fake VS Code install probe differed at index $index."
         }
+    }
+
+    $directAppRoot = Join-Path $root 'resources\app'
+    $directCli = Join-Path $directAppRoot 'out\cli.js'
+    $directPackage = Join-Path $directAppRoot 'package.json'
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $directCli)) | Out-Null
+    [IO.File]::WriteAllText($directCli, '// installed VS Code CLI entrypoint')
+    [IO.File]::WriteAllText($directPackage, '{"version":"1.128.0"}')
+    [IO.File]::WriteAllText(
+        $cliLauncher,
+        '"%~dp0..\Code.exe" "%~dp0..\resources\app\out\cli.js" %*'
+    )
+    $directLayout = Resolve-VscodeCliLayout -Vscode $vscode
+    if (
+        $directLayout.cli_script -cne $directCli -or
+        $directLayout.package_json -cne $directPackage
+    ) {
+        throw 'Installed VS Code CLI layout was not resolved exactly.'
+    }
+
+    $validArchiveLine = '"%~dp0..\Code.exe" "%~dp0..\fc3def6774\resources\app\out\cli.js" %*'
+    [IO.File]::WriteAllText($cliLauncher, $validArchiveLine + "`r`n" + $validArchiveLine)
+    try {
+        Resolve-VscodeCliLayout -Vscode $vscode | Out-Null
+        throw 'Duplicate VS Code CLI targets were accepted.'
+    }
+    catch {
+        if ($_.Exception.Message -eq 'Duplicate VS Code CLI targets were accepted.') { throw }
+        if ($_.Exception.Message -notlike 'Expected exactly one Visual Studio Code CLI target*') {
+            throw
+        }
+    }
+
+    [IO.File]::WriteAllText(
+        $cliLauncher,
+        '"%~dp0..\Code.exe" "%~dp0..\..\resources\app\out\cli.js" %*'
+    )
+    try {
+        Resolve-VscodeCliLayout -Vscode $vscode | Out-Null
+        throw 'Escaping VS Code CLI target was accepted.'
+    }
+    catch {
+        if ($_.Exception.Message -eq 'Escaping VS Code CLI target was accepted.') { throw }
+        if ($_.Exception.Message -cne 'Visual Studio Code CLI target escapes the desktop installation root.') {
+            throw
+        }
+    }
+
+    [IO.File]::WriteAllText(
+        $cliLauncher,
+        '"%~dp0..\Code.exe" "%~dp0..\missing\resources\app\out\cli.js" %*'
+    )
+    try {
+        Resolve-VscodeCliLayout -Vscode $vscode | Out-Null
+        throw 'Missing VS Code CLI target was accepted.'
+    }
+    catch {
+        if ($_.Exception.Message -eq 'Missing VS Code CLI target was accepted.') { throw }
     }
     if ($env:ELECTRON_RUN_AS_NODE -cne 'parent-electron' -or $env:VSCODE_DEV -cne 'parent-dev') {
         throw 'VS Code CLI invocation changed the parent process environment.'
