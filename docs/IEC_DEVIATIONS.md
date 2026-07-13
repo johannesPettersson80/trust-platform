@@ -6,6 +6,30 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-07-13 - Reject non-finite managed-debug I/O values
+
+- ID: DEV-040
+- Area: Debug adapter Live Values floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
+  does not define truST's implementer-specific DAP `stIoWrite` and `stIoForce`
+  requests.
+- Deviation:
+  - In managed local debug sessions, values submitted for declared `REAL` and
+    `LREAL` addresses are interpreted as semantic decimal floating-point
+    values, not as raw `DWORD`/`LWORD` bit patterns.
+  - The adapter rejects `NaN`, positive infinity, negative infinity, and
+    values that overflow the declared floating-point width before queuing,
+    forcing, or mutating the process image.
+  - Rejection preserves the previous process-image value and force state and
+    returns a failed DAP response. Attach-mode requests remain governed by the
+    separate runtime control endpoint contract.
+- Impact:
+  - A managed debugger cannot use non-finite values or their integer bit
+    encodings as ordinary `REAL`/`LREAL` Live Values inputs.
+- Mitigation:
+  - Use an explicit finite value/status pair when non-finite state must be
+    represented to a PLC program.
+
 ## 2026-07-13 - Reject non-finite file-backed retained values
 
 - ID: DEV-039

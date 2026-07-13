@@ -106,6 +106,16 @@ supported in attach mode. Live Values I/O operations are the supported write pat
 `stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control endpoint and must surface
 runtime authorization/capability errors honestly.
 
+For a managed local debug session, Live Values writes and forces to a declared
+`REAL` or `LREAL` address parse the submitted text as that IEC floating-point
+type. The adapter accepts only finite semantic values. It rejects `NaN`,
+positive infinity, negative infinity, values that overflow the declared type,
+and integer encodings that attempt to supply non-finite IEEE bit patterns. A
+rejection returns a failed DAP response before the value is queued, forced, or
+written to the process image; the previous value and force state remain
+unchanged. Attach-mode validation remains governed by the runtime control
+endpoint and is not covered by this managed-session rule. (DEV-040)
+
 ### Stepping Semantics
 
 The following are required semantics for DAP step requests:
