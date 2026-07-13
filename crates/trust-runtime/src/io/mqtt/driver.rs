@@ -244,9 +244,11 @@ impl IoDriver for MqttIoDriver {
                 *dst = *src;
             }
         } else {
-            if self.mapped_inputs.len() != inputs.len() {
-                self.mapped_inputs.resize(inputs.len(), 0);
-            }
+            let mut candidate = if self.mapped_inputs.len() == inputs.len() {
+                self.mapped_inputs.clone()
+            } else {
+                vec![0; inputs.len()]
+            };
             for inbound in &payloads {
                 for point in self
                     .config
@@ -254,13 +256,12 @@ impl IoDriver for MqttIoDriver {
                     .iter()
                     .filter(|point| point.topic.as_str() == inbound.topic.as_str())
                 {
-                    if let Err(err) =
-                        decode_mqtt_point(point, &inbound.payload, &mut self.mapped_inputs)
-                    {
+                    if let Err(err) = decode_mqtt_point(point, &inbound.payload, &mut candidate) {
                         return self.apply_error_policy(err);
                     }
                 }
             }
+            self.mapped_inputs = candidate;
             inputs.copy_from_slice(&self.mapped_inputs);
         }
         if self
