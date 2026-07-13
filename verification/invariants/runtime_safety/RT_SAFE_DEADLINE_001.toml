@@ -3,17 +3,21 @@ id = "RT_SAFE_DEADLINE_001"
 title = "Execution deadline expiry is visible"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-13"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
-proof_level = "S0"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
 tests = ["TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
-gates = []
-evidence_refs = []
-missing = ["producer_authentic_red_green", "broad_remote_proof"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
+  "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_GREEN",
+  "EVID_BROAD_REMOTE_PR_20260713_47F0E2B3C66A",
+]
+missing = ["watchdog_configuration_and_recovery_boundaries"]
 
 [spec]
 status = "specified"
@@ -36,4 +40,4 @@ rationale = "When the watchdog deadline expires before physical output commit an
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "gap_open"
-rationale = "The written watchdog output-commit behavior has a cataloged case, but paired red/green and broad remote evidence are still required."
+rationale = "The committed empty-safe-state output-commit partition has producer-authentic red and green proof plus a causal broad remote gate; watchdog configuration, configured-safe-state, restart, and recovery boundaries remain unasserted."
