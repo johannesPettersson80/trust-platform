@@ -333,9 +333,11 @@ fn nested_resource_counts_must_fit_before_allocation() {
         "RESOURCE_META task count exceeds section bounds",
     );
 
+    let mut programs = resource_with_task_prefix(4096);
+    append_u32(&mut programs, 0);
     assert_count_rejected(
         SectionId::ResourceMeta,
-        resource_with_task_prefix(4096),
+        programs,
         "RESOURCE_META program count exceeds section bounds",
     );
 
