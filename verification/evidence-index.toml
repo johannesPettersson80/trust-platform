@@ -2191,3 +2191,39 @@ linked_invariants = ["RT_SAFE_RETAIN_001"]
 linked_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
 linked_spec_gaps = ["SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260714_30F1B77C35BE"
+title = "Reviewed PR broad gate for RT_SAFE_IO_WORKER_001, RT_SAFE_STOP_001"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "b18002106162188c4721a070c01eb91a8035ed3c"
+remote_commit = "b18002106162188c4721a070c01eb91a8035ed3c"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_SAFE_IO_WORKER_001", "RT_SAFE_STOP_001"]
+linked_tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-14"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:25fa04e8e14a29eb41632997e4b90172fbde5f0893b72dffede88762d753812f", case_file_digest = "sha256:99b5a4339efba12053aff211d24457afe899752e71ce213909e0ec1f6a4eaecf", command = "cargo test -p trust-runtime --test safe_state_handoff_trace_cases safe_state_handoff_trace_cases -- --exact", discovery_id = "DISC_D5C4C1D59854BC4EA981", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["RT_SAFE_STOP_001_DEGRADED_HANDOFF_FAULTS_STOP:passed", "RT_SAFE_IO_WORKER_001_FAULTED_HANDOFF_FAULTS_STOP:passed", "RT_SAFE_IO_WORKER_001_FAILURE_DOES_NOT_SKIP_LATER_DRIVER:passed"], run_id = "049dedf1f61c440c8f273f26071cb6b2", test_id = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001" }]
+gate_started_at = "2026-07-14T09:38:38Z"
+gate_finished_at = "2026-07-14T09:54:26Z"
+gate_duration_milliseconds = 947787
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 99471356
+tmp_available_kib = 3287812
