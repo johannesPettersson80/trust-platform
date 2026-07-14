@@ -104,3 +104,62 @@ fn test_deep_parenthesized_expression_is_bounded() {
         .message
         .contains("expression nesting exceeds parser limit")));
 }
+
+#[test]
+fn malformed_control_flow_delimiters_are_diagnosed() {
+    let cases = [
+        (
+            "CASE without OF",
+            "CASE x\n1: x := 2;\nEND_CASE",
+            "expected OF",
+        ),
+        (
+            "CASE branch without colon",
+            "CASE x OF\n1 x := 2;\nEND_CASE",
+            "expected ':' after CASE label",
+        ),
+        (
+            "FOR without assignment",
+            "FOR i TO 2 DO\nx := x + 1;\nEND_FOR",
+            "expected ':=' after FOR control variable",
+        ),
+        (
+            "FOR without TO",
+            "FOR i := 0 DO\nx := x + 1;\nEND_FOR",
+            "expected TO",
+        ),
+        (
+            "FOR without DO",
+            "FOR i := 0 TO 2\nx := x + 1;\nEND_FOR",
+            "expected DO",
+        ),
+        (
+            "WHILE without DO",
+            "WHILE x < 2\nx := x + 1;\nEND_WHILE",
+            "expected DO",
+        ),
+        (
+            "REPEAT without UNTIL",
+            "REPEAT\nx := x + 1;\nEND_REPEAT",
+            "expected UNTIL",
+        ),
+    ];
+
+    for (label, body, expected) in cases {
+        let source = format!("PROGRAM Test\nVAR x, i : INT; END_VAR\n{body}\nEND_PROGRAM");
+        let parsed = parse(&source);
+        assert!(
+            !parsed.ok(),
+            "{label} must not be accepted as a valid partial construct:\n{}",
+            parsed.syntax()
+        );
+        assert!(
+            parsed
+                .errors()
+                .iter()
+                .any(|error| error.message.contains(expected)),
+            "{label} must report {expected:?}, got {:?}",
+            parsed.errors()
+        );
+    }
+}
