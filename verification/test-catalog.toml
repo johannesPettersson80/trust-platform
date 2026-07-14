@@ -1432,6 +1432,56 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_DEBUG_PAUSE_WATCHDOG_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_234FF0395E492391D0E0"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_pause_watchdog.rs"
+name = "statement_pause_longer_than_watchdog_does_not_fault_resource"
+command = "cargo test -p trust-runtime --test debug_pause_watchdog statement_pause_longer_than_watchdog_does_not_fault_resource -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["DEBUG_PAUSE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction"
+expected_result = "A statement-boundary debug pause longer than the watchdog timeout resumes without converting operator dwell into a watchdog fault; active execution remains bounded."
+expected_failure_mode = "Resuming after an operator pause faults the resource with WatchdogTimeout because paused wall time consumed the cycle deadline."
+evidence_destination = "target/gate-artifacts/cases/TEST_DEBUG_PAUSE_WATCHDOG_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_PAUSE_WATCHDOG_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F4845D4DC06C49AF59D6"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_pause_watchdog.rs"
+name = "resource_pause_between_cycles_starts_no_scan_or_watchdog_interval"
+command = "cargo test -p trust-runtime --test debug_pause_watchdog resource_pause_between_cycles_starts_no_scan_or_watchdog_interval -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["DEBUG_PAUSE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction"
+expected_result = "A resource pause between cycles starts no scan or watchdog interval and resumes into normally bounded execution."
+expected_failure_mode = "The paused resource begins another scan, faults only because pause exceeds the watchdog timeout, or cannot resume normally."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PAUSE_WATCHDOG_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_FORCE_LIFECYCLE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_49D96694751D91832F85"

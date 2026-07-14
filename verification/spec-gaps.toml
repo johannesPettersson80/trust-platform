@@ -551,11 +551,14 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "While execution is paused, which scan deadline, watchdog, I/O, safe-state, and resume semantics remain active?"
 affected_invariants = ["DEBUG_PAUSE_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_DEBUG_PAUSE_WATCHDOG_001",
+  "TEST_RUNTIME_PAUSE_WATCHDOG_001",
+]
 candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

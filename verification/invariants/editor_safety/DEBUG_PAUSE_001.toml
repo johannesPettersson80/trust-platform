@@ -3,29 +3,51 @@ id = "DEBUG_PAUSE_001"
 title = "Debug pause has explicit watchdog and scan-deadline semantics"
 area = "editor_safety"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-debug"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Breakpoint and pause handling must not leave scan deadlines, watchdogs, I/O, or safe-state behavior implicit."
 proof_level = "S0"
 contract_kind = "state_machine"
-source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
+source_refs = [
+  "crates/trust-runtime/src/host/debug/control",
+  "crates/trust-runtime/src/scheduler/runner_loop.rs",
+]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"]
-missing = ["pause_watchdog_contract", "paused_runtime_lifecycle_cases"]
+spec_gap_refs = []
+missing = [
+  "seed_lifecycle_execution_ready_review",
+  "producer_authentic_red_green_proof",
+  "broad_remote_gate",
+]
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "DEBUG_STATEMENT_PAUSE_LONGER_THAN_WATCHDOG" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Operator dwell at a statement-boundary debug pause is excluded from the armed cycle deadlines; resume continues the same cycle without manufacturing a watchdog fault."
+
+[[behavior]]
+partition = { equals = "RESOURCE_PAUSE_BETWEEN_CYCLES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A resource pause between cycles starts no scan, output commit, or watchdog interval; resume starts the next normally bounded cycle."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "spec_gap"
-rationale = "Paused execution interaction with deadlines, watchdogs, I/O, and safe state is unspecified."
-spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+state = "gap_open"
+rationale = "Focused product tests cover statement-boundary and between-cycle pauses, including the fixed watchdog defect; producer-authentic proof and a causal broad gate remain open."

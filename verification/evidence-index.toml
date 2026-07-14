@@ -2082,6 +2082,28 @@ per_case_summary = ["RT_SAFE_STOP_001_DEGRADED_HANDOFF_FAULTS_STOP:passed", "RT_
 
 [[evidence]]
 schema_version = 1
+id = "EVID_DEBUG_PAUSE_WATCHDOG_FIX_20260714"
+title = "Debug pause watchdog product fix"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/debug-pause-watchdog-fix.md"
+command = "CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-runtime --test debug_pause_watchdog && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-runtime --test runtime_reliability watchdog_faults_resource_on_overrun -- --exact && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-runtime --test runtime_safety_fail_closed watchdog_deadline_breach_before_commit_prevents_output_write -- --exact && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-runtime --lib deadline"
+commit = "1d08d125298fdf1e8b0ce871c6036dd82431cd00"
+platform = "remote-linux-x86_64-trust-builder"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex product-first pause-watchdog batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["DEBUG_PAUSE_001"]
+linked_tests = ["TEST_DEBUG_PAUSE_WATCHDOG_001", "TEST_RUNTIME_PAUSE_WATCHDOG_001"]
+linked_spec_gaps = ["SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714"
 title = "Runtime safe-state handoff specification gap closeout"
 area = "runtime_safety"
