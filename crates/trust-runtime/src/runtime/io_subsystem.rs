@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState, IoSnapshot};
+use crate::io::{IoDriver, IoDriverHealth, IoDriverStatus, IoInterface, IoSafeState, IoSnapshot};
 
 pub(super) struct IoSubsystem {
     interface: IoInterface,
@@ -93,11 +93,38 @@ impl IoSubsystem {
             return Ok(());
         }
         self.safe_state.apply(&mut self.interface)?;
+        let mut first_failure = None;
         for entry in &mut self.drivers {
-            entry.driver.write_outputs(self.interface.outputs())?;
+            let failure = match entry.driver.write_outputs(self.interface.outputs()) {
+                Err(error) => Some(RuntimeError::IoDriver(
+                    format!(
+                        "safe-state output write failed for driver '{}': {error}",
+                        entry.name
+                    )
+                    .into(),
+                )),
+                Ok(()) => match entry.driver.health() {
+                    IoDriverHealth::Ok => None,
+                    IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
+                        Some(RuntimeError::IoDriver(
+                            format!(
+                                "safe-state output unconfirmed for driver '{}': {error}",
+                                entry.name
+                            )
+                            .into(),
+                        ))
+                    }
+                },
+            };
+            if first_failure.is_none() {
+                first_failure = failure;
+            }
         }
         self.update_health();
-        Ok(())
+        match first_failure {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     pub(super) fn snapshot(&self) -> IoSnapshot {
