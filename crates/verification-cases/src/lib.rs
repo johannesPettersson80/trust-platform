@@ -64,7 +64,9 @@ impl RunConfig {
 }
 
 fn default_artifact_dir() -> PathBuf {
-    workspace_root().join("target/gate-artifacts/cases")
+    std::env::var_os("TRUST_VERIFY_ARTIFACT_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| workspace_root().join("target/gate-artifacts/cases"))
 }
 
 fn workspace_root() -> PathBuf {
@@ -529,6 +531,7 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
     #[test]
     fn default_artifact_dir_is_workspace_target_gate_artifacts() {
+        let _env = lock_trust_verify_env();
         let digest = "sha256:dummy";
         let config = RunConfig::new(
             "TEST_DEFAULT_DIR",
@@ -541,6 +544,21 @@ spec_gap_ref = "SPEC_GAP_VALUE"
         assert!(config.artifact_dir.starts_with(
             env!("CARGO_MANIFEST_DIR").trim_end_matches("/crates/verification-cases")
         ));
+    }
+
+    #[test]
+    fn stamped_artifact_dir_overrides_compile_time_workspace_path() {
+        let _env = lock_trust_verify_env();
+        let dir = temp_dir("stamped_default_dir").join("artifacts");
+        std::env::set_var("TRUST_VERIFY_ARTIFACT_DIR", &dir);
+
+        let config = RunConfig::new(
+            "TEST_STAMPED_DEFAULT_DIR",
+            "verification/cases/example.toml",
+            "sha256:dummy",
+        );
+
+        assert_eq!(config.artifact_dir, dir);
     }
 
     #[test]
