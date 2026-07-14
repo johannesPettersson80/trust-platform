@@ -12,6 +12,31 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-14 - Bound debug writes and forces to a runtime lifecycle
+
+- ID: DEV-047
+- Area: Runtime and debug-adapter write/force lifecycle
+- IEC reference: IEC 61131-3 does not define truST's DAP or runtime-control
+  write, force, release, detach, authorization, or process-lifecycle protocol.
+  This entry records a truST product extension outside the IEC language model,
+  not a contradiction of an IEC requirement.
+- Deviation/extension:
+  - Debug writes are one-shot requests consumed at the next scan boundary.
+  - Forces persist across ordinary scans, pause/resume, and non-terminating
+    debugger disconnect until explicit release.
+  - Deliberate stop, fault handling, and warm or cold restart clear pending
+    writes and active forces before safe-state handling or execution resumes.
+  - Safe-state output has precedence over forcing at stop and fault boundaries.
+  - Authorization changes govern later commands and do not silently alter an
+    existing force.
+- Impact:
+  - A pre-restart or pre-fault debug mutation cannot be replayed into a new
+    runtime lifecycle. Detaching a client does not unexpectedly change the
+    running PLC state.
+- Mitigation:
+  - Operators must explicitly release forces during an ordinary attached
+    session and must reapply any intended force after a restart.
+
 ## 2026-07-14 - Require confirmed safe-state driver handoff
 
 - ID: DEV-046

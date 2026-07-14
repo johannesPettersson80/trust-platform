@@ -579,7 +579,29 @@ returns a failed DAP response and preserves both the previous process-image
 value and the previous force state. Attach-mode requests remain governed by
 the separate runtime control endpoint contract. (DEV-040)
 
-##### 6.9.2 Simulation coupling thresholds
+##### 6.9.2 Debug mutation lifecycle
+
+Debug writes are one-shot requests. An accepted write is applied at the next
+scan boundary and is then consumed. A force is applied at scan boundaries
+until the matching release request or a clearing lifecycle boundary. Release
+removes the force without writing a replacement value; normal program and I/O
+evaluation determine the value at the next scan. (DEV-047)
+
+Pause and resume preserve queued writes and active forces because neither
+operation creates a new runtime lifecycle. A non-terminating debugger detach or
+transport disconnect also preserves them: detach must not alter runtime
+execution, and a later authorized client must observe the existing force state.
+An authorization change governs subsequent write, force, and release requests;
+it does not silently mutate an already accepted force.
+
+Deliberate resource stop, fault handling, and every warm or cold restart are
+clearing boundaries. Before safe-state handling or restarted execution can
+proceed, the runtime clears queued debug writes and active variable and I/O
+forces. Safe-state output therefore has precedence over debug forcing, and a
+request accepted before a clearing boundary cannot be replayed into the next
+runtime lifecycle.
+
+##### 6.9.3 Simulation coupling thresholds
 
 The file-backed `simulation.toml` loader rejects NaN and positive or negative
 infinity in an optional `[[couplings]].threshold` before returning or

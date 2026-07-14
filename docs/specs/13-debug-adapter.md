@@ -116,6 +116,23 @@ written to the process image; the previous value and force state remain
 unchanged. Attach-mode validation remains governed by the runtime control
 endpoint and is not covered by this managed-session rule. (DEV-040)
 
+#### Live Values Mutation Lifetime
+
+- A successful write is queued for the next scan boundary and is consumed
+  once.
+- A successful force remains active across scans, pause/resume, and a
+  non-terminating detach until an authorized release or a runtime clearing
+  boundary.
+- Release removes the force but does not write a replacement value.
+- Deliberate stop, fault handling, and warm or cold restart clear queued writes
+  and active forces before safe-state handling or restarted execution.
+- Authentication or authorization changes apply to later commands and do not
+  silently clear an existing force. The force remains visible to authorized
+  clients until release or a clearing boundary.
+
+These are truST debugger/runtime lifecycle rules outside the IEC language
+execution model. See DEV-047.
+
 ### Stepping Semantics
 
 The following are required semantics for DAP step requests:
