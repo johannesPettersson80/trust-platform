@@ -5,24 +5,40 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "spec_gap"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Force, write, and release state must not persist through lifecycle boundaries without an explicit contract."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
-tests = []
+tests = ["TEST_RUNTIME_FORCE_LIFECYCLE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
-missing = ["force_lifecycle_contract", "disconnect_stop_restart_pause_cases"]
+missing = ["disconnect_stop_pause_fault_auth_change_cases"]
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
 
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+
+[[behavior]]
+partition = { equals = "RESTART_CLEARS_DEBUG_MUTATIONS" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Warm and cold restart clear queued writes and active forces before the first scan of the recreated PLC state."
+
+[[behavior]]
+partition = { equals = "SAFE_STATE_CLEARS_IO_FORCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A deliberate safe-state boundary clears the active I/O force before the next scan so the configured safe output remains authoritative."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"

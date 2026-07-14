@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_RT_SAFE_FORCE_001"
+title = "Runtime debug mutation lifecycle traces"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_FORCE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:1e67ebc8dddfc22a214c63a4188caa9edd98dd85976dbd36cccdb65fbdc43082"
+source_digest = "sha256:d36b03f1147437c2b287201eb0fb61bc47c72cd787c80989a2263dbda612a223"
+last_reviewed = "2026-07-14"
+
+[[case]]
+id = "RT_SAFE_FORCE_001_RESTART_CLEARS_DEBUG_MUTATIONS"
+family = "persistence_or_recovery"
+input = { scenario = "RESTART_CLEARS_DEBUG_MUTATIONS" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { action = "warm_restart_then_cycle", force_value = 50, queued_write_value = 70 }, expected = { forced_value = 2, queued_value = 2 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle" },
+]
+
+[[case]]
+id = "RT_SAFE_FORCE_001_SAFE_STATE_CLEARS_IO_FORCE"
+family = "ordering_or_lifecycle"
+input = { scenario = "SAFE_STATE_CLEARS_IO_FORCE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { action = "apply_safe_state_then_cycle", forced_output = true, safe_output = false }, expected = { output_bit = false }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle" },
+]

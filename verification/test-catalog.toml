@@ -1432,6 +1432,33 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_FORCE_LIFECYCLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_49D96694751D91832F85"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/force_lifecycle.rs"
+name = "force_lifecycle_trace_cases"
+command = "cargo test -p trust-runtime --test force_lifecycle force_lifecycle_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_FORCE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle"
+expected_result = "Warm restart and deliberate safe-state application clear queued debug writes and active forces before later PLC execution can reapply them."
+expected_failure_mode = "A queued write or active force survives restart or safe-state application, or the runner fails to emit the same-run case artifact."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FORCE_LIFECYCLE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/runtime_safety/RT_SAFE_FORCE_001.toml"
+case_file_digest = "sha256:54aa127239e290a67249047cb771f7e46572c8af5ede8365f9b6513a76d96bc2"
+spec_gap_ref = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_D5C4C1D59854BC4EA981"
