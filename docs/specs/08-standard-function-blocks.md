@@ -346,16 +346,6 @@ and TIME/LTIME variants share the same state transitions. Restart, clock-step,
 conditional-call, and TP retrigger decisions are specified there but are not
 asserted by the first timer trace vertical.
 
-#### Timer Duration Arithmetic Boundary
-
-IEC 61131-3 Ed.3 section 6.6.3.5.5, Table 46, and Figure 15 define `ET` as
-elapsed time advancing toward `PT`. For a nonnegative elapsed delta, truST
-computes that advance without an overflowing signed-duration intermediate. If
-the elapsed delta reaches or exceeds the remaining preset duration, the
-executed call observes `ET = PT` and performs the timer's normal threshold
-transition. Arithmetic at the duration boundary cannot make `ET` negative or
-greater than `PT`.
-
 ### TP - Pulse Timer
 
 ```

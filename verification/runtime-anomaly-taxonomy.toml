@@ -689,3 +689,42 @@ injection_mechanism = "test_harness"
 assertion_summary = "After advancing harness time by five milliseconds, in-process warm and cold restart preserve runtime current_time at five milliseconds."
 limitations = ["This exercises the reviewed restart clock-preservation decision, not an external scheduler or system-clock step, and does not establish clock-step anomaly adequacy."]
 last_reviewed = "2026-07-13"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_93D5E86E7CF67A1A5AAE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "ton_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TON advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, and performs its threshold transition."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_DA4DF0247AD9823BF96F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tof_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TOF advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, clears Q, and retains the expired plateau."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_FF77A462527037C6EEA8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tp_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TP advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, and ends the pulse."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"

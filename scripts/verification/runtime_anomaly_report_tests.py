@@ -44,19 +44,19 @@ REPORT_MARKDOWN = (
 )
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
-    "mapping_records": 38,
-    "scanner_denominator": 3119,
-    "effectively_runnable_mappings": 28,
+    "mapping_records": 41,
+    "scanner_denominator": 3122,
+    "effectively_runnable_mappings": 31,
     "ignored_or_conditional_mappings": 1,
-    "gap_classes": 9,
+    "gap_classes": 8,
     "by_state": {
-        "mapped_runnable": 10,
+        "mapped_runnable": 11,
         "mapped_non_runnable_or_partial": 4,
-        "unmapped": 5,
+        "unmapped": 4,
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 28,
+        "direct": 31,
         "partial": 7,
         "protective_red": 0,
         "context_only": 3,
@@ -146,6 +146,7 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             "corrupt_retain",
             "malformed_bytecode",
             "bad_config",
+            "timer_duration_overflow",
         ):
             self.assertEqual("mapped_runnable", classes[class_id]["state"])
         for class_id in (
@@ -162,7 +163,6 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             "bad_signal",
             "monotonic_wall_clock_divergence",
             "suspend_resume",
-            "timer_duration_overflow",
             "allocation_failure_oom",
         ):
             self.assertEqual("unmapped", classes[class_id]["state"])

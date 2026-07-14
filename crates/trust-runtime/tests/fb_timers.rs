@@ -65,11 +65,7 @@ fn ton_clamps_elapsed_time_at_duration_max() {
     let mut ton = Ton::new();
     let pt = Duration::from_nanos(i64::MAX);
 
-    let out = ton.step(
-        true,
-        pt,
-        Duration::from_nanos(i64::MAX - 1),
-    );
+    let out = ton.step(true, pt, Duration::from_nanos(i64::MAX - 1));
     assert!(!out.q);
     assert_eq!(out.et, Duration::from_nanos(i64::MAX - 1));
 
@@ -87,11 +83,7 @@ fn tof_clamps_elapsed_time_at_duration_max() {
     assert!(out.q);
     assert_eq!(out.et, Duration::ZERO);
 
-    let out = tof.step(
-        false,
-        pt,
-        Duration::from_nanos(i64::MAX - 1),
-    );
+    let out = tof.step(false, pt, Duration::from_nanos(i64::MAX - 1));
     assert!(out.q);
     assert_eq!(out.et, Duration::from_nanos(i64::MAX - 1));
 
@@ -109,11 +101,7 @@ fn tp_clamps_elapsed_time_at_duration_max() {
     let mut tp = Tp::new();
     let pt = Duration::from_nanos(i64::MAX);
 
-    let out = tp.step(
-        true,
-        pt,
-        Duration::from_nanos(i64::MAX - 1),
-    );
+    let out = tp.step(true, pt, Duration::from_nanos(i64::MAX - 1));
     assert!(out.q);
     assert_eq!(out.et, Duration::from_nanos(i64::MAX - 1));
 

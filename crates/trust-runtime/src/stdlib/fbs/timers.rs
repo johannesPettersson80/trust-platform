@@ -33,8 +33,7 @@ impl Ton {
             self.et = Duration::ZERO;
             self.q = false;
         } else {
-            let next = self.et.as_nanos() + delta.as_nanos();
-            self.et = Duration::from_nanos(next);
+            self.et = accumulate_elapsed(self.et, delta, pt);
             self.q = self.et.as_nanos() >= pt.as_nanos();
         }
         let et = if self.et.as_nanos() >= pt.as_nanos() {
@@ -83,8 +82,7 @@ impl Tof {
                 self.et = Duration::ZERO;
             }
             if self.timing {
-                let next = self.et.as_nanos() + delta.as_nanos();
-                self.et = Duration::from_nanos(next);
+                self.et = accumulate_elapsed(self.et, delta, pt);
                 if self.et.as_nanos() >= pt.as_nanos() {
                     self.q = false;
                     self.et = pt;
@@ -137,8 +135,7 @@ impl Tp {
             self.et = Duration::ZERO;
         }
         if self.active {
-            let next = self.et.as_nanos() + delta.as_nanos();
-            self.et = Duration::from_nanos(next);
+            self.et = accumulate_elapsed(self.et, delta, pt);
             if self.et.as_nanos() >= pt.as_nanos() {
                 self.active = false;
                 self.et = pt;
@@ -236,6 +233,11 @@ fn normalize_duration(value: Duration) -> Duration {
     } else {
         value
     }
+}
+
+fn accumulate_elapsed(elapsed: Duration, delta: Duration, pt: Duration) -> Duration {
+    let next = elapsed.as_nanos().saturating_add(delta.as_nanos());
+    Duration::from_nanos(next.min(pt.as_nanos()))
 }
 
 fn read_time_input(

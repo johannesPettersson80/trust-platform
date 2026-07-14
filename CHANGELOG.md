@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.44`
+Target release: `v0.24.45`
 
 ### Fixed
 
+- trust-runtime: TON, TOF, and TP elapsed-time accumulation now clamps safely
+  at `PT` instead of panicking in debug builds or wrapping negative in release
+  builds near the signed TIME/LTIME duration boundary.
 - trust-runtime: STBC decoding now rejects duplicate standardized section IDs
   instead of silently selecting the first conflicting section during later
   validation and execution.

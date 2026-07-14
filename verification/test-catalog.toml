@@ -1406,6 +1406,102 @@ last_reviewed = "2026-07-12"
 
 [[tests]]
 schema_version = 2
+id = "TEST_IEC_TIMER_TON_DURATION_OVERFLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_93D5E86E7CF67A1A5AAE"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "ton_clamps_elapsed_time_at_duration_max"
+command = "cargo test -p trust-runtime --test fb_timers ton_clamps_elapsed_time_at_duration_max -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer"
+expected_result = "TON advances across the signed-duration arithmetic boundary without panic or wrap, sets Q, and clamps ET to PT."
+expected_failure_mode = "Elapsed-time addition panics, wraps negative, exceeds PT, or fails to perform the TON threshold transition."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_TIMER_TON_DURATION_OVERFLOW_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_IEC_TIMER_TOF_DURATION_OVERFLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DA4DF0247AD9823BF96F"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tof_clamps_elapsed_time_at_duration_max"
+command = "cargo test -p trust-runtime --test fb_timers tof_clamps_elapsed_time_at_duration_max -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof---off-delay-timer"
+expected_result = "TOF advances across the signed-duration arithmetic boundary without panic or wrap, clears Q, clamps ET to PT, and preserves the post-expiry hold."
+expected_failure_mode = "Elapsed-time addition panics, wraps negative, exceeds PT, fails to clear Q, or loses the TOF post-expiry ET hold."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_TIMER_TOF_DURATION_OVERFLOW_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_IEC_TIMER_TP_DURATION_OVERFLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FF77A462527037C6EEA8"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tp_clamps_elapsed_time_at_duration_max"
+command = "cargo test -p trust-runtime --test fb_timers tp_clamps_elapsed_time_at_duration_max -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer"
+expected_result = "TP advances across the signed-duration arithmetic boundary without panic or wrap, ends the pulse, and clamps ET to PT."
+expected_failure_mode = "Elapsed-time addition panics, wraps negative, exceeds PT, or fails to perform the TP threshold transition."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_TIMER_TP_DURATION_OVERFLOW_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_IEC_TIMER_RUNTIME_VARIANTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_82037BF366E0CC07D92C"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/fb_timers_full.rs"
+name = "timer_variants"
+command = "cargo test -p trust-runtime --test fb_timers_full timer_variants -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#timer-scan-step-contract"
+expected_result = "Real Structured Text executes TON, TOF, TP, TON_LTIME, TOF_LTIME, and TP_LTIME with type-correct ET values that stop at PT."
+expected_failure_mode = "A TIME or LTIME timer produces the wrong Q transition, wrong ET duration type, or an ET value outside its reviewed scan-step state."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_TIMER_RUNTIME_VARIANTS_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_4E0EFE2F6CE2913C5C99"
