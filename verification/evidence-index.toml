@@ -687,6 +687,36 @@ last_reviewed = "2026-07-14"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_VM_BYTECODE_COUNT_BOUNDS_20260714"
+title = "Bytecode decoder collection-count bounds product fix"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/bytecode-decoder-count-bounds.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-count-502fff48\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_decode_resource_bounds && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_container --test bytecode_roundtrip --test bytecode_sections --test bytecode_metadata --test bytecode_validation --test bytecode_encoder'"
+commit = "36837353b993e906c2b27d1cb0ad969bb7d1da86"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex bytecode decoder count-bound product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+linked_tests = [
+  "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_TYPE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+]
+linked_spec_gaps = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_P2_COVERAGE_MATRIX_GAPS_20260710"
 title = "Phase 2 coverage-matrix structural gap report"
 area = "verification"

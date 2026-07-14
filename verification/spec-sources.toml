@@ -28,10 +28,12 @@ covers = [
   "io_map",
   "retain_init",
   "lowering_fail_closed_contract",
+  "collection_count_bounds",
 ]
 known_limitations = [
   "Validator semantic contract remains incomplete; see SPEC_GAP_BYTECODE_VALIDATOR_001.",
   "Runtime value/tag semantics are not fully specified here; see SPEC_GAP_VM_VALUE_SEMANTICS_001.",
+  "General VM determinism and resource budgets remain incomplete; see SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001.",
 ]
 conflicts_with = []
 

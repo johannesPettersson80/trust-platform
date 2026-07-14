@@ -9,8 +9,20 @@ last_reviewed = "2026-07-09"
 claim = "VM determinism and resource limits must be specified independently of structural bytecode validation before related tests can claim proof."
 proof_level = "S0"
 contract_kind = "perf_budget"
-source_refs = ["crates/trust-runtime-core/src/vm", "crates/trust-runtime/src/runtime/vm"]
-tests = []
+source_refs = [
+  "crates/trust-runtime-core/src/vm",
+  "crates/trust-runtime/src/runtime/vm",
+  "crates/trust-runtime/src/bytecode/decode",
+]
+tests = [
+  "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_TYPE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
@@ -24,10 +36,19 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
 kind = "trust_contract"
 ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
 
+[[behavior]]
+partition = { equals = "DECLARED_COUNT_EXCEEDS_REMAINING_MINIMUM" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#collection-count-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A top-level or nested collection count that cannot fit its minimum encoded entries in the containing bytecode section is rejected before count-sized capacity is reserved."
+
 [[coverage.cells]]
 dimension = "resource_limit"
 state = "spec_gap"
-rationale = "Resource-limit boundaries must be specified before cases are generated."
+rationale = "Mapped tests cover the necessary count-versus-section allocation bound; maximum container, instruction, stack, local, reference, and call-depth budgets remain unspecified."
 spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
 
 [[coverage.cells]]
