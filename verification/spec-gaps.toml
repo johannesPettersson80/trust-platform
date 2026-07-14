@@ -517,11 +517,16 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "How must push, pull, and workspace diagnostics distinguish cancellation from a successful empty diagnostic result?"
 affected_invariants = ["EDIT_DIAG_CANCEL_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
+]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_WORKSPACE_DIAGNOSTIC_CANCELLATION_FIX_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

@@ -2581,6 +2581,32 @@ tmp_available_kib = 7270792
 
 [[evidence]]
 schema_version = 1
+id = "EVID_WORKSPACE_DIAGNOSTIC_CANCELLATION_FIX_20260714"
+title = "Workspace diagnostic cancellation product fix"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/workspace-diagnostic-cancellation-fix.md"
+command = "ssh trust-builder 'cd /tmp/trust-platform-batch-c-red && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" && cargo test -p trust-lsp lsp_workspace_diagnostics_cancelled_request_returns_content_modified && cargo test -p trust-lsp diagnostics_cancelled && cargo test -p trust-lsp lsp_workspace_diagnostics'"
+commit = "4ab4f5c4e7367102d9d72b5d3cf4ac834757652e"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex workspace diagnostic cancellation product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["EDIT_DIAG_CANCEL_001"]
+linked_tests = [
+  "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
+]
+linked_spec_gaps = ["SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_PRODUCT_FIRST_BATCH_A_EXECUTION_VALIDATION_20260714"
 title = "Product-first Batch A execution validation"
 area = "runtime_safety"

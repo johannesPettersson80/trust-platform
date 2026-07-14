@@ -474,14 +474,15 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 covers = [
+  "diagnostic_cancellation",
   "lsp_range_operations",
   "lsp_incremental_sync",
 ]
 known_limitations = [
   "The source does not specify negotiated character encoding or supplementary-plane position conversion.",
-  "Rename conflict and diagnostic cancellation partitions remain focused open specification gaps.",
+  "Rename conflict partitions remain a focused open specification gap.",
 ]
 conflicts_with = []
 
