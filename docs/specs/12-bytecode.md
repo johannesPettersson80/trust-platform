@@ -65,6 +65,9 @@ struct SectionEntry {
 
 Section table rules:
 - Entries may appear in any order.
+- Each standardized section ID in the range `0x0001` through `0x000C` may
+  appear at most once. A duplicate standardized section ID invalidates the
+  container before any section is selected for validation or execution.
 - Offsets must be 4-byte aligned.
 - Sections must not overlap.
 - Unknown section IDs are ignored unless marked required by the runtime configuration.

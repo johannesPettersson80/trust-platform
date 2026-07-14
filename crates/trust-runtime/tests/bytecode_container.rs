@@ -1,8 +1,9 @@
 mod bytecode_helpers;
 
-use bytecode_helpers::base_module;
+use bytecode_helpers::{base_module, module_with_debug};
 use trust_runtime::bytecode::{
-    BytecodeError, BytecodeModule, BytecodeVersion, SUPPORTED_MAJOR_VERSION,
+    BytecodeError, BytecodeModule, BytecodeVersion, RetainInit, Section, SectionData, SectionId,
+    VarMeta, SUPPORTED_MAJOR_VERSION,
 };
 
 #[test]
@@ -33,6 +34,40 @@ fn section_table_validation() {
     overlap[40..44].copy_from_slice(first_offset);
     let err = BytecodeModule::decode(&overlap).unwrap_err();
     assert!(matches!(err, BytecodeError::SectionOverlap));
+}
+
+#[test]
+fn duplicate_standard_section_ids_are_rejected() {
+    let mut module = module_with_debug();
+    module.flags = 0;
+    module.sections.extend([
+        Section {
+            id: SectionId::VarMeta.as_raw(),
+            flags: 0,
+            data: SectionData::VarMeta(VarMeta::default()),
+        },
+        Section {
+            id: SectionId::RetainInit.as_raw(),
+            flags: 0,
+            data: SectionData::RetainInit(RetainInit::default()),
+        },
+    ]);
+
+    for section in module.sections.clone() {
+        let mut duplicated = module.clone();
+        duplicated.sections.push(section.clone());
+        let bytes = duplicated.encode().expect("encode duplicate section");
+        let err = BytecodeModule::decode(&bytes).unwrap_err();
+        let expected = format!("duplicate standardized section id 0x{:04X}", section.id);
+        assert!(
+            matches!(
+                err,
+                BytecodeError::InvalidSection(ref message) if message == &expected
+            ),
+            "unexpected decoder result for section 0x{:04X}: {err:?}",
+            section.id
+        );
+    }
 }
 
 #[test]
