@@ -177,6 +177,10 @@ fn type_table_count_must_fit_offset_table_before_allocation() {
 fn fixed_section_entry_counts_must_fit_before_allocation() {
     let cases = [
         (
+            SectionId::DebugStringTable,
+            "DEBUG_STRING_TABLE count exceeds section bounds",
+        ),
+        (
             SectionId::ConstPool,
             "CONST_POOL count exceeds section bounds",
         ),
