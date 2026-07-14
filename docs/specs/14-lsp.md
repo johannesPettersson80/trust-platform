@@ -263,6 +263,21 @@ Workspace warning policy is configured through `trust-lsp.toml` `[diagnostics]`.
 Profiles may override severities to mirror vendor expectations, but the
 canonical code list and default severity guidance live in this spec.
 
+##### 6.2.6 Diagnostic Cancellation
+
+Diagnostic cancellation must never be reported as a successful empty or
+partial diagnostic result:
+
+- a cancelled push diagnostic collection publishes nothing;
+- a cancelled `textDocument/diagnostic` request returns `ContentModified`;
+- a cancelled `workspace/diagnostic` request returns `ContentModified` for the
+  complete request and must not return the documents collected before
+  cancellation as a successful partial report.
+
+The server may reuse a completed result only when its content and diagnostic
+hashes still match. A stale semantic-analysis ticket is cancellation for this
+contract, including when a newer document or workspace request supersedes it.
+
 #### 6.3 Navigation
 
 ##### 6.3.1 Go to Definition

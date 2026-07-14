@@ -192,6 +192,14 @@ pub(crate) fn workspace_diagnostic(
     params: WorkspaceDiagnosticParams,
 ) -> WorkspaceDiagnosticReportResult {
     let request_ticket = state.begin_semantic_request();
+    workspace_diagnostic_with_ticket(state, params, request_ticket)
+}
+
+fn workspace_diagnostic_with_ticket(
+    state: &ServerState,
+    params: WorkspaceDiagnosticParams,
+    request_ticket: u64,
+) -> WorkspaceDiagnosticReportResult {
     let mut previous = std::collections::HashMap::new();
     for entry in params.previous_result_ids {
         previous.insert(entry.uri, entry.value);
@@ -284,6 +292,19 @@ pub(crate) fn workspace_diagnostic(
     }
 
     WorkspaceDiagnosticReportResult::Report(WorkspaceDiagnosticReport { items })
+}
+
+#[cfg(test)]
+pub(crate) fn workspace_diagnostic_result_with_ticket_for_tests(
+    state: &ServerState,
+    params: WorkspaceDiagnosticParams,
+    request_ticket: u64,
+) -> JsonRpcResult<WorkspaceDiagnosticReportResult> {
+    Ok(workspace_diagnostic_with_ticket(
+        state,
+        params,
+        request_ticket,
+    ))
 }
 
 pub(crate) fn collect_diagnostics_with_ticket(

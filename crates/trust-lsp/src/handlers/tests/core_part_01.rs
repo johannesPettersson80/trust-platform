@@ -397,6 +397,36 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_workspace_diagnostics_cancelled_request_returns_content_modified() {
+    let source = r#"
+PROGRAM Test
+    VAR
+        A__B : INT;
+    END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace-diag-cancelled.st").unwrap();
+    state.open_document(uri, 1, source.to_string());
+
+    let stale_ticket = state.begin_semantic_request();
+    let _newer_ticket = state.begin_semantic_request();
+    let err = super::diagnostics::workspace_diagnostic_result_with_ticket_for_tests(
+        &state,
+        tower_lsp::lsp_types::WorkspaceDiagnosticParams {
+            identifier: None,
+            previous_result_ids: Vec::new(),
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+        stale_ticket,
+    )
+    .expect_err("cancelled workspace diagnostics should return ContentModified");
+
+    assert_eq!(err.code, tower_lsp::jsonrpc::ErrorCode::ContentModified);
+}
+
+#[test]
 pub(super) fn lsp_push_diagnostics_cancelled_collection_is_skipped_not_empty_publish() {
     let source = r#"
 PROGRAM Test
