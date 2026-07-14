@@ -2758,3 +2758,33 @@ linked_tests = [
 ]
 linked_spec_gaps = ["SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_IEC_PARSER_RECOVERY_CLOSEOUT_20260714"
+title = "IEC parser recovery specification and product fix closeout"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/iec-parser-recovery-closeout.md"
+command = "ssh trust-builder 'cd /tmp/trust-platform-batch-c-pos-2 && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-syntax --test parser_error_recovery malformed_control_flow_delimiters_are_diagnosed -- --exact && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-syntax --test parser_error_recovery mismatched_nested_terminator_preserves_outer_boundary_and_following_statement -- --exact && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-syntax'"
+commit = "c8d4e73cc4b412c35a0c5247f2491e0d41d81de7"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex IEC parser recovery product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_PARSE_RECOVER_001"]
+linked_tests = [
+  "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
+  "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
+  "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
+  "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
+  "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
+  "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
+  "TEST_IEC_PARSER_UNCLOSED_CALL_001",
+]
+linked_spec_gaps = ["SPEC_GAP_IEC_PARSER_RECOVERY_001"]
+last_reviewed = "2026-07-14"

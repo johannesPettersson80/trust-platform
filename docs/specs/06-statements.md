@@ -619,6 +619,28 @@ Statement
 4. CASE labels can be values, ranges, or comma-separated lists
 5. FOR increment can be negative
 
+#### Malformed-source recovery
+
+IEC 61131-3 Ed.3 section 7.3.3.3, sections 7.3.3.4.2 through
+7.3.3.4.4, and Table 72 define the required selection and iteration syntax.
+truST applies the following fail-closed recovery contract when that syntax is
+malformed:
+
+- missing `THEN` after `ELSIF`, `OF` after a `CASE` selector, or `:` after a
+  CASE label produces a parse diagnostic;
+- a `FOR` statement diagnoses a missing control variable, `:=`, `TO`, or `DO`;
+- `WHILE` diagnoses a missing `DO`, and `REPEAT` diagnoses a missing `UNTIL`;
+- missing block or POU terminators diagnose before an outer terminator or
+  end-of-file is consumed;
+- unknown tokens are diagnosed and recovery advances or stops at a known
+  statement/block synchronization boundary; and
+- unclosed expression delimiters and excessive nesting terminate through
+  bounded recovery with a diagnostic.
+
+Recovery may retain an incomplete syntax node so editor features can continue,
+but any such diagnostic makes the parse unsuccessful. The partial tree is not
+an accepted program and cannot be compiled as one.
+
 ### Semantic Analysis
 
 1. Type check all expressions

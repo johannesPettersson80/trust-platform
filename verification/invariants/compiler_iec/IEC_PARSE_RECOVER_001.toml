@@ -3,29 +3,105 @@ id = "IEC_PARSE_RECOVER_001"
 title = "Parser recovery advances and reports malformed structure"
 area = "compiler_iec"
 risk = "silent_corruption"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-syntax"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Parser recovery must not silently accept malformed delimiter or nesting structure."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
-tests = []
-gates = []
+tests = [
+  "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
+  "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
+  "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
+  "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
+  "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
+  "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
+  "TEST_IEC_PARSER_UNCLOSED_CALL_001",
+]
+gates = ["veryquick", "pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_IEC_PARSER_RECOVERY_001"]
-missing = ["parser_recovery_progress_contract", "malformed_structure_oracles"]
+spec_gap_refs = []
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+
+[input]
+name = "source"
+type = "Structured Text source"
+declared = "IEC selection, iteration, POU, or expression syntax"
 
 [spec]
-status = "missing"
-source_refs = ["SPEC_IEC_DEVIATIONS_001"]
+status = "specified"
+source_refs = ["SPEC_IEC_DECISIONS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_IEC_PARSER_RECOVERY_001"
+ref = "SPEC_IEC_DECISIONS_001"
+
+[[behavior]]
+partition = { equals = "MISSING_REQUIRED_CONTROL_TOKEN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Missing CASE, ELSIF, FOR, WHILE, and REPEAT separators make the parse unsuccessful rather than accepting a partial construct."
+
+[[behavior]]
+partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The inner construct diagnoses its missing terminator without consuming the outer terminator or following statement."
+
+[[behavior]]
+partition = { equals = "MISSING_POU_TERMINATOR_AT_EOF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "End-of-file before the owning POU terminator produces a visible parse failure."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_TOKEN" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unknown tokens diagnose and recovery advances or stops at a synchronization boundary."
+
+[[behavior]]
+partition = { equals = "UNCLOSED_EXPRESSION_DELIMITER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unclosed call delimiter fails visibly at a bounded expression or statement boundary."
+
+[[behavior]]
+partition = { equals = "EXCESSIVE_EXPRESSION_NESTING" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Deep unary and parenthesized expressions stop at the parser nesting limit with a diagnostic instead of recursing without bound."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Recovery progress and diagnostic boundaries must be specified before malformed-source outcomes are accepted."
-spec_gap_ref = "SPEC_GAP_IEC_PARSER_RECOVERY_001"
+state = "gap_open"
+rationale = "Mapped delimiter, terminator, unknown-token, and bounded-expression tests cover the written recovery contract; producer-authentic proof and a causal broad gate remain open."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Unknown-token recovery is mapped and visibly failing; producer-authentic proof and a causal broad gate remain open."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Mapped deep-expression tests cover the parser nesting limit; producer-authentic proof and a causal broad gate remain open."

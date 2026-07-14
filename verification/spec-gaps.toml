@@ -263,11 +263,20 @@ status = "spec_gap"
 gap_class = "missing_error_model"
 blocking_question = "Which malformed delimiters and nesting states must recovery consume, diagnose, and stop without accepting a partial construct?"
 affected_invariants = ["IEC_PARSE_RECOVER_001"]
-affected_tests = []
-candidate_spec_sources = ["SPEC_IEC_DEVIATIONS_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+affected_tests = [
+  "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
+  "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
+  "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
+  "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
+  "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
+  "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
+  "TEST_IEC_PARSER_UNCLOSED_CALL_001",
+]
+candidate_spec_sources = ["SPEC_IEC_DECISIONS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_IEC_DECISIONS_001"
+closeout_evidence = ["EVID_IEC_PARSER_RECOVERY_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

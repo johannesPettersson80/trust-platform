@@ -6,6 +6,33 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-14 - Malformed Structured Text parser recovery policy
+
+- Area: Structured Text control-flow and expression parsing
+- IEC context: IEC 61131-3 Ed.3 section 7.3.3.3 and Table 72 define the
+  required `THEN`, `OF`, label colon, `:=`, `TO`, `DO`, and terminator tokens
+  for selection and iteration statements; sections 7.3.3.4.2 through
+  7.3.3.4.4 define the `FOR`, `WHILE`, and `REPEAT` forms. The standard defines
+  valid syntax but does not prescribe an editor-oriented partial-tree recovery
+  algorithm for malformed source.
+- Decision:
+  - Missing required control-flow tokens always produce a parse diagnostic and
+    make the parse result unsuccessful. A retained partial syntax tree is for
+    tooling recovery only and cannot make the malformed construct valid.
+  - Recovery must advance over an offending token or stop at a known statement,
+    block, POU, or end-of-file synchronization boundary; it must not retry the
+    same token indefinitely.
+  - A missing inner terminator stops before an outer terminator, reports the
+    inner error, and leaves the outer boundary available to its owning
+    construct. Statements following that outer construct remain parseable.
+  - Missing POU and expression delimiters diagnose at the nearest bounded
+    boundary. Expression nesting and recovery scans remain explicitly bounded.
+- Reason:
+  - Silent acceptance can turn malformed control flow into a different valid
+    program, which is unsafe for both compilation and editor diagnostics.
+  - Preserving a partial tree is useful to IDE features only when the parse
+    remains visibly failed and recovery does not consume unrelated constructs.
+
 ## 2026-07-12 - Standard timer scan-step and lifecycle policy
 
 - Area: TP, TON, TOF, and their LTIME variants
