@@ -664,6 +664,50 @@ activating the configuration. It does not normalize, clamp, or substitute a
 threshold. This contract does not govern programmatic coupling-rule
 construction or source-value admission. (DEV-041)
 
+##### 6.9.4 Runtime control authorization
+
+Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
+admin`; a higher role includes lower-role permissions. Authorization is checked
+before dispatch, so a denied request must not change runtime, debug, I/O, HMI,
+configuration, pairing, or connector state. (DEV-050)
+
+Authentication and transport defaults are:
+
+- A configured control token identifies the Admin role. A valid pairing token
+  identifies its stored role. Missing and invalid tokens fail before role
+  authorization whenever control authentication is required.
+- An untrusted network client without configured authentication receives only
+  Viewer authority. A local Unix control socket with no configured token may
+  use Admin authority because the socket is local and created with mode 0600.
+- An unsupported request type performs no handler action. A request type that
+  is not explicitly classified by the role policy uses an Admin fail-safe until
+  it is reviewed; it must never inherit Viewer authority by default.
+
+The explicit operation matrix is:
+
+| Minimum role | Operations |
+|---|---|
+| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
+| Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
+| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
+| Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
+
+Parameter-sensitive operations retain these boundaries:
+
+- ADS doctor and symbol import/browse are Viewer-only for cached/offline reads
+  and Engineer for live-device or write-enabled work.
+- `config.set` requires Admin if any request key is `control.auth_token`,
+  `control.mode`, `control.debug_enabled`, `web.auth`, `mesh.auth_token`,
+  `mesh.role`, `mesh.zenohd_version`, `mesh.plugin_versions`,
+  `runtime_cloud.profile`, `runtime_cloud.wan.allow_write`, or
+  `runtime_cloud.links.transports`. Other currently supported configuration
+  keys require Engineer.
+- Debug variable and I/O write, force, and release operations require Engineer
+  for every address class. Viewer and Operator requests are denied before any
+  queued write or force state changes. Enabling the debug surface itself
+  requires Admin; an Engineer may use an already enabled surface but cannot
+  enable it.
+
 #### 6.10 Configuration and Resources
 
 IEC configurations may declare multiple resources. Each resource is scheduled independently in its own OS thread. (IEC 61131-3 Ed.3, §6.8.1; Table 62)

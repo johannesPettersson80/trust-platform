@@ -107,6 +107,15 @@ Attach arguments (adapter-specific):
 Attach requires `runtime.control.debug_enabled=true`. If disabled, the adapter must report an
 error and remain disconnected.
 
+The runtime control role matrix in
+`docs/specs/11-runtime-engine.md#runtime-control-authorization` governs attach
+operations. Debug reads require Viewer; pause/resume require Operator; step,
+breakpoint mutation, evaluation, write, force, and release require Engineer.
+Viewer and Operator mutation attempts must fail before queued writes or force
+state changes. Only Admin may enable the debug surface or change control mode;
+Engineer authority permits use of an already enabled surface, not activation of
+that surface. (DEV-050)
+
 Current attach limitation: arbitrary `setVariable` / `setExpression` variable writes are not
 supported in attach mode. Live Values I/O operations are the supported write path while attached:
 `stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control endpoint and must surface

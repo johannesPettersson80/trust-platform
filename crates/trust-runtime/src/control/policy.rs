@@ -290,4 +290,19 @@ mod tests {
             AccessRole::Viewer
         );
     }
+
+    #[test]
+    fn security_sensitive_debug_activation_and_unclassified_requests_fail_safe() {
+        assert_eq!(
+            required_role_for_control_request(
+                "config.set",
+                Some(&json!({ "control.debug_enabled": true }))
+            ),
+            AccessRole::Admin
+        );
+        assert_eq!(
+            required_role_for_control_request("future.unclassified.operation", None),
+            AccessRole::Admin
+        );
+    }
 }
