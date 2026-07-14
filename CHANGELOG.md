@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.39`
+Target release: `v0.24.40`
 
 ### Fixed
 
+- trust-runtime: online change now reads and validates the retained snapshot
+  before replacing the live executable or resetting runtime state, preventing a
+  retain-store failure from leaving a partially applied reload.
 - trust-runtime: safe-state application now requires confirmed healthy driver
   handoff, reports queued/reconnecting worker delivery as unconfirmed, attempts
   every configured driver, and prevents a deliberate stop from reporting
@@ -23,6 +26,10 @@ Target release: `v0.24.39`
 
 ### Added
 
+- trust-runtime: added focused automatic-restart storage coverage and cataloged
+  the existing runtime panic-containment and bounded Modbus slow-device tests;
+  broader restart, latency, and reload-migration cases remain explicit
+  verification debt.
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing
