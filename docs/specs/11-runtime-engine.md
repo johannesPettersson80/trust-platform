@@ -468,6 +468,17 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
   no physical output write; it must not re-send the pending process-image output as a
   substitute safe state.
 
+**Automatic restart policy:**
+- A non-panic cycle fault configured with `FaultPolicy::Restart`, or a watchdog
+  timeout configured with restart action, enters the same warm-restart storage
+  transition defined in section 6.7: `RETAIN` values are preserved while
+  `NON_RETAIN` and ordinary initialized storage are reinitialized.
+- A contained `ResourcePanic` is never automatically restarted. It remains a
+  visible fault so an unexpected unwind cannot be hidden by retry.
+- Automatic restart attempts are bounded to three consecutive attempts for the
+  same unresolved fault. Exhaustion leaves the resource faulted with a
+  diagnosable restart-limit error.
+
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
 Retentive variables must follow IEC 61131-3 retentive variable rules (§6.5.6, Figure 9). At

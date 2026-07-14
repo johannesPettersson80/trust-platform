@@ -12,6 +12,28 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-14 - Automatic runtime fault restart uses warm storage semantics
+
+- ID: DEV-048
+- Area: Runtime fault recovery and retain lifecycle
+- IEC reference: IEC 61131-3 Ed.3 section 6.5.6 defines retentive-variable
+  storage, but it does not define truST's host `FaultPolicy`, watchdog retry
+  action, or automatic recovery loop.
+- Deviation/extension:
+  - A non-panic cycle fault or watchdog timeout configured for automatic
+    restart uses the runtime's warm-restart transition.
+  - `RETAIN` values are preserved; `NON_RETAIN` and ordinary initialized
+    storage are reinitialized.
+  - A contained resource panic is not retried automatically, and automatic
+    non-panic retries are limited to three consecutive attempts.
+- Impact:
+  - Recovery preserves declared retained process state, but ordinary working
+    state is reinitialized before execution resumes.
+- Mitigation:
+  - Declare state `RETAIN` only when it must survive automatic recovery, and
+    treat restart-limit exhaustion or a resource panic as an operator-visible
+    fault requiring intervention.
+
 ## 2026-07-14 - Bound debug writes and forces to a runtime lifecycle
 
 - ID: DEV-047
