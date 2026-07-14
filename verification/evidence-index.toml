@@ -1914,3 +1914,48 @@ remote_source_clean_after = true
 disk_preflight_passed = true
 home_available_kib = 104153280
 tmp_available_kib = 3408896
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714"
+title = "Runtime non-finite ingress specification gap closeout"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/runtime-nonfinite-ingress-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_test_catalog_staleness.py && python3 -m unittest scripts.verification.spec_gap_closure_tests scripts.verification.metadata_validator.promotion_evidence_tests scripts.verification.invariant_seed_audit_tests"
+commit = "e62457f0a3c0ba8fd0f941fe237f8458c1cdfe6c"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex runtime non-finite ingress closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_NAN_001"]
+linked_tests = [
+  "TEST_RUNTIME_TYPED_REAL_OUTPUT_NONFINITE_001",
+  "TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001",
+  "TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001",
+  "TEST_DEBUG_MANAGED_REAL_NONFINITE_001",
+  "TEST_DEBUG_MANAGED_LREAL_NONFINITE_001",
+  "TEST_RUNTIME_SIMULATION_THRESHOLD_NONFINITE_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001",
+  "TEST_RUNTIME_TYPED_INPUT_NONFINITE_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_WIRE_DECODE_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_PROCESS_IMAGE_READ_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_TEXT_DECODE_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001",
+  "TEST_RUNTIME_HMI_NONFINITE_WRITE_001",
+  "TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001",
+  "TEST_RUNTIME_MESH_NONFINITE_INGRESS_001",
+  "TEST_RUNTIME_RETAIN_NONFINITE_SAVE_001",
+  "TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001",
+]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
+last_reviewed = "2026-07-14"

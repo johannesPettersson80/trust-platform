@@ -43,13 +43,13 @@ risk = "safety_critical"
 owner = "trust-runtime"
 status = "planned"
 last_reviewed = "2026-07-14"
-description = "The external review identified unsafe ambiguity around NaN and infinity at I/O, protocol, API, and retained-value boundaries; the product contract is now written, while complete execution evidence and one MQTT transaction proof remain outstanding."
-mitigation = "Bind each typed boundary to the written oracle, prove the MQTT rejected-batch recovery defect red and green, run the complete mapped set remotely, and only then close the focused gap."
+description = "The external review identified unsafe ambiguity around NaN and infinity at I/O, protocol, API, and retained-value boundaries; the focused product contract is now written and the mapped boundary set has targeted and broad execution evidence."
+mitigation = "The MQTT rejected-batch recovery defect has paired red/green proof, all 22 named boundary tests are mapped to the written oracle, and the focused specification gap is closed; retain the exhaustive boundary-value matrix as explicit invariant debt."
 source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
 related_invariants = ["RT_SAFE_NAN_001"]
-related_spec_gaps = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
+related_spec_gaps = []
 related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-evidence_refs = []
+evidence_refs = ["EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714"]
 
 [[risks]]
 schema_version = 1

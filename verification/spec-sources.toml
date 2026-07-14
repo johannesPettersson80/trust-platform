@@ -48,7 +48,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
-last_reviewed = "2026-07-13"
+last_reviewed = "2026-07-14"
 covers = [
   "scan_cycle_architecture",
   "clock_abstraction",
@@ -68,7 +68,7 @@ covers = [
 ]
 known_limitations = [
   "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",
-  "Non-finite handling is specified here for OPC UA client scalar input, ADS REAL/LREAL client/server input, runtime mesh numeric input, file-backed retained values, managed-local debug writes/forces, simulation.toml coupling thresholds, and typed process-image REAL/LREAL egress; attach-mode debug and other protocol, API, in-memory, and egress boundaries remain open under SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001.",
+  "The non-finite admission contract and 22 mapped tests cover the named shipped boundaries; exhaustive value-width, subnormal, signed-zero, aggregate-shape, attach-mode, and future-boundary depth remains explicit in RT_SAFE_NAN_001 rather than being claimed complete.",
 ]
 conflicts_with = []
 

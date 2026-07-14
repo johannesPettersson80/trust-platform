@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Typed external floating-point boundaries reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
-proof_level = "G1"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
 tests = ["TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001"]
@@ -15,9 +15,11 @@ gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_RED",
   "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_GREEN",
+  "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
 ]
 spec_gap_refs = []
-missing = ["boundary_value_matrix_depth", "broad_remote_proof"]
+missing = ["boundary_value_matrix_depth"]
 
 [spec]
 status = "specified"
@@ -39,7 +41,7 @@ rationale = "After one accepted mapped MQTT snapshot, a batch containing an earl
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "gap_open"
-rationale = "The written policy covers typed non-finite rejection, but every named boundary still requires explicit mapped execution evidence before this dimension can close."
+rationale = "The written policy and 22 mapped tests cover the named shipped boundaries, but an exhaustive value-width, subnormal, signed-zero, aggregate-shape, and future-boundary matrix has not been established."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
