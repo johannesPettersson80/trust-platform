@@ -3,29 +3,37 @@ id = "RT_SAFE_RETAIN_001"
 title = "Retain persistence failures are visible and fail closed"
 area = "runtime_safety"
 risk = "data_loss"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
-claim = "Retain load and save failures must not be silently treated as successful persistence."
+last_reviewed = "2026-07-14"
+claim = "Retain load and save failures are visible, and a loaded snapshot with any incompatible entry changes no retained global."
 proof_level = "S0"
-contract_kind = "fault_scenario"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"]
-missing = ["retain_failure_policy", "persistence_fault_cases"]
+spec_gap_refs = []
+missing = ["targeted_red_green_proof", "broad_remote_gate"]
 
 [spec]
-status = "ambiguous"
+status = "specified"
 source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "RETAIN_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The runtime validates every retained entry before committing any value, so a later incompatible entry rejects the snapshot without exposing an earlier compatible entry."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "spec_gap"
-rationale = "Retain failure handling must be specified before persistence-fault outcomes are accepted."
-spec_gap_ref = "SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"
+state = "gap_open"
+rationale = "The transaction policy and focused trace are written, but producer-authentic red/green and broad remote evidence remain pending."
