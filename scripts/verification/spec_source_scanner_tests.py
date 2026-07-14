@@ -100,6 +100,20 @@ class SpecSourceScannerTests(unittest.TestCase):
         self.assertEqual(topic.reviewed_posture, "source_present")
         self.assertEqual(topic.open_spec_gap_ids, ())
 
+    def test_source_transformations_topic_uses_the_closed_gap_source_posture(self) -> None:
+        topic = next(
+            item
+            for item in OBVIOUS_SPEC_TOPICS
+            if item.topic_id == "P1A004_SOURCE_TRANSFORMATIONS"
+        )
+
+        self.assertEqual(topic.reviewed_posture, "source_present")
+        self.assertEqual(
+            topic.eligible_source_ids,
+            ("SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"),
+        )
+        self.assertEqual(topic.open_spec_gap_ids, ())
+
     def test_discovery_uses_only_tracked_reviewed_text_surfaces(self) -> None:
         with tracked_repository(
             {
