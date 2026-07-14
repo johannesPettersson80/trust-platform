@@ -170,6 +170,7 @@ impl Runtime {
         self.output_commit_deadline_pause_baseline = self.debug_watchdog_pause_elapsed();
     }
 
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn output_commit_deadline(&self) -> Option<std::time::Instant> {
         self.output_commit_deadline
