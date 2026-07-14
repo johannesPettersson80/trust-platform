@@ -2818,3 +2818,25 @@ linked_tests = [
 ]
 linked_spec_gaps = ["SPEC_GAP_IEC_PARSER_RECOVERY_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_DUPLICATE_SECTION_REJECTION_20260714"
+title = "Bytecode duplicate standardized-section product fix"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/bytecode-duplicate-section-rejection.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-count-502fff48\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_encoder --test bytecode_metadata --test bytecode_roundtrip --test bytecode_sections --test bytecode_validation'"
+commit = "5fb897f7e36538c22cb1de97e231f613af9c6870"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex bytecode duplicate-section product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_VALID_001"]
+linked_tests = ["TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001"]
+linked_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+last_reviewed = "2026-07-14"

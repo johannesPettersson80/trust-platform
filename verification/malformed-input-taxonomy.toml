@@ -53,7 +53,7 @@ id = "duplicate_section"
 title = "Duplicate bytecode section"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
-rationale = "Duplicate-section handling is not fully specified."
+rationale = "Duplicate standardized-section rejection is specified and mapped; the broader validator semantic contract remains open."
 
 [[classes]]
 id = "instructions_resource_limit"

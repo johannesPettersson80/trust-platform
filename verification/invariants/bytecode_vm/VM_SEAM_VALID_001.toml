@@ -5,12 +5,16 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "spec_gap"
 owner = "trust-runtime"
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-14"
 claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-runtime/src/bytecode/validate"]
+source_refs = [
+  "crates/trust-runtime/src/bytecode/decode",
+  "crates/trust-runtime/src/bytecode/validate",
+]
 tests = [
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
   "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
   "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
 ]
@@ -36,6 +40,15 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 kind = "trust_contract"
 ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 
+[[behavior]]
+partition = { equals = "DUPLICATE_STANDARDIZED_SECTION_ID" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A second occurrence of any standardized section ID from 0x0001 through 0x000C invalidates the container before first-section selection can create order-dependent semantics."
+
 [[coverage.cells]]
 dimension = "missing_required"
 state = "spec_gap"
@@ -51,5 +64,5 @@ spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 [[coverage.cells]]
 dimension = "extra_or_unknown"
 state = "spec_gap"
-rationale = "Stable error code surface is not written yet."
+rationale = "Mapped tests cover duplicate standardized section IDs; stable typed error semantics and the remaining unknown-section contract stay open."
 spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"

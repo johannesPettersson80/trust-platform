@@ -836,7 +836,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:2fc357301eeca9bdabfd6d56eacafd6c6a7643cac1e67628e75968f21848046e"
+case_file_digest = "sha256:ee0294706ed35d91e3aa0c90e9bd564010ad05332c0861eea1397f5d5577a2ab"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -867,6 +867,32 @@ last_reviewed = "2026-07-10"
 
 [[tests]]
 schema_version = 2
+id = "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1F2DC8CB9F07388EBECB"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "duplicate_standard_section_ids_are_rejected"
+malformed_input_class_ids = ["duplicate_section"]
+command = "cargo test -p trust-runtime --test bytecode_container duplicate_standard_section_ids_are_rejected -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+expected_result = "Decoding rejects a container containing any duplicate standardized section ID before a section can be selected for validation or execution."
+expected_failure_mode = "A duplicate standardized section is accepted, or first-section selection makes the container meaning depend on section order."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001.json"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 subject_kind = "mutation_shard_runner"
 test_class = "mutation"
@@ -885,7 +911,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:2fc357301eeca9bdabfd6d56eacafd6c6a7643cac1e67628e75968f21848046e"
+case_file_digest = "sha256:ee0294706ed35d91e3aa0c90e9bd564010ad05332c0861eea1397f5d5577a2ab"
 mutation_shard_id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
 mutation_runner = "bytecode-validator-mutation.py v1"
 mutation_tool = "cargo-mutants-single-file-adapter"

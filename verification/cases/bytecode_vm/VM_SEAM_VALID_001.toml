@@ -7,7 +7,7 @@ status = "planned"
 invariant = "VM_SEAM_VALID_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:2642475a595a42eb9e0d2ccab4658780f5602ac92d5f8f1891328e0ef8023032"
-source_digest = "sha256:ce66836e838d0a2d07ab0a823eda4c0aad56a57ff81e43c913f3650e3c66f71c"
+source_digest = "sha256:2ff6230c9c416e67d5af830fe7a38b8ff0b1a3ac316ae9dbfe244c0af659ab1d"
 last_reviewed = "2026-07-09"
 
 [[case]]

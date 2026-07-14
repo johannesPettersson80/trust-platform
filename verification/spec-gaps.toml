@@ -15,11 +15,14 @@ affected_invariants = [
   "VM_SEAM_REF_001",
   "VM_SEAM_OWNER_001",
 ]
-affected_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
+affected_tests = [
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+]
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
 resolution_status = "open"
 closeout_evidence = []
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1
