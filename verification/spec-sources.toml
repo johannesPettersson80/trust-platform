@@ -59,6 +59,7 @@ covers = [
   "retain_restart",
   "retain_failure_transactions",
   "debug_mutation_lifecycle",
+  "online_change_transaction",
   "hmi_write_authz",
   "opcua_nonfinite_ingress",
   "ads_nonfinite_ingress",
@@ -158,6 +159,7 @@ covers = [
   "reload_stop_precedence",
   "managed_debug_floating_point_ingress",
   "debug_mutation_lifecycle",
+  "online_change_transaction",
 ]
 known_limitations = [
   "The debug mutation lifecycle is specified, but disconnect, pause, fault, and authorization-change case depth remains unproven; managed-local floating-point admission does not establish attach-mode runtime-control admission.",

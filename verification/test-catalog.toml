@@ -1459,6 +1459,32 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_RELOAD_TRANSACTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_45B9440A281BFB62649B"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/reload_transaction_trace_cases.rs"
+name = "reload_transaction_trace_cases"
+command = "cargo test -p trust-runtime --test reload_transaction_trace_cases reload_transaction_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+expected_result = "A retain-store load failure rejects online change before replacing the live bytecode, scan counter, PLC storage, or active debug mutation state."
+expected_failure_mode = "The runtime reports reload failure only after installing the new executable or resetting live state, or the runner fails to emit the same-run case artifact."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RELOAD_TRANSACTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/runtime_safety/RT_RELOAD_001.toml"
+case_file_digest = "sha256:7e846d3f59b85137fcff4c51646284027ada7264d88e2538d62d21c541a45e01"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_D5C4C1D59854BC4EA981"

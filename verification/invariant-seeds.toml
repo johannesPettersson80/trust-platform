@@ -75,7 +75,7 @@ canonical_invariant_id = "RT_RELOAD_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 p4_000_risk_id = "RISK_RUNTIME_RELOAD_TRANSACTION_001"
 
 [[seeds]]
