@@ -254,11 +254,11 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_RETAIN_ON_WARM_FALSE",
                 "crates/trust-runtime/src/runtime/restart.rs",
-                "sha256:bf9831e1573315f04276e13e5ccb6a147db9faf77cf5cd49639735357756759e",
+                "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808",
                 "retain_on_warm",
                 "FnValue",
                 "false",
-                "restart.rs:683:5: replace retain_on_warm -> bool with false",
+                "restart.rs:686:5: replace retain_on_warm -> bool with false",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart",

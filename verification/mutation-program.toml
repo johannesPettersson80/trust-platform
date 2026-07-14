@@ -199,11 +199,11 @@ owner = "trust-runtime"
 [[shards.mutations]]
 id = "MUTANT_RETAIN_ON_WARM_FALSE"
 source_file = "crates/trust-runtime/src/runtime/restart.rs"
-source_digest = "sha256:bf9831e1573315f04276e13e5ccb6a147db9faf77cf5cd49639735357756759e"
+source_digest = "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808"
 function = "retain_on_warm"
 genre = "FnValue"
 replacement = "false"
-selector_name = "restart.rs:683:5: replace retain_on_warm -> bool with false"
+selector_name = "restart.rs:686:5: replace retain_on_warm -> bool with false"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "warm_restart_preserves_retain_and_initializes_nonretain", "--", "--exact"]
 association_ids = ["DISC_83FE96819CB25F21CA77"]
