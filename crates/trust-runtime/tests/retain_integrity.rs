@@ -392,6 +392,45 @@ END_PROGRAM
 }
 
 #[test]
+fn retain_snapshot_migration_failure_does_not_partially_apply_earlier_values() {
+    let source = r#"
+VAR_GLOBAL RETAIN
+    accepted_first : DINT := DINT#1;
+    rejected_later : INT(0..10) := INT#2;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    harness.set_input("accepted_first", Value::DInt(70));
+    harness.set_input("rejected_later", Value::Int(7));
+
+    let mut snapshot = RetainSnapshot::default();
+    snapshot.insert("accepted_first", Value::DInt(111));
+    snapshot.insert("rejected_later", Value::Int(100));
+
+    let err = harness
+        .runtime_mut()
+        .apply_retain_snapshot(&snapshot)
+        .expect_err("one invalid retained value must reject the complete snapshot");
+    assert!(
+        err.to_string().contains("outside declared subrange 0..10"),
+        "expected subrange retain rejection, got {err}"
+    );
+    assert_eq!(
+        harness.get_output("accepted_first"),
+        Some(Value::DInt(70)),
+        "a value validated before the failing entry must not leak from the rejected snapshot"
+    );
+    assert_eq!(
+        harness.get_output("rejected_later"),
+        Some(Value::Int(7)),
+        "the invalid retained target must preserve its pre-load value"
+    );
+}
+
+#[test]
 fn retain_struct_added_field_uses_declared_default_with_migration_event() {
     let source = r#"
 TYPE HolderT : STRUCT
