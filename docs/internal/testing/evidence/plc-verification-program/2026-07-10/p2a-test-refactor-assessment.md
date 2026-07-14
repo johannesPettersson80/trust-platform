@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
-Generated: `2026-07-14T23:07:00+02:00`
+Source revision: `27694b329a62206b51cb8392378d6eb9ee0fd8e2`
+Generated: `2026-07-14T23:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `f2ff86c6359ee7986d23b731d6687850e114a2078e45de6eedf8bda25d230aeb`
-Input SHA-256: `sha256:3f99f3f522dd637cb97bc851fbbbba490d90cf8728193accd359a32fdf468e88`
+Generated JSON SHA-256: `5c133dc8e9f6b9d7b295b0dc1580b768e6e52b9a0c0db67ae086438c793af8e1`
+Input SHA-256: `sha256:135e3b8ae90cbd746372c6155650b2d516e53263e23924528daa36a3eb12c423`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
