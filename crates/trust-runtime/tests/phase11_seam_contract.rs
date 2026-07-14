@@ -1058,7 +1058,6 @@ fn validator_rejects_legacy_call_opcode_even_when_target_exists() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-010"]
 fn unsupported_array_initializer_assignment_fails_build_instead_of_nop() {
     let source = r#"
 PROGRAM Main
@@ -1083,6 +1082,46 @@ END_PROGRAM
             let cycle = harness.cycle();
             panic!(
                 "expected unsupported array-initializer assignment to fail build instead of \
+                 lowering to NOP; cycle_errors={:?}; target={:?}",
+                cycle.errors,
+                harness.get_output("target")
+            );
+        }
+    }
+}
+
+#[test]
+fn unsupported_struct_initializer_assignment_fails_build_instead_of_nop() {
+    let source = r#"
+TYPE
+    Pair : STRUCT
+        left : DINT;
+        right : DINT;
+    END_STRUCT;
+END_TYPE
+
+PROGRAM Main
+VAR
+    target : Pair;
+END_VAR
+target := (left := DINT#1, right := DINT#2);
+END_PROGRAM
+"#;
+
+    match TestHarness::from_source(source) {
+        Err(_) => {}
+        Ok(mut harness) => {
+            harness
+                .runtime_mut()
+                .set_execution_backend(ExecutionBackend::BytecodeVm)
+                .expect("select bytecode VM backend");
+            harness
+                .runtime_mut()
+                .restart(trust_runtime::RestartMode::Cold)
+                .expect("restart runtime");
+            let cycle = harness.cycle();
+            panic!(
+                "expected unsupported structure-initializer assignment to fail build instead of \
                  lowering to NOP; cycle_errors={:?}; target={:?}",
                 cycle.errors,
                 harness.get_output("target")
