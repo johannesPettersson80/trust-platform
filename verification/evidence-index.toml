@@ -2046,3 +2046,39 @@ linked_invariants = ["RT_SAFE_RETAIN_001"]
 linked_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
 linked_spec_gaps = ["SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260714_9913AD73A11F"
+title = "Reviewed PR broad gate for RT_SAFE_RETAIN_001"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "dbfa07ff370cfc366ea86f6b8d0dda8aef2a8d81"
+remote_commit = "dbfa07ff370cfc366ea86f6b8d0dda8aef2a8d81"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_SAFE_RETAIN_001"]
+linked_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-14"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:788d59bbaa5b983a3a2195085ed1d13fbd6d73a925d1bcf669d9cc739d3d089a", case_file_digest = "sha256:9739265a8c6c8b5a6eeb787dca2acdffc7235dc8bd25f0b317519d2aed6e84da", command = "cargo test -p trust-runtime --test retain_failure_trace_cases retain_failure_trace_cases -- --exact", discovery_id = "DISC_12A4F21EF84C13A91D28", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE:passed"], run_id = "e1e0bb0efc4b4f7ea5e4072f1de08cb2", test_id = "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001" }]
+gate_started_at = "2026-07-14T07:36:22Z"
+gate_finished_at = "2026-07-14T07:48:41Z"
+gate_duration_milliseconds = 739325
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 65493148
+tmp_available_kib = 3404544
