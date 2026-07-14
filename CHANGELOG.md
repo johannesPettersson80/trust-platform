@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.37`
+Target release: `v0.24.38`
 
 ### Fixed
 
+- trust-runtime: retained snapshots are now fully validated before any restored
+  global is changed, preventing a later incompatible value from leaving earlier
+  values partially applied after a failed warm load.
 - trust-runtime: MQTT typed input-point batches now commit their mapped
   process-image snapshot only after every payload validates, preventing values
   from a rejected non-finite batch from leaking into a later successful scan.

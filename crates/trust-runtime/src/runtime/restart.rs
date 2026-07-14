@@ -172,14 +172,14 @@ impl Runtime {
         &mut self,
         snapshot: &RetainSnapshot,
     ) -> Result<(), error::RuntimeError> {
+        let mut staged_values = Vec::new();
+        let mut staged_events = Vec::new();
         for (name, value) in snapshot.values() {
             let Some(meta) = self.globals.get(name) else {
-                if let Some(debug) = &self.debug {
-                    debug.push_runtime_event(crate::debug::RuntimeEvent::RetainOrphanDropped {
-                        name: name.clone(),
-                        time: self.current_time,
-                    });
-                }
+                staged_events.push(crate::debug::RuntimeEvent::RetainOrphanDropped {
+                    name: name.clone(),
+                    time: self.current_time,
+                });
                 continue;
             };
             let retain = meta.retain;
@@ -201,17 +201,21 @@ impl Runtime {
                     )
                 })?;
                 if &migrated != value {
-                    if let Some(debug) = &self.debug {
-                        debug.push_runtime_event(
-                            crate::debug::RuntimeEvent::RetainMigrationApplied {
-                                name: name.clone(),
-                                detail: retain_migration_detail(value, &migrated),
-                                time: self.current_time,
-                            },
-                        );
-                    }
+                    staged_events.push(crate::debug::RuntimeEvent::RetainMigrationApplied {
+                        name: name.clone(),
+                        detail: retain_migration_detail(value, &migrated),
+                        time: self.current_time,
+                    });
                 }
-                self.storage.set_global(name.clone(), migrated);
+                staged_values.push((name.clone(), migrated));
+            }
+        }
+        for (name, value) in staged_values {
+            self.storage.set_global(name, value);
+        }
+        if let Some(debug) = &self.debug {
+            for event in staged_events {
+                debug.push_runtime_event(event);
             }
         }
         Ok(())
