@@ -64,9 +64,10 @@ impl RunConfig {
 }
 
 fn default_artifact_dir() -> PathBuf {
-    std::env::var_os("TRUST_VERIFY_ARTIFACT_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| workspace_root().join("target/gate-artifacts/cases"))
+    std::env::var_os("TRUST_VERIFY_ARTIFACT_DIR").map_or_else(
+        || workspace_root().join("target/gate-artifacts/cases"),
+        PathBuf::from,
+    )
 }
 
 fn workspace_root() -> PathBuf {
