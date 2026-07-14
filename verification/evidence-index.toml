@@ -1878,3 +1878,39 @@ case_file_digest = "sha256:a06f2d179fa2642c8bba87a339279c2c6a253920cb7a1cb2da36b
 paired_red_evidence = "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_RED"
 formerly_red_case_ids = ["RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION"]
 per_case_summary = ["RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40"
+title = "Reviewed PR broad gate for RT_SAFE_NAN_001"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "30aee660278f9b364bcdf9535ef9a19556b8aa1c"
+remote_commit = "30aee660278f9b364bcdf9535ef9a19556b8aa1c"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_SAFE_NAN_001"]
+linked_tests = ["TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-14"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:bba130dbfa5e98761a25a576b7413941830007f778ddb773ec38c5ec3c1aafc1", case_file_digest = "sha256:a06f2d179fa2642c8bba87a339279c2c6a253920cb7a1cb2da36b77b019ae07d", command = "cargo test -p trust-runtime --lib io::mqtt::tests::nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery -- --exact", discovery_id = "DISC_5CA02219B3E4D1B01B31", discovery_source_kind = "rust_unit_test", exit_status = 0, per_case_summary = ["RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION:passed"], run_id = "778eeaf1fa9c44758846d6ab129db4f3", test_id = "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001" }]
+gate_started_at = "2026-07-14T00:18:06Z"
+gate_finished_at = "2026-07-14T00:31:30Z"
+gate_duration_milliseconds = 804156
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 104153280
+tmp_available_kib = 3408896
