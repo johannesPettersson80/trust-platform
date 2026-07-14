@@ -119,6 +119,16 @@ fn malformed_control_flow_delimiters_are_diagnosed() {
             "expected ':' after CASE label",
         ),
         (
+            "ELSIF without THEN",
+            "IF x = 0 THEN\nx := 1;\nELSIF x = 1\nx := 2;\nEND_IF",
+            "expected THEN",
+        ),
+        (
+            "FOR without control variable",
+            "FOR := 0 TO 2 DO\nx := x + 1;\nEND_FOR",
+            "expected FOR control variable",
+        ),
+        (
             "FOR without assignment",
             "FOR i TO 2 DO\nx := x + 1;\nEND_FOR",
             "expected ':=' after FOR control variable",
@@ -145,21 +155,25 @@ fn malformed_control_flow_delimiters_are_diagnosed() {
         ),
     ];
 
+    let mut failures = Vec::new();
     for (label, body, expected) in cases {
         let source = format!("PROGRAM Test\nVAR x, i : INT; END_VAR\n{body}\nEND_PROGRAM");
         let parsed = parse(&source);
-        assert!(
-            !parsed.ok(),
-            "{label} must not be accepted as a valid partial construct:\n{}",
-            parsed.syntax()
-        );
-        assert!(
-            parsed
-                .errors()
-                .iter()
-                .any(|error| error.message.contains(expected)),
-            "{label} must report {expected:?}, got {:?}",
-            parsed.errors()
-        );
+        if parsed.ok() {
+            failures.push(format!(
+                "{label} was accepted as a valid partial construct:\n{}",
+                parsed.syntax()
+            ));
+        } else if !parsed
+            .errors()
+            .iter()
+            .any(|error| error.message.contains(expected))
+        {
+            failures.push(format!(
+                "{label} did not report {expected:?}; got {:?}",
+                parsed.errors()
+            ));
+        }
     }
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
