@@ -2437,3 +2437,36 @@ remote_source_clean_after = true
 disk_preflight_passed = true
 home_available_kib = 89522184
 tmp_available_kib = 7270792
+
+[[evidence]]
+schema_version = 1
+id = "EVID_PRODUCT_FIRST_BATCH_A_EXECUTION_VALIDATION_20260714"
+title = "Product-first Batch A execution validation"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/product-first-batch-a-execution-validation.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-batch-a-final-validation\" && python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && git diff --check'"
+commit = "412807d64592340e1134fd926a941b21299f850d"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex product-first Batch A closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_RELOAD_001", "RT_SAFE_IO_001", "RT_SAFE_PANIC_001", "RT_SAFE_RESTART_001"]
+linked_tests = [
+  "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001",
+  "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
+  "TEST_RUNTIME_PANIC_CYCLE_GUARD_001",
+  "TEST_RUNTIME_PANIC_IO_DRIVER_001",
+  "TEST_RUNTIME_PANIC_SAFE_OUTPUT_001",
+  "TEST_RUNTIME_PANIC_THREAD_GUARD_001",
+  "TEST_RUNTIME_RELOAD_TRANSACTION_001",
+  "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
+  "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
+  "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
+]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"]
+last_reviewed = "2026-07-14"
