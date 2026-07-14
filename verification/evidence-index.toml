@@ -2434,6 +2434,36 @@ last_reviewed = "2026-07-14"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_FORCE_LIFECYCLE_BATCH_VALIDATION_20260714"
+title = "Force lifecycle batch validation"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/force-lifecycle-batch-validation.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "cb1ece912a4274a7e436f2b92a046cb8882dd9ca"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex force lifecycle batch validation"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_FORCE_001"]
+linked_tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47"
 title = "Reviewed PR broad gate for RT_RELOAD_001"
 area = "runtime_safety"
