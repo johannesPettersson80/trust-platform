@@ -1959,3 +1959,35 @@ linked_tests = [
 ]
 linked_spec_gaps = ["SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001_RED"
+title = "Red proof for TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "cargo test -p trust-runtime --test retain_failure_trace_cases retain_failure_trace_cases -- --exact"
+commit = "ec1d23b7be9c36e46599ea1154e2568e7d9a65cc"
+platform = "Linux-7.0.0-15-generic-x86_64-with-glibc2.43"
+date = "2026-07-14"
+suite_id = "pr"
+producer = "prove.py v1"
+generated_report_version = "prove-red-v1"
+linked_invariants = ["RT_SAFE_RETAIN_001"]
+linked_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+last_reviewed = "2026-07-14"
+proof_kind = "red"
+proof_scope = "targeted"
+failure_kind = "assertion_failure"
+trust_verify_run_id = "d13a55201c7c46169f1f8354d9023bbe"
+command_exit_status = 101
+proof_contract_digest = "sha256:a1779daf233350618db263b59eb6e1f08825b731782680bec8bacf18f0ee21b3"
+proof_contract_version = "execution_contract_v2"
+case_artifact_path = "target/gate-artifacts/cases/TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001.json"
+case_artifact_digest = "sha256:ffc4b3de89a7b5d9eba4b850c6e6b58fdd278bbe56a77a5a68816d76d1e9a89e"
+case_file_digest = "sha256:9739265a8c6c8b5a6eeb787dca2acdffc7235dc8bd25f0b317519d2aed6e84da"
+red_case_ids = ["RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE"]
+per_case_summary = ["RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE:failed"]
