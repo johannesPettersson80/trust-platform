@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `27694b329a62206b51cb8392378d6eb9ee0fd8e2`
-Generated: `2026-07-14T23:30:00+02:00`
+Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
+Generated: `2026-07-15T01:22:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `68b459824cf289fbb64c6b2616b8d5e72f16a066c34ce81927367e9030752056`
-Input SHA-256: `sha256:b92f144f0aa5ffd6d83419db46181e5e5b383095463f06653331fd8b99ac61f8`
+Generated JSON SHA-256: `febeac98efc68ae6ce444542b69f0a20a06dfd86781b81123c5584fc03942042`
+Input SHA-256: `sha256:cce536ca17b724b68fb6d95bc5e2d45fe503e259ee0be96bf0973178e9285b09`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3914
-- Mapped scanner facts: 128
-- Unmapped scanner facts: 3786
-- Generated-test catalog rows: 128
+- Scanner facts: 3917
+- Mapped scanner facts: 132
+- Unmapped scanner facts: 3785
+- Generated-test catalog rows: 132
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 38
 - Conditional unmapped facts: 1
@@ -27,7 +27,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1431 | 91 | 1340 |
+| `rust_integration_test` | 1434 | 95 | 1339 |
 | `rust_unit_test` | 1688 | 37 | 1651 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
@@ -845,7 +845,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_AA62E0EB2E654D81531D` | `rust_integration_test` | `crates/trust-runtime/tests/fb_edges.rs` | `difu_difd_aliases_match_edge_behavior` | `not_ignored` |
 | `DISC_D74EF325BFDD0EF22B1F` | `rust_integration_test` | `crates/trust-runtime/tests/fb_edges.rs` | `r_trig_f_trig` | `not_ignored` |
 | `DISC_2CE44F0CAE069A77A47E` | `rust_integration_test` | `crates/trust-runtime/tests/fb_timers.rs` | `ton_tof_tp` | `not_ignored` |
-| `DISC_82037BF366E0CC07D92C` | `rust_integration_test` | `crates/trust-runtime/tests/fb_timers_full.rs` | `timer_variants` | `not_ignored` |
 | `DISC_F5D5DA61FED4441EC645` | `rust_integration_test` | `crates/trust-runtime/tests/gpio_safe_state.rs` | `gpio_safe_state_writes_outputs_on_fault` | `not_ignored` |
 | `DISC_229337EE83AC8DC7C44C` | `rust_integration_test` | `crates/trust-runtime/tests/harness.rs` | `from_source` | `not_ignored` |
 | `DISC_7175167F66DE6A7A9F78` | `rust_integration_test` | `crates/trust-runtime/tests/harness.rs` | `io_by_address` | `not_ignored` |

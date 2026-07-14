@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `27694b329a62206b51cb8392378d6eb9ee0fd8e2`
-Generated: `2026-07-14T23:30:00+02:00`
+Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
+Generated: `2026-07-15T01:22:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `2548fc2f97e0987070d304c709a89dd7e2593a5bc55a6238cb875505aa3ba791`
-Input SHA-256: `sha256:9f6623c33544e249c16d2b8aeadb8dc4c03d4d1e89d3de7ab06816f45756bb0e`
+Generated JSON SHA-256: `f35ff09e2fa52304aa62b0b1f5dc623cbb411e33079e72a46632eafa41697cb4`
+Input SHA-256: `sha256:4e473390e2fe0e6497b3fa47b8e13c7ccbbaeb453d919c98c227888416707f75`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -14,7 +14,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 - Invariants: 53
 - Invariants without specified specs: 28
-- Tests with expected results: 133
+- Tests with expected results: 137
 - Tests without oracle/spec/gap binding: 0
 - Coverage cells: 68
 - Coverage cells marked spec_gap: 35

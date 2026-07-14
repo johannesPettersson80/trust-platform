@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v1`
-Source revision: `27694b329a62206b51cb8392378d6eb9ee0fd8e2`
-Generated: `2026-07-14T23:30:00+02:00`
+Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
+Generated: `2026-07-15T01:22:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `59a8c42a25bf3f02476a11bc2326fbf3bf4fddbc4502fc40629f0b7dc469df2d`
-Input SHA-256: `sha256:686425700eaf9266117470fde443e3d014c110765ebfbae4e154f23fb932dca6`
+Generated JSON SHA-256: `f03c720534e664dd471c86f1f7c47adbc75e2b09cbcacfcfba4b07ce431deaa8`
+Input SHA-256: `sha256:4856157ac8912689d48737ef3e68f0bb8c55363141c708e487686392e947c6fc`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -14,11 +14,11 @@ It executes no fault and creates no proof or invariant coverage.
 ## Summary
 
 - Taxonomy classes: 19
-- Explicit mapping records: 38
-- Live Rust scanner facts: 3119
-- Effectively runnable direct mappings: 28
+- Explicit mapping records: 41
+- Live Rust scanner facts: 3122
+- Effectively runnable direct mappings: 31
 - Ignored or conditional mappings: 1
-- Gap classes: 9
+- Gap classes: 8
 
 ## Classes
 
@@ -41,7 +41,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `clock_step` | `mapped_non_runnable_or_partial` | `nightly` | `release` | none | `ANOM_MAP_CLOCK_STEP_001`, `ANOM_MAP_CLOCK_STEP_002` |
 | `monotonic_wall_clock_divergence` | `unmapped` | `nightly` | `release` | none | none |
 | `suspend_resume` | `unmapped` | `nightly` | `release` | none | none |
-| `timer_duration_overflow` | `unmapped` | `pr` | `release` | none | none |
+| `timer_duration_overflow` | `mapped_runnable` | `pr` | `release` | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001` | none |
 | `allocation_failure_oom` | `unmapped` | `nightly` | `release` | none | none |
 
 ## Explicit Associations
@@ -83,6 +83,9 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_TIMEOUT_001` | `timeout` | `DISC_0BD76C389DCA0387316F` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_002` | `timeout` | `DISC_AD782C3AD1D808D4C4EE` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_003` | `timeout` | `DISC_17A3C97ED5EF6F1D342D` | `partial` | `not_ignored` | `false` | `test_harness` |
+| `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001` | `timer_duration_overflow` | `DISC_DA4DF0247AD9823BF96F` | `direct` | `not_ignored` | `true` | `ordinary_input` |
+| `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001` | `timer_duration_overflow` | `DISC_93D5E86E7CF67A1A5AAE` | `direct` | `not_ignored` | `true` | `ordinary_input` |
+| `ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001` | `timer_duration_overflow` | `DISC_FF77A462527037C6EEA8` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_WATCHDOG_001` | `watchdog` | `DISC_C101BBAEC06311987C74` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_002` | `watchdog` | `DISC_3EFD5D5E736CB0C47DD6` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_003` | `watchdog` | `DISC_8BAF8461F95A94A773A6` | `direct` | `not_ignored` | `true` | `test_harness` |
@@ -98,7 +101,6 @@ It executes no fault and creates no proof or invariant coverage.
 | `clock_step` | `mapped_non_runnable_or_partial` | `no_effectively_runnable_direct_mapping` | `nightly` | `ANOM_MAP_CLOCK_STEP_001`, `ANOM_MAP_CLOCK_STEP_002` |
 | `monotonic_wall_clock_divergence` | `unmapped` | `no_explicit_mapping` | `nightly` | none |
 | `suspend_resume` | `unmapped` | `no_explicit_mapping` | `nightly` | none |
-| `timer_duration_overflow` | `unmapped` | `no_explicit_mapping` | `pr` | none |
 | `allocation_failure_oom` | `unmapped` | `no_explicit_mapping` | `nightly` | none |
 
 ## Spec-Gap Review
