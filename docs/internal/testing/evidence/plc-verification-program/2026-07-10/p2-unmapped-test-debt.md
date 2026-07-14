@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
-Generated: `2026-07-14T18:13:00+02:00`
+Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
+Generated: `2026-07-14T20:11:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `1cd86ccb28b79b13b4dba2f0d58b47b869995ced88dc6cfdbb2607958be6a185`
-Input SHA-256: `sha256:5af31a249c6fb60b48c5712755c23c76d44d21c15634cd4dd606b5f90ae2a563`
+Generated JSON SHA-256: `09b594c2fa37386622fb9c396c9685d0ce58289558b008df731339a83f3e8dc9`
+Input SHA-256: `sha256:8bbbbddc0c09eefc2c493d92506142591bfe852dce05def7dca7d89fc7178b81`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3896
-- Mapped scanner facts: 93
-- Unmapped scanner facts: 3803
-- Generated-test catalog rows: 93
+- Scanner facts: 3899
+- Mapped scanner facts: 102
+- Unmapped scanner facts: 3797
+- Generated-test catalog rows: 102
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 39
 - Conditional unmapped facts: 1
@@ -28,7 +28,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1416 | 66 | 1350 |
-| `rust_unit_test` | 1685 | 27 | 1658 |
+| `rust_unit_test` | 1688 | 36 | 1652 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -1844,7 +1844,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_DA60EF06AEC4FA918DF0` | `rust_unit_test` | `crates/trust-lsp/src/handlers/sync.rs` | `apply_content_changes_full_sync` | `not_ignored` |
 | `DISC_48283CA64FC8CD44B7FF` | `rust_unit_test` | `crates/trust-lsp/src/handlers/sync.rs` | `apply_content_changes_inserts_text` | `not_ignored` |
 | `DISC_F70C8F0D8FAA5011305F` | `rust_unit_test` | `crates/trust-lsp/src/handlers/sync.rs` | `apply_content_changes_replaces_range` | `not_ignored` |
-| `DISC_381CA01068E8B914A411` | `rust_unit_test` | `crates/trust-lsp/src/handlers/sync.rs` | `apply_content_changes_uses_utf16_columns_after_supplementary_scalar` | `not_ignored` |
 | `DISC_F4247FE3896F6E29B9CF` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_01.rs` | `lsp_code_action_create_type` | `not_ignored` |
 | `DISC_F577EB055901303C4283` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_01.rs` | `lsp_code_action_create_var` | `not_ignored` |
 | `DISC_EA7B1EC0AFED023AF015` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_01.rs` | `lsp_code_action_implicit_conversion` | `not_ignored` |
@@ -1870,11 +1869,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_E1731DCFB04E3EC3CB6E` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/completion_hover.rs` | `lsp_hover_member_method_and_property` | `not_ignored` |
 | `DISC_000C0BA97DBB5C15E10E` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/completion_hover.rs` | `lsp_hover_respects_stdlib_filter` | `not_ignored` |
 | `DISC_E0093CE789BADAA24BC3` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_diagnostics_no_burst_baseline_reports_real_errors` | `not_ignored` |
-| `DISC_FD5D2B3F7B42E18220E6` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar` | `not_ignored` |
 | `DISC_B23AA386CB36FC319E6A` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_hover_variable` | `not_ignored` |
-| `DISC_5FEB03086FCBE0310A3B` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_pull_diagnostics_cancelled_request_returns_content_modified` | `not_ignored` |
 | `DISC_2A0201A115722E554C2D` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_pull_diagnostics_returns_unchanged_and_explainer` | `not_ignored` |
-| `DISC_39BF089F7544B5199036` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_push_diagnostics_cancelled_collection_is_skipped_not_empty_publish` | `not_ignored` |
 | `DISC_ADDC546497AC53112B2A` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_references_variable` | `not_ignored` |
 | `DISC_C596BB3431D51DF995AF` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_rename_namespace_path_updates_using_and_qualified_names` | `not_ignored` |
 | `DISC_D3AA682468B2771890AE` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | `lsp_rename_primary_pou_renames_file` | `not_ignored` |
@@ -1902,7 +1898,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_0025E404D4C651A13A89` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_document_highlight_variable` | `not_ignored` |
 | `DISC_75651FE091A83D17F3BA` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_references_partial_result_token_returns_empty_final_response` | `not_ignored` |
 | `DISC_8EFABE39D3C261DB52B2` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_semantic_tokens_delta` | `not_ignored` |
-| `DISC_A5E84A20B9805DE4F3BA` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_semantic_tokens_use_utf16_start_and_length_after_supplementary_scalar` | `not_ignored` |
 | `DISC_71F51CF28CFFE96F622C` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_will_rename_files_updates_using_namespace` | `not_ignored` |
 | `DISC_F928598D5BBAA90A687C` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_workspace_symbols` | `not_ignored` |
 | `DISC_6BABF1F5BCB555CD8662` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_workspace_symbols_partial_result_token_returns_empty_final_response` | `not_ignored` |
@@ -1952,7 +1947,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_8E433C071D750B5DA8DF` | `rust_unit_test` | `crates/trust-lsp/src/index_cache.rs` | `cache_rejects_same_size_same_second_mtime_collision` | `not_ignored` |
 | `DISC_20DBBB2EE37474C8E99C` | `rust_unit_test` | `crates/trust-lsp/src/index_cache.rs` | `cache_round_trip_and_invalidate_on_change` | `not_ignored` |
 | `DISC_C0F04355293B2882A1F0` | `rust_unit_test` | `crates/trust-lsp/src/library_graph.rs` | `library_dependency_issues_report_cycles` | `not_ignored` |
-| `DISC_0B4C0B6E0201F0AC32CB` | `rust_unit_test` | `crates/trust-lsp/src/main.rs` | `initialize_advertises_utf16_position_encoding` | `not_ignored` |
 | `DISC_6F5F5107DDE61D3C1E43` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs` | `perf_completion_budget` | `ignored` |
 | `DISC_A5BFD4D2FEC4A5FE7C73` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs` | `perf_diagnostics_budget` | `ignored` |
 | `DISC_F7D08DE71C821B2157CF` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs` | `perf_document_highlight_scaling_budget` | `ignored` |

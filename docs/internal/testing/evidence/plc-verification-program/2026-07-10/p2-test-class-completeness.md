@@ -1,27 +1,27 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
-Generated: `2026-07-14T18:13:00+02:00`
+Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
+Generated: `2026-07-14T20:11:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `6fa77cd64e37bc0e313c2555a5273c594e4de136e26a405baa077e7e32201fca`
-Input SHA-256: `sha256:87f0f1569ae38fc51de73e182ae1c67616b91d19e0c1373422b06715152209b9`
+Generated JSON SHA-256: `65bcaa99d7a75b32762c2a40220fa355c8ac40a466e97ee1e709fd57be19d1eb`
+Input SHA-256: `sha256:ce68c709c5ed0ec37024f7995172314b0ab2544d8261bf88d77c092e31745215`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3896
-- Classified scanner facts: 93
-- Unmapped scanner facts: 3803
-- Catalog records: 98
-- Runnable catalog records: 94
+- Scanner facts: 3899
+- Classified scanner facts: 102
+- Unmapped scanner facts: 3797
+- Catalog records: 107
+- Runnable catalog records: 103
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
-- Complete required class slots: 6
-- Missing required class slots: 26
+- Complete required class slots: 7
+- Missing required class slots: 25
 
 ## Scanner Classification
 
@@ -32,7 +32,7 @@ mean every scanner fact or required test class is mapped.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1416 | 66 | 1350 |
-| `rust_unit_test` | 1685 | 27 | 1658 |
+| `rust_unit_test` | 1688 | 36 | 1652 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -64,6 +64,15 @@ Classified mappings:
 - `DISC_2F259133A9069DCE6CDC` -> `TEST_IEC_WSTRING_FB_INOUT_REJECTION_001`
 - `DISC_EFCA6D0FAFC2EB9C01AA` -> `TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001`
 - `DISC_725D6C1E9787F7B1D630` -> `TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001`
+- `DISC_1A431BB2B9B087DD4D22` -> `TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001`
+- `DISC_0B4C0B6E0201F0AC32CB` -> `TEST_LSP_POSITION_ENCODING_HANDSHAKE_001`
+- `DISC_FD5D2B3F7B42E18220E6` -> `TEST_LSP_POSITION_ENCODING_HOVER_001`
+- `DISC_1F649F7F3E3BCE2021D2` -> `TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001`
+- `DISC_A5E84A20B9805DE4F3BA` -> `TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001`
+- `DISC_381CA01068E8B914A411` -> `TEST_LSP_POSITION_ENCODING_SYNC_001`
+- `DISC_5FEB03086FCBE0310A3B` -> `TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001`
+- `DISC_39BF089F7544B5199036` -> `TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001`
+- `DISC_DBCE837999092CDE3372` -> `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001`
 - `DISC_EE9408494F62E80474E3` -> `TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001`
 - `DISC_8F0C898E72D907AA065A` -> `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001`
 - `DISC_846E4BECA070B0C77CDA` -> `TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001`
@@ -177,13 +186,13 @@ Additional catalog classes:
 
 | Required class | Runnable tests | Non-runnable rows | Complete |
 | --- | --- | --- | --- |
-| `lsp_protocol` | none | none | no |
+| `lsp_protocol` | `TEST_LSP_POSITION_ENCODING_HANDSHAKE_001`, `TEST_LSP_POSITION_ENCODING_HOVER_001`, `TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001`, `TEST_LSP_POSITION_ENCODING_SYNC_001`, `TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001`, `TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001`, `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001` | none | yes |
 | `unit` | none | none | no |
 | `vscode_extension` | none | none | no |
 
 Additional catalog classes:
 
-- `failing_regression`: runnable `TEST_DEBUG_PAUSE_WATCHDOG_001`; non-runnable none
+- `failing_regression`: runnable `TEST_DEBUG_PAUSE_WATCHDOG_001`, `TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001`, `TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001`; non-runnable none
 - `integration`: runnable `TEST_RUNTIME_PAUSE_WATCHDOG_001`; non-runnable none
 
 ## Area: `hmi_ui`

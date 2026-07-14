@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
-Generated: `2026-07-14T18:13:00+02:00`
+Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
+Generated: `2026-07-14T20:11:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `3d6f8fadfd0e7b844f789bdd0932fcf86721e62065e4b3d313ad613f691052a2`
-Input SHA-256: `sha256:183141ebb1ab0754846d193148c2b9e4acf1db9e8cd068e5f0de1d736532a657`
+Generated JSON SHA-256: `f90f1065424de3c6dc311ccf221b4826400b53b66f5564c3609bde8201d1df69`
+Input SHA-256: `sha256:e6e630c22b58a33c87cc61bbf0605db55d3456075a0f938dddac13f2220b610d`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 34
-- Tests with expected results: 98
+- Invariants without specified specs: 32
+- Tests with expected results: 107
 - Tests without oracle/spec/gap binding: 0
 - Coverage cells: 65
-- Coverage cells marked spec_gap: 41
+- Coverage cells marked spec_gap: 39
 - Bytecode pilot gaps: 7
 - Registered public-claim sources: 4
 
@@ -28,8 +28,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `spec_gap` | `missing` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` |
-| `EDIT_LSP_POS_001` | `editor_safety` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001` |
 | `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |
@@ -73,8 +71,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | 0 | `duplicate_or_collision` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | 0 | `concurrency_or_cancellation` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` |
-| `EDIT_LSP_POS_001` | `editor_safety` | `silent_corruption` | 0 | `encoding_or_unicode` | `SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001` |
 | `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | 0 | `duplicate_or_collision` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | 0 | `duplicate_or_collision` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |

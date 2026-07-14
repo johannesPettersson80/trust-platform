@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
-Generated: `2026-07-14T18:13:00+02:00`
+Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
+Generated: `2026-07-14T20:11:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `434c214ba86cea5cb4337e195018cfa95f2984339e4dd5106b039fa16d833fd6`
-Input SHA-256: `sha256:2dfdc77c02ab55b35bd1559255ac43dccdccb03d72e43108639105a5786e46a8`
+Generated JSON SHA-256: `0e2b2349c1adbd6cb7bfe891085b33d4d6791d5501e43486093cf723675db181`
+Input SHA-256: `sha256:c8000d7787fd5f6f3d6bf817fa86c6a91838fb3b322578e9047754a0cae83a14`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -19,8 +19,8 @@ closes no specification gap, and changes no runtime behavior.
 - Pre-existing seed mappings: 8
 - Baseline lifecycle records: 34
 - Execution-ready lifecycle records: 10
-- Gap-open records: 10
-- Spec-gap records: 28
+- Gap-open records: 12
+- Spec-gap records: 26
 - Test-written records: 0
 - Implemented records: 6
 - Validated records: 0
@@ -72,8 +72,8 @@ closes no specification gap, and changes no runtime behavior.
 | `PROTO_OPCUA_001` | `PROTO_OPCUA_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `RISK_OPCUA_CLIENT_LIFECYCLE_001` |
 | `EDIT_RENAME_001` | `EDIT_RENAME_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` | `none` |
 | `EDIT_RENAME_002` | `EDIT_RENAME_002` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` | `none` |
-| `EDIT_LSP_POS_001` | `EDIT_LSP_POS_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001` | `none` |
-| `EDIT_DIAG_CANCEL_001` | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` | `none` |
+| `EDIT_LSP_POS_001` | `EDIT_LSP_POS_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
+| `EDIT_DIAG_CANCEL_001` | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
 | `UI_STATUS_001` | `UI_STATUS_001` | `hmi_ui` | `VERIF-P4-006` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `none` |
 | `DEBUG_AUTH_001` | `DEBUG_AUTH_001` | `control_security` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `DEBUG_PAUSE_001` | `DEBUG_PAUSE_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |

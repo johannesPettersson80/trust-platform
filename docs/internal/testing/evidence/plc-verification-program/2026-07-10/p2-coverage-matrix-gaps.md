@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
-Generated: `2026-07-14T18:13:00+02:00`
+Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
+Generated: `2026-07-14T20:11:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `2317aba0c7e2305c118f6ce9530bf5ffc86e0e9833b7f88a0dfe4af4d4d2b4fa`
-Input SHA-256: `sha256:08ac67f2ce251b1e0b24c128e10c58227b36ccee3c4abcec124e18d61c8507bc`
+Generated JSON SHA-256: `57a30bda316f6c0d80643d8e549ceb3d795f558a60e13be28b22109ceeaea63f`
+Input SHA-256: `sha256:77d7b1de0932972487675fb0a510e47febefe703a5d3e4224c0274c04bd41003`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -32,8 +32,8 @@ mean every required coverage slot is assigned or covered.
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 41 |
-| `gap_open` | 16 |
+| `spec_gap` | 39 |
+| `gap_open` | 18 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -232,13 +232,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `concurrency_or_cancellation` | `additional_recorded` | `spec_gap` | none | none |
+| `concurrency_or_cancellation` | `additional_recorded` | `gap_open` | none | none |
 
 ### `EDIT_LSP_POS_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `encoding_or_unicode` | `additional_recorded` | `spec_gap` | none | none |
+| `encoding_or_unicode` | `additional_recorded` | `gap_open` | none | none |
 
 ### `EDIT_RENAME_001`
 
