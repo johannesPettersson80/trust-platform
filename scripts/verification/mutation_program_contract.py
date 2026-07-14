@@ -258,7 +258,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
                 "retain_on_warm",
                 "FnValue",
                 "false",
-                "restart.rs:682:5: replace retain_on_warm -> bool with false",
+                "restart.rs:683:5: replace retain_on_warm -> bool with false",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart",
