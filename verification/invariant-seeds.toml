@@ -10,7 +10,7 @@ canonical_invariant_id = "RT_SAFE_PANIC_001"
 board_row = "VERIF-P4-003"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "RT_SAFE_DEADLINE_001"

@@ -1485,6 +1485,102 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_PANIC_IO_DRIVER_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_30C382889325B64C5854"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_in_io_driver_faults_resource_visibly"
+command = "cargo test -p trust-runtime --test runtime_safety_fail_closed panic_in_io_driver_faults_resource_visibly -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+expected_result = "A panic raised by an input driver is contained, the resource reports Faulted with a diagnosable panic error, and the resource thread joins normally."
+expected_failure_mode = "The driver panic escapes the resource thread or leaves the resource state healthy without a visible last_error."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PANIC_IO_DRIVER_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_PANIC_SAFE_OUTPUT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E6963439801BFF301755"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_applies_safe_outputs_before_faulting_resource"
+command = "cargo test -p trust-runtime --test runtime_safety_fail_closed panic_applies_safe_outputs_before_faulting_resource -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+expected_result = "A contained scan panic applies the configured safe output before the resource remains visibly faulted."
+expected_failure_mode = "The resource faults without attempting its configured safe output, or the panic remains invisible to the control state."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PANIC_SAFE_OUTPUT_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_PANIC_THREAD_GUARD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EEF14FDB800A7590C8F3"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "unexpected_thread_unwind_after_running_faults_control_surface"
+command = "cargo test -p trust-runtime --test runtime_safety_fail_closed unexpected_thread_unwind_after_running_faults_control_surface -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+expected_result = "An unexpected scheduler-thread unwind after execution started is contained and changes the control surface to Faulted with the panic payload."
+expected_failure_mode = "The outer resource thread dies while the control surface remains Running or lacks the panic diagnostic."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PANIC_THREAD_GUARD_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_PANIC_CYCLE_GUARD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_96A8793BF2C3E6F579B4"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_execution_panic_faults_resource_visibly"
+command = "cargo test -p trust-runtime scheduler::runner_loop::runner_loop_poison_tests::cycle_execution_panic_faults_resource_visibly -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
+expected_result = "The inner scan-cycle guard converts a program-execution panic into ResourcePanic and leaves resource state Faulted with the original payload."
+expected_failure_mode = "The inner cycle panic escapes containment or does not update the shared resource state and last_error."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PANIC_CYCLE_GUARD_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_D5C4C1D59854BC4EA981"

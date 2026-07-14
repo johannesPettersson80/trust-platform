@@ -5,15 +5,20 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "A scan-cycle panic must be contained and surfaced without leaving control surfaces reporting healthy execution."
 proof_level = "S0"
 contract_kind = "fault_scenario"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = []
+tests = [
+  "TEST_RUNTIME_PANIC_IO_DRIVER_001",
+  "TEST_RUNTIME_PANIC_SAFE_OUTPUT_001",
+  "TEST_RUNTIME_PANIC_THREAD_GUARD_001",
+  "TEST_RUNTIME_PANIC_CYCLE_GUARD_001",
+]
 gates = []
 evidence_refs = []
-missing = ["cataloged_panic_fault_cases", "runtime_status_proof"]
+missing = ["producer_bound_runtime_status_proof", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -26,4 +31,4 @@ ref = "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
 state = "gap_open"
-rationale = "The reviewed containment decision is active, but cataloged fault cases and proof are not linked."
+rationale = "Four existing containment tests are cataloged across cycle, I/O-driver, safe-output, and outer-thread boundaries; producer-bound proof remains open."

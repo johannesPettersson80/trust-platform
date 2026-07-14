@@ -103,6 +103,7 @@ class SeedManifestContractTests(unittest.TestCase):
         self.assertEqual(5, sum(row.p4_000_risk_id is not None for row in audit.rows))
         self.assertEqual(
             [
+                "RT_SAFE_PANIC_001",
                 "RT_SAFE_DEADLINE_001",
                 "RT_SAFE_STOP_001",
                 "RT_SAFE_RETAIN_001",
@@ -328,7 +329,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(7, promotion.call_count)
+            self.assertEqual(8, promotion.call_count)
 
         for mutate, signal in (
             (
@@ -397,7 +398,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(7, promotion.call_count)
+            self.assertEqual(8, promotion.call_count)
 
     def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
         arguments = _loaded_contract_arguments(self.root)
@@ -562,7 +563,11 @@ class SeedAuditReportTests(unittest.TestCase):
         )
 
         payload = json.loads(json_path.read_text())
-        payload["rows"][0]["lifecycle_state"] = EXECUTION_READY
+        payload["rows"][0]["lifecycle_state"] = (
+            BASELINE
+            if payload["rows"][0]["lifecycle_state"] == EXECUTION_READY
+            else EXECUTION_READY
+        )
         json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
         failures = validate_report_files(
             self.root,
@@ -718,6 +723,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                         "RT_SAFE_DEADLINE_001",
                         "RT_SAFE_FORCE_001",
                         "RT_SAFE_NAN_001",
+                        "RT_SAFE_PANIC_001",
                         "RT_SAFE_RETAIN_001",
                         "RT_SAFE_STOP_001",
                         "RT_RELOAD_001",
@@ -969,7 +975,11 @@ def _row_and_area(seed_id: str, section: str) -> tuple[str, str]:
 
 def _first_phase4_row(root: Path) -> dict[str, str]:
     manifest = _load_manifest(root)
-    record = next(item for item in manifest["seeds"] if item["origin"] == "phase4")
+    record = next(
+        item
+        for item in manifest["seeds"]
+        if item["origin"] == "phase4" and item["lifecycle_state"] == BASELINE
+    )
     source = {row.seed_id: row for row in extract_written_seeds(AREAS_PATH.read_text())}[record["seed_id"]]
     _, area = _row_and_area(record["seed_id"], source.section)
     return {"id": record["canonical_invariant_id"], "area": area}
