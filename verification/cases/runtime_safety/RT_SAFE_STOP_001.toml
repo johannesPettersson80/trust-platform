@@ -1,0 +1,38 @@
+schema_version = 1
+id = "CASES_RT_SAFE_STOP_001"
+title = "Runtime safe-state handoff confirmation trace"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_STOP_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:0d925c07e727884eef655dc070e6f6a099ead42c72907c27b52b68a612c99499"
+source_digest = "sha256:d915127439274c752647dd5b80c08df11430ff0645fec0516f579090c9f3f2d9"
+last_reviewed = "2026-07-14"
+
+[[case]]
+id = "RT_SAFE_STOP_001_DEGRADED_HANDOFF_FAULTS_STOP"
+family = "hardware_or_network_fault"
+input = { scenario = "UNCONFIRMED_SAFE_STATE" }
+expect = { outcome = "not_safe_reported", fault_surface = "SafeStateUnconfirmed", oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" } }
+trace = [
+  { sequence = 0, stimulus = { first_health = "degraded", second_health = "absent" }, expected = { first_output = 0, first_writes = 1, last_error_contains = "safe-state output unconfirmed for driver 'first-safe-state': handoff pending", resource_state = "faulted", second_writes = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation" },
+]
+
+[[case]]
+id = "RT_SAFE_IO_WORKER_001_FAULTED_HANDOFF_FAULTS_STOP"
+family = "hardware_or_network_fault"
+input = { scenario = "UNCONFIRMED_SAFE_STATE" }
+expect = { outcome = "not_safe_reported", fault_surface = "SafeStateUnconfirmed", oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" } }
+trace = [
+  { sequence = 0, stimulus = { first_health = "faulted", second_health = "absent" }, expected = { first_output = 0, first_writes = 1, last_error_contains = "safe-state output unconfirmed for driver 'first-safe-state': device down", resource_state = "faulted", second_writes = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation" },
+]
+
+[[case]]
+id = "RT_SAFE_IO_WORKER_001_FAILURE_DOES_NOT_SKIP_LATER_DRIVER"
+family = "concurrency_or_cancellation"
+input = { scenario = "UNCONFIRMED_SAFE_STATE" }
+expect = { outcome = "not_safe_reported", fault_surface = "SafeStateUnconfirmed", oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" } }
+trace = [
+  { sequence = 0, stimulus = { first_health = "degraded", second_health = "ok" }, expected = { first_output = 0, first_writes = 1, last_error_contains = "safe-state output unconfirmed for driver 'first-safe-state': handoff pending", resource_state = "faulted", second_output = 0, second_writes = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation" },
+]

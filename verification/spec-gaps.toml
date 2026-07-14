@@ -155,11 +155,16 @@ affected_invariants = [
   "RT_SAFE_STOP_001",
   "RT_SAFE_IO_WORKER_001",
 ]
-affected_tests = []
+affected_tests = [
+  "TEST_RUNTIME_SAFE_STATE_HANDOFF_001",
+  "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001",
+  "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001",
+  "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001",
+]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

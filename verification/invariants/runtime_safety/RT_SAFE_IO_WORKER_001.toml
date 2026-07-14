@@ -3,29 +3,37 @@ id = "RT_SAFE_IO_WORKER_001"
 title = "I/O workers cannot hide scan-thread safety failures"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-14"
 claim = "Protocol worker queues, reconnect loops, and snapshots must remain bounded and must expose stale or failed safe-state handoff truthfully."
 proof_level = "S0"
-contract_kind = "fault_scenario"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io"]
 tests = []
-gates = ["pr", "release"]
+gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_RUNTIME_SAFE_STATE_001"]
-missing = ["safe_state_worker_handoff_contract", "queue_bound_tests"]
+spec_gap_refs = []
+missing = ["targeted_red_green_proof", "hardware_lab_worker_disconnect", "broad_remote_gate"]
 
 [spec]
-status = "ambiguous"
+status = "specified"
 source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "WORKER_SAFE_STATE_UNCONFIRMED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "not_safe_reported"
+fault_surface = "SafeStateUnconfirmed"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A queued, reconnecting, timed-out, degraded, or faulted worker handoff is bounded but cannot be reported as confirmed physical safe state; later configured drivers are still attempted."
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "spec_gap"
-rationale = "Worker queue-full/reconnecting/down semantics must be specified before tests are accepted."
-spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
+state = "gap_open"
+rationale = "The bounded unconfirmed-handoff contract and Modbus/MQTT regressions are written, but producer-authentic red/green, a broad remote gate, and a hardware disconnect run remain pending."
