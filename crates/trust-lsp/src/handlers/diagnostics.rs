@@ -190,7 +190,7 @@ pub(crate) fn document_diagnostic_result_with_ticket_for_tests(
 pub(crate) fn workspace_diagnostic(
     state: &ServerState,
     params: WorkspaceDiagnosticParams,
-) -> WorkspaceDiagnosticReportResult {
+) -> JsonRpcResult<WorkspaceDiagnosticReportResult> {
     let request_ticket = state.begin_semantic_request();
     workspace_diagnostic_with_ticket(state, params, request_ticket)
 }
@@ -199,7 +199,11 @@ fn workspace_diagnostic_with_ticket(
     state: &ServerState,
     params: WorkspaceDiagnosticParams,
     request_ticket: u64,
-) -> WorkspaceDiagnosticReportResult {
+) -> JsonRpcResult<WorkspaceDiagnosticReportResult> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return Err(content_modified_error());
+    }
+
     let mut previous = std::collections::HashMap::new();
     for entry in params.previous_result_ids {
         previous.insert(entry.uri, entry.value);
@@ -209,7 +213,7 @@ fn workspace_diagnostic_with_ticket(
     let mut seen = std::collections::HashSet::new();
     for doc in state.documents() {
         if state.semantic_request_cancelled(request_ticket) {
-            break;
+            return Err(content_modified_error());
         }
         seen.insert(doc.uri.clone());
         let diagnostics = collect_diagnostics_with_ticket(
@@ -219,6 +223,9 @@ fn workspace_diagnostic_with_ticket(
             doc.file_id,
             Some(request_ticket),
         );
+        if state.semantic_request_cancelled(request_ticket) {
+            return Err(content_modified_error());
+        }
         let content_hash = hash_content(&doc.content);
         let diagnostic_hash = hash_diagnostics(&diagnostics);
         let result_id = state.store_diagnostics(doc.uri.clone(), content_hash, diagnostic_hash);
@@ -251,6 +258,9 @@ fn workspace_diagnostic_with_ticket(
     }
 
     for (root, config) in state.workspace_configs() {
+        if state.semantic_request_cancelled(request_ticket) {
+            return Err(content_modified_error());
+        }
         let Some(config_path) = config.config_path.clone() else {
             continue;
         };
@@ -264,6 +274,9 @@ fn workspace_diagnostic_with_ticket(
             continue;
         };
         let diagnostics = collect_config_diagnostics(state, &uri, &content, Some(&root));
+        if state.semantic_request_cancelled(request_ticket) {
+            return Err(content_modified_error());
+        }
         let content_hash = hash_content(&content);
         let diagnostic_hash = hash_diagnostics(&diagnostics);
         let result_id = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
@@ -291,7 +304,12 @@ fn workspace_diagnostic_with_ticket(
         }
     }
 
-    WorkspaceDiagnosticReportResult::Report(WorkspaceDiagnosticReport { items })
+    if state.semantic_request_cancelled(request_ticket) {
+        return Err(content_modified_error());
+    }
+    Ok(WorkspaceDiagnosticReportResult::Report(
+        WorkspaceDiagnosticReport { items },
+    ))
 }
 
 #[cfg(test)]
@@ -300,11 +318,7 @@ pub(crate) fn workspace_diagnostic_result_with_ticket_for_tests(
     params: WorkspaceDiagnosticParams,
     request_ticket: u64,
 ) -> JsonRpcResult<WorkspaceDiagnosticReportResult> {
-    Ok(workspace_diagnostic_with_ticket(
-        state,
-        params,
-        request_ticket,
-    ))
+    workspace_diagnostic_with_ticket(state, params, request_ticket)
 }
 
 pub(crate) fn collect_diagnostics_with_ticket(

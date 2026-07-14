@@ -425,7 +425,7 @@ impl LanguageServer for StLanguageServer {
         let result = self
             .state
             .run_background(async { handlers::workspace_diagnostic(&self.state, params) })
-            .await;
+            .await?;
         self.state
             .record_telemetry(TelemetryEvent::WorkspaceDiagnostic, start.elapsed(), None);
         Ok(result)
