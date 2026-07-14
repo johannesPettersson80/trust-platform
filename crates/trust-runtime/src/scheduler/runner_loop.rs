@@ -426,6 +426,8 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 #[cfg(test)]
 mod runner_loop_poison_tests {
     use super::*;
+    use crate::harness::TestHarness;
+    use crate::value::Value;
 
     #[derive(Clone, Debug)]
     struct TestClock;
@@ -634,6 +636,59 @@ mod runner_loop_poison_tests {
             error.to_string().contains("VM/program"),
             "panic payload should be diagnosable, got {error}"
         );
+    }
+
+    #[test]
+    fn automatic_fault_restart_uses_warm_storage_semantics() {
+        let source = r#"
+VAR_GLOBAL RETAIN
+    retained_value : DINT := DINT#1;
+END_VAR
+VAR_GLOBAL NON_RETAIN
+    transient_value : DINT := DINT#2;
+END_VAR
+VAR_GLOBAL
+    ordinary_value : DINT := DINT#3;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+        let mut harness = TestHarness::from_source(source).expect("automatic restart fixture");
+        harness.set_input("retained_value", Value::DInt(42));
+        harness.set_input("transient_value", Value::DInt(70));
+        harness.set_input("ordinary_value", Value::DInt(80));
+
+        let mut runner = ResourceRunner::new(
+            harness.into_runtime(),
+            TestClock,
+            Duration::from_millis(1),
+        );
+        let mut limiter = AutomaticRestartLimiter::default();
+        let state = Arc::new(Mutex::new(ResourceState::Running));
+        let last_error = Arc::new(Mutex::new(None));
+
+        assert!(try_automatic_restart(
+            &mut runner,
+            &mut limiter,
+            &RuntimeError::DivisionByZero,
+            &state,
+            &last_error,
+        ));
+        assert_eq!(
+            runner.runtime().storage().get_global("retained_value"),
+            Some(&Value::DInt(42)),
+        );
+        assert_eq!(
+            runner.runtime().storage().get_global("transient_value"),
+            Some(&Value::DInt(2)),
+        );
+        assert_eq!(
+            runner.runtime().storage().get_global("ordinary_value"),
+            Some(&Value::DInt(3)),
+        );
+        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
+        assert!(recover_mutex_lock(last_error.lock()).is_none());
     }
 
     #[test]
