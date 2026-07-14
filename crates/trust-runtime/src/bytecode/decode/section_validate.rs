@@ -2,16 +2,12 @@ fn validate_section_entries(
     file_len: usize,
     entries: &[SectionEntry],
 ) -> Result<(), BytecodeError> {
-    let mut standardized_ids = [false; 13];
+    let mut standardized_ids = std::collections::HashSet::new();
     for entry in entries {
-        if SectionId::from_raw(entry.id).is_some() {
-            let index = entry.id as usize;
-            if standardized_ids[index] {
+        if SectionId::from_raw(entry.id).is_some() && !standardized_ids.insert(entry.id) {
                 return Err(BytecodeError::InvalidSection(
                     format!("duplicate standardized section id 0x{:04X}", entry.id).into(),
                 ));
-            }
-            standardized_ids[index] = true;
         }
     }
 
