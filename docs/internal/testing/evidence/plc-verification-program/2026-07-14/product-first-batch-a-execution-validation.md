@@ -93,28 +93,28 @@ The required warmed runtime verticals then passed:
 ## Report Refresh
 
 All 15 report generators ran in separate pristine `trust-builder` worktrees at
-source commit `31a4a6911d4788e8578a67d0e1b1d0e4463bb7fe` with timestamp
-`2026-07-14T14:13:19+02:00`. Each generated pair passed its at-rest validator
+source commit `c935e82b209b8dabab17f17e398b4dc5fc5ab5b6` with timestamp
+`2026-07-14T14:35:59+02:00`. Each generated pair passed its at-rest validator
 in its own worktree. The consolidated imported set then passed all 15 at-rest
 validators again with 416 metadata records.
 
 | Report | JSON SHA-256 |
 | --- | --- |
-| Test-class completeness | `219088e177fb7abe468dceab6122625a917785c5af1d35b631d252400c056ce0` |
-| Coverage-matrix gaps | `dcce4c1c909668c522fb73bf1e70f988c26f5ea4e9f6e9eb1338419d68ccc3cd` |
-| Malformed-input coverage | `37d44f50bf2b3e69b431e602bf3f8e186417d5fc7c66d1e3f9c1fbc7adb413de` |
-| Unmapped-test debt | `b9a2e58528742cbdf7ba3083f775d41b03c72054a79bd064204b5e16c56db7e4` |
-| Test-refactor assessment | `e0a42e75a909a2c6d0c217748f32242eb10e1f7b25751ed78c5e849ee9ed56c4` |
-| Ignored-test inventory | `dd337eab1095d0a8e5fabc407de2b7ff3601fed8ac1ed1ea909becd8711ba831` |
-| Invariant-seed audit | `978cf210b1fb1fa42e816128e9893f712612064ef3767d6fbda0949260161165` |
-| Specification completeness | `c3dfe868b25fa9d3d2bd01e9d6960811c7e09c323a6c5e38126a67cfd4fa08ec` |
-| Phase 5 suite audit | `7508745be1f1beffbb7e159ee4dd4553bc3abcfc115f61c0e6380df6aca31fc7` |
-| Requirement/oracle audit | `ffc6550dbbc699fe2d4f9555f6458fe714885033da933e5583261dc31f7ec1ca` |
-| Conformance alignment | `87835a0bd60f1f06929bd91a04a61ddc365ca43ef508880efb37ea60742c4228` |
-| Runtime-anomaly audit | `1609f68eeb086f4d5c016f0605e7f764c96056a2b1835c5b5e89c9b371870f44` |
-| Fuzz-program audit | `2cdd2fb7716b7e2810e71a96315dd3a5a60b2276140f458dc1463ebb623d9f1e` |
-| Mutation program | `dddbbaadf9ae717b8d5678fca4e0298ef326662200222ddee6b13a77b0fb971a` |
-| Specification-source audit | `f64dc25808fa3365ec33da44da3fa512af1d7c2bc0449109d37ba7b3c20e48e4` |
+| Test-class completeness | `802dcbbb1f987c8956764fa4758de04706ef04e05e2e22289050749085c65354` |
+| Coverage-matrix gaps | `14a579448ca4726f32bd22c87ad21f676e9b0f3b3fffe175f0ae0cd274822510` |
+| Malformed-input coverage | `838928ac6f4110dbab8a8923cfe019b25d2b7d79e72e9211037069b6e2dbd986` |
+| Unmapped-test debt | `2cdff6dd33b24c33eaf762a378ebe366fa4659a9846b55cd73570dd3b2edfd90` |
+| Test-refactor assessment | `9cc6a2f86fe4ce39abe4edc30afce765fe56dd676845dea4090cc06eacc2ee81` |
+| Ignored-test inventory | `769a0915fe2eb8c56ff9d7a538609aa0c6e646d5cce696bfc75173cb16ddd9db` |
+| Invariant-seed audit | `31bcb2c83f14814672cc3a405add052bb4697d5bf6bf35673d32a62c7962c510` |
+| Specification completeness | `ccce74f6f34709bc24b5019615c512ac50e950561dbb3c50f6aadf8a10a111f1` |
+| Phase 5 suite audit | `d33e95aad0e51ffeb92b535b05784ee79064f8bda98a608f45352169879dadaa` |
+| Requirement/oracle audit | `c5976e7d24670670d5be9004879b8ab5b60904307654cebd9fad37e195e26535` |
+| Conformance alignment | `5461b5109bbb937898a7d151fd95d9b14c8f5bc71b996d10635074b2f1c7420a` |
+| Runtime-anomaly audit | `a5669fb97aca4c6598406651c24e13401165d0342ad1a5493458bf045a3cb75c` |
+| Fuzz-program audit | `046cfeb1afb07b6914d57383ac5c9be7e223118d77483e1c755f42c0448f860b` |
+| Mutation program | `0a3fdb311e683eb512439758cc7e8163df6cf169361683c322f2ca0d24ad666f` |
+| Specification-source audit | `012f754e08b29fa0cc3cffb48e7b56123f5c162869c598bc2fe22f01633c6ae4` |
 
 ## Measured Remaining Work
 
