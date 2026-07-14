@@ -23,6 +23,9 @@ use super::types::{GlobalInitValue, RestartMode, RetainPolicy, RetainSnapshot};
 impl Runtime {
     /// Restart the runtime in the given mode (cold or warm).
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), error::RuntimeError> {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         let globals = self.globals.clone();
         let mut retained = IndexMap::new();
         let mut retained_program_vars = Vec::new();

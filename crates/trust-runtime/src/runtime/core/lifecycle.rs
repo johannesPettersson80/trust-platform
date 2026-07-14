@@ -171,6 +171,9 @@ impl Runtime {
 
     /// Apply configured safe-state outputs without recording a runtime fault.
     pub fn apply_io_safe_state(&mut self) -> Result<(), error::RuntimeError> {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         self.io.apply_safe_state()
     }
 
@@ -225,6 +228,9 @@ impl Runtime {
         err: error::RuntimeError,
         decision: FaultDecision,
     ) -> error::RuntimeError {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         let mut reported = err.clone();
         if decision.apply_safe_state {
             if let Err(safe_state_err) = self.io.apply_safe_state() {
