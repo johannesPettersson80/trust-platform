@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `bf29bc01115d0b603294ca31a8016419a24fabba`
-Generated: `2026-07-14T10:39:52+02:00`
+Source revision: `1b9eed363c47a97c5da2ced75562456c58a8cea2`
+Generated: `2026-07-14T12:31:26+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ab0892151472f3dd0df5b16ad3531ed34dc29260dbbe99424360b679fa1d0714`
-Input SHA-256: `sha256:e9c302f2ab29b5d3f006eeee3a66651092e9a211c4cc35e959c19fb9877acb7d`
+Generated JSON SHA-256: `f6418337bf149fdce6d15c2d7528c4dacdbdf8816f21bf890946cbfb4049bdbe`
+Input SHA-256: `sha256:0c6ce9a76acceb7ae7163cd05c4f5143381c506fe46ae2a5bca715d1e2de4c65`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,16 +17,16 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 12
-- Missing oracles: 41
-- Future enforcement candidates: 32
+- Eligible oracles: 14
+- Missing oracles: 39
+- Future enforcement candidates: 30
 
 ## Mapping Groups
 
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
 | `VERIF-P6-001` | `compiler_iec` | 5 | 3 | 2 |
-| `VERIF-P6-002` | `runtime_safety` | 11 | 7 | 4 |
+| `VERIF-P6-002` | `runtime_safety` | 11 | 9 | 2 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 0 | 6 |
 | `VERIF-P6-005` | `control_security, supply_chain_platform` | 6 | 0 | 6 |
@@ -68,13 +68,13 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_SAFE_DEADLINE_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RT_SAFE_IO_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
-| `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
+| `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
 | `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_PANIC_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_RESTART_001` | `runtime_safety` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_RESTART_TIME_002` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
-| `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
+| `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
 | `SEC_AUTHZ_001` | `control_security` | `security` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
@@ -119,8 +119,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `REL_VERSION_001` | `false_status` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` | `true` |
 | `RT_RELOAD_001` | `silent_corruption` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` | `true` |
 | `RT_SAFE_FORCE_001` | `safety_critical` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `true` |
-| `RT_SAFE_IO_WORKER_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
-| `RT_SAFE_STOP_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `false_status` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `true` |
 | `SEC_ARTIFACT_001` | `supply_chain` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `false` |
 | `SEC_AUTHZ_001` | `security` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` | `false` |

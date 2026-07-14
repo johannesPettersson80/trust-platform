@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-14T10:39:52+02:00"
+    "2026-07-14T12:31:26+02:00"
   ],
-  "commit": "bf29bc01115d0b603294ca31a8016419a24fabba",
+  "commit": "1b9eed363c47a97c5da2ced75562456c58a8cea2",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:0b654304d83ce552101c80705029803f10b3d735039415eb6fcf14648bf93142",
+  "input_digest": "sha256:c40562b06f86a99931b1947424976b1f5ecce998e4b1f0dddcf243a8a64537f2",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1044,6 +1044,7 @@
     "crates/trust-runtime/src/io/mqtt/sparkplug.rs",
     "crates/trust-runtime/src/io/mqtt/tests.rs",
     "crates/trust-runtime/src/io/mqtt/tests/nonfinite_case.rs",
+    "crates/trust-runtime/src/io/mqtt/tests/safe_state.rs",
     "crates/trust-runtime/src/io/mqtt/worker.rs",
     "crates/trust-runtime/src/io/provenance.rs",
     "crates/trust-runtime/src/io/registry.rs",
@@ -1473,6 +1474,7 @@
     "crates/trust-runtime/tests/runtime_restart_trace_cases.rs",
     "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
     "crates/trust-runtime/tests/runtime_watchdog_output_case.rs",
+    "crates/trust-runtime/tests/safe_state_handoff_trace_cases.rs",
     "crates/trust-runtime/tests/scheduler_harness.rs",
     "crates/trust-runtime/tests/scheduler_resource.rs",
     "crates/trust-runtime/tests/scheduler_state.rs",
@@ -2541,7 +2543,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-14T10:39:52+02:00",
+  "timestamp": "2026-07-14T12:31:26+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",

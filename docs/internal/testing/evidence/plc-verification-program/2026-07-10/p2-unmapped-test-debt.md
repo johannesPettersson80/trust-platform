@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `bf29bc01115d0b603294ca31a8016419a24fabba`
-Generated: `2026-07-14T10:39:52+02:00`
+Source revision: `1b9eed363c47a97c5da2ced75562456c58a8cea2`
+Generated: `2026-07-14T12:31:26+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `05ec3a117537a0f19b06fe9d457521b8679eaf1d2baea86e62e1f1340d889d96`
-Input SHA-256: `sha256:31fbc31cfadc60f9a796ae4422337cfa89a62f740efd328a47850f08ae092bf9`
+Generated JSON SHA-256: `5175199c8c436277dfde8f7fba8056d2e1225d7d542527691e919b443775e205`
+Input SHA-256: `sha256:1da90345a0572e1f9469171cbd82cec18022dd95cabc7e2603c23b1ad3f1f7bf`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3878
-- Mapped scanner facts: 68
-- Unmapped scanner facts: 3810
-- Generated-test catalog rows: 68
+- Scanner facts: 3883
+- Mapped scanner facts: 72
+- Unmapped scanner facts: 3811
+- Generated-test catalog rows: 72
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 39
 - Conditional unmapped facts: 1
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1404 | 47 | 1357 |
-| `rust_unit_test` | 1679 | 21 | 1658 |
+| `rust_integration_test` | 1407 | 50 | 1357 |
+| `rust_unit_test` | 1681 | 22 | 1659 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -944,7 +944,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_7159C3BA77CC33C8F48C` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_read_inputs_returns_within_scan_bound_while_response_delayed` | `not_ignored` |
 | `DISC_A89C5FA2356D682836D2` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_reconnect_backoff_is_bounded_and_non_spinning` | `not_ignored` |
 | `DISC_2CE088F1926B33175423` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_rejects_unknown_function_config` | `not_ignored` |
-| `DISC_ACC0D14F84361D278BD5` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_safe_state_handoff_is_bounded_and_reaches_delayed_device` | `not_ignored` |
+| `DISC_41FCECEDF690EB121E27` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery` | `not_ignored` |
 | `DISC_B3EBD5115E6DBD66F946` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_stale_snapshot_is_returned_when_worker_reconnects` | `not_ignored` |
 | `DISC_6C10B5D7ACB21ECE8E9D` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_write_outputs_returns_within_scan_bound_while_response_delayed` | `not_ignored` |
 | `DISC_A4A87F179D0CC41E298C` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_client_runtime.rs` | `opcua_client_accepts_vs_code_global_var_names` | `not_ignored` |
@@ -2741,6 +2741,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_ED01117B4E7CC028C957` | `rust_unit_test` | `crates/trust-runtime/src/io/mqtt/tests.rs` | `typed_point_map_reads_json_text_and_binary_payloads` | `not_ignored` |
 | `DISC_86A13C88CFA096648AFB` | `rust_unit_test` | `crates/trust-runtime/src/io/mqtt/tests.rs` | `typed_point_map_rejects_invalid_config` | `not_ignored` |
 | `DISC_9F063632F635A83377F5` | `rust_unit_test` | `crates/trust-runtime/src/io/mqtt/tests.rs` | `typed_point_map_writes_json_text_and_binary_payloads` | `not_ignored` |
+| `DISC_ED86AD6897709C84EF42` | `rust_unit_test` | `crates/trust-runtime/src/io/mqtt/tests/safe_state.rs` | `mqtt_safe_state_handoff_succeeds_when_worker_confirms_publish` | `not_ignored` |
 | `DISC_E1984AB7BA18E2EA3F4A` | `rust_unit_test` | `crates/trust-runtime/src/io/registry.rs` | `alias_resolves_to_canonical_driver_name` | `not_ignored` |
 | `DISC_2A1FE3B0F9A175317636` | `rust_unit_test` | `crates/trust-runtime/src/io/registry.rs` | `canonical_driver_names_are_sorted_unique` | `not_ignored` |
 | `DISC_E9E51ECA704D26D35216` | `rust_unit_test` | `crates/trust-runtime/src/memory/tests.rs` | `borrowed_value_ref_helpers_match_owned_helpers` | `not_ignored` |

@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `bf29bc01115d0b603294ca31a8016419a24fabba`
-Generated: `2026-07-14T10:39:52+02:00`
+Source revision: `1b9eed363c47a97c5da2ced75562456c58a8cea2`
+Generated: `2026-07-14T12:31:26+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `f3fe095cc8e9f3064d9026ad846d97208f30b4f255a1160743365e2cc627102d`
-Input SHA-256: `sha256:30cce44feb5fca7e1f0b82dfef8c98a92a9b3b927cd062dc55d2d3e47efda01f`
+Generated JSON SHA-256: `9da83c17bc47afc665f39d6a42c73c9814d37ce87c2a9eb5b05ee6128502b8bc`
+Input SHA-256: `sha256:1edf5706ecea9a6d294f6788b3476a8f6fe4526228cb75995ffc7d98039be9f7`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 41
-- Tests with expected results: 73
+- Invariants without specified specs: 39
+- Tests with expected results: 77
 - Tests without oracle/spec/gap binding: 0
 - Coverage cells: 65
-- Coverage cells marked spec_gap: 47
+- Coverage cells marked spec_gap: 45
 - Bytecode pilot gaps: 7
 - Registered public-claim sources: 4
 
@@ -51,8 +51,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `REL_VERSION_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `missing` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
-| `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `ambiguous` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
-| `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `ambiguous` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
 | `SEC_AUTHZ_001` | `control_security` | `security` | `spec_gap` | `missing` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
@@ -103,8 +101,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `REL_VERSION_001` | `release` | `false_status` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
-| `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | 0 | `concurrency_or_cancellation` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
-| `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | 0 | `hardware_or_network_fault` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
 | `SEC_AUTHZ_001` | `control_security` | `security` | 0 | `auth_or_permission` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
