@@ -1,22 +1,22 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `c935e82b209b8dabab17f17e398b4dc5fc5ab5b6`
-Generated: `2026-07-14T14:35:59+02:00`
+Source revision: `a0943c22aae73de427f50e730303a6d54c19ade2`
+Generated: `2026-07-14T16:23:25+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `802dcbbb1f987c8956764fa4758de04706ef04e05e2e22289050749085c65354`
-Input SHA-256: `sha256:cee5d5c7d73b4e71feb3f550dc8a9aab954a99533a19c8cc6e144b44853648f6`
+Generated JSON SHA-256: `542532f387fdcc0ffd5ec7f6c7bbc5a11f91a37731bdabc0df200f054ee88d64`
+Input SHA-256: `sha256:728a78655f472b83d176c3f4a77c03efc521953a8ab38f47349ebd519f416b7b`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3886
-- Classified scanner facts: 83
+- Scanner facts: 3892
+- Classified scanner facts: 89
 - Unmapped scanner facts: 3803
-- Catalog records: 88
-- Runnable catalog records: 84
+- Catalog records: 94
+- Runnable catalog records: 90
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
@@ -31,8 +31,8 @@ mean every scanner fact or required test class is mapped.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1409 | 59 | 1350 |
-| `rust_unit_test` | 1682 | 24 | 1658 |
+| `rust_integration_test` | 1414 | 64 | 1350 |
+| `rust_unit_test` | 1683 | 25 | 1658 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -65,7 +65,13 @@ Classified mappings:
 - `DISC_8F0C898E72D907AA065A` -> `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001`
 - `DISC_846E4BECA070B0C77CDA` -> `TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001`
 - `DISC_B4F19BDADF413705E697` -> `TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001`
+- `DISC_CA34AD06400345CAADED` -> `TEST_RUNTIME_FORCE_AUTH_CHANGE_001`
+- `DISC_726176040625B846A7AD` -> `TEST_RUNTIME_FORCE_DISCONNECT_001`
+- `DISC_852E381BD310A63FCE71` -> `TEST_RUNTIME_FORCE_FAULT_001`
 - `DISC_49D96694751D91832F85` -> `TEST_RUNTIME_FORCE_LIFECYCLE_001`
+- `DISC_99710F5C15A625CF2D08` -> `TEST_RUNTIME_FORCE_PAUSE_RESUME_001`
+- `DISC_586DFB900FD4BB4178DD` -> `TEST_RUNTIME_FORCE_RELEASE_001`
+- `DISC_2186AC96174B5EBBFCF2` -> `TEST_RUNTIME_FORCE_STOP_001`
 - `DISC_A66997F12A4CE2CE2018` -> `TEST_RUNTIME_HMI_NONFINITE_WRITE_001`
 - `DISC_C46D4AB834A6E974B42E` -> `TEST_RUNTIME_MESH_NONFINITE_INGRESS_001`
 - `DISC_1A7FBD5D70961E458BE7` -> `TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001`
@@ -202,9 +208,9 @@ Additional catalog classes:
 
 | Required class | Runnable tests | Non-runnable rows | Complete |
 | --- | --- | --- | --- |
-| `integration` | `TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001`, `TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001`, `TEST_RUNTIME_PANIC_IO_DRIVER_001`, `TEST_RUNTIME_PANIC_SAFE_OUTPUT_001`, `TEST_RUNTIME_PANIC_THREAD_GUARD_001`, `TEST_RUNTIME_RESTART_COLD_STORAGE_001`, `TEST_RUNTIME_RESTART_WARM_STORAGE_001` | none | yes |
+| `integration` | `TEST_RUNTIME_FORCE_DISCONNECT_001`, `TEST_RUNTIME_FORCE_FAULT_001`, `TEST_RUNTIME_FORCE_PAUSE_RESUME_001`, `TEST_RUNTIME_FORCE_RELEASE_001`, `TEST_RUNTIME_FORCE_STOP_001`, `TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001`, `TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001`, `TEST_RUNTIME_PANIC_IO_DRIVER_001`, `TEST_RUNTIME_PANIC_SAFE_OUTPUT_001`, `TEST_RUNTIME_PANIC_THREAD_GUARD_001`, `TEST_RUNTIME_RESTART_COLD_STORAGE_001`, `TEST_RUNTIME_RESTART_WARM_STORAGE_001` | none | yes |
 | `runtime_vertical` | none | none | no |
-| `unit` | `TEST_RUNTIME_PANIC_CYCLE_GUARD_001`, `TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001` | none | yes |
+| `unit` | `TEST_RUNTIME_FORCE_AUTH_CHANGE_001`, `TEST_RUNTIME_PANIC_CYCLE_GUARD_001`, `TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001` | none | yes |
 
 Additional catalog classes:
 

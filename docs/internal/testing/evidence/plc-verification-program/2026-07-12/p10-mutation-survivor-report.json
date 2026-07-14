@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-14T14:35:59+02:00"
+    "2026-07-14T16:23:25+02:00"
   ],
-  "commit": "c935e82b209b8dabab17f17e398b4dc5fc5ab5b6",
+  "commit": "a0943c22aae73de427f50e730303a6d54c19ade2",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:716ea7db1121c9ff3eec344194d250ac45e5b98e00b331ef0748084b5254aacd",
+  "input_digest": "sha256:6727b18a6d0890892e6812db1d6530147b9ef82a17caf380037c73138f8589f0",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -739,6 +739,7 @@
     "crates/trust-runtime/src/control/tests/connectors.rs",
     "crates/trust-runtime/src/control/tests/core.rs",
     "crates/trust-runtime/src/control/tests/debug_boundary.rs",
+    "crates/trust-runtime/src/control/tests/debug_mutation_lifecycle.rs",
     "crates/trust-runtime/src/control/tests/goldens.rs",
     "crates/trust-runtime/src/control/tests/helpers.rs",
     "crates/trust-runtime/src/control/tests/hmi.rs",
@@ -1399,6 +1400,7 @@
     "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/tests.st",
     "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st",
     "crates/trust-runtime/tests/force_lifecycle.rs",
+    "crates/trust-runtime/tests/force_lifecycle_boundaries.rs",
     "crates/trust-runtime/tests/gpio_safe_state.rs",
     "crates/trust-runtime/tests/harness.rs",
     "crates/trust-runtime/tests/harness_fail_closed.rs",
@@ -2545,7 +2547,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-14T14:35:59+02:00",
+  "timestamp": "2026-07-14T16:23:25+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",
