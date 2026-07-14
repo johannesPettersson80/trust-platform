@@ -10,11 +10,22 @@ claim = "Force, write, and release state must not persist through lifecycle boun
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
-tests = ["TEST_RUNTIME_FORCE_LIFECYCLE_001"]
+tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
 gates = []
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_RED",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_GREEN",
+]
 spec_gap_refs = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
-missing = ["disconnect_stop_pause_fault_auth_change_cases"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -348,7 +348,15 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "How do force, write, and release state transition across disconnect, stop, restart, pause, fault, and authorization changes?"
 affected_invariants = ["RT_SAFE_FORCE_001"]
-affected_tests = ["TEST_RUNTIME_FORCE_LIFECYCLE_001"]
+affected_tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
 resolution_status = "test_mapped"
 closeout_evidence = []
