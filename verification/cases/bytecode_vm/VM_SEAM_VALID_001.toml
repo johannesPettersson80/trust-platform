@@ -8,7 +8,7 @@ invariant = "VM_SEAM_VALID_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:2642475a595a42eb9e0d2ccab4658780f5602ac92d5f8f1891328e0ef8023032"
 source_digest = "sha256:2ff6230c9c416e67d5af830fe7a38b8ff0b1a3ac316ae9dbfe244c0af659ab1d"
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-14"
 
 [[case]]
 id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_58B11C2B"
