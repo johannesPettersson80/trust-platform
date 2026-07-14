@@ -478,10 +478,9 @@ fn build_positional_call(
         let key = param.name.to_ascii_uppercase();
         if let Some(expr) = by_name.remove(&key) {
             out.push(expr);
-        } else if let Some(expr) = positional_iter.next() {
-            out.push(expr);
         } else {
-            return None;
+            let expr = positional_iter.next()?;
+            out.push(expr);
         }
     }
 
