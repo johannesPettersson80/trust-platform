@@ -411,8 +411,16 @@ mod tests {
     fn utf16_positions_round_trip_across_all_lsp_line_endings() {
         for line_ending in ["\n", "\r\n", "\r"] {
             let source = format!("😀x{line_ending}y");
+            let line_end = "😀x".len() as u32;
             let y_offset = source.find('y').expect("y offset") as u32;
 
+            for terminator_offset in line_end..y_offset {
+                assert_eq!(
+                    offset_to_position(&source, terminator_offset),
+                    Position::new(0, 3),
+                    "line-ending byte {terminator_offset} in {line_ending:?}"
+                );
+            }
             assert_eq!(
                 offset_to_position(&source, y_offset),
                 Position::new(1, 0),
