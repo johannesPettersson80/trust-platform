@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.38`
+Target release: `v0.24.39`
 
 ### Fixed
 
+- trust-runtime: safe-state application now requires confirmed healthy driver
+  handoff, reports queued/reconnecting worker delivery as unconfirmed, attempts
+  every configured driver, and prevents a deliberate stop from reporting
+  `Stopped` when physical safe-state delivery was not confirmed.
 - trust-runtime: retained snapshots are now fully validated before any restored
   global is changed, preventing a later incompatible value from leaving earlier
   values partially applied after a failed warm load.
