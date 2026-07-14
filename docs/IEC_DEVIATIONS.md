@@ -12,6 +12,31 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-14 - Exclude debugger pause dwell from watchdog execution time
+
+- ID: DEV-049
+- Area: Runtime debugger pause and watchdog accounting
+- IEC reference: IEC 61131-3 does not define truST's debugger protocol,
+  statement-boundary pause mechanism, or host watchdog accounting while an
+  operator inspects a stopped program. This entry records a truST product
+  extension outside the IEC language model, not a contradiction of an IEC
+  requirement.
+- Deviation/extension:
+  - A watchdog measures active cycle execution. Time spent waiting at a
+    debugger statement-boundary pause is excluded from the current cycle's
+    execution and output-commit deadlines.
+  - Resume continues the suspended cycle with the remaining active-execution
+    budget rather than resetting the watchdog to a new full interval.
+  - A resource pause between cycles starts no new scan or watchdog interval.
+- Impact:
+  - An operator may inspect a paused program longer than the configured
+    watchdog timeout without manufacturing a watchdog fault, while genuine
+    active-execution overruns remain bounded.
+- Mitigation:
+  - Production deployments should keep debug attach disabled unless explicitly
+    commissioned. Stop or fault the resource when safe-state handling is
+    required instead of relying on a debugger pause.
+
 ## 2026-07-14 - Automatic runtime fault restart uses warm storage semantics
 
 - ID: DEV-048

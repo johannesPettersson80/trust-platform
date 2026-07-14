@@ -468,6 +468,23 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
   no physical output write; it must not re-send the pending process-image output as a
   substitute safe state.
 
+**Debug and resource pause interaction:**
+- The watchdog measures active cycle execution, not operator dwell time at a
+  debugger statement-boundary pause. Time spent waiting in that paused state is
+  excluded from the current cycle's execution and output-commit deadlines.
+- A resource pause accepted between cycles does not arm a new watchdog deadline
+  and does not start another input, task, retain, or output phase while paused.
+- A debugger pause inside a cycle suspends that cycle. It does not start another
+  scan or commit outputs while waiting. Resume continues the suspended cycle with
+  the same remaining active-execution budget; it does not grant a fresh full
+  watchdog interval.
+- Pause alone does not apply safe state or clear a fault. A real active-execution
+  timeout before or after the paused interval still follows the configured
+  watchdog fault action.
+
+These pause rules are a truST host/debugger extension outside the IEC language
+execution model (DEV-049).
+
 **Automatic restart policy:**
 - A non-panic cycle fault configured with `FaultPolicy::Restart`, or a watchdog
   timeout configured with restart action, enters the same warm-restart storage

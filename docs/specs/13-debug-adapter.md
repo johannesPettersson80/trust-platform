@@ -78,6 +78,12 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - `PauseRequest` is honored only if execution is currently running.
 - The adapter **must** respond to the request before emitting `StoppedEvent` with reason `pause`.
 - If already paused, the adapter returns success and does not emit another pause event.
+- A statement-boundary pause suspends the current runtime cycle. Operator dwell
+  time while stopped is excluded from the cycle watchdog and output-commit
+  deadlines; resume continues with the remaining active-execution budget.
+- No new scan or output commit starts solely because the debugger is waiting.
+  Pause does not apply safe state. An independent stop, fault, or active-execution
+  watchdog breach retains its normal runtime semantics. See DEV-049.
 
 #### Stop on Entry
 
