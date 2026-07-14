@@ -217,11 +217,11 @@ area = "bytecode_vm"
 tag = "lowering_fail_closed_contract"
 title = "Source lowering and bytecode encoding fail-closed contract"
 owner = "trust-runtime"
-status = "spec_gap"
+status = "mapped"
 expected_authority = ["normative_product", "reviewed_decision"]
-spec_gap_ref = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"
+source_ref = "SPEC_BYTECODE_FORMAT_001"
 blocks = "test_mapping"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-14"
 
 [[required_specs]]
 schema_version = 1

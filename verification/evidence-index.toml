@@ -2732,3 +2732,29 @@ linked_tests = [
 ]
 linked_spec_gaps = ["SPEC_GAP_EDITOR_RENAME_CONFLICT_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_LOWERING_FAIL_CLOSED_CLOSEOUT_20260714"
+title = "Bytecode lowering fail-closed specification closeout"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/vm-lowering-fail-closed-closeout.md"
+command = "ssh trust-builder 'cd /tmp/trust-platform-batch-c-pos-2 && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo fmt --all -- --check && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_supports_exit_and_continue_in_loop_stmt_paths -- --exact --nocapture && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_rejects_unsupported_c5_edge_case_stmt_paths -- --nocapture && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test phase11_seam_contract unsupported_array_initializer_assignment_fails_build_instead_of_nop -- --exact --nocapture'"
+commit = "c0c8540e644dfa8df842cf41f24c391e6c36eb15"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex bytecode lowering fail-closed closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_ENC_001"]
+linked_tests = [
+  "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
+]
+linked_spec_gaps = ["SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"]
+last_reviewed = "2026-07-14"

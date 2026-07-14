@@ -643,6 +643,34 @@ The executor must fault on:
 - Invalid jump targets
 - Method/interface dispatch on NULL or incompatible references
 
+#### 7.5 Source-to-Bytecode Fail-Closed Boundary
+
+Source analysis and bytecode lowering are separate acceptance boundaries. A
+source construct may be valid in the analyzed runtime model while the bytecode
+encoder does not yet implement its executable semantics. In that case,
+bytecode-module construction must fail visibly and return no module. The
+encoder must not replace the construct with `NOP`, discard the unsupported
+subtree, or return a module containing only the successfully emitted prefix.
+
+The reviewed lowering partitions are:
+
+- supported `EXIT` and `CONTINUE` statements inside active loops emit their
+  defined jump paths and remain executable;
+- a source `JMP` statement, which is accepted by source analysis but has no
+  reviewed bytecode lowering, rejects bytecode-module construction; and
+- an executable array-initializer assignment, including one following an
+  otherwise supported statement, rejects bytecode-module construction while
+  that expression remains unsupported by the encoder.
+
+During source lowering, an explicit empty label is the sole reviewed
+intentional no-action statement that may emit `NOP`. The presence of the
+encoded `NOP` instruction in an already constructed module is governed by the
+normal instruction contract and does not authorize fail-open source lowering.
+
+This boundary requires a visible build error but does not define a stable typed
+error identifier. Stable bytecode and VM error identifiers remain a separate
+open contract.
+
 ### 8. Versioning
 
 - Major version changes are breaking and must be rejected by older runtimes.

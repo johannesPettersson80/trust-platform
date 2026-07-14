@@ -77,14 +77,19 @@ blocking_question = "Which HIR-clean but unencodable source constructs must fail
 affected_invariants = [
   "VM_SEAM_ENC_001",
 ]
-affected_tests = []
+affected_tests = [
+  "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
+]
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",
 ]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_LOWERING_FAIL_CLOSED_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

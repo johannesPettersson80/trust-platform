@@ -1432,6 +1432,78 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_203211A3F8CF0EFC7FC1"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
+name = "vm_lowering_supports_exit_and_continue_in_loop_stmt_paths"
+command = "cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_supports_exit_and_continue_in_loop_stmt_paths -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+expected_result = "Supported EXIT and CONTINUE statements lower to jump instructions and execute the reviewed FOR, WHILE, and REPEAT outcomes."
+expected_failure_mode = "A supported loop-control statement is rejected, omitted, or lowered with incorrect control flow."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A25BA8D22EAE6F745364"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
+name = "vm_lowering_rejects_unsupported_c5_edge_case_stmt_paths"
+command = "cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_rejects_unsupported_c5_edge_case_stmt_paths -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+expected_result = "A source JMP statement accepted by analysis but unsupported by the bytecode encoder rejects bytecode-module construction."
+expected_failure_mode = "The encoder drops the JMP or substitutes NOP and returns a bytecode module with changed control flow."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_48945885EF6AAC63E41D"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "unsupported_array_initializer_assignment_fails_build_instead_of_nop"
+command = "cargo test -p trust-runtime --test phase11_seam_contract unsupported_array_initializer_assignment_fails_build_instead_of_nop -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+expected_result = "The fixture passes source analysis, then an unsupported executable array initializer rejects the complete bytecode module after a supported assignment prefix."
+expected_failure_mode = "The encoder returns a partial module containing the valid prefix while dropping or replacing the unsupported assignment."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_9B5074A2F4ECFB141D84"
