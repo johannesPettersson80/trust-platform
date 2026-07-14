@@ -7,18 +7,19 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Online change and hot reload must not leave live runtime state partially applied or inconsistent with status."
-proof_level = "G1"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
 tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
-gates = []
+gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED",
   "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_GREEN",
   "EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47",
 ]
 spec_gap_refs = []
-missing = ["bytecode_resource_commit_failure_cases", "retain_migration_failure", "broad_remote_gate"]
+missing = ["bytecode_resource_commit_failure_cases", "retain_migration_failure"]
 
 [spec]
 status = "specified"
@@ -40,4 +41,4 @@ rationale = "Retained-state preparation completes before the live bytecode, stor
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "Producer-authentic red/green proof covers retain-store read failure before live mutation; bytecode/resource commit and retained-migration failure cases remain pending."
+rationale = "Producer-authentic red/green proof plus the reviewed PR broad gate cover retain-store read failure before live mutation; bytecode/resource commit and retained-migration failure cases remain pending."

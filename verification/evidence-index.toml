@@ -2401,3 +2401,39 @@ linked_invariants = ["RT_RELOAD_001"]
 linked_tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
 linked_spec_gaps = ["SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47"
+title = "Reviewed PR broad gate for RT_RELOAD_001"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "e7e778218579d2c3fb6ce6116fdabba3fc9de181"
+remote_commit = "e7e778218579d2c3fb6ce6116fdabba3fc9de181"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["RT_RELOAD_001"]
+linked_tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-14"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:51663e0a81d7dc11f91e2665f21f1d9c01f643b62c88cbadb391be29d517d19e", case_file_digest = "sha256:7e846d3f59b85137fcff4c51646284027ada7264d88e2538d62d21c541a45e01", command = "cargo test -p trust-runtime --test reload_transaction_trace_cases reload_transaction_trace_cases -- --exact", discovery_id = "DISC_45B9440A281BFB62649B", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME:passed"], run_id = "994e7cd934f245d195b695ec79d70cc7", test_id = "TEST_RUNTIME_RELOAD_TRANSACTION_001" }]
+gate_started_at = "2026-07-14T11:56:32Z"
+gate_finished_at = "2026-07-14T12:09:50Z"
+gate_duration_milliseconds = 797875
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 89522184
+tmp_available_kib = 7270792
