@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "On deliberate stop, configured safe outputs must reach the device or the runtime must report that safe state was not achieved."
-proof_level = "G1"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/io"]
 tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
@@ -16,9 +16,10 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_GREEN",
   "EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_30F1B77C35BE",
 ]
 spec_gap_refs = []
-missing = ["hardware_lab_real_output_module", "broad_remote_gate"]
+missing = ["hardware_lab_real_output_module"]
 
 [spec]
 status = "specified"
