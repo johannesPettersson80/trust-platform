@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.42`
+Target release: `v0.24.43`
 
 ### Fixed
 
+- trust-syntax: malformed `CASE`, `ELSIF`, `FOR`, `WHILE`, and `REPEAT`
+  statements now diagnose missing required delimiters instead of accepting
+  partial syntax as a valid control-flow construct.
 - trust-lsp: cancelled workspace diagnostic requests now return
   `ContentModified` instead of a successful empty or partial report that could
   hide diagnostics collected after a newer semantic request superseded them.
