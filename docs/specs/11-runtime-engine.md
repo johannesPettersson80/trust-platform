@@ -469,6 +469,30 @@ as a whole before any retained global is applied; the runtime does not clamp,
 normalize, or substitute a default value. In-process floating-point execution
 outside the file-backed retain boundary is unaffected by this rule.
 
+Retain-store failures use the following fail-closed transaction policy. IEC
+61131-3 section 6.5.6 defines which variable classes are retentive across a
+restart; the storage and failure boundaries below are the truST runtime
+contract:
+
+- A missing configured file represents an empty snapshot. Open, read, framing,
+  checksum, decode, declared-type migration, and value-compatibility failures
+  are errors. A warm startup or warm reload that encounters one of these errors
+  fails instead of continuing with a partially restored image.
+- The complete loaded snapshot is decoded, canonicalized, and validated before
+  any retained global is changed. If any retained entry is invalid, every
+  retained global keeps the value it held before the load attempt.
+- A save is encoded before it is published and is written through a temporary
+  file in the destination directory. Failures before the atomic rename leave
+  the previous file unchanged. A rename or parent-directory synchronization
+  failure is reported as an error; the runtime does not claim that the new
+  snapshot is durable. The in-memory snapshot remains dirty so a later save may
+  retry.
+- A due periodic save failure fails that scan before physical outputs are
+  committed. A requested-stop save failure is exposed as the resource's retain
+  error rather than reported as a successful stop.
+- Cold restart does not load the retain store and therefore cannot silently
+  reinterpret a failed warm-load attempt as cold-start success.
+
 **Power-loss guidance:** retained values are only guaranteed to persist if the most recent
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
 Unflushed changes may be lost on sudden power loss (implementer-specific).
