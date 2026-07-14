@@ -75,7 +75,8 @@ END_PROGRAM
 
 #[test]
 pub(super) fn lsp_hover_uses_utf16_positions_after_bare_cr_line_endings() {
-    let source = "PROGRAM Test\rVAR\r    speed : INT;\rEND_VAR\r(* 😀 *) speed := 1;\rEND_PROGRAM\r";
+    let source =
+        "PROGRAM Test\rVAR\r    speed : INT;\rEND_VAR\r(* 😀 *) speed := 1;\rEND_PROGRAM\r";
     let state = ServerState::new();
     let uri = tower_lsp::lsp_types::Url::parse("file:///utf16-bare-cr-hover.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());

@@ -43,9 +43,22 @@ struct LineIndex<'a> {
 impl<'a> LineIndex<'a> {
     fn new(content: &'a str) -> Self {
         let mut line_starts = vec![0];
-        for (idx, ch) in content.char_indices() {
-            if ch == '\n' {
-                line_starts.push(idx + ch.len_utf8());
+        let bytes = content.as_bytes();
+        let mut offset = 0;
+        while offset < bytes.len() {
+            match bytes[offset] {
+                b'\r' => {
+                    offset += 1;
+                    if bytes.get(offset) == Some(&b'\n') {
+                        offset += 1;
+                    }
+                    line_starts.push(offset);
+                }
+                b'\n' => {
+                    offset += 1;
+                    line_starts.push(offset);
+                }
+                _ => offset += 1,
             }
         }
         Self {
@@ -61,6 +74,7 @@ impl<'a> LineIndex<'a> {
             .partition_point(|start| *start <= offset)
             .saturating_sub(1);
         let line_start = self.line_starts[line_idx];
+        let offset = offset.min(self.line_end_without_newline(line_idx));
         let character = self.content[line_start..offset].encode_utf16().count() as u32;
         (line_idx as u32, character)
     }

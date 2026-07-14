@@ -13,6 +13,9 @@ Target release: `v0.24.42`
 - trust-lsp: cancelled workspace diagnostic requests now return
   `ContentModified` instead of a successful empty or partial report that could
   hide diagnostics collected after a newer semantic request superseded them.
+- trust-lsp: UTF-16 positions now recognize bare-CR lines and keep every CRLF
+  terminator byte at the preceding line end, matching the LSP line-boundary
+  contract for incoming requests and outgoing ranges.
 - trust-runtime: debugger statement-boundary pauses no longer count operator
   dwell time against the active cycle watchdog or output-commit deadline;
   genuine execution time before and after resume remains bounded.
