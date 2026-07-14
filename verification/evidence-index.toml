@@ -2426,6 +2426,35 @@ last_reviewed = "2026-07-14"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_LSP_POSITION_ENCODING_FIX_20260714"
+title = "LSP position encoding and line-boundary product fix"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/lsp-position-encoding-fix.md"
+command = "ssh trust-builder 'cd /tmp/trust-platform-batch-c-pos-2 && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" && cargo fmt --all -- --check && cargo test -p trust-lsp utf16 -- --nocapture'"
+commit = "993530fac7ab71f6e033770df7338df89deba396"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex LSP position encoding product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["EDIT_LSP_POS_001"]
+linked_tests = [
+  "TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_HANDSHAKE_001",
+  "TEST_LSP_POSITION_ENCODING_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001",
+  "TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001",
+  "TEST_LSP_POSITION_ENCODING_SYNC_001",
+]
+linked_spec_gaps = ["SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_PRODUCT_FIRST_BATCH_B_EXECUTION_VALIDATION_20260714"
 title = "Product-first Batch B execution validation"
 area = "runtime_safety"

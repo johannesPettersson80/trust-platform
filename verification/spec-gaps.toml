@@ -500,11 +500,19 @@ status = "spec_gap"
 gap_class = "missing_boundary"
 blocking_question = "Which negotiated or default character encoding governs every incoming and outgoing position, range, edit, and semantic-token length?"
 affected_invariants = ["EDIT_LSP_POS_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_HANDSHAKE_001",
+  "TEST_LSP_POSITION_ENCODING_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001",
+  "TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001",
+  "TEST_LSP_POSITION_ENCODING_SYNC_001",
+]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_POSITION_ENCODING_FIX_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1

@@ -477,11 +477,11 @@ version = "current"
 last_reviewed = "2026-07-14"
 covers = [
   "diagnostic_cancellation",
+  "lsp_position_encoding",
   "lsp_range_operations",
   "lsp_incremental_sync",
 ]
 known_limitations = [
-  "The source does not specify negotiated character encoding or supplementary-plane position conversion.",
   "Rename conflict partitions remain a focused open specification gap.",
 ]
 conflicts_with = []

@@ -3,29 +3,58 @@ id = "EDIT_LSP_POS_001"
 title = "LSP positions follow the negotiated encoding"
 area = "editor_safety"
 risk = "silent_corruption"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-lsp"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "LSP wire positions and lengths must follow the negotiated encoding, including supplementary-plane characters."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-lsp/src"]
+source_refs = [
+  "crates/trust-lsp/src/main.rs",
+  "crates/trust-lsp/src/handlers/lsp_utils.rs",
+]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"]
-missing = ["negotiated_position_encoding_contract", "supplementary_plane_boundary_cases"]
+spec_gap_refs = []
+missing = [
+  "producer_authentic_red_green_proof",
+  "broad_remote_gate",
+]
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_LSP_CONTRACT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"
+ref = "SPEC_LSP_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "INITIALIZE_POSITION_ENCODING" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The initialize result advertises the mandatory UTF-16 position encoding used by every later request and response."
+
+[[behavior]]
+partition = { equals = "SUPPLEMENTARY_SCALAR_POSITION" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Incoming edits and outgoing hover ranges and semantic-token lengths count each supplementary scalar as two UTF-16 code units."
+
+[[behavior]]
+partition = { equals = "LSP_LINE_ENDINGS" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "LF, CRLF, and bare CR each advance exactly one line and their terminator bytes map to the preceding line end."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "spec_gap"
-rationale = "The active LSP source does not define negotiated character encoding or supplementary-plane boundaries."
-spec_gap_ref = "SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"
+state = "gap_open"
+rationale = "Focused initialization, sync, hover, semantic-token, and line-ending tests cover the UTF-16 contract; producer-authentic proof and a causal broad gate remain open."
