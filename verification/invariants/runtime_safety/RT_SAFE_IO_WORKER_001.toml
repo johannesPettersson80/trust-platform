@@ -3,18 +3,27 @@ id = "RT_SAFE_IO_WORKER_001"
 title = "I/O workers cannot hide scan-thread safety failures"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Protocol worker queues, reconnect loops, and snapshots must remain bounded and must expose stale or failed safe-state handoff truthfully."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io"]
-tests = []
-gates = []
-evidence_refs = []
+tests = [
+  "TEST_RUNTIME_SAFE_STATE_HANDOFF_001",
+  "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001",
+  "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001",
+  "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
+  "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_GREEN",
+  "EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714",
+]
 spec_gap_refs = []
-missing = ["targeted_red_green_proof", "hardware_lab_worker_disconnect", "broad_remote_gate"]
+missing = ["hardware_lab_worker_disconnect", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +44,5 @@ rationale = "A queued, reconnecting, timed-out, degraded, or faulted worker hand
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "The bounded unconfirmed-handoff contract and Modbus/MQTT regressions are written, but producer-authentic red/green, a broad remote gate, and a hardware disconnect run remain pending."
+state = "covered"
+rationale = "Producer-authentic red and green proof covers bounded unconfirmed worker handoffs and continued delivery attempts; broad remote and hardware-disconnect evidence remain explicit invariant debt."

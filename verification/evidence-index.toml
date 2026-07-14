@@ -2082,6 +2082,28 @@ per_case_summary = ["RT_SAFE_STOP_001_DEGRADED_HANDOFF_FAULTS_STOP:passed", "RT_
 
 [[evidence]]
 schema_version = 1
+id = "EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714"
+title = "Runtime safe-state handoff specification gap closeout"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/safe-state-handoff-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && python3 -m unittest scripts.verification.spec_gap_closure_tests scripts.verification.metadata_validator.promotion_evidence_tests scripts.verification.invariant_seed_audit_tests"
+commit = "e0080622facd6e2ba1179721cad739e0c0427390"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex safe-state handoff specification closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_STOP_001", "RT_SAFE_IO_WORKER_001"]
+linked_tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001", "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001", "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001", "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001"]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_SAFE_STATE_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED"
 title = "Red proof for TEST_RUNTIME_SAFE_STATE_HANDOFF_001"
 area = "runtime_safety"

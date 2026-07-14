@@ -3,18 +3,27 @@ id = "RT_SAFE_STOP_001"
 title = "Deliberate stop applies or truthfully reports safe outputs"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "On deliberate stop, configured safe outputs must reach the device or the runtime must report that safe state was not achieved."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/io"]
-tests = []
-gates = []
-evidence_refs = []
+tests = [
+  "TEST_RUNTIME_SAFE_STATE_HANDOFF_001",
+  "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001",
+  "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001",
+  "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
+  "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_GREEN",
+  "EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714",
+]
 spec_gap_refs = []
-missing = ["targeted_red_green_proof", "hardware_lab_real_output_module", "broad_remote_gate"]
+missing = ["hardware_lab_real_output_module", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +44,5 @@ rationale = "The safe output image is applied and every configured driver is att
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The worker-handoff contract and focused cases are written, but producer-authentic red/green, a broad remote gate, and real output-module evidence remain pending."
+state = "covered"
+rationale = "Producer-authentic red and green proof covers deliberate stop on degraded and faulted handoffs while later configured drivers are still attempted; broad remote and real output-module evidence remain explicit invariant debt."

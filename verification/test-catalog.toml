@@ -1452,7 +1452,6 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
 case_file = "verification/cases/runtime_safety/RT_SAFE_STOP_001.toml"
 case_file_digest = "sha256:99b5a4339efba12053aff211d24457afe899752e71ce213909e0ec1f6a4eaecf"
 last_reviewed = "2026-07-14"
@@ -1479,7 +1478,6 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
 last_reviewed = "2026-07-14"
 
 [[tests]]
@@ -1504,7 +1502,6 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
 last_reviewed = "2026-07-14"
 
 [[tests]]
@@ -1529,7 +1526,6 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-spec_gap_ref = "SPEC_GAP_RUNTIME_SAFE_STATE_001"
 last_reviewed = "2026-07-14"
 
 [[tests]]

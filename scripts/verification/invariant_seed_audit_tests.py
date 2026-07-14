@@ -104,6 +104,7 @@ class SeedManifestContractTests(unittest.TestCase):
         self.assertEqual(
             [
                 "RT_SAFE_DEADLINE_001",
+                "RT_SAFE_STOP_001",
                 "RT_SAFE_RETAIN_001",
                 "RT_SAFE_NAN_001",
                 "IEC_TIMER_001",
@@ -116,7 +117,10 @@ class SeedManifestContractTests(unittest.TestCase):
 
     def test_only_reviewed_seeds_may_enter_execution_lifecycle(self) -> None:
         manifest = _load_manifest(self.root)
-        manifest["seeds"][0]["lifecycle_state"] = EXECUTION_READY
+        unreviewed = next(
+            row for row in manifest["seeds"] if row["seed_id"] == "RT_SAFE_IO_001"
+        )
+        unreviewed["lifecycle_state"] = EXECUTION_READY
         _write_manifest(self.root, manifest)
         with self.assertRaisesRegex(ValueError, "not reviewed for execution_ready"):
             load_seed_audit(self.root)
@@ -223,7 +227,7 @@ class SeedManifestContractTests(unittest.TestCase):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
-        invariant_path = self.root / "verification/invariants/runtime_safety/RT_SAFE_STOP_001.toml"
+        invariant_path = self.root / "verification/invariants/bytecode_vm/VM_SEAM_VALID_001.toml"
         invariant_path.write_text(
             invariant_path.read_text().replace('spec_gap_ref = "SPEC_GAP_FIXTURE_001"', 'spec_gap_ref = "SPEC_GAP_OTHER_001"')
         )
@@ -322,7 +326,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(4, promotion.call_count)
+            self.assertEqual(5, promotion.call_count)
 
         for mutate, signal in (
             (
@@ -391,7 +395,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(4, promotion.call_count)
+            self.assertEqual(5, promotion.call_count)
 
     def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
         arguments = _loaded_contract_arguments(self.root)
@@ -712,6 +716,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                         "RT_SAFE_DEADLINE_001",
                         "RT_SAFE_NAN_001",
                         "RT_SAFE_RETAIN_001",
+                        "RT_SAFE_STOP_001",
                     }
                     else BASELINE
                 ),
@@ -721,9 +726,9 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
         path = root / "verification/invariants" / area / f"{canonical}.toml"
         if path.exists():
             continue
-        spec_gap = canonical == "RT_SAFE_STOP_001"
-        tests = '["TEST_FIXTURE"]' if canonical == "RT_SAFE_STOP_001" else "[]"
-        evidence = '["EVID_FIXTURE"]' if canonical == "RT_SAFE_STOP_001" else "[]"
+        spec_gap = canonical == "VM_SEAM_VALID_001"
+        tests = '["TEST_FIXTURE"]' if canonical == "VM_SEAM_VALID_001" else "[]"
+        evidence = '["EVID_FIXTURE"]' if canonical == "VM_SEAM_VALID_001" else "[]"
         if spec_gap:
             spec_block = textwrap.dedent(
                 f'''\
@@ -832,7 +837,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
             status = "spec_gap"
             gap_class = "missing_behavior"
             blocking_question = "What is the behavior?"
-            affected_invariants = ["RT_SAFE_STOP_001"]
+            affected_invariants = ["VM_SEAM_VALID_001"]
             affected_tests = ["TEST_FIXTURE"]
             candidate_spec_sources = ["SPEC_SOURCE_FIXTURE_001"]
             resolution_status = "open"
@@ -878,7 +883,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
             id = "TEST_FIXTURE"
             subject_kind = "case_table_artifact"
             status = "planned"
-            invariants = ["RT_SAFE_STOP_001"]
+            invariants = ["VM_SEAM_VALID_001"]
             spec_gap_ref = "SPEC_GAP_FIXTURE_001"
             '''
         ),
@@ -892,7 +897,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
             schema_version = 1
             id = "EVID_FIXTURE"
             proof_kind = "none"
-            linked_invariants = ["RT_SAFE_STOP_001"]
+            linked_invariants = ["VM_SEAM_VALID_001"]
             '''
         ),
     )
