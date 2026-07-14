@@ -2701,3 +2701,34 @@ linked_spec_gaps = [
   "SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001",
 ]
 last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714"
+title = "Editor rename-conflict specification closeout"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/editor-rename-conflict-closeout.md"
+command = "ssh trust-builder 'cd /tmp/trust-platform-batch-c-pos-2 && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo fmt --all -- --check && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-ide --test ide_features rename_ -- --nocapture'"
+commit = "6a872be0ceaf505cdd0fa8eade9f5834015ca825"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex editor rename conflict closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["EDIT_RENAME_001", "EDIT_RENAME_002"]
+linked_tests = [
+  "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+  "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
+  "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+  "TEST_EDITOR_RENAME_CASE_ONLY_001",
+  "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+  "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_LSP_RENAME_CONFLICT_ERROR_001",
+]
+linked_spec_gaps = ["SPEC_GAP_EDITOR_RENAME_CONFLICT_001"]
+last_reviewed = "2026-07-14"

@@ -308,6 +308,8 @@ contract, including when a newer document or workspace request supersedes it.
 - Namespace path moves via dotted rename or refactor action (updates namespace declarations, `USING`, qualified names, and namespace-qualified field access; relocation across files moves the namespace block to a derived target file and removes the source file when empty; default target path maps `Namespace.Path` → `<workspace>/Namespace/Path.st` unless an explicit URI is provided) (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66)
 - VS Code surfaces namespace relocation via `Structured Text: Move Namespace`, prompting for the new path and optional target file (invokes `trust-lsp.moveNamespace`) (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66)
 
+###### Rename Conflict Safety
+
 Rename is atomic and fail-closed. Before returning edits, the server evaluates
 the complete candidate edit set against the merged project symbol table. It
 refuses the request when the replacement identifier:

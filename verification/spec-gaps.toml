@@ -483,11 +483,21 @@ status = "spec_gap"
 gap_class = "missing_behavior"
 blocking_question = "Which local, imported, project-wide, and cross-file conflicts must make rename refuse rather than capture another symbol?"
 affected_invariants = ["EDIT_RENAME_001", "EDIT_RENAME_002"]
-affected_tests = []
+affected_tests = [
+  "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+  "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
+  "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+  "TEST_EDITOR_RENAME_CASE_ONLY_001",
+  "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+  "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_LSP_RENAME_CONFLICT_ERROR_001",
+]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1
