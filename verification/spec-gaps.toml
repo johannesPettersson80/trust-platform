@@ -408,8 +408,9 @@ blocking_question = "Which runtime state, status, I/O, retain, and debug changes
 affected_invariants = ["RT_RELOAD_001"]
 affected_tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714"]
 last_reviewed = "2026-07-14"
 
 [[spec_gaps]]

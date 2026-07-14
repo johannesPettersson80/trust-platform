@@ -2379,3 +2379,25 @@ case_file_digest = "sha256:7e846d3f59b85137fcff4c51646284027ada7264d88e2538d62d2
 paired_red_evidence = "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED"
 formerly_red_case_ids = ["RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME"]
 per_case_summary = ["RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714"
+title = "Runtime reload transaction specification gap closeout"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/reload-transaction-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && python3 -m unittest scripts.verification.spec_gap_closure_tests scripts.verification.metadata_validator.promotion_evidence_tests scripts.verification.invariant_seed_audit_tests"
+commit = "292c2291eb7250643d35f00d14f05b1a14ce90bf"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex reload transaction specification closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_RELOAD_001"]
+linked_tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"]
+last_reviewed = "2026-07-14"
