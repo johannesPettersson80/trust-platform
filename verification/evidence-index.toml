@@ -2082,3 +2082,25 @@ remote_source_clean_after = true
 disk_preflight_passed = true
 home_available_kib = 65493148
 tmp_available_kib = 3404544
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_RETAIN_FAILURE_EXECUTION_VALIDATION_20260714"
+title = "Runtime retain failure execution validation"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/retain-failure-execution-validation.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py' && python3 scripts/validate_verification_metadata.py && git diff --check"
+commit = "fe4de3a382d398fb4d98b42c19dbe177d1a46baf"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex retain failure execution closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_RETAIN_001"]
+linked_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"]
+last_reviewed = "2026-07-14"
