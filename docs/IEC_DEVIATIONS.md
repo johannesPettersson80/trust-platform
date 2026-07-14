@@ -12,6 +12,35 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-14 - Require confirmed safe-state driver handoff
+
+- ID: DEV-046
+- Area: Runtime safe-state output handoff
+- IEC reference: IEC 61131-3 does not define truST's host I/O worker queues,
+  protocol reconnect policy, driver-health model, or physical safe-state
+  acknowledgement boundary. This entry records an implementer-specific host
+  runtime policy, not a contradiction of an IEC requirement.
+- Deviation/extension:
+  - A configured safe-state attempt succeeds only when every configured driver
+    accepts the output image and immediately reports `Ok` health.
+  - `Degraded` or `Faulted` health is an unconfirmed physical handoff even when
+    a driver's ordinary `warn` or `ignore` policy suppresses its transport
+    error.
+  - The runtime attempts all configured drivers, reports the first failure, and
+    does not let a deliberate stop enter `Stopped` when safe-state delivery is
+    unconfirmed.
+  - Worker handoff remains bounded. Queued, reconnecting, and timed-out writes
+    fail the confirmation attempt instead of blocking indefinitely or being
+    reported as physically safe.
+- Impact:
+  - A runtime may report a safe-state failure even if a queued worker write
+    reaches the device later. This is the conservative outcome because delivery
+    was not confirmed at the stop/fault boundary.
+- Mitigation:
+  - Keep protocol workers healthy, configure explicit safe outputs, and treat a
+    safe-state failure or `Faulted` stop as requiring operator or supervisory
+    recovery before assuming outputs are safe.
+
 ## 2026-07-14 - Reject non-finite values at typed runtime admission boundaries
 
 - ID: DEV-045

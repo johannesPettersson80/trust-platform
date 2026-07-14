@@ -269,6 +269,39 @@ Driver error handling is configurable per driver:
 
 Driver health is exposed via `ctl status` and the TUI.
 
+##### Safe-state handoff confirmation
+
+Ordinary scan-output writes use the configured driver error policy and the
+level/latest-value worker handoff described above. Applying a configured safe
+state has a stronger success boundary (DEV-046):
+
+- The runtime first applies the configured safe values to the output process
+  image and then attempts the resulting output image on every configured I/O
+  driver.
+- A driver's safe-state attempt is confirmed only when `write_outputs` returns
+  successfully and the driver's immediately observed health is `Ok`.
+  `Degraded` or `Faulted` health means the physical handoff is unconfirmed,
+  even when `on_error = "warn"` or `"ignore"` made the ordinary driver call
+  return successfully.
+- A worker-backed driver whose handoff is queued, reconnecting, timed out, or
+  otherwise pending must therefore return a safe-state error at the runtime
+  boundary. A later asynchronous delivery does not retroactively turn that
+  failed attempt into a confirmed safe state.
+- The runtime attempts the safe-state write on the remaining configured
+  drivers after one driver fails, but returns an error for the overall
+  operation. The first failure identifies the affected driver and cause.
+- A deliberate stop with an unconfirmed configured safe state ends in
+  `Faulted`, not `Stopped`, and exposes the failure through `last_error`. When
+  safe-state application is part of fault handling, the original root fault is
+  retained and the reported error/event identifies the safe-state failure.
+
+This confirmation rule does not add an unbounded protocol wait. Worker-backed
+drivers retain their existing bounded handoff deadline; exceeding that deadline
+is an unconfirmed safe state. With an empty safe-state configuration, the
+runtime still performs no physical output write as specified in section 6.6.
+When no I/O driver is configured, applying values changes only the in-memory
+process image and makes no physical-delivery claim.
+
 ##### Floating-point boundary admission policy
 
 IEC 61131-3 Ed.3, Section 6.4.2.1, Table 10 defines `REAL` and `LREAL`
