@@ -140,7 +140,7 @@ class MalformedInputCoverageTests(unittest.TestCase):
             )
         )
 
-    def test_committed_catalog_binds_only_invalid_magic_to_bad_magic(self) -> None:
+    def test_committed_catalog_binds_reviewed_malformed_classes(self) -> None:
         catalog = tomllib.loads((ROOT / "verification/test-catalog.toml").read_text())
         mappings = {
             record["id"]: record["malformed_input_class_ids"]
@@ -150,7 +150,12 @@ class MalformedInputCoverageTests(unittest.TestCase):
 
         self.assertEqual(
             mappings,
-            {"TEST_BYTECODE_CONTAINER_INVALID_MAGIC": ["bad_magic"]},
+            {
+                "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001": [
+                    "duplicate_section"
+                ],
+                "TEST_BYTECODE_CONTAINER_INVALID_MAGIC": ["bad_magic"],
+            },
         )
 
     def test_catalog_classes_must_exist_and_match_the_test_area(self) -> None:

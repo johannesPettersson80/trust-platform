@@ -39,8 +39,8 @@ GROUP_EXPECTATIONS = {
     "VERIF-P6-001": {
         "area_ids": ["compiler_iec"],
         "invariant_count": 5,
-        "eligible_oracle_count": 3,
-        "spec_gap_blocked_count": 2,
+        "eligible_oracle_count": 4,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-002": {
         "area_ids": ["runtime_safety"],
@@ -57,8 +57,8 @@ GROUP_EXPECTATIONS = {
     "VERIF-P6-004": {
         "area_ids": ["editor_safety"],
         "invariant_count": 6,
-        "eligible_oracle_count": 3,
-        "spec_gap_blocked_count": 3,
+        "eligible_oracle_count": 5,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-005": {
         "area_ids": ["control_security", "supply_chain_platform"],
@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 53,
                 "mapped_phase6_invariants": 35,
                 "other_area_invariants": 18,
-                "eligible_oracles": 20,
-                "missing_oracles": 33,
-                "future_enforcement_candidates": 26,
+                "eligible_oracles": 24,
+                "missing_oracles": 29,
+                "future_enforcement_candidates": 22,
             },
         )
         self.assertEqual(53, len(self.analysis["invariants"]))
-        self.assertEqual(33, len(self.analysis["missing_oracles"]))
+        self.assertEqual(29, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},

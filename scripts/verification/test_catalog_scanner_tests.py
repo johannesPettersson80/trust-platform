@@ -292,7 +292,7 @@ fn block_comment_separated_test() {}
         structured_text = scan_structured_text_tests(root)
         vscode = scan_vscode_tests(root)
 
-        self.assertEqual(len(rust.facts), 3104)
+        self.assertEqual(len(rust.facts), 3119)
         self.assertEqual(len(structured_text.facts), 257)
         self.assertEqual(len(vscode.facts), 456)
         runtime_core = [
