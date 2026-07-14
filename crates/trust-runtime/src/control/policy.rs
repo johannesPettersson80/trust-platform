@@ -101,7 +101,7 @@ pub(crate) fn required_role_for_control_request(
         "config.set" => required_role_for_config_set(params),
         "shutdown" | "bytecode.reload" | "ads.route_add" | "ads.route_remove" | "pair.start"
         | "pair.list" | "pair.revoke" => AccessRole::Admin,
-        _ => AccessRole::Viewer,
+        _ => AccessRole::Admin,
     }
 }
 
@@ -152,6 +152,7 @@ fn required_role_for_config_set(params: Option<&serde_json::Value>) -> AccessRol
         matches!(
             key.as_str(),
             "control.auth_token"
+                | "control.debug_enabled"
                 | "mesh.auth_token"
                 | "mesh.role"
                 | "mesh.zenohd_version"

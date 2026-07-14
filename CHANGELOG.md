@@ -13,6 +13,9 @@ Target release: `v0.24.41`
 - trust-runtime: debugger statement-boundary pauses no longer count operator
   dwell time against the active cycle watchdog or output-commit deadline;
   genuine execution time before and after resume remains bounded.
+- trust-runtime: enabling the debug control surface now requires Admin instead
+  of Engineer, and unclassified future control operations fail safe at Admin
+  rather than inheriting Viewer authority.
 - trust-runtime: online change now reads and validates the retained snapshot
   before replacing the live executable or resetting runtime state, preventing a
   retain-store failure from leaving a partially applied reload.
