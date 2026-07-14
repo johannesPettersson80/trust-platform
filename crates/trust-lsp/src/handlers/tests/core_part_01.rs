@@ -74,6 +74,27 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_hover_uses_utf16_positions_after_bare_cr_line_endings() {
+    let source = "PROGRAM Test\rVAR\r    speed : INT;\rEND_VAR\r(* 😀 *) speed := 1;\rEND_PROGRAM\r";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///utf16-bare-cr-hover.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::HoverParams {
+        text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: tower_lsp::lsp_types::Position::new(4, 10),
+        },
+        work_done_progress_params: Default::default(),
+    };
+
+    let hover = hover(&state, params).expect("hover after bare CR line endings");
+    let range = hover.range.expect("hover range");
+    assert_eq!(range.start, tower_lsp::lsp_types::Position::new(4, 9));
+    assert_eq!(range.end, tower_lsp::lsp_types::Position::new(4, 14));
+}
+
+#[test]
 pub(super) fn lsp_references_variable() {
     let source = r#"
 PROGRAM Test

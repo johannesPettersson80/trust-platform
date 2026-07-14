@@ -406,4 +406,23 @@ mod tests {
         assert_eq!(eof, Position::new(2, 0));
         assert_eq!(position_to_offset(source, eof), Some(source.len() as u32));
     }
+
+    #[test]
+    fn utf16_positions_round_trip_across_all_lsp_line_endings() {
+        for line_ending in ["\n", "\r\n", "\r"] {
+            let source = format!("😀x{line_ending}y");
+            let y_offset = source.find('y').expect("y offset") as u32;
+
+            assert_eq!(
+                offset_to_position(&source, y_offset),
+                Position::new(1, 0),
+                "line ending {line_ending:?}"
+            );
+            assert_eq!(
+                position_to_offset(&source, Position::new(1, 0)),
+                Some(y_offset),
+                "line ending {line_ending:?}"
+            );
+        }
+    }
 }

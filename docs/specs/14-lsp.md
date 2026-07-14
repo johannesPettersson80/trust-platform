@@ -394,6 +394,19 @@ Range: 0.0 to 3000.0
 | Code Actions | `textDocument/codeAction` | ✅ | Quick fixes for unused symbols, missing END_* / RETURN, call style conversion, namespace disambiguation, implicit conversion, etc. |
 | Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph |
 
+##### 7.1.1 Position Encoding and Line Boundaries
+
+truST supports the mandatory LSP UTF-16 position encoding and advertises
+`utf-16` in the initialize result. Incoming and outgoing positions, ranges,
+text edits, and semantic-token starts and lengths count UTF-16 code units. A
+supplementary-plane scalar therefore contributes two character units.
+
+The line index recognizes all LSP 3.17 line endings: LF (`\n`), CRLF
+(`\r\n`), and bare CR (`\r`). Each sequence advances exactly one line and its
+terminator bytes are not addressable as positions. A character value beyond
+the line length clamps to the line end, as required by the
+[LSP 3.17 Position contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#position).
+
 #### 7.2 Document Synchronization
 
 - Incremental sync using `TextDocumentContentChangeEvent` ranges.
