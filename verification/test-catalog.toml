@@ -1581,6 +1581,126 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_RESTART_COLD_STORAGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_213D1264041EB1793C79"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_restart.rs"
+name = "cold_restart_initializes_retain_values"
+command = "cargo test -p trust-runtime --test runtime_restart cold_restart_initializes_retain_values -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+expected_result = "A cold restart reinitializes both retained and ordinary program storage to their declared initial values."
+expected_failure_mode = "A cold restart preserves a pre-restart retained or ordinary value instead of reinitializing it."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RESTART_COLD_STORAGE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_RESTART_WARM_STORAGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_83FE96819CB25F21CA77"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_restart.rs"
+name = "warm_restart_preserves_retain_and_initializes_nonretain"
+command = "cargo test -p trust-runtime --test runtime_restart warm_restart_preserves_retain_and_initializes_nonretain -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+expected_result = "A warm restart preserves declared retained storage while reinitializing NON_RETAIN and ordinary initialized storage."
+expected_failure_mode = "Warm restart loses retained state or preserves a non-retained or ordinary pre-restart value."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RESTART_WARM_STORAGE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F2E62E25E1A58826EE7D"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "automatic_fault_restart_uses_warm_storage_semantics"
+command = "cargo test -p trust-runtime --lib scheduler::runner_loop_poison_tests::automatic_fault_restart_uses_warm_storage_semantics -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+expected_result = "The automatic non-panic fault recovery path uses warm-restart storage semantics and leaves the control state running without a stale last_error."
+expected_failure_mode = "Automatic fault recovery resets retained state, preserves transient state, or reports a successful restart as a fault."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7159C3BA77CC33C8F48C"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_read_inputs_returns_within_scan_bound_while_response_delayed"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_read_inputs_returns_within_scan_bound_while_response_delayed -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_IO_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+expected_result = "A loopback Modbus peer delayed by 120 ms cannot make read_inputs exceed the reviewed scan-thread handoff bound."
+expected_failure_mode = "The scan-facing Modbus read waits for the delayed wire response instead of returning through the bounded worker handoff."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001.json"
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6C10B5D7ACB21ECE8E9D"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_write_outputs_returns_within_scan_bound_while_response_delayed"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_write_outputs_returns_within_scan_bound_while_response_delayed -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_IO_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+expected_result = "A loopback Modbus peer delayed by 120 ms cannot make write_outputs exceed the reviewed scan-thread handoff bound."
+expected_failure_mode = "The scan-facing Modbus write waits for the delayed wire response instead of returning through the bounded worker handoff."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001.json"
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_D5C4C1D59854BC4EA981"

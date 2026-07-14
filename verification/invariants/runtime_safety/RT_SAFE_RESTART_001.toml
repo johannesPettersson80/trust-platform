@@ -5,15 +5,19 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
-tests = []
+tests = [
+  "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
+  "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
+  "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
+]
 gates = []
 evidence_refs = []
-missing = ["cataloged_restart_transition_cases", "retain_restart_proof"]
+missing = ["producer_bound_restart_trace", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -26,4 +30,4 @@ ref = "SPEC_RUNTIME_ENGINE_001"
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "gap_open"
-rationale = "The restart contract is active, but lifecycle cases and proof are not linked."
+rationale = "Cold, warm, and automatic-fault warm-storage transitions are cataloged and pass; producer-bound trace proof remains open."

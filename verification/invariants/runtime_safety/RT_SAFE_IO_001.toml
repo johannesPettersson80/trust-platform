@@ -5,15 +5,18 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Slow device and protocol work must not block the scan-cycle critical path."
 proof_level = "S0"
 contract_kind = "fault_scenario"
 source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
-tests = []
+tests = [
+  "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001",
+  "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
+]
 gates = []
 evidence_refs = []
-missing = ["cataloged_slow_device_cases", "scan_latency_proof"]
+missing = ["non_modbus_slow_device_matrix", "hardware_lab_latency", "producer_bound_scan_latency_proof"]
 
 [spec]
 status = "specified"
@@ -26,4 +29,4 @@ ref = "SPEC_RUNTIME_ENGINE_001"
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
 state = "gap_open"
-rationale = "The runtime contract exists, but cataloged slow-device cases and proof are not linked."
+rationale = "Delayed loopback Modbus read and write cases are cataloged and bounded; non-Modbus, hardware-lab, and producer-bound latency proof remain open."
