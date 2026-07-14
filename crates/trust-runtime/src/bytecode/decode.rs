@@ -15,6 +15,24 @@ use super::{
     HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE, SUPPORTED_MAJOR_VERSION,
 };
 
+fn read_bounded_count(
+    reader: &mut BytecodeReader<'_>,
+    minimum_entry_bytes: usize,
+    context: &str,
+) -> Result<usize, BytecodeError> {
+    debug_assert!(minimum_entry_bytes > 0);
+    let count = reader.read_u32()? as usize;
+    let required = count.checked_mul(minimum_entry_bytes).ok_or_else(|| {
+        BytecodeError::InvalidSection(format!("{context} count exceeds section bounds").into())
+    })?;
+    if required > reader.remaining() {
+        return Err(BytecodeError::InvalidSection(
+            format!("{context} count exceeds section bounds").into(),
+        ));
+    }
+    Ok(count)
+}
+
 include!("decode/module_decode.rs");
 include!("decode/section_decode.rs");
 include!("decode/string_type_decode.rs");

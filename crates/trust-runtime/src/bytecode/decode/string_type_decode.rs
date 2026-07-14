@@ -1,8 +1,9 @@
 fn decode_string_table(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
+    context: &str,
 ) -> Result<StringTable, BytecodeError> {
-    let count = reader.read_u32()? as usize;
+    let count = read_bounded_count(reader, 4, context)?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let len = reader.read_u32()? as usize;
@@ -24,7 +25,8 @@ fn decode_string_table(
 
 fn decode_type_table(version: BytecodeVersion, payload: &[u8]) -> Result<TypeTable, BytecodeError> {
     let mut reader = BytecodeReader::new(payload);
-    let count = reader.read_u32()? as usize;
+    let minimum_entry_bytes = if version.minor >= 1 { 4 } else { 12 };
+    let count = read_bounded_count(&mut reader, minimum_entry_bytes, "TYPE_TABLE")?;
     if version.minor >= 1 {
         let mut offsets = Vec::with_capacity(count);
         for _ in 0..count {
@@ -102,7 +104,7 @@ fn decode_type_entry(reader: &mut BytecodeReader<'_>) -> Result<TypeEntry, Bytec
         }
         TypeKind::Array => {
             let elem_type_id = reader.read_u32()?;
-            let dim_count = reader.read_u32()? as usize;
+            let dim_count = read_bounded_count(reader, 16, "TYPE_TABLE array dimension")?;
             let mut dims = Vec::with_capacity(dim_count);
             for _ in 0..dim_count {
                 let lower = reader.read_i64()?;
@@ -112,7 +114,7 @@ fn decode_type_entry(reader: &mut BytecodeReader<'_>) -> Result<TypeEntry, Bytec
             TypeData::Array { elem_type_id, dims }
         }
         TypeKind::Struct => {
-            let field_count = reader.read_u32()? as usize;
+            let field_count = read_bounded_count(reader, 8, "TYPE_TABLE struct field")?;
             let mut fields = Vec::with_capacity(field_count);
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
@@ -123,7 +125,7 @@ fn decode_type_entry(reader: &mut BytecodeReader<'_>) -> Result<TypeEntry, Bytec
         }
         TypeKind::Enum => {
             let base_type_id = reader.read_u32()?;
-            let variant_count = reader.read_u32()? as usize;
+            let variant_count = read_bounded_count(reader, 12, "TYPE_TABLE enum variant")?;
             let mut variants = Vec::with_capacity(variant_count);
             for _ in 0..variant_count {
                 let name_idx = reader.read_u32()?;
@@ -154,7 +156,7 @@ fn decode_type_entry(reader: &mut BytecodeReader<'_>) -> Result<TypeEntry, Bytec
             TypeData::Reference { target_type_id }
         }
         TypeKind::Union => {
-            let field_count = reader.read_u32()? as usize;
+            let field_count = read_bounded_count(reader, 8, "TYPE_TABLE union field")?;
             let mut fields = Vec::with_capacity(field_count);
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
@@ -168,7 +170,7 @@ fn decode_type_entry(reader: &mut BytecodeReader<'_>) -> Result<TypeEntry, Bytec
             TypeData::Pou { pou_id }
         }
         TypeKind::Interface => {
-            let method_count = reader.read_u32()? as usize;
+            let method_count = read_bounded_count(reader, 8, "TYPE_TABLE interface method")?;
             let mut methods = Vec::with_capacity(method_count);
             for _ in 0..method_count {
                 let name_idx = reader.read_u32()?;

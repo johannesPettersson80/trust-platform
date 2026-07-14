@@ -82,6 +82,20 @@ Section table rules:
 |-----|------|---------|
 | `0x0001` | `CRC32` | header `checksum` is CRC32 of the section table and section payloads |
 
+#### 4.5 Collection Count Bounds
+
+Before reserving capacity for any top-level or nested collection encoded by a
+`u32 count`, the decoder must prove with checked arithmetic that
+`count * minimum_entry_bytes` fits in the unread bytes of the containing
+section or entry. `minimum_entry_bytes` includes only fields present in every
+encoded entry of that collection. A count that cannot fit must be rejected
+before a count-sized allocation is attempted.
+
+This is a necessary structural bound, not a general VM resource budget. It
+does not define maximum container size, instruction count, stack depth, local
+count, reference count, call depth, or execution-time limits; those broader
+determinism and resource-limit contracts remain separately specified.
+
 ### 5. Section IDs (Version 1.x)
 
 | ID | Name | Required | Purpose |

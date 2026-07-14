@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.43`
+Target release: `v0.24.44`
 
 ### Fixed
 
+- trust-runtime: bytecode decoding now rejects top-level and nested collection
+  counts that cannot fit within their section payload before reserving the
+  declared collection capacity, preventing tiny malformed containers from
+  requesting disproportionate allocations.
 - trust-syntax: malformed `CASE`, `ELSIF`, `FOR`, `WHILE`, and `REPEAT`
   statements now diagnose missing required delimiters instead of accepting
   partial syntax as a valid control-flow construct.
