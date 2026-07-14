@@ -58,6 +58,7 @@ covers = [
   "safe_halt",
   "retain_restart",
   "retain_failure_transactions",
+  "debug_mutation_lifecycle",
   "hmi_write_authz",
   "opcua_nonfinite_ingress",
   "ads_nonfinite_ingress",
@@ -149,16 +150,17 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/13-debug-adapter.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-14"
 covers = [
   "dap_launch_attach",
   "breakpoint_stop_semantics",
   "debug_scope_visibility",
   "reload_stop_precedence",
   "managed_debug_floating_point_ingress",
+  "debug_mutation_lifecycle",
 ]
 known_limitations = [
-  "Force/write/release lifecycle and authorization need explicit runtime-safety invariants before validation; managed-local floating-point admission does not establish attach-mode runtime-control admission.",
+  "The debug mutation lifecycle is specified, but disconnect, pause, fault, and authorization-change case depth remains unproven; managed-local floating-point admission does not establish attach-mode runtime-control admission.",
 ]
 conflicts_with = []
 
