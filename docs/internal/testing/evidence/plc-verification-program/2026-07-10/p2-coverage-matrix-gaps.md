@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `a0943c22aae73de427f50e730303a6d54c19ade2`
-Generated: `2026-07-14T16:23:25+02:00`
+Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
+Generated: `2026-07-14T18:13:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `94e1dc2190b782de621204db333c478cf60b8faa963931955a49ee61edd7e364`
-Input SHA-256: `sha256:5422a30e47c3c2d12c6a165f0ea48c018111235226652a78c0def597e4e165f1`
+Generated JSON SHA-256: `2317aba0c7e2305c118f6ce9530bf5ffc86e0e9833b7f88a0dfe4af4d4d2b4fa`
+Input SHA-256: `sha256:08ac67f2ce251b1e0b24c128e10c58227b36ccee3c4abcec124e18d61c8507bc`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -32,8 +32,8 @@ mean every required coverage slot is assigned or covered.
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 44 |
-| `gap_open` | 13 |
+| `spec_gap` | 41 |
+| `gap_open` | 16 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -204,13 +204,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `auth_or_permission` | `additional_recorded` | `spec_gap` | none | none |
+| `auth_or_permission` | `additional_recorded` | `gap_open` | none | none |
 
 ### `SEC_AUTHZ_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `auth_or_permission` | `additional_recorded` | `spec_gap` | none | none |
+| `auth_or_permission` | `additional_recorded` | `gap_open` | none | none |
 
 ## Area: `editor_safety`
 
@@ -226,7 +226,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `time_or_clock_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `time_or_clock_fault` | `additional_recorded` | `gap_open` | none | none |
 
 ### `EDIT_DIAG_CANCEL_001`
 

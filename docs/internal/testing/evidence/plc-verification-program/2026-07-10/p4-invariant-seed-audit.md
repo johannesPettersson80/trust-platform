@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `a0943c22aae73de427f50e730303a6d54c19ade2`
-Generated: `2026-07-14T16:23:25+02:00`
+Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
+Generated: `2026-07-14T18:13:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `8f8061a40b157e0abd0322c92b4441b389d98c73c07fa43175035fe7da276456`
-Input SHA-256: `sha256:99c24fd0ece5d64985a3642d03d5a5cebd3a961e3f973ea58a5c507546f196cd`
+Generated JSON SHA-256: `434c214ba86cea5cb4337e195018cfa95f2984339e4dd5106b039fa16d833fd6`
+Input SHA-256: `sha256:2dfdc77c02ab55b35bd1559255ac43dccdccb03d72e43108639105a5786e46a8`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -19,8 +19,8 @@ closes no specification gap, and changes no runtime behavior.
 - Pre-existing seed mappings: 8
 - Baseline lifecycle records: 34
 - Execution-ready lifecycle records: 10
-- Gap-open records: 7
-- Spec-gap records: 31
+- Gap-open records: 10
+- Spec-gap records: 28
 - Test-written records: 0
 - Implemented records: 6
 - Validated records: 0
@@ -75,10 +75,10 @@ closes no specification gap, and changes no runtime behavior.
 | `EDIT_LSP_POS_001` | `EDIT_LSP_POS_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001` | `none` |
 | `EDIT_DIAG_CANCEL_001` | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` | `none` |
 | `UI_STATUS_001` | `UI_STATUS_001` | `hmi_ui` | `VERIF-P4-006` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `none` |
-| `DEBUG_AUTH_001` | `DEBUG_AUTH_001` | `control_security` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEBUG_AUTHORIZATION_001` | `none` |
-| `DEBUG_PAUSE_001` | `DEBUG_PAUSE_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001` | `none` |
+| `DEBUG_AUTH_001` | `DEBUG_AUTH_001` | `control_security` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |
+| `DEBUG_PAUSE_001` | `DEBUG_PAUSE_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `SEC_DEP_AUDIT_001` | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `none` |
-| `SEC_AUTHZ_001` | `SEC_AUTHZ_001` | `control_security` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` | `RISK_RUNTIME_AUTHORIZATION_001` |
+| `SEC_AUTHZ_001` | `SEC_AUTHZ_001` | `control_security` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `RISK_RUNTIME_AUTHORIZATION_001` |
 | `SEC_ARTIFACT_001` | `SEC_ARTIFACT_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `none` |
 | `PLAT_PATH_001` | `PLAT_PATH_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `none` |
 | `PLAT_VSCODE_001` | `PLAT_VSCODE_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `none` |

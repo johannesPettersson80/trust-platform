@@ -1,27 +1,27 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `a0943c22aae73de427f50e730303a6d54c19ade2`
-Generated: `2026-07-14T16:23:25+02:00`
+Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
+Generated: `2026-07-14T18:13:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `542532f387fdcc0ffd5ec7f6c7bbc5a11f91a37731bdabc0df200f054ee88d64`
-Input SHA-256: `sha256:728a78655f472b83d176c3f4a77c03efc521953a8ab38f47349ebd519f416b7b`
+Generated JSON SHA-256: `6fa77cd64e37bc0e313c2555a5273c594e4de136e26a405baa077e7e32201fca`
+Input SHA-256: `sha256:87f0f1569ae38fc51de73e182ae1c67616b91d19e0c1373422b06715152209b9`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3892
-- Classified scanner facts: 89
+- Scanner facts: 3896
+- Classified scanner facts: 93
 - Unmapped scanner facts: 3803
-- Catalog records: 94
-- Runnable catalog records: 90
+- Catalog records: 98
+- Runnable catalog records: 94
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
-- Complete required class slots: 5
-- Missing required class slots: 27
+- Complete required class slots: 6
+- Missing required class slots: 26
 
 ## Scanner Classification
 
@@ -31,16 +31,19 @@ mean every scanner fact or required test class is mapped.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1414 | 64 | 1350 |
-| `rust_unit_test` | 1683 | 25 | 1658 |
+| `rust_integration_test` | 1416 | 66 | 1350 |
+| `rust_unit_test` | 1685 | 27 | 1658 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
 Classified mappings:
 
 - `DISC_88F921D24D3708CEF3E1` -> `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`
+- `DISC_269219F3ACC34E73387B` -> `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001`
+- `DISC_8664E7408C2C3D60D5C5` -> `TEST_DEBUG_AUTHORIZATION_MATRIX_001`
 - `DISC_716FA81FC2506FBA1592` -> `TEST_DEBUG_MANAGED_LREAL_NONFINITE_001`
 - `DISC_200665EACFA567BA9AB5` -> `TEST_DEBUG_MANAGED_REAL_NONFINITE_001`
+- `DISC_234FF0395E492391D0E0` -> `TEST_DEBUG_PAUSE_WATCHDOG_001`
 - `DISC_A2698249E8827008FE24` -> `TEST_IEC_STRING_FB_INOUT_REJECTION_001`
 - `DISC_40D602971AB9F58ADC84` -> `TEST_IEC_STRING_FB_INPUT_INOUT_001`
 - `DISC_23588E738D07E62BA79E` -> `TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001`
@@ -87,6 +90,7 @@ Classified mappings:
 - `DISC_30C382889325B64C5854` -> `TEST_RUNTIME_PANIC_IO_DRIVER_001`
 - `DISC_E6963439801BFF301755` -> `TEST_RUNTIME_PANIC_SAFE_OUTPUT_001`
 - `DISC_EEF14FDB800A7590C8F3` -> `TEST_RUNTIME_PANIC_THREAD_GUARD_001`
+- `DISC_F4845D4DC06C49AF59D6` -> `TEST_RUNTIME_PAUSE_WATCHDOG_001`
 - `DISC_45B9440A281BFB62649B` -> `TEST_RUNTIME_RELOAD_TRANSACTION_001`
 - `DISC_F2E62E25E1A58826EE7D` -> `TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001`
 - `DISC_213D1264041EB1793C79` -> `TEST_RUNTIME_RESTART_COLD_STORAGE_001`
@@ -161,9 +165,13 @@ Additional catalog classes:
 
 | Required class | Runnable tests | Non-runnable rows | Complete |
 | --- | --- | --- | --- |
-| `integration` | none | none | no |
+| `integration` | `TEST_DEBUG_AUTHORIZATION_MATRIX_001` | none | yes |
 | `rbac_security` | none | none | no |
 | `runtime_vertical` | none | none | no |
+
+Additional catalog classes:
+
+- `unit`: runnable `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001`; non-runnable none
 
 ## Area: `editor_safety`
 
@@ -172,6 +180,11 @@ Additional catalog classes:
 | `lsp_protocol` | none | none | no |
 | `unit` | none | none | no |
 | `vscode_extension` | none | none | no |
+
+Additional catalog classes:
+
+- `failing_regression`: runnable `TEST_DEBUG_PAUSE_WATCHDOG_001`; non-runnable none
+- `integration`: runnable `TEST_RUNTIME_PAUSE_WATCHDOG_001`; non-runnable none
 
 ## Area: `hmi_ui`
 

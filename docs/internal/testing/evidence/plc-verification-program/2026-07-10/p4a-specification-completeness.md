@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `a0943c22aae73de427f50e730303a6d54c19ade2`
-Generated: `2026-07-14T16:23:25+02:00`
+Source revision: `92f68757a2b72c9b209e711d8b8729d15bb40075`
+Generated: `2026-07-14T18:13:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e1b6d7f8ef11fe18398953b91a36da4973c98aee2487d310d1991f7cae37ffca`
-Input SHA-256: `sha256:100fb70797abd9006e30f3eebe3c5e1d8b1367a654e0f48202446fc77c1e5c3c`
+Generated JSON SHA-256: `3d6f8fadfd0e7b844f789bdd0932fcf86721e62065e4b3d313ad613f691052a2`
+Input SHA-256: `sha256:183141ebb1ab0754846d193148c2b9e4acf1db9e8cd068e5f0de1d736532a657`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 37
-- Tests with expected results: 94
+- Invariants without specified specs: 34
+- Tests with expected results: 98
 - Tests without oracle/spec/gap binding: 0
 - Coverage cells: 65
-- Coverage cells marked spec_gap: 44
+- Coverage cells marked spec_gap: 41
 - Bytecode pilot gaps: 7
 - Registered public-claim sources: 4
 
@@ -25,9 +25,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 | Invariant | Area | Risk | Invariant status | Spec status | Spec gaps |
 | --- | --- | --- | --- | --- | --- |
-| `DEBUG_AUTH_001` | `control_security` | `security` | `spec_gap` | `missing` | `SPEC_GAP_DEBUG_AUTHORIZATION_001` |
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `DEBUG_PAUSE_001` | `editor_safety` | `safety_critical` | `spec_gap` | `missing` | `SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `spec_gap` | `missing` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
 | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` |
@@ -51,7 +49,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `REL_VERSION_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
-| `SEC_AUTHZ_001` | `control_security` | `security` | `spec_gap` | `missing` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
@@ -73,9 +70,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 | Invariant | Area | Risk | Cell | Dimension | Spec gap |
 | --- | --- | --- | ---: | --- | --- |
-| `DEBUG_AUTH_001` | `control_security` | `security` | 0 | `auth_or_permission` | `SPEC_GAP_DEBUG_AUTHORIZATION_001` |
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `DEBUG_PAUSE_001` | `editor_safety` | `safety_critical` | 0 | `time_or_clock_fault` | `SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | 0 | `duplicate_or_collision` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
 | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | 0 | `concurrency_or_cancellation` | `SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001` |
@@ -100,7 +95,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
-| `SEC_AUTHZ_001` | `control_security` | `security` | 0 | `auth_or_permission` | `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001` |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | 0 | `happy_path` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
