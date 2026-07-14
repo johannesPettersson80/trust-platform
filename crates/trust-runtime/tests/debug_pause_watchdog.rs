@@ -7,7 +7,7 @@ use trust_runtime::scheduler::{ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
 
-const WATCHDOG_TIMEOUT: Duration = Duration::from_millis(20);
+const WATCHDOG_TIMEOUT_MS: i64 = 20;
 const PAUSE_DWELL: WallDuration = WallDuration::from_millis(100);
 
 fn wait_for_state(
@@ -31,7 +31,7 @@ fn wait_for_state(
 fn watchdog_policy() -> WatchdogPolicy {
     WatchdogPolicy {
         enabled: true,
-        timeout: WATCHDOG_TIMEOUT,
+        timeout: Duration::from_millis(WATCHDOG_TIMEOUT_MS),
         action: WatchdogAction::Halt,
     }
 }
