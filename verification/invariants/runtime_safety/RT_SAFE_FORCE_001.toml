@@ -23,9 +23,10 @@ gates = []
 evidence_refs = [
   "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_RED",
   "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_GREEN",
+  "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714",
 ]
 spec_gap_refs = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
-missing = ["broad_remote_gate"]
+missing = ["source_oracle_proof_contract_transition", "broad_remote_gate"]
 
 [spec]
 status = "specified"

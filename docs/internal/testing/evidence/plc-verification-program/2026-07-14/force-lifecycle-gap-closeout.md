@@ -1,4 +1,4 @@
-# Force lifecycle specification gap closeout
+# Force lifecycle coverage closeout
 
 Date: 2026-07-14
 
@@ -6,16 +6,25 @@ Source commit: `4c97a8461032df65d3e10f04d1e9c14ff7422b5e`
 
 ## Result
 
-The previously written debug-mutation lifecycle contract is now exercised at
+The written debug-mutation lifecycle contract is now exercised at
 the missing pause/resume, non-terminating disconnect, release, deliberate-stop,
 fault, and authorization-change boundaries. All six new tests passed on a clean
 `trust-builder` worktree. No new runtime defect was observed in these
-dimensions; this closeout adds missing coverage rather than changing product
+dimensions; this batch adds missing coverage rather than changing product
 behavior.
 
 The earlier producer-authentic red/green proof remains bound to the unchanged
 `TEST_RUNTIME_FORCE_LIFECYCLE_001` case file. The additional tests do not alter
 that case file or its historical proof digests.
+
+`SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` remains `test_mapped`, not closed. Its
+existing proof contract names the gap as the invariant oracle. Replacing that
+oracle with `SPEC_RUNTIME_ENGINE_001` is required before metadata closure, but
+doing so changes the proof-contract digest and would invalidate the committed
+producer-authentic red/green pair. The frozen control plane has no reviewed
+historical-proof migration for that transition. This record therefore exposes
+`source_oracle_proof_contract_transition` as remaining debt instead of
+rewriting proof history or manufacturing a new red run.
 
 ## Focused validation
 
@@ -73,5 +82,6 @@ Result: metadata validated with 423 records; live catalog staleness passed.
   `SPEC_GAP_DEBUG_AUTHORIZATION_001`.
 - It does not change CI, suite definitions, approved proof producers, runtime
   behavior, or the historical force-lifecycle red/green evidence.
-- Broad-gate evidence and proof-level promotion are recorded separately after
-  the closeout metadata is committed.
+- Broad-gate evidence is recorded separately for this batch. It cannot by
+  itself close the source-oracle proof-contract transition or promote this
+  invariant while the gap remains open.

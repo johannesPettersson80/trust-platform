@@ -2404,6 +2404,36 @@ last_reviewed = "2026-07-14"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714"
+title = "Runtime force lifecycle coverage closeout"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/force-lifecycle-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && python3 scripts/check_test_catalog_staleness.py"
+commit = "50b6858f59f39813b7a4b0c79b7d3a489c9b796c"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex force lifecycle coverage closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_FORCE_001"]
+linked_tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47"
 title = "Reviewed PR broad gate for RT_RELOAD_001"
 area = "runtime_safety"
