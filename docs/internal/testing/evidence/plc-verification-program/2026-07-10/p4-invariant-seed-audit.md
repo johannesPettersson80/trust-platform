@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
-Generated: `2026-07-14T20:11:00+02:00`
+Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
+Generated: `2026-07-14T23:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `0e2b2349c1adbd6cb7bfe891085b33d4d6791d5501e43486093cf723675db181`
-Input SHA-256: `sha256:c8000d7787fd5f6f3d6bf817fa86c6a91838fb3b322578e9047754a0cae83a14`
+Generated JSON SHA-256: `814be3422cc2074883a9ae7cef267d0a3c157bfd7e8963899d016a5923ccd0af`
+Input SHA-256: `sha256:985b2ba2549805cd7641e903c41b85fee72854ab3f44ec03ab6a52367aa4704f`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -17,10 +17,10 @@ closes no specification gap, and changes no runtime behavior.
 - Authorized merged aliases: 1
 - Newly introduced Phase 4 records: 36
 - Pre-existing seed mappings: 8
-- Baseline lifecycle records: 34
-- Execution-ready lifecycle records: 10
-- Gap-open records: 12
-- Spec-gap records: 26
+- Baseline lifecycle records: 32
+- Execution-ready lifecycle records: 12
+- Gap-open records: 16
+- Spec-gap records: 22
 - Test-written records: 0
 - Implemented records: 6
 - Validated records: 0
@@ -55,8 +55,8 @@ closes no specification gap, and changes no runtime behavior.
 | `VM_SEAM_REF_001` | `VM_SEAM_REF_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
 | `VM_SEAM_OWNER_001` | `VM_SEAM_OWNER_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
 | `VM_SEAM_VALID_001` | `VM_SEAM_VALID_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
-| `VM_SEAM_ENC_001` | `VM_SEAM_ENC_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` | `none` |
-| `IEC_PARSE_RECOVER_001` | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` | `none` |
+| `VM_SEAM_ENC_001` | `VM_SEAM_ENC_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:execution_ready` | `gap_open/S0` | `SPEC_BYTECODE_FORMAT_001` | `none` |
+| `IEC_PARSE_RECOVER_001` | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:execution_ready` | `gap_open/S0` | `SPEC_IEC_DECISIONS_001` | `none` |
 | `IEC_PREC_001` | `IEC_PREC_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_IEC_EXPRESSIONS_001` | `none` |
 | `IEC_STRING_001` | `IEC_STRING_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `none` |
 | `IEC_SUBRANGE_001` | `IEC_SUBRANGE_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_IEC_DECISIONS_001` | `none` |
@@ -70,8 +70,8 @@ closes no specification gap, and changes no runtime behavior.
 | `PROTO_ETHERCAT_001` | `PROTO_ETHERCAT_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` | `none` |
 | `PROTO_ADS_001` | `PROTO_ADS_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` | `none` |
 | `PROTO_OPCUA_001` | `PROTO_OPCUA_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `RISK_OPCUA_CLIENT_LIFECYCLE_001` |
-| `EDIT_RENAME_001` | `EDIT_RENAME_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` | `none` |
-| `EDIT_RENAME_002` | `EDIT_RENAME_002` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` | `none` |
+| `EDIT_RENAME_001` | `EDIT_RENAME_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
+| `EDIT_RENAME_002` | `EDIT_RENAME_002` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
 | `EDIT_LSP_POS_001` | `EDIT_LSP_POS_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
 | `EDIT_DIAG_CANCEL_001` | `EDIT_DIAG_CANCEL_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
 | `UI_STATUS_001` | `UI_STATUS_001` | `hmi_ui` | `VERIF-P4-006` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `none` |

@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v1`
-Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
-Generated: `2026-07-14T20:11:00+02:00`
+Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
+Generated: `2026-07-14T23:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `33d4459102f671658d9941e8c64525fee88d7905d3f71004c26c4f21bf147686`
-Input SHA-256: `sha256:bb7586df0d39b39841cb5b0019c21e9f06ec334cccbd64ca05eccd15767d149e`
+Generated JSON SHA-256: `0a99891eba92b9c7fed87aeb8cb17e974abae85d63430ad2f9349c2261993283`
+Input SHA-256: `sha256:6f333e4d6ea6f4ca8ee732ae024d9e00f1d1a9f3e09a142fb6be78b6b8eddb3e`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -15,7 +15,7 @@ It executes no fault and creates no proof or invariant coverage.
 
 - Taxonomy classes: 19
 - Explicit mapping records: 38
-- Live Rust scanner facts: 3104
+- Live Rust scanner facts: 3119
 - Effectively runnable direct mappings: 28
 - Ignored or conditional mappings: 1
 - Gap classes: 9

@@ -1,11 +1,11 @@
 # Malformed-Input Coverage Report
 
 Generator: `malformed-input-coverage v1`
-Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
-Generated: `2026-07-14T20:11:00+02:00`
+Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
+Generated: `2026-07-14T23:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e1b36b372e242eced84485131b7351960a8a6b35123d6abc3fa1541e35400c84`
-Input SHA-256: `sha256:fc2ca48b694ee89275aa3c7eda08e82d42a0222fe2bed7390b4a962e7aea01ed`
+Generated JSON SHA-256: `4cbe700139f777e53411dc436afb5a833792f215527bd6ae44ab1880e48962e7`
+Input SHA-256: `sha256:03506396910261fa0fa71a3d9980f116728af48ddef85deeb8558f1f745d3c42`
 
 `complete` means the reviewed taxonomy and live joins validated. It does not
 mean every malformed-input class is covered.
@@ -13,8 +13,8 @@ mean every malformed-input class is covered.
 ## Summary
 
 - Taxonomy classes: 28
-- Classes with catalog mappings: 1
-- Explicit test mappings: 1
+- Classes with catalog mappings: 2
+- Explicit test mappings: 2
 - `covered`: 1
 - `covered_by_fuzz`: 0
 - `not_applicable`: 0
@@ -33,7 +33,7 @@ mean every malformed-input class is covered.
 | `call_depth_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `call_target_mismatch` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `const_type_incompatible` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `duplicate_section` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
+| `duplicate_section` | `spec_gap` | `spec_gap` | `TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001` | none | none | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `instructions_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `invalid_checksum` | `required` | `gap_open` | none | none | none | none |
 | `jump_target_not_instruction_boundary` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_BYTECODE_VALIDATOR_001` |

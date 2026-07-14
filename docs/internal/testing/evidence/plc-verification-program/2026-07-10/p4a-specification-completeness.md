@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
-Generated: `2026-07-14T20:11:00+02:00`
+Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
+Generated: `2026-07-14T23:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `f90f1065424de3c6dc311ccf221b4826400b53b66f5564c3609bde8201d1df69`
-Input SHA-256: `sha256:e6e630c22b58a33c87cc61bbf0605db55d3456075a0f938dddac13f2220b610d`
+Generated JSON SHA-256: `af8be5b60a6caaa36c996005fa7b92723e112527bfe4d8837db998473d23f8a4`
+Input SHA-256: `sha256:3f673942c2a02524b5635e8e8d8ad0afb04cebf4c0c8c0b850ee3804a72b645e`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,12 +13,12 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 32
-- Tests with expected results: 107
+- Invariants without specified specs: 28
+- Tests with expected results: 133
 - Tests without oracle/spec/gap binding: 0
-- Coverage cells: 65
-- Coverage cells marked spec_gap: 39
-- Bytecode pilot gaps: 7
+- Coverage cells: 68
+- Coverage cells marked spec_gap: 35
+- Bytecode pilot gaps: 6
 - Registered public-claim sources: 4
 
 ## Invariants Without Specified Specs
@@ -28,9 +28,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `spec_gap` | `missing` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
-| `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `spec_gap` | `ambiguous` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
-| `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
@@ -51,7 +48,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `missing` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
-| `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_VM_ERROR_MODEL_001`, `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` |
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `ambiguous` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
@@ -71,9 +67,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | 0 | `duplicate_or_collision` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | 0 | `duplicate_or_collision` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
-| `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | 0 | `duplicate_or_collision` | `SPEC_GAP_EDITOR_RENAME_CONFLICT_001` |
-| `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_IEC_PARSER_RECOVERY_001` |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | 0 | `boundary_high` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
@@ -97,7 +90,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | 1 | `wrong_type_or_shape` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | 0 | `resource_limit` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | 1 | `time_or_clock_fault` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
-| `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | 0 | `extra_or_unknown` | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` |
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 0 | `happy_path` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
@@ -113,7 +105,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 
 - `test_gap`: 2
-- `spec_gap`: 5
+- `spec_gap`: 4
 - `hardware_tool_blocked`: 0
 - `not_applicable`: 0
 
@@ -122,7 +114,6 @@ Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `spec_gap` | `spec_gap_record` | Which frontend and VM invariants must bytecode validation reject before a module can be applied? | `VM_SEAM_OWNER_001`, `VM_SEAM_REF_001`, `VM_SEAM_VALID_001` |
 | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `spec_gap` | `spec_gap_record` | Which VM determinism, instruction, stack, local, reference, call-depth, and resource limits must be specified and tested independently of bytecode validator structure? | `VM_SEAM_DETERMINISM_LIMITS_001` |
 | `SPEC_GAP_VM_ERROR_MODEL_001` | `spec_gap` | `spec_gap_record` | Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, `VM_SEAM_VALID_001` |
-| `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` | `spec_gap` | `spec_gap_record` | Which HIR-clean but unencodable source constructs must fail compilation rather than lower to NOP or partial bytecode? | `VM_SEAM_ENC_001` |
 | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `spec_gap` | `spec_gap_record` | What exact behavior applies to STRING[n] over-bound writes, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, and reference-store conversions? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001` |
 | `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |

@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `adfb33fa1e5edccda220d1524da05689ad2d2351`
-Generated: `2026-07-14T20:11:00+02:00`
+Source revision: `86cda273f7cbfbf0b06b1eead5cb751dc77eb1a9`
+Generated: `2026-07-14T23:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `57a30bda316f6c0d80643d8e549ceb3d795f558a60e13be28b22109ceeaea63f`
-Input SHA-256: `sha256:77d7b1de0932972487675fb0a510e47febefe703a5d3e4224c0274c04bd41003`
+Generated JSON SHA-256: `5f248d8199f9fe7d50d4fb0248f8a988aef9ccf013c46105934f3634a96387f3`
+Input SHA-256: `sha256:410e94299e0b7d99d887e218ffbd956cdb798f36b28fd504e82a9038bbb0a775`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -16,10 +16,10 @@ mean every required coverage slot is assigned or covered.
 - Mapped-area invariants: 53
 - Out-of-scope invariants: 0
 - Required family slots: 80
-- Assigned required slots: 16
-- Missing required slots: 64
-- Additional recorded cells: 49
-- Recorded mapped-area cells: 65
+- Assigned required slots: 17
+- Missing required slots: 63
+- Additional recorded cells: 51
+- Recorded mapped-area cells: 68
 - Catalog-bound case files: 4
 - Case observations: 27
 - Blocked case observations: 14
@@ -32,8 +32,8 @@ mean every required coverage slot is assigned or covered.
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 39 |
-| `gap_open` | 18 |
+| `spec_gap` | 35 |
+| `gap_open` | 25 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -80,8 +80,8 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `boundary_high` | `missing_cell` | none | none | none |
 | `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
-| `extra_or_unknown` | `assigned` | `spec_gap` | none | none |
-| `happy_path` | `missing_cell` | none | none | none |
+| `extra_or_unknown` | `assigned` | `gap_open` | none | none |
+| `happy_path` | `assigned` | `gap_open` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
 | `wrong_type_or_shape` | `missing_cell` | none | none | none |
@@ -169,7 +169,9 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `wrong_type_or_shape` | `additional_recorded` | `spec_gap` | none | none |
+| `extra_or_unknown` | `additional_recorded` | `gap_open` | none | none |
+| `resource_limit` | `additional_recorded` | `gap_open` | none | none |
+| `wrong_type_or_shape` | `additional_recorded` | `gap_open` | none | none |
 
 ### `IEC_PREC_001`
 
@@ -244,13 +246,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+| `duplicate_or_collision` | `additional_recorded` | `gap_open` | none | none |
 
 ### `EDIT_RENAME_002`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+| `duplicate_or_collision` | `additional_recorded` | `gap_open` | none | none |
 
 ## Area: `hmi_ui`
 
