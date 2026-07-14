@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-13T19:11:10+02:00"
+    "2026-07-14T02:38:52+02:00"
   ],
-  "commit": "9ed22fddad5fd662df1dbed838730c7def0e01e2",
+  "commit": "009b2d43535740e03a5de3c5e5faab03d40a8e1c",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:5cfdaa65195f6931387b4ff43496cb260273a5d17401280a73756d3f895b64ba",
+  "input_digest": "sha256:aa1f5a015bbc7770e54709aedbd7062dda652cdf2ed3ff417179e3b56ff85c91",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1043,6 +1043,7 @@
     "crates/trust-runtime/src/io/mqtt/session.rs",
     "crates/trust-runtime/src/io/mqtt/sparkplug.rs",
     "crates/trust-runtime/src/io/mqtt/tests.rs",
+    "crates/trust-runtime/src/io/mqtt/tests/nonfinite_case.rs",
     "crates/trust-runtime/src/io/mqtt/worker.rs",
     "crates/trust-runtime/src/io/provenance.rs",
     "crates/trust-runtime/src/io/registry.rs",
@@ -2002,7 +2003,7 @@
     "json": "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json",
     "markdown": "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md"
   },
-  "platform": "linux-aarch64",
+  "platform": "linux-x86_64",
   "report_status": "complete",
   "schema_version": 1,
   "scope": {
@@ -2539,7 +2540,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-13T19:11:10+02:00",
+  "timestamp": "2026-07-14T02:38:52+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",

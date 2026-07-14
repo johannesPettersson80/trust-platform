@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
-Generated: `2026-07-13T16:48:52+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `fab955782e4ff4d8b2dfb5efaf6258407b7a0fefd0b79c7ec94be8a07bdcd3b8`
-Input SHA-256: `sha256:f84a33fa6fb83ad2d7463e9dc9708be6ab6a5cefa463653fa516e551a85bc6b4`
+Source revision: `009b2d43535740e03a5de3c5e5faab03d40a8e1c`
+Generated: `2026-07-14T02:38:52+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `e4f4f6cf4ea963cc5353834ce168dba9155120a913df2e1c5ee22f0b07d6fdd9`
+Input SHA-256: `sha256:c44312a056560786422202586df7009be2f08333dd036bec7a087ad141f65515`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,16 +17,16 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 10
-- Missing oracles: 43
-- Future enforcement candidates: 33
+- Eligible oracles: 11
+- Missing oracles: 42
+- Future enforcement candidates: 32
 
 ## Mapping Groups
 
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
 | `VERIF-P6-001` | `compiler_iec` | 5 | 3 | 2 |
-| `VERIF-P6-002` | `runtime_safety` | 11 | 5 | 6 |
+| `VERIF-P6-002` | `runtime_safety` | 11 | 6 | 5 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 0 | 6 |
 | `VERIF-P6-005` | `control_security, supply_chain_platform` | 6 | 0 | 6 |
@@ -69,7 +69,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RT_SAFE_IO_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
 | `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
-| `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` |
+| `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_PANIC_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_RESTART_001` | `runtime_safety` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_RESTART_TIME_002` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_IEC_DECISIONS_001` | none |
@@ -120,7 +120,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_RELOAD_001` | `silent_corruption` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` | `true` |
 | `RT_SAFE_FORCE_001` | `safety_critical` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `true` |
 | `RT_SAFE_IO_WORKER_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
-| `RT_SAFE_NAN_001` | `safety_critical` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` | `true` |
 | `RT_SAFE_RETAIN_001` | `data_loss` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` | `false` |
 | `RT_SAFE_STOP_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `false_status` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `true` |

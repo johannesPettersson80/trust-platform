@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `b32dc62ee71dd66b2985f94342d5c19bd70ae559`
-Generated: `2026-07-13T16:48:52+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `d34c1335ef3b65e39662d18dbce61a922022239b5165d4d558e281cb64a1b6a8`
-Input SHA-256: `sha256:31eb8999f889442bd45d73bad628716b54cf33520812e99574918cc88ceebcf6`
+Source revision: `009b2d43535740e03a5de3c5e5faab03d40a8e1c`
+Generated: `2026-07-14T02:38:52+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `7d7a920a21d4883ec64be6bf314c254e4e1144887358f73ccfd1a66a6fc5467d`
+Input SHA-256: `sha256:bc784f7c08f5b5085c19bfe686d556c5f5d7f8e921d8078e9c1012ee49a88e15`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,12 +13,12 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 43
-- Tests with expected results: 27
+- Invariants without specified specs: 42
+- Tests with expected results: 72
 - Tests without oracle/spec/gap binding: 0
-- Coverage cells: 64
-- Coverage cells marked spec_gap: 49
-- Bytecode pilot gaps: 8
+- Coverage cells: 65
+- Coverage cells marked spec_gap: 48
+- Bytecode pilot gaps: 7
 - Registered public-claim sources: 4
 
 ## Invariants Without Specified Specs
@@ -52,7 +52,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `missing` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `ambiguous` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
-| `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `missing` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` |
 | `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `spec_gap` | `ambiguous` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` |
 | `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `spec_gap` | `ambiguous` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
@@ -106,7 +105,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` |
 | `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RT_SAFE_IO_WORKER_001` | `runtime_safety` | `safety_critical` | 0 | `concurrency_or_cancellation` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
-| `RT_SAFE_NAN_001` | `runtime_safety` | `safety_critical` | 0 | `wrong_type_or_shape` | `SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001` |
 | `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | 0 | `persistence_or_recovery` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` |
 | `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | 0 | `hardware_or_network_fault` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
@@ -133,7 +131,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 
-- `test_gap`: 3
+- `test_gap`: 2
 - `spec_gap`: 5
 - `hardware_tool_blocked`: 0
 - `not_applicable`: 0
@@ -145,7 +143,6 @@ Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 | `SPEC_GAP_VM_ERROR_MODEL_001` | `spec_gap` | `spec_gap_record` | Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, `VM_SEAM_VALID_001` |
 | `SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001` | `spec_gap` | `spec_gap_record` | Which HIR-clean but unencodable source constructs must fail compilation rather than lower to NOP or partial bytecode? | `VM_SEAM_ENC_001` |
 | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `spec_gap` | `spec_gap_record` | What exact behavior applies to STRING[n] over-bound writes, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, and reference-store conversions? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001` |
-| `TEST_CLASS_GAP:bytecode_vm:failing_regression` | `test_gap` | `required_test_class_slot` | Required test class failing_regression has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |
 
