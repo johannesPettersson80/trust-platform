@@ -77,7 +77,9 @@ fn fault_boundary_clears_debug_mutations() {
     debug.force_global("forced_value", Value::DInt(50));
     debug.enqueue_global_write("queued_value", Value::DInt(70));
 
-    let _ = harness.runtime_mut().simulation_fault("force lifecycle test fault");
+    let _ = harness
+        .runtime_mut()
+        .simulation_fault("force lifecycle test fault");
     assert!(harness.runtime().faulted());
     harness.runtime_mut().clear_fault();
     cycle_clean(&mut harness, "post-fault recovery");
