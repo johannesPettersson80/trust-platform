@@ -2227,3 +2227,25 @@ remote_source_clean_after = true
 disk_preflight_passed = true
 home_available_kib = 99471356
 tmp_available_kib = 3287812
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_SAFE_STATE_EXECUTION_VALIDATION_20260714"
+title = "Runtime safe-state handoff execution validation"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/safe-state-handoff-execution-validation.md"
+command = "python3 scripts/validate_verification_metadata.py && git diff --check"
+commit = "85a84b6bebd5081fe66cb00bd53a4197f918279c"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex safe-state handoff execution closure"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SAFE_IO_WORKER_001", "RT_SAFE_STOP_001"]
+linked_tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001", "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001", "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001", "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001"]
+linked_spec_gaps = ["SPEC_GAP_RUNTIME_SAFE_STATE_001"]
+last_reviewed = "2026-07-14"
