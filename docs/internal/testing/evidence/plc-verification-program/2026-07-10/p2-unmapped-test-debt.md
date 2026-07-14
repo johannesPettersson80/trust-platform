@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `1b9eed363c47a97c5da2ced75562456c58a8cea2`
-Generated: `2026-07-14T12:31:26+02:00`
+Source revision: `31a4a6911d4788e8578a67d0e1b1d0e4463bb7fe`
+Generated: `2026-07-14T14:13:19+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `5175199c8c436277dfde8f7fba8056d2e1225d7d542527691e919b443775e205`
-Input SHA-256: `sha256:1da90345a0572e1f9469171cbd82cec18022dd95cabc7e2603c23b1ad3f1f7bf`
+Generated JSON SHA-256: `b9a2e58528742cbdf7ba3083f775d41b03c72054a79bd064204b5e16c56db7e4`
+Input SHA-256: `sha256:1a5775f4810b4753674ad6f35639ddc462a231850a5f51ab19ace55fe45ff452`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3883
-- Mapped scanner facts: 72
-- Unmapped scanner facts: 3811
-- Generated-test catalog rows: 72
+- Scanner facts: 3886
+- Mapped scanner facts: 83
+- Unmapped scanner facts: 3803
+- Generated-test catalog rows: 83
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 39
 - Conditional unmapped facts: 1
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1407 | 50 | 1357 |
-| `rust_unit_test` | 1681 | 22 | 1659 |
+| `rust_integration_test` | 1409 | 59 | 1350 |
+| `rust_unit_test` | 1682 | 24 | 1658 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -941,12 +941,10 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_7CCA5C983F3BC05339EC` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_point_map_rejects_invalid_type_and_scaling_config` | `not_ignored` |
 | `DISC_456E5DFC92F78865CD94` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_point_map_writes_scaled_registers_and_coils` | `not_ignored` |
 | `DISC_8CF1458AD37783E8FCF4` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_raw_register_mode_uses_wire_big_endian_order` | `not_ignored` |
-| `DISC_7159C3BA77CC33C8F48C` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_read_inputs_returns_within_scan_bound_while_response_delayed` | `not_ignored` |
 | `DISC_A89C5FA2356D682836D2` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_reconnect_backoff_is_bounded_and_non_spinning` | `not_ignored` |
 | `DISC_2CE088F1926B33175423` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_rejects_unknown_function_config` | `not_ignored` |
 | `DISC_41FCECEDF690EB121E27` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery` | `not_ignored` |
 | `DISC_B3EBD5115E6DBD66F946` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_stale_snapshot_is_returned_when_worker_reconnects` | `not_ignored` |
-| `DISC_6C10B5D7ACB21ECE8E9D` | `rust_integration_test` | `crates/trust-runtime/tests/modbus_driver.rs` | `modbus_write_outputs_returns_within_scan_bound_while_response_delayed` | `not_ignored` |
 | `DISC_A4A87F179D0CC41E298C` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_client_runtime.rs` | `opcua_client_accepts_vs_code_global_var_names` | `not_ignored` |
 | `DISC_C43441A87579223BDF23` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_client_runtime.rs` | `opcua_client_subscription_api_surface_is_available_for_phase3_worker` | `not_ignored` |
 | `DISC_6847FE4C45F88000E0B4` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_integration.rs` | `opcua_interop_reads_exposed_scalars_with_reference_client` | `not_ignored` |
@@ -1100,24 +1098,19 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_B02D0E3CFEC34E755FC0` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_reliability.rs` | `e2e_startup_io_restart` | `not_ignored` |
 | `DISC_B0616A747435CAE04D2A` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_reliability.rs` | `retain_power_loss_does_not_persist_unsaved` | `not_ignored` |
 | `DISC_C101BBAEC06311987C74` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_reliability.rs` | `watchdog_faults_resource_on_overrun` | `not_ignored` |
-| `DISC_213D1264041EB1793C79` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_restart.rs` | `cold_restart_initializes_retain_values` | `not_ignored` |
 | `DISC_2CC9B67E44CB8284B149` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_restart.rs` | `in_process_restart_preserves_monotonic_time` | `not_ignored` |
 | `DISC_8C34C3928AD85D534B78` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_restart.rs` | `restart_with_retain_store_persists_values` | `not_ignored` |
 | `DISC_3A32AF1C7CD243DB55AC` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_restart.rs` | `warm_restart_does_not_report_pre_restart_time_as_new_overrun` | `not_ignored` |
-| `DISC_83FE96819CB25F21CA77` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_restart.rs` | `warm_restart_preserves_retain_and_initializes_nonretain` | `not_ignored` |
 | `DISC_6F92DA55FCF24372A33A` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `deliberate_stop_and_fault_safe_state_paths_are_explicit` | `not_ignored` |
 | `DISC_CB7C88F571D35D725730` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `modbus_fault_policy_faults_resource_state` | `not_ignored` |
 | `DISC_027D1EBF00A35926B528` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `modbus_warn_and_ignore_policy_do_not_fault_resource_state` | `not_ignored` |
-| `DISC_E6963439801BFF301755` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `panic_applies_safe_outputs_before_faulting_resource` | `not_ignored` |
 | `DISC_C946B9FD799F9E4578A3` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `panic_does_not_follow_ordinary_restart_policy` | `not_ignored` |
-| `DISC_30C382889325B64C5854` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `panic_in_io_driver_faults_resource_visibly` | `not_ignored` |
 | `DISC_D4793CC01E1740F97415` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `panic_in_shared_resource_faults_without_poison_detection` | `not_ignored` |
 | `DISC_EBC7D491061F23BDD8B6` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `persistent_fault_restart_policy_escalates_to_visible_fault` | `not_ignored` |
 | `DISC_EFB8B3C332B85B1B4615` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `requested_stop_applies_safe_outputs_before_thread_exits` | `not_ignored` |
 | `DISC_CAF0750D558B8114BEC6` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `requested_stop_retain_save_failure_is_visible` | `not_ignored` |
 | `DISC_B25F48AA676D50A29BB2` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `retain_save_failure_prevents_output_commit_when_due` | `not_ignored` |
 | `DISC_2D0B462DA31DE705F6EC` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `safe_state_write_failure_is_reported_without_losing_root_fault` | `not_ignored` |
-| `DISC_EEF14FDB800A7590C8F3` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `unexpected_thread_unwind_after_running_faults_control_surface` | `not_ignored` |
 | `DISC_8BAF8461F95A94A773A6` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `watchdog_deadline_breach_before_commit_prevents_output_write` | `not_ignored` |
 | `DISC_8B901DEF0D4408B99942` | `rust_integration_test` | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | `watchdog_restart_action_escalates_to_visible_fault` | `not_ignored` |
 | `DISC_5619D086FCBB5DB1B5D3` | `rust_integration_test` | `crates/trust-runtime/tests/scheduler_harness.rs` | `deterministic_clock` | `not_ignored` |
@@ -3013,7 +3006,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_34CD5052A10F2588D30B` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `cycle_deadline_from_zero_timeout_is_immediately_expired` | `not_ignored` |
 | `DISC_BF01EBAA4B0DFA45370D` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `cycle_deadline_guard_restores_after_runtime_error_and_contained_panic` | `not_ignored` |
 | `DISC_4F5DDFB0E5B6F9E7F4D4` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `cycle_deadline_guard_restores_previous_deadlines_after_success` | `not_ignored` |
-| `DISC_96A8793BF2C3E6F579B4` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `cycle_execution_panic_faults_resource_visibly` | `not_ignored` |
 | `DISC_E72EFAA018DAB54FAAC0` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `disabled_watchdog_does_not_arm_cycle_deadlines` | `not_ignored` |
 | `DISC_FB2DC1C843F8F36273CB` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `scheduler_arms_execution_deadline_during_cycle` | `not_ignored` |
 | `DISC_5573E9D6196C5D5E2DD2` | `rust_unit_test` | `crates/trust-runtime/src/scheduler/runner_loop.rs` | `state_and_error_helpers_recover_poisoned_mutexes` | `not_ignored` |

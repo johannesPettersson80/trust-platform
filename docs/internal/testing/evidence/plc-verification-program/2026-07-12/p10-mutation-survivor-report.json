@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-14T12:31:26+02:00"
+    "2026-07-14T14:13:19+02:00"
   ],
-  "commit": "1b9eed363c47a97c5da2ced75562456c58a8cea2",
+  "commit": "31a4a6911d4788e8578a67d0e1b1d0e4463bb7fe",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:c40562b06f86a99931b1947424976b1f5ecce998e4b1f0dddcf243a8a64537f2",
+  "input_digest": "sha256:475621c0826f14e60ae9ef6a840afff9f845e9a410b4cffb99ed353bf2d22a4d",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1398,6 +1398,7 @@
     "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/main.st",
     "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/tests.st",
     "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st",
+    "crates/trust-runtime/tests/force_lifecycle.rs",
     "crates/trust-runtime/tests/gpio_safe_state.rs",
     "crates/trust-runtime/tests/harness.rs",
     "crates/trust-runtime/tests/harness_fail_closed.rs",
@@ -1462,6 +1463,7 @@
     "crates/trust-runtime/tests/real_world.rs",
     "crates/trust-runtime/tests/realtime_t0_integration.rs",
     "crates/trust-runtime/tests/registry_command.rs",
+    "crates/trust-runtime/tests/reload_transaction_trace_cases.rs",
     "crates/trust-runtime/tests/resources.rs",
     "crates/trust-runtime/tests/retain_failure_trace_cases.rs",
     "crates/trust-runtime/tests/retain_integrity.rs",
@@ -2443,11 +2445,11 @@
             "--no-run"
           ],
           "function": "retain_on_warm",
-          "generated_mutant_name": "restart.rs:683:5: replace retain_on_warm -> bool with false",
+          "generated_mutant_name": "restart.rs:686:5: replace retain_on_warm -> bool with false",
           "genre": "FnValue",
           "id": "MUTANT_RETAIN_ON_WARM_FALSE",
           "replacement": "false",
-          "source_digest": "sha256:bf9831e1573315f04276e13e5ccb6a147db9faf77cf5cd49639735357756759e",
+          "source_digest": "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808",
           "source_file": "crates/trust-runtime/src/runtime/restart.rs",
           "test_command": [
             "cargo",
@@ -2543,7 +2545,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-14T12:31:26+02:00",
+  "timestamp": "2026-07-14T14:13:19+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",
