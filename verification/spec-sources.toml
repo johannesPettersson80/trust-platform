@@ -57,6 +57,7 @@ covers = [
   "watchdog",
   "safe_halt",
   "retain_restart",
+  "retain_failure_transactions",
   "hmi_write_authz",
   "opcua_nonfinite_ingress",
   "ads_nonfinite_ingress",

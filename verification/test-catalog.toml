@@ -1838,7 +1838,6 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-spec_gap_ref = "SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"
 case_file = "verification/cases/runtime_safety/RT_SAFE_RETAIN_001.toml"
 case_file_digest = "sha256:9739265a8c6c8b5a6eeb787dca2acdffc7235dc8bd25f0b317519d2aed6e84da"
 last_reviewed = "2026-07-14"

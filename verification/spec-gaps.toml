@@ -326,8 +326,9 @@ blocking_question = "Which retain read, decode, compatibility, and write failure
 affected_invariants = ["RT_SAFE_RETAIN_001"]
 affected_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_RETAIN_FAILURE_GAP_CLOSEOUT_20260714"]
 last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
