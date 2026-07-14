@@ -10,6 +10,9 @@ Target release: `v0.24.44`
 
 ### Fixed
 
+- trust-runtime: STBC decoding now rejects duplicate standardized section IDs
+  instead of silently selecting the first conflicting section during later
+  validation and execution.
 - trust-runtime: bytecode decoding now rejects top-level and nested collection
   counts that cannot fit within their section payload before reserving the
   declared collection capacity, preventing tiny malformed containers from
