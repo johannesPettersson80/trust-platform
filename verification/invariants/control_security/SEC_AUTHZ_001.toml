@@ -3,9 +3,9 @@ id = "SEC_AUTHZ_001"
 title = "Runtime control authorization is explicit and default deny"
 area = "control_security"
 risk = "security"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-14"
 claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
 proof_level = "S0"
 contract_kind = "security_policy"
@@ -13,19 +13,38 @@ source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
 tests = []
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"]
-missing = ["control_authorization_matrix", "default_deny_cases", "allowed_role_cases"]
+spec_gap_refs = []
+missing = [
+  "seed_lifecycle_execution_ready_review",
+  "producer_authentic_red_green_proof",
+  "broad_remote_gate",
+]
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "UNCLASSIFIED_CONTROL_OPERATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A control operation omitted from the explicit policy requires Admin rather than inheriting Viewer authority."
+
+[[behavior]]
+partition = { equals = "SECURITY_CONFIGURATION_BY_NON_ADMIN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Security and exposure configuration, including debug activation, is denied below Admin before configuration changes."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "spec_gap"
-rationale = "The complete control operation and role matrix is not specified."
-spec_gap_ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+state = "gap_open"
+rationale = "The written matrix and focused product tests cover high-risk debug and fail-safe defaults; producer-authentic proof and a causal broad gate remain open."

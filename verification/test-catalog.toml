@@ -1432,6 +1432,56 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_DEBUG_AUTHORIZATION_MATRIX_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8664E7408C2C3D60D5C5"
+discovery_source_kind = "rust_unit_test"
+test_class = "integration"
+area = "control_security"
+path = "crates/trust-runtime/src/control/tests/authorization_matrix.rs"
+name = "debug_activation_and_mutation_follow_the_reviewed_role_boundary"
+command = "cargo test -p trust-runtime --lib control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+expected_result = "Engineer cannot activate debugging, Admin can activate it, Engineer can mutate an enabled debug surface, and Viewer or Operator mutation requests leave queued writes and force state unchanged."
+expected_failure_mode = "A role below Admin activates debugging, a role below Engineer mutates debug state, or an authorized Engineer cannot use an enabled surface."
+evidence_destination = "target/gate-artifacts/cases/TEST_DEBUG_AUTHORIZATION_MATRIX_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+spec_gap_ref = "SPEC_GAP_DEBUG_AUTHORIZATION_001"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_269219F3ACC34E73387B"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "control_security"
+path = "crates/trust-runtime/src/control/policy.rs"
+name = "security_sensitive_debug_activation_and_unclassified_requests_fail_safe"
+command = "cargo test -p trust-runtime --lib control::policy::tests::security_sensitive_debug_activation_and_unclassified_requests_fail_safe -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["SEC_AUTHZ_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+expected_result = "Debug activation and every unclassified future control operation require Admin authority by default."
+expected_failure_mode = "Debug activation is available to Engineer or an unclassified operation silently inherits Viewer authority."
+evidence_destination = "target/gate-artifacts/cases/TEST_CONTROL_AUTHORIZATION_FAILSAFE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+spec_gap_ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
 id = "TEST_DEBUG_PAUSE_WATCHDOG_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_234FF0395E492391D0E0"

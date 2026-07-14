@@ -2426,6 +2426,34 @@ last_reviewed = "2026-07-14"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_CONTROL_AUTHORIZATION_FIX_20260714"
+title = "Runtime control authorization product fix"
+area = "control_security"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-14/control-authorization-fix.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" && cargo test -p trust-runtime --lib control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary -- --exact && cargo test -p trust-runtime --lib control::policy::tests && cargo test -p trust-runtime --test debug_control rbac_authorization_matrix_enforces_sensitive_endpoint_roles -- --exact'"
+commit = "62b9b2a671581e0529c9a44fff3991ffbf6557e3"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-14"
+suite_id = "supporting_local"
+producer = "codex control authorization product fix"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+linked_tests = [
+  "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+]
+linked_spec_gaps = [
+  "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001",
+  "SPEC_GAP_DEBUG_AUTHORIZATION_001",
+]
+last_reviewed = "2026-07-14"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714"
 title = "Runtime force lifecycle coverage closeout"
 area = "runtime_safety"
