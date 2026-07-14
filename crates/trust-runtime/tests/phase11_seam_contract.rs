@@ -6,7 +6,7 @@ use trust_runtime::bytecode::{
 use trust_runtime::execution_backend::{
     ExecutionBackend, VmRegisterProfileSnapshot, VmTier1SpecializedExecutorSnapshot,
 };
-use trust_runtime::harness::{bytecode_module_from_source, TestHarness};
+use trust_runtime::harness::{bytecode_module_from_source, CompileSession, TestHarness};
 use trust_runtime::memory::InstanceId;
 use trust_runtime::value::Value;
 
@@ -1064,69 +1064,24 @@ PROGRAM Main
 VAR
     target : ARRAY[0..1] OF DINT;
 END_VAR
+target[0] := DINT#7;
 target := [DINT#1, DINT#2];
 END_PROGRAM
 "#;
 
-    match TestHarness::from_source(source) {
-        Err(_) => {}
-        Ok(mut harness) => {
-            harness
-                .runtime_mut()
-                .set_execution_backend(ExecutionBackend::BytecodeVm)
-                .expect("select bytecode VM backend");
-            harness
-                .runtime_mut()
-                .restart(trust_runtime::RestartMode::Cold)
-                .expect("restart runtime");
-            let cycle = harness.cycle();
-            panic!(
-                "expected unsupported array-initializer assignment to fail build instead of \
-                 lowering to NOP; cycle_errors={:?}; target={:?}",
-                cycle.errors,
-                harness.get_output("target")
-            );
-        }
-    }
+    assert_hir_clean_but_bytecode_rejected(source, "array-initializer assignment");
 }
 
-#[test]
-fn unsupported_struct_initializer_assignment_fails_build_instead_of_nop() {
-    let source = r#"
-TYPE
-    Pair : STRUCT
-        left : DINT;
-        right : DINT;
-    END_STRUCT;
-END_TYPE
-
-PROGRAM Main
-VAR
-    target : Pair;
-END_VAR
-target := (left := DINT#1, right := DINT#2);
-END_PROGRAM
-"#;
-
-    match TestHarness::from_source(source) {
-        Err(_) => {}
-        Ok(mut harness) => {
-            harness
-                .runtime_mut()
-                .set_execution_backend(ExecutionBackend::BytecodeVm)
-                .expect("select bytecode VM backend");
-            harness
-                .runtime_mut()
-                .restart(trust_runtime::RestartMode::Cold)
-                .expect("restart runtime");
-            let cycle = harness.cycle();
-            panic!(
-                "expected unsupported structure-initializer assignment to fail build instead of \
-                 lowering to NOP; cycle_errors={:?}; target={:?}",
-                cycle.errors,
-                harness.get_output("target")
-            );
-        }
+fn assert_hir_clean_but_bytecode_rejected(source: &str, construct: &str) {
+    let session = CompileSession::from_source(source);
+    if let Err(error) = session.build_runtime() {
+        panic!("{construct} fixture must pass source analysis before bytecode lowering: {error}");
+    }
+    if session.build_bytecode_module().is_ok() {
+        panic!(
+            "expected unsupported {construct} to fail bytecode-module construction instead of \
+             lowering to NOP or partial bytecode"
+        );
     }
 }
 
