@@ -530,6 +530,33 @@ contract:
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
 Unflushed changes may be lost on sudden power loss (implementer-specific).
 
+##### 6.7.1 Online-change transaction
+
+Online change is a truST runtime extension; IEC 61131-3 does not define its
+transport or transaction boundary (DEV-024). A reload request is applied only
+at a completed scan boundary. The runtime must prepare every fallible input
+needed by the change before replacing live execution state:
+
+- decode and validate the complete bytecode container and materialize its VM
+  module;
+- validate the selected resource, tasks, and process-image sizes; and
+- read, decode, canonicalize, and validate the retained snapshot required by
+  the warm-reload policy.
+
+If preparation fails, the request returns an error and leaves the prior
+executable module, task schedule, variable storage, process image and bindings,
+debug mutations, logical time, cycle counter, and runtime fault/status state
+unchanged. The old program remains executable on the next scan.
+
+After successful preparation, the commit replaces the executable and resource
+metadata as one cycle-boundary operation, restarts at the program entry point,
+applies the prepared retained snapshot, rebinds I/O, and returns the new runtime
+metadata. Retained variables follow section 6.7; non-retained variables and
+function-block instances follow warm-restart initialization. Logical time is
+preserved, the scan counter restarts, and queued writes and forces are cleared
+under section 6.9.2. A request must never report `reloaded` unless this complete
+commit succeeds.
+
 #### 6.8 Runtime Launcher & Deployment (Project Folder)
 
 Production runtimes are started via the CLI (`trust-runtime run`) using a **project folder**

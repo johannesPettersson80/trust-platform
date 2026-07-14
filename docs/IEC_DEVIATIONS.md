@@ -686,11 +686,14 @@ in its IEC reference.
   - truST hot reload operates per resource rather than as a single-file-only
     mechanism.
   - Retained globals are preserved across the warm-restart style reload path.
+  - Reload preparation is transactional: a fallible bytecode, resource, or
+    retained-state preparation step cannot replace the live program or state.
 - Impact:
   - The reload scope is broader and more runtime-oriented than earlier
     single-file wording suggested.
 - Mitigation:
-  - The engine/LSP/debug docs now describe the real per-resource behavior.
+  - The engine/LSP/debug docs define the per-resource transaction boundary and
+    require failed preparation to leave the old program executable.
 
 ## 2026-04-20 - Debug forcing includes outputs as well as inputs
 

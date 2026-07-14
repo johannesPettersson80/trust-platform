@@ -205,6 +205,13 @@ expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 
 - `stReload` replaces runtime sources and revalidates breakpoints.
 - If the session was paused before reload, it remains paused after reload.
+- Source compilation and runtime reload are fail-closed. A compile,
+  bytecode-validation, resource-validation, or retained-state preparation
+  error returns a failed response and preserves the previously running program
+  and its live state. The adapter must not emit a successful reload or replace
+  its current metadata on that path.
+- The runtime transaction and state-preservation boundary is normative in
+  `docs/specs/11-runtime-engine.md#671-online-change-transaction`.
 
 #### Reload Trigger Policy (Required)
 
