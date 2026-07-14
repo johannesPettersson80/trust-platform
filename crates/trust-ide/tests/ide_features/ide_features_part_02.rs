@@ -332,6 +332,61 @@ END_VAR
 }
 
 #[test]
+fn test_rename_allows_case_only_change_for_same_symbol() {
+    let source = r#"
+PROGRAM Main
+VAR
+    Speed : INT;
+END_VAR
+Speed := 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : INT").unwrap() as u32);
+
+    let result = trust_ide::rename::rename_checked(&db, file, pos, "SPEED")
+        .expect("a case-only rename of the same IEC symbol must remain valid");
+
+    assert_eq!(result.edit_count(), 2);
+    assert!(result
+        .edits
+        .values()
+        .flatten()
+        .all(|edit| edit.new_text == "SPEED"));
+}
+
+#[test]
+fn test_rename_refuses_case_insensitive_struct_field_collision() {
+    let source = r#"
+TYPE MotorState : STRUCT
+    Speed : DINT;
+    Limit : DINT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    State : MotorState;
+END_VAR
+State.Speed := 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : DINT").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, file, pos, "lImIt")
+        .expect_err("a field rename must not collide with a case-equivalent sibling field");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected field DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
 fn test_rename_refuses_project_wide_pou_collision() {
     let primary_source = r#"
 FUNCTION_BLOCK LevelController
