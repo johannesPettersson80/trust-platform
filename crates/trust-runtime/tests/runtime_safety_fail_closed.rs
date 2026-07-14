@@ -5,7 +5,7 @@ use std::time::{Duration as StdDuration, Instant};
 use trust_hir::TypeId;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
-use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
+use trust_runtime::io::{IoAddress, IoDriver, IoDriverHealth, IoSafeState, ModbusTcpDriver};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState, SharedGlobals};
 use trust_runtime::value::{Duration, Value};
@@ -68,6 +68,31 @@ impl Clock for PanicOnFirstSleepClock {
 struct RecordingDriver {
     writes: Arc<Mutex<Vec<Vec<u8>>>>,
     fail_writes: bool,
+}
+
+#[derive(Debug)]
+struct DegradedWriteDriver {
+    writes: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+impl IoDriver for DegradedWriteDriver {
+    fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+        self.writes
+            .lock()
+            .expect("degraded driver writes lock")
+            .push(outputs.to_vec());
+        Ok(())
+    }
+
+    fn health(&self) -> IoDriverHealth {
+        IoDriverHealth::Degraded {
+            error: "safe-state handoff pending".into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -341,6 +366,46 @@ fn requested_stop_applies_safe_outputs_before_thread_exits() {
         writes.last(),
         Some(&vec![0]),
         "last physical output write must be the configured safe state"
+    );
+}
+
+#[test]
+fn requested_stop_faults_when_safe_state_handoff_is_unconfirmed() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 1, 0);
+    let address = IoAddress::parse("%QX0.0").expect("safe-state output address");
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((address, Value::Bool(false)));
+    runtime.set_io_safe_state(safe_state);
+    runtime.add_io_driver(
+        "degraded-safe-state",
+        Box::new(DegradedWriteDriver {
+            writes: Arc::clone(&writes),
+        }),
+    );
+
+    let runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
+    let mut handle = runner
+        .spawn("unconfirmed-stop-safe-state")
+        .expect("spawn runner");
+    std::thread::sleep(StdDuration::from_millis(20));
+    handle.stop();
+    handle.join().expect("runner join");
+
+    assert_eq!(handle.state(), ResourceState::Faulted);
+    let error = handle
+        .last_error()
+        .expect("unconfirmed safe-state handoff must set last_error");
+    assert!(
+        error.to_string().contains("degraded-safe-state")
+            && error.to_string().contains("unconfirmed"),
+        "expected named unconfirmed safe-state error, got {error}"
+    );
+    assert_eq!(
+        writes.lock().expect("degraded driver writes lock").last(),
+        Some(&vec![0]),
+        "the driver must still receive the configured safe output attempt"
     );
 }
 

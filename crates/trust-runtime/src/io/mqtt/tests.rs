@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::AtomicUsize;
 
 include!("tests/nonfinite_case.rs");
+include!("tests/safe_state.rs");
 
 const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
 
