@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.40`
+Target release: `v0.24.41`
 
 ### Fixed
 
+- trust-runtime: debugger statement-boundary pauses no longer count operator
+  dwell time against the active cycle watchdog or output-commit deadline;
+  genuine execution time before and after resume remains bounded.
 - trust-runtime: online change now reads and validates the retained snapshot
   before replacing the live executable or resetting runtime state, preventing a
   retain-store failure from leaving a partially applied reload.

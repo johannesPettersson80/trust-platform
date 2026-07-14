@@ -52,7 +52,7 @@ pub(super) fn execute_register_block_interpreted(
     let mut control_target = None;
     for (instruction_index, instruction) in block.instructions.iter().enumerate() {
         if should_check_register_deadline(instruction_index)
-            && deadline_exceeded(runtime.execution_deadline)
+            && deadline_exceeded(runtime.effective_execution_deadline())
         {
             return Err(VmTrap::DeadlineExceeded.into_runtime_error());
         }

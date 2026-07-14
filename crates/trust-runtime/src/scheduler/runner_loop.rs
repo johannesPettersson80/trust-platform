@@ -41,8 +41,8 @@ fn arm_cycle_deadlines(
     wall_start: std::time::Instant,
 ) -> CycleDeadlineSnapshot {
     let snapshot = CycleDeadlineSnapshot {
-        execution_deadline: runtime.execution_deadline(),
-        output_deadline: runtime.output_commit_deadline(),
+        execution_deadline: runtime.effective_execution_deadline(),
+        output_deadline: runtime.effective_output_commit_deadline(),
     };
     if watchdog.enabled {
         let cycle_deadline = cycle_deadline_from(wall_start, watchdog.timeout);
@@ -187,7 +187,12 @@ fn run_resource_loop_core<C, F>(
         let wall_start = std::time::Instant::now();
         let watchdog = runner.runtime.watchdog_policy();
         let deadline_snapshot = arm_cycle_deadlines(&mut runner.runtime, watchdog, wall_start);
+        let pause_before_cycle = runner.runtime.debug_watchdog_pause_elapsed();
         let result = execute_protected_cycle(&mut runner, now, &mut execute_cycle);
+        let paused_during_cycle = runner
+            .runtime
+            .debug_watchdog_pause_elapsed()
+            .saturating_sub(pause_before_cycle);
         restore_cycle_deadlines(&mut runner.runtime, deadline_snapshot);
         if let Err(err) = result {
             if watchdog.enabled
@@ -235,7 +240,8 @@ fn run_resource_loop_core<C, F>(
             break;
         }
         if watchdog.enabled {
-            let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
+            let active_elapsed = wall_start.elapsed().saturating_sub(paused_during_cycle);
+            let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     let err = RuntimeError::WatchdogTimeout;

@@ -269,7 +269,7 @@ pub(super) fn execute_pou_stack_with_locals(
         }
 
         if should_check_stack_deadline(instruction_count)
-            && deadline_exceeded(runtime.execution_deadline)
+            && deadline_exceeded(runtime.effective_execution_deadline())
         {
             return Err(VmTrap::DeadlineExceeded.into_runtime_error());
         }

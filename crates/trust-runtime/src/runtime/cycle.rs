@@ -434,7 +434,7 @@ impl Runtime {
 
     fn check_output_commit_deadline(&self) -> Result<(), error::RuntimeError> {
         if self
-            .output_commit_deadline
+            .effective_output_commit_deadline()
             .is_some_and(|deadline| std::time::Instant::now() >= deadline)
         {
             return Err(error::RuntimeError::WatchdogTimeout);
