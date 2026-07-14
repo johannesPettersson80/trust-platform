@@ -307,3 +307,100 @@ END_PROGRAM
         "expected CrossFileImportedSymbolConflict from imported use, got {imported_err:?}"
     );
 }
+
+#[test]
+fn test_rename_refuses_case_insensitive_declaring_scope_conflict() {
+    let source = r#"
+VAR_GLOBAL
+    Speed : INT;
+    Limit : INT;
+END_VAR
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : INT").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, file, pos, "lImIt")
+        .expect_err("IEC identifiers are case-insensitive, so Limit must conflict with lImIt");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected case-insensitive DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_refuses_project_wide_pou_collision() {
+    let primary_source = r#"
+FUNCTION_BLOCK LevelController
+END_FUNCTION_BLOCK
+"#;
+    let conflicting_source = r#"
+FUNCTION_BLOCK BackupController
+END_FUNCTION_BLOCK
+"#;
+    let usage_source = r#"
+PROGRAM Main
+VAR
+    Controller : LevelController;
+END_VAR
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let primary_file = FileId(0);
+    let conflicting_file = FileId(1);
+    let usage_file = FileId(2);
+    db.set_source_text(primary_file, primary_source.to_string());
+    db.set_source_text(conflicting_file, conflicting_source.to_string());
+    db.set_source_text(usage_file, usage_source.to_string());
+
+    let pos = TextSize::from(primary_source.find("LevelController").unwrap() as u32);
+    let err = trust_ide::rename::rename_checked(&db, primary_file, pos, "backupcontroller")
+        .expect_err("a top-level POU rename must check the merged project symbol table");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected project-wide DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_refuses_cross_file_reference_capture() {
+    let globals_source = r#"
+VAR_GLOBAL
+    Speed : INT;
+END_VAR
+"#;
+    let main_source = r#"
+PROGRAM Main
+VAR
+    Temp : INT;
+    Observed : INT;
+END_VAR
+Observed := Speed;
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let globals_file = FileId(0);
+    let main_file = FileId(1);
+    db.set_source_text(globals_file, globals_source.to_string());
+    db.set_source_text(main_file, main_source.to_string());
+
+    let pos = TextSize::from(globals_source.find("Speed : INT").unwrap() as u32);
+    let err = trust_ide::rename::rename_checked(&db, globals_file, pos, "Temp")
+        .expect_err("a cross-file reference must not be rebound to a use-site local");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::ReferenceSiteRebind { file_id, .. }
+                if file_id == main_file
+        ),
+        "expected cross-file ReferenceSiteRebind, got {err:?}"
+    );
+}
