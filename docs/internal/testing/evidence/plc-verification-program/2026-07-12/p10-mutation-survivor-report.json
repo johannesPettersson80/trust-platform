@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-14T03:10:44+02:00"
+    "2026-07-14T10:16:15+02:00"
   ],
-  "commit": "9eb4a3736807db53e5af03705588ca10e46254cb",
+  "commit": "f07b81016252439c649a44761d5b0d7997c9e2c0",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:b73a41abd73e5d44fda8705ae8669914396cc6a0e8849b6ea7df18def184636f",
+  "input_digest": "sha256:4f4c69b6028ab63cf586e0380001ec53f65536f47d25ac868cbf0655a87c8fe4",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1462,6 +1462,7 @@
     "crates/trust-runtime/tests/realtime_t0_integration.rs",
     "crates/trust-runtime/tests/registry_command.rs",
     "crates/trust-runtime/tests/resources.rs",
+    "crates/trust-runtime/tests/retain_failure_trace_cases.rs",
     "crates/trust-runtime/tests/retain_integrity.rs",
     "crates/trust-runtime/tests/retain_store.rs",
     "crates/trust-runtime/tests/runtime_cloud_architecture.rs",
@@ -2440,11 +2441,11 @@
             "--no-run"
           ],
           "function": "retain_on_warm",
-          "generated_mutant_name": "restart.rs:679:5: replace retain_on_warm -> bool with false",
+          "generated_mutant_name": "restart.rs:683:5: replace retain_on_warm -> bool with false",
           "genre": "FnValue",
           "id": "MUTANT_RETAIN_ON_WARM_FALSE",
           "replacement": "false",
-          "source_digest": "sha256:84e3cd19771568dd18497ecf2a7f0bcffce35d053525644462439e75480a6fbc",
+          "source_digest": "sha256:bf9831e1573315f04276e13e5ccb6a147db9faf77cf5cd49639735357756759e",
           "source_file": "crates/trust-runtime/src/runtime/restart.rs",
           "test_command": [
             "cargo",
@@ -2540,7 +2541,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-14T03:10:44+02:00",
+  "timestamp": "2026-07-14T10:16:15+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",

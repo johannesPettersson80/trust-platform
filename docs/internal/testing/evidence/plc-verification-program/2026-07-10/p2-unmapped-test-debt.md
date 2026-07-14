@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `9eb4a3736807db53e5af03705588ca10e46254cb`
-Generated: `2026-07-14T03:10:44+02:00`
+Source revision: `f07b81016252439c649a44761d5b0d7997c9e2c0`
+Generated: `2026-07-14T10:16:15+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `7cccb5af222b5266e24bbb467805b695317b918fee88cced182f6d8b18c57288`
-Input SHA-256: `sha256:bf3c3d67afda07bac0812169a06a9d91e6fcbed20af12bd1cba99b426cc1f405`
+Generated JSON SHA-256: `11f436d08b0b272ef9dcf643e465d947faa45aeeb87425ff621edcb0d6c379ad`
+Input SHA-256: `sha256:559fe8b9ed62ead1fcb0e68ced181aeed1576374c622fe279bd14a51acd814f8`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3876
-- Mapped scanner facts: 67
-- Unmapped scanner facts: 3809
-- Generated-test catalog rows: 67
+- Scanner facts: 3878
+- Mapped scanner facts: 68
+- Unmapped scanner facts: 3810
+- Generated-test catalog rows: 68
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 39
 - Conditional unmapped facts: 1
@@ -27,7 +27,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1402 | 46 | 1356 |
+| `rust_integration_test` | 1404 | 47 | 1357 |
 | `rust_unit_test` | 1679 | 21 | 1658 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
@@ -1074,6 +1074,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_75EFF22ADED7B9F53606` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_bounded_string_is_canonicalized_on_load` | `not_ignored` |
 | `DISC_FC0227884281CC4F9C2C` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_orphan_global_emits_runtime_event` | `not_ignored` |
 | `DISC_86D6D1369E5C7793C53F` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_scalar_widening_migrates_with_runtime_event` | `not_ignored` |
+| `DISC_181CD2176E3A15433E44` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_snapshot_migration_failure_does_not_partially_apply_earlier_values` | `not_ignored` |
 | `DISC_4FB5821EF62B7655873F` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_loads_legacy_v1_snapshot` | `not_ignored` |
 | `DISC_D57F0AA703E76450F141` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_rejects_payload_mutation` | `not_ignored` |
 | `DISC_6536BD14A5FAEA351CCF` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_rejects_trailing_garbage` | `not_ignored` |

@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `9eb4a3736807db53e5af03705588ca10e46254cb`
-Generated: `2026-07-14T03:10:44+02:00`
+Source revision: `f07b81016252439c649a44761d5b0d7997c9e2c0`
+Generated: `2026-07-14T10:16:15+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `a1d19e1b7b5decd3fe9ba6fcf7de2dbecb43025a81a144cf7bf9377878352d0a`
-Input SHA-256: `sha256:ad2414d5da6ab1cc928a209c52f14774f2ee6edea1a2dfcbe3c48b89eb8a0810`
+Generated JSON SHA-256: `5fdd386a76645fe806b84a1fe2955241be71ddd6440bc360a79215ee201b383a`
+Input SHA-256: `sha256:0d383bb6344f3969c3cce12c0d774f7b43c99f73cadcc8db08b2e1fb296f9642`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,8 +13,8 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3876
-- Fact-bearing files: 676
+- Scanner facts: 3878
+- Fact-bearing files: 677
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 3
 - Broad multi-invariant claim candidates: 0
@@ -28,9 +28,9 @@ a move, split, rename, fixture merge, or behavior change.
 - VS Code files: 38
 - VS Code registrations: 38
 - Large registered VS Code files: 5
-- Catalog records: 72
-- Scanner facts with reviewed duration: 67
-- Scanner facts without reviewed duration: 3809
+- Catalog records: 73
+- Scanner facts with reviewed duration: 68
+- Scanner facts without reviewed duration: 3810
 - Catalog rows explicitly classified slow: 1
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -60,7 +60,7 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st` | 2869 | 50 | 0 | `large_file` |
 | `crates/trust-runtime/tests/openot_telemetry.rs` | 3148 | 37 | 0 | `large_file` |
 | `crates/trust-runtime/tests/phase11_seam_contract.rs` | 1275 | 22 | 9 | `large_file` |
-| `crates/trust-runtime/tests/retain_integrity.rs` | 471 | 11 | 3 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/tests/retain_integrity.rs` | 510 | 12 | 3 | `reviewed_mapping_diversity` |
 | `editors/vscode/src/test/suite/hmi.integration.test.ts` | 1445 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/ladder-engine.test.ts` | 1093 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/network-canvas.test.ts` | 2109 | 56 | 0 | `large_file` |
@@ -113,6 +113,7 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001` claims 1 invariants; result `single_invariant`.
+- `TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_RETAIN_NONFINITE_SAVE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001` claims 1 invariants; result `single_invariant`.
@@ -176,13 +177,14 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3876
+- Scanner facts listed: 3878
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_043E03287D0BD498DBFE` / `TEST_VM_DECLARED_DINT_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_093B7EAE0DCB979D4540` / `TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001`: `fast` at `crates/trust-runtime/tests/retain_integrity.rs`.
 - Scanner `DISC_110C6B5B49703576EB1E` / `TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001`: `fast` at `crates/trust-runtime/tests/string_binding_bounds.rs`.
 - Scanner `DISC_1257BED418738BD81458` / `TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001`: `fast` at `crates/trust-runtime/src/control/tests/hmi_values_write.rs`.
+- Scanner `DISC_12A4F21EF84C13A91D28` / `TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001`: `fast` at `crates/trust-runtime/tests/retain_failure_trace_cases.rs`.
 - Scanner `DISC_1A7FBD5D70961E458BE7` / `TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001`: `fast` at `crates/trust-runtime/tests/modbus_driver.rs`.
 - Scanner `DISC_1D261CB173DC0CF72297` / `TEST_VM_DECLARED_REAL_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_200665EACFA567BA9AB5` / `TEST_DEBUG_MANAGED_REAL_NONFINITE_001`: `fast` at `crates/trust-debug/src/adapter/tests_part_01.rs`.

@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `9eb4a3736807db53e5af03705588ca10e46254cb`
-Generated: `2026-07-14T03:10:44+02:00`
+Source revision: `f07b81016252439c649a44761d5b0d7997c9e2c0`
+Generated: `2026-07-14T10:16:15+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `0f901613310c9af2e6d712f85def473567ba85604babc6016b3c0e10761d8013`
-Input SHA-256: `sha256:13c43cf3b5909fde05e7b1c647b5eb4dbd0f6b03eba3fbc96ba1d6a8a558bc4d`
+Generated JSON SHA-256: `d8f51d3ab1080bc2e1637c48e4ff2c9dbd1b313a539cdd2e8091cc6c9981ba97`
+Input SHA-256: `sha256:638058746c6ea450b184b036ba68c1cbb91d3b1db7f8b38419ea5402975b5de0`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -17,12 +17,12 @@ closes no specification gap, and changes no runtime behavior.
 - Authorized merged aliases: 1
 - Newly introduced Phase 4 records: 36
 - Pre-existing seed mappings: 8
-- Baseline lifecycle records: 41
-- Execution-ready lifecycle records: 3
+- Baseline lifecycle records: 40
+- Execution-ready lifecycle records: 4
 - Gap-open records: 7
-- Spec-gap records: 34
+- Spec-gap records: 33
 - Test-written records: 0
-- Implemented records: 3
+- Implemented records: 4
 - Validated records: 0
 - Imported P4-000 review risks: 5
 
@@ -45,7 +45,7 @@ closes no specification gap, and changes no runtime behavior.
 | `RT_SAFE_DEADLINE_001` | `RT_SAFE_DEADLINE_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `RT_SAFE_STOP_001` | `RT_SAFE_STOP_001` | `runtime_safety` | `VERIF-P4-003` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `none` |
 | `RT_SAFE_IO_001` | `RT_SAFE_IO_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |
-| `RT_SAFE_RETAIN_001` | `RT_SAFE_RETAIN_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` | `none` |
+| `RT_SAFE_RETAIN_001` | `RT_SAFE_RETAIN_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `RT_SAFE_RESTART_001` | `RT_SAFE_RESTART_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `RT_SAFE_FORCE_001` | `RT_SAFE_FORCE_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `none` |
 | `RT_SAFE_NAN_001` | `RT_SAFE_NAN_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_RUNTIME_ENGINE_001` | `RISK_RUNTIME_NONFINITE_INGRESS_001` |

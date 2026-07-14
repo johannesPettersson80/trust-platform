@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `9eb4a3736807db53e5af03705588ca10e46254cb`
-Generated: `2026-07-14T03:10:44+02:00`
+Source revision: `f07b81016252439c649a44761d5b0d7997c9e2c0`
+Generated: `2026-07-14T10:16:15+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `57a9f01d194ff3cd9fc8977bc3a5dc1fe70d1581f50bd56279f49ecfa64f0288`
-Input SHA-256: `sha256:bb0bebbaae6a5f6b9a6a66eb39245b3531c8e758aa8a1ebbf91399f09aa430e9`
+Generated JSON SHA-256: `2ad506ba1bd280727e36be011c442ed5ff12f91960c2e5df9ea661154a1730c4`
+Input SHA-256: `sha256:12396cdb15566f469fb9ec3097310dcaa5291c09de3f526b6c29e26f0ad64783`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,8 +17,8 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 11
-- Missing oracles: 42
+- Eligible oracles: 12
+- Missing oracles: 41
 - Future enforcement candidates: 32
 
 ## Mapping Groups
@@ -26,7 +26,7 @@ context is limited to the non-exhaustive registered source inventory.
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
 | `VERIF-P6-001` | `compiler_iec` | 5 | 3 | 2 |
-| `VERIF-P6-002` | `runtime_safety` | 11 | 6 | 5 |
+| `VERIF-P6-002` | `runtime_safety` | 11 | 7 | 4 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 0 | 6 |
 | `VERIF-P6-005` | `control_security, supply_chain_platform` | 6 | 0 | 6 |
@@ -73,7 +73,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_SAFE_PANIC_001` | `runtime_safety` | `safety_critical` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | none |
 | `RT_SAFE_RESTART_001` | `runtime_safety` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_RESTART_TIME_002` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_IEC_DECISIONS_001` | none |
-| `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` |
+| `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
@@ -120,7 +120,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_RELOAD_001` | `silent_corruption` | `SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001` | `true` |
 | `RT_SAFE_FORCE_001` | `safety_critical` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `true` |
 | `RT_SAFE_IO_WORKER_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
-| `RT_SAFE_RETAIN_001` | `data_loss` | `SPEC_GAP_RUNTIME_RETAIN_FAILURE_001` | `false` |
 | `RT_SAFE_STOP_001` | `safety_critical` | `SPEC_GAP_RUNTIME_SAFE_STATE_001` | `true` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `false_status` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `true` |
 | `SEC_ARTIFACT_001` | `supply_chain` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `false` |
