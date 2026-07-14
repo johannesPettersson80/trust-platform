@@ -177,3 +177,42 @@ fn malformed_control_flow_delimiters_are_diagnosed() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
+
+#[test]
+fn mismatched_nested_terminator_preserves_outer_boundary_and_following_statement() {
+    let source = r#"PROGRAM Test
+VAR x : INT; END_VAR
+IF x = 0 THEN
+    WHILE x < 2 DO
+        x := x + 1;
+END_IF
+x := 7;
+END_PROGRAM"#;
+
+    let parsed = parse(source);
+    assert!(!parsed.ok(), "missing inner END_WHILE must be diagnosed");
+    assert!(
+        parsed
+            .errors()
+            .iter()
+            .any(|error| error.message == "expected END_WHILE"),
+        "expected the inner terminator diagnostic, got {:?}",
+        parsed.errors()
+    );
+    assert!(
+        parsed.errors().iter().all(|error| {
+            error.message != "expected END_IF" && error.message != "expected END_PROGRAM"
+        }),
+        "recovery consumed an outer boundary: {:?}",
+        parsed.errors()
+    );
+    assert_eq!(
+        2,
+        parsed
+            .syntax()
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::AssignStmt)
+            .count(),
+        "the statement following the recovered IF must remain in the syntax tree"
+    );
+}
