@@ -13,7 +13,8 @@ Target release: `v0.24.47`
 - trust-hir/trust-runtime: implicit numeric assignment now permits only
   accuracy-preserving widenings, ordinary subrange initializers are checked at
   both bounds, contextual subrange literals retain their declared runtime tag,
-  and crafted primitive-tag mismatches fail before storage.
+  binary-expression lowering preserves the HIR-resolved numeric type, and
+  crafted primitive-tag mismatches fail before storage.
 - trust-runtime: the embedded web server now isolates read-only traffic from a
   fixed, bounded body/mutation lane, so incomplete request bodies cannot block
   HMI and control reads; saturated lanes fail promptly with HTTP 503 and the
