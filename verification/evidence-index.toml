@@ -3296,3 +3296,25 @@ remote_source_clean_after = true
 disk_preflight_passed = true
 home_available_kib = 72876052
 tmp_available_kib = 3431256
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_RESOURCE_LIMITS_BATCH_VALIDATION_20260715"
+title = "VM fixed resource-limit product batch validation"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/vm-resource-limits-batch-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && git diff --check"
+commit = "78928c667912b307d4782f69c596c3798f544bb7"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex VM fixed resource-limit product batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+linked_tests = ["TEST_VM_RESOURCE_LIMIT_CASES_001"]
+linked_spec_gaps = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
+last_reviewed = "2026-07-15"
