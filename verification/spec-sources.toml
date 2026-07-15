@@ -32,6 +32,7 @@ covers = [
   "lowering_fail_closed_contract",
   "collection_count_bounds",
   "fixed_vm_resource_limits",
+  "determinism_and_resource_limits",
 ]
 known_limitations = [
   "Stable cross-interface VM error identifiers remain incomplete; see SPEC_GAP_VM_ERROR_MODEL_001.",

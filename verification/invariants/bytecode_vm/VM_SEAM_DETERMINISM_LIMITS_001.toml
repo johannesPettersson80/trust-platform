@@ -3,11 +3,11 @@ id = "VM_SEAM_DETERMINISM_LIMITS_001"
 title = "VM determinism and resource limits are specified before validation"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-15"
 claim = "STBC validation and execution enforce the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation instruction limits written in the product specifications."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime-core/src/vm",
@@ -25,9 +25,13 @@ tests = [
   "TEST_VM_RESOURCE_LIMIT_CASES_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+evidence_refs = [
+  "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_RED",
+  "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_GREEN",
+  "EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate", "time_or_clock_fault_cases"]
 
 [spec]
 status = "specified"
@@ -128,12 +132,10 @@ rationale = "The largest tracked OSCAT STBC fixture remains within the fixed lim
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The fixed limits are specified and mapped to a product-path case runner; producer-authentic red/green proof and a causal broad gate remain open."
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+state = "covered"
+rationale = "Producer-authentic red and green proof covers the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation execution limits through the product path."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "gap_open"
-rationale = "The instruction budget is specified independently of deadline/watchdog time; producer-authentic proof remains open."
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+rationale = "Instruction-budget enforcement is covered independently; deadline and watchdog timing interactions remain unasserted invariant debt and are not part of the closed fixed-resource-limit contract."

@@ -3229,3 +3229,34 @@ case_file_digest = "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61
 paired_red_evidence = "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_RED"
 formerly_red_case_ids = ["VM_SEAM_DETERMINISM_LIMITS_001_INSTRUCTIONS_ABOVE_MAX", "VM_SEAM_DETERMINISM_LIMITS_001_REFERENCES_ABOVE_MAX", "VM_SEAM_DETERMINISM_LIMITS_001_LOCALS_ABOVE_MAX", "VM_SEAM_DETERMINISM_LIMITS_001_PARAMETERS_ABOVE_MAX", "VM_SEAM_DETERMINISM_LIMITS_001_STACK_ABOVE_MAX", "VM_SEAM_DETERMINISM_LIMITS_001_EXECUTION_ABOVE_MAX"]
 per_case_summary = ["VM_SEAM_DETERMINISM_LIMITS_001_CONTAINER_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_INSTRUCTIONS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_REFERENCES_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_LOCALS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_PARAMETERS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_STACK_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_CALL_DEPTH_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_EXECUTION_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_OSCAT_WITHIN_LIMITS:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715"
+title = "VM fixed resource-limit specification and product closeout"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/vm-resource-limits-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && python3 -m unittest scripts.verification.spec_gap_closure_tests scripts.verification.metadata_validator.promotion_evidence_tests scripts.verification.malformed_input_coverage_tests"
+commit = "9f7795ff302d2d749dd50be0cbbab3744358182d"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex VM fixed resource-limit closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+linked_tests = [
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_TYPE_COUNT_BOUND_001",
+  "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001",
+  "TEST_VM_RESOURCE_LIMIT_CASES_001",
+]
+linked_spec_gaps = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
+last_reviewed = "2026-07-15"

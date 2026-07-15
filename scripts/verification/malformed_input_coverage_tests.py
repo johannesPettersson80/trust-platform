@@ -111,7 +111,7 @@ class MalformedInputCoverageTests(unittest.TestCase):
             item for item in blocked["classes"]
             if item["id"] == "argument_count_resource_limit"
         )
-        blocked_class.pop("spec_gap_ref")
+        blocked_class.pop("oracle_ref")
         blocked_class.update(disposition="blocked", blocker_ref="")
         deferred = copy.deepcopy(taxonomy)
         deferred_class = next(
@@ -124,7 +124,7 @@ class MalformedInputCoverageTests(unittest.TestCase):
             item for item in not_applicable["classes"]
             if item["id"] == "argument_count_resource_limit"
         )
-        not_applicable_class.pop("spec_gap_ref")
+        not_applicable_class.pop("oracle_ref")
         not_applicable_class.update(
             disposition="not_applicable",
             decision_ref="SPEC_IEC_DECISIONS_001",
@@ -222,6 +222,13 @@ class MalformedInputCoverageTests(unittest.TestCase):
                     "duplicate_section"
                 ],
                 "TEST_BYTECODE_CONTAINER_INVALID_MAGIC": ["bad_magic"],
+                "TEST_VM_RESOURCE_LIMIT_CASES_001": [
+                    "argument_count_resource_limit",
+                    "call_depth_resource_limit",
+                    "instructions_resource_limit",
+                    "locals_resource_limit",
+                    "refs_resource_limit",
+                ],
             },
         )
 

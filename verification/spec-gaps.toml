@@ -203,14 +203,16 @@ affected_tests = [
   "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
   "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
   "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+  "TEST_VM_RESOURCE_LIMIT_CASES_001",
 ]
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",
 ]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-09"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
 
 [[spec_gaps]]
 schema_version = 1

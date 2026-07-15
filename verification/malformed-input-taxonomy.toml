@@ -16,9 +16,9 @@ rationale = "The validator-before-apply contract requires unambiguous POU frame 
 [[classes]]
 id = "argument_count_resource_limit"
 title = "Argument-count resource limit"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-rationale = "Argument-count limits require a written resource contract."
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits declared POU parameters and native-call arguments before executable materialization."
 
 [[classes]]
 id = "bad_magic"
@@ -30,9 +30,9 @@ rationale = "The bytecode format requires the four-byte magic to equal STBC."
 [[classes]]
 id = "call_depth_resource_limit"
 title = "Call-depth resource limit"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-rationale = "Call-depth limits require a written resource contract."
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract rejects creation of a call frame beyond the active-frame limit."
 
 [[classes]]
 id = "call_target_mismatch"
@@ -58,9 +58,9 @@ rationale = "The bytecode format and validator-before-apply contract reject dupl
 [[classes]]
 id = "instructions_resource_limit"
 title = "Instruction-count resource limit"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-rationale = "Instruction-count limits require a written resource contract."
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits decoded module instructions and executed instructions per top-level invocation."
 
 [[classes]]
 id = "invalid_checksum"
@@ -93,9 +93,9 @@ rationale = "Frame-local references must not escape into longer-lived storage."
 [[classes]]
 id = "locals_resource_limit"
 title = "Locals resource limit"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-rationale = "Local-slot limits require a written resource contract."
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits POU local references before frame-local allocation."
 
 [[classes]]
 id = "missing_instance_owner"
@@ -135,9 +135,9 @@ rationale = "Frame-local references must not escape directly or through dynamic 
 [[classes]]
 id = "refs_resource_limit"
 title = "Reference-count resource limit"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-rationale = "Reference-count limits require a written resource contract."
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits module references before executable materialization."
 
 [[classes]]
 id = "stack_leftover"

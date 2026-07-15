@@ -1242,9 +1242,21 @@ same commit, with the closure evidence linked.
   and 23 covered required malformed-input classes exercise the reviewed
   decoder/validator boundary. The clean two-mutant validator shard reports 2
   caught and zero survivors. No product acceptance defect reproduced, so this
-  batch contains no manufactured red/fix pair. The five numeric resource-limit
-  classes and `SPEC_GAP_VM_ERROR_MODEL_001` remain open. The register now
-  contains 17 `open`, 4 `test_mapped`, and 13 `closed` records.
+  batch contains no manufactured red/fix pair. At that checkpoint the five
+  numeric resource-limit classes and `SPEC_GAP_VM_ERROR_MODEL_001` remained
+  open, with 17 `open`, 4 `test_mapped`, and 13 `closed` gap records.
+
+  Fixed-resource-limit progress (2026-07-15):
+  `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` is closed against the fixed
+  STBC version 1.x limits in `docs/specs/12-bytecode.md`. The cataloged
+  nine-case product runner produced a genuine six-case red before
+  `4bb98128`, then all nine cases passed with the same case and proof-contract
+  digests. Stack, register, and tier-1 execution now charge the same original
+  bytecode instructions across nested calls. The five resource-limit
+  malformed-input classes are required and covered. The invariant is G1 until
+  its causal broad remote gate is recorded; deadline/watchdog interaction and
+  `SPEC_GAP_VM_ERROR_MODEL_001` remain explicit debt. The register now contains
+  16 `open`, 4 `test_mapped`, and 14 `closed` records.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
