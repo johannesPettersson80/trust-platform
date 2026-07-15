@@ -44,22 +44,22 @@ REPORT_MARKDOWN = (
 )
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
-    "mapping_records": 41,
-    "scanner_denominator": 3122,
-    "effectively_runnable_mappings": 31,
-    "ignored_or_conditional_mappings": 1,
-    "gap_classes": 8,
+    "mapping_records": 46,
+    "scanner_denominator": 3131,
+    "effectively_runnable_mappings": 37,
+    "ignored_or_conditional_mappings": 0,
+    "gap_classes": 6,
     "by_state": {
-        "mapped_runnable": 11,
-        "mapped_non_runnable_or_partial": 4,
+        "mapped_runnable": 13,
+        "mapped_non_runnable_or_partial": 2,
         "unmapped": 4,
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 31,
+        "direct": 37,
         "partial": 7,
         "protective_red": 0,
-        "context_only": 3,
+        "context_only": 2,
     },
 }
 
@@ -146,13 +146,13 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             "corrupt_retain",
             "malformed_bytecode",
             "bad_config",
+            "partial_web_request",
+            "disk_error",
             "timer_duration_overflow",
         ):
             self.assertEqual("mapped_runnable", classes[class_id]["state"])
         for class_id in (
             "queue_full",
-            "partial_web_request",
-            "disk_error",
             "clock_step",
         ):
             self.assertEqual(
@@ -167,16 +167,14 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
         ):
             self.assertEqual("unmapped", classes[class_id]["state"])
 
-    def test_ignored_associations_never_count_as_runnable(self) -> None:
+    def test_live_mapping_set_contains_no_ignored_associations(self) -> None:
         ignored = [
             row
             for row in self.analysis["mappings"]
             if row["ignore_state"] != "not_ignored"
         ]
 
-        self.assertTrue(ignored)
-        self.assertTrue(all(row["ignored_registry_id"] for row in ignored))
-        self.assertTrue(all(not row["effectively_runnable"] for row in ignored))
+        self.assertEqual([], ignored)
 
     def test_p8_001a_reuses_written_sources_and_resolved_gap(self) -> None:
         reviews = self.state.spec_gap_reviews
