@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 53,
                 "mapped_phase6_invariants": 35,
                 "other_area_invariants": 18,
-                "eligible_oracles": 25,
-                "missing_oracles": 28,
-                "future_enforcement_candidates": 21,
+                "eligible_oracles": 27,
+                "missing_oracles": 26,
+                "future_enforcement_candidates": 19,
             },
         )
         self.assertEqual(53, len(self.analysis["invariants"]))
-        self.assertEqual(28, len(self.analysis["missing_oracles"]))
+        self.assertEqual(26, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},
