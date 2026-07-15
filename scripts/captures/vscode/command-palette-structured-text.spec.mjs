@@ -27,15 +27,15 @@ test("capture code-server structured text command palette", async ({ page }) => 
   const quickInput = page.locator(".quick-input-widget");
   await expect(quickInput).toBeVisible({ timeout: 30_000 });
   const input = quickInput.locator("input");
-  await input.fill(">Structured Text:");
-  await expect(input).toHaveValue(">Structured Text:");
-  await expect(quickInput).toContainText("Structured Text: Attach Debugger", {
+  await input.fill(">truST:");
+  await expect(input).toHaveValue(">truST:");
+  await expect(quickInput).toContainText("truST: Compile", {
     timeout: 30_000
   });
-  await expect(quickInput).toContainText("Structured Text: New Project", {
+  await expect(quickInput).toContainText("truST: Create Project", {
     timeout: 30_000
   });
-  await expect(quickInput).toContainText("Structured Text: Open HMI Preview", {
+  await expect(quickInput).toContainText("truST: Import PLCopen XML", {
     timeout: 30_000
   });
 
