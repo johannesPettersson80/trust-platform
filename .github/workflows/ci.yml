@@ -686,6 +686,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 scripts/test_check_cargo_audit_policy.py
           mapfile -t audit_ignore_args < <(python3 - <<'PY'
           import tomllib
           data = tomllib.load(open("deny.toml", "rb"))
@@ -696,7 +697,9 @@ jobs:
                   print(advisory)
           PY
           )
-          cargo audit --deny warnings "${audit_ignore_args[@]}"
+          cargo audit --json "${audit_ignore_args[@]}" \
+            | python3 scripts/check_cargo_audit_policy.py \
+                --allowlist scripts/cargo-audit-yanked-allowlist.json
       - name: Mark gate success
         if: ${{ success() }}
         run: |
