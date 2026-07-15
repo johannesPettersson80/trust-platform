@@ -23,6 +23,7 @@ from .invariant_seed_contract import (
 from .invariant_seed_lifecycle import (
     BASELINE,
     EXECUTION_READY,
+    EXECUTION_READY_SEED_IDS,
     LIFECYCLE_VERSION,
 )
 from .invariant_seed_live import build_live_seed_audit_state
@@ -112,8 +113,12 @@ class SeedManifestContractTests(unittest.TestCase):
                 "RT_SAFE_FORCE_001",
                 "RT_SAFE_NAN_001",
                 "RT_RELOAD_001",
+                "VM_SEAM_TYPE_001",
+                "VM_SEAM_TYPE_002",
                 "VM_SEAM_ENC_001",
                 "IEC_PARSE_RECOVER_001",
+                "IEC_STRING_001",
+                "IEC_SUBRANGE_001",
                 "IEC_TIMER_001",
             ],
             [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
@@ -333,7 +338,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(12, promotion.call_count)
+        self.assertEqual(len(EXECUTION_READY_SEED_IDS), promotion.call_count)
 
         for mutate, signal in (
             (
@@ -402,7 +407,7 @@ class SeedManifestContractTests(unittest.TestCase):
             "scripts.verification.invariant_seed_lifecycle.validate_invariant_promotion_evidence"
         ) as promotion:
             self.assertEqual([], validate_seed_records(**arguments))
-            self.assertEqual(12, promotion.call_count)
+        self.assertEqual(len(EXECUTION_READY_SEED_IDS), promotion.call_count)
 
     def test_execution_ready_accepts_producer_bound_red_test_written_state(self) -> None:
         arguments = _loaded_contract_arguments(self.root)
@@ -721,21 +726,7 @@ def _write_fixture(root: Path, *, include_tooling: bool = False) -> None:
                 "lifecycle_version": LIFECYCLE_VERSION,
                 "lifecycle_state": (
                     EXECUTION_READY
-                    if seed.seed_id
-                    in {
-                        "IEC_TIMER_001",
-                        "RT_SAFE_DEADLINE_001",
-                        "RT_SAFE_FORCE_001",
-                        "RT_SAFE_NAN_001",
-                        "RT_SAFE_PANIC_001",
-                        "RT_SAFE_RETAIN_001",
-                        "RT_SAFE_RESTART_001",
-                        "RT_SAFE_STOP_001",
-                        "RT_SAFE_IO_001",
-                        "RT_RELOAD_001",
-                        "VM_SEAM_ENC_001",
-                        "IEC_PARSE_RECOVER_001",
-                    }
+                    if seed.seed_id in EXECUTION_READY_SEED_IDS
                     else BASELINE
                 ),
                 "p4_000_risk_id": risk_by_seed.get(seed.seed_id),

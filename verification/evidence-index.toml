@@ -2923,3 +2923,118 @@ linked_invariants = ["RT_SAFE_RETAIN_001"]
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-15"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715"
+title = "IEC STRING binding-bounds specification closeout"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/iec-string-binding-bounds-closeout.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bounded-values-validation\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime --test string_binding_bounds && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-hir --test semantic_type_checking control_flow_and_calls::string_in_out_ && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-hir --lib cross_file_constant_string_capacity'"
+commit = "193be5876917c7ec032c2d1b67dc49186e8b7365"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex IEC string binding-bounds closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_STRING_001"]
+linked_tests = [
+  "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+  "TEST_IEC_STRING_INOUT_ALIAS_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_STRING_IMPORTED_CAPACITY_001",
+  "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
+]
+linked_spec_gaps = ["SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"]
+last_reviewed = "2026-07-15"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"
+title = "VM bounded-value semantics specification and product closeout"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/vm-bounded-value-semantics-closeout.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bounded-values-validation\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-hir --test semantic_type_checking bounded_value_semantics:: && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime --test bounded_value_semantics && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime runtime::vm::type_policy::tests --lib && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime-core normalize_assignment_preserves_null_reference_and_leaves_non_widening_values && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime --test coercion_proof && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime --test phase11_seam_contract computed_subrange_ && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -q -p trust-runtime --test string_binding_bounds'"
+commit = "193be5876917c7ec032c2d1b67dc49186e8b7365"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex VM bounded-value semantics closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = [
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+linked_tests = [
+  "TEST_VM_COERCION_ASSIGNMENT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_INPUT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_OUTPUT_WIDENING_001",
+  "TEST_VM_COERCION_INITIALIZER_WIDENING_001",
+  "TEST_VM_COERCION_INOUT_NARROWING_REJECTION_001",
+  "TEST_VM_COERCION_NARROWING_ASSIGNMENT_REJECTION_001",
+  "TEST_VM_COERCION_RETURN_WIDENING_001",
+  "TEST_VM_DECLARED_DINT_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_DINT_RUNTIME_TAG_001",
+  "TEST_VM_DECLARED_LITERAL_CONTEXT_001",
+  "TEST_VM_DECLARED_PARAMETER_COPY_IN_001",
+  "TEST_VM_DECLARED_REAL_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_REAL_RUNTIME_TAG_001",
+  "TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001",
+  "TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001",
+  "TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001",
+  "TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001",
+  "TEST_IEC_LOSSY_TYPED_FLOAT_REJECTION_001",
+  "TEST_IEC_CONTEXT_LITERAL_CONVERSION_001",
+  "TEST_IEC_CONTEXT_LITERAL_PRECISION_REJECTION_001",
+  "TEST_IEC_CROSS_FAMILY_CONVERSION_REJECTION_001",
+  "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
+  "TEST_VM_BOUNDED_TYPED_FLOAT_REJECTION_001",
+  "TEST_VM_BOUNDED_FLOAT_MATERIALIZATION_001",
+  "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
+  "TEST_VM_PRIMITIVE_TAG_REJECTION_001",
+  "TEST_VM_PRIMITIVE_FLOAT_WIDENING_001",
+  "TEST_VM_STRING_PRIMITIVE_POLICY_001",
+  "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+  "TEST_VM_NORMALIZE_NON_WIDENING_001",
+]
+linked_spec_gaps = ["SPEC_GAP_VM_VALUE_SEMANTICS_001"]
+last_reviewed = "2026-07-15"

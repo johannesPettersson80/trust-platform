@@ -7,8 +7,8 @@ status = "planned"
 invariant = "VM_SEAM_SUBRANGE_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:2642475a595a42eb9e0d2ccab4658780f5602ac92d5f8f1891328e0ef8023032"
-source_digest = "sha256:5a13b07e7f938d592cce29ebab047ebbd89031ce2766201e1792924264aba93e"
-last_reviewed = "2026-07-13"
+source_digest = "sha256:dd4281d9623d794b6d0223686f474947cde015cff0fb9eee6f8eb6eb8de45183"
+last_reviewed = "2026-07-15"
 
 [[case]]
 id = "VM_SEAM_SUBRANGE_001_MIN_AE132E71"
@@ -38,5 +38,4 @@ expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_a
 id = "VM_SEAM_SUBRANGE_001_WRONG_TYPE_817CB4E0"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "REAL" }, shape_descriptor = "REAL" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }

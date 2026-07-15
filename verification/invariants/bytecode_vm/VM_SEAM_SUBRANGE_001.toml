@@ -5,8 +5,8 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "spec_gap"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-13"
-claim = "Runtime writes to subrange-typed storage must reject out-of-range values visibly without modifying the target; unresolved wrong-type and stable-error boundaries remain explicit."
+last_reviewed = "2026-07-15"
+claim = "Runtime writes to subrange-typed storage accept inclusive bounds and reject out-of-range or wrong-tag values without modifying the target; the stable public error identifier remains explicit."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
@@ -16,18 +16,16 @@ tests = [
   "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
   "TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001",
   "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
+  "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
+  "TEST_VM_SUBRANGE_TYPE_POLICY_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
-spec_gap_refs = [
-  "SPEC_GAP_VM_VALUE_SEMANTICS_001",
-  "SPEC_GAP_VM_ERROR_MODEL_001",
-]
+evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
 missing = [
-  "in_range_and_below_min_tests",
-  "wrong_type_behavior",
   "stable_error_code",
   "producer_authentic_proof",
+  "broad_remote_gate",
 ]
 
 [input]
@@ -36,12 +34,12 @@ type = "INT"
 declared = "INT(0..100)"
 
 [spec]
-status = "ambiguous"
+status = "specified"
 source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+ref = "SPEC_GAP_VM_ERROR_MODEL_001"
 
 [[behavior]]
 partition = { min = 0, max = 100 }
@@ -68,13 +66,16 @@ rationale = "A value above the inclusive upper bound is rejected visibly before 
 
 [[behavior]]
 partition = { wrong_type = "REAL" }
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-rationale = "Wrong-type assignment into subrange storage needs the same written value-semantics contract before cases can assert rejection or conversion."
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A REAL value or crafted REAL runtime tag is rejected before an INT subrange target changes."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Inclusive in-range behavior is specified, but no runnable mapped boundary test is linked yet."
+state = "covered"
+rationale = "The mapped runtime and VM policy tests cover both inclusive bounds."
 
 [[coverage.cells]]
 dimension = "above_max"
@@ -83,11 +84,11 @@ rationale = "Mapped runtime tests cover assignment, FB parameter copy-in, dynami
 
 [[coverage.cells]]
 dimension = "below_min"
-state = "gap_open"
-rationale = "Below-minimum rejection is specified, but no runnable mapped test is linked yet."
+state = "covered"
+rationale = "The mapped runtime transaction test covers below-minimum rejection without mutation."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "spec_gap"
-rationale = "Wrong-type subrange writes must be specified before negative cases can assert conversion, rejection, or trap behavior."
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Wrong-type rejection is tested, but the stable public error identifier remains open."
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"

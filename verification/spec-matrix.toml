@@ -152,11 +152,11 @@ area = "bytecode_vm"
 tag = "vm_value_tag_semantics"
 title = "VM runtime value and tag semantics"
 owner = "trust-runtime-core"
-status = "spec_gap"
+status = "mapped"
 expected_authority = ["normative_product", "reviewed_decision"]
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+source_ref = "SPEC_VM_VALUE_SEMANTICS_001"
 blocks = "test_mapping"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-15"
 
 [[required_specs]]
 schema_version = 1
@@ -178,11 +178,11 @@ area = "bytecode_vm"
 tag = "string_bound_write_semantics"
 title = "STRING[n] runtime and FB parameter write bounds"
 owner = "trust-runtime-core"
-status = "spec_gap"
+status = "mapped"
 expected_authority = ["normative_product", "reviewed_decision"]
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+source_ref = "SPEC_VM_VALUE_SEMANTICS_001"
 blocks = "test_mapping"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-15"
 
 [[required_specs]]
 schema_version = 1

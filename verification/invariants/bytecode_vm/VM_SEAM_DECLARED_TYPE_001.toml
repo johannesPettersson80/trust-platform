@@ -5,8 +5,8 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "spec_gap"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-13"
-claim = "Reviewed numeric widening and incompatible-assignment paths must materialize the declared runtime type or reject before later VM arithmetic can observe an incorrect runtime tag; unreviewed conversion edges remain explicit."
+last_reviewed = "2026-07-15"
+claim = "Only value-and-accuracy-preserving implicit conversions materialize the declared runtime tag; lossy or incompatible assignments reject before storage."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
@@ -28,15 +28,24 @@ tests = [
   "TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001",
   "TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001",
   "TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001",
+  "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001",
+  "TEST_IEC_LOSSY_TYPED_FLOAT_REJECTION_001",
+  "TEST_IEC_CONTEXT_LITERAL_CONVERSION_001",
+  "TEST_IEC_CONTEXT_LITERAL_PRECISION_REJECTION_001",
+  "TEST_IEC_CROSS_FAMILY_CONVERSION_REJECTION_001",
+  "TEST_VM_BOUNDED_TYPED_FLOAT_REJECTION_001",
+  "TEST_VM_BOUNDED_FLOAT_MATERIALIZATION_001",
+  "TEST_VM_PRIMITIVE_TAG_REJECTION_001",
+  "TEST_VM_PRIMITIVE_FLOAT_WIDENING_001",
+  "TEST_VM_NORMALIZE_NON_WIDENING_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_VM_VALUE_SEMANTICS_001"]
+evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
 missing = [
-  "unreviewed_signed_unsigned_and_finite_range_edges",
-  "unrepresentable_conversion_behavior",
   "stable_vm_error_code",
   "producer_authentic_proof",
+  "broad_remote_gate",
 ]
 
 [input]
@@ -45,12 +54,12 @@ type = "IEC expression"
 declared = "target declared type"
 
 [spec]
-status = "ambiguous"
+status = "specified"
 source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+ref = "SPEC_GAP_VM_ERROR_MODEL_001"
 
 [[behavior]]
 partition = { equals = "INT_LITERAL_TO_REAL_SLOT" }
@@ -124,17 +133,51 @@ rationale = "An implicit DINT-to-INT assignment that cannot preserve value and a
 
 [[behavior]]
 partition = { wrong_type = "BOOL_TO_REAL_SLOT" }
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-rationale = "Unrepresentable conversion behavior needs a written reject/trap/fault contract before negative cases can assert an oracle."
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "BOOL is not an implicitly compatible numeric source for REAL storage and is rejected before storage."
+
+[[behavior]]
+partition = { equals = "ACCURACY_PRESERVING_INTEGER_TO_FLOAT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "SINT and INT may materialize as REAL, while SINT, INT, and DINT may materialize as LREAL because every source value remains exact."
+
+[[behavior]]
+partition = { wrong_type = "DINT_TO_REAL_IMPLICIT" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Typed DINT-to-REAL requires an explicit conversion because not every DINT value is exactly representable in REAL."
+
+[[behavior]]
+partition = { wrong_type = "LINT_TO_LREAL_IMPLICIT" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Typed LINT-to-LREAL requires an explicit conversion because not every LINT value is exactly representable in LREAL."
+
+[[behavior]]
+partition = { wrong_type = "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "An untyped integer literal that requires rounding in its REAL or LREAL context requires an explicit conversion."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "spec_gap"
-rationale = "Mapped tests cover the reviewed widening subset, but signed/unsigned and finite-range conversion edges remain under the focused value-semantics gap."
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+state = "covered"
+rationale = "Mapped compiler, runtime, and VM policy tests cover the closed accuracy-preserving matrix and declared-tag materialization."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "spec_gap"
-rationale = "E203/E205 reject the reviewed narrowing and VAR_IN_OUT mismatches, while other unrepresentable conversions remain under the focused value-semantics gap."
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+rationale = "Mapped tests cover narrowing, VAR_IN_OUT, lossy float, BOOL, and primitive-tag rejection, but the stable public VM error identifier remains open."
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"

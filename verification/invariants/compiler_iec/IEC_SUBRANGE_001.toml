@@ -5,15 +5,15 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "gap_open"
 owner = "trust-hir"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-15"
 claim = "Subrange write handling must remain aligned with the active reviewed decision and its documented unsupported boundaries."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
-tests = []
-gates = []
+tests = ["TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001"]
+gates = ["pr"]
 evidence_refs = []
-missing = ["cataloged_subrange_write_cases", "decision_traceability"]
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -23,7 +23,24 @@ source_refs = ["SPEC_IEC_DECISIONS_001"]
 kind = "reviewed_decision"
 ref = "SPEC_IEC_DECISIONS_001"
 
+[[behavior]]
+partition = { equals = "OUT_OF_RANGE_CONSTANT_INITIALIZER" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A constant initializer outside either inclusive subrange bound is rejected during semantic analysis."
+
+[[behavior]]
+partition = { wrong_type = "REAL_TO_INT_SUBRANGE" }
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A value from the wrong base family is rejected before it can reach subrange storage."
+
 [[coverage.cells]]
 dimension = "boundary_high"
 state = "gap_open"
-rationale = "A reviewed decision exists, but accepted boundary cases and proof are not linked."
+rationale = "The mapped semantic test covers both initializer bounds and wrong-base-type rejection; producer-authentic proof and a causal broad gate remain open."

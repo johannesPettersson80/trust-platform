@@ -84,7 +84,7 @@ canonical_invariant_id = "VM_SEAM_DECLARED_TYPE_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "VM_SEAM_TYPE_002"
@@ -92,7 +92,7 @@ canonical_invariant_id = "VM_SEAM_DECLARED_TYPE_001"
 board_row = "VERIF-P4-002"
 origin = "preexisting"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "VM_SEAM_REF_001"
@@ -148,7 +148,7 @@ canonical_invariant_id = "IEC_STRING_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "IEC_SUBRANGE_001"
@@ -156,7 +156,7 @@ canonical_invariant_id = "IEC_SUBRANGE_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "IEC_TIMER_001"

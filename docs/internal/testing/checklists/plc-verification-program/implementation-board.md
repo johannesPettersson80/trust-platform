@@ -1224,6 +1224,16 @@ same commit, with the closure evidence linked.
   spec section, IEC decision, or recorded deviation per STOP-013, then flip
   `resolution_status = "closed"` with closeout evidence. Done when zero
   gaps are open.
+
+  Bounded-value progress (2026-07-15):
+  `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` and
+  `SPEC_GAP_VM_VALUE_SEMANTICS_001` are closed against updated normative
+  product sources with mapped-test and durable closeout evidence. The exact
+  implicit-conversion matrix, bounded string writes, ordinary subrange
+  initializers, wrong-tag rejection, and no-partial-write behavior are now
+  written. `SPEC_GAP_VM_ERROR_MODEL_001` remains open; this batch does not
+  claim stable public VM error identifiers. The register now contains 18
+  `open`, 4 `test_mapped`, and 12 `closed` records.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1231,6 +1241,14 @@ same commit, with the closure evidence linked.
   needed); everything is routed into suites. Done when no invariant has
   empty `tests` except those with an explicit blocked coverage cell naming
   what blocks them (hardware lab, UI acceptance).
+
+  Bounded-value progress (2026-07-15): 14 scanner-bound catalog records map
+  compiler, runtime integration, runtime-core, and VM policy tests to
+  `IEC_SUBRANGE_001`, `VM_SEAM_DECLARED_TYPE_001`,
+  `VM_SEAM_STRING_BOUND_001`, and `VM_SEAM_SUBRANGE_001`; the 19 existing
+  STRING binding records are now linked from `IEC_STRING_001`. The affected
+  Phase 4 seeds moved through the existing reviewed `execution_ready`
+  lifecycle rather than bypassing seed controls.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1240,6 +1258,14 @@ same commit, with the closure evidence linked.
   containment, `REF(returnvar)` escape, `emit_stmt` fail-open, rename
   soundness, UTF-16 positions, cancel-clears-diagnostics, didClose dirty
   buffer.
+
+  Bounded-value progress (2026-07-15): tests-first probes found and fixed
+  implicit typed integer-to-float rounding, missing ordinary-subrange
+  initializer bounds, runtime-core rounding before policy validation,
+  incompatible primitive-tag acceptance, and contextual subrange literal tag
+  loss. Focused regression results and the exact product revision are recorded
+  in the two 2026-07-15 closeout artifacts; producer-authentic proof remains
+  open, so affected invariants stay at `S0`.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.

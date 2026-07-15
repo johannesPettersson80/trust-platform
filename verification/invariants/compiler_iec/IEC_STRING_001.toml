@@ -3,29 +3,72 @@ id = "IEC_STRING_001"
 title = "STRING bounds remain enforced across binding boundaries"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-hir"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-15"
 claim = "STRING length bounds must not be silently lost across assignment, call, return, or function-block binding."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
-gates = []
-evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"]
-missing = ["string_binding_boundary_contract", "bound_preservation_cases"]
+tests = [
+  "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+  "TEST_IEC_STRING_INOUT_ALIAS_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_STRING_IMPORTED_CAPACITY_001",
+  "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
+]
+gates = ["pr"]
+evidence_refs = ["EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715"]
+spec_gap_refs = []
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [spec]
-status = "ambiguous"
-source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "BOUNDED_ASSIGNMENT_OR_COPYBACK" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Assignment and output copy-back apply the receiving STRING or WSTRING capacity in Unicode scalar values."
+
+[[behavior]]
+partition = { wrong_type = "WIDTH_MISMATCHED_VAR_IN_OUT" }
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "VAR_IN_OUT requires the same resolved family and capacity, and a rejected binding cannot mutate caller state."
+
+[[behavior]]
+partition = { wrong_type = "STRING_WSTRING_CROSS_FAMILY" }
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#implicit-conversions"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "STRING and WSTRING are separate implicit-assignment families; crossing the family requires an explicit conversion."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "spec_gap"
-rationale = "Assignment and parameter-binding bounds require a focused written contract."
-spec_gap_ref = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+state = "gap_open"
+rationale = "Mapped compiler and runtime integration tests cover capacity, Unicode, copy-back, and VAR_IN_OUT boundaries; producer-authentic proof and a causal broad gate remain open."

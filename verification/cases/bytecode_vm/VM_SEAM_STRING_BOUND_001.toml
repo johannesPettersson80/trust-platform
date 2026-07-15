@@ -7,40 +7,35 @@ status = "planned"
 invariant = "VM_SEAM_STRING_BOUND_001"
 generator = "gen_cases.py v1"
 generator_digest = "sha256:2642475a595a42eb9e0d2ccab4658780f5602ac92d5f8f1891328e0ef8023032"
-source_digest = "sha256:4bb33653d35015c4c7b853de524187ccdd092b18e52ede735ea0bff7ecaa70b4"
-last_reviewed = "2026-07-09"
+source_digest = "sha256:79d88f599459992eaab9345c9c2a383037202b6a7f05a8de724a7d3b071b9beb"
+last_reviewed = "2026-07-15"
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_MIN_D165B4CE"
 family = "boundary_low"
 input = { source_partition = { min = 0, max = 5 }, string_value = "" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_MAX_D165B4CE"
 family = "boundary_high"
 input = { source_partition = { min = 0, max = 5 }, string_value = "xxxxx" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_ABOVE_MAX_63B3906D"
 family = "above_max"
 input = { source_partition = { above = 5 }, string_value = "xxxxxx" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_FB_INPUT_COPY_IN_LENGTH_6_0EC59DCF"
 family = "above_max"
 input = { source_partition = { equals = "FB_INPUT_COPY_IN_LENGTH_6" }, scenario = "FB_INPUT_COPY_IN_LENGTH_6" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes" }
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_WRONG_TYPE_13C1C8F2"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "WSTRING" }, shape_descriptor = "WSTRING" }
-state = "blocked"
-spec_gap_ref = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes" }

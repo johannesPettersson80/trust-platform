@@ -32,7 +32,6 @@ covers = [
 ]
 known_limitations = [
   "Validator semantic contract remains incomplete; see SPEC_GAP_BYTECODE_VALIDATOR_001.",
-  "Runtime value/tag semantics are not fully specified here; see SPEC_GAP_VM_VALUE_SEMANTICS_001.",
   "General VM determinism and resource budgets remain incomplete; see SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001.",
 ]
 conflicts_with = []
@@ -118,8 +117,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-13"
+last_reviewed = "2026-07-15"
 covers = [
+  "vm_value_tag_semantics",
   "runtime_value_tags",
   "declared_type_materialization",
   "declared_type_conversion_semantics",
@@ -129,13 +129,16 @@ covers = [
   "pou_parameter_copy_out_widening",
   "inout_no_implicit_conversion",
   "incompatible_narrowing_rejection",
+  "bounded_string_runtime_writes",
+  "string_bound_write_semantics",
+  "bounded_string_family_rejection",
   "subrange_runtime_write_enforcement",
   "subrange_runtime_write_semantics",
   "real_binary_arithmetic_overflow",
   "real_named_numerical_function_overflow",
 ]
 known_limitations = [
-  "STRING bounds, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, reference-store conversions, other exceptional REAL numerical-function behavior, and stable VM error identifiers remain open specification boundaries.",
+  "Reference-store conversions, other exceptional REAL numerical-function behavior, and stable VM error identifiers remain open specification boundaries.",
   "This product contract does not by itself establish IEC conformance or crafted-bytecode validation behavior.",
 ]
 conflicts_with = []
@@ -189,6 +192,7 @@ covers = [
   "retain_policy_decisions",
   "operator_precedence_decisions",
   "string_binding_capacity_decisions",
+  "accuracy_preserving_implicit_conversions",
   "subrange_runtime_write_decisions",
   "timer_scan_boundary_decisions",
   "timer_lifecycle_decisions",
@@ -423,12 +427,13 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
-last_reviewed = "2026-07-13"
+last_reviewed = "2026-07-15"
 covers = [
   "elementary_data_types",
   "string_assignment_binding_boundaries",
   "string_bounds",
   "subrange_types",
+  "accuracy_preserving_implicit_conversions",
 ]
 known_limitations = [
   "The focused assignment and POU binding contract does not claim IEC certification.",
