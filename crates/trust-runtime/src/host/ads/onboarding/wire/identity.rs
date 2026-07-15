@@ -249,6 +249,9 @@ mod tests {
                 return false;
             };
             stream
+                .set_nonblocking(false)
+                .expect("make accepted router fixture connection blocking");
+            stream
                 .set_read_timeout(Some(Duration::from_secs(1)))
                 .expect("bound fixture reads");
             let mut open = [0_u8; 8];

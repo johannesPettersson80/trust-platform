@@ -199,8 +199,8 @@ suite("New project command (VS Code)", function () {
     );
     const configSource = await readText(configUri);
     assert.ok(
-      /PROGRAM\s+Main\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
-      "config.st must instantiate Main (PROGRAM ... WITH ... : Main) so it is not flagged unused (F-02)."
+      /PROGRAM\s+MainInstance\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
+      "config.st must instantiate Main with a distinct instance name so it is not flagged unused or duplicated (F-02)."
     );
     const runtimeToml = await readText(runtimeTomlUri);
     assert.ok(
