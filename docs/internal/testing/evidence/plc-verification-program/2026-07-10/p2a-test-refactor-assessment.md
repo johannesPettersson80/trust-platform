@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
-Generated: `2026-07-15T01:22:00+02:00`
+Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
+Generated: `2026-07-15T03:35:09+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `05ebadfddf1383e88a8f8018e9f41ad55def1f18794105e982441eca16a4aa73`
-Input SHA-256: `sha256:cbd556f587b1578732ceb1a427b55194971e47e511c1b206630faf84726798c5`
+Generated JSON SHA-256: `d9de19c44928a44cdc9aa2c2709d03b9a172dfb9ba84bfd3faac802b44a4d18d`
+Input SHA-256: `sha256:91395298cdbe18d234d20cd299ccd8a815ec2b7759b7c08db437cbd58567c6ea`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,8 +13,8 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3917
-- Fact-bearing files: 686
+- Scanner facts: 3926
+- Fact-bearing files: 688
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 8
 - Broad multi-invariant claim candidates: 6
@@ -30,7 +30,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Large registered VS Code files: 5
 - Catalog records: 137
 - Scanner facts with reviewed duration: 132
-- Scanner facts without reviewed duration: 3785
+- Scanner facts without reviewed duration: 3794
 - Catalog rows explicitly classified slow: 1
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -63,7 +63,7 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/tests/modbus_driver.rs` | 907 | 23 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/openot_telemetry.rs` | 3148 | 37 | 0 | `large_file` |
 | `crates/trust-runtime/tests/phase11_seam_contract.rs` | 1269 | 22 | 10 | `large_file` |
-| `crates/trust-runtime/tests/retain_integrity.rs` | 510 | 12 | 3 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/tests/retain_integrity.rs` | 539 | 13 | 3 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | 800 | 17 | 5 | `reviewed_mapping_diversity` |
 | `crates/trust-syntax/tests/parser_error_recovery.rs` | 218 | 12 | 6 | `reviewed_mapping_diversity` |
 | `editors/vscode/src/test/suite/hmi.integration.test.ts` | 1445 | 14 | 0 | `large_file` |
@@ -249,7 +249,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3917
+- Scanner facts listed: 3926
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_043E03287D0BD498DBFE` / `TEST_VM_DECLARED_DINT_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.

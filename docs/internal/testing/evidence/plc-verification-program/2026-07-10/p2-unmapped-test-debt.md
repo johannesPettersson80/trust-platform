@@ -1,23 +1,23 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
-Generated: `2026-07-15T01:22:00+02:00`
+Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
+Generated: `2026-07-15T03:35:09+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `febeac98efc68ae6ce444542b69f0a20a06dfd86781b81123c5584fc03942042`
-Input SHA-256: `sha256:cce536ca17b724b68fb6d95bc5e2d45fe503e259ee0be96bf0973178e9285b09`
+Generated JSON SHA-256: `a672e807fac234f53828b6b495bd0c6c7315b2f0123e5ceff2318725b8a48693`
+Input SHA-256: `sha256:993a121d7f91f79dc604618a8cd658719835fae5fa5efac753cb819d7f9f1598`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3917
+- Scanner facts: 3926
 - Mapped scanner facts: 132
-- Unmapped scanner facts: 3785
+- Unmapped scanner facts: 3794
 - Generated-test catalog rows: 132
 - Artifact catalog rows: 5
-- Ignored unmapped facts: 38
+- Ignored unmapped facts: 37
 - Conditional unmapped facts: 1
 - Debt fails this report: no
 
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1434 | 95 | 1339 |
-| `rust_unit_test` | 1688 | 37 | 1651 |
+| `rust_integration_test` | 1436 | 95 | 1341 |
+| `rust_unit_test` | 1695 | 37 | 1658 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -1070,6 +1070,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_4FB5821EF62B7655873F` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_loads_legacy_v1_snapshot` | `not_ignored` |
 | `DISC_D57F0AA703E76450F141` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_rejects_payload_mutation` | `not_ignored` |
 | `DISC_6536BD14A5FAEA351CCF` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_rejects_trailing_garbage` | `not_ignored` |
+| `DISC_32E18E31451D4BF469C6` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_store_reports_real_path_failures_without_silent_defaults` | `not_ignored` |
 | `DISC_5CE1CFAF7B148E819A77` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_struct_added_field_uses_declared_default_with_migration_event` | `not_ignored` |
 | `DISC_27D4369EB8A25ADDB6A8` | `rust_integration_test` | `crates/trust-runtime/tests/retain_integrity.rs` | `retain_struct_removed_field_drops_with_migration_event` | `not_ignored` |
 | `DISC_9CFF33D681B6CEEA6ABA` | `rust_integration_test` | `crates/trust-runtime/tests/retain_store.rs` | `retain_store_missing_file_returns_default` | `not_ignored` |
@@ -1250,7 +1251,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_29115CC5D5982DB2D2E4` | `rust_integration_test` | `crates/trust-runtime/tests/vars_access.rs` | `var_config_memory_binding_syncs_with_program_storage` | `not_ignored` |
 | `DISC_A8D2BD3F8B99BD3B50F1` | `rust_integration_test` | `crates/trust-runtime/tests/vars_at.rs` | `iec_6_5_5` | `not_ignored` |
 | `DISC_6DD50B772CED1C582EC6` | `rust_integration_test` | `crates/trust-runtime/tests/vars_retain.rs` | `iec_6_5_6` | `not_ignored` |
-| `DISC_20DF277B08348ED8A798` | `rust_integration_test` | `crates/trust-runtime/tests/web_dispatch_hol_probe.rs` | `incomplete_body_route_blocks_unrelated_hmi_request_until_released` | `ignored` |
+| `DISC_A77CDB943FD0784CC65A` | `rust_integration_test` | `crates/trust-runtime/tests/web_dispatch_hol_probe.rs` | `incomplete_body_does_not_block_unrelated_hmi_request` | `not_ignored` |
+| `DISC_7B7DA852E4D9CE86AF04` | `rust_integration_test` | `crates/trust-runtime/tests/web_dispatch_hol_probe.rs` | `saturated_body_lane_rejects_promptly_without_blocking_hmi_and_recovers` | `not_ignored` |
 | `DISC_71687ECB877C3D7C3908` | `rust_integration_test` | `crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_01.rs` | `web_ide_auth_and_session_contract` | `not_ignored` |
 | `DISC_6EF448DFF15CBE99481F` | `rust_integration_test` | `crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_01.rs` | `web_ide_project_open_endpoint_supports_no_bundle_startup` | `not_ignored` |
 | `DISC_30DFAFB99FA2F174D99C` | `rust_integration_test` | `crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_01.rs` | `web_ide_project_open_requires_editor_and_approved_base` | `not_ignored` |
@@ -2755,6 +2757,11 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_DB3D37B0B8FABFF4F1C7` | `rust_unit_test` | `crates/trust-runtime/src/openot_authoring/tests.rs` | `unpinned_ids_follow_declaration_order` | `not_ignored` |
 | `DISC_E642186822BCFD962E89` | `rust_unit_test` | `crates/trust-runtime/src/openot_authoring/tests.rs` | `value_quality_semantic_role_and_previous_lowering_are_explicit` | `not_ignored` |
 | `DISC_9E26CAE8415CE2A02092` | `rust_unit_test` | `crates/trust-runtime/src/openot_authoring/tests.rs` | `value_sampling_policy_lowering_uses_existing_definition_field` | `not_ignored` |
+| `DISC_402CC51B509F2C268C12` | `rust_unit_test` | `crates/trust-runtime/src/retain/store_tests.rs` | `file_retain_store_open_and_read_failures_are_visible` | `not_ignored` |
+| `DISC_55C765213824F6A01A03` | `rust_unit_test` | `crates/trust-runtime/src/retain/store_tests.rs` | `file_retain_store_parent_sync_failure_is_visible_after_publish` | `not_ignored` |
+| `DISC_A8FA0CAF53A7D6D0134E` | `rust_unit_test` | `crates/trust-runtime/src/retain/store_tests.rs` | `file_retain_store_pre_publish_failure_matrix_preserves_last_good_snapshot` | `not_ignored` |
+| `DISC_414C6A35015C7813CC49` | `rust_unit_test` | `crates/trust-runtime/src/retain/store_tests.rs` | `file_retain_store_replaces_snapshot_atomically` | `not_ignored` |
+| `DISC_65D98FB688680CA72C3E` | `rust_unit_test` | `crates/trust-runtime/src/retain/store_tests.rs` | `retain_manager_retries_failed_save_without_a_new_dirty_mark` | `not_ignored` |
 | `DISC_197779F9246D3ACBFDA1` | `rust_unit_test` | `crates/trust-runtime/src/runtime/ads_subsystem.rs` | `active_device_snapshot_matches_configured_route_without_socket_io` | `not_ignored` |
 | `DISC_FC0B82AB84AA926CB0AC` | `rust_unit_test` | `crates/trust-runtime/src/runtime/ads_subsystem.rs` | `empty_ads_subsystem_reports_disabled_status` | `not_ignored` |
 | `DISC_5486EDCA7EBB23E006DC` | `rust_unit_test` | `crates/trust-runtime/src/runtime/ads_subsystem.rs` | `status_overall_reports_degraded_for_stale_or_degraded_points` | `not_ignored` |
@@ -3029,6 +3036,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_EE0085F578726D8C4DC5` | `rust_unit_test` | `crates/trust-runtime/src/web/ide_tasks.rs` | `build_task_command_matches_cli_project_only_contract` | `not_ignored` |
 | `DISC_BBB813AD4C37C729BCEE` | `rust_unit_test` | `crates/trust-runtime/src/web/ide_tasks.rs` | `parse_task_location_line_extracts_st_coordinates` | `not_ignored` |
 | `DISC_2C70074B55CD6EF2694C` | `rust_unit_test` | `crates/trust-runtime/src/web/ide_tasks.rs` | `parse_task_locations_deduplicates_repeated_hits` | `not_ignored` |
+| `DISC_47496872EE8C6B06A2D9` | `rust_unit_test` | `crates/trust-runtime/src/web/request_dispatch.rs` | `body_lane_classification_is_conservative` | `not_ignored` |
+| `DISC_873FF335D3EDBB6B16B1` | `rust_unit_test` | `crates/trust-runtime/src/web/request_dispatch.rs` | `body_permits_are_bounded_and_reusable` | `not_ignored` |
 | `DISC_B8BD2473FCB0E4078F9E` | `rust_unit_test` | `crates/trust-runtime/src/web/runtime_cloud_dispatch.rs` | `runtime_cloud_select_preferred_peer_address_prefers_ipv4_loopback` | `not_ignored` |
 | `DISC_22FA3EE114DF0F0ED96E` | `rust_unit_test` | `crates/trust-runtime/src/web/runtime_cloud_dispatch.rs` | `runtime_cloud_select_preferred_peer_address_prefers_non_link_local_ipv6` | `not_ignored` |
 | `DISC_391F410D2DA36AABCC29` | `rust_unit_test` | `crates/trust-runtime/src/web/runtime_cloud_dispatch.rs` | `runtime_cloud_target_status_revalidates_stale_peer_with_live_socket` | `not_ignored` |

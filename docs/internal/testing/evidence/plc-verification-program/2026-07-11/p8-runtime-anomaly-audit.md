@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v1`
-Source revision: `d1c5ec7bc1d70770a079969bf4d5c443a55daf1e`
-Generated: `2026-07-15T01:22:00+02:00`
+Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
+Generated: `2026-07-15T03:35:09+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `f03c720534e664dd471c86f1f7c47adbc75e2b09cbcacfcfba4b07ce431deaa8`
-Input SHA-256: `sha256:4856157ac8912689d48737ef3e68f0bb8c55363141c708e487686392e947c6fc`
+Generated JSON SHA-256: `2c9fd033d62531879e060ddda4892d878c4516c8016c3d96221d1b80463d5f5a`
+Input SHA-256: `sha256:401148b141b3f589d9fc12a874f0988482902549eacf7def2fecbb89870255e2`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -14,11 +14,11 @@ It executes no fault and creates no proof or invariant coverage.
 ## Summary
 
 - Taxonomy classes: 19
-- Explicit mapping records: 41
-- Live Rust scanner facts: 3122
-- Effectively runnable direct mappings: 31
-- Ignored or conditional mappings: 1
-- Gap classes: 8
+- Explicit mapping records: 46
+- Live Rust scanner facts: 3131
+- Effectively runnable direct mappings: 37
+- Ignored or conditional mappings: 0
+- Gap classes: 6
 
 ## Classes
 
@@ -36,8 +36,8 @@ It executes no fault and creates no proof or invariant coverage.
 | `malformed_bytecode` | `mapped_runnable` | `pr` | `nightly` | `ANOM_MAP_MALFORMED_BYTECODE_001`, `ANOM_MAP_MALFORMED_BYTECODE_002`, `ANOM_MAP_MALFORMED_BYTECODE_003` | none |
 | `bad_config` | `mapped_runnable` | `pr` | `release` | `ANOM_MAP_BAD_CONFIG_001`, `ANOM_MAP_BAD_CONFIG_002`, `ANOM_MAP_BAD_CONFIG_003`, `ANOM_MAP_BAD_CONFIG_004` | none |
 | `bad_signal` | `unmapped` | `release` | `nightly` | none | none |
-| `partial_web_request` | `mapped_non_runnable_or_partial` | `nightly` | `release` | none | `ANOM_MAP_PARTIAL_WEB_REQUEST_001` |
-| `disk_error` | `mapped_non_runnable_or_partial` | `release` | `nightly` | none | `ANOM_MAP_DISK_ERROR_001`, `ANOM_MAP_DISK_ERROR_002` |
+| `partial_web_request` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_PARTIAL_WEB_REQUEST_001`, `ANOM_MAP_PARTIAL_WEB_REQUEST_SATURATION_001` | none |
+| `disk_error` | `mapped_runnable` | `release` | `nightly` | `ANOM_MAP_DISK_ERROR_FILE_MATRIX_001`, `ANOM_MAP_DISK_ERROR_PARENT_SYNC_001`, `ANOM_MAP_DISK_ERROR_READ_001`, `ANOM_MAP_DISK_ERROR_REAL_PATH_001` | `ANOM_MAP_DISK_ERROR_001`, `ANOM_MAP_DISK_ERROR_002` |
 | `clock_step` | `mapped_non_runnable_or_partial` | `nightly` | `release` | none | `ANOM_MAP_CLOCK_STEP_001`, `ANOM_MAP_CLOCK_STEP_002` |
 | `monotonic_wall_clock_divergence` | `unmapped` | `nightly` | `release` | none | none |
 | `suspend_resume` | `unmapped` | `nightly` | `release` | none | none |
@@ -64,6 +64,10 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_DISCONNECT_003` | `disconnect` | `DISC_C3A91E2860C30B08BED4` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_DISK_ERROR_001` | `disk_error` | `DISC_CAF0750D558B8114BEC6` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_DISK_ERROR_002` | `disk_error` | `DISC_B25F48AA676D50A29BB2` | `partial` | `not_ignored` | `false` | `test_harness` |
+| `ANOM_MAP_DISK_ERROR_FILE_MATRIX_001` | `disk_error` | `DISC_A8FA0CAF53A7D6D0134E` | `direct` | `not_ignored` | `true` | `test_harness` |
+| `ANOM_MAP_DISK_ERROR_PARENT_SYNC_001` | `disk_error` | `DISC_55C765213824F6A01A03` | `direct` | `not_ignored` | `true` | `test_harness` |
+| `ANOM_MAP_DISK_ERROR_READ_001` | `disk_error` | `DISC_402CC51B509F2C268C12` | `direct` | `not_ignored` | `true` | `test_harness` |
+| `ANOM_MAP_DISK_ERROR_REAL_PATH_001` | `disk_error` | `DISC_32E18E31451D4BF469C6` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_MALFORMED_BYTECODE_001` | `malformed_bytecode` | `DISC_F90D4502D7B68E02847C` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_MALFORMED_BYTECODE_002` | `malformed_bytecode` | `DISC_FB4371C17A9F9FB83CA9` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_MALFORMED_BYTECODE_003` | `malformed_bytecode` | `DISC_51482BB47DB5575280CE` | `direct` | `not_ignored` | `true` | `ordinary_input` |
@@ -71,7 +75,8 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_PANIC_002` | `panic` | `DISC_E6963439801BFF301755` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_PANIC_003` | `panic` | `DISC_96A8793BF2C3E6F579B4` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_PANIC_004` | `panic` | `DISC_EEF14FDB800A7590C8F3` | `direct` | `not_ignored` | `true` | `test_harness` |
-| `ANOM_MAP_PARTIAL_WEB_REQUEST_001` | `partial_web_request` | `DISC_20DF277B08348ED8A798` | `context_only` | `ignored` | `false` | `external_harness` |
+| `ANOM_MAP_PARTIAL_WEB_REQUEST_001` | `partial_web_request` | `DISC_A77CDB943FD0784CC65A` | `direct` | `not_ignored` | `true` | `external_harness` |
+| `ANOM_MAP_PARTIAL_WEB_REQUEST_SATURATION_001` | `partial_web_request` | `DISC_7B7DA852E4D9CE86AF04` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_QUEUE_FULL_001` | `queue_full` | `DISC_398610728B7609607B57` | `partial` | `not_ignored` | `false` | `external_harness` |
 | `ANOM_MAP_QUEUE_FULL_002` | `queue_full` | `DISC_36444246A468C534110A` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_SLOW_DEVICE_001` | `slow_device` | `DISC_7159C3BA77CC33C8F48C` | `direct` | `not_ignored` | `true` | `external_harness` |
@@ -96,8 +101,6 @@ It executes no fault and creates no proof or invariant coverage.
 | --- | --- | --- | --- | --- |
 | `queue_full` | `mapped_non_runnable_or_partial` | `no_effectively_runnable_direct_mapping` | `nightly` | `ANOM_MAP_QUEUE_FULL_001`, `ANOM_MAP_QUEUE_FULL_002` |
 | `bad_signal` | `unmapped` | `no_explicit_mapping` | `release` | none |
-| `partial_web_request` | `mapped_non_runnable_or_partial` | `no_effectively_runnable_direct_mapping` | `nightly` | `ANOM_MAP_PARTIAL_WEB_REQUEST_001` |
-| `disk_error` | `mapped_non_runnable_or_partial` | `no_effectively_runnable_direct_mapping` | `release` | `ANOM_MAP_DISK_ERROR_001`, `ANOM_MAP_DISK_ERROR_002` |
 | `clock_step` | `mapped_non_runnable_or_partial` | `no_effectively_runnable_direct_mapping` | `nightly` | `ANOM_MAP_CLOCK_STEP_001`, `ANOM_MAP_CLOCK_STEP_002` |
 | `monotonic_wall_clock_divergence` | `unmapped` | `no_explicit_mapping` | `nightly` | none |
 | `suspend_resume` | `unmapped` | `no_explicit_mapping` | `nightly` | none |
