@@ -148,24 +148,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_20DF277B08348ED8A798"
-discovery_id = "DISC_20DF277B08348ED8A798"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
-name = "incomplete_body_route_blocks_unrelated_hmi_request_until_released"
-ignore_state = "ignored"
-ignore_reason = "explicit probe for the current single-threaded web dispatch HOL behavior"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "control_security"
-status = "mapped"
-ignore_class = "manual"
-reason = "This is an orchestrated child process or explicit diagnostic probe, not a default standalone gate."
-unblock_condition = "Run it through its named parent harness or documented manual command."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_26934332D29338103AFD"
 discovery_id = "DISC_26934332D29338103AFD"
 discovery_source_kind = "rust_integration_test"

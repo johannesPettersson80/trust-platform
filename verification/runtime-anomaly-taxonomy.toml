@@ -628,15 +628,28 @@ last_reviewed = "2026-07-11"
 [[mappings]]
 id = "ANOM_MAP_PARTIAL_WEB_REQUEST_001"
 class_id = "partial_web_request"
-discovery_id = "DISC_20DF277B08348ED8A798"
+discovery_id = "DISC_A77CDB943FD0784CC65A"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
-name = "incomplete_body_route_blocks_unrelated_hmi_request_until_released"
-association_kind = "context_only"
+name = "incomplete_body_does_not_block_unrelated_hmi_request"
+association_kind = "direct"
 injection_mechanism = "external_harness"
-assertion_summary = "An incomplete declared POST body is held open and the probe observes an unrelated HMI request timing out until the slow stream closes."
-limitations = ["The ignored manual probe documents current head-of-line blocking; it is not a passing protective assertion for the desired behavior."]
-last_reviewed = "2026-07-11"
+assertion_summary = "A loopback client holds an incomplete declared POST body open while an unrelated HMI request completes successfully within its bounded timeout."
+limitations = ["The focused socket harness covers one incomplete Content-Length request and the local HTTP HMI route; broader slow-client, TLS, proxy, and malformed-transfer campaigns remain unassessed."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_PARTIAL_WEB_REQUEST_SATURATION_001"
+class_id = "partial_web_request"
+discovery_id = "DISC_7B7DA852E4D9CE86AF04"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
+name = "saturated_body_lane_rejects_promptly_without_blocking_hmi_and_recovers"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "Four held request bodies exhaust the body lane; the next body request receives stable HTTP 503 server_busy, HMI remains responsive, and admission recovers after the held clients disconnect."
+limitations = ["The harness checks the fixed four-request body admission bound on loopback HTTP, not distributed denial-of-service resistance or reverse-proxy policy."]
+last_reviewed = "2026-07-15"
 
 [[mappings]]
 id = "ANOM_MAP_DISK_ERROR_001"
@@ -649,7 +662,7 @@ association_kind = "partial"
 injection_mechanism = "test_harness"
 assertion_summary = "A failing RetainStore on requested stop faults the resource and leaves a visible retain-save error."
 limitations = ["The backend returns a generic injected error and does not exercise FileRetainStore ENOSPC, EIO, flush, sync, or rename failures."]
-last_reviewed = "2026-07-11"
+last_reviewed = "2026-07-15"
 
 [[mappings]]
 id = "ANOM_MAP_DISK_ERROR_002"
@@ -661,8 +674,60 @@ name = "retain_save_failure_prevents_output_commit_when_due"
 association_kind = "partial"
 injection_mechanism = "test_harness"
 assertion_summary = "The test requires an injected retain-save failure due during a cycle to return an error before any physical output write."
-limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established.", "The backend does not exercise a real filesystem error."]
-last_reviewed = "2026-07-11"
+limitations = ["The backend injects a generic RetainStore error and does not itself exercise a FileRetainStore filesystem stage."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_FILE_MATRIX_001"
+class_id = "disk_error"
+discovery_id = "DISC_A8FA0CAF53A7D6D0134E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_pre_publish_failure_matrix_preserves_last_good_snapshot"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "FileRetainStore returns injected create-directory, create-temp, write, flush, file-sync, and rename failures while preserving the last good snapshot and cleaning the temporary file."
+limitations = ["The private filesystem seam deterministically exercises each production call boundary; it does not reproduce host-specific ENOSPC, quota, permission, or device-loss error codes."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_PARENT_SYNC_001"
+class_id = "disk_error"
+discovery_id = "DISC_55C765213824F6A01A03"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_parent_sync_failure_is_visible_after_publish"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A parent-directory sync failure after rename remains visible and the already-published retain image stays decodable without a temporary-file leak."
+limitations = ["The test checks the post-rename reporting boundary with an injected directory-sync error, not power-loss durability on a specific filesystem."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_READ_001"
+class_id = "disk_error"
+discovery_id = "DISC_402CC51B509F2C268C12"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_open_and_read_failures_are_visible"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Configured retain-file open and read failures are returned as errors rather than silently converted to an empty snapshot."
+limitations = ["The test injects deterministic I/O errors at the FileRetainStore boundary and does not distinguish host-specific open/read errno values."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_REAL_PATH_001"
+class_id = "disk_error"
+discovery_id = "DISC_32E18E31451D4BF469C6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_reports_real_path_failures_without_silent_defaults"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Real directory/file shape conflicts at configured retain paths produce visible load and save errors through the host filesystem."
+limitations = ["The portable path-shape cases exercise real filesystem failures without requiring privileged mounts; disk-full, quota, permission, and device-removal campaigns remain unassessed."]
+last_reviewed = "2026-07-15"
 
 [[mappings]]
 id = "ANOM_MAP_CLOCK_STEP_001"
