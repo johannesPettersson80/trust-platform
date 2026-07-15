@@ -226,9 +226,10 @@ fn compile_single_tier1_instruction(instruction: RegisterInstr) -> Result<(), St
         start_pc: 0,
         end_pc: 0,
         entry_stack_depth: 0,
+        bytecode_instruction_count: 1,
+        instruction_costs: vec![1],
         instructions: vec![instruction],
     };
     let key = super::tier1_block_key(&module, pou_id, &block);
     super::compile_tier1_block(&module, &block, key).map(|_| ())
 }
-

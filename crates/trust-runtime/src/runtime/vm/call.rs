@@ -50,7 +50,7 @@ pub(super) fn push_call_frame(
     runtime_instance: Option<InstanceId>,
 ) -> Result<usize, VmTrap> {
     let pou = module.pou(pou_id).ok_or(VmTrap::MissingPou(pou_id))?;
-    let local_count = pou.local_ref_count as usize;
+    let local_count = super::limits::checked_local_count(pou.local_ref_count)?;
     let frame = VmFrame {
         pou_id,
         return_pc,

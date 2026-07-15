@@ -1,6 +1,7 @@
 //! Portable bytecode metadata records.
 
 mod format;
+mod limits;
 
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -9,6 +10,7 @@ use thiserror::Error;
 use crate::task::TaskConfig;
 
 pub use format::*;
+pub use limits::*;
 
 /// Bytecode format version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

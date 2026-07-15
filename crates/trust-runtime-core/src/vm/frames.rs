@@ -3,10 +3,7 @@ use alloc::vec::Vec;
 use crate::memory::InstanceId;
 use crate::value::Value;
 
-use super::{materialize_borrowed_value, VmTrap};
-
-/// Maximum recursive VM call depth accepted by the bytecode executor.
-pub const VM_MAX_CALL_DEPTH: usize = 1024;
+use super::{materialize_borrowed_value, VmTrap, VM_MAX_CALL_DEPTH};
 
 /// Validate that a caller-supplied depth offset plus local frame depth fits the VM limit.
 pub fn ensure_global_call_depth(depth_offset: u32, local_depth: usize) -> Result<(), VmTrap> {

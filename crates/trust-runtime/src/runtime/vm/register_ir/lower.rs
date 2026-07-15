@@ -14,10 +14,13 @@ use self::decode::{
     jump_target_pc, operand_i32, operand_native_call, operand_u32, pc_to_block_target,
 };
 #[cfg(not(test))]
-use self::fuse::fuse_register_block_instructions;
+use self::fuse::fuse_register_block_instructions_with_costs;
 pub(super) use self::fuse::is_cmp_binary_op;
 #[cfg(test)]
-pub(super) use self::fuse::{fuse_register_block_instructions, instruction_reads_register};
+pub(super) use self::fuse::{
+    fuse_register_block_instructions, fuse_register_block_instructions_with_costs,
+    instruction_reads_register,
+};
 pub(super) use self::verify::verify_register_program;
 
 fn canonical_stack_register(slot: u32) -> RegisterId {
@@ -116,19 +119,29 @@ pub(super) fn lower_pou_to_register_ir(
             .collect::<Vec<_>>();
         let mut opaque_mode = false;
         let mut instructions = Vec::new();
+        let mut instruction_costs = Vec::new();
+        let mut pending_instruction_cost = 0usize;
+        let bytecode_instruction_count = decoded
+            .iter()
+            .filter(|instr| (start_pc..end_pc).contains(&instr.pc))
+            .count();
 
         for instr in decoded
             .iter()
             .filter(|instr| (start_pc..end_pc).contains(&instr.pc))
         {
+            pending_instruction_cost = pending_instruction_cost.saturating_add(1);
+            let instruction_start = instructions.len();
             if opaque_mode {
                 instructions.push(RegisterInstr::VmFallback {
                     opcode: instr.opcode,
                     operands: instr.owned_operands(),
                 });
+                instruction_costs.resize(instructions.len(), 0);
+                instruction_costs[instruction_start] = pending_instruction_cost;
+                pending_instruction_cost = 0;
                 continue;
             }
-
             match instr.opcode {
                 0x00 => instructions.push(RegisterInstr::Nop),
                 0x02 => {
@@ -402,6 +415,15 @@ pub(super) fn lower_pou_to_register_ir(
                     opaque_mode = true;
                 }
             }
+            if instructions.len() > instruction_start {
+                instruction_costs.resize(instructions.len(), 0);
+                instruction_costs[instruction_start] = pending_instruction_cost;
+                pending_instruction_cost = 0;
+            }
+        }
+        if pending_instruction_cost > 0 {
+            instructions.push(RegisterInstr::Nop);
+            instruction_costs.push(pending_instruction_cost);
         }
 
         let terminates_control_flow = instructions.last().is_some_and(|instruction| {
@@ -412,14 +434,18 @@ pub(super) fn lower_pou_to_register_ir(
         });
         if !terminates_control_flow {
             normalize_stack_for_block_exit(&mut next_register, &mut instructions, &stack, None)?;
+            instruction_costs.resize(instructions.len(), 0);
         }
 
-        let instructions = fuse_register_block_instructions(&instructions);
+        let (instructions, instruction_costs) =
+            fuse_register_block_instructions_with_costs(&instructions, &instruction_costs);
         blocks.push(RegisterBlock {
             id: idx as u32,
             start_pc,
             end_pc,
             entry_stack_depth,
+            bytecode_instruction_count,
+            instruction_costs,
             instructions,
         });
     }

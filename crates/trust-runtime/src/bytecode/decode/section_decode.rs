@@ -48,7 +48,12 @@ fn decode_const_pool(reader: &mut BytecodeReader<'_>) -> Result<ConstPool, Bytec
 }
 
 fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, BytecodeError> {
-    let count = read_bounded_count(reader, 16, "REF_TABLE")?;
+    let count = read_bounded_count_with_limit(
+        reader,
+        16,
+        BYTECODE_MAX_REFERENCES,
+        "REF_TABLE",
+    )?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let location = reader.read_u8()?;
@@ -105,10 +110,20 @@ fn decode_pou_index(
         let code_length = reader.read_u32()?;
         let local_ref_start = reader.read_u32()?;
         let local_ref_count = reader.read_u32()?;
+        if local_ref_count as usize > BYTECODE_MAX_LOCALS_PER_POU {
+            return Err(BytecodeError::InvalidSection(
+                "POU_INDEX local reference count exceeds fixed resource limit".into(),
+            ));
+        }
         let return_type_id = optional_u32(reader.read_u32()?);
         let owner_pou_id = optional_u32(reader.read_u32()?);
         let parameter_bytes = if version.minor >= 1 { 16 } else { 12 };
-        let param_count = read_bounded_count(reader, parameter_bytes, "POU_INDEX parameter")?;
+        let param_count = read_bounded_count_with_limit(
+            reader,
+            parameter_bytes,
+            BYTECODE_MAX_PARAMETERS_PER_POU,
+            "POU_INDEX parameter",
+        )?;
         let kind = PouKind::from_raw(kind)
             .ok_or_else(|| BytecodeError::InvalidSection("invalid pou kind".into()))?;
 

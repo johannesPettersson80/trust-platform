@@ -4,7 +4,7 @@ use super::*;
 pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
     runtime: &mut Runtime,
     module: &VmModule,
-    program: &RegisterProgram,
+    _program: &RegisterProgram,
     source_block: &RegisterBlock,
     frames: &mut FrameStack,
     registers: &mut [Value],
@@ -15,6 +15,12 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
 ) -> Result<Tier1BlockExecutionOutcome, RuntimeError> {
     let mut control_target = None;
     for (instruction_index, instruction) in block.instructions.iter().enumerate() {
+        let instruction_cost = source_block
+            .instruction_costs
+            .get(instruction_index)
+            .copied()
+            .ok_or_else(|| invalid_bytecode("tier-1 instruction cost missing"))?;
+        crate::runtime::vm::budget::consume_instruction_budget(budget, instruction_cost)?;
         if should_check_register_deadline(instruction_index)
             && deadline_exceeded(runtime.effective_execution_deadline())
         {
@@ -402,13 +408,11 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
                     _ => return Err(VmTrap::ConditionNotBool.into_runtime_error()),
                 };
                 if condition == *jump_if_true {
-                    consume_loop_budget_for_block_target(program, source_block, *target, budget)?;
                     control_target = Some(*target);
                     break;
                 }
             }
             Tier1CompiledInstr::Jump { target } => {
-                consume_loop_budget_for_block_target(program, source_block, *target, budget)?;
                 control_target = Some(*target);
                 break;
             }
@@ -419,7 +423,6 @@ pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
             } => {
                 let condition = read_bool_register(registers, *cond)?;
                 if condition == *jump_if_true {
-                    consume_loop_budget_for_block_target(program, source_block, *target, budget)?;
                     control_target = Some(*target);
                     break;
                 }

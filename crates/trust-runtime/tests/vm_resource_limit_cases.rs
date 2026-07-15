@@ -7,11 +7,19 @@ use std::path::{Path, PathBuf};
 use serde_json::json;
 use trust_runtime::bytecode::{
     BytecodeModule, ConstEntry, ParamEntry, RefEntry, RefLocation, SectionData, SectionId,
+    BYTECODE_MAX_CONTAINER_BYTES as MAX_CONTAINER_BYTES,
+    BYTECODE_MAX_INSTRUCTIONS as MAX_MODULE_INSTRUCTIONS,
+    BYTECODE_MAX_LOCALS_PER_POU as MAX_LOCALS_PER_POU,
+    BYTECODE_MAX_PARAMETERS_PER_POU as MAX_PARAMETERS_PER_POU,
+    BYTECODE_MAX_REFERENCES as MAX_REFERENCES,
 };
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
-use trust_runtime::runtime_core::vm::ensure_global_call_depth;
+use trust_runtime::runtime_core::vm::{
+    ensure_global_call_depth, VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH,
+    VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
+};
 use trust_runtime::Runtime;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
@@ -22,14 +30,6 @@ const TEST_ID: &str = "TEST_VM_RESOURCE_LIMIT_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml";
 const CASE_FILE_DIGEST: &str =
     "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61a3410c2ee5f";
-
-const MAX_CONTAINER_BYTES: usize = 64 * 1024 * 1024;
-const MAX_MODULE_INSTRUCTIONS: usize = 1_000_000;
-const MAX_REFERENCES: usize = 65_536;
-const MAX_LOCALS_PER_POU: usize = 65_536;
-const MAX_PARAMETERS_PER_POU: usize = 1_024;
-const MAX_OPERAND_STACK: usize = 16 * 1024;
-const MAX_CALL_DEPTH: usize = 1_024;
 
 const EXECUTION_BUDGET_SOURCE: &str = r#"
 PROGRAM Main

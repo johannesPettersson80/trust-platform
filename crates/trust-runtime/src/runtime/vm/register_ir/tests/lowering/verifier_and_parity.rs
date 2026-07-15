@@ -9,6 +9,7 @@ fn register_ir_verifier_rejects_unknown_block_target() {
     lowered.blocks[0].instructions.push(RegisterInstr::Jump {
         target: BlockTarget::Block(9999),
     });
+    lowered.blocks[0].instruction_costs.push(0);
     let err = verify_register_program(&lowered).expect_err("verification should fail");
     let RuntimeError::InvalidBytecode(message) = err else {
         panic!("expected InvalidBytecode verification error");
@@ -30,6 +31,8 @@ fn register_ir_verifier_rejects_undefined_source_register() {
             start_pc: 0,
             end_pc: 1,
             entry_stack_depth: 0,
+            bytecode_instruction_count: 1,
+            instruction_costs: vec![1],
             instructions: vec![RegisterInstr::StoreRef {
                 ref_idx: 0,
                 src: RegisterId(0),
@@ -52,6 +55,8 @@ fn register_ir_verifier_rejects_move_destination_out_of_bounds() {
             start_pc: 0,
             end_pc: 1,
             entry_stack_depth: 1,
+            bytecode_instruction_count: 1,
+            instruction_costs: vec![1],
             instructions: vec![RegisterInstr::Move {
                 src: RegisterId(0),
                 dest: RegisterId(1),
@@ -61,6 +66,48 @@ fn register_ir_verifier_rejects_move_destination_out_of_bounds() {
 
     let err = verify_register_program(&program).expect_err("verification should fail");
     assert_invalid_bytecode_contains(err, "destination register 1 out of bounds");
+}
+
+#[test]
+fn register_ir_verifier_rejects_missing_instruction_costs() {
+    let program = RegisterProgram {
+        pou_id: 1,
+        entry_block: 0,
+        max_registers: 0,
+        blocks: vec![RegisterBlock {
+            id: 0,
+            start_pc: 0,
+            end_pc: 1,
+            entry_stack_depth: 0,
+            bytecode_instruction_count: 1,
+            instruction_costs: vec![],
+            instructions: vec![RegisterInstr::Return],
+        }],
+    };
+
+    let err = verify_register_program(&program).expect_err("missing cost must fail");
+    assert_invalid_bytecode_contains(err, "instruction-cost table length mismatch");
+}
+
+#[test]
+fn register_ir_verifier_rejects_original_instruction_count_drift() {
+    let program = RegisterProgram {
+        pou_id: 1,
+        entry_block: 0,
+        max_registers: 0,
+        blocks: vec![RegisterBlock {
+            id: 0,
+            start_pc: 0,
+            end_pc: 1,
+            entry_stack_depth: 0,
+            bytecode_instruction_count: 2,
+            instruction_costs: vec![1],
+            instructions: vec![RegisterInstr::Return],
+        }],
+    };
+
+    let err = verify_register_program(&program).expect_err("count drift must fail");
+    assert_invalid_bytecode_contains(err, "original instruction count mismatch");
 }
 
 #[test]

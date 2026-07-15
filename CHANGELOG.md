@@ -6,10 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.47`
+Target release: `v0.24.48`
 
 ### Fixed
 
+- trust-runtime: STBC decoding, validation, executable materialization, and VM
+  execution now enforce the documented fixed container, instruction,
+  reference, local, parameter, native-call, operand-stack, call-depth, and
+  per-invocation instruction limits; stack, register, and tier-1 execution
+  charge the same original bytecode instructions across nested calls.
 - trust-hir/trust-runtime: implicit numeric assignment now permits only
   accuracy-preserving widenings, ordinary subrange initializers are checked at
   both bounds, contextual subrange literals retain their declared runtime tag,

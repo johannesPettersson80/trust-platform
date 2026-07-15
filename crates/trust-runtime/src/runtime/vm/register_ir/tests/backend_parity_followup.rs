@@ -1,4 +1,5 @@
 use super::super::dispatch::execute_pou_stack_with_locals;
+use std::sync::Arc;
 
 fn vmpar_add_store_module() -> (VmModule, u32) {
     let mut code = Vec::new();
@@ -23,6 +24,13 @@ fn assert_deadline_exceeded(error: RuntimeError) {
     assert!(
         matches!(error, RuntimeError::ExecutionTimeout),
         "expected ExecutionTimeout, got {error:?}",
+    );
+}
+
+fn assert_instruction_budget_exceeded(error: RuntimeError) {
+    assert!(
+        matches!(error, RuntimeError::ExecutionTimeout),
+        "expected instruction-budget ExecutionTimeout, got {error:?}",
     );
 }
 
@@ -162,4 +170,129 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
         "snapshot={tier1_profile:?}"
     );
     assert_eq!(tier1_profile.deopt_count, 0, "snapshot={tier1_profile:?}");
+}
+
+#[test]
+fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
+    for (budget, expected_value) in [(3, 41), (4, 42)] {
+        let (mut stack_module, pou_id) = vmpar_add_store_module();
+        stack_module.instruction_budget = budget;
+        let mut stack_runtime = vmpar_seed_runtime();
+        let stack_error = execute_pou_stack_with_locals(
+            &mut stack_runtime,
+            &stack_module,
+            pou_id,
+            None,
+            None,
+            false,
+            0,
+            None,
+        )
+        .expect_err("stack path must exhaust the fixed test budget");
+        assert_instruction_budget_exceeded(stack_error);
+        assert_eq!(
+            stack_runtime.storage().get_global("g0"),
+            Some(&Value::DInt(expected_value))
+        );
+
+        let (mut register_module, pou_id) = vmpar_add_store_module();
+        register_module.instruction_budget = budget;
+        let mut register_runtime = vmpar_seed_runtime();
+        let register_error =
+            try_execute_pou_with_register_ir(&mut register_runtime, &register_module, pou_id, None)
+                .expect_err("register path must exhaust the fixed test budget");
+        assert_instruction_budget_exceeded(register_error);
+        assert_eq!(
+            register_runtime.storage().get_global("g0"),
+            Some(&Value::DInt(expected_value))
+        );
+
+        let (mut tier1_module, pou_id) = vmpar_add_store_module();
+        let mut tier1_runtime = vmpar_seed_runtime();
+        tier1_runtime.set_vm_tier1_specialized_executor_enabled(true);
+        tier1_runtime.reset_vm_tier1_specialized_executor();
+        tier1_runtime
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+        try_execute_pou_with_register_ir(&mut tier1_runtime, &tier1_module, pou_id, None)
+            .expect("tier1 warmup must compile the block");
+        tier1_runtime
+            .storage_mut()
+            .set_global("g0", Value::DInt(41));
+        tier1_module.instruction_budget = budget;
+        let tier1_error =
+            try_execute_pou_with_register_ir(&mut tier1_runtime, &tier1_module, pou_id, None)
+                .expect_err("tier1 path must exhaust the fixed test budget");
+        assert_instruction_budget_exceeded(tier1_error);
+        assert_eq!(
+            tier1_runtime.storage().get_global("g0"),
+            Some(&Value::DInt(expected_value))
+        );
+    }
+}
+
+#[test]
+fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
+    let source = r#"
+        VAR_GLOBAL
+            g_value : DINT;
+        END_VAR
+
+        FUNCTION AddOne : DINT
+        VAR_INPUT
+            Input : DINT;
+        END_VAR
+        AddOne := Input + DINT#1;
+        END_FUNCTION
+
+        PROGRAM Main
+        g_value := AddOne(Input := DINT#41);
+        END_PROGRAM
+    "#;
+    let mut harness = TestHarness::from_source(source).expect("create nested-budget harness");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select VM backend");
+    harness.runtime_mut().set_execution_deadline(None);
+
+    let module = Arc::make_mut(
+        harness
+            .runtime_mut()
+            .vm_module
+            .as_mut()
+            .expect("harness must load a VM module"),
+    );
+    let main_id = *module
+        .program_ids
+        .get(&SmolStr::new("MAIN"))
+        .expect("main POU id");
+    let add_one_id = *module
+        .function_ids
+        .get(&SmolStr::new("ADDONE"))
+        .expect("AddOne POU id");
+    let main_count = lower_pou_to_register_ir(module, main_id)
+        .expect("lower Main")
+        .blocks
+        .iter()
+        .map(|block| block.bytecode_instruction_count)
+        .sum::<usize>();
+    let callee_count = lower_pou_to_register_ir(module, add_one_id)
+        .expect("lower AddOne")
+        .blocks
+        .iter()
+        .map(|block| block.bytecode_instruction_count)
+        .sum::<usize>();
+    assert!(main_count > 0 && callee_count > 0);
+    module.instruction_budget = main_count.max(callee_count);
+
+    let cycle = harness.cycle();
+    assert!(
+        cycle
+            .errors
+            .iter()
+            .any(|error| matches!(error, RuntimeError::ExecutionTimeout)),
+        "nested call must consume the caller's remaining budget: main={main_count}, callee={callee_count}, errors={:?}",
+        cycle.errors
+    );
 }

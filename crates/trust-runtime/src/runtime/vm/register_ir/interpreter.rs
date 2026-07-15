@@ -40,7 +40,7 @@ pub(super) enum BorrowedBinaryEval {
 pub(super) fn execute_register_block_interpreted(
     runtime: &mut Runtime,
     module: &VmModule,
-    program: &RegisterProgram,
+    _program: &RegisterProgram,
     frames: &mut FrameStack,
     registers: &mut [Value],
     remaining_register_reads: &mut [u32],
@@ -51,6 +51,12 @@ pub(super) fn execute_register_block_interpreted(
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
     let mut control_target = None;
     for (instruction_index, instruction) in block.instructions.iter().enumerate() {
+        let instruction_cost = block
+            .instruction_costs
+            .get(instruction_index)
+            .copied()
+            .ok_or_else(|| invalid_bytecode("register-ir instruction cost missing"))?;
+        crate::runtime::vm::budget::consume_instruction_budget(budget, instruction_cost)?;
         if should_check_register_deadline(instruction_index)
             && deadline_exceeded(runtime.effective_execution_deadline())
         {
@@ -544,13 +550,11 @@ pub(super) fn execute_register_block_interpreted(
                     _ => return Err(VmTrap::ConditionNotBool.into_runtime_error()),
                 };
                 if condition == *jump_if_true {
-                    consume_loop_budget_for_block_target(program, block, *target, budget)?;
                     control_target = Some(*target);
                     break;
                 }
             }
             RegisterInstr::Jump { target } => {
-                consume_loop_budget_for_block_target(program, block, *target, budget)?;
                 control_target = Some(*target);
                 break;
             }
@@ -566,7 +570,6 @@ pub(super) fn execute_register_block_interpreted(
                     *cond,
                 )?;
                 if condition == *jump_if_true {
-                    consume_loop_budget_for_block_target(program, block, *target, budget)?;
                     control_target = Some(*target);
                     break;
                 }

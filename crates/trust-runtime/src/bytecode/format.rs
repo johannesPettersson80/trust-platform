@@ -8,7 +8,9 @@ pub use trust_runtime_core::bytecode::{
     PouClassMeta, PouEntry, PouIndex, PouKind, ProcessImageConfig, RefEntry, RefLocation,
     RefSegment, RefTable, ResourceEntry, ResourceMeta, ResourceMetadata, RetainInit,
     RetainInitEntry, Section, SectionData, SectionEntry, SectionId, StringTable, TaskEntry,
-    TypeData, TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry, NATIVE_CALL_KIND_FUNCTION,
+    TypeData, TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry, BYTECODE_MAX_CONTAINER_BYTES,
+    BYTECODE_MAX_INSTRUCTIONS, BYTECODE_MAX_LOCALS_PER_POU, BYTECODE_MAX_NATIVE_ARGUMENTS,
+    BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES, NATIVE_CALL_KIND_FUNCTION,
     NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB,
     SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
 };

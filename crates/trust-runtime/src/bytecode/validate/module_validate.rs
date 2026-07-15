@@ -41,6 +41,7 @@ impl BytecodeModule {
             _ => return Err(BytecodeError::MissingSection("IO_MAP".into())),
         };
 
+        validate_declared_resource_limits(ref_table, pou_index)?;
         validate_string_table(strings)?;
         if let Some(table) = debug_strings {
             validate_string_table(table)?;

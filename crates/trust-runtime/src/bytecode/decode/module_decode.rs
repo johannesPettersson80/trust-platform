@@ -1,5 +1,10 @@
 impl BytecodeModule {
     pub fn decode(bytes: &[u8]) -> Result<Self, BytecodeError> {
+        if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
+            return Err(BytecodeError::InvalidHeader(
+                "encoded container exceeds fixed resource limit".into(),
+            ));
+        }
         let mut reader = BytecodeReader::new(bytes);
         let magic = reader.read_bytes(4)?;
         if magic != MAGIC {

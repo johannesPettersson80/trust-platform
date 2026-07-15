@@ -136,11 +136,11 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS",
                 "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs",
-                "sha256:4e3f87647f0485ab1488597f63b66aad39e505971ce6801c495c9835028bdc4a",
+                "sha256:5f31346110fd936a1677a1a3a5ef8c88ad389877f782677227927e13acb520de",
                 "validate_instruction_stream",
                 "FnValue",
                 "Ok(())",
-                "pou_and_instr.rs:150:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
+                "pou_and_instr.rs:151:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"],
                 [
@@ -153,7 +153,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_VALIDATE_STACK_SHAPE_BYPASS",
                 "crates/trust-runtime/src/bytecode/validate/stack_shape.rs",
-                "sha256:1e72ab3d74783d19d793934bbfc05bf539bc2d40be31f58cee9347fcf8dfcade",
+                "sha256:f397f8ac7876602ba9d29423fa424b7ea36bed4b211476a11354b2cbc97646d8",
                 "validate_stack_shape",
                 "FnValue",
                 "Ok(())",
