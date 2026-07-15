@@ -13,6 +13,34 @@ use verification_cases::{
     StateSnapshot,
 };
 
+// Keeps the red contract compilable before the product exposes stable codes.
+// Once an inherent stable_code method exists, Rust resolves that method first.
+#[allow(dead_code)]
+trait MissingStableCodeProbe {
+    fn stable_code(&self) -> MissingStableCode;
+}
+
+#[derive(Clone, Copy)]
+struct MissingStableCode;
+
+impl MissingStableCode {
+    const fn as_str(self) -> &'static str {
+        "missing_stable_error_code"
+    }
+}
+
+impl MissingStableCodeProbe for BytecodeError {
+    fn stable_code(&self) -> MissingStableCode {
+        MissingStableCode
+    }
+}
+
+impl MissingStableCodeProbe for RuntimeError {
+    fn stable_code(&self) -> MissingStableCode {
+        MissingStableCode
+    }
+}
+
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -122,7 +150,7 @@ fn case_bytes(case: &CaseRecord) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn expected_rejection(case: &CaseRecord) -> Result<(&str, Option<&str>), String> {
+fn expected_rejection(case: &CaseRecord) -> Result<(&str, &str, Option<&str>), String> {
     let expect = case
         .expect
         .as_ref()
@@ -155,13 +183,29 @@ fn expected_rejection(case: &CaseRecord) -> Result<(&str, Option<&str>), String>
             .get("truncate_point")
             .and_then(toml::Value::as_str)
         {
-            Some("before_section_table") => Ok(("invalid_section_table", None)),
-            Some("before_pou_bodies") => Ok(("section_out_of_bounds", None)),
+            Some("before_section_table") => Ok((
+                "invalid_section_table",
+                "bytecode_invalid_section_table",
+                None,
+            )),
+            Some("before_pou_bodies") => Ok((
+                "section_out_of_bounds",
+                "bytecode_section_out_of_bounds",
+                None,
+            )),
             other => Err(format!("{} has unknown truncate point {other:?}", case.id)),
         },
-        "unknown_opcode" => Ok(("invalid_opcode", None)),
-        "jump_target" => Ok(("invalid_jump_target", None)),
-        "stack_underflow" => Ok(("invalid_section", Some("operand stack underflow"))),
+        "unknown_opcode" => Ok(("invalid_opcode", "bytecode_invalid_opcode", None)),
+        "jump_target" => Ok((
+            "invalid_jump_target",
+            "bytecode_invalid_jump_target",
+            None,
+        )),
+        "stack_underflow" => Ok((
+            "invalid_section",
+            "bytecode_invalid_section",
+            Some("operand stack underflow"),
+        )),
         other => Err(format!("{} has unknown transform {other:?}", case.id)),
     }
 }
@@ -237,7 +281,7 @@ fn bytecode_validator_cases_reject_before_partial_apply() {
     let mut probe = RuntimeProbe::new();
     let artifact = run_case_file(&config, &mut probe, |case, probe| -> Result<_, String> {
         let bytes = case_bytes(case)?;
-        let (expected_variant, message_contains) = expected_rejection(case)?;
+        let (expected_variant, expected_code, message_contains) = expected_rejection(case)?;
         let direct_error = decode_or_validate_error(&bytes)?;
         let direct_text = direct_error.to_string();
         let mut failures = Vec::new();
@@ -252,9 +296,23 @@ fn bytecode_validator_cases_reject_before_partial_apply() {
                 "direct error {direct_text:?} lacks {message_contains:?}"
             ));
         }
+        let direct_code = direct_error.stable_code();
+        if direct_code.as_str() != expected_code {
+            failures.push(format!(
+                "direct error code mismatch: expected {expected_code}, got {}",
+                direct_code.as_str()
+            ));
+        }
         match probe.runtime.apply_bytecode_bytes(&bytes, None) {
-            Err(RuntimeError::InvalidBytecode(_)) => {}
-            Err(other) => failures.push(format!("product path returned {other:?}")),
+            Err(error) => {
+                let product_code = error.stable_code();
+                if product_code.as_str() != expected_code {
+                    failures.push(format!(
+                        "product error code mismatch: expected {expected_code}, got {} ({error:?})",
+                        product_code.as_str()
+                    ));
+                }
+            }
             Ok(()) => failures.push("product path accepted invalid bytecode".to_string()),
         }
         Ok(CaseExecution {

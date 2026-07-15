@@ -728,16 +728,62 @@ materialize the candidate executable module before changing live runtime
 metadata. Any rejection leaves the previously active runtime configuration and
 executable module unchanged.
 
-`BytecodeError` variants identify the current in-process failure category, and
-diagnostic text may provide a narrower reason. This section does not stabilize
-those variants or strings as cross-process CLI, control-protocol, evidence, or
-machine API identifiers. That public error-code contract remains open under
-`SPEC_GAP_VM_ERROR_MODEL_001`.
+`BytecodeError` variants identify the in-process failure category. Every
+variant also has the following stable machine identifier. Diagnostic text may
+provide a narrower reason, but text is not part of the machine contract.
+
+| `BytecodeError` variant | Stable identifier |
+| --- | --- |
+| `InvalidMagic` | `bytecode_invalid_magic` |
+| `UnsupportedVersion` | `bytecode_unsupported_version` |
+| `InvalidHeader` | `bytecode_invalid_header` |
+| `InvalidChecksum` | `bytecode_invalid_checksum` |
+| `InvalidSectionTable` | `bytecode_invalid_section_table` |
+| `SectionOutOfBounds` | `bytecode_section_out_of_bounds` |
+| `SectionOverlap` | `bytecode_section_overlap` |
+| `SectionAlignment` | `bytecode_section_alignment` |
+| `UnexpectedEof` | `bytecode_unexpected_eof` |
+| `InvalidSection` | `bytecode_invalid_section` |
+| `MissingSection` | `bytecode_missing_section` |
+| `InvalidOpcode` | `bytecode_invalid_opcode` |
+| `InvalidJumpTarget` | `bytecode_invalid_jump_target` |
+| `InvalidPouId` | `bytecode_invalid_pou_id` |
+| `InvalidIndex` | `bytecode_invalid_index` |
+
+`BytecodeError::stable_code()` returns the table entry. Conversion into the
+public runtime error preserves that identifier; it must not derive a code by
+parsing `Display` text. Direct decode/validation and
+`Runtime::apply_bytecode_bytes` therefore report the same identifier for the
+same rejected candidate. Control responses place the identifier in
+`error_code` while retaining the existing human-readable `error` field.
 
 The fixed limits in section 4.6 are validated before apply and enforced again
-at their allocation or execution boundary. They do not stabilize
-`BytecodeError` text or the public runtime error model, which remains open
-under `SPEC_GAP_VM_ERROR_MODEL_001`.
+at their allocation or execution boundary. Their diagnostic text remains
+non-normative even though the enclosing error category has a stable machine
+identifier.
+
+#### 7.4.1 VM Trap Identifiers
+
+VM traps that represent malformed executable state retain a stable identifier
+when converted to `RuntimeError`. Invalid opcode, jump, POU, and table-index
+traps reuse the corresponding `bytecode_*` identifier above. The remaining
+VM-only structural identifiers are:
+
+| Trap category | Stable identifier |
+| --- | --- |
+| Operand stack underflow | `vm_stack_underflow` |
+| Operand stack overflow | `vm_stack_overflow` |
+| Call stack underflow | `vm_call_stack_underflow` |
+| Call stack overflow | `vm_call_stack_overflow` |
+| Unsupported runtime opcode | `vm_unsupported_opcode` |
+| Unsupported reference location | `vm_unsupported_reference_location` |
+| Invalid native-call metadata or payload | `vm_invalid_native_call` |
+| Bytecode decode failure without a narrower decoder variant | `vm_bytecode_decode` |
+
+Condition, null-reference, loop-step, deadline, instruction-budget, and other
+runtime-value traps use the stable `runtime_*` identifiers in
+`docs/specs/10-runtime-semantics.md`. `VmTrap::Runtime` preserves the embedded
+runtime error's identifier.
 
 #### 7.5 Fault Semantics
 

@@ -615,6 +615,10 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/run'")
     );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_type_mismatch")
+    );
     assert!(state.debug.drain_var_writes().is_empty());
     fs::remove_dir_all(root).ok();
 }
@@ -657,6 +661,10 @@ allow = ["resource/RESOURCE/program/Main/field/label"]
     assert_eq!(
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/label'")
+    );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_string_capacity_exceeded")
     );
     assert!(state.debug.drain_var_writes().is_empty());
 
@@ -704,6 +712,10 @@ allow = ["resource/RESOURCE/program/Main/field/limited"]
     assert_eq!(
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/limited'")
+    );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_subrange_violation")
     );
     assert!(
         state.debug.drain_var_writes().is_empty(),
@@ -792,6 +804,10 @@ allow = [
         assert_eq!(
             response.error.as_deref(),
             Some(format!("invalid hmi.write value for target '{target}'").as_str())
+        );
+        assert_eq!(
+            response.error_code.as_deref(),
+            Some("runtime_non_finite_value")
         );
         assert!(
             state.debug.drain_var_writes().is_empty(),

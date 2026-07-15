@@ -226,8 +226,7 @@ uses an explicit conversion;
 incompatible assignment uses diagnostic category `E203`. Diagnostic prose is
 not part of this contract. At the VM boundary, a value whose runtime tag cannot
 materialize as the declared primitive is rejected with `TypeMismatch` before
-storage. Stable public error identifiers remain governed by
-`SPEC_GAP_VM_ERROR_MODEL_001`.
+storage and reports `runtime_type_mismatch`.
 
 #### 2.3.1 Bounded String Runtime Writes
 
@@ -242,8 +241,8 @@ and effective declared capacity must match exactly after alias resolution, and
 a rejected binding cannot mutate caller state. `STRING` and `WSTRING` remain
 separate families. Source-level cross-family assignment or binding is rejected
 unless an explicit standard conversion is used; crafted VM input with the
-wrong string-family runtime tag returns `TypeMismatch` before storage. Stable
-public error identifiers remain governed by `SPEC_GAP_VM_ERROR_MODEL_001`.
+wrong string-family runtime tag returns `TypeMismatch` before storage and
+reports `runtime_type_mismatch`.
 
 #### 2.4 Subrange Runtime Writes
 
@@ -257,8 +256,9 @@ must not clamp, wrap, or partially store the rejected value. The same rule
 applies at HMI/control and retain-reload write boundaries when declared
 subrange type information is available. A wrong-base-type source fails
 semantic analysis with `E203`; crafted VM input with the wrong runtime tag
-returns `TypeMismatch` without modifying storage. Stable public error
-identifiers remain a separate contract boundary.
+returns `TypeMismatch` with `runtime_type_mismatch` and does not modify
+storage. An out-of-range runtime value reports
+`runtime_subrange_violation` at VM, retain-reload, and HMI/control boundaries.
 
 This product rule implements the reviewed subrange decision in
 `docs/IEC_DECISIONS.md`; it does not define that stable public error mapping.
@@ -1142,7 +1142,38 @@ pub enum RuntimeError {
 }
 ```
 
-#### 10.2 Error Configuration
+#### 10.2 Stable Machine Error Identifiers
+
+`RuntimeError::stable_code()` returns a `StableErrorCode` whose
+lower-snake-case string is the machine contract. Existing `RuntimeError`
+variants map to `runtime_<variant-name>` in lower snake case, including
+`runtime_type_mismatch`, `runtime_division_by_zero`,
+`runtime_modulo_by_zero`, `runtime_overflow`,
+`runtime_index_out_of_bounds`, `runtime_subrange_violation`,
+`runtime_null_reference`, `runtime_for_step_zero`,
+`runtime_condition_not_bool`, `runtime_watchdog_timeout`, and
+`runtime_execution_timeout`. Bytecode and VM structural errors retain the
+more specific `bytecode_*` or `vm_*` code specified in
+`docs/specs/12-bytecode.md` rather than collapsing to
+`runtime_invalid_bytecode`.
+
+The mapping is exhaustive for the committed `RuntimeError` enum. Adding or
+renaming a variant requires an explicit stable-code mapping and review.
+Human-readable `Display` text is diagnostic context and may become more
+specific without changing the code. Machine consumers and verification cases
+must compare the code, not message substrings.
+
+The HMI admission boundary uses the same runtime codes for type and subrange
+failures. It additionally reports `runtime_string_capacity_exceeded` for a
+rejected bounded-string request and `runtime_non_finite_value` for a rejected
+NaN, infinity, or width-overflowing floating-point request. A failed control
+response carries the stable identifier in `error_code` and retains the
+diagnostic message in `error`.
+
+These identifiers are truST product API choices. They do not interpret,
+extend, or deviate from IEC 61131-3 semantics.
+
+#### 10.3 Error Configuration
 
 ```rust
 /// Configuration for error handling behavior.

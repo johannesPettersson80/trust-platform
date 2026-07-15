@@ -33,10 +33,9 @@ covers = [
   "collection_count_bounds",
   "fixed_vm_resource_limits",
   "determinism_and_resource_limits",
+  "stable_error_code_model",
 ]
-known_limitations = [
-  "Stable cross-interface VM error identifiers remain incomplete; see SPEC_GAP_VM_ERROR_MODEL_001.",
-]
+known_limitations = []
 conflicts_with = []
 
 [[spec_sources]]
@@ -101,6 +100,7 @@ covers = [
   "retain_values",
   "runtime_value_model",
   "vm_instruction_budget",
+  "stable_error_code_model",
 ]
 known_limitations = [
   "This source does not by itself close bytecode validator or safe-state hardware proof gaps.",
@@ -140,9 +140,10 @@ covers = [
   "subrange_runtime_write_semantics",
   "real_binary_arithmetic_overflow",
   "real_named_numerical_function_overflow",
+  "stable_error_code_model",
 ]
 known_limitations = [
-  "Reference-store conversions, other exceptional REAL numerical-function behavior, and stable VM error identifiers remain open specification boundaries.",
+  "Reference-store conversions and other exceptional REAL numerical-function behavior remain open specification boundaries.",
   "This product contract does not by itself establish IEC conformance or crafted-bytecode validation behavior.",
 ]
 conflicts_with = []
