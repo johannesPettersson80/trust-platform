@@ -37,7 +37,6 @@ const DEFAULT_TCP_ENDPOINT: &str = "127.0.0.1:9901";
 
 pub(super) struct DebugControlServer {
     server: ControlServer,
-    resource: ResourceControl<StdClock>,
     _drain: thread::JoinHandle<()>,
 }
 
@@ -49,9 +48,6 @@ impl DebugControlServer {
         project_root: Option<PathBuf>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
-        if let Ok(runtime) = session.runtime_handle().lock() {
-            let _ = resource.publish_ads_live_values_snapshot(runtime.ads_live_values_snapshot());
-        }
         let debug = session.debug_control();
         let sources = SourceRegistry::new(session.control_sources());
         let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
@@ -60,7 +56,7 @@ impl DebugControlServer {
         )));
         let state = Arc::new(ControlState {
             debug: debug.clone(),
-            resource: resource.clone(),
+            resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
             project_root,
             sources,
@@ -102,17 +98,12 @@ impl DebugControlServer {
         let drain = spawn_command_drain(cmd_rx, debug, session.runtime_handle());
         Ok(Self {
             server,
-            resource,
             _drain: drain,
         })
     }
 
     pub fn endpoint(&self) -> &ControlEndpoint {
         self.server.endpoint()
-    }
-
-    pub fn resource_control(&self) -> ResourceControl<StdClock> {
-        self.resource.clone()
     }
 }
 
@@ -202,15 +193,6 @@ fn spawn_command_drain(
                         .map(|runtime| runtime.ads_status_report())
                         .unwrap_or_else(|_| disabled_ads_status("ADS status unavailable."));
                     let _ = respond_to.send(report);
-                }
-                ResourceCommand::AdsLiveValues { respond_to } => {
-                    let snapshot = runtime
-                        .lock()
-                        .map(|runtime| runtime.ads_live_values_snapshot())
-                        .unwrap_or_else(|_| {
-                            trust_runtime::ads::AdsLiveValuesSnapshot::new(0, Vec::new())
-                        });
-                    let _ = respond_to.send(snapshot);
                 }
                 ResourceCommand::OpcUaClientStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::opcua::OpcUaClientStatusReport {

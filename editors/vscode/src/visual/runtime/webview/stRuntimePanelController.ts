@@ -158,7 +158,7 @@ export function mountStRuntimePanel(
 
   const isTransientStatusText = (message: string) =>
     /^Live Values (loading|ready)\.?$/i.test(message) ||
-    /^Start (?:the Simulator|the selected runtime) to see live values\.?$/i.test(message) ||
+    /^Start the runtime to see live values\.?$/i.test(message) ||
     /^Connect to the selected runtime to see live values\.?$/i.test(message);
 
   const isAutoExpiringStatusText = (message: string) =>

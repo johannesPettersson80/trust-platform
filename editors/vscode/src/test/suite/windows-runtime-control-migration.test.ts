@@ -41,7 +41,7 @@ function migrateProject(
 
 function tokenFrom(source: string): string {
   return (
-    /^\s*(?:runtime\.control\.)?auth_token\s*=\s*["']([^"']*)["']/m.exec(source)?.[1] ?? ""
+    /^\s*auth_token\s*=\s*["']([^"']*)["']/m.exec(source)?.[1] ?? ""
   );
 }
 
@@ -62,38 +62,6 @@ function legacyRuntimeToml(
     "enabled = false",
     "",
   ].join(eol);
-}
-
-function dottedRuntimeToml(
-  endpoint = "tcp://127.0.0.1:9902",
-  authTokenLine: string | undefined = undefined,
-  eol = "\n"
-): string {
-  return [
-    "# Existing dotted project; keep this comment",
-    `runtime.control.endpoint = "${endpoint}" # keep dotted endpoint note`,
-    ...(authTokenLine ? [authTokenLine] : []),
-    'runtime.control.mode = "production"',
-    "",
-    "[runtime.web]",
-    "enabled = false",
-    "",
-  ].join(eol);
-}
-
-function tokenlessDottedGeneratedRuntimeToml(): string {
-  const generated = buildRuntimeTomlSource("win32");
-  const controlBlock = /\[runtime\.control\]\r?\nendpoint = "([^"]+)"\r?\nauth_token = "[^"]+"\r?\nmode = "([^"]+)"\r?\ndebug_enabled = (true|false)\r?\n\r?\n/;
-  const match = controlBlock.exec(generated);
-  assert.ok(match, "Expected the generated project to contain runtime.control.");
-  const withoutControlTable = generated.replace(controlBlock, "");
-  return [
-    `runtime.control.endpoint = "${match[1]}"`,
-    `runtime.control.mode = "${match[2]}"`,
-    `runtime.control.debug_enabled = ${match[3]}`,
-    "",
-    withoutControlTable,
-  ].join("\n");
 }
 
 async function waitForStructuredTextSession(
@@ -227,23 +195,6 @@ suite("Windows runtime control migration", () => {
     assert.ok(result.content.includes('[runtime.web]\nenabled = false'));
   });
 
-  test("adds a strong token to the supported top-level dotted runtime.control form", () => {
-    const source = dottedRuntimeToml();
-    const result = migrateSource(source);
-
-    assert.strictEqual(result.changed, true);
-    assert.strictEqual(tokenFrom(result.content), TEST_TOKEN);
-    assert.ok(
-      result.content.includes(
-        `runtime.control.endpoint = "tcp://127.0.0.1:9902" # keep dotted endpoint note\n` +
-          `runtime.control.auth_token = "${TEST_TOKEN}"\n` +
-          'runtime.control.mode = "production"'
-      )
-    );
-    assert.ok(result.content.includes("# Existing dotted project; keep this comment"));
-    assert.ok(result.content.includes('[runtime.web]\nenabled = false'));
-  });
-
   test("replaces a blank token while preserving indentation and its inline comment", () => {
     const source = legacyRuntimeToml().replace(
       'mode = "production"',
@@ -284,24 +235,6 @@ suite("Windows runtime control migration", () => {
     }
   });
 
-  test("replaces dotted blank and placeholder tokens while preserving formatting and comments", () => {
-    for (const existing of ['"   "', '"some-secret-value"']) {
-      const source = dottedRuntimeToml(
-        "tcp://localhost:9902",
-        `  runtime.control.auth_token   =   ${existing}   # keep dotted credential note`
-      );
-      const result = migrateSource(source);
-
-      assert.strictEqual(result.changed, true, existing);
-      assert.ok(
-        result.content.includes(
-          `  runtime.control.auth_token   =   "${TEST_TOKEN}"   # keep dotted credential note`
-        )
-      );
-      assert.strictEqual(result.content.includes("some-secret-value"), false);
-    }
-  });
-
   test("accepts localhost, IPv6 loopback, and every literal in 127/8", () => {
     for (const endpoint of [
       "tcp://localhost:9902",
@@ -329,22 +262,11 @@ suite("Windows runtime control migration", () => {
     assert.strictEqual(result.content, source);
   });
 
-  test("leaves an existing strong dotted credential byte-for-byte unchanged", () => {
-    const source = dottedRuntimeToml(
-      "tcp://127.0.0.1:9902",
-      "runtime.control.auth_token = 'already-configured-dotted-value' # keep formatting"
-    );
-    const result = migrateSource(source);
-
-    assert.strictEqual(result.changed, false);
-    assert.strictEqual(result.content, source);
-  });
-
   test("does not alter non-Windows, Unix, remote TCP, missing-section, or malformed inputs", () => {
     const cases: ReadonlyArray<readonly [string, NodeJS.Platform]> = [
       [legacyRuntimeToml(), "linux"],
       [legacyRuntimeToml("unix:///tmp/trust-runtime.sock"), "win32"],
-      [legacyRuntimeToml("tcp://192.168.50.42:9902"), "win32"],
+      [legacyRuntimeToml("tcp://192.168.77.11:9902"), "win32"],
       ["[runtime]\nmode = \"production\"\n", "win32"],
       [legacyRuntimeToml("tcp://127.0.0.1"), "win32"],
     ];
@@ -352,27 +274,6 @@ suite("Windows runtime control migration", () => {
     for (const [source, platform] of cases) {
       const result = migrateSource(source, platform);
       assert.strictEqual(result.changed, false);
-      assert.strictEqual(result.content, source);
-    }
-  });
-
-  test("rejects unsafe, nested, mixed, duplicate, and malformed dotted control inputs", () => {
-    const cases = [
-      dottedRuntimeToml("tcp://192.168.50.42:9902"),
-      `[mesh]\nruntime.control.endpoint = "tcp://127.0.0.1:9902"\n`,
-      `runtime.control.endpoint = tcp://127.0.0.1:9902\n`,
-      `runtime.control.endpoint = "tcp://127.0.0.1:9902"\n` +
-        `runtime.control.endpoint = "tcp://localhost:9902"\n`,
-      `runtime.control.endpoint = "tcp://127.0.0.1:9902"\n` +
-        `runtime.control.auth_token = not-a-toml-string\n`,
-      `runtime.control.auth_token = ""\n`,
-      `runtime.control.endpoint = "tcp://127.0.0.1:9902"\n` +
-        `[runtime.control]\nendpoint = "tcp://127.0.0.1:9902"\n`,
-    ];
-
-    for (const source of cases) {
-      const result = migrateSource(source);
-      assert.strictEqual(result.changed, false, source);
       assert.strictEqual(result.content, source);
     }
   });
@@ -405,35 +306,6 @@ suite("Windows runtime control migration", () => {
       assert.strictEqual(first.changed, true);
       assert.strictEqual(first.path, runtimeToml);
       assert.ok(tokenFrom(afterFirst).length >= 24);
-      assert.strictEqual(second.changed, false);
-      assert.strictEqual(fs.readFileSync(runtimeToml, "utf8"), afterFirst);
-      assert.strictEqual(fs.statSync(runtimeToml).mode & 0o777, modeBefore);
-      assert.deepStrictEqual(
-        fs.readdirSync(root).filter((entry) => entry.includes(".trust-migrate-")),
-        []
-      );
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("migrates a dotted root runtime.toml atomically and preserves permissions", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-win-runtime-dotted-"));
-    const runtimeToml = path.join(root, "runtime.toml");
-    try {
-      const source = dottedRuntimeToml("tcp://localhost:9902");
-      fs.writeFileSync(runtimeToml, source, { mode: 0o640 });
-      fs.chmodSync(runtimeToml, 0o640);
-      const modeBefore = fs.statSync(runtimeToml).mode & 0o777;
-
-      const first = migrateProject(root);
-      const afterFirst = fs.readFileSync(runtimeToml, "utf8");
-      const second = migrateProject(root);
-
-      assert.strictEqual(first.changed, true);
-      assert.strictEqual(first.path, runtimeToml);
-      assert.strictEqual(tokenFrom(afterFirst).length >= 24, true);
-      assert.ok(afterFirst.includes("# keep dotted endpoint note"));
       assert.strictEqual(second.changed, false);
       assert.strictEqual(fs.readFileSync(runtimeToml, "utf8"), afterFirst);
       assert.strictEqual(fs.statSync(runtimeToml).mode & 0o777, modeBefore);
@@ -487,7 +359,7 @@ suite("Windows runtime control migration", () => {
       "utf8"
     );
     const migrationCall = launchControlSource.indexOf(
-      "migrateWindowsRuntimeControlProject(migrationRoot, platform)"
+      "migrateWindowsRuntimeControlProject(migrationRoot)"
     );
     const launchInjection = launchControlSource.indexOf(
       "applyLaunchControlEndpoint(",
@@ -512,7 +384,7 @@ suite("Windows runtime control migration", () => {
     assert.ok(!seam.includes("authToken"));
   });
 
-  test("Windows Extension Host migrates a tokenless dotted project and starts the real simulator", async function () {
+  test("Windows Extension Host migrates a tokenless project and starts the real simulator", async function () {
     if (process.platform !== "win32") {
       this.skip();
       return;
@@ -548,12 +420,11 @@ suite("Windows runtime control migration", () => {
     const adapterPath = process.env.ST_DEBUG_TEST_BIN?.trim();
     let adapterPathOverridden = false;
 
-    const tokenless = tokenlessDottedGeneratedRuntimeToml();
-    assert.strictEqual(tokenFrom(tokenless), "", "The E2E fixture must begin tokenless.");
-    assert.ok(
-      tokenless.includes('runtime.control.endpoint = "tcp://127.0.0.1:9902"'),
-      "The Windows E2E regression must exercise the top-level dotted form."
+    const tokenless = buildRuntimeTomlSource("win32").replace(
+      /^auth_token = "[0-9a-f]+"\r?\n/m,
+      ""
     );
+    assert.strictEqual(tokenFrom(tokenless), "", "The E2E fixture must begin tokenless.");
     await vscode.workspace.fs.writeFile(runtimeToml, Buffer.from(tokenless, "utf8"));
     await vscode.workspace.fs.writeFile(
       ioToml,

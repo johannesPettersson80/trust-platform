@@ -3,10 +3,8 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const files = [
-  ["src/ioPanelAdsRows.webview.js", "media/ioPanelAdsRows.js"],
-  ["src/ioPanel.webview.js", "media/ioPanel.js"],
-];
+const sourcePath = path.join(root, "src", "ioPanel.webview.js");
+const destPath = path.join(root, "media", "ioPanel.js");
 
 let lastOutOfSync = null;
 
@@ -23,23 +21,20 @@ function warnOutOfSync(message) {
 }
 
 function checkSync() {
-  const outOfSync = files.some(([sourceRelative, destRelative]) => {
-    const sourcePath = path.join(root, sourceRelative);
-    const destPath = path.join(root, destRelative);
-    const source = readFileSafe(sourcePath);
-    const dest = readFileSafe(destPath);
-    if (!source) {
-      warnOutOfSync(
-        `Missing ${path.relative(root, sourcePath)}. Cannot verify panel script.`
-      );
-      return true;
-    }
-    return !dest || source !== dest;
-  });
+  const source = readFileSafe(sourcePath);
+  const dest = readFileSafe(destPath);
+  if (!source) {
+    warnOutOfSync(
+      `Missing ${path.relative(root, sourcePath)}. Cannot verify panel script.`
+    );
+    lastOutOfSync = true;
+    return;
+  }
+  const outOfSync = !dest || source !== dest;
   if (lastOutOfSync === null || outOfSync !== lastOutOfSync) {
     if (outOfSync) {
       warnOutOfSync(
-        "Live Values source scripts differ from media output. Run `npm run build:panel`."
+        "ioPanel.webview.js differs from media/ioPanel.js. Run `npm run build:panel`."
       );
     } else {
       console.log("[panel] ioPanel.js is in sync.");

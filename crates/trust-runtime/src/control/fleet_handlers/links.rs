@@ -283,7 +283,7 @@ pub(super) fn ads_client_externals(config: Option<&AdsClientConfig>) -> Vec<Flee
         .map(|connection| FleetExternal {
             id: ads_external_id(connection),
             kind: "plc".to_string(),
-            name: format!("ADS device {}", connection.route.target_net_id.0),
+            name: format!("TwinCAT {}", connection.route.target_net_id.0),
             via_protocol: vec!["ads".to_string()],
             direction: "outbound".to_string(),
             source: Some("config".to_string()),

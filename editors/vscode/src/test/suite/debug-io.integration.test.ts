@@ -10,9 +10,7 @@ import {
   __testApplySettingsUpdate,
   __testCollectSettingsSnapshot,
   __testUserFacingIoStatus,
-  liveValuesEventIsAccepted,
 } from "../../ioPanel";
-import { runtimeLifecycleService } from "../../runtimeLifecycle";
 
 async function pathExists(uri: vscode.Uri): Promise<boolean> {
   try {
@@ -104,11 +102,6 @@ suite("Debug/IO DRY flows", function () {
       selectWorkspaceFolderPathForMode("auto", ["/a", "/b"], undefined, "/missing"),
       "/a"
     );
-    assert.strictEqual(
-      selectWorkspaceFolderPathForMode("auto", ["/a", "/b"], "/b", undefined),
-      "/b",
-      "an explicit lifecycle project remains authoritative while a webview owns focus"
-    );
   });
 
   test("integration: auto default configuration creation", async () => {
@@ -147,6 +140,7 @@ suite("Debug/IO DRY flows", function () {
       debugAdapterArgs: ["--stdio"],
       debugAdapterEnv: { TRUST_TEST: "1" },
       runtimeControlEndpoint: "tcp://127.0.0.1:50123",
+      runtimeControlAuthToken: "token-123",
       runtimeIncludeGlobs: ["**/*.st"],
       runtimeExcludeGlobs: ["**/generated/**"],
       runtimeIgnorePragmas: ["@ignore-me"],
@@ -312,61 +306,10 @@ suite("Debug/IO DRY flows", function () {
     ]);
   });
 
-  test("integration: I/O commands and Live Values events stay on accepted session A when B is active", async () => {
-    const calls: Array<{ command: string; args?: unknown }> = [];
-    const accepted = {
-      id: "accepted-a",
-      type: "structured-text",
-      name: "Accepted A",
-      workspaceFolder: undefined,
-      configuration: {
-        type: "structured-text",
-        request: "launch",
-        name: "Accepted A",
-      },
-      customRequest: async (command: string, args?: unknown) => {
-        calls.push({ command, args });
-        return undefined;
-      },
-      getDebugProtocolBreakpoint: async () => undefined,
-    } as vscode.DebugSession;
-    const duplicate = {
-      ...accepted,
-      id: "rejected-b",
-      name: "Rejected B",
-      customRequest: async () => {
-        throw new Error("rejected B must never receive an I/O command");
-      },
-    } as vscode.DebugSession;
-    const original = runtimeLifecycleService.acceptedDebugSession;
-    try {
-      runtimeLifecycleService.acceptedDebugSession = () => accepted;
-      await vscode.commands.executeCommand("trust-lsp.debug.io.write", {
-        address: "%QX0.0",
-        value: "TRUE",
-      });
-    } finally {
-      runtimeLifecycleService.acceptedDebugSession = original;
-    }
-
-    assert.deepStrictEqual(calls, [
-      {
-        command: "stIoWrite",
-        args: { address: "%QX0.0", value: "TRUE" },
-      },
-    ]);
-    assert.strictEqual(liveValuesEventIsAccepted(accepted, accepted), true);
-    assert.strictEqual(
-      liveValuesEventIsAccepted(accepted, duplicate),
-      false,
-      "a custom event or termination from rejected B must not replace A's Live Values",
-    );
-  });
-
   test("unit: Live Values transport errors use recovery text, not raw socket copy", () => {
     assert.strictEqual(
       __testUserFacingIoStatus("I/O state request failed: Canceled"),
-      "Start the Simulator to see live values."
+      "Start the runtime to see live values."
     );
     assert.strictEqual(
       __testUserFacingIoStatus("I/O state request failed: socket hang up"),
@@ -385,12 +328,6 @@ suite("Debug/IO DRY flows", function () {
     await extension!.activate();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(workspaceFolder, "Expected workspace folder for debug session test.");
-    const adapterPath = process.env.ST_DEBUG_TEST_BIN?.trim();
-    assert.ok(adapterPath, "ST_DEBUG_TEST_BIN must identify the tested adapter.");
-    assert.ok(
-      await pathExists(vscode.Uri.file(adapterPath)),
-      `The adapter under test does not exist: ${adapterPath}`
-    );
 
     const projectRoot = vscode.Uri.joinPath(fixturesRoot, "stacktrace-session-project");
     await vscode.workspace.fs.createDirectory(projectRoot);
@@ -418,7 +355,7 @@ suite("Debug/IO DRY flows", function () {
       .asRelativePath(sourceUri, false)
       .replace(/\\/g, "/");
     await __testApplySettingsUpdate({
-      debugAdapterPath: adapterPath,
+      debugAdapterPath: "",
       runtimeIncludeGlobs: [sourceRelativePath],
       runtimeExcludeGlobs: [],
     } as any);

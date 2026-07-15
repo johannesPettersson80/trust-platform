@@ -78,7 +78,7 @@ fn ads_manual_identity_bypasses_udp_and_preserves_logical_port() {
 
 #[cfg(feature = "ads-wire")]
 #[test]
-fn ads_manual_identity_does_not_fabricate_a_responding_logical_port() {
+fn ads_manual_identity_defaults_logical_port_to_851() {
     let value = discover_value(
         json!({
             "protocol": "ads",
@@ -91,23 +91,13 @@ fn ads_manual_identity_does_not_fabricate_a_responding_logical_port() {
         }),
         None,
     )
-    .expect("manual ADS identity should remain available without UDP Identify");
+    .expect("manual ADS identity should use the default logical port without UDP Identify");
 
-    assert!(value
-        .pointer("/candidates/0/params/ams_port")
-        .is_some_and(Value::is_null));
     assert_eq!(
         value
-            .pointer("/candidates/0/params/responding_ads_ports")
-            .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(0)
-    );
-    assert_eq!(
-        value
-            .pointer("/candidates/0/params/ads_service_status")
-            .and_then(Value::as_str),
-        Some("declared")
+            .pointer("/candidates/0/params/ams_port")
+            .and_then(Value::as_u64),
+        Some(851)
     );
 }
 
@@ -145,7 +135,7 @@ fn ads_manual_identity_accepts_six_decimal_bytes() {
             "protocol": "ads",
             "scope": {
                 "host": "192.0.2.5",
-                "target_ams_net_id": "10.20.30.40.1.1",
+                "target_ams_net_id": "100.67.6.217.1.1",
                 "ams_port": 852
             },
             "origin": "this_host",
@@ -159,7 +149,7 @@ fn ads_manual_identity_accepts_six_decimal_bytes() {
         value
             .pointer("/candidates/0/params/ams_net_id")
             .and_then(Value::as_str),
-        Some("10.20.30.40.1.1")
+        Some("100.67.6.217.1.1")
     );
 }
 

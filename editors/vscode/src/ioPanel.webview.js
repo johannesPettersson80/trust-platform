@@ -18,6 +18,9 @@ const runtimeStatusText = document.getElementById("runtimeStatusText");
 const targetLabel = document.getElementById("targetLabel");
 const scanLabel = document.getElementById("scanLabel");
 const forcePolicy = document.getElementById("forcePolicy");
+const runtimeStart = document.getElementById("runtimeStart");
+const modeSimulate = document.getElementById("modeSimulate");
+const modeOnline = document.getElementById("modeOnline");
 const releaseAllForcesBtn = document.getElementById("releaseAllForces");
 const settingsFields = {
   serverPath: document.getElementById("serverPath"),
@@ -26,6 +29,9 @@ const settingsFields = {
   debugAdapterArgs: document.getElementById("debugAdapterArgs"),
   debugAdapterEnv: document.getElementById("debugAdapterEnv"),
   runtimeControlEndpoint: document.getElementById("runtimeControlEndpoint"),
+  runtimeControlAuthToken: document.getElementById(
+    "runtimeControlAuthToken"
+  ),
   runtimeInlineValuesEnabled: document.getElementById(
     "runtimeInlineValuesEnabled"
   ),
@@ -34,7 +40,6 @@ const settingsFields = {
   runtimeIgnorePragmas: document.getElementById("runtimeIgnorePragmas"),
 };
 let currentState = { inputs: [], outputs: [], memory: [] };
-let currentAdsState = { schemaVersion: 1, scan: 0, entries: [] };
 let compileState = null;
 let currentFilter = "";
 let forcedOnly = false;
@@ -227,7 +232,7 @@ function updateScanLabel(state) {
 function isTransientStatusText(message) {
   return (
     /^Live Values (loading|ready)\.?$/i.test(message) ||
-    /^Start (?:the Simulator|the selected runtime) to see live values\.?$/i.test(message) ||
+    /^Start the runtime to see live values\.?$/i.test(message) ||
     /^Connect to the selected runtime to see live values\.?$/i.test(message)
   );
 }
@@ -336,6 +341,21 @@ window.addEventListener("unhandledrejection", (event) => {
   reportWebviewError(message, stack);
 });
 
+if (runtimeStart) {
+  runtimeStart.addEventListener("click", () => {
+    vscode.postMessage({ type: "runtimeStart" });
+  });
+}
+if (modeSimulate) {
+  modeSimulate.addEventListener("click", () => {
+    vscode.postMessage({ type: "runtimeSetMode", mode: "simulate" });
+  });
+}
+if (modeOnline) {
+  modeOnline.addEventListener("click", () => {
+    vscode.postMessage({ type: "runtimeSetMode", mode: "online" });
+  });
+}
 const settingsButton = document.getElementById("settings");
 if (settingsButton) {
   settingsButton.addEventListener("click", () => {
@@ -476,6 +496,9 @@ function collectSettingsPayload() {
     runtimeControlEndpoint: getFieldValue(
       settingsFields.runtimeControlEndpoint
     ).trim(),
+    runtimeControlAuthToken: getFieldValue(
+      settingsFields.runtimeControlAuthToken
+    ),
     runtimeInlineValuesEnabled: !!settingsFields.runtimeInlineValuesEnabled?.checked,
     runtimeIncludeGlobs: textToArray(
       getFieldValue(settingsFields.runtimeIncludeGlobs)
@@ -553,6 +576,14 @@ function applyRuntimeStatus(payload) {
     resetForceArming();
   }
 
+  if (modeSimulate) {
+    modeSimulate.classList.toggle("active", mode === "simulate");
+    modeSimulate.disabled = running || connected;
+  }
+  if (modeOnline) {
+    modeOnline.classList.toggle("active", mode === "online");
+    modeOnline.disabled = running || connected;
+  }
   // Re-render the rows when the target changes (keeps safety affordances in sync with the target).
   if (modeChanged || targetChanged || accessChanged) {
     render(currentState);
@@ -560,6 +591,18 @@ function applyRuntimeStatus(payload) {
   if (currentAccess.reason && (running || connected)) {
     setStatusText(currentAccess.reason);
   }
+
+  if (runtimeStart) {
+    let label = "Start";
+    if (runtimeState === "connected") {
+      label = "Disconnect";
+    } else if (running) {
+      label = "Stop";
+    }
+    runtimeStart.textContent = label;
+    runtimeStart.disabled = false;
+  }
+
 
   if (runtimeStatusText) {
     const isRunning = runtimeState === "running" || runtimeState === "connected";
@@ -586,13 +629,11 @@ function applyRuntimeStatus(payload) {
 }
 
 function clearUnavailableRuntimeStatus(message) {
-  const currentTargetLabel = targetLabel?.textContent || undefined;
-  if (/Start (?:the Simulator|the selected runtime) to see live values/i.test(message)) {
+  if (/Start the runtime to see live values/i.test(message)) {
     applyRuntimeStatus({
       running: false,
       runtimeMode: "simulate",
       runtimeState: "stopped",
-      targetLabel: currentTargetLabel,
       endpoint: "",
       endpointConfigured: false,
       endpointEnabled: true,
@@ -605,7 +646,6 @@ function clearUnavailableRuntimeStatus(message) {
       running: false,
       runtimeMode: "online",
       runtimeState: "stopped",
-      targetLabel: currentTargetLabel,
       endpoint: "",
       endpointConfigured: false,
       endpointEnabled: true,
@@ -632,6 +672,10 @@ function applySettingsPayload(payload) {
   setFieldValue(
     settingsFields.runtimeControlEndpoint,
     payload.runtimeControlEndpoint || ""
+  );
+  setFieldValue(
+    settingsFields.runtimeControlAuthToken,
+    payload.runtimeControlAuthToken || ""
   );
   if (settingsFields.runtimeInlineValuesEnabled) {
     settingsFields.runtimeInlineValuesEnabled.checked =
@@ -1310,29 +1354,6 @@ function render(state) {
   });
 
   sections.appendChild(createNode("I/O", 0, ioContent, true));
-  if (!forcedOnly) {
-    const connectedContent = document.createElement("div");
-    const connectedHint = document.createElement("div");
-    connectedHint.className = "write-hint";
-    connectedHint.textContent =
-      "Imported ADS variables are read-only in Live Values.";
-    connectedContent.appendChild(connectedHint);
-    connectedContent.appendChild(
-      createNode(
-        "ADS",
-        2,
-        globalThis.trustAdsRows.render(
-          currentAdsState.entries || [],
-          currentAdsState.problem || null,
-          currentFilter
-        ),
-        true
-      )
-    );
-    sections.appendChild(
-      createNode("Connected variables", 0, connectedContent, true)
-    );
-  }
   updateReleaseAll(state);
   restoreActiveInput(activeInput);
 }
@@ -1346,14 +1367,6 @@ window.addEventListener("message", (event) => {
     currentState = message.payload || { inputs: [], outputs: [], memory: [] };
     render(currentState);
     updateForceStatusFromState(currentState);
-  }
-  if (message.type === "adsState") {
-    currentAdsState = message.payload || {
-      schemaVersion: 1,
-      scan: 0,
-      entries: [],
-    };
-    render(currentState);
   }
   if (message.type === "status") {
     const payload = String(message.payload || "");

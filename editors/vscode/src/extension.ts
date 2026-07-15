@@ -47,7 +47,6 @@ import { LadderEditorProvider } from "./ladder/ladderEditor";
 import { SfcEditorProvider } from "./sfc/sfcEditor";
 import { registerVisualCompanionSync } from "./visual/companionSt";
 import { registerVisualCustomEditorAutoOpen } from "./visual/autoOpenCustomEditors";
-import { createProductRuntimeIdentityApi } from "./productRuntimeIdentity";
 
 let client: LanguageClient | undefined;
 let showIecDiagnosticRefs = true;
@@ -303,7 +302,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     })
   );
-  return createProductRuntimeIdentityApi(context, command);
 }
 
 export async function deactivate(): Promise<void> {

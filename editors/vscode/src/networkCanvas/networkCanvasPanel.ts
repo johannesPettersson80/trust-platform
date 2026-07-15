@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
+import { debugChannel } from "../debug/configuration";
 import type { CommCapabilitiesResponse } from "../communication/capability";
 import type {
   CommApplyResponse,
@@ -11,22 +12,33 @@ import {
   fetchCommSchema,
   normalizeProtocolId,
 } from "../communication/runtimeComm";
-import type { RuntimeTarget } from "../runtimeTarget";
+import {
+  openRuntimePane,
+  resolveRuntimeTarget,
+  resolveRuntimeTargetFromSettings,
+  type RuntimeTarget,
+} from "../runtimeTarget";
+import { getControlAuthToken } from "../runtimeAuth";
+import { localSimControl } from "../simControl";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import {
   runtimeLifecycleService,
   type RuntimeLifecycleSnapshot,
   type RuntimeStartFailure,
 } from "../runtimeLifecycle";
-import { getSelectedRuntimeId } from "../selectedRuntime";
-import {
-  lifecycleActionSucceeded,
-  type LifecycleAction,
-} from "../lifecycleEntryFailure";
+import { getSelectedRuntimeId, setSelectedRuntimeId } from "../selectedRuntime";
+import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
   listManagedRuntimes,
   onDidChangeManagedRuntimes,
+  showManagedRuntimeLogs,
+  startManagedRuntime,
+  stopManagedRuntime,
 } from "../localRuntime";
+import {
+  attachManagedRuntimeAfterStart,
+  disconnectManagedRuntimeAfterStop,
+} from "../managedRuntimeSession";
 import {
   fetchFleetTopology,
   mergeFleetTopologies,
@@ -42,11 +54,16 @@ import {
   isNetworkCanvasStage,
   NETWORK_CANVAS_IO_PROTOCOLS,
   nextNetworkCanvasStage,
+  type NetworkCanvasFailure,
+  type NetworkCanvasModel,
   type NetworkCanvasProtocolId,
   type NetworkCanvasStage,
 } from "./model";
 import { buildCanvasGraph } from "./graphData";
-import { offlineCommSchema, offlineCommTopology } from "./offlineComm";
+import {
+  offlineCommSchema,
+  offlineCommTopology,
+} from "./offlineComm";
 import {
   DiscoveryRequestTracker,
   isActiveWebviewSession,
@@ -62,6 +79,10 @@ import {
   localRuntimeTargetForAdsProbe,
 } from "./adsServiceProbeController";
 import { DiscoveryOriginContext } from "./discoveryOriginContext";
+import {
+  networkCanvasTrustConfig,
+  workspaceConfigResource,
+} from "./networkCanvasWorkspace";
 import { networkCanvasWebviewHtml } from "./webviewHtml";
 import { NetworkCanvasFleetActions } from "./fleetActions";
 import { NetworkCanvasConfigurationActions } from "./configurationActions";
@@ -72,17 +93,6 @@ import {
   type LatestRefreshContext,
 } from "./refreshCoordinator";
 import { NetworkCanvasPolling } from "./panelPolling";
-import { shouldRefreshNetworkCanvasForLifecycleChange } from "./lifecycleRefreshPolicy";
-import { initialNetworkCanvasGraph } from "./initialGraph";
-import {
-  buildImmediateSimulatorLifecycleGraph,
-  modelInputForSnapshot,
-} from "./lifecycleModel";
-import { resolveNetworkCanvasFleetTargets } from "./fleetTargetResolver";
-import { NetworkCanvasLifecycleActions } from "./lifecycleActions";
-import { projectCanvasLifecycleAuthority } from "./lifecycleAuthorityProjection";
-import { NetworkCanvasRuntimeAuthority } from "./runtimeAuthorityState";
-import { resolveNetworkCanvasRuntimeTarget } from "./runtimeTargetResolution";
 
 export const NETWORK_CANVAS_COMMAND = "trust-lsp.networkCanvas.open";
 
@@ -93,12 +103,9 @@ let extensionContext: vscode.ExtensionContext | undefined;
 let currentStage: NetworkCanvasStage = "welcome";
 let deviceRequested = false;
 let lastFailure: RuntimeStartFailure | undefined;
-let lastFailureAction: LifecycleAction | undefined;
 let activeProtocol: NetworkCanvasProtocolId = "simulated";
 let activeSchema: CommSchemaResponse | undefined;
 let lastTopology: FleetTopologyResponse | undefined;
-let lastDisplayTopology: FleetTopologyResponse | undefined;
-const runtimeAuthority = new NetworkCanvasRuntimeAuthority();
 let activeRuntimeTarget: RuntimeTarget | undefined;
 let lastApplyResult: CommApplyResponse | undefined;
 let searchQuery = "";
@@ -124,32 +131,6 @@ function clearDiscoveryOriginContext(): void {
   discoveryOriginContext.clearCredentials();
 }
 
-const lifecycleActions = new NetworkCanvasLifecycleActions({
-  extensionContext: () => extensionContext,
-  refresh: refreshNetworkCanvasPanel,
-  clearFailure: () => {
-    lastFailure = undefined;
-    lastFailureAction = undefined;
-  },
-  recordResult: (result, action) => {
-    lastFailure = result.ok ? undefined : result.failure;
-    lastFailureAction = result.ok ? undefined : action;
-  },
-  stopRuntime: () => runtimeLifecycleService.stopRuntime(),
-  connectRemote: (endpoint, label) =>
-    runtimeLifecycleService.connectRemote(endpoint, label),
-  runExclusiveOperation: (kind, target, operation) =>
-    runtimeLifecycleService.runExclusiveOperation(kind, target, operation),
-  lifecyclePhase: () => runtimeLifecycleService.phase(),
-  // Host mutation consumes the exact inventory-validated authority used by
-  // the latest graph. Raw debug-session labels never authorize Stop.
-  activeTarget: () => runtimeAuthority.activeTarget(),
-  managedTarget: (name, endpoint) =>
-    runtimeAuthority.managedTarget(name, endpoint),
-  operationInProgress: () =>
-    runtimeLifecycleService.operationState() !== undefined,
-});
-
 const protocolActions = new NetworkCanvasProtocolActions({
   panel: () => panel,
   extensionContext: () => extensionContext,
@@ -160,9 +141,10 @@ const protocolActions = new NetworkCanvasProtocolActions({
       originId,
       leaseId,
       activeWebviewSessionId,
-      browseSessionId,
+      browseSessionId
     ),
   refresh: refreshNetworkCanvasPanel,
+  startRuntime: startConfiguredRuntime,
 });
 const adsServiceProbeController = new AdsServiceProbeController({
   panel: () => panel,
@@ -180,7 +162,7 @@ const adsServiceProbeController = new AdsServiceProbeController({
         candidate: request.candidate,
       },
       activeDiscoveryRequest,
-      activeWebviewSessionId,
+      activeWebviewSessionId
     ),
 });
 const fleetActions = new NetworkCanvasFleetActions({
@@ -205,9 +187,7 @@ const configurationActions = new NetworkCanvasConfigurationActions({
   refresh: refreshNetworkCanvasPanel,
 });
 
-export function registerNetworkCanvasPanel(
-  context: vscode.ExtensionContext,
-): void {
+export function registerNetworkCanvasPanel(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       discoveryRequests.invalidate();
@@ -217,45 +197,27 @@ export function registerNetworkCanvasPanel(
     }),
     vscode.commands.registerCommand(NETWORK_CANVAS_COMMAND, async () => {
       await showNetworkCanvasPanel(context);
-    }),
+    })
   );
   context.subscriptions.push(
-    runtimeLifecycleService.onDidChange((change) => {
-      const phase = runtimeLifecycleService.phase();
-      runtimeAuthority.reconcile(rawLifecycleAuthorityTarget(phase));
-      // Reconcile before any async/visibility-gated refresh. Ordinary I/O
-      // events must not erase a failed Stop while the runtime is still running.
-      if (lifecycleActionSucceeded(lastFailureAction, phase)) {
-        lastFailure = undefined;
-        lastFailureAction = undefined;
-      }
-      if (!shouldRefreshNetworkCanvasForLifecycleChange(change)) {
-        return;
-      }
-      postImmediateSimulatorLifecycleGraph(phase);
+    runtimeLifecycleService.onDidChange(() => {
       void refreshNetworkCanvasPanel();
-    }),
+    })
   );
   // A managed runtime starting/stopping (here or from the Run bar) re-renders its node state.
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => {
-      // Inventory identity changed. Fail closed until the refreshed inventory
-      // has normalized the accepted session for both rendering and mutation.
-      runtimeAuthority.invalidateInventory(
-        rawLifecycleAuthorityTarget(runtimeLifecycleService.phase()),
-      );
       void refreshNetworkCanvasPanel();
-    }),
+    })
   );
 }
 
 async function showNetworkCanvasPanel(
-  context: vscode.ExtensionContext,
+  context: vscode.ExtensionContext
 ): Promise<void> {
   extensionContext = context;
   if (panel) {
     panel.reveal(vscode.ViewColumn.Beside);
-    postImmediateSimulatorLifecycleGraph(runtimeLifecycleService.phase());
   } else {
     panel = vscode.window.createWebviewPanel(
       NETWORK_CANVAS_VIEW_TYPE,
@@ -267,22 +229,9 @@ async function showNetworkCanvasPanel(
         localResourceRoots: [
           vscode.Uri.file(path.join(context.extensionPath, "media")),
         ],
-      },
+      }
     );
-    const initialPhase = runtimeLifecycleService.phase();
-    const initialAuthorityTarget = runtimeAuthority.beginFirstPaint(
-      rawLifecycleAuthorityTarget(initialPhase),
-    );
-    panel.webview.html = networkCanvasWebviewHtml(
-      panel.webview,
-      context,
-      initialNetworkCanvasGraph(
-        initialPhase,
-        currentStage,
-        getSelectedRuntimeId(),
-        initialAuthorityTarget,
-      ),
-    );
+    panel.webview.html = networkCanvasWebviewHtml(panel.webview, context);
     let wasVisible = panel.visible;
     panel.onDidDispose(() => {
       refreshCoordinator.invalidate();
@@ -295,12 +244,9 @@ async function showNetworkCanvasPanel(
       currentStage = "welcome";
       deviceRequested = false;
       lastFailure = undefined;
-      lastFailureAction = undefined;
       activeProtocol = "simulated";
       activeSchema = undefined;
       lastTopology = undefined;
-      lastDisplayTopology = undefined;
-      runtimeAuthority.reset();
       lastApplyResult = undefined;
       searchQuery = "";
       pinnedNodeId = undefined;
@@ -312,12 +258,11 @@ async function showNetworkCanvasPanel(
     panel.onDidChangeViewState(({ webviewPanel }) => {
       const panelBecameVisible = becameVisible(
         wasVisible,
-        webviewPanel.visible,
+        webviewPanel.visible
       );
       wasVisible = webviewPanel.visible;
       if (panelBecameVisible) {
         polling.start();
-        postImmediateSimulatorLifecycleGraph(runtimeLifecycleService.phase());
         discoveryRequests.invalidate();
         activeDiscoveryRequest = undefined;
         clearDiscoveryOriginContext();
@@ -352,108 +297,48 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
     return;
   }
   await refreshCoordinator.request((context) =>
-    refreshNetworkCanvasPanelOnce(panelRef, context),
+    refreshNetworkCanvasPanelOnce(panelRef, context)
   );
 }
 
 async function refreshNetworkCanvasPanelOnce(
   panelRef: vscode.WebviewPanel,
-  refreshContext: LatestRefreshContext,
+  refreshContext: LatestRefreshContext
 ): Promise<void> {
   const refreshDelayMs = networkCanvasRefreshDelayMs();
   if (refreshDelayMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, refreshDelayMs));
-    if (
-      !refreshContext.isCurrent() ||
-      panel !== panelRef ||
-      !panelRef.visible
-    ) {
+    if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
       return;
     }
   }
   const snapshot = await runtimeLifecycleService.snapshot();
-  const rawAuthorityTarget = snapshot.starting
-    ? snapshot.transitionTarget
-    : snapshot.activeTarget;
-  const workspaceResource = runtimeLifecycleService.runtimeConfigTarget();
-  const runtime = await resolveNetworkCanvasRuntimeTarget(
-    workspaceResource,
-    runtimeLifecycleService.acceptedDebugSession()?.configuration,
-  );
-
-  // First paint must not wait for CLI schema/topology discovery. On a fresh
-  // panel, publish the lifecycle-derived base graph immediately so users see
-  // Simulator Stopped/Starting/Running instead of a 15-30 second Loading page.
-  // The latest-only coordinator will replace this with the configured/live
-  // topology below when those asynchronous sources finish.
-  if (!activeSchema && !lastTopology) {
-    if (
-      !refreshContext.isCurrent() ||
-      panel !== panelRef ||
-      !panelRef.visible
-    ) {
-      return;
-    }
-    const baseModel = buildNetworkCanvasModel(
-      modelInputForSnapshot(
-        currentStage,
-        snapshot,
-        {
-          lastFailure,
-          lastFailureAction,
-          deviceRequested,
-        },
-        {
-          schema: undefined,
-          activeProtocol,
-          applyResult: lastApplyResult,
-          searchQuery,
-          pinnedNodeId,
-          quickAddOpen,
-          authorityTarget: rawAuthorityTarget,
-        },
-      ),
-    );
-    const baseAttachedEndpoint =
-      snapshot.status.runtimeMode === "online" &&
-      snapshot.status.runtimeState === "connected"
-        ? snapshot.status.endpoint
-        : undefined;
-    const baseAuthorityTarget = runtimeAuthority.reconcile(
-      rawAuthorityTarget,
-      snapshot.status.targetLabel,
-    );
-    const authorityPending =
-      rawAuthorityTarget !== undefined &&
-      rawAuthorityTarget.kind !== "simulator" &&
-      baseAuthorityTarget === undefined;
-    const baseGraph = projectCanvasLifecycleAuthority(
-      buildCanvasGraph(
-        baseModel,
-        undefined,
-        undefined,
-        baseAttachedEndpoint,
-        [],
-        getSelectedRuntimeId(),
-      ),
-      {
-        phase: runtimeLifecycleService.phase(),
-        target: baseAuthorityTarget,
-      },
-    );
-    if (!authorityPending) {
-      activeRuntimeTarget = runtime;
-      discoveryOriginContext.updateEndpointRegistry(baseGraph, runtime);
-      void panelRef.webview.postMessage({ type: "graph", graph: baseGraph });
-      void panelRef.webview.postMessage({
-        type: "meta",
-        schema: undefined,
-        applyResult: lastApplyResult,
-        reachable: runtime.status === "online_reachable",
-        lifecyclePhase: runtimeLifecycleService.phase(),
-        operationInProgress:
-          runtimeLifecycleService.operationState() !== undefined,
+  let runtime = await resolveRuntimeTarget(workspaceConfigResource());
+  // The canvas SHOWS the local simulator as a node in the host but NEVER auto-starts it —
+  // the user starts it on demand (the node's Start action). The graph below renders it
+  // stopped until the lifecycle service proves it is running.
+  // The local simulator's debug adapter serves the full control API on its own Unix socket
+  // (pinned + token-protected via the launch config, see simControl). If the configured target
+  // isn't a reachable online runtime but a local sim session is live, adopt the sim's control
+  // endpoint so the add-device flow (comm.schema/comm.apply) + fleet.topology work zero-config.
+  // Probe-gated via resolveRuntimeTargetFromSettings — only adopted when the socket actually
+  // answers with the token, so reachability stays honest (never green from "a session exists").
+  if (
+    runtime.status !== "online_reachable" &&
+    runtimeLifecycleService.getStructuredTextSession()
+  ) {
+    const sim = localSimControl(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+    if (sim) {
+      const simTarget = await resolveRuntimeTargetFromSettings({
+        mode: "online",
+        endpoint: sim.endpoint,
+        authToken: sim.authToken,
+        endpointEnabled: true,
+        label: "Simulator",
       });
+      if (simTarget.status === "online_reachable") {
+        runtime = simTarget;
+      }
     }
   }
   let capabilities: CommCapabilitiesResponse | undefined;
@@ -462,21 +347,17 @@ async function refreshNetworkCanvasPanelOnce(
   let nextRuntimeSetupMessage: string | undefined;
   let nextTopology: FleetTopologyResponse | undefined;
   let offlineTopology: FleetTopologyResponse | undefined;
-  const projectDir = workspaceResource?.fsPath;
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
   // Offline-first: the protocol schema and the configured topology come from the trust-runtime
   // CLI (no running runtime), so the canvas + settings work whether the project is stopped or
   // online. (Returns undefined on an older binary without the `comm` subcommands → falls back.)
   if (extensionContext) {
-    const [schema, topology] = await Promise.all([
-      offlineCommSchema(extensionContext),
-      projectDir
-        ? offlineCommTopology(extensionContext, projectDir)
-        : Promise.resolve(undefined),
-    ]);
-    nextSchema = schema;
-    offlineTopology = topology;
-    nextTopology = topology;
+    nextSchema = await offlineCommSchema(extensionContext);
+    if (projectDir) {
+      offlineTopology = await offlineCommTopology(extensionContext, projectDir);
+      nextTopology = offlineTopology;
+    }
   }
 
   // Live overlay: when a runtime is reachable, prefer its live schema + topology (real status).
@@ -487,7 +368,7 @@ async function refreshNetworkCanvasPanelOnce(
         runtime.authToken,
         "comm.capabilities",
         undefined,
-        { timeoutMs: 2000 },
+        { timeoutMs: 2000 }
       );
     } catch {
       capabilities = undefined;
@@ -507,7 +388,7 @@ async function refreshNetworkCanvasPanelOnce(
       // The local primary's own live topology (real status). Peers are resolved separately below.
       const liveTopology = mergeConnectorStatusIntoTopology(
         await fetchFleetTopology(runtime),
-        await fetchConnectorStatus(runtime).catch(() => undefined),
+        await fetchConnectorStatus(runtime).catch(() => undefined)
       );
       if (liveTopology) {
         // Keep the project-file topology as a configured overlay when the selected runtime comes
@@ -531,18 +412,11 @@ async function refreshNetworkCanvasPanelOnce(
   // never silently vanishes. Kept separate from lastTopology so the local view is preserved.
   let peerTopology: FleetTopologyResponse | undefined;
   try {
-    const peers = (
-      await resolveNetworkCanvasFleetTargets(
-        runtime,
-        workspaceResource,
-        fleetEndpointLabels,
-      )
-    ).filter(
-      (target) => target.endpoint && target.endpoint !== runtime.endpoint,
+    const peers = (await resolveFleetTargets(runtime)).filter(
+      (target) => target.endpoint && target.endpoint !== runtime.endpoint
     );
     if (peers.length > 0) {
-      peerTopology =
-        await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
+      peerTopology = await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
     }
   } catch {
     // Peers are best-effort; the local view still renders without them.
@@ -553,28 +427,18 @@ async function refreshNetworkCanvasPanelOnce(
     : nextTopology;
 
   const model = buildNetworkCanvasModel(
-    modelInputForSnapshot(
-      currentStage,
-      snapshot,
-      {
-        lastFailure,
-        lastFailureAction,
-        deviceRequested,
-      },
-      {
-        schema: nextSchema,
-        capabilities,
-        activeProtocol,
-        applyResult: lastApplyResult,
-        searchQuery,
-        pinnedNodeId,
-        quickAddOpen,
-        topology: displayTopology,
-        topologyError,
-        runtimeSetupMessage: nextRuntimeSetupMessage,
-        authorityTarget: rawAuthorityTarget,
-      },
-    ),
+    modelInputForSnapshot(currentStage, snapshot, {
+      schema: nextSchema,
+      capabilities,
+      activeProtocol,
+      applyResult: lastApplyResult,
+      searchQuery,
+      pinnedNodeId,
+      quickAddOpen,
+      topology: displayTopology,
+      topologyError,
+      runtimeSetupMessage: nextRuntimeSetupMessage,
+    })
   );
   // Honest "attached" signal for the runtime-node controls: the endpoint we actually hold a live
   // connection to (an attached remote), so exactly one remote shows "Disconnect" — never every
@@ -596,25 +460,13 @@ async function refreshNetworkCanvasPanelOnce(
   activeSchema = nextSchema;
   runtimeSetupMessage = nextRuntimeSetupMessage;
   lastTopology = nextTopology;
-  lastDisplayTopology = displayTopology;
-  const validatedAuthorityTarget = runtimeAuthority.acceptInventory(
-    rawAuthorityTarget,
+  const canvasGraph = buildCanvasGraph(
+    model,
+    displayTopology,
+    undefined,
+    attachedEndpoint,
     managed,
-    snapshot.status.targetLabel,
-  );
-  const canvasGraph = projectCanvasLifecycleAuthority(
-    buildCanvasGraph(
-      model,
-      displayTopology,
-      undefined,
-      attachedEndpoint,
-      managed,
-      getSelectedRuntimeId(),
-    ),
-    {
-      phase: runtimeLifecycleService.phase(),
-      target: validatedAuthorityTarget,
-    },
+    getSelectedRuntimeId()
   );
   discoveryOriginContext.updateEndpointRegistry(canvasGraph, runtime);
   void panelRef.webview.postMessage({
@@ -627,8 +479,6 @@ async function refreshNetworkCanvasPanelOnce(
     applyResult: lastApplyResult,
     reachable: runtime.status === "online_reachable",
     setupMessage: nextRuntimeSetupMessage,
-    lifecyclePhase: runtimeLifecycleService.phase(),
-    operationInProgress: runtimeLifecycleService.operationState() !== undefined,
   });
   if (pendingFocusNodeId) {
     void panelRef.webview.postMessage({
@@ -639,47 +489,32 @@ async function refreshNetworkCanvasPanelOnce(
   }
 }
 
-function rawLifecycleAuthorityTarget(
-  phase: "stopped" | "starting" | "running" | "connected",
-) {
-  return phase === "starting"
-    ? runtimeLifecycleService.transitionTarget()
-    : runtimeLifecycleService.activeTarget();
-}
-
-function postImmediateSimulatorLifecycleGraph(
-  phase: "stopped" | "starting" | "running" | "connected",
-): void {
-  const panelRef = panel;
-  if (!panelRef?.visible) {
-    return;
+// §12.10 hybrid source: the primary runtime plus any configured fleet peers, each probed.
+// Peers that don't resolve to a reachable online runtime contribute nothing to the merge.
+async function resolveFleetTargets(primary: RuntimeTarget): Promise<RuntimeTarget[]> {
+  const extra = networkCanvasTrustConfig().get<string[]>("runtime.fleetEndpoints", []);
+  const endpoints = [
+    ...new Set(
+      (extra ?? [])
+        .map((endpoint) => endpoint.trim())
+        .filter((endpoint) => endpoint.length > 0 && endpoint !== primary.endpoint)
+    ),
+  ];
+  if (endpoints.length === 0) {
+    return [primary];
   }
-  const graph = buildImmediateSimulatorLifecycleGraph({
-    phase,
-    stage: currentStage,
-    lastFailure,
-    lastFailureAction,
-    localFailure: runtimeLifecycleService.localFailure(),
-    schema: activeSchema,
-    activeProtocol,
-    applyResult: lastApplyResult,
-    searchQuery,
-    pinnedNodeId,
-    quickAddOpen,
-    topology: lastDisplayTopology,
-    managedRuntimes: runtimeAuthority.managedRuntimes(),
-    selectedRuntimeId: getSelectedRuntimeId(),
-    deviceRequested,
-    authorityTarget: runtimeAuthority.lifecycleProjectionTarget(),
-  });
-  if (graph) {
-    void panelRef.webview.postMessage({ type: "graph", graph });
-  }
-  void panelRef.webview.postMessage({
-    type: "lifecyclePolicy",
-    lifecyclePhase: phase,
-    operationInProgress: runtimeLifecycleService.operationState() !== undefined,
-  });
+  const peers = await Promise.all(
+    endpoints.map(async (endpoint) =>
+      resolveRuntimeTargetFromSettings({
+        mode: "online",
+        endpoint,
+        authToken: await getControlAuthToken(endpoint),
+        endpointEnabled: true,
+        label: fleetEndpointLabels.get(endpoint),
+      }).catch(() => undefined)
+    )
+  );
+  return [primary, ...peers.filter((peer): peer is RuntimeTarget => peer !== undefined)];
 }
 
 // §0.5 Discover: run `comm.discover` for each selected protocol IN SEQUENCE (clear per-row
@@ -707,7 +542,7 @@ async function handleDiscover(message: Record<string, unknown>): Promise<void> {
     await discoveryOriginContext.resolveDiscoveryTarget(
       envelope.request.origin,
       envelope.request.originEndpoint,
-      activeRuntimeTarget,
+      activeRuntimeTarget
     );
   if (!discoveryRequests.isCurrent(token, panelRef)) {
     return;
@@ -724,9 +559,6 @@ async function handleDiscover(message: Record<string, unknown>): Promise<void> {
 
 async function handleWebviewMessage(message: unknown): Promise<void> {
   if (!isRecord(message)) {
-    return;
-  }
-  if (await lifecycleActions.handleMessage(message)) {
     return;
   }
   switch (message.type) {
@@ -756,13 +588,20 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
           : pinnedNodeId;
       await refreshNetworkCanvasPanel();
       break;
+    case "action":
+      await handleCanvasAction(
+        typeof message.action === "string" ? message.action : ""
+      );
+      break;
+    case "startLocalSimulator":
+      await handleCanvasAction("startLocalSimulator");
+      break;
     case "addSimulatedDevice":
       currentStage = "connected";
       deviceRequested = true;
       {
         const result = await runtimeLifecycleService.requestIoState();
         lastFailure = result.ok ? undefined : result.failure;
-        lastFailureAction = result.ok ? undefined : "other";
       }
       await refreshNetworkCanvasPanel();
       break;
@@ -776,7 +615,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
         const protocol = normalizeCanvasProtocol(message.protocol);
         if (!protocol) {
           await vscode.window.showInformationMessage(
-            "That device protocol isn't available yet.",
+            "That device protocol isn't available yet."
           );
           return;
         }
@@ -838,7 +677,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
         !isCurrentAdsServiceProbeRequest(
           message,
           activeDiscoveryRequest,
-          activeWebviewSessionId,
+          activeWebviewSessionId
         )
       ) {
         return;
@@ -850,7 +689,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
         discoveryOriginContext.handoffToBrowse(
           activeDiscoveryRequest,
           message,
-          activeWebviewSessionId,
+          activeWebviewSessionId
         )
       ) {
         discoveryRequests.invalidate();
@@ -872,7 +711,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       discoveryOriginContext.releaseBrowse(
         message.originRuntimeId,
         message.leaseId,
-        message.browseSessionId,
+        message.browseSessionId
       );
       break;
     case "browseSymbols":
@@ -882,7 +721,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       // The browse pane owns the visible recovery instructions. Keep this notification aligned with
       // that in-canvas flow; do not send users to retired ADS panels.
       await vscode.window.showInformationMessage(
-        "Run the generated ADS route PowerShell as Administrator on the remote ADS device, then select Retry browse.",
+        "Run the generated ADS route PowerShell as Administrator on the TwinCAT computer, then reopen Browse."
       );
       break;
     case "addTags":
@@ -893,7 +732,7 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
         discoveryOriginContext.releaseBrowse(
           target.discovery_origin_runtime_id,
           target.discovery_origin_lease_id,
-          message.browseSessionId,
+          message.browseSessionId
         );
       }
       break;
@@ -934,22 +773,209 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
         if (currentStage === "welcome") {
           deviceRequested = false;
           lastFailure = undefined;
-          lastFailureAction = undefined;
         }
         await refreshNetworkCanvasPanel();
+      }
+      break;
+    case "openRuntimePane":
+      await openRuntimePane();
+      break;
+    case "openRuntimeSettings":
+      await vscode.commands.executeCommand(
+        "trust-lsp.debug.openIoPanelSettings"
+      );
+      break;
+    case "openRuntimeLogs":
+      debugChannel().show(true);
+      break;
+    case "runtimeConnect":
+      // Connect (attach) to a remote runtime by its control endpoint — never a remote "Start".
+      {
+        const endpoint =
+          typeof message.endpoint === "string" ? message.endpoint : "";
+        const label =
+          typeof message.label === "string" ? message.label : undefined;
+        const result = await runtimeLifecycleService.connectRemote(endpoint, label);
+        lastFailure = result.ok ? undefined : result.failure;
+        // Connecting also makes this runtime the active Run target (§0.5.11) — one source of truth.
+        if (result.ok && endpoint) {
+          await setSelectedRuntimeId(endpoint);
+        }
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "runtimeDisconnect":
+      // Disconnect drops OUR connection (ends the attach session) — it never kills a remote we
+      // don't own.
+      await runtimeLifecycleService.stopRuntime();
+      lastFailure = undefined;
+      await refreshNetworkCanvasPanel();
+      break;
+    case "setRuntimeAuthToken":
+      {
+        const endpoint =
+          typeof message.endpoint === "string" ? message.endpoint : "";
+        await vscode.commands.executeCommand(
+          "trust-lsp.runtime.setAuthToken",
+          { endpoint }
+        );
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "setAsRunTarget":
+      // Select this runtime for the Run bar WITHOUT connecting (§0.5.11). Managed node → its name;
+      // local sim node → the Simulator; remote → its endpoint.
+      {
+        const managedName =
+          typeof message.managedName === "string" ? message.managedName : "";
+        const endpoint =
+          typeof message.endpoint === "string" ? message.endpoint : "";
+        const target = managedName
+          ? managedName
+          : message.isLocal || !endpoint
+            ? SIMULATOR_RUNTIME_ID
+            : endpoint;
+        await setSelectedRuntimeId(target);
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "runtimeManagedStart":
+    case "runtimeManagedStop":
+      // Managed local runtime lifecycle — SAME service the Run bar uses (one lifecycle model).
+      {
+        const name = typeof message.name === "string" ? message.name : "";
+        if (extensionContext && name) {
+          const starting = message.type === "runtimeManagedStart";
+          const result =
+            starting
+              ? await startManagedRuntime(extensionContext, name)
+              : await stopManagedRuntime(extensionContext, name);
+          if (!result.ok) {
+            void vscode.window.showWarningMessage(
+              result.message ||
+                `Could not ${starting ? "start" : "stop"} ${name}.`
+            );
+          } else if (starting) {
+            const attach = await attachManagedRuntimeAfterStart(name, result);
+            lastFailure = undefined;
+            if (!attach.ok) {
+              void vscode.window.showWarningMessage(
+                attach.message || `Runtime started, but Live Values could not connect.`
+              );
+            }
+          } else {
+            await disconnectManagedRuntimeAfterStop(name, result);
+          }
+        }
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "runtimeManagedLogs":
+      {
+        const name = typeof message.name === "string" ? message.name : "";
+        if (extensionContext && name) {
+          await showManagedRuntimeLogs(extensionContext, name);
+        }
       }
       break;
   }
 }
 
-function normalizeCanvasProtocol(
-  value: unknown,
-): NetworkCanvasProtocolId | undefined {
+function modelInputForSnapshot(
+  stage: NetworkCanvasStage,
+  snapshot: RuntimeLifecycleSnapshot | undefined,
+  options: {
+    schema?: CommSchemaResponse;
+    capabilities?: CommCapabilitiesResponse;
+    activeProtocol?: NetworkCanvasProtocolId;
+    applyResult?: CommApplyResponse;
+    searchQuery?: string;
+    pinnedNodeId?: string;
+    quickAddOpen?: boolean;
+    topology?: FleetTopologyResponse;
+    topologyError?: string;
+    runtimeSetupMessage?: string;
+  } = {}
+) {
+  return {
+    stage,
+    runtime: snapshot?.status,
+    ioState: snapshot?.ioState,
+    schema: options.schema,
+    capabilities: options.capabilities,
+    activeProtocol: options.activeProtocol,
+    applyResult: options.applyResult,
+    searchQuery: options.searchQuery,
+    pinnedNodeId: options.pinnedNodeId,
+    quickAddOpen: options.quickAddOpen,
+    topology: options.topology,
+    topologyError: options.topologyError,
+    starting: snapshot?.starting,
+    failure: asNetworkFailure(lastFailure ?? snapshot?.failure),
+    deviceRequested,
+    runtimeSetupMessage: options.runtimeSetupMessage,
+  };
+}
+
+function normalizeCanvasProtocol(value: unknown): NetworkCanvasProtocolId | undefined {
   const normalized = normalizeProtocolId(value);
   return normalized &&
     NETWORK_CANVAS_IO_PROTOCOLS.includes(normalized as NetworkCanvasProtocolId)
     ? (normalized as NetworkCanvasProtocolId)
     : undefined;
+}
+
+function asNetworkFailure(
+  failure: RuntimeStartFailure | undefined
+): NetworkCanvasFailure | undefined {
+  if (!failure) {
+    return undefined;
+  }
+  return {
+    kind: failure.kind,
+    message: failure.message,
+    detail: failure.detail,
+  };
+}
+
+async function handleCanvasAction(action: string): Promise<void> {
+  switch (action) {
+    case "startLocalSimulator":
+      currentStage = "runtime_live";
+      lastFailure = undefined;
+      await refreshNetworkCanvasPanel();
+      {
+        const result = await runtimeLifecycleService.startLocalSimulator();
+        lastFailure = result.ok ? undefined : result.failure;
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "stopLocalSimulator":
+      await runtimeLifecycleService.stopRuntime();
+      lastFailure = undefined;
+      await refreshNetworkCanvasPanel();
+      break;
+    case "openRuntimePane":
+      await openRuntimePane();
+      break;
+    case "openRuntimeLogs":
+      debugChannel().show(true);
+      break;
+    case "openRuntimeSettings":
+      await vscode.commands.executeCommand(
+        "trust-lsp.debug.openIoPanelSettings"
+      );
+      break;
+  }
+}
+
+async function startConfiguredRuntime(): Promise<void> {
+  currentStage = "runtime_live";
+  lastFailure = undefined;
+  await refreshNetworkCanvasPanel();
+  const result = await runtimeLifecycleService.startRuntime();
+  lastFailure = result.ok ? undefined : result.failure;
+  await refreshNetworkCanvasPanel();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

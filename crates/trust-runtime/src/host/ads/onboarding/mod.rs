@@ -10,7 +10,7 @@ pub mod wire;
 
 pub use discover::{
     directed_broadcast_target, directed_broadcast_targets_from_candidates, discover_targets,
-    discover_targets_report, DiscoveryReport, DiscoveryRequest, DiscoveryResult, DiscoverySource,
+    DiscoveryRequest, DiscoveryResult, DiscoverySource,
 };
 pub use doctor::{
     default_step_timeouts, run_doctor, ActiveAdsDeviceSnapshot, ActiveDeviceStrategy,
@@ -23,7 +23,7 @@ pub use errors::{
 };
 pub use identity::{
     auto_route_availability_for_identity, classify_local_address, derive_default_ams_net_id,
-    derive_host_ads_identity, derive_runtime_identity_from_source, resolve_os_source_ip,
+    derive_runtime_identity_from_source, resolve_os_source_ip,
     runtime_address_candidates_from_interfaces, IdentityRequest, RuntimeAddressCandidate,
 };
 pub use import::{
@@ -36,8 +36,7 @@ pub use route::{
     RouteCredentials, RoutePlanRequest, RoutePlanRole, RouteRemoveRequest,
 };
 pub use wire::{
-    AdsOnboardingWire, AdsReadUpdateSample, AdsRouteRequirement, AdsRouterProbe, GuardedWriteProbe,
-    MockAdsOnboardingScenario, MockAdsOnboardingWire, NativeAmsSourceAddress, ObservedAdsIdentity,
+    AdsOnboardingWire, GuardedWriteProbe, MockAdsOnboardingScenario, MockAdsOnboardingWire,
 };
 
 #[cfg(feature = "ads-wire")]

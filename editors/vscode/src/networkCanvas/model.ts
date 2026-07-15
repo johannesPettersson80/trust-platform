@@ -48,13 +48,10 @@ export type NetworkCanvasProtocolId =
 
 export type NetworkCanvasFailureKind =
   | "missing_binary"
-  | "configuration"
-  | "internal_startup"
   | "port_conflict"
   | "workspace_permission"
   | "failed_spawn"
-  | "stale_runtime"
-  | "readiness_timeout";
+  | "stale_runtime";
 
 export interface NetworkCanvasFailure {
   readonly kind: NetworkCanvasFailureKind;

@@ -54,21 +54,6 @@ export function withAdsTargetPort(
   return { ...target, ams_port: port };
 }
 
-/**
- * Recovery for a service already selected and verified in Discover.
- * Happy-path handoff stays one click; only a failed browse exposes Retry, and
- * it must retry the exact selected target instead of reopening a port editor.
- */
-export function confirmedAdsBrowseRetryTarget(
-  target: Record<string, unknown>,
-  loading: boolean,
-  browseFailed: boolean
-): Record<string, unknown> | undefined {
-  return target.ads_port_confirmed === true && !loading && browseFailed
-    ? target
-    : undefined;
-}
-
 export function withCandidateAdsPort(
   candidate: DiscoverCandidate,
   port: number

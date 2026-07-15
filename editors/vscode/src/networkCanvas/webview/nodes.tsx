@@ -9,7 +9,6 @@ import {
 } from "./connectorPresentation";
 import { useEditMode, type AddSlotRequest } from "./editMode";
 import { protocolBadgeLabel, protocolColor, protocolName } from "./protocolMeta";
-import { simulatorLifecycleLabel } from "./simulatorLifecyclePresentation";
 import { t, tint } from "./theme";
 import {
   LOCAL_RUNTIME_NODE_ID,
@@ -89,9 +88,9 @@ export function roleWord(protocol: string, role: string): string {
     case "opcua":
       return role === "client" ? "CLIENT" : "SERVER";
     case "ads":
-      return role === "server" ? "ADS OUT" : "ADS IN";
+      return role === "server" ? "SERVER" : "CLIENT";
     case "ads_server":
-      return "ADS OUT";
+      return "SERVER";
     case "mqtt":
       return "PUB/SUB";
     case "mesh":
@@ -129,7 +128,7 @@ const PORT_STYLE: React.CSSProperties = {
 };
 
 // §7 honesty: unproven/pending config renders ghost/dashed and never green.
-const PENDING_STATES = new Set(["starting", "pending", "not_configured", "not_in_build", "configured_policy", "unknown", "disabled"]);
+const PENDING_STATES = new Set(["pending", "not_configured", "not_in_build", "configured_policy", "unknown", "disabled"]);
 function isPending(health: string): boolean {
   return PENDING_STATES.has(health);
 }
@@ -151,32 +150,6 @@ function isDraftLikeEndpoint(protocol: string, role: string, health: string): bo
 const HOST_PROBLEM_STATES = new Set(["error", "degraded", "runtime_unreachable"]);
 function isHostProblem(health: string): boolean {
   return HOST_PROBLEM_STATES.has(health);
-}
-
-export function runtimeCardSurface(health: string): {
-  background: string;
-  border: string;
-  tone: "running" | "neutral" | "error";
-} {
-  if (health === "connected") {
-    return {
-      background: t.roleRuntimeBg,
-      border: t.roleRuntimeBorder,
-      tone: "running",
-    };
-  }
-  if (["error", "degraded", "runtime_unreachable"].includes(health)) {
-    return {
-      background: `color-mix(in srgb, ${t.danger} 10%, ${t.surfaceRaised} 90%)`,
-      border: `color-mix(in srgb, ${t.danger} 55%, ${t.border} 45%)`,
-      tone: "error",
-    };
-  }
-  return {
-    background: t.surfaceRaised,
-    border: t.border,
-    tone: "neutral",
-  };
 }
 
 // A node card surface. Hairline border + soft role tint (theme-aware); dashed + dimmed when pending.
@@ -212,8 +185,6 @@ function statusLabel(health: string): string {
     case "pending":
       // Configured but not running / state not yet known — honest-neutral, never overclaim a live connect.
       return "Pending";
-    case "starting":
-      return "Starting…";
     case "configured_policy":
       return "Configured only";
     case "stopped":
@@ -236,13 +207,9 @@ function statusLabel(health: string): string {
 function StatusPill({ health, label, tone }: { health: string; label?: string; tone?: string }) {
   const c = tone ?? healthColor(health);
   const live = !tone && health === "connected";
-  const effectiveLabel = label ?? statusLabel(health);
   return (
     <span
-      data-role="status-pill"
-      data-status-label={effectiveLabel}
-      title={effectiveLabel}
-      aria-label={effectiveLabel}
+      title={health}
       style={{
         flex: "none",
         display: "inline-flex",
@@ -262,7 +229,7 @@ function StatusPill({ health, label, tone }: { health: string; label?: string; t
         className={live ? "trust-dot trust-dot--live" : "trust-dot"}
         style={{ width: 7, height: 7, borderRadius: "50%", background: c, boxShadow: `0 0 0 3px ${tint(c, 0.16)}` }}
       />
-      {effectiveLabel}
+      {label ?? statusLabel(health)}
     </span>
   );
 }
@@ -360,11 +327,6 @@ ContainerNode.displayName = "ContainerNode";
 
 export const RuntimeNode = memo(({ id, data }: NodeProps) => {
   const d = data as RuntimeNodeData;
-  const surface = runtimeCardSurface(d.health);
-  const lifecycleState =
-    simulatorLifecycleLabel(d.health, d.mode) ?? statusLabel(d.health);
-  const targetKind =
-    d.mode.trim().toLowerCase() === "simulate" ? "Simulator" : "Runtime";
   const [hover, setHover] = useState(false);
   const { editMode } = useEditMode();
   // First-run orientation: a runtime with no devices is otherwise a blank box. The primary path is the
@@ -378,15 +340,12 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
     (id === LOCAL_RUNTIME_NODE_ID || d.health === "connected");
   return (
     <div
-      data-role="runtime-card"
-      data-health={d.health}
-      data-surface-tone={surface.tone}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         ...cardStyle(d.health, {
-          background: surface.background,
-          border: surface.border,
+          background: t.roleRuntimeBg,
+          border: t.roleRuntimeBorder,
         }),
         display: "flex",
         flexDirection: "column",
@@ -395,7 +354,7 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
-          rows={[["State", lifecycleState], ["Target", targetKind], ["Endpoints", String(d.endpointCount)], ["Container", d.container ?? ""], ["Detail", d.detail]]}
+          rows={[["mode", d.mode], ["health", d.health], ["endpoints", String(d.endpointCount)], ["container", d.container ?? ""], ["detail", d.detail]]}
         />
       </NodeToolbar>
       <Handle type="target" position={Position.Left} style={PORT_STYLE} />
@@ -429,13 +388,10 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <StatusPill
-            health={d.health}
-            label={simulatorLifecycleLabel(d.health, d.mode)}
-          />
+          <StatusPill health={d.health} />
           {d.runTarget === true && (
             <span
-              title="Selected target for Start and Connect"
+              title="Selected run target"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -449,7 +405,7 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
                 padding: "3px 7px",
               }}
             >
-              Selected target
+              Run target
             </span>
           )}
         </div>
@@ -458,7 +414,7 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 16px 14px", textAlign: "center" }}>
           <div style={{ fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>No devices yet</div>
           <div style={{ fontSize: 10.5, color: t.textSubtle, lineHeight: 1.5 }}>
-            Choose <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover ADS devices</span> to find ADS devices already running, or <span style={{ color: t.textMuted, fontWeight: 600 }}>+ Add</span> to configure one.
+            Use <span style={{ color: t.textMuted, fontWeight: 600 }}>+ Add</span> to add one, or <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover</span> to scan the network.
           </div>
         </div>
       )}

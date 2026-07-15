@@ -156,7 +156,7 @@ fn apply_project_ads_config(
         u64::try_from(runtime_config.ads.worker_tick_interval.as_millis()).unwrap_or(20),
     );
     for connection in &config.connections {
-        let transport = trust_runtime::ads::HostAdsTransport::new(connection.route.clone());
+        let transport = trust_runtime::ads::AdsRsTransport::new(connection.route.clone());
         runtime
             .start_ads_connection(connection, transport, worker_tick_interval)
             .map_err(|err| CompileError::new(format!("failed to start ADS runtime: {err}")))?;

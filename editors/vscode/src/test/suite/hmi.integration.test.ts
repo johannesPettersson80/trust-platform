@@ -27,7 +27,6 @@ import {
   __testSetControlRequestHandler,
   HmiWidgetSchema,
 } from "../../hmiPanel";
-import { deleteWorkspaceTreeStrict } from "./workspace-cleanup";
 
 suite("HMI preview integration (VS Code)", function () {
   this.timeout(30000);
@@ -120,7 +119,14 @@ suite("HMI preview integration (VS Code)", function () {
 
   suiteTeardown(async () => {
     __testResetHmiPanelState();
-    await deleteWorkspaceTreeStrict(fixturesRoot);
+    try {
+      await vscode.workspace.fs.delete(fixturesRoot, {
+        recursive: true,
+        useTrash: false,
+      });
+    } catch {
+      // Ignore cleanup failures in test teardown.
+    }
   });
 
   teardown(() => {

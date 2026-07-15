@@ -26,10 +26,7 @@ export interface DiscoverySessionState {
   readonly sessionCurrent: boolean;
   readonly terminal: boolean;
   readonly adsServiceProbes: Readonly<Record<string, AdsServiceProbeViewState>>;
-  readonly warning?: string;
-  readonly warningDetails?: readonly string[];
   readonly error?: string;
-  readonly errorDetails?: readonly string[];
   readonly errorCode?: DiscoveryErrorCode;
 }
 
@@ -40,10 +37,7 @@ export type DiscoverySessionAction =
   | {
       readonly type: "results";
       readonly candidates: readonly DiscoverCandidate[];
-      readonly warning?: string;
-      readonly warningDetails?: readonly string[];
       readonly error?: string;
-      readonly errorDetails?: readonly string[];
       readonly errorCode?: DiscoveryErrorCode;
     }
   | { readonly type: "adsProbeStarted"; readonly candidateId: string }
@@ -72,12 +66,6 @@ export interface DiscoverySessionController extends DiscoverySessionState {
   handoffToBrowse(candidate: DiscoverCandidate): DiscoverCandidate;
   reset(): void;
   close(): void;
-}
-
-export function discoveryProgressStatus(
-  status: unknown
-): DiscoverProgressRow["status"] {
-  return status === "done" || status === "failed" ? status : "scanning";
 }
 
 const EMPTY_DISCOVERY_STATE: DiscoverySessionState = {
@@ -130,30 +118,14 @@ export function reduceDiscoverySessionState(
         results: action.candidates,
         sessionCurrent: true,
         terminal: true,
-        warning: action.warning,
-        warningDetails: action.warningDetails,
         error: action.error,
-        errorDetails: action.errorDetails,
         errorCode: action.errorCode,
       };
     case "adsProbeStarted":
       return {
         ...state,
         adsServiceProbes: {
-          ...Object.fromEntries(
-            Object.entries(state.adsServiceProbes).map(([candidateId, probe]) => [
-              candidateId,
-              candidateId !== action.candidateId && probe.probing
-                ? {
-                    ...probe,
-                    probing: false,
-                    currentPort: undefined,
-                    completed: true,
-                    error: "Check canceled because another ADS device check started.",
-                  }
-                : probe,
-            ])
-          ),
+          ...state.adsServiceProbes,
           [action.candidateId]: {
             probing: true,
             results: [],
@@ -284,7 +256,7 @@ export function useDiscoverySession(
           row: {
             protocol: String(message.protocol ?? ""),
             label: String(message.label ?? ""),
-            status: discoveryProgressStatus(message.status),
+            status: message.status === "done" ? "done" : "scanning",
             count:
               typeof message.count === "number" ? message.count : undefined,
           },
@@ -295,21 +267,7 @@ export function useDiscoverySession(
           candidates: Array.isArray(message.candidates)
             ? (message.candidates as DiscoverCandidate[])
             : [],
-          warning:
-            typeof message.warning === "string" ? message.warning : undefined,
-          warningDetails: Array.isArray(message.warningDetails)
-            ? message.warningDetails.filter(
-                (detail): detail is string =>
-                  typeof detail === "string" && detail.trim().length > 0
-              )
-            : undefined,
           error: typeof message.error === "string" ? message.error : undefined,
-          errorDetails: Array.isArray(message.errorDetails)
-            ? message.errorDetails.filter(
-                (detail): detail is string =>
-                  typeof detail === "string" && detail.trim().length > 0
-              )
-            : undefined,
           errorCode: isDiscoveryErrorCode(message.errorCode)
             ? message.errorCode
             : undefined,

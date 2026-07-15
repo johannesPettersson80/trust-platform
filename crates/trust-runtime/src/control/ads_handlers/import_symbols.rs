@@ -9,8 +9,8 @@ use crate::ads::diagnostics::{
 };
 use crate::ads::onboarding::{
     apply_symbol_import, build_route_plan, build_symbol_import_response,
-    upload_failure_implies_missing_return_route, AdsRouteRequirement, OnboardingWireError,
-    RoutePlanRequest, RoutePlanRole, SymbolImportApplyRequest, SymbolImportRequest,
+    upload_failure_implies_missing_return_route, OnboardingWireError, RoutePlanRequest,
+    RoutePlanRole, SymbolImportApplyRequest, SymbolImportRequest,
 };
 
 use super::super::{ControlResponse, ControlState};
@@ -206,7 +206,6 @@ fn apply_import_to_project(
         .unwrap_or(CredentialChannelClassification::TrustedSameHost);
     let route_plan =
         build_import_route_plan(params.connection_name.as_str(), &target, &local, channel);
-    let route_requirement = import_route_requirement(&target);
     let symbols = selected_symbol_names(params.symbols)?;
     if symbols.is_empty() && params.include_patterns.is_empty() {
         return Err(
@@ -226,7 +225,7 @@ fn apply_import_to_project(
     } else {
         let symbols = match upload_live_symbols(&target) {
             Ok(symbols) => symbols,
-            Err(error) if upload_failure_requires_route_recovery(route_requirement, &error) => {
+            Err(error) if upload_failure_implies_missing_return_route(&error) => {
                 return Ok(route_missing_apply_report(
                     project_root,
                     params.connection_name,
@@ -324,26 +323,6 @@ fn apply_import_to_project(
                 .to_string(),
         route: None,
     })
-}
-
-fn upload_failure_requires_route_recovery(
-    requirement: AdsRouteRequirement,
-    error: &OnboardingWireError,
-) -> bool {
-    requirement == AdsRouteRequirement::ReciprocalRouteRequired
-        && upload_failure_implies_missing_return_route(error)
-}
-
-#[cfg(feature = "ads-wire")]
-fn import_route_requirement(target: &TargetIdentity) -> AdsRouteRequirement {
-    use crate::ads::onboarding::AdsOnboardingWire;
-
-    crate::ads::onboarding::AdsRsOnboardingWire::default().route_requirement(&target.ip)
-}
-
-#[cfg(not(feature = "ads-wire"))]
-fn import_route_requirement(_target: &TargetIdentity) -> AdsRouteRequirement {
-    AdsRouteRequirement::ReciprocalRouteRequired
 }
 
 fn build_import_route_plan(
@@ -492,7 +471,8 @@ fn derive_local_identity_for_apply(target: &TargetIdentity) -> Result<LocalIdent
     use std::net::{SocketAddr, ToSocketAddrs};
 
     use crate::ads::onboarding::{
-        derive_host_ads_identity, runtime_address_candidates_from_interfaces, IdentityRequest,
+        derive_runtime_identity_from_source, resolve_os_source_ip,
+        runtime_address_candidates_from_interfaces, IdentityRequest,
     };
 
     let resolved_ip = if target.ip.parse::<std::net::IpAddr>().is_ok() {
@@ -507,11 +487,20 @@ fn derive_local_identity_for_apply(target: &TargetIdentity) -> Result<LocalIdent
     };
     let candidates = runtime_address_candidates_from_interfaces()
         .map_err(|error| format!("enumerate local interfaces for ADS import: {error}"))?;
-    derive_host_ads_identity(
+    let source_ip = resolve_os_source_ip(resolved_ip.as_str())
+        .map_err(|error| format!("resolve local ADS source IP: {error}"))?;
+    let nic = candidates
+        .iter()
+        .find(|candidate| candidate.ip == source_ip)
+        .and_then(|candidate| candidate.nic.clone());
+    derive_runtime_identity_from_source(
         &IdentityRequest {
             target_ip: resolved_ip,
             local_net_id_override: None,
         },
+        source_ip,
+        None,
+        nic,
         candidates,
     )
     .map_err(|error| error.to_string())
@@ -660,24 +649,6 @@ mod tests {
             .pointer("/route/detail")
             .and_then(Value::as_str)
             .is_some_and(|detail| detail.contains("timed out")));
-    }
-
-    #[test]
-    fn native_local_import_timeout_never_returns_self_route_recovery() {
-        let timeout = OnboardingWireError::new(
-            crate::ads::onboarding::OnboardingWireErrorKind::NoSymbols,
-            "ADS client synchronous timeout",
-        )
-        .with_transport_failure(crate::ads::transport::AdsTransportFailureKind::TimedOut);
-
-        assert!(!upload_failure_requires_route_recovery(
-            AdsRouteRequirement::NativeLocalRouter,
-            &timeout
-        ));
-        assert!(upload_failure_requires_route_recovery(
-            AdsRouteRequirement::ReciprocalRouteRequired,
-            &timeout
-        ));
     }
 
     fn real_symbol(name: &str) -> SymbolDescriptor {

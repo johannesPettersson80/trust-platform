@@ -1,8 +1,6 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 
-import { deleteWorkspaceTreeStrict } from "./workspace-cleanup";
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -214,7 +212,14 @@ suite("LSP integration (VS Code)", function () {
   });
 
   suiteTeardown(async () => {
-    await deleteWorkspaceTreeStrict(fixturesRoot);
+    try {
+      await vscode.workspace.fs.delete(fixturesRoot, {
+        recursive: true,
+        useTrash: false,
+      });
+    } catch {
+      // Ignore cleanup failures in test teardown.
+    }
   });
 
   async function createDocument(

@@ -264,15 +264,12 @@ impl Runtime {
                 format!("ADS connection '{}': {err}", connection.route.name).into(),
             )
         })?;
-        let (mut bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(
-            transport, bindings,
-        )
-        .map_err(|err| {
-            error::RuntimeError::IoTransport(
-                format!("ADS connection '{}': {err}", connection.route.name).into(),
-            )
-        })?;
-        bridge.initialize_live_values(&self.storage);
+        let (bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(transport, bindings)
+            .map_err(|err| {
+                error::RuntimeError::IoTransport(
+                    format!("ADS connection '{}': {err}", connection.route.name).into(),
+                )
+            })?;
         let worker = worker.spawn(worker_tick_interval).map_err(|err| {
             error::RuntimeError::IoTransport(
                 format!("ADS connection '{}': {err}", connection.route.name).into(),
@@ -303,12 +300,6 @@ impl Runtime {
     #[must_use]
     pub fn ads_status_report(&self) -> crate::ads::diagnostics::AdsStatusReport {
         self.ads.status_report()
-    }
-
-    /// Current scan-owned ADS binding values and communication quality.
-    #[must_use]
-    pub fn ads_live_values_snapshot(&self) -> crate::ads::AdsLiveValuesSnapshot {
-        self.ads.live_values_snapshot(self.cycle_counter)
     }
 
     /// Configure OPC UA client connections for this runtime.

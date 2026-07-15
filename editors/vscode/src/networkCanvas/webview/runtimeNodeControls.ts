@@ -1,23 +1,15 @@
 // Honest per-runtime controls for the Network Canvas runtime-node inspector (vscode-ux-overhaul-plan
 // §8 P3b). Pure (no React/vscode) so it is unit-testable. The HARD rule: a remote runtime — one whose
 // process we do NOT own — NEVER gets "Start"/"Stop". It gets "Connect"/"Disconnect" (we only manage
-// OUR connection). The local Simulator is controlled only from the truST sidebar, so its canvas
-// inspector deliberately has no Start/Stop action.
-
-import type { LifecyclePhase } from "../../lifecycleEntryFailure";
-import {
-  runtimeOperationBlockReason,
-  type RuntimeLockedAction,
-} from "../../runtimeOperationPolicy";
-import {
-  AUTHORITY_CHECK_RUNTIME_NODE_ID,
-  LOCAL_RUNTIME_NODE_ID,
-} from "./types";
+// OUR connection). The local simulator (we own the process) gets "Start"/"Stop".
 
 export interface RuntimeNodeControl {
-  // The webview-to-panel message action. Simulator lifecycle is intentionally
-  // absent: the truST sidebar is its only Start/Stop owner.
+  // The webview→panel message action. Local lifecycle reuses the existing canvas actions
+  // ("startLocalSimulator"/"stopLocalSimulator"/"openRuntimeLogs"/"openRuntimeSettings"); remote uses
+  // dedicated messages ("runtimeConnect"/"runtimeDisconnect"). "none" = no-op (disabled progress).
   readonly action:
+    | "startLocalSimulator"
+    | "stopLocalSimulator"
     | "managedStart"
     | "managedStop"
     | "runtimeConnect"
@@ -30,14 +22,12 @@ export interface RuntimeNodeControl {
   readonly label: string;
   readonly kind: "primary" | "secondary";
   readonly enabled: boolean;
-  readonly disabledReason?: string;
 }
 
 export interface RuntimeNodeActionItem {
   readonly key: string;
   readonly label: string;
   readonly enabled: boolean;
-  readonly title?: string;
   readonly onClick: () => void;
 }
 
@@ -50,7 +40,7 @@ export interface RuntimeNodeControlLayout {
 
 export interface RuntimeNodeControlsInput {
   readonly isLocal: boolean;
-  readonly health: string; // the runtime's OWN health: "connected" | "starting" | "stopped" | "error" | …
+  readonly health: string; // the runtime's OWN health: "connected" | "pending" | "stopped" | "error" | …
   readonly attached: boolean; // does the extension hold a live connection to THIS runtime?
   readonly controlEndpoint?: string;
   // A managed local runtime (fleet.toml project we own — Phase 9): Start/Stop via the fleet lifecycle.
@@ -62,39 +52,17 @@ export interface RuntimeNodeControlsInput {
   // change lifecycle ownership: Connect remains available as a retry, but Set auth token becomes the
   // primary next action because the error has already proven Connect cannot succeed without it.
   readonly authTokenRequired?: boolean;
-  // The host lifecycle authority owns one transition/session at a time. The
-  // webview mirrors that policy for immediate feedback; the host rechecks it.
-  readonly lifecyclePhase?: LifecyclePhase;
-  readonly operationInProgress?: boolean;
-}
-
-export interface RuntimeNodeControlsForNodeInput extends RuntimeNodeControlsInput {
-  readonly nodeId: string;
-}
-
-/** Pending authority and Simulator nodes never expose canvas lifecycle controls. */
-export function runtimeNodeControlsForNode(
-  input: RuntimeNodeControlsForNodeInput,
-): RuntimeNodeControl[] {
-  if (
-    input.nodeId === LOCAL_RUNTIME_NODE_ID ||
-    input.nodeId === AUTHORITY_CHECK_RUNTIME_NODE_ID
-  ) {
-    return [];
-  }
-  const { nodeId: _nodeId, ...controlsInput } = input;
-  return runtimeNodeControls(controlsInput);
 }
 
 export function runtimeNodeControls(
-  input: RuntimeNodeControlsInput,
+  input: RuntimeNodeControlsInput
 ): RuntimeNodeControl[] {
   const primary = primaryControl(input);
-  const controls: RuntimeNodeControl[] = [
-    ...(primary ? [primary] : []),
+  return [
+    primary,
     ...(input.authTokenRequired && input.controlEndpoint
       ? [
-          ...(primary?.action === "setAuthToken"
+          ...(primary.action === "setAuthToken"
             ? [
                 {
                   action: "runtimeConnect" as const,
@@ -104,7 +72,7 @@ export function runtimeNodeControls(
                 },
               ]
             : []),
-          ...(primary?.action === "setAuthToken"
+          ...(primary.action === "setAuthToken"
             ? []
             : [
                 {
@@ -116,11 +84,11 @@ export function runtimeNodeControls(
               ]),
         ]
       : []),
-    // "Select as target" selects this runtime for the sidebar WITHOUT connecting (§0.5.11). Connecting
+    // "Set as run target" selects this runtime for the Run bar WITHOUT connecting (§0.5.11). Connecting
     // also sets the target, but this is the select-only path.
     {
       action: "setAsRunTarget",
-      label: "Select as target",
+      label: "Set as run target",
       kind: "secondary",
       enabled: true,
     },
@@ -142,14 +110,6 @@ export function runtimeNodeControls(
       enabled: true,
     },
   ];
-  return controls.map((control) =>
-    controlWithLifecyclePolicy(
-      control,
-      input.lifecyclePhase ?? "stopped",
-      input.attached,
-      input.operationInProgress ?? false,
-    ),
-  );
 }
 
 export const MAX_VISIBLE_RUNTIME_NODE_SECONDARY = 2;
@@ -158,7 +118,7 @@ export function runtimeNodeControlLayout(
   controls: readonly RuntimeNodeControl[] | undefined,
   onControl: ((control: RuntimeNodeControl) => void) | undefined,
   extraSecondary: readonly RuntimeNodeActionItem[] = [],
-  showAllSecondary = false,
+  showAllSecondary = false
 ): RuntimeNodeControlLayout {
   if (!controls || !onControl) {
     return {
@@ -175,7 +135,6 @@ export function runtimeNodeControlLayout(
         key: `${control.action}:${control.label}`,
         label: control.label,
         enabled: control.enabled,
-        title: control.disabledReason,
         onClick: () => onControl(control),
       })),
     ...extraSecondary,
@@ -191,63 +150,32 @@ export function runtimeNodeControlLayout(
   };
 }
 
-function controlWithLifecyclePolicy(
-  control: RuntimeNodeControl,
-  phase: LifecyclePhase,
-  ownsAcceptedSession: boolean,
-  operationInProgress: boolean,
-): RuntimeNodeControl {
-  const operation = lockedOperationForControl(control.action);
-  if (!operation) {
-    return control;
-  }
-  const disabledReason =
-    control.action === "managedStop" &&
-    phase !== "stopped" &&
-    !ownsAcceptedSession
-      ? runtimeOperationBlockReason(phase, "managed_start", operationInProgress)
-      : runtimeOperationBlockReason(phase, operation, operationInProgress);
-  return disabledReason
-    ? { ...control, enabled: false, disabledReason }
-    : control;
-}
-
-function lockedOperationForControl(
-  action: RuntimeNodeControl["action"],
-): RuntimeLockedAction | undefined {
-  switch (action) {
-    case "runtimeConnect":
-      return "remote_connect";
-    case "runtimeDisconnect":
-      return "remote_disconnect";
-    case "managedStart":
-      return "managed_start";
-    case "managedStop":
-      return "managed_stop";
-    case "setAsRunTarget":
-      return "set_run_target";
-    default:
-      return undefined;
-  }
-}
-
-function primaryControl(
-  input: RuntimeNodeControlsInput,
-): RuntimeNodeControl | undefined {
+function primaryControl(input: RuntimeNodeControlsInput): RuntimeNodeControl {
   if (input.managed) {
     // A managed local runtime project — we own the process → Start / Stop (never Connect).
     return input.health === "connected"
       ? { action: "managedStop", label: "Stop", kind: "primary", enabled: true }
-      : {
-          action: "managedStart",
-          label: "Start",
-          kind: "primary",
-          enabled: true,
-        };
+      : { action: "managedStart", label: "Start", kind: "primary", enabled: true };
   }
   if (input.isLocal) {
-    // One lifecycle surface: the truST sidebar owns Simulator Start/Stop.
-    return undefined;
+    // We own the local simulator process → Start / Stop.
+    if (input.health === "pending") {
+      return { action: "none", label: "Starting…", kind: "primary", enabled: false };
+    }
+    if (input.health === "connected") {
+      return {
+        action: "stopLocalSimulator",
+        label: "Stop",
+        kind: "primary",
+        enabled: true,
+      };
+    }
+    return {
+      action: "startLocalSimulator",
+      label: "Start",
+      kind: "primary",
+      enabled: true,
+    };
   }
   // Remote runtime: we do NOT own the process → Connect / Disconnect, NEVER Stop.
   if (input.attached) {

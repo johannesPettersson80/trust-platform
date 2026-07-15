@@ -44,23 +44,17 @@ export const ADD_PICKER_GROUPS: ReadonlyArray<PickerGroupSpec> = [
   {
     key: "read_tags",
     label: "Read tags from another PLC or server",
-    ids: ["opcua_client"],
+    ids: ["opcua_client", "ads"],
   },
   {
     key: "share_values",
     label: "Share truST values",
-    ids: ["opcua"],
+    ids: ["opcua", "ads_server"],
   },
   {
     key: "messages",
     label: "Send and receive messages",
     ids: ["mqtt"],
-  },
-  {
-    key: "ads_advanced",
-    label: "ADS advanced setup",
-    advanced: true,
-    ids: ["ads", "ads_server"],
   },
   {
     key: "advanced",
@@ -102,18 +96,16 @@ const ADD_PICKER_COPY: Record<string, PickerProtocolCopy> = {
     badge: "UA IN",
   },
   ads: {
-    title: "Connect using a known ADS address",
-    purpose: "Use when automatic ADS discovery cannot find the device.",
-    badge: "ADS",
+    purpose: "Read tags from a TwinCAT or ADS PLC.",
+    badge: "ADS IN",
   },
   opcua: {
     purpose: "Share truST values with SCADA, HMI, or historians.",
     badge: "UA OUT",
   },
   ads_server: {
-    title: "Expose this truST runtime as an ADS server",
-    purpose: "Advanced server setup for ADS clients that read truST values.",
-    badge: "ADS SERVER",
+    purpose: "Share truST values with TwinCAT or ADS clients.",
+    badge: "ADS OUT",
   },
   mqtt: {
     title: "MQTT broker",

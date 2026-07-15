@@ -40,9 +40,3 @@ mod tests_part_04;
 mod tests_part_05;
 #[path = "tests_part_06.rs"]
 mod tests_part_06;
-#[path = "tests_part_07.rs"]
-mod tests_part_07;
-#[path = "tests_part_08.rs"]
-mod tests_part_08;
-#[path = "tests_part_09.rs"]
-mod tests_part_09;

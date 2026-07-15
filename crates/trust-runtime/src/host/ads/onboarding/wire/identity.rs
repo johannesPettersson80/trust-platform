@@ -1,88 +1,26 @@
-#[cfg(any(not(windows), test))]
 use std::io::{Read, Write};
-#[cfg(any(not(windows), test))]
-use std::net::TcpStream;
-#[cfg(not(windows))]
-use std::net::ToSocketAddrs;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
 
 use crate::ads::diagnostics::TargetIdentity;
 use crate::ads::onboarding::errors::{OnboardingWireError, OnboardingWireErrorKind};
 
-use super::{
-    DirectedIdentityObservation, DirectedIdentityTransport, ObservedAdsIdentity,
-    DEFAULT_ADS_PLC_PORT,
-};
+use super::{DirectedIdentityObservation, DirectedIdentityTransport, DEFAULT_ADS_PLC_PORT};
 
-#[cfg(any(windows, test))]
-mod local_runtime;
-#[cfg(any(windows, test))]
-mod windows_runtime;
-
-#[cfg(any(not(windows), test))]
 const AMS_ROUTER_OPEN_PORT: [u8; 8] = [0, 16, 2, 0, 0, 0, 0, 0];
-#[cfg(any(not(windows), test))]
 const AMS_ROUTER_OPEN_REPLY_HEADER: [u8; 6] = [0, 16, 8, 0, 0, 0];
-pub(super) fn identify_targets(
-    target_ip: &str,
-    router_timeout: Duration,
-) -> Result<Vec<DirectedIdentityObservation>, OnboardingWireError> {
-    #[cfg(windows)]
-    if is_loopback_target(target_ip)
-        || crate::ads::backend_host::target_uses_native_windows_router(target_ip)
-    {
-        return local_runtime::identities(target_ip, router_timeout).map(|report| {
-            let mut warnings = Some(report.warnings);
-            report
-                .identities
-                .into_iter()
-                .map(|identity| DirectedIdentityObservation {
-                    identity,
-                    transport: DirectedIdentityTransport::LocalRouter,
-                    warnings: warnings.take().unwrap_or_default(),
-                })
-                .collect()
-        });
-    }
-    #[cfg(not(windows))]
-    if is_loopback_target(target_ip) {
-        return match identify_target(target_ip, router_timeout) {
-            Ok(target) => Ok(vec![target]),
-            Err(_) => Ok(Vec::new()),
-        };
-    }
-    identify_target(target_ip, router_timeout).map(|target| vec![target])
-}
 
 pub(super) fn identify_target(
     target_ip: &str,
     router_timeout: Duration,
 ) -> Result<DirectedIdentityObservation, OnboardingWireError> {
-    #[cfg(windows)]
-    let router_error: Option<OnboardingWireError> = None;
-    #[cfg(not(windows))]
-    let mut router_error: Option<OnboardingWireError> = None;
-    #[cfg(windows)]
-    let is_local_router_target = is_loopback_target(target_ip)
-        || crate::ads::backend_host::target_uses_native_windows_router(target_ip);
-    #[cfg(not(windows))]
-    let is_local_router_target = is_loopback_target(target_ip);
-    if is_local_router_target {
-        let local_result = local_router_identity(target_ip, router_timeout);
-        #[cfg(windows)]
-        return local_result.map(|target| DirectedIdentityObservation {
-            identity: ObservedAdsIdentity::responding(target),
-            transport: DirectedIdentityTransport::LocalRouter,
-            warnings: Vec::new(),
-        });
-        #[cfg(not(windows))]
-        match local_result {
+    let mut router_error = None;
+    if is_loopback_target(target_ip) {
+        match local_router_identity(target_ip, router_timeout) {
             Ok(target) => {
                 return Ok(DirectedIdentityObservation {
-                    identity: ObservedAdsIdentity::identity_only(target),
+                    target,
                     transport: DirectedIdentityTransport::LocalRouter,
-                    warnings: Vec::new(),
                 })
             }
             Err(error) => router_error = Some(error),
@@ -91,12 +29,7 @@ pub(super) fn identify_target(
 
     let info = ads::udp::get_info((target_ip, ads::UDP_PORT)).map_err(|error| {
         let router_detail = router_error
-            .map(|router_error| {
-                format!(
-                    "; local AMS router fallback failed: {}",
-                    router_error.detail
-                )
-            })
+            .map(|router_error| format!("; local AMS router fallback failed: {router_error}"))
             .unwrap_or_default();
         OnboardingWireError::new(
             OnboardingWireErrorKind::UdpIdentifyBlocked,
@@ -104,15 +37,14 @@ pub(super) fn identify_target(
         )
     })?;
     Ok(DirectedIdentityObservation {
-        identity: ObservedAdsIdentity::identity_only(TargetIdentity {
+        target: TargetIdentity {
             name: Some(info.hostname),
             ip: target_ip.to_string(),
             ams_net_id: info.netid.to_string(),
             ams_port: DEFAULT_ADS_PLC_PORT,
             tc_version: tc_version_string(info.twincat_version),
-        }),
+        },
         transport: DirectedIdentityTransport::Udp,
-        warnings: Vec::new(),
     })
 }
 
@@ -141,14 +73,14 @@ pub(super) fn identify_all(
                 format!("set ADS UDP identify timeout: {error}"),
             )
         })?;
-    send_identify_requests(&socket, request.as_bytes(), (target_ip, ads::UDP_PORT)).map_err(
-        |error| {
+    socket
+        .send_to(request.as_bytes(), (target_ip, ads::UDP_PORT))
+        .map_err(|error| {
             OnboardingWireError::new(
                 OnboardingWireErrorKind::UdpIdentifyBlocked,
                 format!("send ADS UDP identify to {target_ip}: {error}"),
             )
-        },
-    )?;
+        })?;
 
     let mut results = Vec::new();
     let mut reply = [0_u8; 576];
@@ -184,51 +116,26 @@ pub(super) fn identify_all(
         }
     }
 
-    Ok(results)
-}
-
-fn send_identify_requests<T>(socket: &UdpSocket, request: &[u8], target: T) -> std::io::Result<()>
-where
-    T: std::net::ToSocketAddrs + Copy,
-{
-    socket.send_to(request, target)?;
-    // UDP discovery is intentionally connectionless and a single request or
-    // reply can be lost. One short, bounded retry materially improves the
-    // normal one-button LAN journey without extending the receive window or
-    // turning discovery into an unbounded scan.
-    std::thread::sleep(Duration::from_millis(75));
-    socket.send_to(request, target)?;
-    Ok(())
+    if results.is_empty() {
+        Err(OnboardingWireError::new(
+            OnboardingWireErrorKind::UdpIdentifyBlocked,
+            format!("ADS UDP identify failed for {target_ip}: no target answered"),
+        ))
+    } else {
+        Ok(results)
+    }
 }
 
 fn local_router_identity(
     target_ip: &str,
     timeout: Duration,
 ) -> Result<TargetIdentity, OnboardingWireError> {
-    #[cfg(windows)]
-    {
-        local_runtime::identities(target_ip, timeout)?
-            .identities
-            .into_iter()
-            .find_map(ObservedAdsIdentity::into_responding_target)
-            .ok_or_else(|| {
-                local_router_error(
-                    target_ip,
-                    "a local ADS identity responded, but no user ADS service port responded"
-                        .to_string(),
-                )
-            })
-    }
-    #[cfg(not(windows))]
-    {
-        let address = first_socket_addr((target_ip, ads::PORT)).map_err(|error| {
-            local_router_error(target_ip, format!("resolve local AMS router: {error}"))
-        })?;
-        local_router_identity_at(address, target_ip, timeout)
-    }
+    let address = first_socket_addr((target_ip, ads::PORT)).map_err(|error| {
+        local_router_error(target_ip, format!("resolve local AMS router: {error}"))
+    })?;
+    local_router_identity_at(address, target_ip, timeout)
 }
 
-#[cfg(any(not(windows), test))]
 fn local_router_identity_at(
     address: SocketAddr,
     target_ip: &str,
@@ -301,7 +208,6 @@ fn tc_version_string(version: (u8, u8, u16)) -> Option<String> {
     }
 }
 
-#[cfg(not(windows))]
 fn first_socket_addr(target: (&str, u16)) -> Result<SocketAddr, std::io::Error> {
     target.to_socket_addrs()?.next().ok_or_else(|| {
         std::io::Error::new(
@@ -319,7 +225,6 @@ fn is_loopback_target(target: &str) -> bool {
             .is_ok_and(|address| address.is_loopback())
 }
 
-#[cfg(any(not(windows), test))]
 fn ams_net_id_text(bytes: &[u8]) -> String {
     bytes
         .iter()
@@ -330,45 +235,17 @@ fn ams_net_id_text(bytes: &[u8]) -> String {
 
 fn local_router_error(target_ip: &str, detail: String) -> OnboardingWireError {
     OnboardingWireError::new(
-        OnboardingWireErrorKind::LocalRouterUnavailable,
-        format!("local ADS router/runtime check failed for {target_ip}: {detail}"),
+        OnboardingWireErrorKind::UdpIdentifyBlocked,
+        format!("local AMS router identity failed for {target_ip}: {detail}"),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use std::net::{TcpListener, UdpSocket};
+    use std::net::TcpListener;
     use std::thread;
 
     use super::*;
-
-    #[test]
-    fn lan_identify_sends_one_bounded_retry_before_waiting_for_replies() {
-        let receiver = UdpSocket::bind("127.0.0.1:0").expect("bind UDP identify receiver");
-        receiver
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .expect("set UDP identify receiver timeout");
-        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind UDP identify sender");
-        let target = receiver
-            .local_addr()
-            .expect("UDP identify receiver address");
-        let request =
-            ads::udp::Message::new(ads::udp::ServiceId::Identify, ads::AmsAddr::default());
-
-        send_identify_requests(&sender, request.as_bytes(), target)
-            .expect("send bounded UDP identify attempts");
-
-        let mut first = [0_u8; 576];
-        let (first_len, _) = receiver
-            .recv_from(&mut first)
-            .expect("receive first attempt");
-        let mut retry = [0_u8; 576];
-        let (retry_len, _) = receiver
-            .recv_from(&mut retry)
-            .expect("receive retry attempt");
-        assert_eq!(&first[..first_len], request.as_bytes());
-        assert_eq!(&retry[..retry_len], request.as_bytes());
-    }
 
     #[test]
     fn local_router_open_port_reply_provides_same_computer_identity() {
@@ -382,7 +259,7 @@ mod tests {
                 .expect("read open-port request");
             assert_eq!(open, AMS_ROUTER_OPEN_PORT);
             stream
-                .write_all(&[0, 16, 8, 0, 0, 0, 10, 20, 30, 40, 1, 1, 0x21, 0xC3])
+                .write_all(&[0, 16, 8, 0, 0, 0, 100, 67, 6, 217, 1, 1, 0x21, 0xC3])
                 .expect("write router identity reply");
             let mut close = [0_u8; 8];
             stream
@@ -395,22 +272,9 @@ mod tests {
             .expect("local router identity");
 
         assert_eq!(target.ip, "127.0.0.1");
-        assert_eq!(target.ams_net_id, "10.20.30.40.1.1");
+        assert_eq!(target.ams_net_id, "100.67.6.217.1.1");
         assert_eq!(target.ams_port, 851);
         assert!(target.name.is_none());
         server.join().expect("local router fixture");
-    }
-
-    #[test]
-    fn local_router_failure_is_not_reported_as_udp_or_firewall_discovery() {
-        let error = local_router_error(
-            "127.0.0.1",
-            "open installed TcAdsDll.dll: library not found".to_string(),
-        );
-
-        assert_eq!(error.kind, OnboardingWireErrorKind::LocalRouterUnavailable);
-        assert!(error.detail.contains("local ADS router/runtime"));
-        assert!(!error.to_string().contains("UdpIdentifyBlocked"));
-        assert!(!error.detail.to_ascii_lowercase().contains("firewall"));
     }
 }

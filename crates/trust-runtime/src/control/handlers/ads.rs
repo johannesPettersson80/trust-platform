@@ -36,7 +36,6 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
             state,
         ),
         "ads.status" => super::super::ads_handlers::handle_ads_status(request.id, state),
-        "ads.live_values" => super::super::ads_handlers::handle_ads_live_values(request.id, state),
         "ads.route_plan" => super::super::ads_handlers::handle_ads_route_plan(
             request.id,
             request.params.clone(),

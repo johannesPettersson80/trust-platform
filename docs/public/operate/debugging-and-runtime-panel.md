@@ -1,20 +1,21 @@
-# Compile & Run
+# Run & Check
 
-Compile your program, then run it on the simulator — both from the **Run** card in the truST
+Check that your program is valid, then run it on the simulator — both from the **Run** card in the truST
 view, with honest status at every step.
 
-## Compile your program
+## Check your program
 
-Press **Compile** to validate the whole project. On success, the status bar says
-**Compile passed — 2 sources, no errors.**
+Running **Check program** validates the whole project. On success you get a confirmation — *"Project check
+passed — 2 sources, no errors."* — and the Run card's passive line reads **✓ No known errors**.
 
-![The Run card after Compile passed with two sources and no errors](../assets/images/vscode/vscode-run-check-passed.png)
+![The Run card showing No known errors and a "Project check passed" toast](../assets/images/vscode/vscode-run-check-passed.png)
 
-*Compile validates the whole project before you run. The Run card keeps the
-Simulator selected with one clear Start button, and the status bar reports the
-result.*
+*Check validates the whole project before you run — the Run card shows "No known errors", the simulator selected, and a single Start button.*
 
-### When Compile fails
+The **✓ No known errors** line is diagnostics-derived: it means *nothing is currently flagged*, and it
+updates live as you edit. It never claims a build is good when it isn't.
+
+### When Check fails
 
 If the project has errors, they appear in VS Code's **Problems** panel with their IEC references (for
 example an undefined identifier on a specific line), and the Run card reflects that there are errors. Fix
@@ -23,33 +24,23 @@ broken config surfaces an error and a fallback, never a fake-green runtime.
 
 ## Choose where it runs
 
-**Target** selects where the program runs. For a new project this is the built-in
-**Simulator**, with its current state in the label (for example **Simulator ·
-Stopped**). The dropdown lists only existing targets (the simulator and any
-runtimes you've added in [Devices & Connections](../connect/communication-panel.md));
-you add or connect targets there, not from this dropdown.
+**Run target** selects where the program runs. For a new project this is **Simulator (this computer)** —
+the built-in simulator, no hardware required. The dropdown lists only existing targets (the simulator, and
+any runtimes you've added in [Devices & Connections](../connect/communication-panel.md)); you add or
+connect targets there, not from this dropdown.
 
 ## Run on the simulator
 
-Press **Start**. truST compiles your program and runs it on the simulator; the
-target changes to **Simulator · Running** and the button becomes **Stop**. The
-status bar mirrors this (`truST: Simulator running`).
-Starting from the Run card keeps your editor in place and does not open Live
-Values. Open Live Values yourself when you want to inspect values.
+Press **Start**. truST compiles your program and runs it on the simulator; the status changes to
+**● Running** and the button becomes **Stop**. The status bar mirrors this (`truST: Simulator running`).
 
 ![The Run card with the simulator running: Status Running and a Stop button](../assets/images/vscode/vscode-run-simulator-running.png)
 
 *Start runs your program on the local simulator — honest Running status, one Stop button, and the same state echoed in the status bar.*
 
-The Run card, status bar, and Simulator node in **Devices & Connections** read
-from the same accepted lifecycle state. During launch they show **Starting**;
-after the simulator accepts the session they show **Running**; after Stop they
-show **Stopped**. A late or failed launch is not allowed to turn one surface
-green while another says Stopped.
-
 - **Start** — compile, then run on the selected target.
 - **Stop** — stop the simulator.
-- **Apply changes** — appears when you've edited the source while the simulator is running, to update
+- **Apply changes** — appears when you've edited the source while the simulator is running, to hot-reload
   without a full restart (simulator only).
 
 While it runs, open [Live Values](live-values.md) to watch and drive I/O, or set a breakpoint and use

@@ -1,22 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import {
-  didAnyAdsServiceRespond,
-  groupAdsServiceProbeResults,
   resolveSelectedAdsServicePort,
+  shouldShowAdsServiceCheckConfirmation,
   type AdsServiceProbeResult,
   type AdsServiceProbeViewState,
 } from "../adsServiceProbeModel";
-import { adsServiceProbeVisibleError } from "./adsErrorPresentation";
 import type { DiscoverCandidate } from "../offlineComm";
 import {
+  ADS_DISCOVERY_LOCATIONS,
+  AUTOMATIC_TWINCAT_SERVICE_PORTS,
   adsDiscoveryFields,
   PLC_RUNTIME_PORTS,
-  adsServicePresentation,
+  twinCatServicePresentation,
   type AdsDiscoveryDraft,
+  type AdsDiscoveryLocationId,
 } from "./discoverPaneModel";
 
 export function AdsDiscoveryControls({
+  checked,
   draft,
   hostError,
   amsNetIdError,
@@ -24,10 +26,10 @@ export function AdsDiscoveryControls({
   disabled,
   findPhase,
   findDisabledReason,
-  hasRun,
   onFind,
   onChange,
 }: {
+  checked: boolean;
   draft: AdsDiscoveryDraft;
   hostError?: string;
   amsNetIdError?: string;
@@ -35,30 +37,42 @@ export function AdsDiscoveryControls({
   disabled: boolean;
   findPhase: "idle" | "finding" | "probing";
   findDisabledReason?: string;
-  hasRun: boolean;
   onFind: () => void;
   onChange: (draft: AdsDiscoveryDraft) => void;
 }) {
-  const fields = adsDiscoveryFields(draft.advanced);
+  if (!checked) {
+    return null;
+  }
+  const fields = adsDiscoveryFields(draft.location, draft.advanced);
   const update = (patch: Partial<AdsDiscoveryDraft>) =>
     onChange({ ...draft, ...patch });
 
   return (
     <div style={CONTROLS}>
-      <button
-        data-role="ads-advanced-toggle"
-        type="button"
-        aria-expanded={draft.advanced}
-        disabled={disabled}
-        onClick={() => update({ advanced: !draft.advanced })}
-        style={ADVANCED_BUTTON}
-      >
-        {draft.advanced ? "▾" : "▸"} Advanced
-      </button>
+      <fieldset data-role="ads-location" style={FIELDSET}>
+        <legend style={LEGEND}>Where is TwinCAT?</legend>
+        {ADS_DISCOVERY_LOCATIONS.map((location) => (
+          <label key={location.id} style={RADIO_ROW}>
+            <input
+              data-role="ads-location-option"
+              type="radio"
+              name="ads-target-location"
+              value={location.id}
+              checked={draft.location === location.id}
+              disabled={disabled}
+              onChange={() =>
+                update({ location: location.id as AdsDiscoveryLocationId })
+              }
+            />
+            <span>{location.label}</span>
+            {location.recommended && <span style={RECOMMENDED}>Recommended</span>}
+          </label>
+        ))}
+      </fieldset>
 
       {fields.includes("host") && (
-        <label data-role="ads-known-host" style={FIELD_LABEL}>
-          Known Host or IP <span style={OPTIONAL}>(optional recovery)</span>
+        <label style={FIELD_LABEL}>
+          Host or IP
           <input
             data-role="ads-host"
             value={draft.host}
@@ -66,7 +80,7 @@ export function AdsDiscoveryControls({
             aria-invalid={Boolean(hostError)}
             aria-describedby={hostError ? "ads-host-error" : undefined}
             onChange={(event) => update({ host: event.target.value })}
-            placeholder="Example: 192.168.50.42"
+            placeholder="192.168.77.11"
             className="trust-input"
           />
           {hostError && (
@@ -82,9 +96,20 @@ export function AdsDiscoveryControls({
         </label>
       )}
 
+      <button
+        data-role="ads-advanced-toggle"
+        type="button"
+        aria-expanded={draft.advanced}
+        disabled={disabled}
+        onClick={() => update({ advanced: !draft.advanced })}
+        style={ADVANCED_BUTTON}
+      >
+        {draft.advanced ? "▾" : "▸"} Advanced
+      </button>
+
       {fields.includes("ams_net_id") && (
         <label style={FIELD_LABEL}>
-          AMS Net ID <span style={OPTIONAL}>(optional recovery)</span>
+          AMS Net ID <span style={OPTIONAL}>(optional manual fallback)</span>
           <input
             data-role="ads-ams-net-id"
             value={draft.amsNetId}
@@ -92,7 +117,7 @@ export function AdsDiscoveryControls({
             aria-invalid={Boolean(amsNetIdError)}
             aria-describedby={amsNetIdError ? "ads-ams-net-id-error" : undefined}
             onChange={(event) => update({ amsNetId: event.target.value })}
-            placeholder="Example: 5.23.91.12.1.1"
+            placeholder="5.23.91.12.1.1"
             className="trust-input"
           />
           {amsNetIdError && (
@@ -118,11 +143,12 @@ export function AdsDiscoveryControls({
             aria-invalid={Boolean(customPortError)}
             aria-describedby={customPortError ? "ads-custom-ports-error" : undefined}
             onChange={(event) => update({ customPorts: event.target.value })}
-            placeholder="Example: 9000, 9001"
+            placeholder="9000, 9001"
             className="trust-input"
           />
           <span className="trust-help" style={HELP}>
-            Automatic checks include ADS 851–854, 301, and 501. Add other
+            The confirmed service check includes PLC runtimes ADS 851–854,
+            Additional task 1 (ADS 301), and NC SAF service (ADS 501). Add other
             logical services here. These are not TCP or UDP socket ports. Add up
             to four additional ports; at most ten services are checked in total.
           </span>
@@ -141,12 +167,12 @@ export function AdsDiscoveryControls({
 
       {!draft.advanced && (
         <>
-          {(hostError || amsNetIdError || customPortError) ? (
+          {(amsNetIdError || customPortError) ? (
             <span
               data-role="ads-advanced-attention"
               className="trust-field__message trust-field__message--error"
             >
-              Advanced settings need attention: {hostError ?? amsNetIdError ?? customPortError}
+              Advanced settings need attention: {amsNetIdError ?? customPortError}
               <button
                 type="button"
                 disabled={disabled}
@@ -157,26 +183,20 @@ export function AdsDiscoveryControls({
                 Expand
               </button>
             </span>
-          ) : (draft.host.trim() || draft.amsNetId.trim() || draft.customPorts.trim()) && (
+          ) : (draft.amsNetId.trim() || draft.customPorts.trim()) && (
             <span data-role="ads-advanced-summary" style={ADVANCED_SUMMARY}>
-              Advanced: {[
-                draft.host.trim() ? "known address" : "",
-                draft.amsNetId.trim() ? "AMS Net ID" : "",
-                draft.customPorts.trim()
-                  ? `custom ports ${draft.customPorts.trim()}`
-                  : "",
-              ].filter(Boolean).join(" · ")}
+              Advanced settings applied
             </span>
           )}
           <span className="trust-help" style={HELP}>
-            Searches this computer and the local network, then shows responding
-            ADS services (851–854, 301, and 501).
+            After finding the TwinCAT computer, confirm that other software on
+            the discovery computer is not reading TwinCAT, then check ADS {AUTOMATIC_TWINCAT_SERVICE_PORTS.join(", ")}.
           </span>
         </>
       )}
 
       <button
-        data-role="ads-discover"
+        data-role="ads-find-twincat"
         data-state={findPhase}
         type="button"
         onClick={onFind}
@@ -185,12 +205,10 @@ export function AdsDiscoveryControls({
         className="trust-button trust-button--primary"
       >
         {findPhase === "finding"
-          ? "Discovering ADS devices…"
+          ? "Finding TwinCAT…"
           : findPhase === "probing"
-            ? "Checking ADS services…"
-            : hasRun
-              ? "Scan ADS again"
-              : "Discover ADS devices"}
+            ? "Checking TwinCAT services…"
+            : "Find TwinCAT"}
       </button>
     </div>
   );
@@ -199,6 +217,8 @@ export function AdsDiscoveryControls({
 export function AdsDiscoveryComputerCard({
   candidate,
   probe,
+  servicePorts,
+  discoveryOriginLabel,
   disabledReason,
   serviceResultsStale,
   onCheckServices,
@@ -206,12 +226,18 @@ export function AdsDiscoveryComputerCard({
 }: {
   candidate: DiscoverCandidate;
   probe?: AdsServiceProbeViewState;
+  servicePorts: readonly number[];
+  discoveryOriginLabel: string;
   disabledReason?: string;
   serviceResultsStale?: boolean;
   onCheckServices: () => void;
   onBrowse: (port: number) => void;
 }) {
   const [selectedPort, setSelectedPort] = useState<number | undefined>();
+  const [connectionSafetyConfirmed, setConnectionSafetyConfirmed] =
+    useState(false);
+  const [recheckRequested, setRecheckRequested] = useState(false);
+  const servicePortPlanKey = servicePorts.join(",");
   const resultsAreCurrent = !serviceResultsStale;
   const usablePorts = useMemo(
     () =>
@@ -231,33 +257,36 @@ export function AdsDiscoveryComputerCard({
     }
   }, [selectedPort, usablePorts]);
 
+  useEffect(() => {
+    setConnectionSafetyConfirmed(false);
+  }, [servicePortPlanKey]);
+
   const host = textParam(candidate.params, "host", "ip");
   const netId = textParam(candidate.params, "ams_net_id", "target_net_id");
   const name = computerName(candidate, netId);
   const version = textParam(candidate.params, "tc_version");
   const manuallyDeclared =
     candidate.source === "manual" || candidate.confidence === "declared";
-  const groupedResults = useMemo(
-    () => groupAdsServiceProbeResults(probe?.results ?? []),
-    [probe?.results]
-  );
-  const respondingResults = groupedResults.responding;
-  const diagnosticResults = groupedResults.diagnostics;
-  const routeMissing =
-    resultsAreCurrent && respondingResults.length === 0
-      ? diagnosticResults.find((result) => result.status === "route_missing")
-      : undefined;
-  const terminalFailure =
-    resultsAreCurrent &&
-    respondingResults.length === 0 &&
-    diagnosticResults.some((result) => result.status === "check_failed");
+  const checkServices = () => {
+    setConnectionSafetyConfirmed(false);
+    setRecheckRequested(false);
+    onCheckServices();
+  };
+  const routeMissing = resultsAreCurrent
+    ? probe?.results.find((result) => result.status === "route_missing")
+    : undefined;
+  const terminalFailure = resultsAreCurrent
+    ? probe?.results.some((result) => result.status === "check_failed")
+    : false;
   const usableCount = resultsAreCurrent
     ? (probe?.results.filter((result) => result.usable).length ?? 0)
     : 0;
-  const manuallyEnteredServiceResponded =
-    manuallyDeclared &&
-    resultsAreCurrent &&
-    didAnyAdsServiceRespond(probe?.results ?? []);
+  const needsServiceCheckConfirmation =
+    shouldShowAdsServiceCheckConfirmation(
+      probe,
+      Boolean(serviceResultsStale),
+      recheckRequested
+    );
   const effectiveSelectedPort = resolveSelectedAdsServicePort(
     probe?.results ?? [],
     selectedPort,
@@ -266,26 +295,14 @@ export function AdsDiscoveryComputerCard({
   const effectiveSelected = probe?.results.find(
     (result) => result.port === effectiveSelectedPort && result.usable
   );
-  const noServiceResponded = Boolean(
-    resultsAreCurrent &&
-      probe &&
-      !probe.probing &&
-      respondingResults.length === 0 &&
-      (probe.completed || probe.error || probe.results.length > 0)
-  );
-  const discoveredIdentityOnly =
-    textParam(candidate.params, "ads_service_status") === "identity_only";
-  const observedIdentityOnly = Boolean(
-    !manuallyDeclared &&
-      respondingResults.length === 0 &&
-      (discoveredIdentityOnly || noServiceResponded)
-  );
   const browseReason =
     disabledReason ??
     (!resultsAreCurrent
       ? "ADS service settings changed. Check the updated services before browsing variables."
-      : usableCount > 1 && !effectiveSelected
-        ? "Choose an ADS service before browsing variables."
+      : routeMissing
+      ? "Set up the route, then check and browse variables."
+      : !effectiveSelected && probe && !probe.probing
+        ? browseDisabledReason(probe.results)
         : undefined);
   const cardState = !resultsAreCurrent
     ? "ports-changed"
@@ -293,19 +310,15 @@ export function AdsDiscoveryComputerCard({
     ? "route-missing"
     : probe?.probing
       ? "progress"
-      : (probe?.error || terminalFailure) && respondingResults.length === 0
+      : probe?.error || terminalFailure
         ? "check-failed"
         : usableCount > 1
           ? "multiple-ports"
           : usableCount === 1
             ? "success"
-            : respondingResults.length > 0
-              ? "service-responded"
-              : observedIdentityOnly
-                ? "identity-only"
-                : manuallyDeclared
-                  ? "manual-declared"
-                  : "found";
+            : manuallyDeclared
+              ? "manual-declared"
+              : "found";
 
   return (
     <div
@@ -315,11 +328,9 @@ export function AdsDiscoveryComputerCard({
       style={CARD}
     >
       <div style={{ minWidth: 0 }}>
-        <div data-role="ads-computer-name" style={COMPUTER_NAME} title={name}>
-          {name}
-        </div>
+        <div style={COMPUTER_NAME}>{name}</div>
         <div style={COMPUTER_DETAIL}>
-          ADS device
+          TwinCAT computer
           {candidate.source === "ads_local_router"
             ? " · On the discovery computer"
             : host
@@ -328,29 +339,12 @@ export function AdsDiscoveryComputerCard({
         </div>
         <div
           data-role="ads-identity-status"
-          data-status={
-            manuallyEnteredServiceResponded
-              ? "service-responded"
-              : manuallyDeclared
-                ? "declared"
-                : observedIdentityOnly
-                  ? "identity-only"
-                  : "found"
-          }
-          style={
-            (manuallyDeclared && !manuallyEnteredServiceResponded) ||
-            observedIdentityOnly
-              ? DECLARED_IDENTITY
-              : FOUND_IDENTITY
-          }
+          data-status={manuallyDeclared ? "declared" : "found"}
+          style={manuallyDeclared ? DECLARED_IDENTITY : FOUND_IDENTITY}
         >
-          {manuallyEnteredServiceResponded
-            ? "Address entered manually · ADS service responded"
-            : manuallyDeclared
-              ? "Address entered manually · waiting for an ADS response"
-              : observedIdentityOnly
-                ? "Identity found · ADS services not confirmed"
-                : "Found"}
+          {manuallyDeclared
+            ? "Entered manually — identity not verified yet"
+            : "Found"}
         </div>
       </div>
 
@@ -358,22 +352,8 @@ export function AdsDiscoveryComputerCard({
         <summary>Technical details</summary>
         {host && <div>Host: {host}</div>}
         <div>AMS Net ID: {netId || "not reported"}</div>
-        {version && <div>Device software version: {version}</div>}
+        {version && <div>TwinCAT version: {version}</div>}
         <div>Identity source: {identitySourceLabel(candidate.source)}</div>
-        {probe?.error && <div>Service check: {probe.error}</div>}
-        {diagnosticResults.map((result) => (
-          <div
-            key={`service-diagnostic:${result.port}`}
-            data-role="ads-plc-runtime"
-            data-result-visibility="technical"
-            data-ads-port={result.port}
-            data-service-kind={serviceKind(result.port)}
-            data-status={result.status}
-          >
-            ADS {result.port}: {serviceStatusLabel(result)}
-            {result.error?.message ? ` — ${result.error.message}` : ""}
-          </div>
-        ))}
       </details>
 
       {probe?.probing && (
@@ -384,10 +364,20 @@ export function AdsDiscoveryComputerCard({
           style={PROBE_STATUS}
         >
           {probe.currentPort
-            ? `Checking ${adsServicePresentation(probe.currentPort).primary}…`
-            : "Preparing ADS service checks…"}
+            ? `Checking ${twinCatServicePresentation(probe.currentPort).primary} (ADS ${probe.currentPort})…`
+            : "Preparing TwinCAT service checks…"}
         </div>
       )}
+      {probe?.error && (
+        <div
+          data-role="ads-probe-error"
+          data-state="check-failed"
+          className="trust-field__message trust-field__message--error"
+        >
+          TwinCAT was found, but its services could not be checked: {probe.error}
+        </div>
+      )}
+
       {!resultsAreCurrent && (
         <div
           data-role="ads-results-stale"
@@ -400,98 +390,119 @@ export function AdsDiscoveryComputerCard({
         </div>
       )}
 
-      {!probe && (
-        <div role="status" data-role="ads-probe-pending" style={PROBE_STATUS}>
-          Waiting to check responding ADS services…
-        </div>
-      )}
-
-      {noServiceResponded && !routeMissing && (
+      {needsServiceCheckConfirmation && (
         <div
-          data-role="ads-no-service-response"
-          data-state={probe?.error || terminalFailure ? "check-failed" : "unavailable"}
-          className="trust-field__message"
-          style={PROBE_STATUS}
+          data-role="ads-probe-safety"
+          data-state="confirmation-required"
+          style={PROBE_SAFETY}
         >
-          {probe?.error
-            ? adsServiceProbeVisibleError(probe.error)
-            : diagnosticResults.length > 0
-              ? `The ADS device was found, but none of its ${diagnosticResults.length} checked services responded. Make sure it is running, then try again.`
-              : "The ADS device was found, but its services could not be checked. Make sure it is running, then try again."}
+          <div>
+            Checking opens a temporary ADS connection from {discoveryOriginLabel}.
+            Before checking, stop any truST runtime or other software there that
+            is currently reading TwinCAT. Leave TwinCAT and the PLC running.
+          </div>
+          <label style={SAFETY_CONFIRMATION}>
+            <input
+              data-role="ads-probe-safety-confirmation"
+              type="checkbox"
+              checked={connectionSafetyConfirmed}
+              disabled={Boolean(disabledReason) || probe?.probing}
+              onChange={(event) =>
+                setConnectionSafetyConfirmed(event.target.checked)
+              }
+            />
+            <span>
+              I stopped other software on {discoveryOriginLabel} that is reading
+              TwinCAT
+            </span>
+          </label>
+          <button
+            type="button"
+            data-role="ads-check-services"
+            data-state={serviceResultsStale ? "ports-changed" : "ready"}
+            onClick={checkServices}
+            disabled={
+              !connectionSafetyConfirmed ||
+              Boolean(disabledReason) ||
+              probe?.probing
+            }
+            title={
+              disabledReason ??
+              (!connectionSafetyConfirmed
+                ? "Confirm that other software is not reading TwinCAT first."
+                : undefined)
+            }
+            className="trust-button trust-button--primary"
+          >
+            {probe?.error || terminalFailure
+              ? "Retry service checks"
+              : serviceResultsStale
+                ? "Check updated ADS services"
+                : probe?.completed
+                  ? "Check services again"
+                : `Check ${servicePorts.length} ADS services`}
+          </button>
         </div>
       )}
 
-      {routeMissing && (
-        <div
-          data-role="ads-route-recovery"
-          data-state="route-missing"
-          className="trust-field__message"
-          style={PROBE_STATUS}
-        >
-          This remote ADS device needs a route before its services can be checked.
-        </div>
-      )}
-
-      {!probe?.probing && !routeMissing && (noServiceResponded || serviceResultsStale) && (
+      {probe?.completed && !needsServiceCheckConfirmation && (
         <button
           type="button"
           data-role="ads-recheck-services"
-          onClick={onCheckServices}
+          onClick={() => {
+            setConnectionSafetyConfirmed(false);
+            setRecheckRequested(true);
+          }}
           disabled={Boolean(disabledReason)}
           title={disabledReason}
           className="trust-button"
         >
-          {serviceResultsStale
-            ? "Check updated ADS services"
-            : probe?.error || terminalFailure
-              ? "Retry ADS service check"
-              : "Check ADS services again"}
+          Check services again
         </button>
       )}
 
-      {respondingResults.length > 0 && (
-        <fieldset
-          data-role="ads-service-results"
-          style={{ display: "grid", gap: 4, border: 0, padding: 0, margin: 0 }}
-        >
-          <legend style={{ fontSize: 10, color: "var(--trust-text-muted)", padding: 0 }}>
-            Responding ADS services for {name}
-          </legend>
-          {respondingResults.map((result) => {
-            const presentation = adsServicePresentation(result.port);
-            return (
-              <div
-                key={result.port}
-                data-role="ads-plc-runtime"
-                data-result-visibility="responding"
-                data-ads-port={result.port}
-                data-service-kind={serviceKind(result.port)}
-                data-status={result.status}
-                style={RUNTIME_ROW}
-              >
-                {result.usable ? (
-                  <input
-                    type="radio"
-                    name={`ads-runtime-${candidate.id}`}
-                    value={result.port}
-                    checked={effectiveSelectedPort === result.port}
-                    disabled={!resultsAreCurrent || Boolean(disabledReason)}
-                    onChange={() => setSelectedPort(result.port)}
-                    aria-label={`Select ${presentation.primary}: ${presentation.secondary}`}
-                  />
-                ) : (
-                  <span aria-hidden="true" style={STATUS_DOT}>•</span>
-                )}
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={RUNTIME_PRIMARY}>{presentation.primary}</span>
-                  <span style={RUNTIME_SECONDARY}>
-                    {presentation.secondary} · {serviceStatusLabel(result)}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </fieldset>
+      {(probe?.results ?? []).map((result) => {
+        const presentation = twinCatServicePresentation(result.port);
+        return (
+          <label
+            key={result.port}
+            data-role="ads-plc-runtime"
+            data-ads-port={result.port}
+            data-service-kind={
+              PLC_RUNTIME_PORTS.includes(
+                result.port as (typeof PLC_RUNTIME_PORTS)[number]
+              )
+                ? "plc-runtime"
+                : "twincat-service"
+            }
+            data-status={result.status}
+            style={RUNTIME_ROW}
+          >
+            {result.usable ? (
+              <input
+                type="radio"
+                name={`ads-runtime-${candidate.id}`}
+                value={result.port}
+                checked={effectiveSelectedPort === result.port}
+                disabled={!resultsAreCurrent || Boolean(disabledReason)}
+                onChange={() => setSelectedPort(result.port)}
+                aria-label={`Select ${presentation.primary} (ADS ${result.port})`}
+              />
+            ) : (
+              <span aria-hidden="true" style={STATUS_DOT}>•</span>
+            )}
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={RUNTIME_PRIMARY}>{presentation.primary}</span>
+              <span style={RUNTIME_SECONDARY}>
+                ({presentation.secondary}) · {serviceStatusLabel(result)}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+
+      {!probe?.probing && probe && probe.results.length === 0 && !probe.error && (
+        <div style={PROBE_STATUS}>No TwinCAT service probe results were returned.</div>
       )}
 
       {routeMissing && (
@@ -516,7 +527,7 @@ export function AdsDiscoveryComputerCard({
         >
           {browseReason}
         </div>
-      ) : browseReason && usableCount > 0 ? (
+      ) : browseReason ? (
         <div
           data-role="ads-browse-disabled-reason"
           data-state="disabled"
@@ -527,7 +538,7 @@ export function AdsDiscoveryComputerCard({
         </div>
       ) : null}
 
-      {!routeMissing && usableCount > 0 && (
+      {!routeMissing && (
         <button
           type="button"
           data-role="ads-browse-variables"
@@ -538,30 +549,6 @@ export function AdsDiscoveryComputerCard({
         >
           Browse variables
         </button>
-      )}
-
-      {respondingResults.length > 0 && usableCount === 0 && (
-        <div
-          data-role="ads-no-browsable-service"
-          data-state="responded"
-          className="trust-field__message"
-          style={PROBE_STATUS}
-        >
-          ADS responded, but no service reported browsable variables. Add another
-          service under Advanced if needed.
-        </div>
-      )}
-
-      {respondingResults.length > 0 && diagnosticResults.length > 0 && (
-        <div
-          data-role="ads-service-diagnostics-summary"
-          data-count={diagnosticResults.length}
-          className="trust-help"
-          style={PROBE_STATUS}
-        >
-          {diagnosticResults.length} other ADS service{diagnosticResults.length === 1 ? " was" : "s were"}
-          {" "}unavailable or could not be checked. See Technical details above.
-        </div>
       )}
     </div>
   );
@@ -578,18 +565,18 @@ function serviceStatusLabel(result: AdsServiceProbeResult): string {
     case "route_missing":
       return "Route setup required";
     case "check_failed":
-      return "Could not check this service";
+      return `Check failed — ${result.error?.message ?? "unknown error"}`;
     case "unavailable":
       return "Not running or unavailable";
   }
 }
 
-function serviceKind(port: number): "plc-runtime" | "ads-service" {
-  return PLC_RUNTIME_PORTS.includes(
-    port as (typeof PLC_RUNTIME_PORTS)[number]
-  )
-    ? "plc-runtime"
-    : "ads-service";
+function browseDisabledReason(results: readonly AdsServiceProbeResult[]): string {
+  const usable = results.filter((result) => result.usable).length;
+  if (usable > 1) {
+    return "Choose a TwinCAT service before browsing variables.";
+  }
+  return "No TwinCAT service with browsable variables is available yet.";
 }
 
 function textParam(
@@ -614,7 +601,7 @@ function computerName(candidate: DiscoverCandidate, netId: string): string {
   const withoutIdentity = netId
     ? label.replace(` · ${netId}`, "").replace(`TwinCAT ${netId}`, "").trim()
     : label;
-  return withoutIdentity || "ADS device";
+  return withoutIdentity || "TwinCAT computer";
 }
 
 function identitySourceLabel(source: string): string {
@@ -633,23 +620,24 @@ function identitySourceLabel(source: string): string {
 }
 
 const CONTROLS: React.CSSProperties = { margin: "6px 0 2px 24px", display: "grid", gap: 7 };
+const FIELDSET: React.CSSProperties = { border: 0, margin: 0, padding: 0, minWidth: 0 };
+const LEGEND: React.CSSProperties = { fontSize: 11, fontWeight: 650, marginBottom: 4 };
+const RADIO_ROW: React.CSSProperties = { display: "flex", gap: 6, alignItems: "center", fontSize: 11, marginTop: 4 };
+const RECOMMENDED: React.CSSProperties = { color: "var(--trust-accent)", fontSize: 9.5 };
 const FIELD_LABEL: React.CSSProperties = { display: "grid", gap: 4, fontSize: 10.5 };
 const OPTIONAL: React.CSSProperties = { color: "var(--trust-text-muted)", fontWeight: 400 };
 const ADVANCED_SUMMARY: React.CSSProperties = { fontSize: 10, color: "var(--trust-accent)" };
 const ADVANCED_BUTTON: React.CSSProperties = { border: 0, padding: "3px 0", textAlign: "left", background: "transparent", color: "var(--trust-text-muted)", cursor: "pointer", fontSize: 10.5 };
 const HELP: React.CSSProperties = { display: "block", lineHeight: 1.35 };
 const CARD: React.CSSProperties = { display: "grid", gap: 7, padding: "9px", marginTop: 7, borderRadius: "var(--trust-radius-lg)", border: "1px solid var(--trust-border)", background: "var(--trust-surface)" };
-const COMPUTER_NAME: React.CSSProperties = {
-  fontSize: 12.5,
-  fontWeight: 650,
-  lineHeight: 1.3,
-  overflowWrap: "anywhere",
-};
+const COMPUTER_NAME: React.CSSProperties = { fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const COMPUTER_DETAIL: React.CSSProperties = { fontSize: 10, color: "var(--trust-text-muted)", overflowWrap: "anywhere" };
-const FOUND_IDENTITY: React.CSSProperties = { fontSize: 9.5, color: "var(--trust-ok)" };
+const FOUND_IDENTITY: React.CSSProperties = { fontSize: 9.5, color: "var(--trust-success, #43a047)" };
 const DECLARED_IDENTITY: React.CSSProperties = { fontSize: 9.5, color: "var(--trust-warn)" };
 const DETAILS: React.CSSProperties = { fontSize: 9.5, color: "var(--trust-text-muted)", lineHeight: 1.4 };
 const PROBE_STATUS: React.CSSProperties = { fontSize: 10.5, color: "var(--trust-text-muted)" };
+const PROBE_SAFETY: React.CSSProperties = { display: "grid", gap: 7, padding: "8px", borderRadius: "var(--trust-radius-sm)", border: "1px solid var(--trust-warn)", fontSize: 10.5, color: "var(--trust-text-muted)" };
+const SAFETY_CONFIRMATION: React.CSSProperties = { display: "flex", gap: 7, alignItems: "flex-start", color: "var(--trust-text)" };
 const RUNTIME_ROW: React.CSSProperties = { display: "flex", gap: 7, alignItems: "center", padding: "5px 6px", borderRadius: "var(--trust-radius-sm)", background: "var(--trust-surface-raised)" };
 const STATUS_DOT: React.CSSProperties = { width: 13, textAlign: "center", color: "var(--trust-text-subtle)" };
 const RUNTIME_PRIMARY: React.CSSProperties = { display: "block", fontSize: 11.5, fontWeight: 600 };

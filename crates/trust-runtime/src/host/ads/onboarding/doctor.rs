@@ -2,7 +2,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -16,9 +15,6 @@ use crate::ads::diagnostics::{
 
 use super::errors::{OnboardingWireError, OnboardingWireErrorKind};
 use super::wire::{AdsOnboardingWire, GuardedWriteProbe};
-
-mod active_report;
-mod route_evidence;
 
 /// Ordered doctor steps required by the onboarding specification.
 pub const REQUIRED_DOCTOR_STEPS: &[DoctorStepId] = &[
@@ -45,44 +41,42 @@ pub struct DoctorStepTimeout {
     pub timeout_ms: u64,
 }
 
-const DEFAULT_STEP_TIMEOUTS: &[DoctorStepTimeout] = &[
-    DoctorStepTimeout {
-        step: DoctorStepId::UdpIdentify,
-        timeout_ms: 3_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::Tcp48898,
-        timeout_ms: 1_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::ReadState,
-        timeout_ms: 5_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::SymbolUpload,
-        timeout_ms: 5_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::HandleResolve,
-        timeout_ms: 5_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::SumupRead,
-        timeout_ms: 5_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::Notification,
-        timeout_ms: 5_000,
-    },
-    DoctorStepTimeout {
-        step: DoctorStepId::SymbolVersion,
-        timeout_ms: 5_000,
-    },
-];
-
-/// Default step timeouts owned and enforced by the engine, not by UI code.
+/// Default step timeouts owned by the engine, not by UI code.
 pub fn default_step_timeouts() -> Vec<DoctorStepTimeout> {
-    DEFAULT_STEP_TIMEOUTS.to_vec()
+    vec![
+        DoctorStepTimeout {
+            step: DoctorStepId::UdpIdentify,
+            timeout_ms: 3_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::Tcp48898,
+            timeout_ms: 1_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::ReadState,
+            timeout_ms: 5_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::SymbolUpload,
+            timeout_ms: 5_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::HandleResolve,
+            timeout_ms: 5_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::SumupRead,
+            timeout_ms: 5_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::Notification,
+            timeout_ms: 5_000,
+        },
+        DoctorStepTimeout {
+            step: DoctorStepId::SymbolVersion,
+            timeout_ms: 5_000,
+        },
+    ]
 }
 
 /// Strategy used when the doctor target is already connected by the runtime.
@@ -338,11 +332,11 @@ fn run_doctor_with_progress<W: AdsOnboardingWire>(
         match options.active_device_strategy {
             ActiveDeviceStrategy::ReadOnlyViaLiveStatus => {
                 progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
-                return active_report::read_only_report(&options, active_device);
+                return active_device_read_only_report(&options, active_device);
             }
             ActiveDeviceStrategy::RequiresPause => {
                 progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
-                return active_report::requires_pause_report(&options, active_device);
+                return active_device_requires_pause_report(&options, active_device);
             }
             ActiveDeviceStrategy::FullAfterExplicitPause => {}
         }
@@ -360,9 +354,7 @@ fn run_doctor_with_progress<W: AdsOnboardingWire>(
             blocked = true;
             cancelled_step(*step_id)
         } else {
-            let started = Instant::now();
-            let step = run_step(wire, &options, &mut context, *step_id);
-            enforce_step_deadline(*step_id, step, started.elapsed())
+            run_step(wire, &options, &mut context, *step_id)
         };
         if step.blocks_production_ready && step.status != DoctorStepStatus::Pass {
             blocked = true;
@@ -375,56 +367,9 @@ fn run_doctor_with_progress<W: AdsOnboardingWire>(
     build_report(options, context.target, context.local, steps)
 }
 
-fn enforce_step_deadline(id: DoctorStepId, step: DoctorStep, elapsed: Duration) -> DoctorStep {
-    let Some(timeout) = DEFAULT_STEP_TIMEOUTS
-        .iter()
-        .find(|timeout| timeout.step == id)
-    else {
-        return step;
-    };
-    if step.status != DoctorStepStatus::Pass || elapsed <= Duration::from_millis(timeout.timeout_ms)
-    {
-        return step;
-    }
-
-    // Ads/TcAdsDll calls are synchronous. We configure finite native/socket
-    // deadlines before entering them, then reject a late success here. This is
-    // an enforceable result deadline, not unsafe thread cancellation.
-    failed_step(
-        id,
-        step_title(id),
-        OnboardingWireError::new(
-            timeout_error_kind(id),
-            format!(
-                "ADS doctor step returned after its {} ms deadline (elapsed {} ms); the synchronous transport call cannot be safely pre-empted",
-                timeout.timeout_ms,
-                elapsed.as_millis()
-            ),
-        )
-        .with_transport_failure(crate::ads::AdsTransportFailureKind::TimedOut),
-    )
-    .with_evidence("timeout_ms", json!(timeout.timeout_ms))
-    .with_evidence("elapsed_ms", json!(elapsed.as_millis()))
-}
-
-fn timeout_error_kind(id: DoctorStepId) -> OnboardingWireErrorKind {
-    match id {
-        DoctorStepId::UdpIdentify => OnboardingWireErrorKind::UdpIdentifyBlocked,
-        DoctorStepId::Tcp48898 => OnboardingWireErrorKind::Tcp48898Blocked,
-        DoctorStepId::SymbolUpload => OnboardingWireErrorKind::NoSymbols,
-        DoctorStepId::Notification => OnboardingWireErrorKind::NotificationFailure,
-        DoctorStepId::ReadState
-        | DoctorStepId::HandleResolve
-        | DoctorStepId::SumupRead
-        | DoctorStepId::SymbolVersion => OnboardingWireErrorKind::WrongPlcPort,
-        _ => OnboardingWireErrorKind::UnsupportedOperation,
-    }
-}
-
 struct DoctorContext {
     target: Option<TargetIdentity>,
     local: Option<LocalIdentity>,
-    route_probe_result: Option<Result<String, OnboardingWireError>>,
     selected_symbol: Option<String>,
     resolved_handle: Option<u32>,
 }
@@ -434,7 +379,6 @@ impl DoctorContext {
         Self {
             target: None,
             local: options.local_identity.clone(),
-            route_probe_result: None,
             selected_symbol: None,
             resolved_handle: None,
         }
@@ -507,16 +451,32 @@ fn run_step<W: AdsOnboardingWire>(
             let Some(target) = context.target.as_ref() else {
                 return internal_missing_step(step_id, "target identity");
             };
-            route_evidence::transport_step(wire, target)
+            match wire.tcp_probe_48898(target.ip.as_str()) {
+                Ok(()) => pass_step(
+                    step_id,
+                    "Port 48898 reachable",
+                    "TwinCAT ADS router TCP port accepted a connection.",
+                )
+                .with_evidence("target_ip", target.ip.clone()),
+                Err(error) => failed_step(step_id, "Port 48898 reachable", error),
+            }
         }
         DoctorStepId::RoutePresent => {
             let (Some(target), Some(local)) = (context.target.as_ref(), context.local.as_ref())
             else {
                 return internal_missing_step(step_id, "target or local identity");
             };
-            let evidence = route_evidence::route_round_trip_step(wire, target, local);
-            context.route_probe_result = evidence.read_state;
-            evidence.step
+            match wire.check_route(target, local) {
+                Ok(()) => pass_step(
+                    step_id,
+                    "Route back to truST",
+                    "ADS router accepted a TCP connection with the runtime host AMS identity.",
+                )
+                .with_evidence("target_ip", target.ip.clone())
+                .with_evidence("local_ip", local.chosen_ip.clone())
+                .with_evidence("local_ams_net_id", local.ams_net_id.clone()),
+                Err(error) => failed_step(step_id, "Route back to truST", error),
+            }
         }
         DoctorStepId::AmsTarget => {
             let Some(target) = context.target.as_ref() else {
@@ -551,11 +511,7 @@ fn run_step<W: AdsOnboardingWire>(
             let Some(target) = context.target.as_ref() else {
                 return internal_missing_step(step_id, "target identity");
             };
-            let state = context
-                .route_probe_result
-                .clone()
-                .unwrap_or_else(|| wire.read_state(target));
-            match state {
+            match wire.read_state(target) {
                 Ok(state) => pass_step(
                     step_id,
                     "PLC runtime state",
@@ -623,8 +579,8 @@ fn run_step<W: AdsOnboardingWire>(
             match wire.sumup_read(target, &[*handle]) {
                 Ok(values) => pass_step(
                     step_id,
-                    "Read values",
-                    format!("Read {} value(s) from ADS.", values.len()),
+                    "Batch read",
+                    format!("Read {} value(s) with sum-up read.", values.len()),
                 )
                 .with_evidence("value_count", json!(values.len())),
                 Err(error) => failed_step(step_id, "Batch read", error),
@@ -670,21 +626,14 @@ fn run_step<W: AdsOnboardingWire>(
             else {
                 return internal_missing_step(step_id, "target identity or selected symbol");
             };
-            match wire.read_update_sample(target, symbol) {
-                Ok(sample) => pass_step(
+            match wire.subscribe_notification(target, symbol) {
+                Ok(()) => pass_step(
                     step_id,
-                    "Read update sample",
-                    format!(
-                        "Received an ADS read update for '{}' after subscription.",
-                        sample.point_name
-                    ),
+                    "Notification sample",
+                    format!("Notification subscription worked for '{symbol}'."),
                 )
-                .with_evidence("symbol", sample.point_name)
-                .with_evidence("subscription_id", json!(sample.subscription_id))
-                .with_evidence("quality", "good")
-                .with_evidence("sample_method", "subscribed_read_update")
-                .with_evidence("read_proven", true),
-                Err(error) => failed_step(step_id, "Read update sample", error),
+                .with_evidence("symbol", symbol.to_string()),
+                Err(error) => failed_step(step_id, "Notification sample", error),
             }
         }
         DoctorStepId::SymbolVersion => {
@@ -723,6 +672,158 @@ fn run_step<W: AdsOnboardingWire>(
             ),
         ),
     }
+}
+
+fn active_device_read_only_report(
+    options: &DoctorOptions,
+    active: &ActiveAdsDeviceSnapshot,
+) -> DoctorReport {
+    let degraded_points = active.degraded_points();
+    let mut steps = Vec::with_capacity(REQUIRED_DOCTOR_STEPS.len());
+    for step_id in REQUIRED_DOCTOR_STEPS {
+        let step = match step_id {
+            DoctorStepId::LocalIdentity => {
+                if let Some(local) = active.local.as_ref().or(options.local_identity.as_ref()) {
+                    pass_step(
+                        *step_id,
+                        "truST local identity",
+                        format!("Using live runtime identity {}.", local.ams_net_id),
+                    )
+                    .with_evidence("local_ip", local.chosen_ip.clone())
+                    .with_evidence("local_ams_net_id", local.ams_net_id.clone())
+                } else {
+                    active_skip(*step_id, "truST local identity", &active.connection_name)
+                }
+            }
+            DoctorStepId::ReadState => active_read_state_step(active),
+            DoctorStepId::SumupRead => active_sumup_step(active, degraded_points),
+            DoctorStepId::SymbolVersion => {
+                let mut step = active_skip(*step_id, "Symbol version", &active.connection_name);
+                if let Some(version) = active.symbol_version {
+                    step = DoctorStep::new(
+                        *step_id,
+                        "Symbol version",
+                        DoctorStepStatus::Pass,
+                        format!("Live worker reports symbol version {version}."),
+                    )
+                    .with_evidence("symbol_version", json!(version));
+                }
+                step
+            }
+            _ => active_skip(*step_id, step_title(*step_id), &active.connection_name),
+        };
+        steps.push(step);
+    }
+
+    let local = active
+        .local
+        .clone()
+        .or_else(|| options.local_identity.clone());
+    let mut report = DoctorReport::new(options.ran_from, options.transport)
+        .with_target(active.target.clone())
+        .with_steps(steps)
+        .with_summary(format!(
+            "Active ADS device '{}': using live runtime status; no duplicate AMS connection opened.",
+            active.connection_name
+        ));
+    report.writes_enabled = options.writes_enabled;
+    if let Some(local) = local {
+        report = report.with_local(local);
+    }
+    report
+}
+
+fn active_device_requires_pause_report(
+    options: &DoctorOptions,
+    active: &ActiveAdsDeviceSnapshot,
+) -> DoctorReport {
+    let steps = REQUIRED_DOCTOR_STEPS
+        .iter()
+        .map(|step_id| {
+            active_skip(*step_id, step_title(*step_id), &active.connection_name)
+                .with_remediation("Pause this ADS device before running the full doctor.")
+                .with_next_action(NextAction::new(NextActionKind::RerunDoctor))
+        })
+        .collect();
+    let mut report = DoctorReport::new(options.ran_from, options.transport)
+        .with_target(active.target.clone())
+        .with_steps(steps)
+        .with_summary(format!(
+            "Full doctor requires an explicit pause for active ADS device '{}'.",
+            active.connection_name
+        ));
+    report.writes_enabled = options.writes_enabled;
+    if let Some(local) = active
+        .local
+        .clone()
+        .or_else(|| options.local_identity.clone())
+    {
+        report = report.with_local(local);
+    }
+    report
+}
+
+fn active_read_state_step(active: &ActiveAdsDeviceSnapshot) -> DoctorStep {
+    match active.state {
+        AdsConnectionStatusState::Connected => DoctorStep::new(
+            DoctorStepId::ReadState,
+            "PLC runtime state",
+            DoctorStepStatus::Pass,
+            "Live ADS worker is connected.",
+        )
+        .with_evidence("connection_state", "connected"),
+        AdsConnectionStatusState::Reconnecting
+        | AdsConnectionStatusState::NotReady
+        | AdsConnectionStatusState::Stale => DoctorStep::new(
+            DoctorStepId::ReadState,
+            "PLC runtime state",
+            DoctorStepStatus::Warn,
+            format!("Live ADS worker is {:?}.", active.state),
+        )
+        .with_evidence("connection_state", format!("{:?}", active.state)),
+        AdsConnectionStatusState::Faulted => {
+            let mut step = DoctorStep::new(
+                DoctorStepId::ReadState,
+                "PLC runtime state",
+                DoctorStepStatus::Fail,
+                "Live ADS worker is faulted.",
+            )
+            .with_evidence("connection_state", "faulted");
+            step.remediation = "Inspect ADS device status before rerunning the doctor.".to_string();
+            step.next_action = NextAction::new(NextActionKind::RerunDoctor);
+            step
+        }
+        AdsConnectionStatusState::Disabled | AdsConnectionStatusState::Unknown => DoctorStep::new(
+            DoctorStepId::ReadState,
+            "PLC runtime state",
+            DoctorStepStatus::Warn,
+            format!("Live ADS worker state is {:?}.", active.state),
+        )
+        .with_evidence("connection_state", format!("{:?}", active.state)),
+    }
+}
+
+fn active_sumup_step(active: &ActiveAdsDeviceSnapshot, degraded_points: usize) -> DoctorStep {
+    let point_count = active.point_statuses.len();
+    let status = if degraded_points == 0 {
+        DoctorStepStatus::Pass
+    } else {
+        DoctorStepStatus::Warn
+    };
+    DoctorStep::new(
+        DoctorStepId::SumupRead,
+        "Batch read",
+        status,
+        format!("{point_count} live point(s), {degraded_points} degraded."),
+    )
+    .with_evidence("point_count", json!(point_count))
+    .with_evidence("degraded_points", json!(degraded_points))
+    .with_evidence(
+        "last_good_value_ms",
+        active
+            .last_good_value_ms()
+            .map_or(json!(null), |value| json!(value)),
+    )
 }
 
 fn build_report(
@@ -813,6 +914,17 @@ fn cancelled_step(id: DoctorStepId) -> DoctorStep {
     )
 }
 
+fn active_skip(id: DoctorStepId, title: impl Into<String>, connection_name: &str) -> DoctorStep {
+    DoctorStep::skipped(
+        id,
+        title,
+        DoctorSkipReason::ActiveDevice,
+        format!(
+            "Skipped direct ADS probe because '{connection_name}' is already connected by the runtime."
+        ),
+    )
+}
+
 fn internal_missing_step(id: DoctorStepId, missing: &str) -> DoctorStep {
     failed_step(
         id,
@@ -828,15 +940,15 @@ fn step_title(id: DoctorStepId) -> &'static str {
     match id {
         DoctorStepId::UdpIdentify => "Find PLC on network",
         DoctorStepId::LocalIdentity => "truST local identity",
-        DoctorStepId::Tcp48898 => "ADS transport reachable",
+        DoctorStepId::Tcp48898 => "Port 48898 reachable",
         DoctorStepId::RoutePresent => "Route back to truST",
         DoctorStepId::AmsTarget => "Target AMS identity",
         DoctorStepId::ReadState => "PLC runtime state",
-        DoctorStepId::SymbolUpload => "ADS symbols",
+        DoctorStepId::SymbolUpload => "TwinCAT symbols",
         DoctorStepId::HandleResolve => "Resolve symbol handle",
-        DoctorStepId::SumupRead => "Read values",
+        DoctorStepId::SumupRead => "Batch read",
         DoctorStepId::WriteGuarded => "Guarded write",
-        DoctorStepId::Notification => "Read update sample",
+        DoctorStepId::Notification => "Notification sample",
         DoctorStepId::SymbolVersion => "Symbol version",
         DoctorStepId::BindExposure => "Bind interface",
         DoctorStepId::ListenerBound => "ADS listener",
@@ -860,39 +972,4 @@ fn target_label(target: &TargetIdentity) -> String {
         || target.ip.clone(),
         |name| format!("{name} @ {}", target.ip),
     )
-}
-
-#[cfg(test)]
-mod deadline_tests {
-    use super::*;
-
-    #[test]
-    fn late_success_is_rejected_with_explicit_non_preemptible_deadline_evidence() {
-        let step = pass_step(DoctorStepId::ReadState, "PLC runtime state", "late success");
-
-        let step =
-            enforce_step_deadline(DoctorStepId::ReadState, step, Duration::from_millis(5_001));
-
-        assert_eq!(step.status, DoctorStepStatus::Fail);
-        assert!(step.detail.contains("cannot be safely pre-empted"));
-        assert_eq!(step.evidence.get("timeout_ms"), Some(&json!(5_000)));
-        assert_eq!(step.evidence.get("elapsed_ms"), Some(&json!(5_001)));
-    }
-
-    #[test]
-    fn success_inside_deadline_remains_a_pass() {
-        let step = pass_step(
-            DoctorStepId::Notification,
-            "Read update sample",
-            "read proven",
-        );
-
-        let step = enforce_step_deadline(
-            DoctorStepId::Notification,
-            step,
-            Duration::from_millis(4_999),
-        );
-
-        assert_eq!(step.status, DoctorStepStatus::Pass);
-    }
 }

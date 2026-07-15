@@ -15,40 +15,35 @@ package "VS Code Extension" as vscode #LightBlue {
     component "extension.ts" as extMain <<main entry>>
     component "STLanguageClient" as langClient
     component "DebugAdapterFactory" as debugFactory
-    component "Live Values\n(explicitly opened Webview)" as runtimePanel <<ioPanel.ts + io-panel/*>>
+    component "Runtime Panel\n(Webview)" as runtimePanel <<ioPanel.ts + io-panel/*>>
     component "Devices & Connections\n(Webview)" as communicationPanel <<networkCanvas/*>>
     component "Network Canvas polling timer" as canvasPolling <<networkCanvas/panelPolling.ts>>
+    component "ADS Devices Panel\n(Webview)" as adsPanel <<adsPanel.ts>>
     component "Runtime Target Resolver\n(single selected runtime context)" as runtimeTarget <<runtimeTarget.ts>>
     component "Runtime Control Client\n(shared JSON-line client)" as runtimeClient <<runtimeControlClient.ts>>
-    component "ADS discovery model + probe controller\none Discover ADS devices action; local + LAN\nautomatic 851-854, 301, 501; Advanced recovery" as adsDiscoveryFlow <<networkCanvas/adsServiceProbe*>>
-    component "RuntimeLifecycleService\none accepted session + one operation authority" as runtimeLifecycle <<runtimeLifecycle*.ts>>
-    component "Local Simulator Start Coordinator\nauthenticated endpoint + accepted DAP attempt" as localSimControl <<localSimulator* + debug/startCommand.ts>>
+    component "TwinCAT discovery model + probe controller\none identity flow; freshly confirmed bounded services\nselected-runtime ADS safety preflight" as adsDiscoveryFlow <<networkCanvas/adsServiceProbe*>>
+    component "Local Simulator Control\nUnix socket or authenticated Windows TCP" as localSimControl <<simControl.ts + newProject.ts>>
 
     extMain --> langClient : creates
     extMain --> debugFactory : registers
     extMain --> communicationPanel : registers Communication command
     communicationPanel --> canvasPolling : start/stop refresh lifecycle
-    runtimePanel --> runtimeLifecycle : passive I/O + ADS projection;\nexplicit runtime actions only
-    communicationPanel --> runtimeLifecycle : shared Start/Stop and state projection
+    extMain --> adsPanel : registers ADS commands
+    runtimePanel --> runtimeTarget : owns runtime settings
     communicationPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     communicationPanel --> runtimeClient : sends comm.* setup/status requests
-    communicationPanel --> adsDiscoveryFlow : one zero-input ADS action;\nknown host, AMS Net ID, custom ports under Advanced
-    runtimeLifecycle --> localSimControl : lifecycle-owned Play
-    localSimControl --> debugFactory : one attempt id + secured per-workspace endpoint
+    communicationPanel --> adsDiscoveryFlow : Find TwinCAT computer, confirm\nother host ADS clients stopped, then check services
+    communicationPanel --> adsPanel : deep-links ADS workflows
+    adsPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
+    adsPanel --> runtimeClient : sends ADS control requests
+    localSimControl --> debugFactory : per-workspace endpoint + token
 }
 
 note right of runtimePanel
-    Play never opens this panel. When the user
-    opens it, it sends custom DAP requests
-    (stIoState/stAdsState/stIoWrite/stReload)
-    only through the accepted lifecycle session.
-end note
-
-note right of runtimeLifecycle
-    Sidebar, status bar, Devices & Connections,
-    and Live Values project the same authority.
-    Starting, Running/Connected, Stopping, failure,
-    and Stopped cannot be owned independently.
+    Runtime panel sends custom DAP
+    requests (stIoState/stIoWrite/stReload)
+    and writes workspace settings that
+    override runtime control endpoints.
 end note
 
 ' ============================================================
@@ -194,18 +189,6 @@ package "trust-ads-server crate" as adsServerCrate #PaleTurquoise {
 }
 
 ' ============================================================
-' trust-ads-windows CRATE (Windows Native Router Boundary)
-' ============================================================
-package "trust-ads-windows crate" as adsWindowsCrate #PaleTurquoise {
-    component "Safe TcAdsDll / AdsPort API\nRAII port + typed errors" as adsWindowsApi
-    component "Private Beckhoff FFI\nextern system ABI + checked buffers" as adsWindowsFfi
-    component "Trusted DLL Resolution\nSystem32 or OS-derived Beckhoff paths" as adsWindowsLoader
-
-    adsWindowsApi --> adsWindowsFfi
-    adsWindowsApi --> adsWindowsLoader
-}
-
-' ============================================================
 ' truST Runtime CRATE (Execution Engine)
 ' ============================================================
 package "trust-runtime crate" as struntime #LightYellow {
@@ -227,7 +210,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "RetainManager" as retainMgr
     component "Watchdog" as watchdog
     component "Control Server\n(IPC)" as controlServer
-    component "Communication Control Handlers\nWindows-native local / UDP LAN ADS identity\n+ structured per-port browse" as commControlHandlers
+    component "Communication Control Handlers\nlocal-router/UDP identity discovery\n+ structured browse" as commControlHandlers
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
@@ -243,8 +226,6 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Prometheus Scrape\n(/metrics)" as promScrape
     component "OPC UA Gateway\n(server + probe client)" as opcuaGateway
     component "ADS Client Integration\n(host/ads + runtime subsystem + CLI)" as adsClient
-    component "HostAdsTransport\nWindows-local native router / remote direct TCP" as adsHostTransport
-    component "ADS Live Values Snapshot\nscan-owned value + committed quality" as adsLiveValues
     component "ADS Server Integration\n(host/ads/server + control/web/CLI)" as adsServerIntegration
     component "ADS Onboarding Engine\n(host/ads/onboarding/*)" as adsOnboarding
     component "ADS Diagnostics Schema\n(host/ads/diagnostics.rs + diagnostics/*)" as adsDiagnostics
@@ -330,11 +311,10 @@ package "trust-runtime crate" as struntime #LightYellow {
     controlServer --> commControlHandlers : comm.capabilities/schema/apply/test
     commControlHandlers --> ioRegistry : validate I/O driver setup
     commControlHandlers --> runtimeConfig : report built/configured\ncapabilities
-    controlServer --> adsControlHandlers : ADS identity/status/doctor/route/live_values
+    controlServer --> adsControlHandlers : ADS identity/status/doctor/route
     adsControlHandlers --> adsOnboarding : execute host-side onboarding
     adsControlHandlers --> adsDiagnostics : JSON schema envelope
     adsControlHandlers --> adsClient : live ads.status
-    adsControlHandlers --> adsLiveValues : viewer-gated read-only snapshot
     adsControlHandlers --> adsServerIntegration : server status/symbols/doctor
     controlServer --> historianSvc : historian.query/alerts
     controlServer --> hmiPersistence : persist HMI\ntrends/alarms
@@ -357,11 +337,9 @@ package "trust-runtime crate" as struntime #LightYellow {
 package "trust-debug crate" as stdebug #Lavender {
     component "DebugAdapter" as adapter <<adapter/mod.rs>>
     component "DebugSession" as session <<session.rs + session/*>>
-    component "ADS State Bridge\nstAdsState local snapshot / remote ads.live_values" as debugAdsState <<adapter/ads.rs>>
     component "Protocol IO" as protocolIo
 
     adapter --> session
-    adapter --> debugAdsState
     adapter --> protocolIo
 }
 
@@ -379,7 +357,6 @@ package "Deployment" as deploy #LightGray {
     component "MQTT Broker\n(remote I/O)" as mqttBroker
     component "Modbus TCP Driver" as modbusDriver
     component "Beckhoff TwinCAT PLC\n(ADS server)" as twincatPlc
-    component "Installed Beckhoff AMS Router\nTcAdsDll on the same Windows computer" as localAmsRouter
     component "ADS External Clients\n(TwinCAT/pyads/.NET)" as adsExternalClients
     component "CLI Control Client\n(trust-runtime ctl)" as ctlClient
     component "Browser UI\n(Local/Remote)" as browserUi
@@ -397,10 +374,11 @@ trustlsp -down-> stide : IDE queries
 stide -down-> sthir : semantic info
 sthir -down-> stsyntax : parse tree
 
-runtimePanel -down-> stdebug : accepted-session custom DAP\n(I/O + ADS + source provenance + reload)
+runtimePanel -down-> stdebug : custom DAP\n(I/O + source provenance + reload)
 localSimControl -down-> stdebug : launch control endpoint + auth token
 communicationPanel -down-> controlServer : Communication comm.* requests\nthrough selected runtime endpoint
-adsDiscoveryFlow -down-> commControlHandlers : one local + LAN identity scan;\nads.status fail-closed guard for selected runtimes;\nautomatic 851-854 + 301 + 501; Advanced explicit checks
+adsDiscoveryFlow -down-> commControlHandlers : ADS identity first; fresh user confirmation;\nads.status fail-closed guard for selected runtimes;\nsequential 851-854 + 301 + 501 + explicit checks
+adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
 
 ' Handlers to IDE
 featureHandler --> completion
@@ -420,8 +398,6 @@ sthir --> harness : compile inputs
 harness --> struntime : runtime + bytecode
 stdebug --> struntime : runtime + debug control
 stdebug -up-> vscode : DAP events
-debugAdsState --> adsLiveValues : local simulator snapshot
-debugAdsState --> controlServer : remote accepted session\nads.live_values
 bundle --> launcher : load
 bundle --> registryCli : publish payload
 sourceFiles --> webIde : scoped read/write
@@ -433,13 +409,8 @@ systemIo --> launcher : load (fallback)
 retainMgr --> retainStore : load/save
 runtime --> hardwareIo : drivers
 mqttDriver --> mqttBroker : MQTT\nplain local or TLS/mTLS remote
-adsClient --> adsHostTransport : one host-aware transport boundary
-adsClient --> adsLiveValues : commits scan-applied values + quality
-adsHostTransport --> adsWindowsApi : same-computer Windows target
-adsWindowsFfi --> localAmsRouter : installed router API; no raw self-TCP\nand no synthetic self-route
-localAmsRouter --> twincatPlc : local AMS route to logical ADS service
-adsHostTransport --> twincatPlc : remote direct ADS/AMS\nplain now, secure reserved
-adsOnboarding --> twincatPlc : LAN ADS UDP identify/discover;\nroute planning/add-route only when remote requires it
+adsClient --> twincatPlc : ADS/AMS\nplain now, secure reserved
+adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-route
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
 ctlClient --> controlServer : JSON IPC
 browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)

@@ -8,9 +8,7 @@ use crate::ads::diagnostics::{
     ADS_DIAGNOSTICS_SCHEMA_VERSION,
 };
 use crate::ads::onboarding::ActiveAdsDeviceSnapshot;
-use crate::ads::{
-    AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsLiveValuesSnapshot, AdsWorkerThread,
-};
+use crate::ads::{AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsWorkerThread};
 use crate::error::RuntimeError;
 use crate::memory::VariableStorage;
 
@@ -70,19 +68,6 @@ impl AdsSubsystem {
             connections,
             summary: ads_status_summary(overall),
         }
-    }
-
-    pub(super) fn live_values_snapshot(&self, scan: u64) -> AdsLiveValuesSnapshot {
-        let entries = self
-            .connections
-            .iter()
-            .flat_map(|connection| {
-                connection
-                    .bridge
-                    .live_value_entries(connection.name.as_str())
-            })
-            .collect();
-        AdsLiveValuesSnapshot::new(scan, entries)
     }
 
     pub(super) fn active_device_snapshot(
@@ -254,19 +239,9 @@ fn route_matches_target(
 
 #[cfg(test)]
 mod tests {
-    use trust_ads_core::{
-        AdsDataTypeDescriptor, AdsRoute, AdsSecurityPolicy, AmsNetId, IecDataType, PointAccess,
-        PointQuality, QualityState, SymbolDescriptor, SymbolFlag, TransportSecurity, UpdateMode,
-    };
-    use trust_hir::TypeId;
+    use trust_ads_core::{AdsRoute, AdsSecurityPolicy, AmsNetId, TransportSecurity};
 
     use super::*;
-    use crate::ads::{
-        resolve_declared_bindings, AdsConnectionConfig, AdsNotificationMode, AdsPointAddress,
-        AdsPointConfig, MockAdsTransport,
-    };
-    use crate::value::Value;
-    use crate::{GlobalInitValue, RetainPolicy, Runtime};
 
     #[test]
     fn empty_ads_subsystem_reports_disabled_status() {
@@ -364,94 +339,6 @@ mod tests {
                 .map(|local| local.ams_net_id.as_str()),
             Some("192.168.10.20.1.1")
         );
-    }
-
-    #[test]
-    fn live_values_snapshot_preserves_good_value_and_metadata_when_quality_turns_stale() {
-        let mut runtime = Runtime::new();
-        let point_name = SmolStr::new("line1_temp");
-        runtime
-            .storage_mut()
-            .set_global(point_name.clone(), Value::Real(0.0));
-        runtime.register_global_meta(
-            point_name,
-            TypeId::REAL,
-            RetainPolicy::NonRetain,
-            GlobalInitValue::Value(Value::Real(0.0)),
-        );
-        let point = AdsPointConfig {
-            point_name: "line1_temp".to_string(),
-            address: AdsPointAddress::Symbol("MAIN.Temperature".to_string()),
-            data_type: AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
-            access: PointAccess::Read,
-            mode: UpdateMode::Poll,
-            notification_mode: AdsNotificationMode::OnChange,
-            allow_retain_read: false,
-        };
-        let connection = AdsConnectionConfig {
-            route: route(),
-            points: vec![point],
-        };
-        let bindings = resolve_declared_bindings(&runtime, &connection).expect("ADS bindings");
-        let symbol = SymbolDescriptor::new(
-            "MAIN.Temperature",
-            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
-            0x4020,
-            0,
-            4,
-        )
-        .with_flag(SymbolFlag::Read);
-        let mut transport = MockAdsTransport::new(vec![symbol]);
-        transport.set_value("line1_temp", Value::Real(42.5), PointQuality::good(10));
-        let (mut bridge, mut worker) =
-            AdsConnectionBridge::with_transport(transport, bindings).expect("ADS bridge");
-        bridge.initialize_live_values(runtime.storage());
-        worker.tick(0).expect("initial ADS poll");
-
-        let mut subsystem = AdsSubsystem::new();
-        subsystem.add_connection_for_test(connection.route, bridge);
-        let before_scan = subsystem.live_values_snapshot(6);
-        let entry = &before_scan.entries[0];
-        assert_eq!(entry.value, "0.0");
-        assert_eq!(entry.quality.state, QualityState::Stale);
-
-        subsystem
-            .apply_inputs(runtime.storage_mut(), 11)
-            .expect("apply ADS input");
-        let good = subsystem.live_values_snapshot(7);
-
-        assert_eq!(good.schema_version, 1);
-        assert_eq!(good.scan, 7);
-        assert_eq!(good.entries.len(), 1);
-        let entry = &good.entries[0];
-        assert_eq!(entry.connection, "line1");
-        assert_eq!(entry.name, "line1_temp");
-        assert_eq!(entry.remote_symbol, "MAIN.Temperature");
-        assert_eq!(entry.value, "42.5");
-        assert_eq!(entry.value_type, "REAL");
-        assert_eq!(entry.access, "read");
-        assert_eq!(entry.quality.state, QualityState::Good);
-        assert_eq!(entry.quality.last_update_ms, Some(10));
-
-        worker.mark_reconnecting(20, "route lost");
-        let before_stale_scan = subsystem.live_values_snapshot(7);
-        assert_eq!(
-            before_stale_scan.entries[0].quality.state,
-            QualityState::Good
-        );
-        subsystem
-            .apply_inputs(runtime.storage_mut(), 21)
-            .expect("commit stale ADS quality");
-        let stale = subsystem.live_values_snapshot(8);
-        let entry = &stale.entries[0];
-        assert_eq!(entry.value, "42.5", "stale keeps the last scan value");
-        assert_eq!(entry.quality.state, QualityState::Stale);
-        assert_eq!(entry.quality.last_update_ms, Some(10));
-        assert!(entry
-            .quality
-            .detail
-            .as_deref()
-            .is_some_and(|detail| detail.contains("route lost")));
     }
 
     impl AdsSubsystem {

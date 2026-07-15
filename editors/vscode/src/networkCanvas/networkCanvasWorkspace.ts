@@ -6,8 +6,6 @@ export function workspaceConfigResource(): vscode.Uri | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
 
-export function networkCanvasTrustConfig(
-  resource: vscode.Uri | undefined = workspaceConfigResource()
-): vscode.WorkspaceConfiguration {
-  return getTrustConfiguration(resource);
+export function networkCanvasTrustConfig(): vscode.WorkspaceConfiguration {
+  return getTrustConfiguration(workspaceConfigResource());
 }

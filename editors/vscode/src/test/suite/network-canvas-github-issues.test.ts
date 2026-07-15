@@ -18,13 +18,8 @@ import {
 import { discoveryRuntimeFailureMessage } from "../../networkCanvas/discoveryErrors";
 import { LatestRefreshCoordinator } from "../../networkCanvas/refreshCoordinator";
 import { becameVisible } from "../../networkCanvas/panelVisibility";
-import { NetworkCanvasPolling } from "../../networkCanvas/panelPolling";
 import {
-  immediateSimulatorLifecycleProjection,
-  shouldRefreshNetworkCanvasForLifecycleChange,
-} from "../../networkCanvas/lifecycleRefreshPolicy";
-import {
-  OPEN_RUN_ACTION,
+  START_RUNTIME_ACTION,
   adsImportFailurePrompt,
 } from "../../networkCanvas/adsImportUx";
 import { classifyBrowseError } from "../../networkCanvas/webview/browseErrorModel";
@@ -147,107 +142,6 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.deepStrictEqual(ran, ["first", "second"]);
   });
 
-  test("#95 periodic polling waits for a slow refresh before starting another", async function () {
-    this.timeout(2_000);
-    let releaseFirst!: () => void;
-    const firstGate = new Promise<void>((resolve) => {
-      releaseFirst = resolve;
-    });
-    let firstStarted!: () => void;
-    const firstStartedGate = new Promise<void>((resolve) => {
-      firstStarted = resolve;
-    });
-    let calls = 0;
-    let active = 0;
-    let maxActive = 0;
-    let secondStarted!: () => void;
-    const secondStartedGate = new Promise<void>((resolve) => {
-      secondStarted = resolve;
-    });
-    const polling = new NetworkCanvasPolling(async () => {
-      calls += 1;
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      if (calls === 1) {
-        firstStarted();
-        await firstGate;
-      } else if (calls === 2) {
-        secondStarted();
-      }
-      active -= 1;
-    }, 10);
-
-    try {
-      polling.start();
-      await firstStartedGate;
-      await new Promise<void>((resolve) => setTimeout(resolve, 50));
-
-      assert.strictEqual(
-        calls,
-        1,
-        "timer ticks during a slow refresh must be coalesced",
-      );
-      assert.strictEqual(maxActive, 1, "periodic refreshes must never overlap");
-
-      releaseFirst();
-      await secondStartedGate;
-      assert.strictEqual(maxActive, 1, "the next poll starts only after completion");
-    } finally {
-      polling.stop();
-      releaseFirst();
-    }
-  });
-
-  test("#95 per-scan I/O events cannot starve lifecycle graph refreshes", () => {
-    const changes = [
-      { kind: "lifecycle" as const },
-      ...Array.from({ length: 1_000 }, () => ({ kind: "io" as const })),
-      { kind: "lifecycle" as const },
-    ];
-    const scheduled = changes.filter(
-      shouldRefreshNetworkCanvasForLifecycleChange
-    );
-
-    assert.deepStrictEqual(scheduled, [
-      { kind: "lifecycle" },
-      { kind: "lifecycle" },
-    ]);
-    assert.deepStrictEqual(immediateSimulatorLifecycleProjection("stopped"), {
-      running: false,
-      starting: false,
-      stopped: true,
-    });
-    assert.deepStrictEqual(immediateSimulatorLifecycleProjection("starting"), {
-      running: false,
-      starting: true,
-      stopped: false,
-    });
-    assert.deepStrictEqual(immediateSimulatorLifecycleProjection("running"), {
-      running: true,
-      starting: false,
-      stopped: false,
-    });
-    assert.strictEqual(immediateSimulatorLifecycleProjection("connected"), undefined);
-    const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
-    const lifecycleModelSource = readSrc("networkCanvas/lifecycleModel.ts");
-    assert.ok(
-      panelSource.includes("shouldRefreshNetworkCanvasForLifecycleChange(change)"),
-      "Devices must apply the I/O flood policy at its lifecycle subscription"
-    );
-    assert.ok(
-      panelSource.indexOf("postImmediateSimulatorLifecycleGraph(phase)") <
-        panelSource.indexOf("void refreshNetworkCanvasPanel();"),
-      "Starting/Running/Stopped must reach the visible graph before slow schema/topology refresh work"
-    );
-    assert.ok(
-      panelSource.includes("runtimeLifecycleService.localFailure()") &&
-        lifecycleModelSource.includes(
-          "failure: asNetworkFailure(immediateFailure)"
-        ),
-      "failed starts must project the local lifecycle error immediately instead of flashing Stopped"
-    );
-  });
-
   test("#95 invalidated discovery requests cannot publish stale cards", () => {
     const tracker = new DiscoveryRequestTracker<object>();
     const owner = {};
@@ -280,7 +174,7 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
     assert.match(
       discoveryRuntimeFailureMessage("ads", new Error("request timed out")),
-      /ADS discovery timed out.*reconnect.*scan again/i,
+      /TwinCAT discovery timed out.*reconnect.*scan again/i,
     );
     assert.match(
       discoveryRuntimeFailureMessage("ads", new Error("authentication failed")),
@@ -316,42 +210,15 @@ suite("Network Canvas GitHub issues #94-#97", function () {
       "the full guardrail reason must not be toast-truncated",
     );
     assert.match(prompt.message, /running runtime/i);
-    assert.strictEqual(
-      prompt.detail,
-      "Open the truST sidebar and start the selected target, then import again."
-    );
-    assert.deepStrictEqual(prompt.actions, [OPEN_RUN_ACTION]);
+    assert.match(prompt.detail ?? "", /Start the runtime, then import again/i);
+    assert.deepStrictEqual(prompt.actions, [START_RUNTIME_ACTION]);
 
     const source = readSrc("networkCanvas/protocolActions.ts");
     assert.ok(source.includes("adsImportFailurePrompt(report.message)"));
-    assert.ok(
-      source.includes('vscode.commands.executeCommand("trust.home.focus")') &&
-        !source.includes("this.dependencies.startRuntime()"),
-      "ADS import recovery must reveal the one Run surface without launching a hidden lifecycle action"
-    );
+    assert.ok(source.includes("this.dependencies.startRuntime()"));
     const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
-    const protocolActionWiring = panelSource.slice(
-      panelSource.indexOf("const protocolActions ="),
-      panelSource.indexOf("const adsServiceProbeController")
-    );
-    assert.ok(!protocolActionWiring.includes("startRuntime:"));
-
-    const generic = adsImportFailurePrompt(
-      "control request failed: os error 10060; live ADS import needs an ads-wire runtime build",
-    );
-    assert.strictEqual(generic.message, "Could not add ADS variables.");
-    assert.strictEqual(
-      generic.detail,
-      "The selected runtime could not complete the ADS import. Reconnect or update it, then try again.",
-    );
-    assert.doesNotMatch(
-      `${generic.message} ${generic.detail}`,
-      /10060|ads-wire|runtime build/i,
-    );
-    assert.ok(
-      !source.includes("live ADS import needs an ads-wire runtime build"),
-      "the notification must not append backend build-feature jargon",
-    );
+    assert.ok(panelSource.includes("startRuntime: startConfiguredRuntime"));
+    assert.ok(panelSource.includes("runtimeLifecycleService.startRuntime()"));
   });
 
   test("#97 ADS ports validate and round-trip on discovered candidates", () => {
@@ -410,7 +277,7 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     ].join("\n");
 
     assert.ok(source.includes('data-role="ads-custom-ports"'));
-    assert.ok(source.includes("AUTOMATIC_ADS_SERVICE_PORTS"));
+    assert.ok(source.includes("AUTOMATIC_TWINCAT_SERVICE_PORTS"));
     assert.ok(source.includes("MAX_ADS_SERVICE_PROBES"));
     assert.ok(source.includes('data-role="ads-browse-variables"'));
     assert.ok(
@@ -458,20 +325,6 @@ suite("Network Canvas GitHub issues #94-#97", function () {
       classifyBrowseError("ads", { code: "empty_symbol_table" }).title,
       "No compatible symbols",
     );
-    const rawBrowseFailure = classifyBrowseError("ads", {
-      code: "symbol_upload_failed",
-      message:
-        "receiving reply timed out (os error 10060); local router closed the connection (os error 10054); ads-wire feature missing",
-    });
-    assert.strictEqual(
-      rawBrowseFailure.detail,
-      "The selected ADS service could not return variables. Make sure it is running, then try again.",
-    );
-    assert.doesNotMatch(
-      rawBrowseFailure.detail,
-      /10060|10054|router|ads-wire/i,
-    );
-    assert.match(rawBrowseFailure.technicalDetail ?? "", /10060.*ads-wire/i);
     assert.strictEqual(
       classifyAdsBrowseCommandFailure("connect ADS target: Connection refused"),
       "ads_port_unavailable",
