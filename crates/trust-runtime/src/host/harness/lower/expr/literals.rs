@@ -113,7 +113,7 @@ fn lower_literal_with_context(
         value = coerce_value_to_type(value, type_id)?;
     } else if let Some(type_id) = expected_type {
         if value != Value::Null {
-            value = coerce_initializer_value_to_type(
+            value = coerce_evaluated_initializer_value(
                 value,
                 type_id,
                 ctx.registry,
