@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `de94ec228fe9ff07f015e9395a39d7282c37371b`
-Generated: `2026-07-15T20:06:12+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `6d9a8a12c39b004396cc0a26480757e01b2af18045ac389b40f3dbd64fc86fb5`
-Input SHA-256: `sha256:a09c3459d78e52d1f3abc19722a6f16f2f633da456aaffa2fbb0238b54e195d2`
+Source revision: `dc9ea68801def8d9a41e3c7f374547c567cb91b0`
+Generated: `2026-07-15T22:46:43+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `18001ecc03855a9e06d492d860040b3e1942f2afe8c4369ba1f6fee6b4fc6230`
+Input SHA-256: `sha256:7c1f1b0e60987b22fa82f46a93a15a388535a28977234c5e51b014b77650383c`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3948
-- Mapped scanner facts: 174
-- Unmapped scanner facts: 3774
-- Generated-test catalog rows: 174
+- Scanner facts: 3957
+- Mapped scanner facts: 175
+- Unmapped scanner facts: 3782
+- Generated-test catalog rows: 175
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1454 | 132 | 1322 |
-| `rust_unit_test` | 1699 | 42 | 1657 |
+| `rust_integration_test` | 1455 | 133 | 1322 |
+| `rust_unit_test` | 1707 | 42 | 1665 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -2123,6 +2123,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_CC1AD4BF41A52AFCB096` | `rust_unit_test` | `crates/trust-runtime/src/bin/trust-runtime/setup_web.rs` | `setup_access_allows_when_token_not_required` | `not_ignored` |
 | `DISC_D186E0054EA8B270621D` | `rust_unit_test` | `crates/trust-runtime/src/bin/trust-runtime/setup_web.rs` | `setup_access_enforces_expiry` | `not_ignored` |
 | `DISC_96EA4541C1842E8410D3` | `rust_unit_test` | `crates/trust-runtime/src/bin/trust-runtime/setup_web.rs` | `setup_access_requires_matching_token` | `not_ignored` |
+| `DISC_17D696332973EB469E9F` | `rust_unit_test` | `crates/trust-runtime/src/bytecode/validate/resource_limits.rs` | `instruction_limit_accepts_boundary_and_rejects_next_instruction` | `not_ignored` |
+| `DISC_730482B298A86765CE71` | `rust_unit_test` | `crates/trust-runtime/src/bytecode/validate/resource_limits.rs` | `stack_limit_accepts_boundary_and_rejects_next_value` | `not_ignored` |
 | `DISC_550DA4990A850DF843DF` | `rust_unit_test` | `crates/trust-runtime/src/config/tests.rs` | `io_schema_accepts_disabled_multi_driver_entries` | `not_ignored` |
 | `DISC_CB9B91A0E26106BEFDA2` | `rust_unit_test` | `crates/trust-runtime/src/config/tests.rs` | `io_schema_accepts_driver_alias_inside_multi_driver_entries` | `not_ignored` |
 | `DISC_C152A2FAE2D0D3C74BD8` | `rust_unit_test` | `crates/trust-runtime/src/config/tests.rs` | `io_schema_accepts_multiple_drivers` | `not_ignored` |
@@ -2751,6 +2753,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_82C2C9A40CD6B6417DA6` | `rust_unit_test` | `crates/trust-runtime/src/runtime/restart.rs` | `apply_retain_snapshot_canonicalizes_legacy_enum_type_name` | `not_ignored` |
 | `DISC_7CD5D444A8A4F7601610` | `rust_unit_test` | `crates/trust-runtime/src/runtime/restart.rs` | `apply_retain_snapshot_canonicalizes_nested_enum_in_struct` | `not_ignored` |
 | `DISC_5B7344B729E5C62F8DE3` | `rust_unit_test` | `crates/trust-runtime/src/runtime/restart.rs` | `apply_retain_snapshot_rejects_struct_field_type_drift` | `not_ignored` |
+| `DISC_24F5361F09E346062428` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/budget.rs` | `budget_accepts_exact_remaining_work_and_rejects_the_next_instruction` | `not_ignored` |
+| `DISC_2EEF1852335396B08229` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/budget.rs` | `rejected_charge_does_not_underflow_the_remaining_budget` | `not_ignored` |
 | `DISC_A8CA6B14637EBEF73098` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/call/tests/argument_binding.rs` | `bind_conversion_value_accepts_positional_and_named_in_only` | `not_ignored` |
 | `DISC_39BAF5ED40CAFA87A0FD` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/call/tests/argument_binding.rs` | `bind_vm_function_block_arguments_skips_omitted_inout_without_field_resolution` | `not_ignored` |
 | `DISC_43A1951229C19A1BB4B5` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/call/tests/argument_binding.rs` | `bind_vm_function_block_arguments_skips_omitted_out_without_field_resolution` | `not_ignored` |
@@ -2820,6 +2824,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_2D00101FB1C43F085F63` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/local_init.rs` | `vm_local_interface_defaults_to_null` | `not_ignored` |
 | `DISC_4AB7155B7181CF058808` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/mod.rs` | `infer_primary_instance_owner_returns_none_for_ambiguous_owners` | `not_ignored` |
 | `DISC_B95DF7DD235A4312B411` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/mod.rs` | `infer_primary_instance_owner_scans_partial_access_operands` | `not_ignored` |
+| `DISC_1D15CD11714BA5CEFA4B` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs` | `vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary` | `not_ignored` |
+| `DISC_8EF2B55E3EBA03FF4321` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs` | `vmpar_nested_function_call_shares_the_top_level_instruction_budget` | `not_ignored` |
 | `DISC_4C3F5D7171073A654EA8` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs` | `vmpar_register_deadline_traps_without_fallback_or_commit` | `not_ignored` |
 | `DISC_769ABE73CC183605DE35` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs` | `vmpar_stack_deadline_traps_before_forward_workload_commits` | `not_ignored` |
 | `DISC_B2DECE92E4F87D0C7CDB` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs` | `vmpar_stack_register_and_tier1_paths_produce_expected_forward_value` | `not_ignored` |
@@ -2857,12 +2863,15 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_51FAD8D70276D6AD9276` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion.rs` | `register_ir_fuse_instruction_read_detection_covers_all_operands` | `not_ignored` |
 | `DISC_A8306A2EE373A53ADB86` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion.rs` | `register_ir_fuse_rejects_partial_self_field_dynamic_windows` | `not_ignored` |
 | `DISC_E04E58B180F17322D827` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion_support.rs` | `register_ir_fuse_preserves_unmatched_windows_and_fused_tail` | `not_ignored` |
+| `DISC_01FF4844DCFE49E1E325` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion_support.rs` | `register_ir_fusion_preserves_original_bytecode_instruction_costs` | `not_ignored` |
 | `DISC_286FF29DA9DB9D790C4F` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion_support.rs` | `register_ir_lowering_handles_linear_arithmetic_main` | `not_ignored` |
 | `DISC_9ECC8ADE95FD125D2ECC` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `dint_mod_zero_fast_path_matches_generic_error_contract` | `not_ignored` |
 | `DISC_A45D628700DA0E8AEA0A` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_lowering_rejects_invalid_jump_target` | `not_ignored` |
 | `DISC_9033961FDC7ED097C3EE` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_parity_matches_stack_subset_linear_program` | `not_ignored` |
 | `DISC_B6AA0AA3D972CE219704` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_parity_matches_stack_subset_loop_program` | `not_ignored` |
+| `DISC_0CC70C150675D457490D` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_verifier_rejects_missing_instruction_costs` | `not_ignored` |
 | `DISC_5B912DAD1263AC34BCDC` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_verifier_rejects_move_destination_out_of_bounds` | `not_ignored` |
+| `DISC_D200FA08C237098387EF` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_verifier_rejects_original_instruction_count_drift` | `not_ignored` |
 | `DISC_5B87087311D6A3361AE7` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_verifier_rejects_undefined_source_register` | `not_ignored` |
 | `DISC_AB59020941E4FCFAB21B` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/verifier_and_parity.rs` | `register_ir_verifier_rejects_unknown_block_target` | `not_ignored` |
 | `DISC_B45F29B68E0EF26A04A2` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/profile.rs` | `read_register_with_counts_records_clone_then_move_reads` | `not_ignored` |
@@ -2881,7 +2890,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_198AC339350EE7862D7A` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `block_index_from_id_rejects_missing_and_mismatched_blocks` | `not_ignored` |
 | `DISC_568746B1EBFDBEB42545` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `deadline_exceeded_distinguishes_missing_past_and_future_deadlines` | `not_ignored` |
 | `DISC_43B4A11BDCA200636374` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `interpreted_ref_field_reports_null_reference_base` | `not_ignored` |
-| `DISC_29FBD9A0114E33C69FB3` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `loop_budget_helpers_consume_only_backward_block_targets` | `not_ignored` |
 | `DISC_1859BF1BBDB76B7B736B` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `next_linear_block_target_uses_following_block_not_current_block` | `not_ignored` |
 | `DISC_02A9C126BCBCA60B89FC` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `parse_env_bool_accepts_explicit_true_false_and_defaults` | `not_ignored` |
 | `DISC_AE02817D6CB569DFC8B4` | `rust_unit_test` | `crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs` | `prepare_register_file_resizes_truncates_and_preserves_values` | `not_ignored` |

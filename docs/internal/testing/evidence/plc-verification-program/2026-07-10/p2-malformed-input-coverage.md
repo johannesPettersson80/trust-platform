@@ -1,11 +1,11 @@
 # Malformed-Input Coverage Report
 
 Generator: `malformed-input-coverage v1`
-Source revision: `de94ec228fe9ff07f015e9395a39d7282c37371b`
-Generated: `2026-07-15T20:06:12+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `530a4fb33f55526372f6dfb47fe96756bcfdf9afb971f11e21b91e2ec4caa4f7`
-Input SHA-256: `sha256:54ecc93d0ee771d52218a442fce112dddfd98cd640036df4c2bd1a25259895a3`
+Source revision: `dc9ea68801def8d9a41e3c7f374547c567cb91b0`
+Generated: `2026-07-15T22:46:43+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `374f4211739ba5e4a792e1abbabc9068bf30ff4af69ddb252e855131aa8a6738`
+Input SHA-256: `sha256:fdc2bd2f8cc420d965e96f47bc2eab61d56fc0464c298fa8c42a9f130a2ade1c`
 
 `complete` means the reviewed taxonomy and live joins validated. It does not
 mean every malformed-input class is covered.
@@ -13,13 +13,13 @@ mean every malformed-input class is covered.
 ## Summary
 
 - Taxonomy classes: 28
-- Classes with catalog mappings: 23
-- Explicit test mappings: 32
-- `covered`: 23
+- Classes with catalog mappings: 28
+- Explicit test mappings: 37
+- `covered`: 28
 - `covered_by_fuzz`: 0
 - `not_applicable`: 0
 - `blocked`: 0
-- `spec_gap`: 5
+- `spec_gap`: 0
 - `gap_open`: 0
 - `deferred`: 0
 
@@ -28,24 +28,24 @@ mean every malformed-input class is covered.
 | Class | Disposition | State | Runnable tests | Fuzz tests | Non-runnable tests | Open spec gaps |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ambiguous_instance_owner` | `required` | `covered` | `TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001`, `TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001`, `TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001` | none | none | none |
-| `argument_count_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `argument_count_resource_limit` | `required` | `covered` | `TEST_VM_RESOURCE_LIMIT_CASES_001` | none | none | none |
 | `bad_magic` | `required` | `covered` | `TEST_BYTECODE_CONTAINER_INVALID_MAGIC` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `call_depth_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `call_depth_resource_limit` | `required` | `covered` | `TEST_VM_RESOURCE_LIMIT_CASES_001` | none | none | none |
 | `call_target_mismatch` | `required` | `covered` | `TEST_BYTECODE_CALL_TARGET_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `const_type_incompatible` | `required` | `covered` | `TEST_BYTECODE_STORE_TYPE_REJECTION_001` | none | none | none |
 | `duplicate_section` | `required` | `covered` | `TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `instructions_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `instructions_resource_limit` | `required` | `covered` | `TEST_VM_RESOURCE_LIMIT_CASES_001` | none | none | none |
 | `invalid_checksum` | `required` | `covered` | `TEST_BYTECODE_CHECKSUM_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `jump_target_not_instruction_boundary` | `required` | `covered` | `TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `jump_target_out_of_bounds` | `required` | `covered` | `TEST_BYTECODE_VALIDATOR_CASES_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `local_frame_reference_persistence` | `required` | `covered` | `TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001`, `TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001` | none | none | none |
-| `locals_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `locals_resource_limit` | `required` | `covered` | `TEST_VM_RESOURCE_LIMIT_CASES_001` | none | none | none |
 | `missing_instance_owner` | `required` | `covered` | `TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `missing_section` | `required` | `covered` | `TEST_BYTECODE_MISSING_SECTION_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `operand_index_out_of_bounds` | `required` | `covered` | `TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001` | none | none | none |
 | `parameter_direction_mismatch` | `required` | `covered` | `TEST_BYTECODE_INOUT_LITERAL_REJECTION_001`, `TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001` | none | none | none |
 | `reference_escape` | `required` | `covered` | `TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001`, `TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001` | none | none | none |
-| `refs_resource_limit` | `spec_gap` | `spec_gap` | none | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `refs_resource_limit` | `required` | `covered` | `TEST_VM_RESOURCE_LIMIT_CASES_001` | none | none | none |
 | `stack_leftover` | `required` | `covered` | `TEST_BYTECODE_STACK_EXIT_REJECTION_001` | none | none | none |
 | `stack_type_mismatch` | `required` | `covered` | `TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001`, `TEST_BYTECODE_STORE_TYPE_REJECTION_001` | none | none | none |
 | `stack_underflow` | `required` | `covered` | `TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001`, `TEST_BYTECODE_VALIDATOR_CASES_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
@@ -54,7 +54,7 @@ mean every malformed-input class is covered.
 | `unknown_opcode` | `required` | `covered` | `TEST_BYTECODE_LEGACY_CALL_REJECTION_001`, `TEST_BYTECODE_VALIDATOR_CASES_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `unsupported_schema_tag` | `required` | `covered` | `TEST_BYTECODE_SCHEMA_TAG_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `unsupported_version` | `required` | `covered` | `TEST_BYTECODE_VERSION_REJECTION_001` | none | none | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `wrong_section` | `required` | `covered` | `TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001` | none | none | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `wrong_section` | `required` | `covered` | `TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001` | none | none | none |
 
 ## Limitations
 

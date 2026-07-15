@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `de94ec228fe9ff07f015e9395a39d7282c37371b`
-Generated: `2026-07-15T20:06:12+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `a030862ebe5ca2423e05e7ecc5877cf5d3705b8275832b0a1de499adbbc5e466`
-Input SHA-256: `sha256:12bc3fb5921a5c81fa54f0d1f1617f877087e35d810110ceecd49ce343ebd135`
+Source revision: `dc9ea68801def8d9a41e3c7f374547c567cb91b0`
+Generated: `2026-07-15T22:46:43+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `756b5555a117e4c7be81e12c6c78e087a0e5bab0390088cbc22686740ec3fac3`
+Input SHA-256: `sha256:033e929dbc57c6def79b6b4c6d0705d0992de55e7c07b0e8dc8a4db86e130487`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,25 +13,25 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3948
-- Fact-bearing files: 692
+- Scanner facts: 3957
+- Fact-bearing files: 695
 - Large-file candidates: 24
-- Reviewed mapping-diversity candidates: 15
+- Reviewed mapping-diversity candidates: 14
 - Broad multi-invariant claim candidates: 6
 - Exact fact-file duplicate groups: 0
 - Whitespace-normalized fact-file duplicate groups: 0
 - Exact case-input duplicate groups: 1
-- Same-table structural case-input peer groups: 11
+- Same-table structural case-input peer groups: 12
 - Shared case-file reference groups: 1
 - Malformed-class overlap groups: 8
 - VS Code facts: 456
 - VS Code files: 38
 - VS Code registrations: 38
 - Large registered VS Code files: 5
-- Catalog records: 179
-- Scanner facts with reviewed duration: 174
-- Scanner facts without reviewed duration: 3774
-- Catalog rows explicitly classified slow: 2
+- Catalog records: 180
+- Scanner facts with reviewed duration: 175
+- Scanner facts without reviewed duration: 3782
+- Catalog rows explicitly classified slow: 3
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
 
@@ -42,7 +42,6 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-ads-server/src/commands/tests.rs` | 1287 | 43 | 0 | `large_file` |
 | `crates/trust-ads-server/src/listener.rs` | 1374 | 16 | 0 | `large_file` |
 | `crates/trust-debug/src/adapter/tests_part_02.rs` | 1175 | 13 | 0 | `large_file` |
-| `crates/trust-hir/src/db/queries/database/database_tests_part_01.rs` | 591 | 17 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-hir/src/openot_authoring.rs` | 2868 | 22 | 0 | `large_file` |
 | `crates/trust-hir/src/symbols/table.rs` | 1136 | 3 | 0 | `large_file` |
 | `crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs` | 1295 | 69 | 0 | `large_file` |
@@ -60,7 +59,7 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/src/io/mqtt/tests.rs` | 1240 | 31 | 1 | `large_file` |
 | `crates/trust-runtime/src/runtime/vm/type_policy/tests.rs` | 135 | 4 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bounded_value_semantics.rs` | 222 | 6 | 6 | `reviewed_mapping_diversity` |
-| `crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs` | 301 | 7 | 7 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs` | 302 | 7 | 7 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bytecode_verification_cases.rs` | 289 | 2 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | 281 | 9 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/debug_pause_watchdog.rs` | 122 | 2 | 2 | `reviewed_mapping_diversity` |
@@ -247,6 +246,7 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_IEC_WSTRING_FB_INOUT_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001` claims 1 invariants; result `single_invariant`.
+- `TEST_VM_RESOURCE_LIMIT_CASES_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_PARSER_DEEP_PAREN_BOUND_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_PARSER_DEEP_UNARY_BOUND_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001` claims 1 invariants; result `single_invariant`.
@@ -265,13 +265,14 @@ a move, split, rename, fixture merge, or behavior change.
 - Exact fact-file groups: 0
 - Whitespace-normalized fact-file groups: 0
 - Exact case-input groups: 1
-- Same-table structural case-input peer groups: 11
+- Same-table structural case-input peer groups: 12
 - Shared case-file reference groups: 1
 - Explicit malformed-class overlap groups: 8
 - Free-form source-body similarity: `not_assessed`
 - Exact case input `sha256:c670cbf91197596289caf54141e9ad5505065ef61ebd999029f415beb97a26be`: cases `RT_SAFE_IO_WORKER_001_FAILURE_DOES_NOT_SKIP_LATER_DRIVER`, `RT_SAFE_IO_WORKER_001_FAULTED_HANDOFF_FAULTS_STOP`, `RT_SAFE_STOP_001_DEGRADED_HANDOFF_FAULTS_STOP`; files `verification/cases/runtime_safety/RT_SAFE_STOP_001.toml`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml`: `VM_SEAM_DECLARED_TYPE_001_ACCURACY_PRESERVING_INTEGER_TO_FLOAT_1089AD45`, `VM_SEAM_DECLARED_TYPE_001_COMPATIBLE_LITERAL_INITIALIZER_WIDENING_D8DF321B`, `VM_SEAM_DECLARED_TYPE_001_COMPATIBLE_TYPED_ASSIGNMENT_WIDENING_A6856BB4`, `VM_SEAM_DECLARED_TYPE_001_FUNCTION_RESULT_WIDENING_E52C15B0`, `VM_SEAM_DECLARED_TYPE_001_INT_EXPRESSION_TO_DINT_SLOT_9BF228AA`, `VM_SEAM_DECLARED_TYPE_001_INT_LITERAL_TO_REAL_SLOT_04979927`, `VM_SEAM_DECLARED_TYPE_001_INT_VARIABLE_TO_REAL_SLOT_C3821866`, `VM_SEAM_DECLARED_TYPE_001_POU_OUTPUT_WIDENING_8D957490`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml`: `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_1A1BA936`, `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_33057268`, `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_3D6F1197`, `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_6346A636`, `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_77B93993`, `VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_D8E1DB83`; shape `sha256:0d790842b7e2d96191704c9f07776e47e75c71b2d7dec4c06ff4ba9f0187a606`.
+- Structural peers in `verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml`: `VM_SEAM_DETERMINISM_LIMITS_001_CALL_DEPTH_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_CONTAINER_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_EXECUTION_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_INSTRUCTIONS_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_LOCALS_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_OSCAT_WITHIN_LIMITS`, `VM_SEAM_DETERMINISM_LIMITS_001_PARAMETERS_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_REFERENCES_ABOVE_MAX`, `VM_SEAM_DETERMINISM_LIMITS_001_STACK_ABOVE_MAX`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml`: `VM_SEAM_STRING_BOUND_001_MAX_D165B4CE`, `VM_SEAM_STRING_BOUND_001_MIN_D165B4CE`; shape `sha256:3940b6625c5f575bfcae24332dd917448996f46e736d442993370d110b01778a`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml`: `VM_SEAM_SUBRANGE_001_MAX_AE132E71`, `VM_SEAM_SUBRANGE_001_MIN_AE132E71`; shape `sha256:74118ebe11ebf1204131d61e0250805ebee19ed88606029843da8d8741cc79ad`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85`, `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F`; shape `sha256:4c2dbca3a9792afb543b0301d33ce1a8bd127b78dee5e254a7c0f3350539b70f`.
@@ -305,7 +306,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3948
+- Scanner facts listed: 3957
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_043E03287D0BD498DBFE` / `TEST_VM_DECLARED_DINT_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
@@ -468,6 +469,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_EFCA6D0FAFC2EB9C01AA` / `TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001`: `fast` at `crates/trust-runtime/tests/string_binding_bounds.rs`.
 - Scanner `DISC_F103626E494B610C2A79` / `TEST_VM_COERCION_RETURN_WIDENING_001`: `fast` at `crates/trust-runtime/tests/coercion_proof.rs`.
 - Scanner `DISC_F13122338B6C009DFE6D` / `TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001`: `fast` at `crates/trust-runtime/tests/runtime_safety_fail_closed.rs`.
+- Scanner `DISC_F249C0ED30C6D840D514` / `TEST_VM_RESOURCE_LIMIT_CASES_001`: `slow` at `crates/trust-runtime/tests/vm_resource_limit_cases.rs`.
 - Scanner `DISC_F266CBDB89F6324BB3DE` / `TEST_VM_PRIMITIVE_TAG_REJECTION_001`: `fast` at `crates/trust-runtime/src/runtime/vm/type_policy/tests.rs`.
 - Scanner `DISC_F2E62E25E1A58826EE7D` / `TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001`: `fast` at `crates/trust-runtime/src/scheduler/runner_loop.rs`.
 - Scanner `DISC_F4845D4DC06C49AF59D6` / `TEST_RUNTIME_PAUSE_WATCHDOG_001`: `fast` at `crates/trust-runtime/tests/debug_pause_watchdog.rs`.

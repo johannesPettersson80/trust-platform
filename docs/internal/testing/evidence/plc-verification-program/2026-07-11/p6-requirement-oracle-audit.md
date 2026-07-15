@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `de94ec228fe9ff07f015e9395a39d7282c37371b`
-Generated: `2026-07-15T20:06:12+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `388b9a9413237f9cb5116d487861406a3e1f729f46b449935ec0b81bb848db77`
-Input SHA-256: `sha256:ae04fed70b69c03666191cdb052e15e1135fa62c7094fb9ab828a178a9455131`
+Source revision: `dc9ea68801def8d9a41e3c7f374547c567cb91b0`
+Generated: `2026-07-15T22:46:43+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `b868c728fd019a784fd1d15b950ff65278778c3d5c0eff0ec374a358477ed469`
+Input SHA-256: `sha256:7a947a51188456765f963a973c5c55b8d409a9d34299e12d4ec5ab0830e6e534`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,9 +17,9 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 27
-- Missing oracles: 26
-- Future enforcement candidates: 19
+- Eligible oracles: 28
+- Missing oracles: 25
+- Future enforcement candidates: 18
 
 ## Mapping Groups
 
@@ -81,7 +81,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `SPEC_BYTECODE_FORMAT_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
+| `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `implemented/G2` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
@@ -115,7 +115,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `SEC_DEP_AUDIT_001` | `supply_chain` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `false` |
 | `UI_STATUS_001` | `false_status` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `true` |
 | `VM_SEAM_DECLARED_TYPE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
-| `VM_SEAM_DETERMINISM_LIMITS_001` | `wrong_result` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `true` |
 | `VM_SEAM_STRING_BOUND_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_SUBRANGE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_VALID_001` | `silent_corruption` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |

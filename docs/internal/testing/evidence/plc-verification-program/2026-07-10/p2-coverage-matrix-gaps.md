@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `de94ec228fe9ff07f015e9395a39d7282c37371b`
-Generated: `2026-07-15T20:06:12+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `a0aff61ce384217985e1f04a4ac71e74c0b9b7fd5a69362ea4a7e768622e4e41`
-Input SHA-256: `sha256:20e9038fe48c4a51b917c90ec885526cc19cb654ec3c06cc4ed06d83957e2e40`
+Source revision: `dc9ea68801def8d9a41e3c7f374547c567cb91b0`
+Generated: `2026-07-15T22:46:43+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `e1cc14ae12a22e8a396db07a0a0e1f7340b68354c7d7b42672a5386194f8433a`
+Input SHA-256: `sha256:de94677bb91ed9961f5919e42d565f3a552750d73312b292702e27c10807d5e2`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 15 |
+| `covered` | 16 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 27 |
-| `gap_open` | 26 |
+| `spec_gap` | 25 |
+| `gap_open` | 27 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -67,9 +67,9 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `extra_or_unknown` | `missing_cell` | none | none | none |
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
-| `resource_limit` | `assigned` | `spec_gap` | none | none |
+| `resource_limit` | `assigned` | `covered` | none | none |
 | `wrong_type_or_shape` | `missing_cell` | none | none | none |
-| `time_or_clock_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `time_or_clock_fault` | `additional_recorded` | `gap_open` | none | none |
 
 ### `VM_SEAM_ENC_001`
 
