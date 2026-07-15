@@ -30,7 +30,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "status": { "const": "complete" },
-    "case_semantics": { "const": "association_only_blocked_cases_not_executed" },
+    "case_semantics": { "const": "association_only_case_ids_not_executed_by_mutation_runner" },
     "blocked_case_ids_executed": { "const": false },
     "mutations": { "type": "array", "minItems": 1 },
     "survivors": { "type": "array" },

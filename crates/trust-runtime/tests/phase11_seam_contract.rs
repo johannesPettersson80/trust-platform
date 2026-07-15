@@ -893,7 +893,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-008"]
 fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
     let mut harness = TestHarness::from_source(OWNER_DRIFT_SOURCE).expect("compile harness");
     let main_id = match harness.runtime().storage().get_global("Main") {
@@ -942,7 +941,6 @@ fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009B"]
 fn validator_rejects_multi_owner_instance_ref_contract() {
     let harness = TestHarness::from_source(OWNER_DRIFT_SOURCE).expect("compile harness");
     let main_id = match harness.runtime().storage().get_global("Main") {
@@ -962,7 +960,6 @@ fn validator_rejects_multi_owner_instance_ref_contract() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_stack_underflow_store_ref() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -971,7 +968,6 @@ fn validator_rejects_stack_underflow_store_ref() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_leftover_stack_at_pou_return() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -980,7 +976,6 @@ fn validator_rejects_leftover_stack_at_pou_return() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_bool_operands_for_arithmetic_opcode() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -996,7 +991,6 @@ fn validator_rejects_bool_operands_for_arithmetic_opcode() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009D"]
 fn validator_rejects_const_type_incompatible_with_store_ref_target() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -1006,7 +1000,6 @@ fn validator_rejects_const_type_incompatible_with_store_ref_target() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009E"]
 fn validator_rejects_invalid_parameter_direction_metadata() {
     let mut module =
         bytecode_module_from_source(PARAM_VALIDATOR_SOURCE).expect("compile param module");
@@ -1020,7 +1013,6 @@ fn validator_rejects_invalid_parameter_direction_metadata() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009E"]
 fn validator_rejects_inout_parameter_bound_to_literal_argument() {
     let mut module =
         bytecode_module_from_source(PARAM_VALIDATOR_SOURCE).expect("compile param module");
@@ -1034,7 +1026,6 @@ fn validator_rejects_inout_parameter_bound_to_literal_argument() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009F"]
 fn validator_rejects_legacy_call_opcode_even_when_target_exists() {
     let mut module =
         bytecode_module_from_source(CALL_VALIDATOR_SOURCE).expect("compile call module");
@@ -1188,7 +1179,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-007"]
 fn crafted_frame_local_ref_cannot_persist_to_global_storage() {
     let mut module =
         bytecode_module_from_source(CLEAN_LOCAL_REF_SOURCE).expect("compile clean module");
@@ -1225,7 +1215,6 @@ fn crafted_frame_local_ref_cannot_persist_to_global_storage() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009A"]
 fn validator_rejects_persistent_frame_local_ref_escape() {
     let mut module =
         bytecode_module_from_source(CLEAN_LOCAL_REF_SOURCE).expect("compile clean module");

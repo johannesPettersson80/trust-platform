@@ -39,7 +39,10 @@ class MutationContractTests(unittest.TestCase):
         }
         self.assertEqual(mapped | set(contract.out_of_scope_case_ids), set(contract.case_ids))
         self.assertFalse(mapped & set(contract.out_of_scope_case_ids))
-        self.assertEqual(contract.case_semantics, "association_only_blocked_cases_not_executed")
+        self.assertEqual(
+            contract.case_semantics,
+            "association_only_case_ids_not_executed_by_mutation_runner",
+        )
 
     def test_contract_rejects_unknown_case_id(self) -> None:
         contract = load_mutation_contract(TEST_ID, root=ROOT)
@@ -390,7 +393,7 @@ class MutationReportTests(unittest.TestCase):
 
         markdown = render_markdown(report)
 
-        self.assertIn("blocked case IDs were not executed", markdown)
+        self.assertIn("associated case IDs were not executed by the mutation runner", markdown)
         self.assertIn("Survivors: 0", markdown)
 
 

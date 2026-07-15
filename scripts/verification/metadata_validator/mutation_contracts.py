@@ -11,7 +11,7 @@ from typing import Any
 from .constants import ROOT
 
 
-CASE_SEMANTICS = "association_only_blocked_cases_not_executed"
+CASE_SEMANTICS = "association_only_case_ids_not_executed_by_mutation_runner"
 SOURCE_PREFIX = "crates/trust-runtime/src/bytecode/validate/"
 
 
@@ -135,8 +135,15 @@ def validate_mutation_test_record(record: dict[str, Any], *, root: Path = ROOT) 
         failures.append(f"{test_id} mutation case file duplicates case IDs")
         return failures
     for case in case_rows:
-        if not isinstance(case, dict) or case.get("state") != "blocked" or "expect" in case:
-            failures.append(f"{test_id} mutation association requires every committed case to remain blocked")
+        if not isinstance(case, dict):
+            failures.append(f"{test_id} mutation association requires object case rows")
+            break
+        blocked = case.get("state") == "blocked" and "expect" not in case
+        runnable = isinstance(case.get("expect"), dict) and case.get("state") != "blocked"
+        if blocked == runnable:
+            failures.append(
+                f"{test_id} mutation association requires every committed case to be blocked or runnable"
+            )
             break
 
     mutations = record.get("mutations")

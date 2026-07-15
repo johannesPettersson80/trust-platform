@@ -5,7 +5,9 @@ use trust_runtime::bytecode::{
     BytecodeError, BytecodeModule, ConstEntry, PouKind, RefEntry, RefLocation, Section,
     SectionData, SectionId, TypeData, TypeEntry, TypeKind, VarMeta, VarMetaEntry,
 };
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::bytecode_module_from_source;
+use trust_runtime::Runtime;
 
 #[test]
 fn opcode_validation() {
@@ -113,6 +115,64 @@ fn jump_validation() {
     let decoded = BytecodeModule::decode(&bytes).expect("decode");
     let err = decoded.validate().unwrap_err();
     assert!(matches!(err, BytecodeError::InvalidJumpTarget(_)));
+}
+
+#[test]
+fn jump_target_must_land_on_instruction_boundary() {
+    let mut module = base_module();
+    if let Some(SectionData::PouBodies(bodies)) = module.section_mut(SectionId::PouBodies) {
+        let mut code = vec![0x02];
+        code.extend_from_slice(&(-4_i32).to_le_bytes());
+        code.push(0x01);
+        *bodies = code;
+    }
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        index.entries[0].code_length = 6;
+    }
+
+    let bytes = module.encode().expect("encode");
+    let decoded = BytecodeModule::decode(&bytes).expect("decode");
+    let err = decoded
+        .validate()
+        .expect_err("jump into operand byte must fail");
+    assert!(matches!(err, BytecodeError::InvalidJumpTarget(1)));
+}
+
+#[test]
+fn required_sections_are_rejected_before_runtime_apply() {
+    let required = [
+        SectionId::StringTable,
+        SectionId::TypeTable,
+        SectionId::ConstPool,
+        SectionId::RefTable,
+        SectionId::PouIndex,
+        SectionId::PouBodies,
+        SectionId::ResourceMeta,
+        SectionId::IoMap,
+    ];
+
+    for section_id in required {
+        let mut module = base_module();
+        module.flags = 0;
+        module
+            .sections
+            .retain(|section| section.id != section_id.as_raw());
+        let bytes = module
+            .encode()
+            .expect("encode module missing required section");
+        let decoded = BytecodeModule::decode(&bytes).expect("decode structurally valid module");
+        assert!(
+            matches!(decoded.validate(), Err(BytecodeError::MissingSection(_))),
+            "direct validation accepted module missing {section_id:?}"
+        );
+        assert!(
+            matches!(
+                Runtime::new().apply_bytecode_bytes(&bytes, None),
+                Err(RuntimeError::InvalidBytecode(_))
+            ),
+            "product apply accepted module missing {section_id:?}"
+        );
+    }
 }
 
 #[test]

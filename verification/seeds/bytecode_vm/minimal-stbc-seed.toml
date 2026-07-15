@@ -1,8 +1,8 @@
 schema_version = 1
 id = "minimal-stbc-seed"
-title = "Minimal STBC-like bytecode seed for transform case generation"
-description = "Small committed seed with a bytecode header, one section table entry, and a tiny POU-body byte stream. It is a transform seed only; generated cases remain blocked until the bytecode validator contract is specified."
-bytes_hex = "5354424301000100000000001800010018000000000000000600000024000000080000000002000000001201"
+title = "Minimal complete STBC bytecode seed for transform case generation"
+description = "Complete checksum-disabled STBC 1.1 module with every required section and a valid NOP/JMP/NOP/HALT POU body, so each transform reaches its intended semantic validator catcher."
+bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000000200000000000101000000000000000000000000000000000000000000000000000000"
 
 [[truncate_points]]
 id = "before_section_table"
@@ -11,24 +11,24 @@ family = "missing_required"
 
 [[truncate_points]]
 id = "before_pou_bodies"
-offset = 36
+offset = 252
 family = "missing_required"
 
 [[opcode_sites]]
 id = "pou_body_first_opcode"
-offset = 36
+offset = 252
 opcodes = [255, 128]
 family = "extra_or_unknown"
 
 [[jump_sites]]
 id = "pou_body_jmp_operand"
-operand_offset = 38
+operand_offset = 254
 deltas = [100, -100]
 family = "wrong_type_or_shape"
 
 [[stack_underflow_sites]]
 id = "pou_body_pop_empty_stack"
-offset = 36
+offset = 252
 length = 1
 bytes_hex = "12"
 family = "wrong_type_or_shape"

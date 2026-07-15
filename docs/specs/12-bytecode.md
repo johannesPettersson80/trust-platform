@@ -650,7 +650,64 @@ Reserved opcode ranges:
 - `0x80-0xEF` reserved for future core extensions.
 - `0xF0-0xFF` vendor/experimental.
 
-#### 7.4 Fault Semantics
+#### 7.4 Validator Before Apply
+
+An STBC module must pass complete structural and semantic validation before it
+may replace the runtime's active module or mutate runtime metadata, configured
+tasks, process-image sizing, retain state, or executable VM state. Validation
+is fail-closed: the first observed violation rejects the complete candidate
+module; validation order does not make an otherwise invalid module acceptable.
+
+The validator enforces these module-wide contracts:
+
+- every required section in section 5 is present with the decoded section
+  kind assigned to that ID;
+- string, type, constant, reference, POU, variable, resource, I/O, retain, and
+  debug indexes resolve inside their owning table;
+- array bounds are ordered, constant payloads are complete and compatible with
+  their declared type, and optional metadata agrees with the referenced POU or
+  storage declaration;
+- POU IDs are unique, code ranges stay inside `POU_BODIES`, local-reference
+  ranges are checked for arithmetic overflow, bounds, overlap, contiguous
+  offsets, local location, and unique frame ownership;
+- a POU may use a local reference only from its declared local range, including
+  path references rooted in that same frame owner;
+- a frame-local reference must not be stored into global, retain, I/O,
+  instance, or otherwise longer-lived storage, directly or through a dynamic
+  non-local reference;
+- every instruction is recognized and carries its complete fixed-width
+  operand payload; an opcode in a reserved range remains invalid until the
+  accepted bytecode version explicitly implements it;
+- direct, native, method, and interface calls resolve to compatible targets,
+  metadata, parameter directions, and argument shapes supported by the active
+  runtime;
+- every relative jump stays inside its POU body and lands at a decoded
+  instruction boundary or the exact end of that body;
+- operand-stack dataflow has no underflow, has compatible depth at each
+  control-flow merge, uses reference/numeric/boolean shapes where required,
+  and leaves no values at a normal POU-body exit; and
+- resource, task, program, I/O, retain, variable, and debug metadata resolves
+  to compatible table entries and code locations.
+
+`BytecodeModule::decode` may reject malformed container bytes before semantic
+validation. `BytecodeModule::validate` performs the decoded semantic checks.
+`Runtime::apply_bytecode_bytes` must perform both boundaries and must
+materialize the candidate executable module before changing live runtime
+metadata. Any rejection leaves the previously active runtime configuration and
+executable module unchanged.
+
+`BytecodeError` variants identify the current in-process failure category, and
+diagnostic text may provide a narrower reason. This section does not stabilize
+those variants or strings as cross-process CLI, control-protocol, evidence, or
+machine API identifiers. That public error-code contract remains open under
+`SPEC_GAP_VM_ERROR_MODEL_001`.
+
+The collection bounds in section 4.5 and existing executor safeguards do not
+by themselves establish general maximum container, instruction, operand-stack,
+local, reference, call-depth, or execution-time budgets. Those product limits
+remain open under `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001`.
+
+#### 7.5 Fault Semantics
 
 The executor must fault on:
 - Type mismatches (e.g., BOOL in arithmetic)
@@ -660,7 +717,7 @@ The executor must fault on:
 - Invalid jump targets
 - Method/interface dispatch on NULL or incompatible references
 
-#### 7.5 Source-to-Bytecode Fail-Closed Boundary
+#### 7.6 Source-to-Bytecode Fail-Closed Boundary
 
 Source analysis and bytecode lowering are separate acceptance boundaries. A
 source construct may be valid in the analyzed runtime model while the bytecode

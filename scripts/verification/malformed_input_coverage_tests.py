@@ -107,14 +107,23 @@ class MalformedInputCoverageTests(unittest.TestCase):
     def test_blocked_deferred_and_not_applicable_authority_fields_fail_closed(self) -> None:
         taxonomy = load_malformed_input_taxonomy(ROOT)
         blocked = copy.deepcopy(taxonomy)
-        blocked_class = blocked["classes"][0]
+        blocked_class = next(
+            item for item in blocked["classes"]
+            if item["id"] == "argument_count_resource_limit"
+        )
         blocked_class.pop("spec_gap_ref")
         blocked_class.update(disposition="blocked", blocker_ref="")
         deferred = copy.deepcopy(taxonomy)
-        deferred_class = deferred["classes"][0]
+        deferred_class = next(
+            item for item in deferred["classes"]
+            if item["id"] == "argument_count_resource_limit"
+        )
         deferred_class["disposition"] = "deferred"
         not_applicable = copy.deepcopy(taxonomy)
-        not_applicable_class = not_applicable["classes"][0]
+        not_applicable_class = next(
+            item for item in not_applicable["classes"]
+            if item["id"] == "argument_count_resource_limit"
+        )
         not_applicable_class.pop("spec_gap_ref")
         not_applicable_class.update(
             disposition="not_applicable",
@@ -151,6 +160,64 @@ class MalformedInputCoverageTests(unittest.TestCase):
         self.assertEqual(
             mappings,
             {
+                "TEST_BYTECODE_VALIDATOR_CASES_001": [
+                    "jump_target_out_of_bounds",
+                    "stack_underflow",
+                    "truncated_section",
+                    "unknown_opcode",
+                ],
+                "TEST_BYTECODE_CALL_TARGET_REJECTION_001": [
+                    "call_target_mismatch"
+                ],
+                "TEST_BYTECODE_CHECKSUM_REJECTION_001": ["invalid_checksum"],
+                "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001": [
+                    "jump_target_not_instruction_boundary"
+                ],
+                "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001": [
+                    "missing_instance_owner"
+                ],
+                "TEST_BYTECODE_MISSING_SECTION_REJECTION_001": ["missing_section"],
+                "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001": ["unsupported_schema_tag"],
+                "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001": ["wrong_section"],
+                "TEST_BYTECODE_VERSION_REJECTION_001": ["unsupported_version"],
+                "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001": [
+                    "ambiguous_instance_owner",
+                    "stale_instance_owner",
+                ],
+                "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001": [
+                    "ambiguous_instance_owner",
+                    "stale_instance_owner",
+                ],
+                "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001": [
+                    "ambiguous_instance_owner"
+                ],
+                "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001": [
+                    "operand_index_out_of_bounds"
+                ],
+                "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001": [
+                    "local_frame_reference_persistence",
+                    "reference_escape",
+                ],
+                "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001": [
+                    "local_frame_reference_persistence",
+                    "reference_escape",
+                ],
+                "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001": ["stack_underflow"],
+                "TEST_BYTECODE_STACK_EXIT_REJECTION_001": ["stack_leftover"],
+                "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001": [
+                    "stack_type_mismatch"
+                ],
+                "TEST_BYTECODE_STORE_TYPE_REJECTION_001": [
+                    "const_type_incompatible",
+                    "stack_type_mismatch",
+                ],
+                "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001": [
+                    "parameter_direction_mismatch"
+                ],
+                "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001": [
+                    "parameter_direction_mismatch"
+                ],
+                "TEST_BYTECODE_LEGACY_CALL_REJECTION_001": ["unknown_opcode"],
                 "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001": [
                     "duplicate_section"
                 ],

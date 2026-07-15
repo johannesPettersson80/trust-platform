@@ -58,24 +58,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_0D216C5A37ABCA5C342D"
-discovery_id = "DISC_0D216C5A37ABCA5C342D"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_stack_underflow_store_ref"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009C"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_0D7E1103BA7F27B6CD0E"
 discovery_id = "DISC_0D7E1103BA7F27B6CD0E"
 discovery_source_kind = "rust_unit_test"
@@ -104,42 +86,6 @@ ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-014"
 ignore_mechanism = "rust_attribute"
 owner = "trust-runtime"
 area = "plcopen_devtools"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_1685CC6D1F65B9539D13"
-discovery_id = "DISC_1685CC6D1F65B9539D13"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_leftover_stack_at_pou_return"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009C"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_1B5448C8DB96DF53A63C"
-discovery_id = "DISC_1B5448C8DB96DF53A63C"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_bool_operands_for_arithmetic_opcode"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009C"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
 status = "gap_open"
 ignore_class = "unknown"
 reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
@@ -184,42 +130,6 @@ status = "mapped"
 ignore_class = "manual"
 reason = "This is an orchestrated child process or explicit diagnostic probe, not a default standalone gate."
 unblock_condition = "Run it through its named parent harness or documented manual command."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_36947D824681068CB733"
-discovery_id = "DISC_36947D824681068CB733"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_persistent_frame_local_ref_escape"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009A"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_53DB35C22AFA96FE355B"
-discovery_id = "DISC_53DB35C22AFA96FE355B"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "crafted_frame_local_ref_cannot_persist_to_global_storage"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-007"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -314,24 +224,6 @@ status = "mapped"
 ignore_class = "manual"
 reason = "This is an orchestrated child process or explicit diagnostic probe, not a default standalone gate."
 unblock_condition = "Run it through its named parent harness or documented manual command."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_80833EFC8B17DF0C8754"
-discovery_id = "DISC_80833EFC8B17DF0C8754"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_const_type_incompatible_with_store_ref_target"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009D"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -466,24 +358,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_BCA3C293212BE0D52B3D"
-discovery_id = "DISC_BCA3C293212BE0D52B3D"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "crafted_multi_owner_instance_refs_are_rejected_before_execution"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-008"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_BDEAFF431FC2B9A44DFD"
 discovery_id = "DISC_BDEAFF431FC2B9A44DFD"
 discovery_source_kind = "rust_integration_test"
@@ -498,24 +372,6 @@ status = "mapped"
 ignore_class = "perf_soak"
 reason = "This is a long or resource-intensive measurement intended for an explicit performance or soak lane."
 unblock_condition = "Run it through a named performance or soak command; do not add it to a fast suite from mechanical metadata."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_C160AB9422688E289F44"
-discovery_id = "DISC_C160AB9422688E289F44"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_legacy_call_opcode_even_when_target_exists"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009F"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -592,24 +448,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_E8D36E045CD657B29BDD"
-discovery_id = "DISC_E8D36E045CD657B29BDD"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_inout_parameter_bound_to_literal_argument"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009E"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_EC41FC62FBEF09EFDFE8"
 discovery_id = "DISC_EC41FC62FBEF09EFDFE8"
 discovery_source_kind = "rust_integration_test"
@@ -629,24 +467,6 @@ required_env_vars = ["TRUST_DIT_MODBUS_HOST"]
 hardware_topology = "Reachable Modbus TCP target from the lab runner."
 hardware_topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
 public_claim_impact = "A missing or skipped run cannot prove the live Modbus target claim."
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_EC610E3917E2D7BC4E2B"
-discovery_id = "DISC_EC610E3917E2D7BC4E2B"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_multi_owner_instance_ref_contract"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009B"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
@@ -682,24 +502,6 @@ status = "mapped"
 ignore_class = "perf_soak"
 reason = "This is a long or resource-intensive measurement intended for an explicit performance or soak lane."
 unblock_condition = "Run it through a named performance or soak command; do not add it to a fast suite from mechanical metadata."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_F850C3D482F1F1486738"
-discovery_id = "DISC_F850C3D482F1F1486738"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
-name = "validator_rejects_invalid_parameter_direction_metadata"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-009E"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "bytecode_vm"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]

@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "spec_gap"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-15"
 claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -14,18 +14,34 @@ source_refs = [
   "crates/trust-runtime/src/bytecode/validate",
 ]
 tests = [
+  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
   "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
   "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
+  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+  "TEST_BYTECODE_TRANSFORM_SEED_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
   "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+  "TEST_BYTECODE_VERSION_REJECTION_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]
-spec_gap_refs = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
-missing = ["validator_semantic_contract", "stable_error_code"]
+spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
+missing = ["stable_error_code", "producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [transform_seed]
 path = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml"
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
 
 [input]
 name = "bytecode_container"
@@ -33,12 +49,21 @@ type = "trust bytecode"
 declared = "bytecode module"
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+
+[[behavior]]
+partition = { equals = "TRUNCATED_REQUIRED_CONTAINER_DATA" }
+case_family = "missing_required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A container truncated before its section table or before a declared required payload is rejected before the candidate module changes live runtime state."
 
 [[behavior]]
 partition = { equals = "DUPLICATE_STANDARDIZED_SECTION_ID" }
@@ -49,17 +74,42 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A second occurrence of any standardized section ID from 0x0001 through 0x000C invalidates the container before first-section selection can create order-dependent semantics."
 
+[[behavior]]
+partition = { equals = "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reserved and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+
+[[behavior]]
+partition = { equals = "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A relative jump outside its POU or into an operand byte is rejected before execution."
+
+[[behavior]]
+partition = { equals = "INVALID_OPERAND_STACK_DATAFLOW" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Stack underflow, incompatible merge depth or shape, and non-empty normal exits are rejected during validation."
+
 [[coverage.cells]]
 dimension = "missing_required"
-state = "spec_gap"
-rationale = "Container truncation and missing-section behavior are not specified as validator outcomes yet."
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+state = "covered"
+rationale = "The product-path case runner covers truncation before the section table and before a declared required section payload without partial runtime apply."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Stack/type/reference/owner validation contract is not written yet."
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+state = "covered"
+rationale = "Mapped validator tests cover invalid jumps, stack dataflow, reference ranges and escape, owner ambiguity, call metadata, and declared metadata compatibility."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"

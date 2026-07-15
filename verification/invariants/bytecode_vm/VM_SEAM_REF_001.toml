@@ -3,18 +3,23 @@ id = "VM_SEAM_REF_001"
 title = "Frame-local references cannot escape their owning frame"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-15"
 claim = "Bytecode validation and runtime reference handling must prevent a local-frame reference from being stored where it can later dereference against a different frame."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/validate", "crates/trust-runtime-core/src/vm"]
-tests = []
+tests = [
+  "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001",
+  "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
+  "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+]
 gates = ["veryquick", "pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
-missing = ["reference_escape_contract", "crafted_bytecode_negative_test"]
+spec_gap_refs = []
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [input]
 name = "bytecode_reference"
@@ -22,15 +27,32 @@ type = "trust bytecode reference operand"
 declared = "frame-local reference"
 
 [spec]
-status = "missing"
+status = "specified"
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+ref = "SPEC_BYTECODE_FORMAT_001"
+
+[[behavior]]
+partition = { equals = "LOCAL_REFERENCE_OUTSIDE_POU_RANGE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A POU may use a frame-local reference only from its declared local range or a path rooted in that same owner and slot."
+
+[[behavior]]
+partition = { equals = "FRAME_LOCAL_REFERENCE_ESCAPES" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A frame-local reference cannot be stored in longer-lived storage directly or through a dynamic non-local reference."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Reference escape rejection behavior must be specified before cases are generated."
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+state = "gap_open"
+rationale = "Mapped tests cover local-range rejection, same-owner local path acceptance, and direct/product-path frame-local escape rejection; producer-authentic proof and a causal broad gate remain open."

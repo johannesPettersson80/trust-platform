@@ -16,6 +16,22 @@ class BytecodeTransformError(RuntimeError):
     pass
 
 
+TRANSFORM_BEHAVIOR_PARTITIONS = {
+    "container_truncate": "TRUNCATED_REQUIRED_CONTAINER_DATA",
+    "unknown_opcode": "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE",
+    "jump_target": "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY",
+    "stack_underflow": "INVALID_OPERAND_STACK_DATAFLOW",
+}
+EXPECTED_BEHAVIOR_FIELDS = (
+    "outcome",
+    "delta",
+    "error_code",
+    "no_partial_apply",
+    "fault_surface",
+    "oracle_ref",
+)
+
+
 def generate_bytecode_transform_case_file(
     invariant: dict[str, Any],
     *,
@@ -25,11 +41,8 @@ def generate_bytecode_transform_case_file(
     if not isinstance(seed_ref, dict):
         raise BytecodeTransformError(f"{invariant.get('id')} has no transform_seed table")
     seed_path_text = require_string(seed_ref, "path")
-    seed_gap_ref = require_string(seed_ref, "spec_gap_ref")
-    if seed_gap_ref not in invariant.get("spec_gap_refs", []):
-        raise BytecodeTransformError(
-            f"{invariant['id']} transform_seed spec_gap_ref is not listed on the invariant"
-        )
+    runnable = specified_transform_oracle_ref(invariant, seed_ref)
+    seed_gap_ref = transform_seed_gap_ref(invariant, seed_ref, runnable)
 
     seed_path = resolve_workspace_path(root, seed_path_text)
     seed = load_seed(seed_path)
@@ -44,13 +57,19 @@ def generate_bytecode_transform_case_file(
     if not cases:
         raise BytecodeTransformError(f"{seed_path_text} generated no transform cases")
 
+    if runnable is not None:
+        for case in cases:
+            case.pop("state", None)
+            case.pop("spec_gap_ref", None)
+            case["expect"] = rejection_expectation(invariant, case, runnable)
+
     return {
         "schema_version": 1,
         "id": f"CASES_{invariant['id']}",
         "title": f"Generated cases for {invariant['title']}",
         "area": invariant["area"],
         "owner": invariant["owner"],
-        "status": "planned",
+        "status": "active" if runnable is not None else "planned",
         "invariant": invariant["id"],
         "generator": "gen_cases.py v1",
         "generator_digest": current_generator_digest(),
@@ -58,6 +77,85 @@ def generate_bytecode_transform_case_file(
         "last_reviewed": invariant["last_reviewed"],
         "case": cases,
     }
+
+
+def transform_seed_gap_ref(
+    invariant: dict[str, Any],
+    seed_ref: dict[str, Any],
+    runnable_oracle_ref: str | None,
+) -> str:
+    if runnable_oracle_ref is not None:
+        if "spec_gap_ref" in seed_ref:
+            raise BytecodeTransformError(
+                f"{invariant['id']} specified transform_seed forbids spec_gap_ref"
+            )
+        return runnable_oracle_ref
+    if "oracle_ref" in seed_ref:
+        raise BytecodeTransformError(
+            f"{invariant['id']} unresolved transform_seed requires spec_gap_ref"
+        )
+    seed_gap_ref = require_string(seed_ref, "spec_gap_ref")
+    if seed_gap_ref not in invariant.get("spec_gap_refs", []):
+        raise BytecodeTransformError(
+            f"{invariant['id']} transform_seed spec_gap_ref is not listed on the invariant"
+        )
+    return seed_gap_ref
+
+
+def specified_transform_oracle_ref(
+    invariant: dict[str, Any],
+    seed_ref: dict[str, Any],
+) -> str | None:
+    spec = invariant.get("spec")
+    if not isinstance(spec, dict) or spec.get("status") != "specified":
+        return None
+    oracle_ref = seed_ref.get("oracle_ref")
+    if not isinstance(oracle_ref, str) or not oracle_ref:
+        raise BytecodeTransformError(
+            f"{invariant['id']} specified transform_seed requires a non-empty oracle_ref"
+        )
+    if oracle_ref.startswith("SPEC_GAP_"):
+        raise BytecodeTransformError(
+            f"{invariant['id']} specified transform cases cannot use a spec-gap oracle"
+        )
+    source_id = oracle_ref.split("#", 1)[0]
+    if source_id not in spec.get("source_refs", []):
+        raise BytecodeTransformError(
+            f"{invariant['id']} transform_seed oracle_ref must name a listed spec source"
+        )
+    return oracle_ref
+
+
+def rejection_expectation(
+    invariant: dict[str, Any],
+    case: dict[str, Any],
+    oracle_ref: str,
+) -> dict[str, Any]:
+    transform = case["input"]["transform"]
+    partition = TRANSFORM_BEHAVIOR_PARTITIONS.get(transform)
+    if partition is None:
+        raise BytecodeTransformError(f"unknown runnable bytecode transform {transform!r}")
+    matches = [
+        behavior
+        for behavior in invariant.get("behavior", [])
+        if isinstance(behavior, dict)
+        and behavior.get("partition") == {"equals": partition}
+        and behavior.get("oracle_ref") == oracle_ref
+    ]
+    if len(matches) != 1:
+        raise BytecodeTransformError(
+            f"{invariant['id']} transform {transform!r} has no matching oracle-backed behavior"
+        )
+    expectation = {
+        field: matches[0][field]
+        for field in EXPECTED_BEHAVIOR_FIELDS
+        if field in matches[0]
+    }
+    if expectation.get("outcome") != "reject" or expectation.get("no_partial_apply") is not True:
+        raise BytecodeTransformError(
+            f"{invariant['id']} transform {transform!r} behavior must require transactional rejection"
+        )
+    return expectation
 
 
 def load_seed(path: Path) -> dict[str, Any]:

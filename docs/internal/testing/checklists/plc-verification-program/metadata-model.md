@@ -866,10 +866,10 @@ more `[[tests.mutations]]` tables.
 Each mutation names a validator source file/function, cargo-mutants selector,
 build/test commands, committed `related_case_ids`, and a survivor action. The
 validator requires the measured and out-of-scope IDs to form a disjoint,
-exhaustive partition of the cataloged case file. While those cases are blocked,
-the only allowed semantics are
-`association_only_blocked_cases_not_executed`; mutation results are adequacy
-evidence, not expected-behavior proof.
+exhaustive partition of the cataloged case file. Whether those cases are still
+blocked or have become runnable, the only allowed semantics are
+`association_only_case_ids_not_executed_by_mutation_runner`; mutation results
+are adequacy evidence, not expected-behavior proof or a case-execution claim.
 
 The generic Phase 10 control plane is separate from that bytecode-only catalog
 exception. `verification/mutation-program.toml` defines the six reviewed shard

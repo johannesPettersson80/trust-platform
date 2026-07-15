@@ -66,7 +66,7 @@ def validate_mutation_report(report: Any, contract: MutationContract) -> list[st
     if report.get("case_file") != contract.case_file or report.get("case_file_digest") != contract.case_file_digest:
         failures.append("mutation report case-file binding mismatch")
     if report.get("case_semantics") != CASE_SEMANTICS or report.get("blocked_case_ids_executed") is not False:
-        failures.append("mutation report must state that blocked case IDs were not executed")
+        failures.append("mutation report must state that associated case IDs were not executed")
     if not COMMIT_RE.match(str(report.get("source_commit", ""))):
         failures.append("mutation report source_commit must be a full Git commit")
     validate_baselines(report.get("baseline_commands"), contract, failures)

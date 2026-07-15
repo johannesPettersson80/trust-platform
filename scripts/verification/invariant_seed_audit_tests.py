@@ -115,6 +115,9 @@ class SeedManifestContractTests(unittest.TestCase):
                 "RT_RELOAD_001",
                 "VM_SEAM_TYPE_001",
                 "VM_SEAM_TYPE_002",
+                "VM_SEAM_REF_001",
+                "VM_SEAM_OWNER_001",
+                "VM_SEAM_VALID_001",
                 "VM_SEAM_ENC_001",
                 "IEC_PARSE_RECOVER_001",
                 "IEC_STRING_001",
@@ -235,7 +238,7 @@ class SeedManifestContractTests(unittest.TestCase):
     def test_spec_gap_requires_open_focused_gap_in_oracle_and_coverage(self) -> None:
         gap_path = self.root / "verification/spec-gaps.toml"
         gap_path.write_text(gap_path.read_text().replace('resolution_status = "open"', 'resolution_status = "closed"'))
-        with self.assertRaisesRegex(ValueError, "spec gap must remain open"):
+        with self.assertRaisesRegex(ValueError, "current spec gap is not open/actionable"):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
@@ -243,19 +246,29 @@ class SeedManifestContractTests(unittest.TestCase):
         invariant_path.write_text(
             invariant_path.read_text().replace('spec_gap_ref = "SPEC_GAP_FIXTURE_001"', 'spec_gap_ref = "SPEC_GAP_OTHER_001"')
         )
-        with self.assertRaisesRegex(ValueError, "coverage spec_gap_ref"):
+        with self.assertRaisesRegex(ValueError, "spec_gap coverage cell must name"):
             load_seed_audit(self.root)
 
-    def test_preexisting_associations_must_remain_non_closing(self) -> None:
+    def test_execution_ready_associations_remain_bidirectional(self) -> None:
         evidence = self.root / "verification/evidence-index.toml"
-        evidence.write_text(evidence.read_text().replace('proof_kind = "none"', 'proof_kind = "green"'))
-        with self.assertRaisesRegex(ValueError, "evidence must use proof_kind none"):
+        evidence.write_text(
+            evidence.read_text().replace(
+                'linked_invariants = ["VM_SEAM_VALID_001"]',
+                "linked_invariants = []",
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "evidence does not link canonical invariant"):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
         catalog = self.root / "verification/test-catalog.toml"
-        catalog.write_text(catalog.read_text().replace('spec_gap_ref = "SPEC_GAP_FIXTURE_001"', 'spec_gap_ref = "SPEC_GAP_OTHER_001"'))
-        with self.assertRaisesRegex(ValueError, "test must remain bound to an open invariant spec gap"):
+        catalog.write_text(
+            catalog.read_text().replace(
+                'invariants = ["VM_SEAM_VALID_001"]',
+                "invariants = []",
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "test does not link canonical invariant"):
             load_seed_audit(self.root)
 
     def test_execution_ready_requires_known_bidirectional_associations(self) -> None:

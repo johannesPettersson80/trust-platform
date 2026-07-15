@@ -61,6 +61,11 @@ Target release: `v0.24.47`
 
 ### Added
 
+- trust-runtime: documented the complete STBC validator-before-apply contract,
+  added product-path malformed-bytecode case execution, and promoted the
+  existing owner, reference, call, jump, stack, schema, checksum, and version
+  rejection checks from quarantine into the regular test suite; stable public
+  error identifiers and numeric resource limits remain explicit open work.
 - trust-runtime: added focused automatic-restart storage coverage and cataloged
   the existing runtime panic-containment and bounded Modbus slow-device tests;
   broader restart, latency, and reload-migration cases remain explicit

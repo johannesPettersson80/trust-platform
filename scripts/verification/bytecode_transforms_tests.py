@@ -61,6 +61,91 @@ class BytecodeTransformTests(unittest.TestCase):
             self.assertIn("bytes_hex", case["input"])
             self.assertIn("mutated_digest", case["input"])
 
+    def test_specified_invariant_produces_runnable_rejection_expectations(self) -> None:
+        with transform_fixture() as fixture:
+            fixture.invariant["spec"] = {
+                "status": "specified",
+                "source_refs": ["SPEC_BYTECODE_FORMAT_001"],
+            }
+            fixture.invariant["transform_seed"] = {
+                "path": "verification/seeds/bytecode_vm/minimal-stbc-seed.toml",
+                "oracle_ref": "SPEC_BYTECODE_FORMAT_001#validator-before-apply",
+            }
+            fixture.invariant["behavior"] = specified_transform_behaviors()
+            record = generate_bytecode_transform_case_file(
+                fixture.invariant,
+                root=fixture.root,
+            )
+
+        self.assertEqual(record["status"], "active")
+        by_transform = {
+            case["input"]["transform"]: case
+            for case in record["case"]
+        }
+        self.assertEqual(set(by_transform), {
+            "container_truncate",
+            "unknown_opcode",
+            "jump_target",
+            "stack_underflow",
+        })
+        for case in record["case"]:
+            self.assertNotIn("state", case)
+            self.assertNotIn("spec_gap_ref", case)
+            self.assertEqual(case["expect"]["outcome"], "reject")
+            self.assertTrue(case["expect"]["no_partial_apply"])
+            self.assertEqual(case["expect"]["delta"]["target"], "unchanged")
+            self.assertNotIn("error_variant", case["expect"])
+            self.assertNotIn("message_contains", case["expect"])
+            self.assertEqual(
+                case["expect"]["oracle_ref"],
+                "SPEC_BYTECODE_FORMAT_001#validator-before-apply",
+            )
+
+    def test_specified_transform_requires_matching_behavior_partition(self) -> None:
+        with transform_fixture() as fixture:
+            fixture.invariant["spec"]["status"] = "specified"
+            fixture.invariant["transform_seed"] = {
+                "path": "verification/seeds/bytecode_vm/minimal-stbc-seed.toml",
+                "oracle_ref": "SPEC_BYTECODE_FORMAT_001#validator-before-apply",
+            }
+            fixture.invariant["behavior"] = specified_transform_behaviors()[:-1]
+            with self.assertRaisesRegex(
+                BytecodeTransformError,
+                "has no matching oracle-backed behavior",
+            ):
+                generate_bytecode_transform_case_file(
+                    fixture.invariant,
+                    root=fixture.root,
+                )
+
+    def test_specified_invariant_rejects_stale_gap_seed_binding(self) -> None:
+        with transform_fixture() as fixture:
+            fixture.invariant["spec"]["status"] = "specified"
+            with self.assertRaisesRegex(
+                BytecodeTransformError,
+                "specified transform_seed requires a non-empty oracle_ref",
+            ):
+                generate_bytecode_transform_case_file(
+                    fixture.invariant,
+                    root=fixture.root,
+                )
+
+    def test_specified_transform_oracle_must_name_a_listed_spec_source(self) -> None:
+        with transform_fixture() as fixture:
+            fixture.invariant["spec"]["status"] = "specified"
+            fixture.invariant["transform_seed"] = {
+                "path": "verification/seeds/bytecode_vm/minimal-stbc-seed.toml",
+                "oracle_ref": "SPEC_OTHER_001#validator",
+            }
+            with self.assertRaisesRegex(
+                BytecodeTransformError,
+                "oracle_ref must name a listed spec source",
+            ):
+                generate_bytecode_transform_case_file(
+                    fixture.invariant,
+                    root=fixture.root,
+                )
+
     def test_unknown_opcode_mutates_only_the_configured_offset(self) -> None:
         with transform_fixture() as fixture:
             record = generate_bytecode_transform_case_file(
@@ -137,6 +222,14 @@ class TransformFixture:
             "last_reviewed": "2026-07-09",
             "contract_kind": "decision_table",
             "input": {"name": "bytecode_container"},
+            "spec": {
+                "status": "missing",
+                "source_refs": ["SPEC_BYTECODE_FORMAT_001"],
+            },
+            "oracle": {
+                "kind": "trust_contract",
+                "ref": "SPEC_GAP_BYTECODE_VALIDATOR_001",
+            },
             "spec_gap_refs": ["SPEC_GAP_BYTECODE_VALIDATOR_001"],
             "transform_seed": {
                 "path": "verification/seeds/bytecode_vm/minimal-stbc-seed.toml",
@@ -155,6 +248,32 @@ class transform_fixture:
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         self.temp.cleanup()
+
+
+def specified_transform_behaviors() -> list[dict[str, object]]:
+    partitions = [
+        "TRUNCATED_REQUIRED_CONTAINER_DATA",
+        "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE",
+        "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY",
+        "INVALID_OPERAND_STACK_DATAFLOW",
+    ]
+    return [
+        {
+            "partition": {"equals": partition},
+            "outcome": "reject",
+            "no_partial_apply": True,
+            "oracle_ref": "SPEC_BYTECODE_FORMAT_001#validator-before-apply",
+            "delta": {
+                "target": "unchanged",
+                "siblings": "unchanged",
+                "retain": "unchanged",
+                "process_image": "unchanged",
+                "diagnostics": "expected_diagnostic",
+                "status": "unchanged",
+            },
+        }
+        for partition in partitions
+    ]
 
 
 def seed_toml() -> str:

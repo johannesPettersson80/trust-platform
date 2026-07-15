@@ -2,8 +2,8 @@ mod bytecode_helpers;
 
 use bytecode_helpers::{base_module, module_with_debug};
 use trust_runtime::bytecode::{
-    BytecodeError, BytecodeModule, BytecodeVersion, RetainInit, Section, SectionData, SectionId,
-    VarMeta, SUPPORTED_MAJOR_VERSION,
+    BytecodeError, BytecodeModule, BytecodeVersion, RefLocation, RetainInit, Section, SectionData,
+    SectionId, VarMeta, SUPPORTED_MAJOR_VERSION,
 };
 
 #[test]
@@ -87,4 +87,45 @@ fn version_gate() {
     let bytes = module.encode().expect("encode");
     let err = BytecodeModule::decode(&bytes).unwrap_err();
     assert!(matches!(err, BytecodeError::UnsupportedVersion { .. }));
+}
+
+#[test]
+fn truncated_reference_owner_field_is_rejected() {
+    let mut payload = 1_u32.to_le_bytes().to_vec();
+    payload.extend_from_slice(&[RefLocation::Instance as u8, 0, 0, 0]);
+
+    let err = decode_raw_section(SectionId::RefTable, payload);
+
+    assert!(
+        matches!(err, BytecodeError::InvalidSection(ref message) if message == "REF_TABLE count exceeds section bounds"),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn unsupported_reference_location_tag_is_rejected() {
+    let mut payload = 1_u32.to_le_bytes().to_vec();
+    payload.extend_from_slice(&[0xFF, 0, 0, 0]);
+    payload.extend_from_slice(&0_u32.to_le_bytes());
+    payload.extend_from_slice(&0_u32.to_le_bytes());
+    payload.extend_from_slice(&0_u32.to_le_bytes());
+
+    let err = decode_raw_section(SectionId::RefTable, payload);
+
+    assert!(
+        matches!(err, BytecodeError::InvalidSection(ref message) if message == "invalid ref location"),
+        "unexpected error: {err:?}"
+    );
+}
+
+fn decode_raw_section(section_id: SectionId, payload: Vec<u8>) -> BytecodeError {
+    let mut module = BytecodeModule::new(BytecodeVersion::new(1, 1));
+    module.flags = 0;
+    module.sections = vec![Section {
+        id: section_id.as_raw(),
+        flags: 0,
+        data: SectionData::Raw(payload),
+    }];
+    let bytes = module.encode().expect("encode raw section");
+    BytecodeModule::decode(&bytes).expect_err("malformed raw section must be rejected")
 }

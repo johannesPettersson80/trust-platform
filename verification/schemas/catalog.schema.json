@@ -88,7 +88,7 @@
     "mutation_runner": { "type": "string" },
     "mutation_tool": { "type": "string" },
     "mutation_case_semantics": {
-      "const": "association_only_blocked_cases_not_executed"
+      "const": "association_only_case_ids_not_executed_by_mutation_runner"
     },
     "mutation_out_of_scope_case_ids": {
       "type": "array",

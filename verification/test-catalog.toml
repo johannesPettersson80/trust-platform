@@ -22,7 +22,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
-case_file_digest = "sha256:686a63a30e14dbe3a47084c7bdf851017a11d7eb168f592f7c0cd8f5efe63842"
+case_file_digest = "sha256:eec7196d4e85b1440d66630da643a5fe36bad67f171c63a3817bc5898f5fd73a"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -457,7 +457,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:ca06c3b1b421a7247622e69c7488cce02f8fcf415151a418c93b776c809ac0ec"
+case_file_digest = "sha256:c69f03e0ee4408344b059702b71d022dd06fa6ab2040de4b07483ed4b873bddf"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -791,7 +791,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:332e2195b427903e19d2824952dcbd753b9308e0324aa524565bafd867efa78c"
+case_file_digest = "sha256:3c253acc4b845f149dddf595b93017af0bee03962cc27d2e351d5b7641b717bc"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -805,17 +805,600 @@ command = "python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check"
 owner = "verification"
 status = "planned"
 invariants = ["VM_SEAM_VALID_001"]
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
-expected_result = "The committed bytecode transform case table regenerates exactly from the committed seed artifact; all cases remain blocked until the bytecode validator contract gap closes."
-expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or blocked cases are treated as runnable proof."
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "The committed bytecode transform case table regenerates exactly from the complete seed artifact with seven runnable oracle-backed rejection cases; stable cross-interface error identity remains open."
+expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or an active case loses its written validator oracle."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_VALID_001.json"
 suite_tiers = ["veryquick"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:bb831d6331560a480c0511e49820df1b0319b5b984b263c1be0a1df9c19c0ea9"
-last_reviewed = "2026-07-09"
+case_file_digest = "sha256:102262b53ce12ae6a7c2c18ffb52f8a1ae243b80d2baf6a64b3ce32c6df9de95"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_TRANSFORM_SEED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FCA63C2A07B9C48D971E"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_verification_cases.rs"
+name = "committed_transform_seed_is_a_complete_applicable_module"
+command = "cargo test -p trust-runtime --test bytecode_verification_cases committed_transform_seed_is_a_complete_applicable_module -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "The committed transform seed is the complete reviewed checksum-disabled module, decodes and validates, and applies through the runtime product path."
+expected_failure_mode = "The seed is an incomplete fragment, fails structural or semantic validation, or cannot be applied through Runtime::apply_bytecode_bytes."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_TRANSFORM_SEED_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_VALIDATOR_CASES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A324C9FF622A5F835C5A"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_verification_cases.rs"
+name = "bytecode_validator_cases_reject_before_partial_apply"
+malformed_input_class_ids = ["jump_target_out_of_bounds", "stack_underflow", "truncated_section", "unknown_opcode"]
+command = "cargo test -p trust-runtime --test bytecode_verification_cases bytecode_validator_cases_reject_before_partial_apply -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "All seven generated malformed-bytecode cases are rejected by direct validation and Runtime::apply_bytecode_bytes while observable runtime configuration and process-image state remain unchanged; exact Rust error variants are runner-local while the stable cross-interface error contract remains open."
+expected_failure_mode = "A generated malformed module passes direct validation or product apply, produces the wrong runner-local rejection class, changes observable runtime state, or loses its case-file binding."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_VALIDATOR_CASES_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+case_file_digest = "sha256:102262b53ce12ae6a7c2c18ffb52f8a1ae243b80d2baf6a64b3ce32c6df9de95"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BCA3C293212BE0D52B3D"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "crafted_multi_owner_instance_refs_are_rejected_before_execution"
+malformed_input_class_ids = ["ambiguous_instance_owner", "stale_instance_owner"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract crafted_multi_owner_instance_refs_are_rejected_before_execution -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_OWNER_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "A crafted POU body that mixes explicit instance owners is rejected by validation or runtime apply before execution mutates either owner."
+expected_failure_mode = "The crafted module executes with ambiguous instance ownership or changes either instance before rejection."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_CALL_TARGET_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_41562587AD279081DFC3"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "call_validation"
+malformed_input_class_ids = ["call_target_mismatch"]
+command = "cargo test -p trust-runtime --test bytecode_validation call_validation -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Validation rejects a CALL instruction whose POU target does not exist in the decoded module."
+expected_failure_mode = "An invalid call target reaches dispatch or is interpreted as another POU."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CALL_TARGET_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_CHECKSUM_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BDB3FF86B2273DD827C1"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "checksum_validation"
+malformed_input_class_ids = ["invalid_checksum"]
+command = "cargo test -p trust-runtime --test bytecode_container checksum_validation -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects a checksum-enabled container whose section-table bytes do not match the header CRC32."
+expected_failure_mode = "A checksum mismatch is accepted and corrupted container bytes reach validation or execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CHECKSUM_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4875D2BB57E417083144"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "jump_target_must_land_on_instruction_boundary"
+malformed_input_class_ids = ["jump_target_not_instruction_boundary"]
+command = "cargo test -p trust-runtime --test bytecode_validation jump_target_must_land_on_instruction_boundary -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Validation rejects a branch target that lands inside another instruction's encoded operand."
+expected_failure_mode = "A branch can enter the middle of an instruction and reinterpret operand bytes as opcodes."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FE14D8FC44DB0AC97510"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "truncated_reference_owner_field_is_rejected"
+malformed_input_class_ids = ["missing_instance_owner"]
+command = "cargo test -p trust-runtime --test bytecode_container truncated_reference_owner_field_is_rejected -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001", "VM_SEAM_OWNER_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects an instance-reference entry truncated before its required owner identifier."
+expected_failure_mode = "An instance reference without complete ownership metadata reaches validation or execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_MISSING_SECTION_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_44B26FACB93E0329E289"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "required_sections_are_rejected_before_runtime_apply"
+malformed_input_class_ids = ["missing_section"]
+command = "cargo test -p trust-runtime --test bytecode_validation required_sections_are_rejected_before_runtime_apply -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Validation and Runtime::apply_bytecode_bytes reject a module missing any required STBC section."
+expected_failure_mode = "A structurally decodable module missing a required section reaches product apply."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_MISSING_SECTION_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B2AEF59399732DF0D7A7"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "unsupported_reference_location_tag_is_rejected"
+malformed_input_class_ids = ["unsupported_schema_tag"]
+command = "cargo test -p trust-runtime --test bytecode_container unsupported_reference_location_tag_is_rejected -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001", "VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects a reference-table entry whose location tag is not defined by the bytecode schema."
+expected_failure_mode = "An unknown reference-location tag is accepted or given an invented runtime interpretation."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_SCHEMA_TAG_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_VERSION_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6FE11E79A06AEA138657"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "version_gate"
+malformed_input_class_ids = ["unsupported_version"]
+command = "cargo test -p trust-runtime --test bytecode_container version_gate -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Decoding rejects a bytecode container whose major version is newer than the supported format."
+expected_failure_mode = "An unsupported major version is accepted and interpreted under incompatible layout or opcode rules."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_VERSION_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EC610E3917E2D7BC4E2B"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_multi_owner_instance_ref_contract"
+malformed_input_class_ids = ["ambiguous_instance_owner", "stale_instance_owner"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_multi_owner_instance_ref_contract -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_OWNER_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Bytecode validation rejects a POU body whose instance references name more than one explicit owner."
+expected_failure_mode = "The validator accepts a mixed-owner POU body and permits stale absolute instance identities to reach execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E4521EB1299D2E86F016"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "pou_local_ranges_reject_shared_frame_owner"
+malformed_input_class_ids = ["ambiguous_instance_owner"]
+command = "cargo test -p trust-runtime --test bytecode_validation pou_local_ranges_reject_shared_frame_owner -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_OWNER_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects distinct POU local-reference ranges that claim the same frame owner."
+expected_failure_mode = "Two POU local ranges share one frame owner and make local-slot resolution ambiguous."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C74FB437C18E65242C35"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_local_ref_outside_pou_local_range"
+malformed_input_class_ids = ["operand_index_out_of_bounds"]
+command = "cargo test -p trust-runtime --test bytecode_vm_core vm_validator_rejects_local_ref_outside_pou_local_range -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "A POU body cannot address a frame-local reference outside its declared local-reference range."
+expected_failure_mode = "The validator accepts a foreign local slot and execution can dereference it against the wrong frame."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7D6DBE32ECF7F31D1748"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_accepts_local_path_ref_for_pou_owned_local_slot"
+command = "cargo test -p trust-runtime --test bytecode_vm_core vm_validator_accepts_local_path_ref_for_pou_owned_local_slot -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation accepts a local path reference rooted in the current POU owner and a slot inside its declared local range."
+expected_failure_mode = "The validator rejects a valid same-owner local path or loses the owner/range distinction used by escape checks."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_53DB35C22AFA96FE355B"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "crafted_frame_local_ref_cannot_persist_to_global_storage"
+malformed_input_class_ids = ["local_frame_reference_persistence", "reference_escape"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract crafted_frame_local_ref_cannot_persist_to_global_storage -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "A crafted frame-local reference escape is rejected by validation or runtime apply before it can persist into global storage."
+expected_failure_mode = "A frame-local reference reaches longer-lived storage and can later dereference against a different frame."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_36947D824681068CB733"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_persistent_frame_local_ref_escape"
+malformed_input_class_ids = ["local_frame_reference_persistence", "reference_escape"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_persistent_frame_local_ref_escape -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects a POU body that stores a frame-local reference through a longer-lived reference target."
+expected_failure_mode = "The validator accepts a frame-local reference escape into persistent storage."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D216C5A37ABCA5C342D"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_stack_underflow_store_ref"
+malformed_input_class_ids = ["stack_underflow"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_stack_underflow_store_ref -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects STORE_REF when no compatible value exists on the operand stack."
+expected_failure_mode = "A stack-underflowing instruction stream reaches execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_STACK_EXIT_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1685CC6D1F65B9539D13"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_leftover_stack_at_pou_return"
+malformed_input_class_ids = ["stack_leftover"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_leftover_stack_at_pou_return -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects a normal POU exit with a non-empty operand stack."
+expected_failure_mode = "A POU returns with residual operand values and leaks invalid stack state into subsequent execution."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_STACK_EXIT_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1B5448C8DB96DF53A63C"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_bool_operands_for_arithmetic_opcode"
+malformed_input_class_ids = ["stack_type_mismatch"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_bool_operands_for_arithmetic_opcode -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects arithmetic opcodes whose operand-stack types are not compatible with numeric arithmetic."
+expected_failure_mode = "Boolean operands reach an arithmetic opcode and execute under an invalid stack type."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_STORE_TYPE_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_80833EFC8B17DF0C8754"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_const_type_incompatible_with_store_ref_target"
+malformed_input_class_ids = ["const_type_incompatible", "stack_type_mismatch"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_const_type_incompatible_with_store_ref_target -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects a constant whose stack type is incompatible with the declared STORE_REF target."
+expected_failure_mode = "An incompatible constant value reaches a typed reference store."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_STORE_TYPE_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F850C3D482F1F1486738"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_invalid_parameter_direction_metadata"
+malformed_input_class_ids = ["parameter_direction_mismatch"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_invalid_parameter_direction_metadata -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects call metadata containing an unsupported parameter-direction value."
+expected_failure_mode = "An unknown parameter direction reaches call setup and is interpreted inconsistently."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E8D36E045CD657B29BDD"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_inout_parameter_bound_to_literal_argument"
+malformed_input_class_ids = ["parameter_direction_mismatch"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_inout_parameter_bound_to_literal_argument -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects IN_OUT call metadata when the caller supplies a literal rather than an addressable reference."
+expected_failure_mode = "A literal is accepted for IN_OUT and call write-back has no valid target."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_INOUT_LITERAL_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_BYTECODE_LEGACY_CALL_REJECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C160AB9422688E289F44"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_legacy_call_opcode_even_when_target_exists"
+malformed_input_class_ids = ["unknown_opcode"]
+command = "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_legacy_call_opcode_even_when_target_exists -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+expected_result = "Validation rejects the unsupported legacy CALL opcode even when its referenced target exists."
+expected_failure_mode = "A legacy call encoding bypasses reviewed call-site metadata and reaches dispatch."
+evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_LEGACY_CALL_REJECTION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
 
 [[tests]]
 schema_version = 2
@@ -859,7 +1442,7 @@ owner = "trust-runtime"
 status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
 oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
 expected_result = "Decoding rejects a container containing any duplicate standardized section ID before a section can be selected for validation or execution."
 expected_failure_mode = "A duplicate standardized section is accepted, or first-section selection makes the container meaning depend on section order."
 suite_tiers = ["pr"]
@@ -1336,8 +1919,8 @@ command = "python3 scripts/bytecode_validator_mutation.py"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
-expected_result = "Run selected source mutants in an isolated Git archive and report caught, survived, unviable, timeout, or error outcomes against associated committed case IDs without executing blocked cases or claiming behavior proof."
+spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+expected_result = "Run selected source mutants in an isolated Git archive and report caught, survived, unviable, timeout, or error outcomes against associated committed case IDs without claiming that the mutation runner executed those cases or produced behavior proof."
 expected_failure_mode = "A configured mutant or case association is omitted, infrastructure failure is misclassified, or survivor reporting lacks committed case IDs and action."
 evidence_destination = "target/gate-artifacts/verification/bytecode-validator-mutation.json"
 suite_tiers = ["nightly"]
@@ -1345,15 +1928,15 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-case_file_digest = "sha256:bb831d6331560a480c0511e49820df1b0319b5b984b263c1be0a1df9c19c0ea9"
+case_file_digest = "sha256:102262b53ce12ae6a7c2c18ffb52f8a1ae243b80d2baf6a64b3ce32c6df9de95"
 mutation_shard_id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
 mutation_runner = "bytecode-validator-mutation.py v1"
 mutation_tool = "cargo-mutants-single-file-adapter"
 mutation_tool_version = "cargo-mutants 27.0.0"
-mutation_case_semantics = "association_only_blocked_cases_not_executed"
+mutation_case_semantics = "association_only_case_ids_not_executed_by_mutation_runner"
 mutation_out_of_scope_case_ids = [
-  "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_58B11C2B",
-  "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_D6833A8D",
+  "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC",
+  "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_4DDD6D2B",
 ]
 mutation_out_of_scope_reason = "Container truncation is rejected by bytecode decoding before BytecodeModule.validate; decoder mutation is outside this validator-only shard."
 last_reviewed = "2026-07-09"
@@ -1367,10 +1950,10 @@ replacement = "Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"]
 related_case_ids = [
-  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
-  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
-  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
-  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F",
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
 ]
 survivor_action = "Add or strengthen full-validator tests for the associated unknown-opcode and jump-target cases before treating this validator branch as mutation-covered."
 
@@ -1383,9 +1966,9 @@ replacement = "Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "vm_rejects_stack_underflow", "--", "--exact"]
 related_case_ids = [
-  "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9",
+  "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C",
 ]
-survivor_action = "Keep SPEC_GAP_BYTECODE_VALIDATOR_001 open; after the contract specifies stack-underflow rejection, strengthen the active full-validator regression and rerun this shard."
+survivor_action = "Strengthen the active full-validator stack-underflow regression and rerun this shard before treating this validator branch as mutation-covered."
 
 [[tests]]
 schema_version = 2
@@ -2025,24 +2608,25 @@ id = "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_4D65BEF6CD15A409C1E1"
 discovery_source_kind = "rust_integration_test"
-test_class = "integration"
+test_class = "negative_malformed_input"
 area = "bytecode_vm"
 path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
 name = "fixed_section_entry_counts_must_fit_before_allocation"
+malformed_input_class_ids = ["wrong_section"]
 command = "cargo test -p trust-runtime --test bytecode_decode_resource_bounds fixed_section_entry_counts_must_fit_before_allocation -- --exact"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#collection-count-bounds"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
 spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
-expected_result = "Every count-bearing fixed-layout section rejects a declared entry count whose minimum entries cannot fit the section."
-expected_failure_mode = "At least one fixed-layout section reserves count-sized capacity or iterates into EOF before rejecting the impossible count."
+expected_result = "Every count-bearing fixed-layout section rejects a declared entry count whose minimum records cannot fit the assigned section shape."
+expected_failure_mode = "At least one fixed-layout section accepts an impossible shape, reserves count-sized capacity, or iterates beyond the containing section."
 evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-15"
 
 [[tests]]
 schema_version = 2
