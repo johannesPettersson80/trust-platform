@@ -43,7 +43,7 @@ echo "Dry-run: ${DRY_RUN}"
 
 run_step "01" "Path hygiene guard" ./scripts/check_test_path_hygiene.sh
 run_step "02" "IEC log path guard" python3 ./scripts/check_iec_log_paths.py
-run_step "03" "Python workflow and packaged Windows ADS contracts" env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_diagram_workflow scripts.tests.test_packaged_ads_runtime -v
+run_step "03" "Deterministic diagram workflow contract" env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_diagram_workflow -v
 run_step "04" "Rust fmt check" cargo fmt --all --check
 run_step "05" "Clippy deny warnings (trust-hir + trust-lsp)" cargo clippy -p trust-hir -p trust-lsp -- -D warnings
 run_step "06" "trust-lsp unit/integration tests" cargo test -p trust-lsp --bin trust-lsp

@@ -1,14 +1,6 @@
 import { useCallback, useReducer, useRef } from "react";
 
 import type { DiscoverCandidate } from "../offlineComm";
-import {
-  isDiscoveryErrorCode,
-  type DiscoveryErrorCode,
-} from "../discoveryErrors";
-import type {
-  AdsServiceProbeResult,
-  AdsServiceProbeViewState,
-} from "../adsServiceProbeModel";
 import type {
   DiscoverProgressRow,
   DiscoverRequest,
@@ -24,32 +16,16 @@ export interface DiscoverySessionState {
   readonly progress: readonly DiscoverProgressRow[];
   readonly results: readonly DiscoverCandidate[];
   readonly sessionCurrent: boolean;
-  readonly terminal: boolean;
-  readonly adsServiceProbes: Readonly<Record<string, AdsServiceProbeViewState>>;
   readonly error?: string;
-  readonly errorCode?: DiscoveryErrorCode;
 }
 
-export type DiscoverySessionAction =
+type DiscoverySessionAction =
   | { readonly type: "reset" }
   | { readonly type: "scanStarted" }
   | { readonly type: "progress"; readonly row: DiscoverProgressRow }
   | {
       readonly type: "results";
       readonly candidates: readonly DiscoverCandidate[];
-      readonly error?: string;
-      readonly errorCode?: DiscoveryErrorCode;
-    }
-  | { readonly type: "adsProbeStarted"; readonly candidateId: string }
-  | {
-      readonly type: "adsProbeProgress";
-      readonly candidateId: string;
-      readonly port: number;
-    }
-  | {
-      readonly type: "adsProbeResults";
-      readonly candidateId: string;
-      readonly results: readonly AdsServiceProbeResult[];
       readonly error?: string;
     };
 
@@ -58,13 +34,6 @@ export interface DiscoverySessionController extends DiscoverySessionState {
   prepareReady(): void;
   handleMessage(message: unknown): boolean;
   startScan(request: DiscoverRequest): void;
-  probeAdsServices(
-    candidate: DiscoverCandidate,
-    ports: readonly number[],
-    origin: string
-  ): void;
-  handoffToBrowse(candidate: DiscoverCandidate): DiscoverCandidate;
-  reset(): void;
   close(): void;
 }
 
@@ -73,8 +42,6 @@ const EMPTY_DISCOVERY_STATE: DiscoverySessionState = {
   progress: [],
   results: [],
   sessionCurrent: false,
-  terminal: false,
-  adsServiceProbes: {},
 };
 
 export function reduceDiscoverySessionState(
@@ -90,13 +57,8 @@ export function reduceDiscoverySessionState(
         progress: [],
         results: [],
         sessionCurrent: true,
-        terminal: false,
-        adsServiceProbes: {},
       };
     case "progress":
-      if (state.terminal) {
-        return state;
-      }
       return {
         ...state,
         scanning: true,
@@ -110,58 +72,9 @@ export function reduceDiscoverySessionState(
       return {
         ...state,
         scanning: false,
-        progress: action.error
-          ? state.progress.map((row) =>
-              row.status === "scanning" ? { ...row, status: "failed" } : row
-            )
-          : state.progress,
         results: action.candidates,
         sessionCurrent: true,
-        terminal: true,
         error: action.error,
-        errorCode: action.errorCode,
-      };
-    case "adsProbeStarted":
-      return {
-        ...state,
-        adsServiceProbes: {
-          ...state.adsServiceProbes,
-          [action.candidateId]: {
-            probing: true,
-            results: [],
-            completed: false,
-          },
-        },
-      };
-    case "adsProbeProgress":
-      if (state.adsServiceProbes[action.candidateId]?.completed) {
-        return state;
-      }
-      return {
-        ...state,
-        adsServiceProbes: {
-          ...state.adsServiceProbes,
-          [action.candidateId]: {
-            probing: true,
-            results: state.adsServiceProbes[action.candidateId]?.results ?? [],
-            currentPort: action.port,
-            completed: false,
-          },
-        },
-      };
-    case "adsProbeResults":
-      return {
-        ...state,
-        adsServiceProbes: {
-          ...state.adsServiceProbes,
-          [action.candidateId]: {
-            probing: false,
-            results: action.results,
-            currentPort: undefined,
-            completed: true,
-            error: action.error,
-          },
-        },
       };
   }
 }
@@ -234,9 +147,7 @@ export function useDiscoverySession(
       }
       if (
         message.type !== "discoverProgress" &&
-        message.type !== "discoverResults" &&
-        message.type !== "adsServiceProbeProgress" &&
-        message.type !== "adsServiceProbeResults"
+        message.type !== "discoverResults"
       ) {
         return false;
       }
@@ -261,34 +172,11 @@ export function useDiscoverySession(
               typeof message.count === "number" ? message.count : undefined,
           },
         });
-      } else if (message.type === "discoverResults") {
+      } else {
         dispatch({
           type: "results",
           candidates: Array.isArray(message.candidates)
             ? (message.candidates as DiscoverCandidate[])
-            : [],
-          error: typeof message.error === "string" ? message.error : undefined,
-          errorCode: isDiscoveryErrorCode(message.errorCode)
-            ? message.errorCode
-            : undefined,
-        });
-      } else if (
-        message.type === "adsServiceProbeProgress" &&
-        typeof message.candidateId === "string" &&
-        typeof message.port === "number" &&
-        Number.isSafeInteger(message.port)
-      ) {
-        dispatch({
-          type: "adsProbeProgress",
-          candidateId: message.candidateId,
-          port: message.port,
-        });
-      } else if (typeof message.candidateId === "string") {
-        dispatch({
-          type: "adsProbeResults",
-          candidateId: message.candidateId,
-          results: Array.isArray(message.results)
-            ? (message.results as AdsServiceProbeResult[])
             : [],
           error: typeof message.error === "string" ? message.error : undefined,
         });
@@ -306,54 +194,6 @@ export function useDiscoverySession(
       post({ type: "discover", sessionId, requestId, request });
     },
     [post, sessionId]
-  );
-
-  const probeAdsServices = useCallback(
-    (
-      candidate: DiscoverCandidate,
-      ports: readonly number[],
-      origin: string
-    ) => {
-      dispatch({ type: "adsProbeStarted", candidateId: candidate.id });
-      post({
-        type: "probeAdsServices",
-        sessionId,
-        requestId: requestIdRef.current,
-        origin,
-        candidate,
-        ports,
-      });
-    },
-    [post, sessionId]
-  );
-
-  const handoffToBrowse = useCallback(
-    (candidate: DiscoverCandidate) => {
-      const requestId = requestIdRef.current;
-      const leaseId = candidate.originRuntimeId
-        ? createDiscoveryBrowseLeaseId()
-        : undefined;
-      post({
-        type: "handoffDiscoveryToBrowse",
-        sessionId,
-        requestId,
-        protocol: candidate.protocol,
-        originRuntimeId: candidate.originRuntimeId,
-        leaseId,
-      });
-      requestIdRef.current += 1;
-      resetLocal();
-      return leaseId
-        ? {
-            ...candidate,
-            params: {
-              ...candidate.params,
-              discovery_origin_lease_id: leaseId,
-            },
-          }
-        : candidate;
-    },
-    [post, resetLocal, sessionId]
   );
 
   const close = useCallback(() => {
@@ -376,9 +216,6 @@ export function useDiscoverySession(
     prepareReady,
     handleMessage,
     startScan,
-    probeAdsServices,
-    handoffToBrowse,
-    reset: close,
     close,
   };
 }
@@ -388,15 +225,6 @@ function createDiscoverySessionId(): string {
     return globalThis.crypto.randomUUID();
   }
   return `network-canvas-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
-function createDiscoveryBrowseLeaseId(): string {
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-  return `discovery-browse-${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2)}`;
 }

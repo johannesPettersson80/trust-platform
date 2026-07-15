@@ -174,7 +174,7 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
     assert.match(
       discoveryRuntimeFailureMessage("ads", new Error("request timed out")),
-      /TwinCAT discovery timed out.*reconnect.*scan again/i,
+      /ADS discovery timed out.*reconnect.*scan again/i,
     );
     assert.match(
       discoveryRuntimeFailureMessage("ads", new Error("authentication failed")),
@@ -269,23 +269,12 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
   });
 
-  test("#97 visual browse flow discovers PLC runtimes before advanced port editing", () => {
-    const source = [
-      readSrc("networkCanvas/webview/DiscoverPane.tsx"),
-      readSrc("networkCanvas/webview/AdsDiscoveryFlow.tsx"),
-      readSrc("networkCanvas/adsServiceProbeModel.ts"),
-    ].join("\n");
+  test("#97 visual browse flow exposes an inline ADS port field", () => {
+    const source = readSrc("networkCanvas/webview/DiscoverPane.tsx");
 
-    assert.ok(source.includes('data-role="ads-custom-ports"'));
-    assert.ok(source.includes("AUTOMATIC_TWINCAT_SERVICE_PORTS"));
-    assert.ok(source.includes("MAX_ADS_SERVICE_PROBES"));
-    assert.ok(source.includes('data-role="ads-browse-variables"'));
-    assert.ok(
-      !readSrc("networkCanvas/webview/DiscoverPane.tsx").includes(
-        'data-role="ads-port"',
-      ),
-      "Discover must not present a raw ADS port before finding the TwinCAT computer",
-    );
+    assert.ok(source.includes('data-role="ads-port"'));
+    assert.ok(source.includes("min={1}") && source.includes("max={65535}"));
+    assert.ok(source.includes("withCandidateAdsPort"));
 
     const browseControls = readSrc(
       "networkCanvas/webview/AdsBrowseTargetControls.tsx",
@@ -294,14 +283,14 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.ok(browseControls.includes('data-role="browse-ads-symbols"'));
     assert.ok(
       browseControls.includes(
-        "Each ADS service port exposes a separate variable namespace",
+        "Each ADS port is a separate server and symbol namespace",
       ),
     );
     const browsePanel = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
     assert.ok(browsePanel.includes("adsPortDraftStale"));
     assert.ok(
       browsePanel.includes(
-        "Browse the edited ADS service before adding variables from it.",
+        "Browse the edited ADS port before adding tags from that server.",
       ),
     );
     assert.ok(

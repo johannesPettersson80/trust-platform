@@ -3,16 +3,6 @@ export interface LatestRefreshContext {
   isCurrent(): boolean;
 }
 
-export function networkCanvasRefreshDelayMs(): number {
-  const value = Number(
-    process.env.TRUST_VSCODE_NETWORK_CANVAS_REFRESH_DELAY_MS ?? 0
-  );
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-  return Math.min(Math.floor(value), 10_000);
-}
-
 type RefreshTask = (context: LatestRefreshContext) => Promise<void>;
 
 interface PendingRefresh {

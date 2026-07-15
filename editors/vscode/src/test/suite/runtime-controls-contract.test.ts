@@ -777,28 +777,26 @@ suite("truST sidebar — control surface contract", () => {
   });
 
   test("ERR-04 control-endpoint override is test-mode only", () => {
-    const debugSource = loadSource("debug.ts");
-    const launchControlSource = loadSource("debug/launchControl.ts");
+    const source = loadSource("debug.ts");
     assert.ok(
-      launchControlSource.includes('"TRUST_UX_DEBUG_CONTROL_ENDPOINT"') &&
-        launchControlSource.includes("allowTestControlEndpointOverride"),
+      source.includes('"TRUST_UX_DEBUG_CONTROL_ENDPOINT"') &&
+        source.includes("allowTestControlEndpointOverride"),
       "debug launch endpoint override must exist only for evidence/test runners"
     );
     assert.ok(
-      debugSource.includes("context.extensionMode === vscode.ExtensionMode.Test"),
+      source.includes("context.extensionMode === vscode.ExtensionMode.Test"),
       "the control-endpoint override must be disabled outside VS Code test mode"
     );
     assert.ok(
-      launchControlSource.indexOf(
-        "process.env[TEST_CONTROL_ENDPOINT_OVERRIDE_ENV]"
-      ) < launchControlSource.indexOf("localSimControl(folder?.uri.fsPath)"),
+      source.indexOf("process.env[TEST_CONTROL_ENDPOINT_OVERRIDE_ENV]") <
+        source.indexOf("localSimControl(folder?.uri.fsPath)"),
       "ERR-04 evidence must be able to force a real bind-conflict endpoint before the normal local-sim socket is chosen"
     );
     assert.ok(
-      debugSource.includes("launchControlEndpointError") &&
-        launchControlSource.includes("The runtime port is already in use.") &&
-        debugSource.indexOf("await launchControlEndpointError") <
-          debugSource.indexOf("vscode.debug.startDebugging(folder, config)"),
+      source.includes("launchControlEndpointError") &&
+        source.includes("The runtime port is already in use.") &&
+        source.indexOf("await launchControlEndpointError") <
+          source.indexOf("vscode.debug.startDebugging(folder, config)"),
       "local launch control-endpoint conflicts must be caught before VS Code starts the debug session"
     );
   });

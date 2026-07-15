@@ -1,6 +1,5 @@
 import * as assert from "assert";
 import { EventEmitter } from "events";
-import * as vscode from "vscode";
 
 import {
   isRuntimeControlAuthError,
@@ -144,54 +143,5 @@ suite("Runtime control client", function () {
     assert.strictEqual(reachable, true);
     assert.strictEqual(socket.destroyed, true);
     assert.deepStrictEqual(socket.writes, []);
-  });
-
-  test("cancels cleanly when the token fires during socket creation", async () => {
-    const socket = new FakeRuntimeControlSocket();
-    const cancellation = new vscode.CancellationTokenSource();
-    try {
-      await assert.rejects(
-        sendRuntimeControlRequest(
-          "tcp://127.0.0.1:9901",
-          undefined,
-          "ads.status",
-          undefined,
-          {
-            cancellationToken: cancellation.token,
-            socketFactory: () => {
-              cancellation.cancel();
-              return socket;
-            },
-            timeoutMs: 100,
-          }
-        ),
-        /Cancelled\./
-      );
-      assert.strictEqual(socket.destroyed, true);
-      assert.deepStrictEqual(socket.writes, []);
-
-      const probeSocket = new FakeRuntimeControlSocket();
-      const probeCancellation = new vscode.CancellationTokenSource();
-      try {
-        const reachable = await probeRuntimeControlEndpoint(
-          "tcp://127.0.0.1:9901",
-          {
-            cancellationToken: probeCancellation.token,
-            socketFactory: () => {
-              probeCancellation.cancel();
-              return probeSocket;
-            },
-            timeoutMs: 100,
-          }
-        );
-        assert.strictEqual(reachable, false);
-        assert.strictEqual(probeSocket.destroyed, true);
-        assert.deepStrictEqual(probeSocket.writes, []);
-      } finally {
-        probeCancellation.dispose();
-      }
-    } finally {
-      cancellation.dispose();
-    }
   });
 });

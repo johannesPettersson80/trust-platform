@@ -242,122 +242,6 @@ jobs:
           name: gate-test-${{ matrix.os }}
           path: gate-artifacts/test-${{ matrix.os }}.txt
 
-  windows-vsix-ads-smoke:
-    name: Windows VSIX ADS Smoke
-    runs-on: windows-latest
-    timeout-minutes: 135
-    steps:
-      - uses: actions/checkout@v6
-      - name: Checkout OpenOT reference sibling
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: editors/vscode/package-lock.json
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - name: Test packaged ADS gate contracts
-        env:
-          PYTHONDONTWRITEBYTECODE: '1'
-        run: python -m unittest scripts.tests.test_packaged_ads_runtime -v
-      - name: Install Windows vendored OpenSSL Perl prerequisites
-        shell: powershell
-        run: |
-          choco install strawberryperl -y --no-progress
-          "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Install wasm-pack
-        shell: bash
-        run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            cargo install wasm-pack --version 0.15.0 --locked
-          fi
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          wasm-pack --version
-      - name: Build release-profile Windows extension binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p gate-artifacts
-          python scripts/run_with_progress.py \
-            --phase ci-windows-vsix-ads-build \
-            --target x86_64-pc-windows-msvc \
-            --timeout-seconds "${CI_WINDOWS_VSIX_ADS_BUILD_TIMEOUT_SECONDS:-3600}" \
-            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
-            --log gate-artifacts/windows-vsix-ads-build.log \
-            -- cargo build --release --target x86_64-pc-windows-msvc \
-              -p trust-lsp -p trust-debug -p trust-runtime
-      - name: Prepare Windows extension binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p editors/vscode/bin
-          cp target/x86_64-pc-windows-msvc/release/trust-lsp.exe editors/vscode/bin/
-          cp target/x86_64-pc-windows-msvc/release/trust-debug.exe editors/vscode/bin/
-          cp target/x86_64-pc-windows-msvc/release/trust-runtime.exe editors/vscode/bin/
-      - name: Install extension dependencies
-        working-directory: editors/vscode
-        run: npm ci
-      - name: Compile extension
-        working-directory: editors/vscode
-        run: npm run compile
-      - name: Run focused Windows ADS extension tests
-        shell: bash
-        working-directory: editors/vscode
-        env:
-          ST_LSP_TEST_SERVER: ${{ github.workspace }}/editors/vscode/bin/trust-lsp.exe
-          ST_DEBUG_TEST_BIN: ${{ github.workspace }}/editors/vscode/bin/trust-debug.exe
-          ST_VSCODE_TEST_GREP: Windows ADS discovery and simulator regression contract|ADS service probe safety|Windows runtime control migration|Debug log credential redaction
-        run: |
-          set -euo pipefail
-          python ../../scripts/run_with_progress.py \
-            --phase ci-windows-vsix-ads-extension \
-            --target focused-extension-host-tests \
-            --timeout-seconds "${CI_WINDOWS_VSIX_ADS_TEST_TIMEOUT_SECONDS:-1800}" \
-            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
-            --log ../../gate-artifacts/windows-vscode-ads-test.log \
-            -- npm.cmd test
-      - name: Package win32-x64 VSIX
-        working-directory: editors/vscode
-        run: npx vsce package --target win32-x64 --out ../../gate-artifacts/trust-lsp-win32-x64-ci.vsix
-      - name: Prove packaged Windows ADS runtime
-        shell: bash
-        run: |
-          python scripts/test_packaged_ads_runtime.py \
-            --vsix gate-artifacts/trust-lsp-win32-x64-ci.vsix \
-            --staged-debug editors/vscode/bin/trust-debug.exe \
-            --evidence gate-artifacts/windows-vsix-ads-smoke.json
-      - name: Upload Windows VSIX ADS evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-vsix-ads-smoke-evidence
-          path: |
-            gate-artifacts/windows-vsix-ads-build.log
-            gate-artifacts/windows-vscode-ads-test.log
-            gate-artifacts/windows-vsix-ads-smoke.json
-      - name: Mark gate success
-        if: ${{ success() }}
-        shell: bash
-        run: |
-          echo "job=windows-vsix-ads-smoke result=success" > gate-artifacts/windows-vsix-ads-smoke.txt
-      - name: Upload gate marker
-        if: ${{ success() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-windows-vsix-ads-smoke
-          path: |
-            gate-artifacts/windows-vsix-ads-smoke.txt
-            gate-artifacts/windows-vsix-ads-smoke.json
-
   conformance:
     name: Conformance
     runs-on: ubuntu-latest
@@ -864,7 +748,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, windows-vsix-ads-smoke, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
+    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v6
@@ -884,7 +768,6 @@ jobs:
           NEED_FMT: ${{ needs.fmt.result }}
           NEED_CLIPPY: ${{ needs.clippy.result }}
           NEED_TEST: ${{ needs.test.result }}
-          NEED_WINDOWS_VSIX_ADS_SMOKE: ${{ needs['windows-vsix-ads-smoke'].result }}
           NEED_CONFORMANCE: ${{ needs.conformance.result }}
           NEED_ARCHITECTURE_SAFETY: ${{ needs['architecture-safety'].result }}
           NEED_MSRV: ${{ needs.msrv.result }}
@@ -904,7 +787,6 @@ jobs:
             --required-gate gate-test-ubuntu-latest \
             --required-gate gate-test-macos-latest \
             --required-gate gate-test-windows-latest \
-            --required-gate gate-windows-vsix-ads-smoke \
             --required-gate gate-conformance \
             --required-gate gate-architecture-safety \
             --required-gate gate-msrv \
@@ -918,7 +800,6 @@ jobs:
             --job-status "fmt=${NEED_FMT}" \
             --job-status "clippy=${NEED_CLIPPY}" \
             --job-status "test=${NEED_TEST}" \
-            --job-status "windows-vsix-ads-smoke=${NEED_WINDOWS_VSIX_ADS_SMOKE}" \
             --job-status "conformance=${NEED_CONFORMANCE}" \
             --job-status "architecture-safety=${NEED_ARCHITECTURE_SAFETY}" \
             --job-status "msrv=${NEED_MSRV}" \

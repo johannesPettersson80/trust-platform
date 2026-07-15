@@ -7,7 +7,6 @@ import {
   adsImportFailurePrompt,
 } from "./adsImportUx";
 import { buildExposeApplyParams } from "./exposeConfig";
-import { classifyAdsBrowseCommandFailure } from "./adsBrowseContract";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
   ensureAdsRuntimeEnabled,
@@ -16,7 +15,6 @@ import {
   offlineCommApply,
   openGeneratedAdsDocuments,
   type AdsImportSymbolsReport,
-  type BrowseSymbolsResponse,
 } from "./offlineComm";
 
 export interface ProtocolActionDependencies {
@@ -24,11 +22,6 @@ export interface ProtocolActionDependencies {
   readonly extensionContext: () => vscode.ExtensionContext | undefined;
   readonly topology: () => FleetTopologyResponse | undefined;
   readonly runtimeTarget: () => RuntimeTarget | undefined;
-  readonly runtimeTargetForOrigin: (
-    originId: string,
-    leaseId: string | undefined,
-    browseSessionId: string | undefined
-  ) => RuntimeTarget | undefined;
   readonly refresh: () => Promise<void>;
   readonly startRuntime: () => Promise<void>;
 }
@@ -60,79 +53,21 @@ export class NetworkCanvasProtocolActions {
     const protocol =
       typeof message.protocol === "string" ? message.protocol : "ads";
     const target = isRecord(message.target) ? message.target : {};
-    const commandTarget = withoutBrowseUiMetadata(target);
     const kind =
       message.kind === "channels" || message.kind === "nodes"
         ? message.kind
         : "symbols";
     const connectionName =
-      typeof commandTarget.name === "string" ? commandTarget.name : undefined;
+      typeof target.name === "string" ? target.name : undefined;
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const discoveryOriginId =
-      typeof target.discovery_origin_runtime_id === "string"
-        ? target.discovery_origin_runtime_id
-        : undefined;
-    const discoveryOriginLeaseId =
-      typeof target.discovery_origin_lease_id === "string"
-        ? target.discovery_origin_lease_id
-        : undefined;
-    const runtime = discoveryOriginId
-      ? this.dependencies.runtimeTargetForOrigin(
-          discoveryOriginId,
-          discoveryOriginLeaseId,
-          browseSessionId
-        )
-      : undefined;
-    const viaRuntime =
-      Boolean(discoveryOriginId) &&
-      runtime?.status === "online_reachable" &&
-      Boolean(runtime.endpoint);
-    let result: BrowseSymbolsResponse | undefined;
-    if (discoveryOriginId && !viaRuntime) {
-      result = {
-        protocol,
-        tree: [],
-        error: {
-          code: "discovery_origin_unreachable",
-          message:
-            "The selected discovery runtime is no longer reachable. Reconnect it and find TwinCAT again.",
-        },
-      };
-    } else if (viaRuntime && runtime?.endpoint) {
-      try {
-        result = await sendRuntimeControlRequest<BrowseSymbolsResponse>(
-          runtime.endpoint,
-          runtime.authToken,
-          "comm.browse_symbols",
-          {
-            protocol,
-            target: commandTarget,
-            kind,
-            connection_name: connectionName,
-          },
-          { timeoutMs: 20_000 }
-        );
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        result = {
-          protocol,
-          tree: [],
-          error: {
-            code: classifyAdsBrowseCommandFailure(detail),
-            message: detail,
-          },
-        };
-      }
-    } else {
-      result = await offlineBrowseSymbols(
-        context,
-        protocol,
-        commandTarget,
-        kind,
-        connectionName,
-        projectDir
-      );
-    }
+    const result = await offlineBrowseSymbols(
+      context,
+      protocol,
+      target,
+      kind,
+      connectionName,
+      projectDir
+    );
     if (this.dependencies.panel() !== panel || !panel.visible) {
       return;
     }
@@ -294,22 +229,7 @@ export class NetworkCanvasProtocolActions {
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!projectDir) {
       await vscode.window.showWarningMessage(
-        "Add variables needs an open project so truST can write ads.toml and generated ST."
-      );
-      return;
-    }
-    const source = isRecord(message.target) ? message.target : {};
-    const discoveryOriginId =
-      typeof source.discovery_origin_runtime_id === "string"
-        ? source.discovery_origin_runtime_id
-        : undefined;
-    const commandMessage: Record<string, unknown> = {
-      ...message,
-      target: withoutBrowseUiMetadata(source),
-    };
-    if (discoveryOriginId) {
-      await vscode.window.showWarningMessage(
-        "Remote discovery is read-only in this release. Browse variables through the selected runtime, then add them from a project running on that same computer."
+        "Add tags needs an open project so truST can write ads.toml and generated ST."
       );
       return;
     }
@@ -319,10 +239,10 @@ export class NetworkCanvasProtocolActions {
       runtime.status !== "online_reachable" ||
       !runtime.endpoint
     ) {
-      await this.addTagsOffline(commandMessage, projectDir, paths);
+      await this.addTagsOffline(message, projectDir, paths);
       return;
     }
-    await this.addTagsLive(commandMessage, projectDir, paths, runtime);
+    await this.addTagsLive(message, projectDir, paths, runtime);
   }
 
   private async addTagsOffline(
@@ -335,7 +255,7 @@ export class NetworkCanvasProtocolActions {
     const context = this.dependencies.extensionContext();
     if (protocol !== "ads" || !context) {
       await vscode.window.showWarningMessage(
-        "Add variables needs a reachable runtime — it writes ads.toml + the generated ST through the runtime's ADS import pipeline."
+        "Add tags needs a reachable runtime — it writes ads.toml + the generated ST through the runtime's ADS import pipeline."
       );
       return;
     }
@@ -403,7 +323,7 @@ export class NetworkCanvasProtocolActions {
       );
       if (!report?.applied) {
         await vscode.window.showWarningMessage(
-          `Could not add variables: ${
+          `Could not add tags: ${
             report?.message ?? "the runtime rejected the import."
           }`
         );
@@ -412,7 +332,7 @@ export class NetworkCanvasProtocolActions {
       const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
       if (!runtimeConfig.ok) {
         await vscode.window.showWarningMessage(
-          `Added ADS variables, but ADS runtime was not enabled automatically: ${runtimeConfig.message}`
+          `Added ADS tags, but ADS runtime was not enabled automatically: ${runtimeConfig.message}`
         );
         await this.dependencies.refresh();
         return;
@@ -421,13 +341,13 @@ export class NetworkCanvasProtocolActions {
       await vscode.window.showInformationMessage(
         `Added ${countLabel(
           report.selected_count ?? paths.length,
-          "ADS variable"
+          "ADS tag"
         )}. Restart the runtime to apply the generated ST symbols.`
       );
       await this.dependencies.refresh();
     } catch (error) {
       await vscode.window.showWarningMessage(
-        `Could not add variables: ${
+        `Could not add tags: ${
           error instanceof Error ? error.message : String(error)
         } (live ADS import needs an ads-wire runtime build).`
       );
@@ -492,14 +412,4 @@ function stringPaths(value: unknown, nonEmpty = false): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function withoutBrowseUiMetadata(
-  target: Record<string, unknown>
-): Record<string, unknown> {
-  const clean = { ...target };
-  delete clean.ads_port_confirmed;
-  delete clean.discovery_origin_runtime_id;
-  delete clean.discovery_origin_lease_id;
-  return clean;
 }

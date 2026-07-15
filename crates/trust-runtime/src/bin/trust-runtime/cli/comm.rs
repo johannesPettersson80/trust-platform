@@ -57,12 +57,6 @@ pub enum CommAction {
         /// Optional target host for directed discovery/probe.
         #[arg(long)]
         host: Option<String>,
-        /// Optional manually supplied target AMS Net ID. Requires --host and bypasses UDP Identify for ADS.
-        #[arg(long = "target-net-id", requires = "host")]
-        target_net_id: Option<String>,
-        /// Logical ADS server port, for example 851 for PLC Runtime 1 or 852 for Runtime 2.
-        #[arg(long = "ams-port", value_parser = clap::value_parser!(u16).range(1..))]
-        ams_port: Option<u16>,
         /// Optional runtime-host hardware adapter for fieldbus discovery, for example eth0.
         #[arg(long)]
         adapter: Option<String>,

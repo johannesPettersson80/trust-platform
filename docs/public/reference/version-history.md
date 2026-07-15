@@ -2,21 +2,14 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.32`
-- public docs in this tree describe the `v0.24.32` workspace version unless a
+- current repository baseline: `v0.24.25`
+- public docs in this tree describe the `v0.24.25` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
-- TwinCAT discovery in Devices & Connections uses one target-location flow,
-  checks common and explicit logical ADS services separately after a fresh
-  connection-safety confirmation, preserves actionable errors and route
-  recovery, and discovers same-computer identity through the local AMS router
-  even when loopback UDP is silent. Windows simulator scaffolds and existing
-  local projects receive valid authenticated control configuration without a
-  manual TOML fix.
 - Beckhoff ADS client import is documented as an external-system workflow:
   the VS Code ADS panel and `/setup/ads` runtime-host wizard derive the runtime
   identity, plan routes, run the ADS Doctor, and import TwinCAT symbols into

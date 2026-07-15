@@ -16,27 +16,21 @@ package "VS Code Extension" as vscode #LightBlue {
     component "STLanguageClient" as langClient
     component "DebugAdapterFactory" as debugFactory
     component "Runtime Panel\n(Webview)" as runtimePanel <<ioPanel.ts + io-panel/*>>
-    component "Devices & Connections\n(Webview)" as communicationPanel <<networkCanvas/*>>
-    component "Network Canvas polling timer" as canvasPolling <<networkCanvas/panelPolling.ts>>
+    component "Communication Panel\n(Webview)" as communicationPanel <<communication/*>>
     component "ADS Devices Panel\n(Webview)" as adsPanel <<adsPanel.ts>>
     component "Runtime Target Resolver\n(single selected runtime context)" as runtimeTarget <<runtimeTarget.ts>>
     component "Runtime Control Client\n(shared JSON-line client)" as runtimeClient <<runtimeControlClient.ts>>
-    component "TwinCAT discovery model + probe controller\none identity flow; freshly confirmed bounded services\nselected-runtime ADS safety preflight" as adsDiscoveryFlow <<networkCanvas/adsServiceProbe*>>
-    component "Local Simulator Control\nUnix socket or authenticated Windows TCP" as localSimControl <<simControl.ts + newProject.ts>>
 
     extMain --> langClient : creates
     extMain --> debugFactory : registers
     extMain --> communicationPanel : registers Communication command
-    communicationPanel --> canvasPolling : start/stop refresh lifecycle
     extMain --> adsPanel : registers ADS commands
     runtimePanel --> runtimeTarget : owns runtime settings
     communicationPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     communicationPanel --> runtimeClient : sends comm.* setup/status requests
-    communicationPanel --> adsDiscoveryFlow : Find TwinCAT computer, confirm\nother host ADS clients stopped, then check services
     communicationPanel --> adsPanel : deep-links ADS workflows
     adsPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     adsPanel --> runtimeClient : sends ADS control requests
-    localSimControl --> debugFactory : per-workspace endpoint + token
 }
 
 note right of runtimePanel
@@ -210,7 +204,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "RetainManager" as retainMgr
     component "Watchdog" as watchdog
     component "Control Server\n(IPC)" as controlServer
-    component "Communication Control Handlers\nlocal-router/UDP identity discovery\n+ structured browse" as commControlHandlers
+    component "Communication Control Handlers\n(control/comm_handlers/*)" as commControlHandlers
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
@@ -375,9 +369,7 @@ stide -down-> sthir : semantic info
 sthir -down-> stsyntax : parse tree
 
 runtimePanel -down-> stdebug : custom DAP\n(I/O + source provenance + reload)
-localSimControl -down-> stdebug : launch control endpoint + auth token
 communicationPanel -down-> controlServer : Communication comm.* requests\nthrough selected runtime endpoint
-adsDiscoveryFlow -down-> commControlHandlers : ADS identity first; fresh user confirmation;\nads.status fail-closed guard for selected runtimes;\nsequential 851-854 + 301 + 501 + explicit checks
 adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
 
 ' Handlers to IDE

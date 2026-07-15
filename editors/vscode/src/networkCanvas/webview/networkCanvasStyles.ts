@@ -14,7 +14,7 @@ export function activeDrawerWidth(
 ): number {
   if (hasDraft) return 360; // AddDevicePanel
   if (hasSelection || hasBrowse) return 340; // NodeInspector / BrowseTagsPanel
-  if (hasDiscover) return 340; // DiscoverPane
+  if (hasDiscover) return 290; // DiscoverPane
   if (addKind === "setup") return 252; // SetUpRuntimePanel
   if (addKind === "host") return 300; // AddHostPanel
   if (addKind === "device") return 360; // AddPane

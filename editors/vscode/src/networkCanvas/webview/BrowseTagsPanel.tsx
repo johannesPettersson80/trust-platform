@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import { AdsBrowseTargetControls } from "./AdsBrowseTargetControls";
 import type { BrowseErrorView } from "./browseErrorModel";
@@ -6,8 +6,8 @@ import { nodeKey } from "./opcuaClientModel";
 import { SymbolSelectionCheckbox } from "./SymbolSelectionCheckbox";
 import { t, tint } from "./theme";
 
-// §0.5.2 Browse remote values — look INSIDE a target (e.g. an ADS PLC's variable table). Searchable
-// tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add variables"
+// §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
+// tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add tags"
 // feeds the existing ADS import / Generate-ST / ads.toml pipeline (not a separate store). If the
 // AMS route is missing, one "Create route" button — the classic ADS gotcha, handled.
 export function BrowseTagsPanel({
@@ -57,26 +57,11 @@ export function BrowseTagsPanel({
   const [routeCreateAttempted, setRouteCreateAttempted] = useState(false);
   const [adsPortDraftStale, setAdsPortDraftStale] = useState(false);
   const allowWritesRef = useRef(false);
-  const lastAutoExpandedTreeRef = useRef<SymbolNode[] | undefined>(undefined);
-  const isAds = protocol === "ads";
-  const remoteDiscoveryReadOnly =
-    isAds && typeof target.discovery_origin_runtime_id === "string";
 
-  const setAllowWritesChecked = useCallback((checked: boolean) => {
+  const setAllowWritesChecked = (checked: boolean) => {
     allowWritesRef.current = checked;
     setAllowWrites(checked);
-  }, []);
-
-  const handleAdsDraftStaleChange = useCallback(
-    (stale: boolean) => {
-      setAdsPortDraftStale(stale);
-      if (stale) {
-        setSelected(new Set());
-        setAllowWritesChecked(false);
-      }
-    },
-    [setAllowWritesChecked]
-  );
+  };
 
   useEffect(() => {
     allowWritesRef.current = allowWrites;
@@ -87,20 +72,6 @@ export function BrowseTagsPanel({
       setRouteCreateAttempted(false);
     }
   }, [routeMissing]);
-
-  useEffect(() => {
-    if (
-      !tree ||
-      tree === lastAutoExpandedTreeRef.current ||
-      tree.length !== 1 ||
-      !tree[0].children?.length
-    ) {
-      return;
-    }
-    lastAutoExpandedTreeRef.current = tree;
-    const rootKey = nodeKey(tree[0]);
-    setExpanded((previous) => new Set([...previous, rootKey]));
-  }, [tree]);
 
   // `selected` holds stable node keys (nodeKey: node_id ?? id ?? path), never the display path, so
   // two leaves sharing a path can't be conflated.
@@ -162,36 +133,24 @@ export function BrowseTagsPanel({
   }, [selectableKeys]);
 
   const addDisabledReason =
-    remoteDiscoveryReadOnly
-      ? "Remote discovery is read-only. Run the project on that computer before adding variables."
-      : adsPortDraftStale
-      ? "Browse the edited ADS service before adding variables from it."
+    adsPortDraftStale
+      ? "Browse the edited ADS port before adding tags from that server."
       : routeMissing
-        ? isAds
-          ? "Create the route and browse again before adding variables."
-          : "Create the route and browse again before adding tags."
+        ? "Create the route and browse again before adding tags."
         : error
-          ? isAds
-            ? "Resolve the browse error before adding variables."
-            : "Resolve the browse error before adding tags."
+          ? "Resolve the browse error before adding tags."
           : loading
-            ? isAds
-              ? "Wait for browse results before adding variables."
-              : "Wait for browse results before adding tags."
+            ? "Wait for browse results before adding tags."
             : tree === undefined
-              ? isAds
-                ? "Choose an ADS service port and browse its variables first."
+              ? protocol === "ads"
+                ? "Choose an ADS port and browse its symbols first."
                 : "Start or connect the runtime, then Browse again to load symbols."
               : tree.length === 0
-                ? isAds
-                  ? "No variables are available to add."
-                  : "No symbols are available to add."
+                ? "No symbols are available to add."
                 : selectedAddKeys.length === 0
-                  ? isAds
-                    ? "Select at least one variable to add."
-                    : "Select at least one symbol to add."
+                  ? "Select at least one symbol to add."
                   : undefined;
-  const writeToggleDisabled = remoteDiscoveryReadOnly || routeMissing || Boolean(error) || loading || adsPortDraftStale || tree === undefined || tree.length === 0;
+  const writeToggleDisabled = routeMissing || Boolean(error) || loading || adsPortDraftStale || tree === undefined || tree.length === 0;
   const routeWarningText = routeCreateAttempted
     ? artifacts.length
       ? "Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse."
@@ -230,7 +189,7 @@ export function BrowseTagsPanel({
   };
 
   return (
-    <aside style={PANEL} aria-label={isAds ? "Browse variables" : "Browse tags"}>
+    <aside style={PANEL} aria-label="Browse tags">
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--vscode-descriptionForeground, #7f8794)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>Devices & Connections</span>
@@ -248,7 +207,7 @@ export function BrowseTagsPanel({
             setAdsPortDraftStale(false);
             onBrowseTarget(nextTarget);
           }}
-          onDraftStaleChange={handleAdsDraftStaleChange}
+          onDraftStaleChange={setAdsPortDraftStale}
         />
       )}
 
@@ -281,7 +240,7 @@ export function BrowseTagsPanel({
 
       {!routeMissing && !error && !adsPortDraftStale && tree !== undefined && (
         <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={isAds ? "Search variables" : "Search symbols"} style={SEARCH} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbols" style={SEARCH} />
         </div>
       )}
 
@@ -289,7 +248,7 @@ export function BrowseTagsPanel({
         {adsPortDraftStale ? (
           <p style={EMPTY}>
             The displayed ADS port has not been browsed yet. Browse it before selecting or adding
-            variables.
+            symbols.
           </p>
         ) : routeMissing ? (
           artifacts.length ? (
@@ -319,30 +278,30 @@ export function BrowseTagsPanel({
               {routeCreateAttempted && (
                 <div style={ROUTE_RESULT}>
                   Route creation needs TwinCAT administrator access. Create the route on the
-                  TwinCAT computer, then reopen Browse to load variables.
+                  TwinCAT computer, then reopen Browse to load the symbol table.
                 </div>
               )}
-              <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load variables.</p>
+              <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load the symbol table.</p>
             </>
           )
         ) : error ? (
           <p style={EMPTY}>Resolve the browse error above, then browse again.</p>
         ) : loading ? (
-          <p style={EMPTY}>{isAds ? "Loading variables…" : "Loading symbols…"}</p>
+          <p style={EMPTY}>Loading symbols…</p>
         ) : tree === undefined ? (
           <p style={EMPTY}>
-            {isAds
-              ? "Choose the ADS service port above, then browse that service's variables."
+            {protocol === "ads"
+              ? "Choose the ADS server port above, then browse that server's symbol namespace."
               : "Start or connect the runtime, then Browse again to load symbols."}
           </p>
         ) : matches ? (
-          matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>{isAds ? "No matching variables." : "No matching symbols."}</p>
+          matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>No matching symbols.</p>
         ) : tree.length ? (
           tree.map((n) => renderNode(n, 0))
         ) : (
           <p style={EMPTY}>
-            {isAds
-              ? "The ADS service returned no variables."
+            {protocol === "ads"
+              ? "The ADS server returned an empty symbol table or no compatible symbols."
               : "No symbols found."}
           </p>
         )}

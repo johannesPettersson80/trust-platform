@@ -59,20 +59,15 @@ function Canvas() {
     open: discoverOpen,
     show: openDiscoverPane,
     close: closeDiscoverPane,
-    handoffToBrowse: handoffDiscoveryToBrowse,
     toggle: toggleDiscoverPane,
-    reset: resetDiscoverPane,
     scanning: discoverScanning,
     progress: discoverProgress,
     results: discoverResults,
-    adsServiceProbes,
     error: discoverError,
-    errorCode: discoverErrorCode,
     sessionCurrent: discoverSessionCurrent,
     prepareReady: prepareDiscoveryReady,
     handleMessage: handleDiscoveryMessage,
     startScan: onDiscoverScan,
-    probeAdsServices: onProbeAdsServices,
   } = useDiscoverPaneLifecycle(post);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -272,7 +267,6 @@ function Canvas() {
     openBrowse,
     clearApplyResult,
     close: closeDiscoverPane,
-    handoffToBrowse: handoffDiscoveryToBrowse,
     setSelectedId,
     setDraft,
     setEditMode,
@@ -751,13 +745,9 @@ function Canvas() {
             scanning={discoverScanning}
             progress={discoverProgress}
             results={discoverResults}
-            adsServiceProbes={adsServiceProbes}
             error={discoverError}
-            errorCode={discoverErrorCode}
             sessionCurrent={discoverSessionCurrent}
             onScan={onDiscoverScan}
-            onProbeAdsServices={onProbeAdsServices}
-            onReset={resetDiscoverPane}
             onAdd={onDiscoverAdd}
             onAdopt={onDiscoverAdopt}
             onClose={closeDiscoverPane}

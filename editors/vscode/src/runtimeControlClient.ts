@@ -65,14 +65,6 @@ export async function probeRuntimeControlEndpoint(
       disposeAll(disposables);
       resolve(value);
     };
-    // A test socket factory can synchronously cancel, and a real factory may
-    // trigger cancellation indirectly while constructing its transport. The
-    // listener below cannot observe an event that already fired, so close the
-    // newly created socket before it can report a stale successful connect.
-    if (options.cancellationToken?.isCancellationRequested) {
-      finish(false);
-      return;
-    }
     disposables = cancellationDisposables(options, () => finish(false));
 
     socket.setTimeout(timeoutMs, () => finish(false));
@@ -125,25 +117,18 @@ export async function sendRuntimeControlRequest<T = unknown>(
       socket.removeListener("close", closeHandler);
       callback();
     };
-    // Socket construction is an external boundary. Cancellation can happen
-    // synchronously inside a supplied factory, before the listener below is
-    // registered; recheck immediately so no canceled request reaches the wire.
-    if (options.cancellationToken?.isCancellationRequested) {
-      finish(() => reject(new Error("Cancelled.")));
-      return;
-    }
     disposables = cancellationDisposables(options, () =>
       finish(() => reject(new Error("Cancelled.")))
     );
 
-    function errorHandler(error: unknown): void {
+    const errorHandler = (error: unknown): void => {
       const message = error instanceof Error ? error.message : String(error);
       finish(() => reject(new Error(message)));
-    }
-    function closeHandler(): void {
+    };
+    const closeHandler = (): void => {
       finish(() => reject(new Error("Runtime control connection closed.")));
-    }
-    function dataHandler(chunk: unknown): void {
+    };
+    const dataHandler = (chunk: unknown): void => {
       buffer += Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
       let newlineIndex = buffer.indexOf("\n");
       while (newlineIndex !== -1) {
@@ -162,11 +147,7 @@ export async function sendRuntimeControlRequest<T = unknown>(
         }
         newlineIndex = buffer.indexOf("\n");
       }
-    }
-
-    if (settled) {
-      return;
-    }
+    };
 
     socket.setTimeout(timeoutMs, () => {
       finish(() => reject(new Error("control request timeout")));

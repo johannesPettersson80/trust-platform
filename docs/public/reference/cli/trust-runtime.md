@@ -24,7 +24,6 @@ binary reports them.
 | `docs` | deprecated alias for `trust-dev docs` |
 | `hmi` | scaffold/update/reset `hmi/` |
 | `ads` | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
-| `comm` | protocol schema, topology, identity discovery, testing, and symbol browsing used by Devices & Connections |
 | `plcopen` | PLCopen import/export/profile |
 | `registry` | package registry workflows |
 | `setup` | initialize system I/O config |
@@ -117,25 +116,6 @@ Current subcommands:
 - `init`
 - `update`
 - `reset`
-
-### Communication
-
-```text
-Usage: trust-runtime comm <COMMAND>
-```
-
-`comm discover` performs identity discovery and returns setup-form parameters.
-For ADS, `--host` accepts a bare Host/IP. Add `--target-net-id <AMS_NET_ID>`
-when UDP Identify is blocked and `--ams-port <1..65535>` to preserve a chosen
-logical service in the returned candidate:
-
-```text
-trust-runtime comm discover --protocol ads --host 192.168.77.11 \
-  --target-net-id 100.67.6.217.1.1 --ams-port 852 --json
-```
-
-Logical-service availability is checked separately with `comm browse-symbols`;
-`comm discover` does not scan ADS ports.
 
 ### ADS
 

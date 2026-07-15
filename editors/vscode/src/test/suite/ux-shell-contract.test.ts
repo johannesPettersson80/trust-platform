@@ -419,10 +419,9 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
         pane.includes("selectedStoppedRuntimeReason") &&
         pane.includes('selectedOrigin.id !== "this_host"') &&
         pane.includes("runtimeScanDisabledReason") &&
-        pane.includes("disabled={Boolean(disabledReason) || discoveryBusy}") &&
+        pane.includes("disabled={Boolean(disabledReason)}") &&
         pane.includes("selectedScanRows") &&
-        pane.includes('data-role="scan-selected"') &&
-        pane.includes("disabled={scanDisabled}") &&
+        pane.includes('className={scanDisabled ? "trust-button" : "trust-button trust-button--primary"}') &&
         pane.includes("Start or connect a runtime before scanning EtherCAT or GPIO."),
       "runtime-only scans must stay visible but disabled-with-reason, and stopped runtime origins must disable all scan rows"
     );
@@ -1740,8 +1739,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
   test("Devices & Connections never opens as a blank webview while loading", () => {
     const src = readSrcSet(
       "networkCanvas/networkCanvasPanel.ts",
-      "networkCanvas/webviewHtml.ts",
-      "networkCanvas/refreshCoordinator.ts"
+      "networkCanvas/webviewHtml.ts"
     );
     assert.ok(
       src.includes('class="initial-loading"') &&
@@ -2864,39 +2862,6 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
-  test("Windows packaged ADS lane runs the prepared release debug adapter", () => {
-    const runner = readSrc("test/runTest.ts");
-    const workflow = fs.readFileSync(
-      path.join(workspaceRoot(), ".github", "workflows", "ci.yml"),
-      "utf8"
-    );
-    const releaseWorkflow = fs.readFileSync(
-      path.join(workspaceRoot(), ".github", "workflows", "release.yml"),
-      "utf8"
-    );
-    assert.ok(
-      runner.includes("process.env.ST_DEBUG_TEST_BIN") &&
-        runner.includes("ST_DEBUG_TEST_BIN: debugPath") &&
-        runner.includes("ST_DEBUG_TEST_BIN not found"),
-      "the Extension Host runner must accept and validate an explicit debug adapter binary"
-    );
-    assert.ok(
-      workflow.includes(
-        "ST_DEBUG_TEST_BIN: ${{ github.workspace }}/editors/vscode/bin/trust-debug.exe"
-      ) &&
-        workflow.includes(
-          "--staged-debug editors/vscode/bin/trust-debug.exe"
-        ),
-      "the Windows packaged lane must exercise its prepared release trust-debug.exe"
-    );
-    assert.ok(
-      releaseWorkflow.includes(
-        "--staged-debug editors/vscode/bin/trust-debug.exe"
-      ),
-      "the release gate must byte-bind the packaged adapter to its staged release binary"
-    );
-  });
-
   test("development binary resolver honors CARGO_TARGET_DIR", () => {
     const src = readSrc("binary.ts");
     assert.ok(
@@ -3804,7 +3769,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         browse.includes("disabled={Boolean(addDisabledReason)}") &&
         browse.includes("No symbols are available to add.") &&
         browse.includes("Select at least one symbol to add.") &&
-        browse.includes("Resolve the browse error before adding variables."),
+        browse.includes("Resolve the browse error before adding tags."),
       "browse Add tags/Add nodes must stay visible but neutral-disabled with a reason when no valid selection exists"
     );
     assert.ok(
@@ -3960,7 +3925,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       panel.includes("protocolDisplayName(protocol)") &&
         panel.includes('countLabel(names.length, "global")') &&
-        /countLabel\([\s\S]{0,120}"ADS variable"/.test(panel),
+        /countLabel\([\s\S]{0,120}"ADS tag"/.test(panel),
       "network-canvas success toasts must use user-facing protocol names and real pluralization"
     );
     assert.ok(!panel.includes("global(s)") && !panel.includes("tag(s)"));

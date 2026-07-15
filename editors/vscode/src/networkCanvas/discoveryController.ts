@@ -7,10 +7,8 @@ import type {
   DiscoveryRequestTracker,
 } from "./discoverySession";
 import {
-  classifyDiscoveryErrorCode,
   discoveryProtocolName,
   discoveryRuntimeFailureMessage,
-  discoveryTypedFailureMessage,
 } from "./discoveryErrors";
 import {
   offlineCommDiscover,
@@ -21,8 +19,6 @@ interface DiscoveryRequestItem {
   readonly protocol: string;
   readonly cidr?: string;
   readonly host?: string;
-  readonly targetAmsNetId?: string;
-  readonly amsPort?: number;
 }
 
 export interface DiscoveryMessageEnvelope {
@@ -51,13 +47,14 @@ export function parseDiscoveryEnvelope(
     message.sessionId.length === 0 ||
     !Number.isSafeInteger(message.requestId) ||
     typeof message.requestId !== "number" ||
-    !isRecord(message.request) ||
-    typeof message.request.origin !== "string" ||
-    message.request.origin.length === 0
+    !isRecord(message.request)
   ) {
     return undefined;
   }
-  const origin = message.request.origin;
+  const origin =
+    typeof message.request.origin === "string"
+      ? message.request.origin
+      : "this_host";
   const rawItems = Array.isArray(message.request.items)
     ? message.request.items
     : [];
@@ -70,14 +67,6 @@ export function parseDiscoveryEnvelope(
         protocol: raw.protocol,
         cidr: typeof raw.cidr === "string" ? raw.cidr : undefined,
         host: typeof raw.host === "string" ? raw.host : undefined,
-        targetAmsNetId:
-          typeof raw.targetAmsNetId === "string"
-            ? raw.targetAmsNetId
-            : undefined,
-        amsPort:
-          typeof raw.amsPort === "number" && Number.isSafeInteger(raw.amsPort)
-            ? raw.amsPort
-            : undefined,
       },
     ];
   });
@@ -127,7 +116,7 @@ export async function runNetworkCanvasDiscovery(
   }
 
   for (const item of request.items) {
-    const { protocol, cidr, host, targetAmsNetId, amsPort } = item;
+    const { protocol, cidr, host } = item;
     const label = discoverLabel(protocol, host, cidr);
     if (
       !postIfCurrent({
@@ -149,53 +138,26 @@ export async function runNetworkCanvasDiscovery(
           runtimeTarget.endpoint,
           runtimeTarget.authToken,
           "comm.discover",
-          {
-            protocol,
-            origin: "runtime",
-            scope: {
-              cidr,
-              host,
-              target_ams_net_id: targetAmsNetId,
-              ams_port: amsPort,
-            },
-          },
+          { protocol, origin: "runtime", scope: { cidr, host } },
           { timeoutMs: 8000 }
         );
         candidates = response?.candidates ?? [];
       } catch (error) {
-        const errorCode = classifyDiscoveryErrorCode(protocol, error);
         postIfCurrent({
           type: "discoverResults",
           candidates: all,
-          error: errorCode
-            ? discoveryTypedFailureMessage(errorCode)
-            : discoveryRuntimeFailureMessage(protocol, error),
-          ...(errorCode ? { errorCode } : {}),
+          error: discoveryRuntimeFailureMessage(protocol, error),
         });
         return;
       }
     } else {
-      try {
-        const response = await offlineCommDiscover(
-          extensionContext,
-          protocol,
-          "this-host",
-          { cidr, host, targetAmsNetId, amsPort }
-        );
-        candidates = response.candidates ?? [];
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        const errorCode = classifyDiscoveryErrorCode(protocol, error);
-        postIfCurrent({
-          type: "discoverResults",
-          candidates: all,
-          error: errorCode
-            ? discoveryTypedFailureMessage(errorCode)
-            : discoveryCommandFailureMessage(protocol, detail),
-          ...(errorCode ? { errorCode } : {}),
-        });
-        return;
-      }
+      const response = await offlineCommDiscover(
+        extensionContext,
+        protocol,
+        "this-host",
+        { cidr, host }
+      );
+      candidates = response?.candidates ?? [];
     }
     if (!tracker.isCurrent(token, panel)) {
       return;
@@ -222,25 +184,8 @@ export async function runNetworkCanvasDiscovery(
   postIfCurrent({ type: "discoverResults", candidates: all });
 }
 
-function discoveryCommandFailureMessage(
-  protocol: string,
-  detail: string
-): string {
-  const prefix = `${discoveryProtocolName(protocol)} discovery failed`;
-  return detail.toLowerCase().startsWith(prefix.toLowerCase())
-    ? detail
-    : `${prefix}: ${detail}`;
-}
-
-export function discoverLabel(
-  protocol: string,
-  host?: string,
-  cidr?: string
-): string {
+function discoverLabel(protocol: string, host?: string, cidr?: string): string {
   const label = discoveryProtocolName(protocol);
-  if (protocol === "ads" && host === "127.0.0.1") {
-    return `${label} on the discovery computer`;
-  }
   if (host) {
     return `${label} @ ${host}`;
   }

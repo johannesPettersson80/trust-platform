@@ -57,12 +57,10 @@ export function AdsBrowseTargetControls({
             style={{ marginTop: 4 }}
           />
           <datalist id="trust-common-ads-ports">
-            <option value="301">Additional task 1</option>
-            <option value="501">NC SAF service</option>
+            <option value="301">I/O</option>
+            <option value="501">Motion</option>
             <option value="851">PLC runtime 1</option>
             <option value="852">PLC runtime 2</option>
-            <option value="853">PLC runtime 3</option>
-            <option value="854">PLC runtime 4</option>
           </datalist>
         </label>
         <button
@@ -77,7 +75,7 @@ export function AdsBrowseTargetControls({
             }
           }}
         >
-          {loading ? "Browsing…" : "Browse variables"}
+          {loading ? "Browsing…" : "Browse symbols"}
         </button>
       </div>
       {parsedPort.error && (
@@ -90,8 +88,8 @@ export function AdsBrowseTargetControls({
         </div>
       )}
       <p className="trust-help" style={{ marginTop: 6 }}>
-        Each ADS service port exposes a separate variable namespace. The service must support the
-        ADS Symbol Upload capability.
+        Each ADS port is a separate server and symbol namespace. The server must support Symbol
+        Upload.
       </p>
     </div>
   );

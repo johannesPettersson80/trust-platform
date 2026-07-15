@@ -130,13 +130,11 @@ export function planBrowseOpen(
     actionLabel: action.actionLabel,
     mode: action.mode,
   };
-  const adsPortConfirmed =
-    protocol === "ads" && normalizedTarget.ads_port_confirmed === true;
   return {
     panel,
-    loading: protocol !== "ads" || adsPortConfirmed,
+    loading: protocol !== "ads",
     request:
-      protocol === "ads" && !adsPortConfirmed
+      protocol === "ads"
         ? undefined
         : browseRequestFor(panel, normalizedTarget),
   };
