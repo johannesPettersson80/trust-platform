@@ -457,7 +457,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:b66daa79e192f65d5c7782c3117fc4b4b22a53446192d3c18f936963799e6951"
+case_file_digest = "sha256:ca06c3b1b421a7247622e69c7488cce02f8fcf415151a418c93b776c809ac0ec"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -1227,6 +1227,102 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_FUNCTION_RETURN_TYPE_MATERIALIZATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1C1CE2E896E2228C0C79"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bounded_value_semantics.rs"
+name = "function_return_arithmetic_materializes_the_declared_integer_type"
+command = "cargo test -p trust-runtime --test bounded_value_semantics function_return_arithmetic_materializes_the_declared_integer_type -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+expected_result = "An untyped arithmetic expression assigned to an INT function return slot executes with the declared INT tag and exact value."
+expected_failure_mode = "Function-return lowering keeps the expression's wider default tag, causing overflow or a runtime type mismatch before the caller observes the result."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_FUNCTION_RETURN_TYPE_MATERIALIZATION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_FOR_CONTROL_TYPE_MATERIALIZATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E48865AC746B285034BC"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bounded_value_semantics.rs"
+name = "for_loop_bounds_materialize_the_control_variable_type"
+command = "cargo test -p trust-runtime --test bounded_value_semantics for_loop_bounds_materialize_the_control_variable_type -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+expected_result = "Untyped FOR start, end, and implicit step values materialize as the SINT control variable's declared runtime type and complete three iterations."
+expected_failure_mode = "A FOR bound or implicit step keeps its default integer tag and fails when stored into the narrower control variable."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_FOR_CONTROL_TYPE_MATERIALIZATION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_CALL_ARGUMENT_TYPE_MATERIALIZATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B27FCCAE211DE6352273"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bounded_value_semantics.rs"
+name = "call_arguments_materialize_formal_parameter_types"
+command = "cargo test -p trust-runtime --test bounded_value_semantics call_arguments_materialize_formal_parameter_types -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+expected_result = "Named and positional function arguments plus named function-block inputs materialize REAL literals as the formal REAL parameter type."
+expected_failure_mode = "A REAL formal receives an LREAL-tagged literal and the runtime call boundary rejects it with TypeMismatch."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_CALL_ARGUMENT_TYPE_MATERIALIZATION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_OSCAT_OOP_CORE_REGRESSION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4C14198404E587FE4384"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/oscat_oop_library.rs"
+name = "oscat_oop_core_st_unit_tests_pass"
+command = "cargo test -p trust-runtime --test oscat_oop_library oscat_oop_core_st_unit_tests_pass -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+expected_result = "All ten embedded OSCAT core Structured Text cases pass through the rebuilt trust-dev command path."
+expected_failure_mode = "Dependency functions, FOR loops, or function-block calls lose their declared numeric tags and surface overflow or TypeMismatch errors in the OSCAT suite."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_OSCAT_OOP_CORE_REGRESSION_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "slow"
 last_reviewed = "2026-07-15"
 
 [[tests]]
