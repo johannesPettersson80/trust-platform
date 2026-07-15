@@ -3260,3 +3260,39 @@ linked_tests = [
 ]
 linked_spec_gaps = ["SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"]
 last_reviewed = "2026-07-15"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BROAD_REMOTE_PR_20260715_81EA8F2854DB"
+title = "Reviewed PR broad gate for VM_SEAM_DETERMINISM_LIMITS_001"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "verification/evidence-index.toml"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform\" && mkdir -p \"$HOME/.cache/codex-targets/trust-platform-gate\" \"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && export CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" && just fmt && just clippy && just test-all'"
+commit = "786576bcdd346362274133e2476e2dfec1f987a4"
+remote_commit = "786576bcdd346362274133e2476e2dfec1f987a4"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "pr"
+producer = "broad-remote-gate.py v1"
+generated_report_version = "broad-remote-gate-v1"
+linked_invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+linked_tests = ["TEST_VM_RESOURCE_LIMIT_CASES_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-15"
+proof_kind = "none"
+proof_scope = "broad_remote_gate"
+command_exit_status = 0
+executed_tests = [{ case_artifact_digest = "sha256:a2381522bcb6a139aa330042f66a61e16800162ae391cb28f408443a65cbf99a", case_file_digest = "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61a3410c2ee5f", command = "cargo test -p trust-runtime --test vm_resource_limit_cases vm_resource_limit_trace_cases -- --exact", discovery_id = "DISC_F249C0ED30C6D840D514", discovery_source_kind = "rust_integration_test", exit_status = 0, per_case_summary = ["VM_SEAM_DETERMINISM_LIMITS_001_CONTAINER_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_INSTRUCTIONS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_REFERENCES_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_LOCALS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_PARAMETERS_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_STACK_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_CALL_DEPTH_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_EXECUTION_ABOVE_MAX:passed", "VM_SEAM_DETERMINISM_LIMITS_001_OSCAT_WITHIN_LIMITS:passed"], run_id = "ff5e745662804c6bbaa41d8db15b1f6c", test_id = "TEST_VM_RESOURCE_LIMIT_CASES_001" }]
+gate_started_at = "2026-07-15T19:55:14Z"
+gate_finished_at = "2026-07-15T20:10:56Z"
+gate_duration_milliseconds = 941809
+local_source_clean_before = true
+local_source_clean_after = true
+remote_source_clean_before = true
+remote_source_clean_after = true
+disk_preflight_passed = true
+home_available_kib = 72876052
+tmp_available_kib = 3431256
