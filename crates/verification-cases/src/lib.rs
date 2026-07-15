@@ -201,7 +201,7 @@ where
     let artifact = CaseRunArtifact {
         schema_version: 1,
         test_id: config.test_id.clone(),
-        case_file: config.case_file.to_string_lossy().into_owned(),
+        case_file: artifact_case_file_path(&config.case_file),
         case_file_digest: digest,
         helper_version: HELPER_VERSION.to_string(),
         case_provenance_kind,
@@ -214,6 +214,13 @@ where
     };
     write_artifact(config, &artifact)?;
     Ok(artifact)
+}
+
+fn artifact_case_file_path(path: &Path) -> String {
+    path.strip_prefix(workspace_root())
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Compute the SHA-256 digest string for a case file.
@@ -316,6 +323,14 @@ mod tests {
     use serde_json::json;
 
     use crate::{run_case_file, CaseExecution, CaseResult, RunConfig, StateProbe, StateSnapshot};
+
+    #[test]
+    fn workspace_absolute_case_path_is_recorded_as_committed_relative_identity() {
+        let relative = Path::new("verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml");
+        let absolute = crate::workspace_root().join(relative);
+
+        assert_eq!(crate::artifact_case_file_path(&absolute), relative.to_string_lossy());
+    }
 
     #[derive(Default)]
     struct Probe {

@@ -13,6 +13,9 @@ use verification_cases::{
     StateSnapshot,
 };
 
+const TEST_ID: &str = "TEST_BYTECODE_VALIDATOR_CASES_001";
+const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml";
+
 // Keeps the red contract compilable before the product exposes stable codes.
 // Once an inherent stable_code method exists, Rust resolves that method first.
 #[allow(dead_code)]
@@ -70,10 +73,6 @@ fn decode_hex(value: &str) -> Vec<u8> {
             u8::from_str_radix(text, 16).expect("valid hex byte")
         })
         .collect()
-}
-
-fn validator_case_path() -> PathBuf {
-    workspace_root().join("verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml")
 }
 
 struct RuntimeProbe {
@@ -275,9 +274,9 @@ fn committed_transform_seed_is_a_complete_applicable_module() {
 
 #[test]
 fn bytecode_validator_cases_reject_before_partial_apply() {
-    let path = validator_case_path();
+    let path = workspace_root().join(CASE_FILE);
     let digest = case_file_digest(&path).expect("digest validator case file");
-    let config = RunConfig::new("TEST_BYTECODE_VALIDATOR_CASES_001", &path, digest);
+    let config = RunConfig::new(TEST_ID, &path, digest);
     let mut probe = RuntimeProbe::new();
     let artifact = run_case_file(&config, &mut probe, |case, probe| -> Result<_, String> {
         let bytes = case_bytes(case)?;
@@ -327,6 +326,8 @@ fn bytecode_validator_cases_reject_before_partial_apply() {
     })
     .expect("run bytecode validator case file");
 
+    assert_eq!(artifact.test_id, TEST_ID, "test identity drifted");
+    assert_eq!(artifact.case_file, CASE_FILE, "case-file identity drifted");
     assert_eq!(artifact.cases.len(), 7, "validator case count drifted");
     for case in &artifact.cases {
         assert_eq!(
