@@ -756,6 +756,17 @@ publish = ["Status.RunState", "Metrics.CycleMs", "TempA"]
 
 Rules:
 - **Local‑only by default**. Remote access must be explicitly enabled.
+- **Request isolation is bounded.** The runtime admits read-only requests on a
+  four-worker lane with at most 32 queued requests and body-bearing or mutating
+  requests on a separate four-worker lane with at most four admitted requests.
+  An incomplete request body must not prevent an unrelated admitted request
+  from being served.
+- **Saturation fails visibly.** A request that cannot be admitted without
+  exceeding its lane's fixed bound receives HTTP `503 Service Unavailable`, a
+  `Retry-After: 1` header, and the stable denial code `server_busy`; the server
+  does not wait behind an incomplete body or create an unbounded worker thread.
+  These limits are internal runtime safety constants in this contract version,
+  not `runtime.toml` settings.
 - **Discovery uses mDNS/Bonjour** on the local LAN only.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
