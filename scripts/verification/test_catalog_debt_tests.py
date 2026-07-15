@@ -295,12 +295,12 @@ class UnmappedTestDebtTests(unittest.TestCase):
         )
 
         self.assertEqual(analysis["summary"]["scanner_facts"], 3939)
-        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 146)
-        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3793)
-        self.assertEqual(len(analysis["unmapped_tests"]), 3793)
+        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 147)
+        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3792)
+        self.assertEqual(len(analysis["unmapped_tests"]), 3792)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
-            3793,
+            3792,
         )
 
 

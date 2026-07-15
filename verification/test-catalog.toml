@@ -457,7 +457,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:9624c877098a264bf6cdd277b6d1f51d241c7d616357b061879dd8fc32f2abd7"
+case_file_digest = "sha256:b66daa79e192f65d5c7782c3117fc4b4b22a53446192d3c18f936963799e6951"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -1199,6 +1199,30 @@ oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
 expected_result = "Assignment normalization leaves DINT-to-REAL and LINT-to-LREAL source tags unchanged so the VM policy can reject them."
 expected_failure_mode = "The normalization helper silently rounds a typed integer into a floating target before policy validation."
 evidence_destination = "target/gate-artifacts/cases/TEST_VM_NORMALIZE_NON_WIDENING_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+last_reviewed = "2026-07-15"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_OSCAT_BINARY_TYPE_PRESERVATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F7310588B70E8224104"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_vm_differential.rs"
+name = "register_and_stack_paths_match_for_case_insensitive_oscat_style_calls"
+command = "cargo test -p trust-runtime --test bytecode_vm_differential register_and_stack_paths_match_for_case_insensitive_oscat_style_calls -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+expected_result = "Register and stack execution both complete without errors and return the same value for the case-insensitive OSCAT-style REAL expression."
+expected_failure_mode = "Binary-expression lowering erases the declared REAL type, causes a runtime type mismatch, or makes register and stack execution disagree."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_OSCAT_BINARY_TYPE_PRESERVATION_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
