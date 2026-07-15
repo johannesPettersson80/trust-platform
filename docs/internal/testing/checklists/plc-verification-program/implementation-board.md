@@ -401,8 +401,9 @@ Acceptance:
   failure mode, evidence destination, and review date. The first native row is
   `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`, bound to generated fact
   `DISC_88F921D24D3708CEF3E1`. It maps only the specified STBC-magic rejection
-  in inventoried `bytecode_vm`; exact error-code stability remains under open
-  `SPEC_GAP_VM_ERROR_MODEL_001`, and no current suite is falsely assigned.
+  in inventoried `bytecode_vm`; at that checkpoint exact error-code stability
+  remained under `SPEC_GAP_VM_ERROR_MODEL_001`, and no suite was falsely
+  assigned.
   Four case-table rows and the bytecode-validator mutation runner use closed
   non-native artifact kinds rather than a generic scanner exemption.
 - [x] `VERIF-P2-005` Add stale-path checker for committed catalog entries.
@@ -1258,6 +1259,20 @@ same commit, with the closure evidence linked.
   G2; deadline/watchdog interaction and `SPEC_GAP_VM_ERROR_MODEL_001` remain
   explicit debt. The register now contains 16 `open`, 4 `test_mapped`, and 14
   `closed` records.
+
+  Stable-error-model progress (2026-07-16):
+  `docs/specs/10-runtime-semantics.md` and `docs/specs/12-bytecode.md` define
+  the closed lower-snake-case bytecode, VM-trap, runtime-conversion, and HMI
+  rejection identifiers. The product preserves those identities through
+  `BytecodeError`, `VmTrap`, `RuntimeError`, runtime apply, and HMI admission,
+  with nine exact-code tests mapped to the existing gap. A genuine seven-case
+  red and green pair proves the bytecode product path. The gap is deliberately
+  `spec_updated`, not `closed`: that proof's immutable contract was recorded
+  while `VM_SEAM_VALID_001` and its catalog row still carried the open-gap
+  oracle, so rewriting them after execution would invalidate the durable
+  proof. No proof row or case digest was rewritten. Formal closeout remains
+  part of `VERIF-P16-002` and requires a separately reviewed proof-contract
+  migration or a new pre-bound execution contract.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get

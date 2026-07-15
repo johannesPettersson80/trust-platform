@@ -596,7 +596,7 @@ covers = [
 ]
 
 known_limitations = [
-  "stable public VM error identifiers remain tracked by SPEC_GAP_VM_ERROR_MODEL_001",
+  "formal proof-ledger closure of the stable VM error model remains tracked by SPEC_GAP_VM_ERROR_MODEL_001",
 ]
 
 conflicts_with = []
@@ -758,7 +758,7 @@ status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
 oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
-expected_result = "Decoding rejects non-STBC magic before execution; exact stable error-code semantics remain open."
+expected_result = "Decoding rejects non-STBC magic before execution; dedicated tests map the exact stable identifier while this legacy row remains gap-linked until formal closeout."
 expected_failure_mode = "A container with non-STBC magic is accepted or reaches execution."
 evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CONTAINER_INVALID_MAGIC.json"
 suite_tiers = []
@@ -1455,8 +1455,8 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 owner = "trust-runtime"
 status = "planned"
-description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
-mitigation = "Map each VM assumption to crafted-bytecode negative tests and validator invariants."
+description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions; stable identifiers are mapped while formal proof-ledger closeout remains open."
+mitigation = "Keep crafted-bytecode negative tests, validator invariants, mutation adequacy, and exact stable-code checks active until the independent gap closes."
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 related_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
 related_spec_gaps = ["SPEC_GAP_VM_ERROR_MODEL_001"]

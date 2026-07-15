@@ -819,9 +819,9 @@ intentional no-action statement that may emit `NOP`. The presence of the
 encoded `NOP` instruction in an already constructed module is governed by the
 normal instruction contract and does not authorize fail-open source lowering.
 
-This boundary requires a visible build error but does not define a stable typed
-error identifier. Stable bytecode and VM error identifiers remain a separate
-open contract.
+This boundary requires a visible compiler build error and is not a runtime
+failure surface. The stable bytecode and VM identifiers in Section 7.7 apply
+after bytecode production; they do not replace source-lowering diagnostics.
 
 ### 8. Versioning
 
