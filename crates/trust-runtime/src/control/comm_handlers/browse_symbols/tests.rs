@@ -128,12 +128,12 @@ fn ads_browse_target_rejects_zero_port() {
 fn ads_browse_errors_distinguish_port_and_symbol_upload_failures() {
     let unavailable = OnboardingWireError::new(
         OnboardingWireErrorKind::NoSymbols,
-        "localized connection failure",
-    )
-    .with_transport_failure(crate::ads::AdsTransportFailureKind::ConnectionRefused);
-    let unsupported =
-        OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, "localized ADS reply")
-            .with_ads_error(0x701, "Service is not supported by server");
+        "connect ADS target: Connection refused",
+    );
+    let unsupported = OnboardingWireError::new(
+        OnboardingWireErrorKind::NoSymbols,
+        "upload ADS symbol table: service is not supported by server",
+    );
     let other = OnboardingWireError::new(
         OnboardingWireErrorKind::NoSymbols,
         "upload ADS symbol table: protocol failure",
@@ -148,45 +148,6 @@ fn ads_browse_errors_distinguish_port_and_symbol_upload_failures() {
         "symbol_upload_unsupported"
     );
     assert_eq!(classify_ads_browse_error(&other), "symbol_upload_failed");
-}
-
-#[cfg(feature = "ads-wire")]
-#[test]
-fn native_ads_codes_classify_301_and_501_service_responses() {
-    let unsupported = OnboardingWireError::new(
-        OnboardingWireErrorKind::NoSymbols,
-        "localized ADS reply on port 301",
-    )
-    .with_ads_error(0x701, "Service is not supported by server");
-    let invalid_group = OnboardingWireError::new(
-        OnboardingWireErrorKind::NoSymbols,
-        "localized ADS reply on port 501",
-    )
-    .with_ads_error(0x702, "Invalid index group");
-    let missing_port = OnboardingWireError::new(
-        OnboardingWireErrorKind::NoSymbols,
-        "localized ADS reply on port 501",
-    )
-    .with_ads_error(0x507, "Router: port not registered");
-    let timeout = OnboardingWireError::new(
-        OnboardingWireErrorKind::NoSymbols,
-        "localized ADS reply on port 301",
-    )
-    .with_ads_error(0x745, "Timeout elapsed");
-
-    assert_eq!(
-        classify_ads_browse_error(&unsupported),
-        "symbol_upload_unsupported"
-    );
-    assert_eq!(
-        classify_ads_browse_error(&invalid_group),
-        "symbol_upload_unsupported"
-    );
-    assert_eq!(
-        classify_ads_browse_error(&missing_port),
-        "ads_port_unavailable"
-    );
-    assert_eq!(classify_ads_browse_error(&timeout), "symbol_upload_failed");
 }
 
 #[test]
@@ -253,8 +214,8 @@ fn ads_symbol_upload_timeout_returns_route_missing_response() {
         route_name: "line1".to_string(),
         target: TargetIdentity {
             name: Some("TwinCAT".to_string()),
-            ip: "192.168.50.42".to_string(),
-            ams_net_id: "10.20.30.40.1.1".to_string(),
+            ip: "192.168.77.11".to_string(),
+            ams_net_id: "100.67.6.217.1.1".to_string(),
             ams_port: 851,
             tc_version: Some("3.1.4026".to_string()),
         },
@@ -307,9 +268,8 @@ fn ads_symbol_upload_timeout_returns_route_missing_response() {
 fn ads_route_check_separates_unavailable_port_from_missing_return_route() {
     let unavailable = OnboardingWireError::new(
         OnboardingWireErrorKind::RouteMissing,
-        "localized connection failure",
-    )
-    .with_transport_failure(crate::ads::AdsTransportFailureKind::ConnectionRefused);
+        "connect ADS target: Connection refused",
+    );
     assert!(!route_check_failure_implies_missing_route(&unavailable));
     assert_eq!(
         classify_ads_browse_error(&unavailable),
@@ -322,87 +282,27 @@ fn ads_route_check_separates_unavailable_port_from_missing_return_route() {
     );
     assert!(route_check_failure_implies_missing_route(&missing_route));
 
-    for (code, name) in [
-        (0x748, "ADS port not opened"),
-        (0x507, "Router: port not registered"),
-        (0x509, "Router: port is invalid"),
-        (0x50D, "Router: port removed"),
+    for detail in [
+        "ADS port not opened",
+        "Router: port not registered",
+        "Router: port is invalid",
+        "Router: port removed",
     ] {
-        let error = OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, "ADS reply")
-            .with_ads_error(code, name);
+        let error = OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, detail);
         assert_eq!(classify_ads_browse_error(&error), "ads_port_unavailable");
     }
-    for (code, name) in [
-        (0x008, "Unknown command ID"),
-        (0x00B, "Unknown AMS command"),
-    ] {
-        let error = OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, "ADS reply")
-            .with_ads_error(code, name);
+    for detail in ["Unknown command ID", "Unknown AMS command"] {
+        let error = OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, detail);
         assert_eq!(
             classify_ads_browse_error(&error),
             "symbol_upload_unsupported"
         );
     }
-    let exhausted =
-        OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, "localized ADS reply")
-            .with_ads_error(0x753, "No more symbols in cache");
+    let exhausted = OnboardingWireError::new(
+        OnboardingWireErrorKind::NoSymbols,
+        "No more symbols in cache",
+    );
     assert_eq!(classify_ads_browse_error(&exhausted), "empty_symbol_table");
-}
-
-#[cfg(feature = "ads-wire")]
-#[test]
-fn native_local_browse_timeout_never_builds_self_route_recovery() {
-    use crate::ads::onboarding::AdsRouteRequirement;
-
-    let route_timeout =
-        OnboardingWireError::new(OnboardingWireErrorKind::RouteMissing, "localized ADS reply")
-            .with_ads_error(0x745, "Timeout elapsed");
-    let upload_timeout =
-        OnboardingWireError::new(OnboardingWireErrorKind::NoSymbols, "localized ADS reply")
-            .with_ads_error(0x745, "Timeout elapsed");
-
-    assert!(!route_check_failure_requires_recovery(
-        AdsRouteRequirement::NativeLocalRouter,
-        &route_timeout
-    ));
-    assert!(!upload_failure_requires_route_recovery(
-        AdsRouteRequirement::NativeLocalRouter,
-        &upload_timeout
-    ));
-    assert!(route_check_failure_requires_recovery(
-        AdsRouteRequirement::ReciprocalRouteRequired,
-        &route_timeout
-    ));
-    assert!(upload_failure_requires_route_recovery(
-        AdsRouteRequirement::ReciprocalRouteRequired,
-        &upload_timeout
-    ));
-}
-
-#[cfg(feature = "ads-wire")]
-#[test]
-fn native_local_browse_skips_reciprocal_ipv4_identity_for_localhost_and_ipv6() {
-    use crate::ads::onboarding::AdsRouteRequirement;
-
-    for host in ["localhost", "::1", "[::1]"] {
-        let target = TargetIdentity {
-            name: Some("Local TwinCAT".to_string()),
-            ip: host.to_string(),
-            ams_net_id: "10.20.30.40.1.1".to_string(),
-            ams_port: 851,
-            tc_version: None,
-        };
-
-        let context = reciprocal_route_context(
-            &target,
-            "local-twincat",
-            CredentialChannelClassification::TrustedSameHost,
-            AdsRouteRequirement::NativeLocalRouter,
-        )
-        .expect("native-local browse must not derive an IPv4 reciprocal-route identity");
-
-        assert!(context.is_none(), "native-local route context for {host}");
-    }
 }
 
 #[test]

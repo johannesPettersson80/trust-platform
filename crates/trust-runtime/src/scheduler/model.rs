@@ -26,9 +26,6 @@ pub enum ResourceCommand {
     AdsStatus {
         respond_to: std::sync::mpsc::Sender<crate::ads::diagnostics::AdsStatusReport>,
     },
-    AdsLiveValues {
-        respond_to: std::sync::mpsc::Sender<crate::ads::AdsLiveValuesSnapshot>,
-    },
     OpcUaClientStatus {
         respond_to: std::sync::mpsc::Sender<crate::opcua::OpcUaClientStatusReport>,
     },

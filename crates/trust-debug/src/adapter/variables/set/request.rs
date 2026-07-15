@@ -272,9 +272,42 @@ impl DebugAdapter {
                                 };
                             }
                         };
+                        let ads_point = match runtime.ads_live_value_writable(args.name.as_str()) {
+                            Some(false) => {
+                                return DispatchOutcome {
+                                    responses: vec![self.error_response(
+                                        &request,
+                                        &format!(
+                                            "ADS tag '{}' is read-only. Enable writes for this tag and restart the runtime.",
+                                            args.name
+                                        ),
+                                    )],
+                                    ..DispatchOutcome::default()
+                                };
+                            }
+                            Some(true) => true,
+                            None => false,
+                        };
                         runtime
                             .storage_mut()
                             .set_global(args.name.clone(), coerced.clone());
+                        if ads_point
+                            && !runtime.queue_ads_live_write(args.name.as_str(), coerced.clone())
+                        {
+                            runtime
+                                .storage_mut()
+                                .set_global(args.name.clone(), current.clone());
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(
+                                    &request,
+                                    &format!(
+                                        "ADS write for tag '{}' could not be queued.",
+                                        args.name
+                                    ),
+                                )],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         if force_requested {
                             self.session
                                 .debug_control()

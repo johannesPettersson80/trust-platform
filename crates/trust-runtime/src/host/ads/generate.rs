@@ -192,6 +192,9 @@ fn validate_connection_against_snapshot(
     connection: &AdsConnectionConfig,
     snapshots: &BTreeMap<&str, &SymbolSnapshot>,
 ) -> Result<(), AdsInterfaceError> {
+    if connection.points.is_empty() {
+        return Ok(());
+    }
     let snapshot = snapshots
         .get(connection.route.name.as_str())
         .ok_or_else(|| AdsInterfaceError::MissingSnapshot {

@@ -114,7 +114,6 @@ impl DebugAdapter {
                 let mut events = events;
                 if !restarted_runner {
                     self.emit_io_state_event_from_runtime(&mut events);
-                    self.emit_ads_state_event_from_runtime(&mut events);
                 }
                 DispatchOutcome {
                     responses: vec![self.ok_response::<Value>(&request, None)],

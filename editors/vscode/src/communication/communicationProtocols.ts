@@ -19,12 +19,13 @@ export interface CommunicationProtocolDescriptor {
 export const COMMUNICATION_PROTOCOLS: readonly CommunicationProtocolDescriptor[] = [
   {
     id: "ads",
-    title: "ADS",
-    purpose: "Read variables from an ADS device or share truST values with ADS clients.",
+    title: "ADS / TwinCAT",
+    purpose: "Connect to TwinCAT symbols or expose truST globals to ADS clients.",
     requirements: [
-      "Choose the data direction",
-      "A responding logical ADS service",
-      "A reciprocal route only when the client runs on another computer",
+      "Selected runtime",
+      "AMS Net ID",
+      "ADS logical port 851",
+      "Route and allowlist",
     ],
     group: "external",
     docsPath: "docs/public/connect/external-systems/ads.md",
@@ -146,7 +147,7 @@ export const COMMUNICATION_GROUPS: readonly {
   {
     id: "external",
     title: "External systems",
-    purpose: "PLCs, SCADA, HMIs, brokers, and register-oriented devices.",
+    purpose: "TwinCAT, SCADA, HMIs, brokers, and register-oriented devices.",
   },
   {
     id: "runtime",

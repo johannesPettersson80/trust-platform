@@ -112,6 +112,8 @@ pub struct IoStateEntry {
     pub value: String,
     #[serde(default)]
     pub forced: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writable: Option<bool>,
 }
 
 /// Custom event body carrying I/O state snapshots.
@@ -123,18 +125,6 @@ pub struct IoStateEventBody {
     pub inputs: Vec<IoStateEntry>,
     pub outputs: Vec<IoStateEntry>,
     pub memory: Vec<IoStateEntry>,
-}
-
-/// Custom request/event body carrying scan-owned ADS binding values.
-pub type AdsStateEventBody = trust_runtime::ads::AdsLiveValuesSnapshot;
-
-/// Readiness facts for the local simulator owned by the debug adapter.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SimulatorStatusResponseBody {
-    pub ready: bool,
-    pub runner: bool,
-    pub control_server: bool,
 }
 
 /// Custom event body carrying variable snapshots.

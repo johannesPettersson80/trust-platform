@@ -1,6 +1,12 @@
 import { useCallback, useReducer, useRef } from "react";
 
 import type { RoutePlan, SymbolNode } from "../offlineComm";
+import {
+  normalizeAdsTagSelections,
+  type AdsTagPortSelection,
+  type AdsTagPortPath,
+  type AdsTagBatchImportResult,
+} from "../adsTagBatch";
 import type { InspectorNode } from "./NodeInspector";
 import {
   EMPTY_BROWSE_SESSION,
@@ -15,6 +21,7 @@ import {
 } from "./browseSessionModel";
 import { classifyBrowseError } from "./browseErrorModel";
 import { buildOpcuaConnection, selectedLeaves } from "./opcuaClientModel";
+import { withAdsTargetPort } from "./adsTargetPort";
 
 export interface BrowseSessionController extends BrowseSessionState {
   open(protocol: string, target: Record<string, unknown>, label: string): void;
@@ -22,9 +29,15 @@ export interface BrowseSessionController extends BrowseSessionState {
   handleMessage(message: unknown): boolean;
   browseTarget(target: Record<string, unknown>): void;
   trustCertificate(): void;
-  createRoute(): void;
+  createRoute(port?: number): void;
   copy(text: string): void;
   addTags(keys: string[], writable: boolean): void;
+  addAdsTags(
+    selections: readonly AdsTagPortSelection[],
+    writable: boolean,
+    changedPath: string,
+  ): void;
+  removeAdsTag(selection: AdsTagPortPath): void;
   close(): void;
 }
 
@@ -46,6 +59,7 @@ export function useBrowseSession(
   }
   const sessionId = sessionIdRef.current;
   const requestIdRef = useRef(0);
+  const adsImportRequestIdRef = useRef(0);
 
   const postBrowseRequest = useCallback(
     (request: BrowseSymbolsRequest) => {
@@ -68,6 +82,7 @@ export function useBrowseSession(
       }
       onBeforeOpen();
       requestIdRef.current += 1;
+      adsImportRequestIdRef.current += 1;
       panelRef.current = plan.panel;
       treeRef.current = undefined;
       protocolRef.current = protocol;
@@ -103,10 +118,25 @@ export function useBrowseSession(
     }
     if (message.type === "browseReset") {
       requestIdRef.current += 1;
+      adsImportRequestIdRef.current += 1;
       panelRef.current = undefined;
       treeRef.current = undefined;
       protocolRef.current = "";
       dispatch({ type: "reset" });
+      return true;
+    }
+    if (message.type === "adsTagsResult") {
+      if (
+        message.browseSessionId !== sessionId ||
+        message.adsImportRequestId !== adsImportRequestIdRef.current ||
+        !isRecord(message.result)
+      ) {
+        return true;
+      }
+      dispatch({
+        type: "adsImportResult",
+        result: message.result as unknown as AdsTagBatchImportResult,
+      });
       return true;
     }
     if (message.type !== "symbolTree") {
@@ -170,13 +200,16 @@ export function useBrowseSession(
     });
   }, [postBrowseRequest]);
 
-  const createRoute = useCallback(() => {
+  const createRoute = useCallback((port?: number) => {
     const panel = panelRef.current;
     if (panel) {
       post({
         type: "createRoute",
         protocol: panel.protocol,
-        target: panel.target,
+        target:
+          panel.protocol === "ads" && port
+            ? withAdsTargetPort(panel.target, port)
+            : panel.target,
       });
     }
   }, [post]);
@@ -186,38 +219,61 @@ export function useBrowseSession(
     [post]
   );
 
-  const closePanel = useCallback(
-    (releaseDiscoveryOrigin: boolean) => {
+  const close = useCallback(() => {
+    requestIdRef.current += 1;
+    adsImportRequestIdRef.current += 1;
+    panelRef.current = undefined;
+    dispatch({ type: "close" });
+  }, []);
+
+  const addAdsTags = useCallback(
+    (
+      selections: readonly AdsTagPortSelection[],
+      writable: boolean,
+      changedPath: string,
+    ) => {
       const panel = panelRef.current;
-      const originRuntimeId =
-        typeof panel?.target.discovery_origin_runtime_id === "string"
-          ? panel.target.discovery_origin_runtime_id
-          : undefined;
-      const leaseId =
-        typeof panel?.target.discovery_origin_lease_id === "string"
-          ? panel.target.discovery_origin_lease_id
-          : undefined;
-      if (releaseDiscoveryOrigin && originRuntimeId) {
-        post({
-          type: "releaseDiscoveryOrigin",
-          originRuntimeId,
-          leaseId,
-          browseSessionId: sessionId,
-        });
+      const normalized = normalizeAdsTagSelections(selections);
+      if (!panel || panel.protocol !== "ads" || normalized.length === 0) {
+        return;
       }
-      requestIdRef.current += 1;
-      panelRef.current = undefined;
-      dispatch({ type: "close" });
+      const adsImportRequestId = ++adsImportRequestIdRef.current;
+      dispatch({ type: "adsImportStarted" });
+      post({
+        type: "addAdsTagsBatch",
+        browseSessionId: sessionId,
+        adsImportRequestId,
+        target: panel.target,
+        selections: normalized,
+        writable,
+        changedPath,
+      });
     },
     [post, sessionId]
   );
 
-  const close = useCallback(() => closePanel(true), [closePanel]);
+  const removeAdsTag = useCallback(
+    (selection: AdsTagPortPath) => {
+      const panel = panelRef.current;
+      if (!panel || panel.protocol !== "ads") {
+        return;
+      }
+      const adsImportRequestId = ++adsImportRequestIdRef.current;
+      dispatch({ type: "adsImportStarted" });
+      post({
+        type: "removeAdsTag",
+        browseSessionId: sessionId,
+        adsImportRequestId,
+        target: panel.target,
+        selection,
+      });
+    },
+    [post, sessionId]
+  );
 
   const addTags = useCallback(
     (keys: string[], writable: boolean) => {
       const panel = panelRef.current;
-      let discoveryOriginConsumedByAdd = false;
       if (panel && keys.length > 0) {
         const nodes = selectedLeaves(treeRef.current, new Set(keys));
         if (panel.protocol === "opcua_client") {
@@ -239,20 +295,16 @@ export function useBrowseSession(
         } else {
           post({
             type: panel.mode === "expose" ? "addExpose" : "addTags",
-            browseSessionId: sessionId,
             protocol: panel.protocol,
             target: panel.target,
             paths: nodes.map((node) => node.path),
             writable,
           });
-          discoveryOriginConsumedByAdd =
-            typeof panel.target.discovery_origin_runtime_id === "string";
         }
       }
-      // The host releases a discovery-origin credential only after this add request finishes.
-      closePanel(!discoveryOriginConsumedByAdd);
+      close();
     },
-    [closePanel, post, sessionId]
+    [close, post]
   );
 
   return {
@@ -265,6 +317,8 @@ export function useBrowseSession(
     createRoute,
     copy,
     addTags,
+    addAdsTags,
+    removeAdsTag,
     close,
   };
 }

@@ -20,7 +20,7 @@ at the top.
 The choices, grouped by what they do:
 
 - **Field devices and local I/O:** EtherCAT, GPIO, Simulated I/O, Loopback I/O.
-- **External systems:** Modbus TCP, MQTT, OPC UA client/server, ADS client/server, OpenOT.
+- **External systems:** Modbus TCP, MQTT, OPC UA client/server, Beckhoff ADS client/server, OpenOT.
 - **Runtime-to-runtime:** Discovery, Mesh / Zenoh, Realtime T0, Runtime cloud / federation.
 
 ## 3. Fill the typed form
@@ -40,14 +40,8 @@ config), and the draft becomes a real endpoint node. If the runtime is running, 
 
 Some protocols can find devices for you, instead of typing addresses:
 
-- **Discover ADS devices** searches this computer and the local network without
-  asking where the ADS device is. It reports each found device and every
-  responding logical ADS service among `851`–`854`, `301`, `501`, and any custom
-  ports entered under **Advanced**. A device identity can be found even when no
-  checked service is running.
-- **Discover** scans for other supported devices, servers, and runtimes —
-  *discovered means seen*, not connected. Modbus and MQTT use an address/topic
-  setup rather than a tag tree.
+- **Discover** (toolbar) scans for devices, servers, and other runtimes — *discovered means seen*, not
+  connected. Modbus and MQTT use an address/topic setup rather than a tag tree.
 - **Browse** (on a saved OPC UA client, ADS client, or EtherCAT node) reads the target's live address
   space or PDO channels so you can select symbols to add, instead of naming them by hand.
 

@@ -2,7 +2,6 @@ import * as assert from "assert";
 import { spawnSync } from "child_process";
 import * as vscode from "vscode";
 import { STHmiApplyPatchTool, STHmiGetLayoutTool } from "../../lm-tools";
-import { deleteWorkspaceTreeStrict } from "./workspace-cleanup";
 
 const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
@@ -21,6 +20,17 @@ async function pathExists(uri: vscode.Uri): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function deleteTreeIfExists(uri: vscode.Uri): Promise<void> {
+  try {
+    await vscode.workspace.fs.delete(uri, {
+      recursive: true,
+      useTrash: false,
+    });
+  } catch {
+    // Test cleanup only.
   }
 }
 
@@ -121,10 +131,16 @@ suite("New project command (VS Code)", function () {
       );
       if (index !== undefined && index >= 0) {
         vscode.workspace.updateWorkspaceFolders(index, 1);
-        await delay(200);
       }
     }
-    await deleteWorkspaceTreeStrict(fixturesRoot);
+    try {
+      await vscode.workspace.fs.delete(fixturesRoot, {
+        recursive: true,
+        useTrash: false,
+      });
+    } catch {
+      // Ignore cleanup failures in test teardown.
+    }
   });
 
   test("creates scaffold in an empty target directory", async () => {
@@ -183,8 +199,8 @@ suite("New project command (VS Code)", function () {
     );
     const configSource = await readText(configUri);
     assert.ok(
-      /PROGRAM\s+Main\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
-      "config.st must instantiate Main (PROGRAM ... WITH ... : Main) so it is not flagged unused (F-02)."
+      /PROGRAM\s+MainInstance\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
+      "config.st must instantiate Main with a distinct instance name so it is not flagged unused or duplicated (F-02)."
     );
     const runtimeToml = await readText(runtimeTomlUri);
     assert.ok(
@@ -203,7 +219,7 @@ suite("New project command (VS Code)", function () {
       /driver\s*=\s*"simulated"/.test(ioToml),
       "io.toml must default to the simulated driver (runs with no hardware)."
     );
-    await deleteWorkspaceTreeStrict(targetUri);
+    await deleteTreeIfExists(targetUri);
   });
 
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
@@ -292,7 +308,7 @@ suite("New project command (VS Code)", function () {
       await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")),
       true
     );
-    await deleteWorkspaceTreeStrict(targetUri);
+    await deleteTreeIfExists(targetUri);
   });
 
   test("generated ST parses cleanly and TOML is usable by build", async function () {

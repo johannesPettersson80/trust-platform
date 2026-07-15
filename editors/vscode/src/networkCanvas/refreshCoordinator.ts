@@ -3,16 +3,6 @@ export interface LatestRefreshContext {
   isCurrent(): boolean;
 }
 
-export function networkCanvasRefreshDelayMs(): number {
-  const value = Number(
-    process.env.TRUST_VSCODE_NETWORK_CANVAS_REFRESH_DELAY_MS ?? 0
-  );
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-  return Math.min(Math.floor(value), 10_000);
-}
-
 type RefreshTask = (context: LatestRefreshContext) => Promise<void>;
 
 interface PendingRefresh {
@@ -21,12 +11,13 @@ interface PendingRefresh {
 }
 
 /**
- * Serializes refresh work and coalesces bursts to the newest requested task.
- * A task may perform slow reads, but it must gate its final commit through
- * `context.isCurrent()` so an older snapshot can never overwrite newer state.
+ * Serializes refresh work and coalesces bursts to the newest pending task.
+ * Slow active work remains current until the owner explicitly invalidates it;
+ * ordinary polling must not starve every commit merely by queuing a follow-up.
  */
 export class LatestRefreshCoordinator {
   private requestedGeneration = 0;
+  private invalidatedGeneration = 0;
   private pending: PendingRefresh | undefined;
   private running: Promise<void> | undefined;
 
@@ -40,7 +31,7 @@ export class LatestRefreshCoordinator {
   }
 
   invalidate(): void {
-    this.requestedGeneration += 1;
+    this.invalidatedGeneration = this.requestedGeneration;
     this.pending = undefined;
   }
 
@@ -51,7 +42,7 @@ export class LatestRefreshCoordinator {
         this.pending = undefined;
         await current.task({
           generation: current.generation,
-          isCurrent: () => current.generation === this.requestedGeneration,
+          isCurrent: () => current.generation > this.invalidatedGeneration,
         });
       }
     } finally {

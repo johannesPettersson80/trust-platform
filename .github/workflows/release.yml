@@ -238,12 +238,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
 
-      - name: Setup Python for Windows ADS package proof
-        if: runner.os == 'Windows'
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
       - name: Install wasm-pack
         shell: bash
         run: |
@@ -264,30 +258,6 @@ jobs:
       - name: Package extension
         working-directory: editors/vscode
         run: npx vsce package --target ${{ matrix.platform }}
-
-      - name: Prove packaged Windows ADS runtime
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path artifacts/release | Out-Null
-          $vsix = @(Get-ChildItem -Path editors/vscode -Filter '*.vsix')
-          if ($vsix.Count -ne 1) {
-            throw "Expected exactly one packaged Windows VSIX, found $($vsix.Count)."
-          }
-          python scripts/test_packaged_ads_runtime.py `
-            --vsix $vsix[0].FullName `
-            --staged-debug editors/vscode/bin/trust-debug.exe `
-            --evidence artifacts/release/windows-vsix-ads-smoke.json
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
-
-      - name: Upload packaged Windows ADS evidence
-        if: ${{ always() && runner.os == 'Windows' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-windows-vsix-ads-smoke-${{ matrix.platform }}
-          path: artifacts/release/windows-vsix-ads-smoke.json
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7

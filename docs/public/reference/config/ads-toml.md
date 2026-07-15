@@ -43,7 +43,7 @@ Use one `[[connections]]` entry per ADS route.
 | `name` | string | yes | none | Unique connection name. |
 | `target_net_id` | string | yes | none | Remote TwinCAT AMS Net ID. |
 | `host` | string | yes | none | Remote host/IP used for the ADS route. |
-| `ams_port` | integer `1..=65535` | no | `851` | Logical ADS server and symbol namespace. Common examples are `301` for Additional Task 1, `501` for NC SAF, and `852+` for additional PLC runtimes; availability and Symbol Upload support depend on the TwinCAT project. |
+| `ams_port` | integer `1..=65535` | no | `851` | Logical ADS server and symbol namespace. Common examples are `301` for I/O, `501` for NC/Motion, and `852+` for additional PLC runtimes; availability and Symbol Upload support depend on the TwinCAT project. |
 | `local_net_id` | string | no | none | Local AMS Net ID override. Generated onboarding configs pin this to the runtime-host identity proven by the Doctor. |
 | `transport` | string | no | `secure` | `secure` or `plain`. Classic ADS uses `plain`. |
 | `insecure_transport` | bool | no | `false` | Required acknowledgement for `transport = "plain"`. |

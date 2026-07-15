@@ -265,23 +265,17 @@ END_PROGRAM
 
 #[test]
 fn phase0_discovery_matches_current_goldens() {
-    let mut ads = super::comm_handlers::discover_value(
-        json!({
-            "protocol": "ads",
-            "scope": { "cidr": "127.0.0.1/32", "timeout_ms": 1 },
-            "origin": "this_host",
-            "passive": true
-        }),
-        None,
-    )
-    .expect("ads client discovery no-target baseline");
-    // Live candidates plus socket/native-router diagnostics are host-specific.
-    // Deterministic ADS candidate and warning contracts are covered by mock-wire tests.
-    let ads_object = ads.as_object_mut().expect("ADS discovery response object");
-    ads_object.insert("candidates".to_string(), json!([]));
-    ads_object.remove("warnings");
     assert_connector_fixture(
-        &ads,
+        &super::comm_handlers::discover_value(
+            json!({
+                "protocol": "ads",
+                "scope": { "cidr": "127.0.0.1/32", "timeout_ms": 1 },
+                "origin": "this_host",
+                "passive": true
+            }),
+            None,
+        )
+        .expect("ads client discovery no-target baseline"),
         "phase0/discovery/ads_client_no_targets.json",
     );
     assert_connector_fixture(

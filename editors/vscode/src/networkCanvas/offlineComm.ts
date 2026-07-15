@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -10,12 +11,13 @@ import type {
 } from "../communication/schemaForm";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
+  buildAdsGeneratedImportArgs,
   buildOfflineAdsImportArgs,
   buildOfflineBrowseSymbolsArgs,
   classifyAdsBrowseCommandFailure,
-  listExistingAdsSnapshotPaths,
 } from "./adsBrowseContract";
-import { enableRuntimeAdsToml } from "./runtimeAdsToml";
+import { adsConnectionNameForTarget } from "./adsDiscoveryPorts";
+import { removeAdsTagFromToml } from "./adsTagConfigMutation";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
@@ -52,36 +54,25 @@ function runJson<T>(
   });
 }
 
-export interface JsonCommandResult<T> {
+interface JsonCommandResult<T> {
   ok: boolean;
   value?: T;
   message?: string;
 }
 
-export function runJsonCommand<T>(
+function runJsonCommand<T>(
   binary: string,
   args: string[],
-  cwd?: string,
-  cancellationToken?: vscode.CancellationToken
+  cwd?: string
 ): Promise<JsonCommandResult<T>> {
   return new Promise((resolve) => {
-    let settled = false;
-    let cancellation: vscode.Disposable | undefined;
-    const finish = (result: JsonCommandResult<T>) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cancellation?.dispose();
-      resolve(result);
-    };
-    const child = execFile(
+    execFile(
       binary,
       args,
       { cwd, timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error) {
-          finish({
+          resolve({
             ok: false,
             message:
               stderr.trim() ||
@@ -91,9 +82,9 @@ export function runJsonCommand<T>(
           return;
         }
         try {
-          finish({ ok: true, value: JSON.parse(stdout) as T });
+          resolve({ ok: true, value: JSON.parse(stdout) as T });
         } catch (parseError) {
-          finish({
+          resolve({
             ok: false,
             message:
               parseError instanceof Error
@@ -103,15 +94,6 @@ export function runJsonCommand<T>(
         }
       }
     );
-    const cancel = () => {
-      child.kill();
-      finish({ ok: false, message: "Command cancelled." });
-    };
-    if (cancellationToken?.isCancellationRequested) {
-      cancel();
-    } else if (cancellationToken) {
-      cancellation = cancellationToken.onCancellationRequested(cancel);
-    }
   });
 }
 
@@ -133,6 +115,14 @@ function numberField(value: Record<string, unknown>, key: string): number | unde
   return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
 }
 
+function upsertTomlKey(section: string, key: string, value: string): string {
+  const re = new RegExp(`^${key}\\s*=.*$`, "m");
+  if (re.test(section)) {
+    return section.replace(re, `${key} = ${value}`);
+  }
+  return `${section.trimEnd()}\n${key} = ${value}\n`;
+}
+
 export function ensureAdsRuntimeEnabled(
   projectDir: string,
   configPath = "ads.toml"
@@ -141,15 +131,35 @@ export function ensureAdsRuntimeEnabled(
   if (!fs.existsSync(runtimeTomlPath)) {
     return {
       ok: false,
-      message: "ADS variable import wrote the selected variables, but runtime.toml is missing so ADS cannot be enabled automatically.",
+      message: "ADS tag import wrote the selected tags, but runtime.toml is missing so ADS cannot be enabled automatically.",
     };
   }
 
   const before = fs.readFileSync(runtimeTomlPath, "utf8");
-  const after = enableRuntimeAdsToml(before, configPath);
+  const sectionHeader = "[runtime.ads]";
+  let after = before;
+  const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sectionRe = new RegExp(`^${escapedHeader}\\s*$`, "m");
+  const match = sectionRe.exec(before);
+  if (match) {
+    const nextSectionRe = /^\s*\[[^\]\r\n]+\]\s*$/gm;
+    nextSectionRe.lastIndex = match.index + match[0].length;
+    const nextSection = nextSectionRe.exec(before);
+    const sectionEnd = nextSection?.index ?? before.length;
+    let section = before.slice(match.index, sectionEnd);
+    section = upsertTomlKey(section, "enabled", "true");
+    section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
+    if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
+      section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
+    }
+    after = `${before.slice(0, match.index)}${section}${before.slice(sectionEnd)}`;
+  } else {
+    const suffix = before.endsWith("\n") ? "\n" : "\n\n";
+    after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
+  }
 
   if (after !== before) {
-    fs.writeFileSync(runtimeTomlPath, after, "utf8");
+    fs.writeFileSync(runtimeTomlPath, after);
   }
   return { ok: true, changed: after !== before, runtimeTomlPath };
 }
@@ -238,7 +248,6 @@ export interface DiscoverResponse {
   schema_version?: number;
   protocol: string;
   candidates: DiscoverCandidate[];
-  warnings?: string[];
 }
 
 // §0.5.3 `comm.browse_symbols` — look INSIDE a target: its tags/nodes/channels.
@@ -257,7 +266,7 @@ export interface SymbolNode {
 }
 
 // §0.5.2 a ready-to-run AMS route setup artifact (PowerShell / StaticRoutes.xml / manual steps),
-// carried in the route_plan so the canvas can show honest route-setup instructions without credentials.
+// carried in the route_plan so the canvas can show "Create route" without handling any credentials.
 export interface RouteArtifact {
   kind?: string;
   label: string;
@@ -268,14 +277,22 @@ export interface RouteArtifact {
 
 export interface RoutePlan {
   route_name?: string;
+  target?: {
+    ip?: string;
+    ams_net_id?: string;
+    ams_port?: number;
+  };
+  local?: {
+    chosen_ip?: string;
+    ams_net_id?: string;
+  };
   artifacts?: RouteArtifact[];
 }
 
 export interface BrowseSymbolsResponse {
   schema_version?: number;
   protocol: string;
-  kind?: string;
-  // ADS route status on a LIVE browse; `status:"missing"` → offer Route setup (carries route_plan).
+  // ADS route status on a LIVE browse; `status:"missing"` → offer "Create route" (carries route_plan).
   route?: { status?: string; route_plan?: RoutePlan };
   // Structured protocol browse failure. OPC UA and ADS use protocol-specific codes so the canvas
   // can offer honest recovery instead of collapsing every failure into an empty tree.
@@ -308,6 +325,103 @@ export interface OfflineAdsImportSymbolsResult {
   report?: AdsImportSymbolsReport;
 }
 
+export interface OfflineAdsTagRemovalResult {
+  applied: boolean;
+  removed_count: number;
+  restart_required: boolean;
+  message: string;
+}
+
+export async function offlineAdsRemoveTag(
+  context: vscode.ExtensionContext,
+  projectDir: string,
+  target: Record<string, unknown>,
+  port: number,
+  symbolPath: string,
+): Promise<OfflineAdsTagRemovalResult> {
+  const configPath = stringField(target, "config_path") ?? "ads.toml";
+  const adsTomlPath = path.join(projectDir, configPath);
+  let before: string;
+  try {
+    before = fs.readFileSync(adsTomlPath, "utf8");
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const mutation = removeAdsTagFromToml(before, {
+    host: stringField(target, "host", "ip"),
+    targetNetId: stringField(target, "target_net_id", "ams_net_id"),
+    port,
+    path: symbolPath,
+  });
+  if (mutation.removedCount === 0) {
+    return {
+      applied: true,
+      removed_count: 0,
+      restart_required: false,
+      message: "The ADS tag was already absent from ads.toml.",
+    };
+  }
+
+  const snapshots = existingAdsSnapshotPaths(projectDir);
+  if (snapshots.length === 0) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: "Could not regenerate ADS ST because no cached ADS symbol snapshots were found.",
+    };
+  }
+  const generatedPath = path.join(projectDir, "src", "generated", "ads_generated.st");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-tag-remove-"));
+  const tempConfigPath = path.join(tempDir, "ads.toml");
+  const tempGeneratedPath = path.join(tempDir, "ads_generated.st");
+  try {
+    fs.writeFileSync(tempConfigPath, mutation.text);
+    const regenerated = await runJsonCommand<Record<string, unknown>>(
+      runtimeBinary(context),
+      buildAdsGeneratedImportArgs(tempConfigPath, snapshots, tempGeneratedPath),
+      projectDir,
+    );
+    if (!regenerated.ok || !fs.existsSync(tempGeneratedPath)) {
+      return {
+        applied: false,
+        removed_count: 0,
+        restart_required: false,
+        message: regenerated.message ?? "Could not regenerate ADS ST after removing the tag.",
+      };
+    }
+    const generated = fs.readFileSync(tempGeneratedPath);
+    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
+    fs.writeFileSync(adsTomlPath, mutation.text);
+    fs.writeFileSync(generatedPath, generated);
+    try {
+      await vscode.workspace.openTextDocument(vscode.Uri.file(generatedPath));
+    } catch {
+      // The files were saved; opening the generated document only accelerates LSP refresh.
+    }
+    return {
+      applied: true,
+      removed_count: mutation.removedCount,
+      restart_required: true,
+      message: `Removed ${mutation.removedCount} ADS tag${mutation.removedCount === 1 ? "" : "s"}.`,
+    };
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function adsSymbolName(selectionKey: string): string {
   return selectionKey.startsWith("ads:symbol:")
     ? selectionKey.slice("ads:symbol:".length)
@@ -319,13 +433,14 @@ export async function offlineAdsImportSymbols(
   projectDir: string,
   target: Record<string, unknown>,
   symbols: string[],
-  writable: boolean
+  writable: boolean,
+  connectionNameOverride?: string,
 ): Promise<OfflineAdsImportSymbolsResult> {
   const host = stringField(target, "host", "ip");
   if (!host) {
     return {
       applied: false,
-      message: "ADS variable import needs a target host.",
+      message: "ADS tag import needs a target host.",
     };
   }
   if (writable) {
@@ -343,27 +458,15 @@ export async function offlineAdsImportSymbols(
     };
   }
 
-  const connectionName = stringField(target, "name") ?? "ads_import";
-  let existingSnapshotPaths: string[];
-  try {
-    existingSnapshotPaths = listExistingAdsSnapshotPaths(
-      projectDir,
-      connectionName,
-    );
-  } catch (error) {
-    return {
-      applied: false,
-      message: `ADS variable import could not read existing symbol snapshots: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    };
-  }
+  const connectionName = connectionNameOverride ??
+    adsConnectionNameForTarget(target, "ads_import");
+  const existingSnapshots = existingAdsSnapshotPaths(projectDir);
   const args = buildOfflineAdsImportArgs(
     projectDir,
     target,
     connectionName,
     normalizedSymbols,
-    existingSnapshotPaths,
+    existingSnapshots,
   );
 
   const result = await runJsonCommand<AdsImportSymbolsReport>(
@@ -374,7 +477,7 @@ export async function offlineAdsImportSymbols(
   if (!result.ok || !result.value) {
     return {
       applied: false,
-      message: result.message ?? "ADS variable import failed.",
+      message: result.message ?? "ADS tag import failed.",
     };
   }
   const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
@@ -391,11 +494,24 @@ export async function offlineAdsImportSymbols(
     lifecycle_effect: "restart_required",
     selected_count: result.value.selected_count,
     candidate_count: result.value.candidate_count,
-    message: `Added ${result.value.selected_count} ADS variable${
+    message: `Added ${result.value.selected_count} ADS tag${
       result.value.selected_count === 1 ? "" : "s"
     }. Restart the runtime to use the generated ST symbols.`,
     report: result.value,
   };
+}
+
+export function existingAdsSnapshotPaths(projectDir: string): string[] {
+  const directory = path.join(projectDir, "ads", "snapshots");
+  try {
+    return fs
+      .readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".symbols.json"))
+      .map((entry) => path.join(directory, entry.name))
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 export async function offlineBrowseSymbols(
@@ -404,8 +520,7 @@ export async function offlineBrowseSymbols(
   target: Record<string, unknown>,
   kind: "symbols" | "nodes" | "channels" = "symbols",
   connectionName?: string,
-  projectDir?: string,
-  cancellationToken?: vscode.CancellationToken
+  projectDir?: string
 ): Promise<BrowseSymbolsResponse | undefined> {
   const args = buildOfflineBrowseSymbolsArgs(
     protocol,
@@ -417,8 +532,7 @@ export async function offlineBrowseSymbols(
   const result = await runJsonCommand<BrowseSymbolsResponse>(
     runtimeBinary(context),
     args,
-    projectDir,
-    cancellationToken
+    projectDir
   );
   if (result.ok) {
     return result.value;
@@ -426,16 +540,9 @@ export async function offlineBrowseSymbols(
   if (protocol !== "ads") {
     return undefined;
   }
-  return adsBrowseFailureResponse(result.message);
-}
-
-/** Preserve CLI/transport diagnostics in the same versioned contract as a successful ADS browse. */
-export function adsBrowseFailureResponse(messageValue?: string): BrowseSymbolsResponse {
-  const message = messageValue ?? "ADS symbol browse failed.";
+  const message = result.message ?? "ADS symbol browse failed.";
   return {
-    schema_version: 1,
-    protocol: "ads",
-    kind: "symbols",
+    protocol,
     tree: [],
     error: {
       code: classifyAdsBrowseCommandFailure(message),
@@ -448,14 +555,8 @@ export async function offlineCommDiscover(
   context: vscode.ExtensionContext,
   protocol: string,
   origin: string,
-  scope?: {
-    cidr?: string;
-    host?: string;
-    timeoutMs?: number;
-    targetAmsNetId?: string;
-    amsPort?: number;
-  }
-): Promise<DiscoverResponse> {
+  scope?: { cidr?: string; host?: string; timeoutMs?: number }
+): Promise<DiscoverResponse | undefined> {
   const args = ["comm", "discover", "--protocol", protocol, "--origin", origin, "--json"];
   if (scope?.cidr) {
     args.push("--cidr", scope.cidr);
@@ -463,20 +564,10 @@ export async function offlineCommDiscover(
   if (scope?.host) {
     args.push("--host", scope.host);
   }
-  if (scope?.targetAmsNetId) {
-    args.push("--target-net-id", scope.targetAmsNetId);
-  }
-  if (scope?.amsPort) {
-    args.push("--ams-port", String(scope.amsPort));
-  }
   if (scope?.timeoutMs) {
     args.push("--timeout-ms", String(scope.timeoutMs));
   }
-  const result = await runJsonCommand<DiscoverResponse>(runtimeBinary(context), args);
-  if (!result.ok || !result.value) {
-    throw new Error(result.message ?? `${protocol} discovery failed.`);
-  }
-  return result.value;
+  return runJson<DiscoverResponse>(runtimeBinary(context), args);
 }
 
 // Scaffold a sibling runtime PROJECT under <fleetRoot> + register it in fleet.toml (offline, no

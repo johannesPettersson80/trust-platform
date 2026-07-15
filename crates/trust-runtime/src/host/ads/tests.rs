@@ -215,6 +215,45 @@ fn generates_deterministic_ads_interface_from_snapshot_and_config() {
 }
 
 #[test]
+fn generates_interface_when_another_discovered_port_has_no_points_or_snapshot() {
+    let config = parse_ads_toml(
+        r#"
+[[connections]]
+name = "TwinCAT_100_67_6_217_1_1_port_301"
+target_net_id = "100.67.6.217.1.1"
+host = "127.0.0.1"
+ams_port = 301
+transport = "plain"
+insecure_transport = true
+
+[[connections]]
+name = "TwinCAT_100_67_6_217_1_1_port_851"
+target_net_id = "100.67.6.217.1.1"
+host = "127.0.0.1"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+symbol = "MAIN.Temperature"
+var = "main_temperature"
+type = "REAL"
+"#,
+    )
+    .expect("valid two-port ADS config");
+    let snapshot = SymbolSnapshot::new(
+        "TwinCAT_100_67_6_217_1_1_port_851",
+        vec![real_symbol("MAIN.Temperature")],
+    );
+
+    let generated = generate_ads_interface(&config, &[snapshot])
+        .expect("an empty discovered ADS port must not require a symbol snapshot");
+
+    assert_eq!(generated.point_count, 1);
+    assert!(generated.source.contains("main_temperature : REAL;"));
+}
+
+#[test]
 fn offline_validation_rejects_stale_generated_ads_interface() {
     let config = parse_ads_toml(VALID_ADS_TOML).expect("valid ADS config");
     let snapshot = snapshot_for_line1(vec![
@@ -736,6 +775,61 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
         Some(&Value::Real(31.0))
     );
     assert_eq!(bridge.pending_write("line1_setpoint"), None);
+}
+
+#[test]
+fn bridge_projects_ads_globals_for_live_values_and_queues_writable_points() {
+    let runtime = runtime_with_globals(vec![
+        (
+            "line1_temp",
+            TypeId::REAL,
+            Value::Real(20.5),
+            RetainPolicy::NonRetain,
+        ),
+        (
+            "line1_setpoint",
+            TypeId::REAL,
+            Value::Real(31.0),
+            RetainPolicy::NonRetain,
+        ),
+    ]);
+    let connection = connection_with_points(vec![
+        point_config(
+            "line1_temp",
+            "MAIN.Temperature",
+            real_type(),
+            PointAccess::Read,
+            false,
+        ),
+        point_config(
+            "line1_setpoint",
+            "GVL.Setpoint",
+            real_type(),
+            PointAccess::ReadWrite,
+            false,
+        ),
+    ]);
+    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let mut bridge = AdsConnectionBridge::new(bindings).expect("bridge");
+
+    let values = bridge.live_values(runtime.storage(), "line1", 851);
+    assert_eq!(values.len(), 2);
+    assert!(values.iter().all(|value| value.input));
+    assert_eq!(values[0].connection_name, "line1");
+    assert_eq!(values[0].ams_port, 851);
+    assert!(!values[0].writable);
+    assert!(values[1].writable);
+    assert!(!values[0].forced);
+    assert_eq!(bridge.live_value_writable("line1_temp"), Some(false));
+    assert_eq!(bridge.live_value_writable("line1_setpoint"), Some(true));
+    assert_eq!(bridge.live_value_writable("missing"), None);
+
+    assert!(bridge.queue_live_write("line1_setpoint", Value::Real(42.0)));
+    assert_eq!(
+        bridge.pending_write("line1_setpoint"),
+        Some(Value::Real(42.0)),
+    );
+    assert!(!bridge.queue_live_write("line1_temp", Value::Real(42.0)));
 }
 
 #[test]

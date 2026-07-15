@@ -51,43 +51,31 @@ export function NetworkCanvasHeader({
       : undefined;
 
   return (
-    <header className="trust-network-header" style={HEADER}>
-      <div
-        aria-label="truST"
-        className="trust-network-header__brand"
-        title="truST"
-        style={BRAND}
-      >
+    <header style={HEADER}>
+      <div aria-label="truST" title="truST" style={BRAND}>
         tru<span style={{ color: t.accent }}>ST</span>
       </div>
-      <div className="trust-network-header__search">
-        <input
-          onChange={(event) => onSearchChange(event.target.value)}
-          value={searchValue}
-          placeholder="Search nodes, links, faults"
-          style={SEARCH}
-        />
-        {searchValue.trim().length > 0 && (
-          <button
-            onClick={onClearSearch}
-            title="Clear search"
-            style={toolbarButtonStyle(false)}
-          >
-            Clear search
-          </button>
-        )}
-      </div>
-      {fieldIssueLabel ? (
-        <span
-          className="trust-network-header__issue"
-          style={issuePillStyle}
-          title={fieldIssueTitle}
+      <input
+        onChange={(event) => onSearchChange(event.target.value)}
+        value={searchValue}
+        placeholder="Search nodes, links, faults"
+        style={SEARCH}
+      />
+      {searchValue.trim().length > 0 && (
+        <button
+          onClick={onClearSearch}
+          title="Clear search"
+          style={toolbarButtonStyle(false)}
         >
+          Clear search
+        </button>
+      )}
+      {fieldIssueLabel ? (
+        <span style={issuePillStyle} title={fieldIssueTitle}>
           {fieldIssueLabel}
         </span>
       ) : fault ? (
         <button
-          className="trust-network-header__issue"
           onClick={() => onFocusFault(fault.targetNodeId)}
           style={{ ...issuePillStyle, cursor: "pointer" }}
           title={fault.label}
@@ -95,47 +83,48 @@ export function NetworkCanvasHeader({
           {faultCount} issue{faultCount === 1 ? "" : "s"} · {fault.label}
         </button>
       ) : null}
-      <div className="trust-network-header__actions">
-        <button
-          className="trust-network-header__discover"
-          onClick={onToggleDiscover}
-          title="Find ADS devices on this computer and the local network"
-          style={toolbarButtonStyle(discoverActive, "primary")}
-        >
-          Discover ADS devices
-        </button>
-        <button
-          onClick={onToggleFilter}
-          title="Filter connections by protocol"
-          style={toolbarButtonStyle(filterActive)}
-        >
-          Filter
-        </button>
-        <button
-          onClick={onAdd}
-          disabled={!addTargetLabel}
-          title={
-            addTargetLabel
-              ? `Add a device or connection to ${addTargetLabel}`
-              : "Open or set up a runtime before adding a device or connection"
-          }
-          style={toolbarButtonStyle(addActive, "default", !addTargetLabel)}
-        >
-          + Add
-        </button>
-        <button
-          onClick={onToggleEdit}
-          title="Edit mode: shows + on each runtime to add a device or service"
-          style={toolbarButtonStyle(editActive)}
-        >
-          {editActive ? "Done" : "Edit"}
-        </button>
-      </div>
+      <button
+        onClick={onToggleFilter}
+        title="Filter connections by protocol"
+        style={toolbarButtonStyle(filterActive)}
+      >
+        Filter
+      </button>
+      <button
+        onClick={onAdd}
+        disabled={!addTargetLabel}
+        title={
+          addTargetLabel
+            ? `Add a device or connection to ${addTargetLabel}`
+            : "Open or set up a runtime before adding a device or connection"
+        }
+        style={toolbarButtonStyle(addActive, "primary", !addTargetLabel)}
+      >
+        + Add
+      </button>
+      <button
+        onClick={onToggleDiscover}
+        title="Find devices on the network"
+        style={toolbarButtonStyle(discoverActive)}
+      >
+        Discover
+      </button>
+      <button
+        onClick={onToggleEdit}
+        title="Edit mode: shows + on each runtime to add a device or service"
+        style={toolbarButtonStyle(editActive)}
+      >
+        {editActive ? "Done" : "Edit"}
+      </button>
     </header>
   );
 }
 
 const HEADER: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: "10px 16px",
   borderBottom: `1px solid ${t.border}`,
   background: t.surface,
   zIndex: 5,
@@ -150,7 +139,7 @@ const BRAND: React.CSSProperties = {
 };
 
 const SEARCH: React.CSSProperties = {
-  width: "100%",
+  flex: "1 1 240px",
   minWidth: 0,
   background: t.inputBg,
   border: `1px solid ${t.inputBorder}`,

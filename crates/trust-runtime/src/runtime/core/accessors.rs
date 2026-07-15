@@ -264,15 +264,12 @@ impl Runtime {
                 format!("ADS connection '{}': {err}", connection.route.name).into(),
             )
         })?;
-        let (mut bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(
-            transport, bindings,
-        )
-        .map_err(|err| {
-            error::RuntimeError::IoTransport(
-                format!("ADS connection '{}': {err}", connection.route.name).into(),
-            )
-        })?;
-        bridge.initialize_live_values(&self.storage);
+        let (bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(transport, bindings)
+            .map_err(|err| {
+                error::RuntimeError::IoTransport(
+                    format!("ADS connection '{}': {err}", connection.route.name).into(),
+                )
+            })?;
         let worker = worker.spawn(worker_tick_interval).map_err(|err| {
             error::RuntimeError::IoTransport(
                 format!("ADS connection '{}': {err}", connection.route.name).into(),
@@ -305,10 +302,40 @@ impl Runtime {
         self.ads.status_report()
     }
 
-    /// Current scan-owned ADS binding values and communication quality.
+    /// Imported ADS globals projected into the existing Live Values surface.
     #[must_use]
-    pub fn ads_live_values_snapshot(&self) -> crate::ads::AdsLiveValuesSnapshot {
-        self.ads.live_values_snapshot(self.cycle_counter)
+    pub fn ads_live_values(&self) -> Vec<crate::ads::AdsLiveValue> {
+        let mut values = self.ads.live_values(&self.storage);
+        let forced_globals = self
+            .debug
+            .as_ref()
+            .map(|debug| {
+                debug
+                    .forced_snapshot()
+                    .vars
+                    .into_iter()
+                    .filter_map(|forced| match forced.target {
+                        crate::debug::ForcedVarTarget::Global(name) => Some(name),
+                        _ => None,
+                    })
+                    .collect::<std::collections::BTreeSet<_>>()
+            })
+            .unwrap_or_default();
+        for value in &mut values {
+            value.forced = forced_globals.contains(value.point_name.as_str());
+        }
+        values
+    }
+
+    /// Queue a write for a writable imported ADS global, if one owns this name.
+    pub fn queue_ads_live_write(&mut self, point_name: &str, value: Value) -> bool {
+        self.ads.queue_live_write(point_name, value)
+    }
+
+    /// Whether an imported ADS global exists and permits writes to the PLC.
+    #[must_use]
+    pub fn ads_live_value_writable(&self, point_name: &str) -> Option<bool> {
+        self.ads.live_value_writable(point_name)
     }
 
     /// Configure OPC UA client connections for this runtime.

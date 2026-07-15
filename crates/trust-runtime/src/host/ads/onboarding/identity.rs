@@ -89,38 +89,6 @@ pub fn runtime_address_candidates_from_interfaces(
         .collect())
 }
 
-/// Derives the runtime host identity used for ADS traffic toward a target.
-///
-/// This generic identity remains the routed-IP/configured identity used for
-/// reciprocal ADS routes. Native Windows source-address evidence belongs to
-/// the exact connected transport and is reported separately by ADS Doctor.
-pub fn derive_host_ads_identity(
-    request: &IdentityRequest,
-    candidates: Vec<RuntimeAddressCandidate>,
-) -> Result<LocalIdentity, OnboardingError> {
-    let chosen_ip = resolve_os_source_ip(&request.target_ip)?;
-    derive_host_ads_identity_from_source(request, chosen_ip, candidates)
-}
-
-fn derive_host_ads_identity_from_source(
-    request: &IdentityRequest,
-    chosen_ip: String,
-    candidates: Vec<RuntimeAddressCandidate>,
-) -> Result<LocalIdentity, OnboardingError> {
-    let nic = candidates
-        .iter()
-        .find(|candidate| candidate.ip == chosen_ip)
-        .and_then(|candidate| candidate.nic.clone());
-    let mut identity =
-        derive_runtime_identity_from_source(request, chosen_ip, None, nic, candidates)?;
-    for candidate in &mut identity.candidates {
-        if candidate.selected {
-            candidate.ams_net_id.clone_from(&identity.ams_net_id);
-        }
-    }
-    Ok(identity)
-}
-
 /// Builds the runtime local identity report from a selected source IP.
 pub fn derive_runtime_identity_from_source(
     request: &IdentityRequest,
@@ -254,38 +222,4 @@ fn is_ipv4_link_local(addr: Ipv4Addr) -> bool {
 
 fn is_ipv6_unique_local(addr: std::net::Ipv6Addr) -> bool {
     (addr.segments()[0] & 0xfe00) == 0xfc00
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn host_identity_keeps_routed_ip_identity_for_native_targets() {
-        let request = IdentityRequest {
-            target_ip: "127.0.0.1".to_string(),
-            local_net_id_override: None,
-        };
-        let candidates = vec![RuntimeAddressCandidate {
-            ip: "127.0.0.1".to_string(),
-            nic: Some("Loopback".to_string()),
-            prefix_len: Some(8),
-            broadcast: None,
-        }];
-
-        let identity =
-            derive_host_ads_identity_from_source(&request, "127.0.0.1".to_string(), candidates)
-                .expect("routed host identity");
-
-        assert_eq!(identity.chosen_ip, "127.0.0.1");
-        assert_eq!(identity.ams_net_id, "127.0.0.1.1.1");
-        assert_eq!(
-            identity
-                .candidates
-                .iter()
-                .find(|candidate| candidate.selected)
-                .map(|candidate| candidate.ams_net_id.as_str()),
-            Some("127.0.0.1.1.1")
-        );
-    }
 }

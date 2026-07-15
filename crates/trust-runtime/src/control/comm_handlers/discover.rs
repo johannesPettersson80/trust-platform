@@ -1,5 +1,4 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::num::NonZeroU16;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +9,8 @@ use super::discovery_probe::{
     probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
 };
 
-mod ads;
+#[cfg(feature = "ads-wire")]
+mod ads_discovery_target;
 
 const DISCOVER_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_TIMEOUT_MS: u64 = 150;
@@ -36,8 +36,6 @@ struct CommDiscoverRequest {
 struct DiscoverScope {
     cidr: Option<String>,
     host: Option<String>,
-    target_ams_net_id: Option<String>,
-    ams_port: Option<NonZeroU16>,
     adapter: Option<String>,
     timeout_ms: Option<u64>,
     unit_id: Option<u8>,
@@ -108,7 +106,7 @@ pub(super) fn discover_value(params: Value, state: Option<&ControlState>) -> Res
         "mqtt" => discover_mqtt(&request.scope, &mut warnings)?,
         "ethercat" => discover_ethercat(&request, state, &mut warnings)?,
         "gpio" => discover_gpio(&request, &mut warnings),
-        "ads" => ads::discover_ads(&request.scope, &mut warnings)?,
+        "ads" => discover_ads(&request.scope, &mut warnings)?,
         "discovery" => discover_trust_runtimes(&request, state, &mut warnings)?,
         other if known_protocol_without_discovery(other) => {
             warnings.push(format!(
@@ -462,6 +460,88 @@ fn mqtt_targets(
     Ok(Some(addrs))
 }
 
+#[cfg(feature = "ads-wire")]
+fn discover_ads(
+    scope: &DiscoverScope,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<DiscoverCandidate>, String> {
+    use crate::ads::onboarding::runtime_address_candidates_from_interfaces;
+    use crate::ads::onboarding::{
+        directed_broadcast_targets_from_candidates, discover_targets, interface_directed_targets,
+        AdsRsOnboardingWire, DiscoveryRequest, DiscoverySource,
+    };
+
+    let mut request = DiscoveryRequest {
+        target: ads_discovery_target::directed_target(scope.host.as_deref()),
+        directed_targets: Vec::new(),
+        target_ams_net_id: None,
+        ams_port: Some(851),
+        target_name: None,
+        include_broadcast: scope.host.is_none(),
+        broadcast_targets: Vec::new(),
+        timeout_ms: scope.timeout_ms,
+    };
+    if let Some(cidr) = scope.cidr.as_deref() {
+        request.include_broadcast = true;
+        request.broadcast_targets = vec![broadcast_target_for_cidr(cidr)?];
+    } else if request.include_broadcast {
+        let candidates = runtime_address_candidates_from_interfaces()
+            .map_err(|error| format!("enumerate interfaces for ADS broadcast: {error}"))?;
+        request.directed_targets =
+            interface_directed_targets(candidates.iter().map(|candidate| candidate.ip.as_str()));
+        request.broadcast_targets = directed_broadcast_targets_from_candidates(&candidates);
+    }
+    if request.include_broadcast && request.broadcast_targets.is_empty() {
+        warnings
+            .push("No non-loopback IPv4 broadcast target was available for ADS discovery.".into());
+    }
+
+    let mut wire = AdsRsOnboardingWire::default();
+    let results = discover_targets(&mut wire, &request)
+        .map_err(|error| format!("ADS discovery failed: {error}"))?;
+    let mut candidates = Vec::new();
+    for result in results {
+        let source = match result.source {
+            DiscoverySource::Manual => "manual",
+            DiscoverySource::DirectedIdentify => "ads_identify",
+            DiscoverySource::DirectedBroadcast => "ads_broadcast",
+        };
+        let target = result.target;
+        let label = target
+            .name
+            .as_deref()
+            .filter(|name| !name.trim().is_empty())
+            .map_or_else(
+                || format!("TwinCAT {}", target.ams_net_id),
+                |name| format!("{name} · {}", target.ams_net_id),
+            );
+        candidates.push(DiscoverCandidate {
+            id: format!("ads:{}", sanitize_id(target.ams_net_id.as_str())),
+            label,
+            source,
+            confidence: "observed",
+            params: json!({
+                "ams_net_id": target.ams_net_id,
+                "host": target.ip,
+                "name": target.name,
+                "ams_port": target.ams_port,
+                "tc_version": target.tc_version,
+            }),
+            warnings: Vec::new(),
+        });
+    }
+    Ok(candidates)
+}
+
+#[cfg(not(feature = "ads-wire"))]
+fn discover_ads(
+    _scope: &DiscoverScope,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<DiscoverCandidate>, String> {
+    warnings.push("ADS discovery needs a runtime built with the ads-wire feature.".to_string());
+    Ok(Vec::new())
+}
+
 fn discover_trust_runtimes(
     request: &CommDiscoverRequest,
     state: Option<&ControlState>,
@@ -751,6 +831,15 @@ fn parse_ipv4_cidr(cidr: &str) -> Result<(Ipv4Addr, u8), String> {
         return Err(format!("invalid CIDR prefix '{prefix}', expected 0..32"));
     }
     Ok((ip, prefix))
+}
+
+#[cfg(feature = "ads-wire")]
+fn broadcast_target_for_cidr(cidr: &str) -> Result<String, String> {
+    use crate::ads::onboarding::directed_broadcast_target;
+
+    let (ip, prefix) = parse_ipv4_cidr(cidr)?;
+    directed_broadcast_target(&ip.to_string(), prefix)
+        .ok_or_else(|| format!("could not compute directed broadcast target for {cidr}"))
 }
 
 fn sanitize_id(value: &str) -> String {

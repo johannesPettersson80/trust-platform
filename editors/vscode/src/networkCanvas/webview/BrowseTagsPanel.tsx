@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import { AdsBrowseTargetControls } from "./AdsBrowseTargetControls";
 import type { BrowseErrorView } from "./browseErrorModel";
@@ -6,10 +6,10 @@ import { nodeKey } from "./opcuaClientModel";
 import { SymbolSelectionCheckbox } from "./SymbolSelectionCheckbox";
 import { t, tint } from "./theme";
 
-// §0.5.2 Browse remote values — look INSIDE a target (e.g. an ADS PLC's variable table). Searchable
-// tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add variables"
+// §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
+// tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add tags"
 // feeds the existing ADS import / Generate-ST / ads.toml pipeline (not a separate store). If the
-// AMS route is missing, one honest "Route setup" action exposes the required instructions.
+// AMS route is missing, one "Create route" button — the classic ADS gotcha, handled.
 export function BrowseTagsPanel({
   title = "Browse tags",
   actionLabel = "Add tags",
@@ -57,26 +57,11 @@ export function BrowseTagsPanel({
   const [routeCreateAttempted, setRouteCreateAttempted] = useState(false);
   const [adsPortDraftStale, setAdsPortDraftStale] = useState(false);
   const allowWritesRef = useRef(false);
-  const lastAutoExpandedTreeRef = useRef<SymbolNode[] | undefined>(undefined);
-  const isAds = protocol === "ads";
-  const remoteDiscoveryReadOnly =
-    isAds && typeof target.discovery_origin_runtime_id === "string";
 
-  const setAllowWritesChecked = useCallback((checked: boolean) => {
+  const setAllowWritesChecked = (checked: boolean) => {
     allowWritesRef.current = checked;
     setAllowWrites(checked);
-  }, []);
-
-  const handleAdsDraftStaleChange = useCallback(
-    (stale: boolean) => {
-      setAdsPortDraftStale(stale);
-      if (stale) {
-        setSelected(new Set());
-        setAllowWritesChecked(false);
-      }
-    },
-    [setAllowWritesChecked]
-  );
+  };
 
   useEffect(() => {
     allowWritesRef.current = allowWrites;
@@ -87,20 +72,6 @@ export function BrowseTagsPanel({
       setRouteCreateAttempted(false);
     }
   }, [routeMissing]);
-
-  useEffect(() => {
-    if (
-      !tree ||
-      tree === lastAutoExpandedTreeRef.current ||
-      tree.length !== 1 ||
-      !tree[0].children?.length
-    ) {
-      return;
-    }
-    lastAutoExpandedTreeRef.current = tree;
-    const rootKey = nodeKey(tree[0]);
-    setExpanded((previous) => new Set([...previous, rootKey]));
-  }, [tree]);
 
   // `selected` holds stable node keys (nodeKey: node_id ?? id ?? path), never the display path, so
   // two leaves sharing a path can't be conflated.
@@ -162,59 +133,43 @@ export function BrowseTagsPanel({
   }, [selectableKeys]);
 
   const addDisabledReason =
-    remoteDiscoveryReadOnly
-      ? "Remote discovery is read-only. Run the project on that computer before adding variables."
-      : adsPortDraftStale
-      ? "Browse the edited ADS service before adding variables from it."
+    adsPortDraftStale
+      ? "Browse the edited ADS port before adding tags from that server."
       : routeMissing
-        ? isAds
-          ? "Create the route and retry browse before adding variables."
-          : "Create the route and browse again before adding tags."
+        ? "Create the route and browse again before adding tags."
         : error
-          ? isAds
-            ? "Resolve the browse error and retry browse before adding variables."
-            : "Resolve the browse error before adding tags."
+          ? "Resolve the browse error before adding tags."
           : loading
-            ? isAds
-              ? "Wait for browse results before adding variables."
-              : "Wait for browse results before adding tags."
+            ? "Wait for browse results before adding tags."
             : tree === undefined
-              ? isAds
-                ? "Choose an ADS service port and browse its variables first."
+              ? protocol === "ads"
+                ? "Choose an ADS port and browse its symbols first."
                 : "Start or connect the runtime, then Browse again to load symbols."
               : tree.length === 0
-                ? isAds
-                  ? "No variables are available to add."
-                  : "No symbols are available to add."
+                ? "No symbols are available to add."
                 : selectedAddKeys.length === 0
-                  ? isAds
-                    ? "Select at least one variable to add."
-                    : "Select at least one symbol to add."
+                  ? "Select at least one symbol to add."
                   : undefined;
-  const writeToggleDisabled = remoteDiscoveryReadOnly || routeMissing || Boolean(error) || loading || adsPortDraftStale || tree === undefined || tree.length === 0;
+  const writeToggleDisabled = routeMissing || Boolean(error) || loading || adsPortDraftStale || tree === undefined || tree.length === 0;
   const routeWarningText = routeCreateAttempted
     ? artifacts.length
-      ? "Route needs administrator access. Run the generated route script on the ADS device, then select Retry browse."
-      : "Route needs administrator access. Create the route on the ADS device, then select Retry browse."
-    : "Warning: No ADS route to the remote ADS device. Add the route, then select Retry browse.";
+      ? "Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse."
+      : "Route needs TwinCAT administrator access. Create the route on the TwinCAT computer, then reopen Browse."
+    : "Warning: No ADS route to the TwinCAT system. Add the route, then browse again.";
 
   const accessLabel = (n: SymbolNode): string =>
     n.writable === true ? "read/write" : n.writable === false ? "read-only" : "";
 
   const leaf = (n: SymbolNode, depth: number) => (
-    <div
-      key={nodeKey(n)}
-      data-role="symbol-leaf"
-      style={{ ...ROW, paddingLeft: 8 + depth * 14 }}
-    >
+    <div key={nodeKey(n)} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
       <SymbolSelectionCheckbox
         checked={selected.has(nodeKey(n))}
         label={`Select ${n.path}`}
         onCheckedChange={(checked) => setSelectionChecked(nodeKey(n), checked)}
       />
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--trust-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
-      {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "var(--trust-text-muted)" }}>{n.data_type || n.type}</span>}
-      {accessLabel(n) && <span title={`${accessLabel(n)} on the device`} style={{ flex: "none", fontSize: 9, color: "var(--trust-text-subtle)" }}>{accessLabel(n)}</span>}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--vscode-foreground, #eef1f5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
+      {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{n.data_type || n.type}</span>}
+      {accessLabel(n) && <span title={`${accessLabel(n)} on the device`} style={{ flex: "none", fontSize: 9, color: "var(--vscode-disabledForeground, #6a7280)" }}>{accessLabel(n)}</span>}
     </div>
   );
 
@@ -223,12 +178,7 @@ export function BrowseTagsPanel({
       const open = expanded.has(nodeKey(n));
       return (
         <div key={nodeKey(n)}>
-          <button
-            data-role="symbol-group"
-            data-expanded={open}
-            onClick={() => toggleExp(nodeKey(n))}
-            style={{ ...GROUP, paddingLeft: 4 + depth * 14 }}
-          >
+          <button onClick={() => toggleExp(nodeKey(n))} style={{ ...GROUP, paddingLeft: 4 + depth * 14 }}>
             {open ? "▾" : "▸"} {n.name}
           </button>
           {open && n.children.map((c) => renderNode(c, depth + 1))}
@@ -239,26 +189,25 @@ export function BrowseTagsPanel({
   };
 
   return (
-    <aside className="trust-inspector" style={PANEL} aria-label={isAds ? "Browse variables" : "Browse tags"}>
-      <div className="trust-inspector__header">
+    <aside style={PANEL} aria-label="Browse tags">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="trust-inspector__eyebrow">Devices & Connections</div>
-          <div className="trust-inspector__title">{title}</div>
-          <span style={{ fontSize: 10.5, color: "var(--trust-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{targetLabel}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--vscode-descriptionForeground, #7f8794)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>Devices & Connections</span>
+          <strong style={{ display: "block", fontSize: 14 }}>{title}</strong>
+          <span style={{ fontSize: 10.5, color: "var(--vscode-descriptionForeground, #7f8794)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{targetLabel}</span>
         </div>
-        <button onClick={onClose} aria-label="Close" className="trust-button" style={ICON}>✕</button>
+        <button onClick={onClose} aria-label="Close" style={ICON}>✕</button>
       </div>
 
       {protocol === "ads" && (
         <AdsBrowseTargetControls
           target={target}
           loading={loading}
-          browseFailed={routeMissing || Boolean(error)}
           onBrowse={(nextTarget) => {
             setAdsPortDraftStale(false);
             onBrowseTarget(nextTarget);
           }}
-          onDraftStaleChange={handleAdsDraftStaleChange}
+          onDraftStaleChange={setAdsPortDraftStale}
         />
       )}
 
@@ -272,7 +221,7 @@ export function BrowseTagsPanel({
             }}
             style={ROUTEBTN}
           >
-            Route setup
+            Create route
           </button>
         </div>
       )}
@@ -286,18 +235,12 @@ export function BrowseTagsPanel({
           {error.action === "credentials" && onEditCredentials && (
             <button onClick={onEditCredentials} style={ROUTEBTN}>Edit credentials</button>
           )}
-          {error.technicalDetail && (
-            <details data-role="browse-error-technical" style={ERROR_DETAILS}>
-              <summary>Technical details</summary>
-              <div>{error.technicalDetail}</div>
-            </details>
-          )}
         </div>
       )}
 
       {!routeMissing && !error && !adsPortDraftStale && tree !== undefined && (
-        <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--trust-border)" }}>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={isAds ? "Search variables" : "Search symbols"} style={SEARCH} />
+        <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbols" style={SEARCH} />
         </div>
       )}
 
@@ -305,7 +248,7 @@ export function BrowseTagsPanel({
         {adsPortDraftStale ? (
           <p style={EMPTY}>
             The displayed ADS port has not been browsed yet. Browse it before selecting or adding
-            variables.
+            symbols.
           </p>
         ) : routeMissing ? (
           artifacts.length ? (
@@ -313,17 +256,17 @@ export function BrowseTagsPanel({
               {routeCreateAttempted && (
                 <div style={ROUTE_RESULT}>
                   Automatic route creation is not available from this canvas in this build. Run the
-                  generated PowerShell as Administrator on the ADS device, or copy the static
-                  route values below, then select Retry browse.
+                  generated PowerShell as Administrator on the TwinCAT computer, or copy the static
+                  route values below, then reopen Browse.
                 </div>
               )}
-              <p style={{ fontSize: 11.5, color: "var(--trust-text)", margin: "4px 6px 10px", lineHeight: 1.5 }}>
-                The remote ADS router needs a route back to truST. Run one of these on the ADS device, then select Retry browse.
+              <p style={{ fontSize: 11.5, color: "var(--vscode-foreground, #cfd6e0)", margin: "4px 6px 10px", lineHeight: 1.5 }}>
+                TwinCAT needs a route back to truST. Run one of these on the TwinCAT computer, then reopen Browse.
               </p>
               {artifacts.map((a, i) => (
                 <div key={a.kind ?? a.label ?? String(i)} style={ARTCARD}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 700, color: "var(--trust-text)" }}>{a.label}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 700, color: "var(--vscode-foreground, #eef1f5)" }}>{a.label}</span>
                     <button onClick={() => onCopy(a.content)} style={COPYBTN}>Copy</button>
                   </div>
                   <pre style={ARTPRE}>{a.content}</pre>
@@ -334,37 +277,37 @@ export function BrowseTagsPanel({
             <>
               {routeCreateAttempted && (
                 <div style={ROUTE_RESULT}>
-                  Route setup needs administrator access. Add the route on the ADS device, then
-                  select Retry browse to load variables.
+                  Route creation needs TwinCAT administrator access. Create the route on the
+                  TwinCAT computer, then reopen Browse to load the symbol table.
                 </div>
               )}
-              <p style={EMPTY}>Create the route on the remote ADS device, then select Retry browse.</p>
+              <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load the symbol table.</p>
             </>
           )
         ) : error ? (
-          <p style={EMPTY}>Resolve the browse error above, then select Retry browse.</p>
+          <p style={EMPTY}>Resolve the browse error above, then browse again.</p>
         ) : loading ? (
-          <p style={EMPTY}>{isAds ? "Loading variables…" : "Loading symbols…"}</p>
+          <p style={EMPTY}>Loading symbols…</p>
         ) : tree === undefined ? (
           <p style={EMPTY}>
-            {isAds
-              ? "Choose the ADS service port above, then browse that service's variables."
+            {protocol === "ads"
+              ? "Choose the ADS server port above, then browse that server's symbol namespace."
               : "Start or connect the runtime, then Browse again to load symbols."}
           </p>
         ) : matches ? (
-          matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>{isAds ? "No matching variables." : "No matching symbols."}</p>
+          matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>No matching symbols.</p>
         ) : tree.length ? (
           tree.map((n) => renderNode(n, 0))
         ) : (
           <p style={EMPTY}>
-            {isAds
-              ? "The ADS service returned no variables."
+            {protocol === "ads"
+              ? "The ADS server returned an empty symbol table or no compatible symbols."
               : "No symbols found."}
           </p>
         )}
       </div>
 
-      <div style={{ padding: 12, borderTop: "1px solid var(--trust-border)" }}>
+      <div style={{ padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <label
           title={writeToggleDisabled ? addDisabledReason : undefined}
           style={{
@@ -372,7 +315,7 @@ export function BrowseTagsPanel({
             alignItems: "center",
             gap: 7,
             fontSize: 11,
-            color: "var(--trust-text)",
+            color: "var(--vscode-foreground, #cfd6e0)",
             marginBottom: 9,
             cursor: writeToggleDisabled ? "not-allowed" : "pointer",
             opacity: writeToggleDisabled ? 0.7 : 1,
@@ -431,29 +374,30 @@ const PANEL: React.CSSProperties = {
   bottom: 0,
   width: 340,
   maxWidth: "92vw",
+  background: "var(--vscode-editorHoverWidget-background, rgba(18,21,28,.98))",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  boxShadow: "-18px 0 50px rgba(0,0,0,.45)",
   zIndex: 8,
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",
 };
 const ROW: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", borderRadius: 6 };
-const GROUP: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--trust-text)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 6px" };
-const SEARCH: React.CSSProperties = { width: "100%", background: "var(--trust-input-bg)", border: "1px solid var(--trust-input-border)", borderRadius: "var(--trust-radius)", color: "var(--trust-text)", padding: "6px 9px", fontSize: 12 };
+const GROUP: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--vscode-foreground, #cfd6e0)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 6px" };
+const SEARCH: React.CSSProperties = { width: "100%", background: "var(--vscode-input-background, #10141b)", border: "1px solid var(--vscode-input-border, #343b47)", borderRadius: 7, color: "var(--vscode-foreground, #eef1f5)", padding: "6px 9px", fontSize: 12 };
 const WARNING_BAR: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  flexWrap: "wrap",
   gap: 10,
   padding: "10px 14px",
   background: tint(t.warn, 0.12),
   borderBottom: `1px solid ${tint(t.warn, 0.4)}`,
 };
 const WARNING_TEXT: React.CSSProperties = { flex: 1, fontSize: 11.5, color: t.warn };
-const ERROR_DETAILS: React.CSSProperties = { flexBasis: "100%", color: "var(--trust-text-muted)", fontSize: 10, lineHeight: 1.4 };
 const ROUTEBTN: React.CSSProperties = { flex: "none", border: `1px solid ${t.warn}`, background: tint(t.warn, 0.16), color: t.warn, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" };
-const ROUTE_RESULT: React.CSSProperties = { border: `1px solid ${tint(t.warn, 0.5)}`, borderRadius: 8, margin: "0 4px 10px", padding: "8px 10px", background: tint(t.warn, 0.1), color: "var(--trust-text)", fontSize: 11.5, lineHeight: 1.45 };
-const ARTCARD: React.CSSProperties = { border: "1px solid var(--trust-border)", borderRadius: "var(--trust-radius-lg)", padding: "9px 10px", margin: "0 4px 9px", background: "var(--trust-surface)" };
-const ARTPRE: React.CSSProperties = { margin: 0, maxHeight: 150, overflow: "auto", background: "var(--trust-canvas)", border: "1px solid var(--trust-border)", borderRadius: "var(--trust-radius)", padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "var(--trust-text)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--trust-mono)" };
+const ROUTE_RESULT: React.CSSProperties = { border: `1px solid ${tint(t.warn, 0.5)}`, borderRadius: 8, margin: "0 4px 10px", padding: "8px 10px", background: tint(t.warn, 0.1), color: "var(--vscode-foreground, #eef1f5)", fontSize: 11.5, lineHeight: 1.45 };
+const ARTCARD: React.CSSProperties = { border: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", borderRadius: 8, padding: "9px 10px", margin: "0 4px 9px", background: "var(--vscode-editor-background, rgba(13,16,22,.7))" };
+const ARTPRE: React.CSSProperties = { margin: 0, maxHeight: 150, overflow: "auto", background: "var(--vscode-editor-background, #0c0f15)", border: "1px solid var(--vscode-editorWidget-border, #20262f)", borderRadius: 6, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "var(--vscode-foreground, #c4ccd8)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace, monospace" };
 const COPYBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--trust-accent)", background: "var(--trust-selected-bg)", color: "var(--trust-text)", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" };
-const ICON: React.CSSProperties = { minHeight: 24, width: 26, padding: 0 };
-const EMPTY: React.CSSProperties = { color: "var(--trust-text-muted)", fontSize: 11.5, padding: "8px 8px", lineHeight: 1.5 };
+const ICON: React.CSSProperties = { border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #949cab)", fontSize: 14, cursor: "pointer", padding: 0 };
+const EMPTY: React.CSSProperties = { color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 11.5, padding: "8px 8px", lineHeight: 1.5 };

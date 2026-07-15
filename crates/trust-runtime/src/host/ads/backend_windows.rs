@@ -3,46 +3,43 @@ use std::time::Duration;
 
 use trust_ads_core::{
     ads_bytes_from_value, value_from_ads_bytes, AdsRoute, PointQuality, QualityState,
-    SymbolDescriptor, UpdateMode,
+    SymbolDescriptor, TransportSecurity, UpdateMode,
 };
-use trust_ads_windows::{AdsError as NativeAdsError, AdsPort, AmsAddress, AmsNetId, TcAdsDll};
+use trust_tcads_native::{
+    AdsDeviceState as NativeDeviceState, AdsPort, AmsAddress, AmsNetId, Error as NativeError,
+    TcAdsDll,
+};
 
-use super::backend_common::{
+use super::backend_ads_rs::{
     checked_byte_len, map_mapping_error, now_ms, read_write_address, symbol_descriptor_from_ads,
-    validate_requested_size, validate_route_policy,
+    validate_requested_size,
 };
 use super::transport::{
     AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsNotificationSample, AdsPointAddress,
     AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest, AdsSubscription, AdsTransport,
-    AdsTransportError, AdsTransportFailureKind, AdsWriteRequest,
+    AdsTransportError, AdsWriteRequest,
 };
 
-// The synchronous TcAdsDll API cannot be safely pre-empted. Keep its native
-// deadline below the five-second doctor budget so a missing reply is bounded
-// by the DLL before the engine evaluates the step deadline.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(4);
 const SYMBOL_UPLOAD_INFO_BYTES: usize = 64;
 const MAX_SYMBOL_UPLOAD_BYTES: usize = 64 * 1024 * 1024;
 
 trait NativeAdsPort: Send {
-    fn read_state(
-        &mut self,
-        target: &AmsAddress,
-    ) -> Result<trust_ads_windows::AdsDeviceState, NativeAdsError>;
+    fn read_state(&mut self, target: &AmsAddress) -> Result<NativeDeviceState, NativeError>;
     fn read(
         &mut self,
         target: &AmsAddress,
         index_group: u32,
         index_offset: u32,
         buffer: &mut [u8],
-    ) -> Result<usize, NativeAdsError>;
+    ) -> Result<usize, NativeError>;
     fn write(
         &mut self,
         target: &AmsAddress,
         index_group: u32,
         index_offset: u32,
         bytes: &[u8],
-    ) -> Result<(), NativeAdsError>;
+    ) -> Result<(), NativeError>;
     fn read_write(
         &mut self,
         target: &AmsAddress,
@@ -50,14 +47,11 @@ trait NativeAdsPort: Send {
         index_offset: u32,
         read_buffer: &mut [u8],
         write_bytes: &[u8],
-    ) -> Result<usize, NativeAdsError>;
+    ) -> Result<usize, NativeError>;
 }
 
 impl NativeAdsPort for AdsPort {
-    fn read_state(
-        &mut self,
-        target: &AmsAddress,
-    ) -> Result<trust_ads_windows::AdsDeviceState, NativeAdsError> {
+    fn read_state(&mut self, target: &AmsAddress) -> Result<NativeDeviceState, NativeError> {
         self.read_state(target)
     }
 
@@ -67,7 +61,7 @@ impl NativeAdsPort for AdsPort {
         index_group: u32,
         index_offset: u32,
         buffer: &mut [u8],
-    ) -> Result<usize, NativeAdsError> {
+    ) -> Result<usize, NativeError> {
         self.read(target, index_group, index_offset, buffer)
     }
 
@@ -77,7 +71,7 @@ impl NativeAdsPort for AdsPort {
         index_group: u32,
         index_offset: u32,
         bytes: &[u8],
-    ) -> Result<(), NativeAdsError> {
+    ) -> Result<(), NativeError> {
         self.write(target, index_group, index_offset, bytes)
     }
 
@@ -88,17 +82,14 @@ impl NativeAdsPort for AdsPort {
         index_offset: u32,
         read_buffer: &mut [u8],
         write_bytes: &[u8],
-    ) -> Result<usize, NativeAdsError> {
+    ) -> Result<usize, NativeError> {
         self.read_write(target, index_group, index_offset, read_buffer, write_bytes)
     }
 }
 
-/// Safe adapter from the runtime transport contract to the installed Windows
-/// TwinCAT router. All foreign calls stay inside `trust-ads-windows`.
 pub(super) struct WindowsAdsTransport {
     route: AdsRoute,
     port: Option<Box<dyn NativeAdsPort>>,
-    local_address: Option<AmsAddress>,
     symbol_handles_by_point: BTreeMap<String, u32>,
     subscriptions: BTreeMap<u32, PollingSubscription>,
     next_subscription_id: u32,
@@ -118,7 +109,6 @@ impl WindowsAdsTransport {
         Self {
             route,
             port: None,
-            local_address: None,
             symbol_handles_by_point: BTreeMap::new(),
             subscriptions: BTreeMap::new(),
             next_subscription_id: 1,
@@ -156,10 +146,6 @@ impl WindowsAdsTransport {
         }
     }
 
-    pub(super) fn local_address(&self) -> Option<AmsAddress> {
-        self.local_address
-    }
-
     fn read_exact(
         &mut self,
         index_group: u32,
@@ -171,12 +157,10 @@ impl WindowsAdsTransport {
         let returned = self
             .port()?
             .read(&target, index_group, index_offset, buffer)
-            .map_err(|error| {
-                map_native_call("read ADS data through the local TwinCAT router", error)
-            })?;
+            .map_err(|error| map_native_call("read ADS data through TwinCAT", error))?;
         if returned != expected {
             return Err(AdsTransportError::new(format!(
-                "local TwinCAT router returned {returned} ADS bytes; expected {expected}"
+                "TwinCAT returned {returned} ADS bytes; expected {expected}"
             )));
         }
         Ok(())
@@ -194,15 +178,10 @@ impl WindowsAdsTransport {
         let returned = self
             .port()?
             .read_write(&target, index_group, index_offset, read_buffer, write_bytes)
-            .map_err(|error| {
-                map_native_call(
-                    "read/write ADS data through the local TwinCAT router",
-                    error,
-                )
-            })?;
+            .map_err(|error| map_native_call("read/write ADS data through TwinCAT", error))?;
         if returned != expected {
             return Err(AdsTransportError::new(format!(
-                "local TwinCAT router returned {returned} ADS bytes; expected {expected}"
+                "TwinCAT returned {returned} ADS bytes; expected {expected}"
             )));
         }
         Ok(())
@@ -217,9 +196,7 @@ impl WindowsAdsTransport {
         let target = self.target()?;
         self.port()?
             .write(&target, index_group, index_offset, bytes)
-            .map_err(|error| {
-                map_native_call("write ADS data through the local TwinCAT router", error)
-            })
+            .map_err(|error| map_native_call("write ADS data through TwinCAT", error))
     }
 
     fn release_symbol_handle(&mut self, handle: u32) {
@@ -269,10 +246,18 @@ impl Drop for WindowsAdsTransport {
 
 impl AdsTransport for WindowsAdsTransport {
     fn connect(&mut self) -> Result<(), AdsTransportError> {
-        validate_route_policy(&self.route, "native Windows ADS")?;
+        if !matches!(self.route.security.transport, TransportSecurity::Plain) {
+            return Err(AdsTransportError::new(
+                "Secure ADS is reserved but not implemented by the native Windows backend",
+            ));
+        }
+        if self.route.security.auto_add_route {
+            return Err(AdsTransportError::new(
+                "auto_add_route=true is reserved for authoring tools; runtime will not write AMS routes",
+            ));
+        }
         let _ = self.target()?;
         self.disconnect()?;
-
         let library = TcAdsDll::load_installed().map_err(map_native_connect)?;
         let mut port = library.open_port().map_err(map_native_connect)?;
         port.set_timeout(DEFAULT_TIMEOUT)
@@ -280,10 +265,9 @@ impl AdsTransport for WindowsAdsTransport {
         let local = port.local_address().map_err(map_native_connect)?;
         if local.net_id.octets.iter().all(|octet| *octet == 0) {
             return Err(AdsTransportError::new(
-                "the local TwinCAT router returned an empty AMS Net ID; start the TwinCAT router/runtime and retry",
+                "the local TwinCAT router returned an empty AMS Net ID",
             ));
         }
-        self.local_address = Some(local);
         self.port = Some(Box::new(port));
         Ok(())
     }
@@ -292,7 +276,6 @@ impl AdsTransport for WindowsAdsTransport {
         self.subscriptions.clear();
         self.release_symbol_handles();
         self.port = None;
-        self.local_address = None;
         Ok(())
     }
 
@@ -325,10 +308,9 @@ impl AdsTransport for WindowsAdsTransport {
         ) as usize;
         if symbol_len > MAX_SYMBOL_UPLOAD_BYTES || type_len > MAX_SYMBOL_UPLOAD_BYTES {
             return Err(AdsTransportError::new(format!(
-                "ADS symbol metadata is too large (symbols={symbol_len} bytes, types={type_len} bytes; limit={MAX_SYMBOL_UPLOAD_BYTES})"
+                "ADS symbol metadata is too large (symbols={symbol_len}, types={type_len})"
             )));
         }
-
         let mut type_data = vec![0_u8; type_len];
         self.read_exact(ads::index::SYM_DT_UPLOAD, 0, &mut type_data)?;
         let mut symbol_data = vec![0_u8; symbol_len];
@@ -451,9 +433,6 @@ impl AdsTransport for WindowsAdsTransport {
         }
         let _ = self.port()?;
         let _ = checked_byte_len(&request.handle.data_type)?;
-        // Deliberately avoid native callbacks crossing the FFI boundary. The
-        // ADS worker calls `drain_notifications` on each tick; this adapter
-        // polls subscribed values and preserves cyclic/on-change semantics.
         let subscription_id = self.next_subscription_id()?;
         let point_name = request.handle.point_name.clone();
         self.subscriptions.insert(
@@ -482,7 +461,7 @@ impl AdsTransport for WindowsAdsTransport {
             let mut reads = self.sumup_read(std::slice::from_ref(&subscription.handle))?;
             let read = reads
                 .pop()
-                .expect("one native polling read produces one result");
+                .expect("one native polling read returns one result");
             let emit = should_emit_polled_notification(
                 subscription.notification_mode,
                 subscription.last_value.as_ref(),
@@ -540,39 +519,220 @@ fn native_symbol_name(symbol_name: &str) -> Result<Vec<u8>, AdsTransportError> {
     Ok(bytes)
 }
 
-fn map_native_connect(error: NativeAdsError) -> AdsTransportError {
-    with_native_error_details(AdsTransportError::new(format!(
-        "same-computer ADS requires the installed TwinCAT native router, but it could not be opened: {error}. Start the TwinCAT router/runtime and verify TcAdsDll.dll is installed. truST will not create a self-route or fall back to raw ADS/TCP for this local target"
-    )), &error)
+fn map_native_connect(error: NativeError) -> AdsTransportError {
+    AdsTransportError::new(format!(
+        "same-computer ADS requires the installed TwinCAT native router: {error}"
+    ))
 }
 
-fn map_native_call(operation: &str, error: NativeAdsError) -> AdsTransportError {
-    with_native_error_details(
-        AdsTransportError::new(format!("{operation}: {error}")),
-        &error,
-    )
-}
-
-fn with_native_error_details(
-    mut mapped: AdsTransportError,
-    error: &NativeAdsError,
-) -> AdsTransportError {
-    if let NativeAdsError::Call {
-        code, description, ..
-    } = error
-    {
-        if let Ok(code) = u32::try_from(*code) {
-            mapped = mapped.with_ads_error(code, *description);
-            if matches!(code, 0x015 | 0x50C | 0x745) {
-                mapped = mapped.with_failure_kind(AdsTransportFailureKind::TimedOut);
-            } else if code == 0x01B {
-                mapped = mapped.with_failure_kind(AdsTransportFailureKind::HostUnreachable);
-            }
-        }
-    }
-    mapped
+fn map_native_call(operation: &str, error: NativeError) -> AdsTransportError {
+    AdsTransportError::new(format!("{operation}: {error}"))
 }
 
 #[cfg(test)]
-#[path = "backend_windows/tests.rs"]
-mod tests;
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use trust_ads_core::{AdsDataTypeDescriptor, IecDataType};
+    use trust_runtime_core::value::Value;
+
+    use super::*;
+
+    #[derive(Debug, Default)]
+    struct FakeNativeState {
+        targets: Vec<AmsAddress>,
+        read_write_names: Vec<Vec<u8>>,
+        writes: Vec<(u32, u32, Vec<u8>)>,
+    }
+
+    struct FakeNativePort {
+        state: Arc<Mutex<FakeNativeState>>,
+        symbol_upload: Vec<u8>,
+    }
+
+    impl FakeNativePort {
+        fn new(state: Arc<Mutex<FakeNativeState>>) -> Self {
+            Self {
+                state,
+                symbol_upload: dint_symbol_upload("MAIN.value"),
+            }
+        }
+
+        fn record_target(&self, target: &AmsAddress) {
+            self.state
+                .lock()
+                .expect("fake native state")
+                .targets
+                .push(*target);
+        }
+    }
+
+    impl NativeAdsPort for FakeNativePort {
+        fn read_state(&mut self, target: &AmsAddress) -> Result<NativeDeviceState, NativeError> {
+            self.record_target(target);
+            Ok(NativeDeviceState {
+                ads_state: 5,
+                device_state: 0,
+            })
+        }
+
+        fn read(
+            &mut self,
+            target: &AmsAddress,
+            index_group: u32,
+            _index_offset: u32,
+            buffer: &mut [u8],
+        ) -> Result<usize, NativeError> {
+            self.record_target(target);
+            match index_group {
+                ads::index::SYM_UPLOAD_INFO2 => {
+                    buffer.fill(0);
+                    buffer[4..8].copy_from_slice(&(self.symbol_upload.len() as u32).to_le_bytes());
+                }
+                ads::index::SYM_DT_UPLOAD => assert!(buffer.is_empty()),
+                ads::index::SYM_UPLOAD => buffer.copy_from_slice(&self.symbol_upload),
+                ads::index::RW_SYMVAL_BYHANDLE => {
+                    buffer.copy_from_slice(&123_i32.to_le_bytes());
+                }
+                ads::index::GET_SYMVERSION => buffer.copy_from_slice(&[7]),
+                other => panic!("unexpected native read group {other:#x}"),
+            }
+            Ok(buffer.len())
+        }
+
+        fn write(
+            &mut self,
+            target: &AmsAddress,
+            index_group: u32,
+            index_offset: u32,
+            bytes: &[u8],
+        ) -> Result<(), NativeError> {
+            self.record_target(target);
+            self.state.lock().expect("fake native state").writes.push((
+                index_group,
+                index_offset,
+                bytes.to_vec(),
+            ));
+            Ok(())
+        }
+
+        fn read_write(
+            &mut self,
+            target: &AmsAddress,
+            index_group: u32,
+            _index_offset: u32,
+            read_buffer: &mut [u8],
+            write_bytes: &[u8],
+        ) -> Result<usize, NativeError> {
+            self.record_target(target);
+            self.state
+                .lock()
+                .expect("fake native state")
+                .read_write_names
+                .push(write_bytes.to_vec());
+            match index_group {
+                ads::index::GET_SYMINFO_BYNAME => {
+                    read_buffer.fill(0);
+                    read_buffer[8..12].copy_from_slice(&4_u32.to_le_bytes());
+                }
+                ads::index::GET_SYMHANDLE_BYNAME => {
+                    read_buffer.copy_from_slice(&42_u32.to_le_bytes());
+                }
+                other => panic!("unexpected native read/write group {other:#x}"),
+            }
+            Ok(read_buffer.len())
+        }
+    }
+
+    fn dint_symbol_upload(name: &str) -> Vec<u8> {
+        let typ = "DINT";
+        let entry_size = 4 + 26 + name.len() + 1 + typ.len() + 1 + 1;
+        let mut bytes = Vec::with_capacity(entry_size);
+        bytes.extend_from_slice(&(entry_size as u32).to_le_bytes());
+        bytes.extend_from_slice(&0x4020_u32.to_le_bytes());
+        bytes.extend_from_slice(&12_u32.to_le_bytes());
+        bytes.extend_from_slice(&4_u32.to_le_bytes());
+        bytes.extend_from_slice(&3_u32.to_le_bytes());
+        bytes.extend_from_slice(&0_u16.to_le_bytes());
+        bytes.extend_from_slice(&0_u16.to_le_bytes());
+        bytes.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(&(typ.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(&0_u16.to_le_bytes());
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.push(0);
+        bytes.extend_from_slice(typ.as_bytes());
+        bytes.push(0);
+        bytes.push(0);
+        bytes
+    }
+
+    fn native_route(port: u16) -> AdsRoute {
+        AdsRoute::new(
+            "local",
+            trust_ads_core::AmsNetId::new("10.20.30.40.1.1"),
+            "127.0.0.1",
+            port,
+        )
+    }
+
+    #[test]
+    fn adapter_sends_exact_target_net_id_and_logical_port() {
+        let state = Arc::new(Mutex::new(FakeNativeState::default()));
+        let mut transport = WindowsAdsTransport::with_test_port(
+            native_route(301),
+            FakeNativePort::new(Arc::clone(&state)),
+        );
+        assert_eq!(transport.read_state(), Ok(AdsDeviceState::Run));
+        let state = state.lock().expect("fake native state");
+        assert_eq!(state.targets[0].net_id.octets, [10, 20, 30, 40, 1, 1]);
+        assert_eq!(state.targets[0].port, 301);
+    }
+
+    #[test]
+    fn adapter_uploads_symbols_and_supports_live_reads_and_writes() {
+        let state = Arc::new(Mutex::new(FakeNativeState::default()));
+        let mut transport = WindowsAdsTransport::with_test_port(
+            native_route(851),
+            FakeNativePort::new(Arc::clone(&state)),
+        );
+        let symbols = transport.upload_symbol_table().expect("native symbols");
+        assert_eq!(symbols[0].name, "MAIN.value");
+        assert_eq!(symbols[0].data_type.iec_type, IecDataType::Dint);
+        let handle = transport
+            .resolve_handles(&[AdsHandleRequest {
+                point_name: "value".to_string(),
+                address: AdsPointAddress::Symbol("MAIN.value".to_string()),
+                data_type: AdsDataTypeDescriptor::scalar("DINT", IecDataType::Dint),
+            }])
+            .expect("native handle")
+            .pop()
+            .expect("one handle");
+        assert_eq!(
+            transport
+                .sumup_read(std::slice::from_ref(&handle))
+                .expect("native read")[0]
+                .value,
+            Some(Value::DInt(123))
+        );
+        assert_eq!(
+            transport
+                .sumup_write(&[AdsWriteRequest {
+                    handle,
+                    value: Value::DInt(456),
+                }])
+                .expect("native write")[0]
+                .state,
+            QualityState::Good
+        );
+        let state = state.lock().expect("fake native state");
+        assert!(state
+            .read_write_names
+            .iter()
+            .all(|name| name.last() == Some(&0)));
+        assert!(state.writes.iter().any(|(group, offset, bytes)| {
+            *group == ads::index::RW_SYMVAL_BYHANDLE
+                && *offset == 42
+                && bytes.as_slice() == 456_i32.to_le_bytes()
+        }));
+    }
+}

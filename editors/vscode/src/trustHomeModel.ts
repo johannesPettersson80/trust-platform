@@ -7,7 +7,10 @@
 // HARD honesty rule: a remote NEVER renders "Stop" (we don't own its process) — it renders
 // "Disconnect" (we only drop our own connection).
 
-import { managedRuntimeLabel, type ManagedRuntime } from "./localRuntimeModel";
+import {
+  managedRuntimeLabel,
+  type ManagedRuntime,
+} from "./localRuntimeModel";
 
 export type RuntimeKind = "simulator" | "local" | "remote";
 
@@ -21,8 +24,7 @@ export type RuntimeStatus =
 
 // The single primary verb for the selected runtime's current state. `none` = no actionable button
 // (e.g. mid-transition while starting/connecting).
-export type RuntimeAction =
-  "start" | "stop" | "connect" | "disconnect" | "none";
+export type RuntimeAction = "start" | "stop" | "connect" | "disconnect" | "none";
 
 export const SIMULATOR_RUNTIME_ID = "simulator";
 
@@ -41,6 +43,10 @@ export interface PrimaryAction {
   // When the action is disabled for a known reason (e.g. unreachable), the line shown under the button
   // so the user knows why + what to do next (§0.5.10). Omitted when there's nothing to explain.
   readonly hint?: string;
+}
+
+export interface PrimaryActionGate {
+  readonly reason: string;
 }
 
 export interface SelectedRuntime {
@@ -65,7 +71,6 @@ export interface RuntimeModelSnapshot {
   readonly endpointConfigured: boolean;
   readonly endpointReachable: boolean;
   readonly starting: boolean;
-  readonly transitionTargetId?: string;
 }
 
 export interface RuntimeModelInput {
@@ -75,15 +80,13 @@ export interface RuntimeModelInput {
   // select-only dropdown entry of kind "local" with Start/Stop driven by its own reported state.
   readonly managed: ReadonlyArray<ManagedRuntime>;
   readonly selectedId: string;
-  /** A matching accepted attach remains authoritative until that session exits. */
-  readonly managedSessionId?: string;
 }
 
 // The dropdown is SELECT-ONLY (§0.5.3): Simulator (default) → managed local runtimes → configured
 // remotes. There is NO "Add…/Connect…" entry — adding/connecting happens in Devices & Connections.
 export function runtimeOptions(
   remotes: ReadonlyArray<RemoteRuntime>,
-  managed: ReadonlyArray<ManagedRuntime>,
+  managed: ReadonlyArray<ManagedRuntime>
 ): RuntimeOption[] {
   const options: RuntimeOption[] = [
     {
@@ -115,42 +118,37 @@ export function selectedRuntime(input: RuntimeModelInput): SelectedRuntime {
     case "remote":
       return remoteRuntime(chosen, input.snapshot);
     case "local":
-      return managedRuntime(
-        chosen,
-        input.managed,
-        input.snapshot,
-        input.managedSessionId,
-      );
+      return managedRuntime(chosen, input.managed);
     case "simulator":
     default:
       return simulatorRuntime(chosen, input.snapshot);
   }
 }
 
+export function withPrimaryActionGate(
+  selected: SelectedRuntime,
+  gate: PrimaryActionGate | undefined
+): SelectedRuntime {
+  if (!gate?.reason || selected.primary.action !== "start" || !selected.primary.enabled) {
+    return selected;
+  }
+  return {
+    ...selected,
+    primary: {
+      ...selected.primary,
+      enabled: false,
+      hint: gate.reason,
+    },
+  };
+}
+
 // A managed local runtime: we own the process → Start/Stop (never Connect), driven by its reported state.
 function managedRuntime(
   option: RuntimeOption,
-  managed: ReadonlyArray<ManagedRuntime>,
-  snapshot: RuntimeModelSnapshot,
-  managedSessionId: string | undefined,
+  managed: ReadonlyArray<ManagedRuntime>
 ): SelectedRuntime {
-  if (snapshot.starting && snapshot.transitionTargetId === option.id) {
-    return runtime(option, "starting", "Starting…", {
-      action: "none",
-      label: "Starting…",
-      enabled: false,
-    });
-  }
   const running =
     managed.find((local) => local.name === option.id)?.state === "running";
-  if (!running && managedSessionId === option.id) {
-    return runtime(option, "connected", "Live Values still connected", {
-      action: "stop",
-      label: "Stop",
-      enabled: true,
-      hint: "The runtime process stopped, but its Live Values session is still connected. Stop again to retry cleanup.",
-    });
-  }
   return running
     ? runtime(option, "running", "Running", {
         action: "stop",
@@ -167,12 +165,9 @@ function managedRuntime(
 // The simulator: we own the (debug) process → Start/Stop, driven by the lifecycle snapshot.
 function simulatorRuntime(
   option: RuntimeOption,
-  snapshot: RuntimeModelSnapshot,
+  snapshot: RuntimeModelSnapshot
 ): SelectedRuntime {
-  if (
-    snapshot.starting &&
-    snapshot.transitionTargetId === SIMULATOR_RUNTIME_ID
-  ) {
+  if (snapshot.starting) {
     return runtime(option, "starting", "Starting…", {
       action: "none",
       label: "Starting…",
@@ -197,7 +192,7 @@ function simulatorRuntime(
 
 function remoteRuntime(
   option: RuntimeOption,
-  snapshot: RuntimeModelSnapshot,
+  snapshot: RuntimeModelSnapshot
 ): SelectedRuntime {
   const isActiveEndpoint = snapshot.endpoint === option.id;
   const connected =
@@ -219,11 +214,7 @@ function remoteRuntime(
       enabled: false,
     });
   }
-  if (
-    isActiveEndpoint &&
-    snapshot.endpointConfigured &&
-    !snapshot.endpointReachable
-  ) {
+  if (isActiveEndpoint && snapshot.endpointConfigured && !snapshot.endpointReachable) {
     // Known-unreachable (we probed and it's down): Connect is DISABLED with a reason — never a button
     // that just fails (§0.5.10). Diagnosing/starting a remote happens in Devices & Connections.
     return runtime(option, "unreachable", "Not reachable", {
@@ -244,7 +235,7 @@ function runtime(
   option: RuntimeOption,
   status: RuntimeStatus,
   statusLabel: string,
-  primary: PrimaryAction,
+  primary: PrimaryAction
 ): SelectedRuntime {
   return {
     id: option.id,
@@ -257,13 +248,10 @@ function runtime(
 }
 
 // Friendly label from a control endpoint string. Keep the port when present so two runtimes on the
-// same host do not both render as "127.0.0.1" in the Target dropdown.
+// same host do not both render as "127.0.0.1" in the Run target dropdown.
 export function remoteLabelFromEndpoint(endpoint: string): string {
   const trimmed = endpoint.trim();
   if (!trimmed) {
-    return "runtime";
-  }
-  if (/^unix:\/\//i.test(trimmed)) {
     return "runtime";
   }
   const withoutScheme = trimmed.replace(/^[a-z]+:\/\//i, "");

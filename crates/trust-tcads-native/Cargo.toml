@@ -1,0 +1,11 @@
+[package]
+name = "trust-tcads-native"
+description = "Narrow Windows FFI adapter for the installed Beckhoff TwinCAT ADS API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+libloading = "0.8.9"

@@ -1,15 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+use crate::ads::diagnostics::TargetIdentity;
 use crate::ads::onboarding::errors::OnboardingWireError;
 use crate::ads::onboarding::identity::RuntimeAddressCandidate;
-use crate::ads::onboarding::wire::{AdsOnboardingWire, ObservedAdsIdentity};
+use crate::ads::onboarding::wire::AdsOnboardingWire;
+
+#[path = "discover/interface_targets.rs"]
+mod interface_targets;
+pub use interface_targets::interface_directed_targets;
 
 /// Source that produced an ADS target discovery result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiscoverySource {
     Manual,
-    LocalRouter,
     DirectedIdentify,
     DirectedBroadcast,
 }
@@ -19,11 +23,13 @@ pub enum DiscoverySource {
 pub struct DiscoveryRequest {
     /// Optional IP/hostname entered by the user or selected by UI.
     pub target: Option<String>,
+    /// Additional runtime-host interface addresses to probe with directed identify.
+    #[serde(default)]
+    pub directed_targets: Vec<String>,
     /// Optional manually supplied target AMS Net ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ams_net_id: Option<String>,
-    /// Optional declared/recovery ADS service port. Absence never implies that
-    /// port 851 responded.
+    /// Target PLC AMS port. Defaults to 851 when absent.
     #[serde(default)]
     pub ams_port: Option<u16>,
     /// Optional friendly target name supplied by manual entry.
@@ -44,6 +50,7 @@ impl DiscoveryRequest {
     pub fn manual(target: impl Into<String>) -> Self {
         Self {
             target: Some(target.into()),
+            directed_targets: Vec::new(),
             target_ams_net_id: None,
             ams_port: None,
             target_name: None,
@@ -59,6 +66,7 @@ impl DiscoveryRequest {
     ) -> Self {
         Self {
             target: Some(target.into()),
+            directed_targets: Vec::new(),
             target_ams_net_id: Some(ams_net_id.into()),
             ams_port: None,
             target_name: None,
@@ -73,16 +81,9 @@ impl DiscoveryRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiscoveryResult {
     /// Discovered or manually declared target identity.
-    pub target: ObservedAdsIdentity,
+    pub target: TargetIdentity,
     /// Path that produced this result.
     pub source: DiscoverySource,
-}
-
-/// Discovery outcomes plus non-fatal failures from individual scan paths.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DiscoveryReport {
-    pub results: Vec<DiscoveryResult>,
-    pub warnings: Vec<String>,
 }
 
 /// Discovers ADS targets using manual, directed identify, and directed broadcast paths.
@@ -94,16 +95,7 @@ pub fn discover_targets<W: AdsOnboardingWire>(
     wire: &mut W,
     request: &DiscoveryRequest,
 ) -> Result<Vec<DiscoveryResult>, OnboardingWireError> {
-    discover_targets_report(wire, request).map(|report| report.results)
-}
-
-/// Discovers ADS targets without hiding per-interface broadcast failures.
-pub fn discover_targets_report<W: AdsOnboardingWire>(
-    wire: &mut W,
-    request: &DiscoveryRequest,
-) -> Result<DiscoveryReport, OnboardingWireError> {
     let mut results = Vec::new();
-    let mut warnings = Vec::new();
 
     if let Some(target) = request
         .target
@@ -112,50 +104,57 @@ pub fn discover_targets_report<W: AdsOnboardingWire>(
     {
         if let Some(ams_net_id) = request.target_ams_net_id.as_ref() {
             results.push(DiscoveryResult {
-                target: ObservedAdsIdentity {
+                target: TargetIdentity {
                     name: request.target_name.clone(),
                     ip: target.to_string(),
                     ams_net_id: ams_net_id.clone(),
-                    preferred_ams_port: request.ams_port,
-                    responding_ads_ports: Vec::new(),
+                    ams_port: request.ams_port.unwrap_or(851),
                     tc_version: None,
                 },
                 source: DiscoverySource::Manual,
             });
         } else {
-            match wire.directed_identities(target) {
-                Ok(observations) => {
-                    for observation in observations {
-                        warnings.extend(observation.warnings);
-                        let mut identity = observation.identity;
-                        if identity.ip.is_empty() {
-                            identity.ip = target.to_string();
-                        }
-                        if let Some(port) = request.ams_port {
-                            identity.preferred_ams_port = Some(port);
-                        }
-                        push_unique(
-                            &mut results,
-                            DiscoveryResult {
-                                target: identity,
-                                source: match observation.transport {
-                                    super::wire::DirectedIdentityTransport::Udp => {
-                                        DiscoverySource::DirectedIdentify
-                                    }
-                                    super::wire::DirectedIdentityTransport::LocalRouter => {
-                                        DiscoverySource::LocalRouter
-                                    }
-                                },
-                            },
-                        );
+            match wire.udp_identify(target) {
+                Ok(mut identity) => {
+                    if identity.ip.is_empty() {
+                        identity.ip = target.to_string();
                     }
+                    if let Some(port) = request.ams_port {
+                        identity.ams_port = port;
+                    }
+                    results.push(DiscoveryResult {
+                        target: identity,
+                        source: DiscoverySource::DirectedIdentify,
+                    });
                 }
-                Err(error) if request.include_broadcast => warnings.push(format!(
-                    "ADS local/directed discovery on {target} did not complete: {}",
-                    error.detail
-                )),
+                Err(_) if request.include_broadcast => {}
                 Err(error) => return Err(error),
             }
+        }
+    }
+
+    if results.is_empty() {
+        for target in &request.directed_targets {
+            if request.target.as_deref() == Some(target.as_str()) {
+                continue;
+            }
+            let Ok(mut identity) = wire.udp_identify(target) else {
+                continue;
+            };
+            if identity.ip.is_empty() {
+                identity.ip = target.clone();
+            }
+            if let Some(port) = request.ams_port {
+                identity.ams_port = port;
+            }
+            push_unique(
+                &mut results,
+                DiscoveryResult {
+                    target: identity,
+                    source: DiscoverySource::DirectedIdentify,
+                },
+            );
+            break;
         }
     }
 
@@ -163,13 +162,12 @@ pub fn discover_targets_report<W: AdsOnboardingWire>(
         for target in &request.broadcast_targets {
             match wire.udp_identify_all(target) {
                 Ok(identities) => {
-                    for identity in identities {
-                        let mut identity = ObservedAdsIdentity::identity_only(identity);
+                    for mut identity in identities {
                         if identity.ip.is_empty() {
                             identity.ip = target.clone();
                         }
                         if let Some(port) = request.ams_port {
-                            identity.preferred_ams_port = Some(port);
+                            identity.ams_port = port;
                         }
                         push_unique(
                             &mut results,
@@ -180,15 +178,12 @@ pub fn discover_targets_report<W: AdsOnboardingWire>(
                         );
                     }
                 }
-                Err(error) => warnings.push(format!(
-                    "ADS broadcast discovery on {target} did not complete: {}",
-                    error.detail
-                )),
+                Err(_) => continue,
             }
         }
     }
 
-    Ok(DiscoveryReport { results, warnings })
+    Ok(results)
 }
 
 /// Computes the directed broadcast target for an IPv4 interface address.
@@ -238,28 +233,16 @@ fn is_broadcast_discovery_source(ip: &str) -> bool {
     !addr.is_loopback() && !addr.is_link_local()
 }
 
-fn push_unique(results: &mut Vec<DiscoveryResult>, mut result: DiscoveryResult) {
-    let existing = results.iter_mut().find(|existing| {
-        existing.target.ams_net_id == result.target.ams_net_id
-            || ((existing.target.ams_net_id.is_empty() || result.target.ams_net_id.is_empty())
-                && existing.target.ip == result.target.ip)
+fn push_unique(results: &mut Vec<DiscoveryResult>, result: DiscoveryResult) {
+    let seen = results.iter().any(|existing| {
+        existing.target.ip == result.target.ip
+            || existing.target.ams_net_id == result.target.ams_net_id
     });
-    if let Some(existing) = existing {
-        for port in result.target.responding_ads_ports.drain(..) {
-            if !existing.target.responding_ads_ports.contains(&port) {
-                existing.target.responding_ads_ports.push(port);
-            }
-        }
-        if !existing.target.responding_ads_ports.is_empty() {
-            existing.target.preferred_ams_port =
-                existing.target.responding_ads_ports.first().copied();
-        } else if existing.target.preferred_ams_port.is_none() {
-            existing.target.preferred_ams_port = result.target.preferred_ams_port;
-        }
-    } else {
+    if !seen {
         results.push(result);
     }
 }
 
 #[cfg(test)]
-mod local_router_tests;
+#[path = "discover/local_fallback_tests.rs"]
+mod local_fallback_tests;

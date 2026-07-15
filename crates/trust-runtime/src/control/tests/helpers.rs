@@ -141,9 +141,6 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(ads_status.clone());
                 }
-                ResourceCommand::AdsLiveValues { respond_to } => {
-                    let _ = respond_to.send(crate::ads::AdsLiveValuesSnapshot::new(1, Vec::new()));
-                }
                 ResourceCommand::OpcUaClientStatus { respond_to } => {
                     let _ = respond_to.send(opcua_status.clone());
                 }

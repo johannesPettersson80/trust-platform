@@ -250,7 +250,7 @@
       "path": "images/vscode/vscode-devices-overview.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Devices & Connections overview capture"
+      "source": "desktop VS Code Devices & Connections overview capture"
     },
     {
       "path": "images/vscode/vscode-hmi-running.png",
@@ -268,43 +268,43 @@
       "path": "images/vscode/vscode-live-values-force.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Live Values forced-value capture"
+      "source": "desktop VS Code Live Values forced-value state capture"
     },
     {
       "path": "images/vscode/vscode-live-values-release-all.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Live Values two-force capture"
+      "source": "desktop VS Code Live Values release-all-forces state capture"
     },
     {
       "path": "images/vscode/vscode-live-values-released.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Live Values released-state capture"
+      "source": "desktop VS Code Live Values post-release live state capture"
     },
     {
       "path": "images/vscode/vscode-live-values-running.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Live Values addressed-I/O running capture"
+      "source": "desktop VS Code Live Values running state capture"
     },
     {
       "path": "images/vscode/vscode-live-values-stopped.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host Live Values stopped-state capture"
+      "source": "desktop VS Code Live Values stopped state capture"
     },
     {
       "path": "images/vscode/vscode-run-check-passed.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 current Extension Host truST Compile passed capture"
+      "source": "desktop VS Code truST Compile passed state capture"
     },
     {
       "path": "images/vscode/vscode-run-simulator-running.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
-      "source": "2026-07-13 real ADS current Extension Host simulator-running capture"
+      "source": "desktop VS Code truST simulator running state capture"
     },
     {
       "path": "images/vscode/vscode-st-completion.png",

@@ -1161,7 +1161,7 @@ dependencies = [
  "slab",
  "smallvec",
  "smlang",
- "spin 0.10.0",
+ "spin 0.10.1",
  "timerfd",
 ]
 
@@ -4531,9 +4531,9 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
+checksum = "023a211cb3138dbc438680b32560ad89f699977624c9f8dbb95a47d5b4c07dd3"
 
 [[package]]
 name = "stabby"
@@ -5156,7 +5156,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "serde",
  "serde_json",
@@ -5165,23 +5165,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
-name = "trust-ads-windows"
-version = "0.24.33"
-dependencies = [
- "libloading",
- "thiserror 2.0.18",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "trust-debug"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5196,7 +5187,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5215,7 +5206,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "boxcar",
  "insta",
@@ -5233,7 +5224,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5246,7 +5237,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5273,7 +5264,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5286,7 +5277,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "ads",
  "anyhow",
@@ -5338,12 +5329,12 @@ dependencies = [
  "tracing",
  "trust-ads-core",
  "trust-ads-server",
- "trust-ads-windows",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
  "trust-runtime-core",
  "trust-syntax",
+ "trust-tcads-native",
  "trust-wasm-analysis",
  "tungstenite",
  "ureq",
@@ -5353,7 +5344,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5364,7 +5355,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5374,8 +5365,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-tcads-native"
+version = "0.24.34"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
 name = "trust-wasm-analysis"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "rowan",
  "serde",
@@ -5439,7 +5437,7 @@ dependencies = [
  "log",
  "rand 0.8.6",
  "serde",
- "spin 0.10.0",
+ "spin 0.10.1",
 ]
 
 [[package]]
@@ -6395,7 +6393,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.33"
+version = "0.24.34"
 dependencies = [
  "anyhow",
  "serde",

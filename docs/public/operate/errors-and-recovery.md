@@ -46,23 +46,6 @@ write/force/release.
 runtime). Fix it and press **Start** again. If a control port is already in use, stop the other process or
 change the port in the runtime config.
 
-Starting the Simulator does not open Live Values. The Run card, status bar, and
-Devices & Connections node must show the same **Starting**, **Running**, or
-**Stopped** state. If they do not, Stop once and collect the truST output before
-starting again; do not infer state from the button icon alone.
-
-## A local Windows ADS device is not found
-
-**What you see:** **Discover ADS devices** reports that the local ADS router or
-runtime did not answer, or it finds the device identity but marks every checked
-logical service unavailable.
-
-**Recover:** Keep the ADS router and intended local runtime running. Do not add a
-static route from the Windows computer back to itself. truST uses the installed
-native Windows ADS client for same-computer identity and service checks. For a
-non-standard logical ADS service, add its number under **Advanced**; known Host,
-AMS Net ID, and custom ports are recovery inputs, not required first-run fields.
-
 ## HMI shows nothing
 
 **What you see:** The HMI Preview says **"Start the runtime to see live HMI data."** rather than a blank

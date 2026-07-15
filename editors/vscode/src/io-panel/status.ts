@@ -153,7 +153,6 @@ export async function fetchAdsStatusSummary(
 type RuntimeStatusDeps = {
   runtimeConfigTarget: () => vscode.Uri | undefined;
   getStructuredTextSession: () => vscode.DebugSession | undefined;
-  isSessionAccepted?: (session: vscode.DebugSession) => boolean;
 };
 
 export async function runtimeStatusPayload(
@@ -163,7 +162,7 @@ export async function runtimeStatusPayload(
   const config = getTrustConfiguration(target);
   let endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
   const authToken = await getControlAuthToken(endpoint);
-  let endpointConfigured = endpoint.length > 0;
+  const endpointConfigured = endpoint.length > 0;
   const endpointEnabled = config.get<boolean>(
     "runtime.controlEndpointEnabled",
     true
@@ -172,15 +171,12 @@ export async function runtimeStatusPayload(
     "runtime.inlineValuesEnabled",
     true
   );
-  let runtimeMode = config.get<"simulate" | "online">(
+  const runtimeMode = config.get<"simulate" | "online">(
     "runtime.mode",
     "simulate"
   );
   const session = deps.getStructuredTextSession();
-  // VS Code announces a debug session before the adapter has necessarily
-  // launched the runtime. Lifecycle-owned callers provide an acceptance
-  // predicate so a session event means Starting, never prematurely Running.
-  const running = !!session && (deps.isSessionAccepted?.(session) ?? true);
+  const running = !!session;
   let runtimeState: RuntimeStatusPayload["runtimeState"] = "stopped";
   let targetLabel: string | undefined;
   let endpointReachable = false;
@@ -191,7 +187,6 @@ export async function runtimeStatusPayload(
 
   if (running) {
     const request = session?.configuration?.request;
-    runtimeMode = request === "attach" ? "online" : "simulate";
     const configuredLabel = session?.configuration?.targetLabel;
     if (typeof configuredLabel === "string" && configuredLabel.trim()) {
       targetLabel = configuredLabel.trim();
@@ -227,7 +222,6 @@ export async function runtimeStatusPayload(
     ) {
       statusAuthToken = session.configuration.authToken.trim();
     }
-    endpointConfigured = endpoint.length > 0;
   }
   if (running && statusEndpoint) {
     const report = await fetchRuntimeStatusReport(statusEndpoint, statusAuthToken);

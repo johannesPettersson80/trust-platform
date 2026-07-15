@@ -27,8 +27,7 @@ use crate::protocol::{
 };
 use crate::runtime::DebugRuntime;
 
-use super::control_bridge::DebugControlServer;
-use super::io::io_state_from_snapshot;
+use super::io::{append_ads_live_values, io_state_from_snapshot};
 use super::protocol_io::{read_message, write_message_locked, write_protocol_log};
 use super::remote::RemoteStop;
 use super::stop::StopCoordinator;

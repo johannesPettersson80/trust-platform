@@ -436,31 +436,47 @@ fn apply_ads_protocol(
 
     let mut field_errors = Vec::new();
     let enabled = params_bool(&params, "enabled").unwrap_or(true);
+    let existing_config_path = runtime_subsection_string(&doc, "ads", "config_path");
     let config_path = params
         .get("config_path")
         .and_then(toml::Value::as_str)
         .filter(|value| !value.trim().is_empty())
+        .or(existing_config_path.as_deref())
         .unwrap_or("ads.toml");
     let ads_path = project_relative_path(project_root, config_path);
-    let connections = params.get("connections");
+    let requested_connections = connections_array(params.get("connections"));
+    let effective_connections = match requested_connections {
+        Some(connections) if request.action == CommApplyAction::Add => {
+            match merge_ads_connections_for_add(&ads_path, connections) {
+                Ok(connections) => Some(connections),
+                Err(error) => {
+                    field_errors.push(error);
+                    None
+                }
+            }
+        }
+        Some(connections) => Some(connections.clone()),
+        None => None,
+    };
+    let connections = effective_connections.as_ref();
     if enabled
         && !matches!(
             request.action,
             CommApplyAction::Remove | CommApplyAction::Disable | CommApplyAction::Validate
         )
-        && connections_array(connections).is_none_or(Vec::is_empty)
+        && connections.is_none_or(Vec::is_empty)
         && !ads_path.is_file()
     {
         field_errors.push(field_error(
             "connections",
-            "Enable ADS only after adding at least one connection with at least one selected point.",
+            "Enable ADS only after adding at least one connection.",
         ));
     }
-    if let Some(connections) = connections_array(connections) {
+    if let Some(connections) = connections {
         if enabled && connections.is_empty() {
             field_errors.push(field_error(
                 "connections",
-                "ADS requires at least one connection with at least one selected point.",
+                "ADS requires at least one connection.",
             ));
         } else if !connections.is_empty() {
             match render_ads_toml(connections) {
@@ -508,7 +524,7 @@ fn apply_ads_protocol(
             None,
         );
     }
-    let ads_text = connections_array(connections)
+    let ads_text = connections
         .filter(|connections| !connections.is_empty())
         .and_then(|connections| render_ads_toml(connections).ok());
 
@@ -988,6 +1004,65 @@ fn render_ads_toml(connections: &[toml::Value]) -> Result<String, CommFieldError
     );
     toml::to_string_pretty(&toml::Value::Table(root))
         .map_err(|error| field_error("_", format!("failed to render ads.toml: {error}")))
+}
+
+fn merge_ads_connections_for_add(
+    ads_path: &Path,
+    requested: &[toml::Value],
+) -> Result<Vec<toml::Value>, CommFieldError> {
+    let mut merged = match std::fs::read_to_string(ads_path) {
+        Ok(text) => {
+            let value = toml::from_str::<toml::Value>(&text).map_err(|error| {
+                field_error(
+                    "connections",
+                    format!("failed to read existing {}: {error}", ads_path.display()),
+                )
+            })?;
+            value
+                .get("connections")
+                .and_then(toml::Value::as_array)
+                .cloned()
+                .ok_or_else(|| {
+                    field_error(
+                        "connections",
+                        format!("{} has no connections array", ads_path.display()),
+                    )
+                })?
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => {
+            return Err(field_error(
+                "connections",
+                format!("failed to read {}: {error}", ads_path.display()),
+            ));
+        }
+    };
+    for connection in requested {
+        let identity = ads_connection_identity(connection);
+        let already_present = identity.as_ref().is_some_and(|identity| {
+            merged
+                .iter()
+                .any(|existing| ads_connection_identity(existing).as_ref() == Some(identity))
+        });
+        if !already_present {
+            merged.push(connection.clone());
+        }
+    }
+    Ok(merged)
+}
+
+fn ads_connection_identity(value: &toml::Value) -> Option<(String, String, i64)> {
+    let table = value.as_table()?;
+    let target_net_id = table.get("target_net_id")?.as_str()?.trim();
+    let host = table.get("host")?.as_str()?.trim();
+    if target_net_id.is_empty() || host.is_empty() {
+        return None;
+    }
+    let port = table
+        .get("ams_port")
+        .and_then(toml::Value::as_integer)
+        .unwrap_or(851);
+    Some((target_net_id.to_string(), host.to_string(), port))
 }
 
 fn render_opcua_client_toml(

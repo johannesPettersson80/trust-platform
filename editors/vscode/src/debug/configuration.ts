@@ -47,34 +47,12 @@ export function captureStructuredTextEditor(
   }
 }
 
-export function preferredStructuredTextUri(
-  preferredFolder?: vscode.WorkspaceFolder
-): vscode.Uri | undefined {
+export function preferredStructuredTextUri(): vscode.Uri | undefined {
   const active = vscode.window.activeTextEditor;
-  if (
-    active &&
-    active.document.languageId === "structured-text" &&
-    uriBelongsToFolder(active.document.uri, preferredFolder)
-  ) {
+  if (active && active.document.languageId === "structured-text") {
     return active.document.uri;
   }
-  return lastStructuredTextUri &&
-    uriBelongsToFolder(lastStructuredTextUri, preferredFolder)
-    ? lastStructuredTextUri
-    : undefined;
-}
-
-function uriBelongsToFolder(
-  uri: vscode.Uri,
-  preferredFolder?: vscode.WorkspaceFolder
-): boolean {
-  if (!preferredFolder) {
-    return true;
-  }
-  return (
-    vscode.workspace.getWorkspaceFolder(uri)?.uri.toString() ===
-    preferredFolder.uri.toString()
-  );
+  return lastStructuredTextUri;
 }
 
 export function runtimeSourceOptions(target?: vscode.Uri): RuntimeSourceOptions {
@@ -173,18 +151,10 @@ function parseTomlString(value: string): string | undefined {
   return undefined;
 }
 
-async function findStructuredTextUris(
-  preferredFolder?: vscode.WorkspaceFolder
-): Promise<vscode.Uri[]> {
+async function findStructuredTextUris(): Promise<vscode.Uri[]> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
     return [];
-  }
-  if (preferredFolder) {
-    return vscode.workspace.findFiles(
-      new vscode.RelativePattern(preferredFolder, ST_GLOB),
-      new vscode.RelativePattern(preferredFolder, ST_EXCLUDE_GLOB)
-    );
   }
   return vscode.workspace.findFiles(ST_GLOB, ST_EXCLUDE_GLOB);
 }
@@ -210,10 +180,8 @@ function containsConfiguration(source: string): boolean {
   return /\bCONFIGURATION\b/i.test(source);
 }
 
-async function findConfigurationUris(
-  preferredFolder?: vscode.WorkspaceFolder
-): Promise<vscode.Uri[]> {
-  const uris = await findStructuredTextUris(preferredFolder);
+async function findConfigurationUris(): Promise<vscode.Uri[]> {
+  const uris = await findStructuredTextUris();
   const configs: vscode.Uri[] = [];
   for (const uri of uris) {
     const text = await readStructuredText(uri);
@@ -402,10 +370,9 @@ function programPicks(programs: ProgramTypeOption[]): Array<{
 }
 
 async function pickProgramTypeWithMode(
-  mode: SelectionMode,
-  preferredFolder?: vscode.WorkspaceFolder
+  mode: SelectionMode
 ): Promise<ProgramTypeOption | undefined> {
-  const preferred = preferredStructuredTextUri(preferredFolder);
+  const preferred = preferredStructuredTextUri();
   if (preferred) {
     const text = await readStructuredText(preferred);
     if (text) {
@@ -426,9 +393,7 @@ async function pickProgramTypeWithMode(
     }
   }
 
-  const programs = await collectProgramTypes(
-    preferredFolder ? await findStructuredTextUris(preferredFolder) : undefined
-  );
+  const programs = await collectProgramTypes();
   if (programs.length === 0) {
     vscode.window.showErrorMessage(
       "No PROGRAM declarations found to create a configuration."
@@ -479,10 +444,9 @@ async function pickWorkspaceFolderWithMode(
     );
     return picked?.folder;
   }
-  const activeFolderPath = vscode.window.activeTextEditor
-    ? vscode.workspace.getWorkspaceFolder(
-        vscode.window.activeTextEditor.document.uri
-      )?.uri.fsPath
+  const active = preferredStructuredTextUri();
+  const activeFolderPath = active
+    ? vscode.workspace.getWorkspaceFolder(active)?.uri.fsPath
     : undefined;
   const selectedPath = selectWorkspaceFolderPathForMode(
     mode,
@@ -567,23 +531,13 @@ function pickConfigurationFromState(
 }
 
 function pickConfigurationFromActiveFolder(
-  configs: vscode.Uri[],
-  preferredFolder?: vscode.WorkspaceFolder
+  configs: vscode.Uri[]
 ): vscode.Uri | undefined {
-  const activeDocument = vscode.window.activeTextEditor?.document.uri;
-  const activeConfiguration = activeDocument
-    ? configs.find((config) => config.toString() === activeDocument.toString())
-    : undefined;
-  if (activeConfiguration) {
-    return activeConfiguration;
+  const active = preferredStructuredTextUri();
+  if (!active) {
+    return undefined;
   }
-  const activeFolder =
-    preferredFolder ??
-    (vscode.window.activeTextEditor
-      ? vscode.workspace.getWorkspaceFolder(
-          vscode.window.activeTextEditor.document.uri
-        )
-      : undefined);
+  const activeFolder = vscode.workspace.getWorkspaceFolder(active);
   if (!activeFolder) {
     return undefined;
   }
@@ -599,10 +553,9 @@ function pickConfigurationFromActiveFolder(
 }
 
 async function ensureConfigurationEntryWithMode(
-  mode: SelectionMode,
-  preferredFolder?: vscode.WorkspaceFolder
+  mode: SelectionMode
 ): Promise<vscode.Uri | undefined> {
-  const configs = await findConfigurationUris(preferredFolder);
+  const configs = await findConfigurationUris();
   if (configs.length === 1) {
     rememberConfiguration(configs[0]);
     return configs[0];
@@ -625,17 +578,13 @@ async function ensureConfigurationEntryWithMode(
       }
       return picked?.uri;
     }
-    const fromActive = pickConfigurationFromActiveFolder(
-      configs,
-      preferredFolder
-    );
-    if (fromActive) {
-      rememberConfiguration(fromActive);
-      return fromActive;
-    }
     const fromState = pickConfigurationFromState(configs);
+    if (fromState) {
+      return fromState;
+    }
+    const fromActive = pickConfigurationFromActiveFolder(configs);
     const picked =
-      fromState ?? configs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))[0];
+      fromActive ?? configs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))[0];
     debugChannel().appendLine(
       `Multiple CONFIGURATION files found; using ${picked.fsPath}.`
     );
@@ -654,7 +603,7 @@ async function ensureConfigurationEntryWithMode(
     }
   }
 
-  const program = await pickProgramTypeWithMode(mode, preferredFolder);
+  const program = await pickProgramTypeWithMode(mode);
   if (!program) {
     return undefined;
   }
@@ -663,12 +612,10 @@ async function ensureConfigurationEntryWithMode(
   return created;
 }
 
-export async function ensureConfigurationEntryAuto(
-  preferredFolder?: vscode.WorkspaceFolder
-): Promise<
+export async function ensureConfigurationEntryAuto(): Promise<
   vscode.Uri | undefined
 > {
-  return ensureConfigurationEntryWithMode("auto", preferredFolder);
+  return ensureConfigurationEntryWithMode("auto");
 }
 
 export async function ensureConfigurationEntry(): Promise<
@@ -741,13 +688,12 @@ export async function validateConfiguration(
 }
 
 export async function maybeReloadForEditor(
-  editor: vscode.TextEditor | undefined,
-  acceptedSession?: vscode.DebugSession,
+  editor: vscode.TextEditor | undefined
 ): Promise<void> {
   if (!editor || editor.document.languageId !== "structured-text") {
     return;
   }
-  const session = acceptedSession;
+  const session = vscode.debug.activeDebugSession;
   if (!session || session.type !== DEBUG_TYPE) {
     return;
   }

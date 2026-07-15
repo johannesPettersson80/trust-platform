@@ -1,4 +1,5 @@
 impl DebugAdapter {
+
     pub(super) fn dispatch_request(&mut self, request: Request<Value>) -> DispatchOutcome {
         if request.message_type != MessageType::Request {
             return DispatchOutcome::default();
@@ -15,11 +16,9 @@ impl DebugAdapter {
             "setExceptionBreakpoints" => self.handle_set_exception_breakpoints(request),
             "breakpointLocations" => self.handle_breakpoint_locations(request),
             "stIoState" => self.handle_io_state(request),
-            "stAdsState" => self.handle_ads_state(request),
             "stIoWrite" => self.handle_io_write(request),
             "stIoForce" => self.handle_io_force(request),
             "stIoRelease" => self.handle_io_release(request),
-            "trustSimulatorStatus" => self.handle_simulator_status(request),
             "stVarState" => self.handle_var_state(request),
             "stVarWrite" => self.handle_var_write(request),
             "stReload" => self.handle_reload(request),
@@ -45,16 +44,13 @@ impl DebugAdapter {
         outcome
     }
 
+
     pub(super) fn start_runner(&mut self) {
         if self.runner.is_some() {
             return;
         }
         let runtime = self.session.runtime_handle();
         let control = self.session.debug_control();
-        let ads_live_values = self
-            .control_server
-            .as_ref()
-            .map(DebugControlServer::resource_control);
         let cycle_time = cycle_time_hint(self.session.metadata());
         let cycle_interval = wall_interval_for_cycle(cycle_time);
         let stop = Arc::new(AtomicBool::new(false));
@@ -69,13 +65,7 @@ impl DebugAdapter {
                 Err(poisoned) => poisoned.into_inner(),
             };
             match runtime.execute_cycle() {
-                Ok(()) => {
-                    runtime.advance_time(cycle_time);
-                    if let Some(resource) = ads_live_values.as_ref() {
-                        let _ = resource
-                            .publish_ads_live_values_snapshot(runtime.ads_live_values_snapshot());
-                    }
-                }
+                Ok(()) => runtime.advance_time(cycle_time),
                 Err(err) => {
                     if !matches!(err, RuntimeError::InvalidControlFlow) {
                         eprintln!("runtime cycle error: {err}");
@@ -98,11 +88,13 @@ impl DebugAdapter {
         });
     }
 
+
     pub(super) fn stop_runner(&mut self) {
         if let Some(runner) = self.runner.take() {
             runner.stop();
         }
     }
+
 
     fn next_seq(&self) -> u32 {
         self.next_seq.fetch_add(1, Ordering::Relaxed)
@@ -127,6 +119,7 @@ impl DebugAdapter {
         };
         serde_json::to_value(response).unwrap_or(Value::Null)
     }
+
 
     pub(super) fn error_response(&self, request: &Request<Value>, message: &str) -> Value {
         let response: Response<Value> = Response {
@@ -158,10 +151,12 @@ impl DebugAdapter {
         serde_json::to_value(event).unwrap_or(Value::Null)
     }
 
+
     fn drain_log_events(&self) -> Vec<Value> {
         let logs = self.session.debug_control().drain_logs();
         logs.into_iter().map(|log| self.output_event(log)).collect()
     }
+
 
     fn output_event(&self, log: DebugLog) -> Value {
         let (source, line, column) = log
@@ -195,10 +190,12 @@ impl DebugAdapter {
         self.event("output", Some(body))
     }
 
+
     pub(super) fn debug_output_message(&self, message: impl Into<String>) -> Value {
         let body = serde_json::json!({ "message": message.into() });
         self.event("trustDebugInternal", Some(body))
     }
+
 
     pub(super) fn breakpoint_event(&self, reason: &str, breakpoint: Breakpoint) -> Value {
         let body = BreakpointEventBody {
@@ -207,6 +204,7 @@ impl DebugAdapter {
         };
         self.event("breakpoint", Some(body))
     }
+
 
     pub(super) fn start_remote_polling(&mut self) {
         if self.remote_stop_poller.is_some() {
@@ -228,18 +226,18 @@ impl DebugAdapter {
                 logger: self.dap_logger.clone(),
                 seq: Arc::clone(&self.next_seq),
                 breakpoints: Arc::clone(&self.remote_breakpoints),
-                io_state: Arc::clone(&self.last_io_state),
-                ads_state: Arc::clone(&self.last_ads_state),
             },
         );
         self.remote_stop_poller = Some(poller);
     }
+
 
     pub(super) fn stop_remote_polling(&mut self) {
         if let Some(poller) = self.remote_stop_poller.take() {
             poller.stop();
         }
     }
+
 
     pub(super) fn remote_stop_events(&self, stop: RemoteStop) -> Vec<Value> {
         let thread_id = stop.thread_id.or(Some(1));
@@ -260,4 +258,5 @@ impl DebugAdapter {
         );
         vec![output, stopped]
     }
+
 }

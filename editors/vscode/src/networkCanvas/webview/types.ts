@@ -5,7 +5,6 @@
 // (Start/Stop), vs. a remote/fleet runtime (Connect/Disconnect). Shared so the inspector, layout, and
 // graph builder don't each hardcode the literal.
 export const LOCAL_RUNTIME_NODE_ID = "runtime:local";
-export const AUTHORITY_CHECK_RUNTIME_NODE_ID = "runtime:checking-active";
 
 // v4 (§10.2): one slave/module of a fieldbus segment (e.g. an EtherCAT terminal).
 export interface NCFieldSlave {
@@ -41,6 +40,7 @@ export interface NCEndpoint {
   name: string;
   role?: string;
   health: string;
+  runtimeHealth?: string;
   detail: string;
   dimmed?: boolean;
   live?: {
@@ -130,13 +130,7 @@ export interface NCGraph {
   title: string;
   summary: string;
   // Thin inline strip: a neutral hint ("info") or a start-failure ("error", default).
-  banner?: {
-    text: string;
-    actions: NCEmptyAction[];
-    kind?: "error" | "info";
-    /** Faults already presented here with a primary recovery action. */
-    representedFaultIds?: readonly string[];
-  };
+  banner?: { text: string; actions: NCEmptyAction[]; kind?: "error" | "info" };
   hosts: NCHost[];
   links: NCLink[];
   external: NCExternal[];
@@ -200,9 +194,5 @@ export interface ExternalNodeData extends Record<string, unknown> {
 // v4 (§0.4): an empty-slot placeholder rendered in Edit mode (dashed ghost cell).
 export interface SlotNodeData extends Record<string, unknown> {
   label: string;
-  slot: {
-    add: "device" | "runtime" | "host";
-    category?: string;
-    targetId?: string;
-  };
+  slot: { add: "device" | "runtime" | "host"; category?: string; targetId?: string };
 }

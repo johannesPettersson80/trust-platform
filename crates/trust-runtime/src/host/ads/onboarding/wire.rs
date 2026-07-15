@@ -4,34 +4,24 @@ use crate::ads::onboarding::route::{RouteAddRequest, RouteRemoveRequest};
 #[cfg(feature = "ads-wire")]
 use crate::ads::{
     AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsResolvedHandle,
-    AdsSubscribeRequest, AdsSubscription, AdsTransportError, AdsWriteRequest, HostAdsTransport,
+    AdsSubscribeRequest, AdsWriteRequest, HostAdsClient,
 };
 #[cfg(feature = "ads-wire")]
 use std::collections::BTreeMap;
 #[cfg(feature = "ads-wire")]
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
 #[cfg(feature = "ads-wire")]
-use std::time::{Duration, Instant};
+use std::time::Duration;
 #[cfg(feature = "ads-wire")]
 use trust_ads_core::{
-    ads_bytes_from_value, AdsRoute, AdsSecurityPolicy, AmsNetId, TransportSecurity, UpdateMode,
+    ads_bytes_from_value, AdsRoute, AdsSecurityPolicy, AmsNetId, QualityState, TransportSecurity,
+    UpdateMode,
 };
-use trust_ads_core::{AdsDataTypeDescriptor, QualityState, SymbolDescriptor, SymbolFlag};
+use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, SymbolDescriptor, SymbolFlag};
 use trust_runtime_core::value::Value;
 
-mod contract;
-#[cfg(feature = "ads-wire")]
-mod host_policy;
 #[cfg(feature = "ads-wire")]
 mod identity;
-mod mock;
-
-pub use contract::{
-    AdsOnboardingWire, AdsReadUpdateSample, AdsRouteRequirement, AdsRouterProbe,
-    DirectedIdentityObservation, DirectedIdentityTransport, GuardedWriteProbe,
-    NativeAmsSourceAddress, ObservedAdsIdentity,
-};
-pub use mock::{MockAdsOnboardingScenario, MockAdsOnboardingWire};
 
 #[cfg(feature = "ads-wire")]
 const DEFAULT_ADS_PLC_PORT: u16 = 851;
@@ -43,21 +33,71 @@ const DEFAULT_UDP_BROADCAST_WINDOW: Duration = Duration::from_millis(900);
 const GUARDED_WRITE_READBACK_ATTEMPTS: usize = 20;
 #[cfg(feature = "ads-wire")]
 const GUARDED_WRITE_READBACK_DELAY: Duration = Duration::from_millis(50);
-#[cfg(feature = "ads-wire")]
-const READ_UPDATE_SAMPLE_TIMEOUT: Duration = Duration::from_secs(4);
-#[cfg(feature = "ads-wire")]
-const READ_UPDATE_SAMPLE_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-/// Host-aware implementation of the setup/control-plane wire boundary.
+/// Thin setup/control-plane wire boundary for ADS onboarding.
 ///
-/// Remote targets use the cross-platform ADS/TCP client. Targets on the same
-/// Windows computer use the installed TwinCAT router API without a self-route.
+/// Real ADS/socket calls belong behind this trait. Business logic and public
+/// schema types must not expose raw wire crate types.
+pub trait AdsOnboardingWire {
+    fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError>;
+    fn udp_identify_all(
+        &mut self,
+        target_ip: &str,
+    ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
+        self.udp_identify(target_ip).map(|target| vec![target])
+    }
+    fn tcp_probe_48898(&mut self, target_ip: &str) -> Result<(), OnboardingWireError>;
+    fn check_route(
+        &mut self,
+        target: &TargetIdentity,
+        local: &LocalIdentity,
+    ) -> Result<(), OnboardingWireError>;
+    fn verify_ams_target(&mut self, target: &TargetIdentity) -> Result<(), OnboardingWireError>;
+    fn read_state(&mut self, target: &TargetIdentity) -> Result<String, OnboardingWireError>;
+    fn upload_symbols(
+        &mut self,
+        target: &TargetIdentity,
+    ) -> Result<Vec<SymbolDescriptor>, OnboardingWireError>;
+    fn resolve_handle(
+        &mut self,
+        target: &TargetIdentity,
+        symbol: &str,
+    ) -> Result<u32, OnboardingWireError>;
+    fn sumup_read(
+        &mut self,
+        target: &TargetIdentity,
+        handles: &[u32],
+    ) -> Result<Vec<Vec<u8>>, OnboardingWireError>;
+    fn guarded_write_probe(
+        &mut self,
+        target: &TargetIdentity,
+        probe: &GuardedWriteProbe,
+    ) -> Result<(), OnboardingWireError>;
+    fn subscribe_notification(
+        &mut self,
+        target: &TargetIdentity,
+        symbol: &str,
+    ) -> Result<(), OnboardingWireError>;
+    fn symbol_version(&mut self, target: &TargetIdentity) -> Result<u32, OnboardingWireError>;
+    fn add_route(&mut self, request: &RouteAddRequest) -> Result<(), OnboardingWireError>;
+    fn remove_route(&mut self, request: &RouteRemoveRequest) -> Result<(), OnboardingWireError>;
+}
+
+/// Explicit, reversible write probe requested by a user.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GuardedWriteProbe {
+    pub symbol: String,
+    pub data_type: AdsDataTypeDescriptor,
+    pub value: Value,
+}
+
+/// `ads-rs` implementation of the setup/control-plane wire boundary.
 #[cfg(feature = "ads-wire")]
 pub struct AdsRsOnboardingWire {
     tcp_probe_timeout: Duration,
     udp_broadcast_window: Duration,
     transport_key: Option<String>,
-    transport: Option<HostAdsTransport>,
+    transport: Option<HostAdsClient>,
     local_identity: Option<LocalIdentity>,
     symbols_by_name: BTreeMap<String, SymbolDescriptor>,
     handles_by_id: BTreeMap<u32, AdsResolvedHandle>,
@@ -78,16 +118,9 @@ impl AdsRsOnboardingWire {
     }
 
     pub fn with_tcp_probe_timeout(tcp_probe_timeout: Duration) -> Self {
-        Self::with_discovery_timeouts(tcp_probe_timeout, DEFAULT_UDP_BROADCAST_WINDOW)
-    }
-
-    pub fn with_discovery_timeouts(
-        tcp_probe_timeout: Duration,
-        udp_broadcast_window: Duration,
-    ) -> Self {
         Self {
             tcp_probe_timeout,
-            udp_broadcast_window,
+            udp_broadcast_window: DEFAULT_UDP_BROADCAST_WINDOW,
             transport_key: None,
             transport: None,
             local_identity: None,
@@ -100,7 +133,7 @@ impl AdsRsOnboardingWire {
         &mut self,
         target: &TargetIdentity,
         failure_kind: OnboardingWireErrorKind,
-    ) -> Result<&mut HostAdsTransport, OnboardingWireError> {
+    ) -> Result<&mut HostAdsClient, OnboardingWireError> {
         let key = self.transport_key_for(target);
         if self.transport_key.as_deref() != Some(key.as_str()) {
             self.transport = None;
@@ -110,7 +143,7 @@ impl AdsRsOnboardingWire {
         }
         if self.transport.is_none() {
             let route = self.route_for_target(target);
-            let mut transport = HostAdsTransport::new(route);
+            let mut transport = HostAdsClient::new(route);
             transport
                 .connect()
                 .map_err(|error| map_transport_error(failure_kind, "connect ADS target", error))?;
@@ -247,37 +280,6 @@ impl AdsRsOnboardingWire {
             ))
         }
     }
-
-    fn subscribe_symbol(
-        &mut self,
-        target: &TargetIdentity,
-        symbol: &str,
-        notification_mode: AdsNotificationMode,
-    ) -> Result<AdsSubscription, OnboardingWireError> {
-        if !self.symbols_by_name.contains_key(symbol) {
-            let _ = self.upload_symbols(target)?;
-        }
-        let handle = self.resolve_handle(target, symbol)?;
-        let resolved = self.handles_by_id.get(&handle).cloned().ok_or_else(|| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::NotificationFailure,
-                format!("ADS handle {handle} is not resolved for read updates"),
-            )
-        })?;
-        self.ensure_transport(target, OnboardingWireErrorKind::NotificationFailure)?
-            .subscribe(AdsSubscribeRequest {
-                handle: resolved,
-                mode: UpdateMode::Notify,
-                notification_mode,
-            })
-            .map_err(|error| {
-                map_transport_error(
-                    OnboardingWireErrorKind::NotificationFailure,
-                    "subscribe ADS read update",
-                    error,
-                )
-            })
-    }
 }
 
 #[cfg(feature = "ads-wire")]
@@ -290,37 +292,14 @@ impl Default for AdsRsOnboardingWire {
 #[cfg(feature = "ads-wire")]
 impl AdsOnboardingWire for AdsRsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        identity::identify_target(target_ip, self.tcp_probe_timeout).map(|result| {
-            let identity = result.identity;
-            TargetIdentity {
-                name: identity.name,
-                ip: identity.ip,
-                ams_net_id: identity.ams_net_id,
-                ams_port: identity.preferred_ams_port.unwrap_or(DEFAULT_ADS_PLC_PORT),
-                tc_version: identity.tc_version,
-            }
-        })
-    }
-
-    fn directed_identity(
-        &mut self,
-        target_ip: &str,
-    ) -> Result<DirectedIdentityObservation, OnboardingWireError> {
         identity::identify_target(target_ip, self.tcp_probe_timeout)
-    }
-
-    fn directed_identities(
-        &mut self,
-        target_ip: &str,
-    ) -> Result<Vec<DirectedIdentityObservation>, OnboardingWireError> {
-        identity::identify_targets(target_ip, self.tcp_probe_timeout)
     }
 
     fn udp_identify_all(
         &mut self,
         target_ip: &str,
     ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
-        identity::identify_all(target_ip, self.udp_broadcast_window)
+        udp_identify_all(target_ip, self.udp_broadcast_window)
     }
 
     fn tcp_probe_48898(&mut self, target_ip: &str) -> Result<(), OnboardingWireError> {
@@ -340,24 +319,6 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
             })
     }
 
-    fn probe_ads_router(
-        &mut self,
-        target: &TargetIdentity,
-    ) -> Result<AdsRouterProbe, OnboardingWireError> {
-        host_policy::probe_ads_router(self, target)
-    }
-
-    fn route_requirement(&self, target_ip: &str) -> AdsRouteRequirement {
-        host_policy::route_requirement(target_ip)
-    }
-
-    fn native_source_address(&self) -> Option<NativeAmsSourceAddress> {
-        self.transport
-            .as_ref()
-            .and_then(HostAdsTransport::native_local_address)
-            .map(|(ams_net_id, ams_port)| NativeAmsSourceAddress::new(ams_net_id, ams_port))
-    }
-
     fn check_route(
         &mut self,
         target: &TargetIdentity,
@@ -365,8 +326,8 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
     ) -> Result<(), OnboardingWireError> {
         self.local_identity = Some(local.clone());
         self.transport = None;
-        let failure_kind = host_policy::route_failure_kind(&target.ip);
-        self.ensure_transport(target, failure_kind).map(drop)
+        self.ensure_transport(target, OnboardingWireErrorKind::RouteMissing)
+            .map(drop)
     }
 
     fn verify_ams_target(&mut self, target: &TargetIdentity) -> Result<(), OnboardingWireError> {
@@ -598,63 +559,30 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
         target: &TargetIdentity,
         symbol: &str,
     ) -> Result<(), OnboardingWireError> {
-        self.subscribe_symbol(target, symbol, AdsNotificationMode::OnChange)
-            .map(drop)
-    }
-
-    fn read_update_sample(
-        &mut self,
-        target: &TargetIdentity,
-        symbol: &str,
-    ) -> Result<AdsReadUpdateSample, OnboardingWireError> {
-        let subscription = self.subscribe_symbol(target, symbol, AdsNotificationMode::Cyclic)?;
-        let deadline = Instant::now()
-            .checked_add(READ_UPDATE_SAMPLE_TIMEOUT)
-            .unwrap_or_else(Instant::now);
-        loop {
-            let samples = self
-                .ensure_transport(target, OnboardingWireErrorKind::NotificationFailure)?
-                .drain_notifications()
-                .map_err(|error| {
-                    map_transport_error(
-                        OnboardingWireErrorKind::NotificationFailure,
-                        "read subscribed ADS update",
-                        error,
-                    )
-                })?;
-            if let Some(sample) = samples
-                .into_iter()
-                .find(|sample| sample.subscription_id == subscription.subscription_id)
-            {
-                if sample.quality.state != QualityState::Good || sample.value.is_none() {
-                    return Err(OnboardingWireError::new(
-                        OnboardingWireErrorKind::NotificationFailure,
-                        sample.quality.detail.unwrap_or_else(|| {
-                            format!(
-                                "ADS read update for '{}' contained no readable value",
-                                sample.point_name
-                            )
-                        }),
-                    ));
-                }
-                return Ok(AdsReadUpdateSample {
-                    point_name: sample.point_name,
-                    subscription_id: sample.subscription_id,
-                    quality: sample.quality.state,
-                });
-            }
-            if Instant::now() >= deadline {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::NotificationFailure,
-                    format!(
-                        "no ADS read update arrived for '{symbol}' within {} ms",
-                        READ_UPDATE_SAMPLE_TIMEOUT.as_millis()
-                    ),
-                )
-                .with_transport_failure(crate::ads::AdsTransportFailureKind::TimedOut));
-            }
-            std::thread::sleep(READ_UPDATE_SAMPLE_POLL_INTERVAL);
+        if !self.symbols_by_name.contains_key(symbol) {
+            let _ = self.upload_symbols(target)?;
         }
+        let handle = self.resolve_handle(target, symbol)?;
+        let resolved = self.handles_by_id.get(&handle).cloned().ok_or_else(|| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::NotificationFailure,
+                format!("ADS handle {handle} is not resolved for notification"),
+            )
+        })?;
+        self.ensure_transport(target, OnboardingWireErrorKind::NotificationFailure)?
+            .subscribe(AdsSubscribeRequest {
+                handle: resolved,
+                mode: UpdateMode::Notify,
+                notification_mode: AdsNotificationMode::OnChange,
+            })
+            .map(drop)
+            .map_err(|error| {
+                map_transport_error(
+                    OnboardingWireErrorKind::NotificationFailure,
+                    "subscribe ADS notification",
+                    error,
+                )
+            })
     }
 
     fn symbol_version(&mut self, target: &TargetIdentity) -> Result<u32, OnboardingWireError> {
@@ -707,6 +635,325 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
     }
 }
 
+/// Named mock scenarios required by the onboarding failure-mode suite.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MockAdsOnboardingScenario {
+    Healthy,
+    WrongIp,
+    DirectedIdentifyBlocked,
+    LoopbackIdentifyBlocked,
+    WrongAmsNetId,
+    MissingRoute,
+    FirewallBlocked,
+    WrongPlcPort,
+    SecureRequired,
+    EmptySymbols,
+    NotificationFailure,
+}
+
+/// Deterministic mock implementation for control-plane tests.
+#[derive(Debug, Clone)]
+pub struct MockAdsOnboardingWire {
+    scenario: MockAdsOnboardingScenario,
+    target: TargetIdentity,
+}
+
+impl MockAdsOnboardingWire {
+    pub fn new(scenario: MockAdsOnboardingScenario) -> Self {
+        Self {
+            scenario,
+            target: TargetIdentity {
+                name: Some("CX-1234".to_string()),
+                ip: "192.168.10.5".to_string(),
+                ams_net_id: "5.23.91.12.1.1".to_string(),
+                ams_port: 851,
+                tc_version: Some("3.1.4024".to_string()),
+            },
+        }
+    }
+
+    fn fail(
+        kind: OnboardingWireErrorKind,
+        detail: impl Into<String>,
+    ) -> Result<(), OnboardingWireError> {
+        Err(OnboardingWireError::new(kind, detail))
+    }
+
+    fn sample_symbol() -> SymbolDescriptor {
+        SymbolDescriptor::new(
+            "MAIN.Temperature",
+            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+            0x4020,
+            0,
+            4,
+        )
+        .with_flag(SymbolFlag::Read)
+        .with_flag(SymbolFlag::Write)
+    }
+}
+
+impl Default for MockAdsOnboardingWire {
+    fn default() -> Self {
+        Self::new(MockAdsOnboardingScenario::Healthy)
+    }
+}
+
+impl AdsOnboardingWire for MockAdsOnboardingWire {
+    fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
+        if matches!(
+            self.scenario,
+            MockAdsOnboardingScenario::WrongIp | MockAdsOnboardingScenario::DirectedIdentifyBlocked
+        ) || (self.scenario == MockAdsOnboardingScenario::LoopbackIdentifyBlocked
+            && matches!(target_ip, "127.0.0.1" | "localhost"))
+        {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::UdpIdentifyBlocked,
+                "target did not answer UDP identify",
+            ));
+        }
+        Ok(self.target.clone())
+    }
+
+    fn udp_identify_all(
+        &mut self,
+        target_ip: &str,
+    ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::DirectedIdentifyBlocked {
+            return Ok(vec![self.target.clone()]);
+        }
+        self.udp_identify(target_ip).map(|target| vec![target])
+    }
+
+    fn tcp_probe_48898(&mut self, _target_ip: &str) -> Result<(), OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::FirewallBlocked {
+            return Self::fail(
+                OnboardingWireErrorKind::Tcp48898Blocked,
+                "TCP 48898 did not accept a connection",
+            );
+        }
+        Ok(())
+    }
+
+    fn check_route(
+        &mut self,
+        _target: &TargetIdentity,
+        _local: &LocalIdentity,
+    ) -> Result<(), OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::MissingRoute {
+            return Self::fail(
+                OnboardingWireErrorKind::RouteMissing,
+                "target rejected route-back identity",
+            );
+        }
+        Ok(())
+    }
+
+    fn verify_ams_target(&mut self, target: &TargetIdentity) -> Result<(), OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::WrongAmsNetId
+            || target.ams_net_id != self.target.ams_net_id
+        {
+            return Self::fail(
+                OnboardingWireErrorKind::WrongAmsNetId,
+                "target AMS Net ID did not match",
+            );
+        }
+        Ok(())
+    }
+
+    fn read_state(&mut self, _target: &TargetIdentity) -> Result<String, OnboardingWireError> {
+        match self.scenario {
+            MockAdsOnboardingScenario::WrongPlcPort => Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                "PLC runtime port did not respond",
+            )),
+            MockAdsOnboardingScenario::SecureRequired => Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::SecureRequired,
+                "target requires Secure ADS",
+            )),
+            _ => Ok("run".to_string()),
+        }
+    }
+
+    fn upload_symbols(
+        &mut self,
+        _target: &TargetIdentity,
+    ) -> Result<Vec<SymbolDescriptor>, OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::EmptySymbols {
+            return Ok(Vec::new());
+        }
+        Ok(vec![Self::sample_symbol()])
+    }
+
+    fn resolve_handle(
+        &mut self,
+        _target: &TargetIdentity,
+        symbol: &str,
+    ) -> Result<u32, OnboardingWireError> {
+        if symbol.is_empty() {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::NoSymbols,
+                "symbol name was empty",
+            ));
+        }
+        Ok(42)
+    }
+
+    fn sumup_read(
+        &mut self,
+        _target: &TargetIdentity,
+        handles: &[u32],
+    ) -> Result<Vec<Vec<u8>>, OnboardingWireError> {
+        Ok(handles.iter().map(|_| vec![0, 0, 0, 0]).collect())
+    }
+
+    fn guarded_write_probe(
+        &mut self,
+        _target: &TargetIdentity,
+        _probe: &GuardedWriteProbe,
+    ) -> Result<(), OnboardingWireError> {
+        Ok(())
+    }
+
+    fn subscribe_notification(
+        &mut self,
+        _target: &TargetIdentity,
+        _symbol: &str,
+    ) -> Result<(), OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::NotificationFailure {
+            return Self::fail(
+                OnboardingWireErrorKind::NotificationFailure,
+                "notification sample was not delivered",
+            );
+        }
+        Ok(())
+    }
+
+    fn symbol_version(&mut self, _target: &TargetIdentity) -> Result<u32, OnboardingWireError> {
+        Ok(1)
+    }
+
+    fn add_route(&mut self, _request: &RouteAddRequest) -> Result<(), OnboardingWireError> {
+        Ok(())
+    }
+
+    fn remove_route(&mut self, _request: &RouteRemoveRequest) -> Result<(), OnboardingWireError> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "ads-wire")]
+fn udp_identify_all(
+    target_ip: &str,
+    receive_window: Duration,
+) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
+    let request = ads::udp::Message::new(ads::udp::ServiceId::Identify, ads::AmsAddr::default());
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|error| {
+        OnboardingWireError::new(
+            OnboardingWireErrorKind::UdpIdentifyBlocked,
+            format!("bind ADS UDP identify socket: {error}"),
+        )
+    })?;
+    socket.set_broadcast(true).map_err(|error| {
+        OnboardingWireError::new(
+            OnboardingWireErrorKind::UdpIdentifyBlocked,
+            format!("enable ADS UDP broadcast: {error}"),
+        )
+    })?;
+    socket
+        .set_read_timeout(Some(receive_window))
+        .map_err(|error| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::UdpIdentifyBlocked,
+                format!("set ADS UDP identify timeout: {error}"),
+            )
+        })?;
+    socket
+        .send_to(request.as_bytes(), (target_ip, ads::UDP_PORT))
+        .map_err(|error| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::UdpIdentifyBlocked,
+                format!("send ADS UDP identify to {target_ip}: {error}"),
+            )
+        })?;
+
+    let mut results = Vec::new();
+    let mut reply = [0_u8; 576];
+    loop {
+        match socket.recv_from(&mut reply) {
+            Ok((len, peer)) => {
+                let Ok(message) =
+                    ads::udp::Message::parse(&reply[..len], ads::udp::ServiceId::Identify, true)
+                else {
+                    continue;
+                };
+                let identity = target_identity_from_udp_message(&message, peer);
+                if !results.iter().any(|existing: &TargetIdentity| {
+                    existing.ip == identity.ip || existing.ams_net_id == identity.ams_net_id
+                }) {
+                    results.push(identity);
+                }
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                break;
+            }
+            Err(error) => {
+                return Err(OnboardingWireError::new(
+                    OnboardingWireErrorKind::UdpIdentifyBlocked,
+                    format!("receive ADS UDP identify replies: {error}"),
+                ));
+            }
+        }
+    }
+
+    if results.is_empty() {
+        Err(OnboardingWireError::new(
+            OnboardingWireErrorKind::UdpIdentifyBlocked,
+            format!("ADS UDP identify failed for {target_ip}: no target answered"),
+        ))
+    } else {
+        Ok(results)
+    }
+}
+
+#[cfg(feature = "ads-wire")]
+fn target_identity_from_udp_message(
+    message: &ads::udp::Message,
+    peer: SocketAddr,
+) -> TargetIdentity {
+    TargetIdentity {
+        name: message
+            .get_str(ads::udp::Tag::ComputerName)
+            .filter(|name| !name.is_empty())
+            .map(ToString::to_string),
+        ip: peer.ip().to_string(),
+        ams_net_id: message.get_source().netid().to_string(),
+        ams_port: DEFAULT_ADS_PLC_PORT,
+        tc_version: message
+            .get_bytes(ads::udp::Tag::TCVersion)
+            .and_then(parse_tc_version_tag)
+            .and_then(tc_version_string),
+    }
+}
+
+#[cfg(feature = "ads-wire")]
+fn parse_tc_version_tag(bytes: &[u8]) -> Option<(u8, u8, u16)> {
+    (bytes.len() >= 4).then(|| (bytes[0], bytes[1], u16::from_le_bytes([bytes[2], bytes[3]])))
+}
+
+#[cfg(feature = "ads-wire")]
+fn tc_version_string(version: (u8, u8, u16)) -> Option<String> {
+    if version == (0, 0, 0) {
+        None
+    } else {
+        Some(format!("{}.{}.{}", version.0, version.1, version.2))
+    }
+}
+
 #[cfg(feature = "ads-wire")]
 fn first_socket_addr(target: (&str, u16)) -> Result<SocketAddr, std::io::Error> {
     target.to_socket_addrs()?.next().ok_or_else(|| {
@@ -737,54 +984,7 @@ fn write_probe_type_matches(
 fn map_transport_error(
     kind: OnboardingWireErrorKind,
     context: &'static str,
-    error: AdsTransportError,
+    error: impl std::fmt::Display,
 ) -> OnboardingWireError {
-    let ads_error = error.ads_error().cloned();
-    let transport_failure = error.failure_kind();
-    let mut mapped = OnboardingWireError::new(kind, format!("{context}: {error}"));
-    if let Some(error) = ads_error {
-        mapped = mapped.with_ads_error(error.code, error.name);
-    }
-    if let Some(failure) = transport_failure {
-        mapped = mapped.with_transport_failure(failure);
-    }
-    mapped
-}
-
-#[cfg(all(test, feature = "ads-wire"))]
-mod transport_error_tests {
-    use super::*;
-
-    #[test]
-    fn exact_ads_0x507_survives_transport_to_onboarding_boundary() {
-        let error = AdsTransportError::new("localized native error")
-            .with_ads_error(0x507, "Router: port not registered");
-
-        let error = map_transport_error(
-            OnboardingWireErrorKind::NoSymbols,
-            "upload ADS symbol table",
-            error,
-        );
-
-        let ads_error = error.ads_error.expect("structured ADS error");
-        assert_eq!(ads_error.code, 0x507);
-        assert_eq!(ads_error.name, "Router: port not registered");
-    }
-
-    #[test]
-    fn timeout_semantics_survive_transport_to_onboarding_boundary() {
-        let error = AdsTransportError::new("localized native error")
-            .with_failure_kind(crate::ads::AdsTransportFailureKind::TimedOut);
-
-        let error = map_transport_error(
-            OnboardingWireErrorKind::NoSymbols,
-            "upload ADS symbol table",
-            error,
-        );
-
-        assert_eq!(
-            error.transport_failure,
-            Some(crate::ads::AdsTransportFailureKind::TimedOut)
-        );
-    }
+    OnboardingWireError::new(kind, format!("{context}: {error}"))
 }

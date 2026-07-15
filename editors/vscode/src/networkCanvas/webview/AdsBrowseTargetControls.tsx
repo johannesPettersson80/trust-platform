@@ -1,25 +1,22 @@
 import React, { useEffect, useState } from "react";
 
+import { respondingAdsPorts } from "../adsDiscoveryPorts";
 import {
   adsPortDraftIsStale,
   adsTargetNetId,
   adsTargetPort,
-  confirmedAdsBrowseRetryTarget,
   parseAdsPortInput,
   withAdsTargetPort,
 } from "./adsTargetPort";
-import { adsServicePresentation } from "./discoverPaneModel";
 
 export function AdsBrowseTargetControls({
   target,
   loading,
-  browseFailed,
   onBrowse,
   onDraftStaleChange,
 }: {
   target: Record<string, unknown>;
   loading: boolean;
-  browseFailed: boolean;
   onBrowse: (target: Record<string, unknown>) => void;
   onDraftStaleChange: (stale: boolean) => void;
 }) {
@@ -27,50 +24,12 @@ export function AdsBrowseTargetControls({
   const [portDraft, setPortDraft] = useState(String(targetPort));
   const parsedPort = parseAdsPortInput(portDraft);
   const netId = adsTargetNetId(target);
-  const confirmedByDiscovery = target.ads_port_confirmed === true;
-  const retryTarget = confirmedAdsBrowseRetryTarget(
-    target,
-    loading,
-    browseFailed
-  );
+  const discoveredPorts = respondingAdsPorts(target);
 
   useEffect(() => {
     setPortDraft(String(targetPort));
     onDraftStaleChange(false);
   }, [onDraftStaleChange, targetPort]);
-
-  if (confirmedByDiscovery) {
-    const service = adsServicePresentation(targetPort);
-    return (
-      <div
-        data-role="ads-confirmed-service"
-        className="trust-section"
-        style={SECTION}
-      >
-        <div>
-          <span style={LABEL}>Selected ADS service</span>
-          <strong style={{ display: "block", marginTop: 2, color: "var(--trust-text)" }}>
-            {service.primary} ({service.secondary})
-          </strong>
-        </div>
-        <p className="trust-help" style={{ marginTop: 6 }}>
-          {loading
-            ? "Loading the ADS service selected in Discover…"
-            : "Using the ADS service selected in Discover."}
-        </p>
-        {retryTarget && (
-          <button
-            type="button"
-            data-role="ads-retry-confirmed-browse"
-            className="trust-button"
-            onClick={() => onBrowse(retryTarget)}
-          >
-            Retry browse
-          </button>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="trust-section" style={SECTION}>
@@ -78,6 +37,34 @@ export function AdsBrowseTargetControls({
         <span style={LABEL}>AMS Net ID</span>
         <code style={NET_ID}>{netId}</code>
       </div>
+      {discoveredPorts.length > 0 && (
+        <div data-role="responding-ads-ports" style={RESPONDING_PORTS}>
+          <span style={LABEL}>Responding ADS ports</span>
+          <div style={PORT_BUTTONS}>
+            {discoveredPorts.map((port) => (
+              <button
+                key={port}
+                type="button"
+                data-ads-port={port}
+                aria-pressed={parsedPort.port === port}
+                className={
+                  parsedPort.port === port
+                    ? "trust-button trust-button--primary"
+                    : "trust-button"
+                }
+                style={PORT_BUTTON}
+                onClick={() => {
+                  const draft = String(port);
+                  setPortDraft(draft);
+                  onDraftStaleChange(adsPortDraftIsStale(draft, target));
+                }}
+              >
+                {port}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={PORT_ROW}>
         <label style={{ flex: 1, minWidth: 0 }}>
           <span style={LABEL}>ADS port</span>
@@ -100,12 +87,10 @@ export function AdsBrowseTargetControls({
             style={{ marginTop: 4 }}
           />
           <datalist id="trust-common-ads-ports">
-            <option value="301">Common ADS service (301)</option>
-            <option value="501">Common ADS service (501)</option>
+            <option value="301">I/O</option>
+            <option value="501">Motion</option>
             <option value="851">PLC runtime 1</option>
             <option value="852">PLC runtime 2</option>
-            <option value="853">PLC runtime 3</option>
-            <option value="854">PLC runtime 4</option>
           </datalist>
         </label>
         <button
@@ -120,7 +105,7 @@ export function AdsBrowseTargetControls({
             }
           }}
         >
-          {loading ? "Browsing…" : "Browse variables"}
+          {loading ? "Browsing…" : "Browse symbols"}
         </button>
       </div>
       {parsedPort.error && (
@@ -133,8 +118,8 @@ export function AdsBrowseTargetControls({
         </div>
       )}
       <p className="trust-help" style={{ marginTop: 6 }}>
-        Each ADS service port exposes a separate variable namespace. The service must support the
-        ADS Symbol Upload capability.
+        Each ADS port is a separate server and symbol namespace. The server must support Symbol
+        Upload.
       </p>
     </div>
   );
@@ -142,7 +127,7 @@ export function AdsBrowseTargetControls({
 
 const SECTION: React.CSSProperties = {
   padding: "10px 14px",
-  borderBottom: "1px solid var(--trust-border)",
+  borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
 };
 const SERVER_IDENTITY: React.CSSProperties = {
   display: "flex",
@@ -151,12 +136,12 @@ const SERVER_IDENTITY: React.CSSProperties = {
   minWidth: 0,
 };
 const LABEL: React.CSSProperties = {
-  color: "var(--trust-text-muted)",
+  color: "var(--vscode-descriptionForeground, #7f8794)",
   fontSize: 10.5,
   fontWeight: 600,
 };
 const NET_ID: React.CSSProperties = {
-  color: "var(--trust-text)",
+  color: "var(--vscode-foreground, #eef1f5)",
   fontSize: 11,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -166,4 +151,18 @@ const PORT_ROW: React.CSSProperties = {
   alignItems: "end",
   gap: 8,
   marginTop: 8,
+};
+const RESPONDING_PORTS: React.CSSProperties = {
+  marginTop: 8,
+};
+const PORT_BUTTONS: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+  marginTop: 4,
+};
+const PORT_BUTTON: React.CSSProperties = {
+  minHeight: 23,
+  padding: "1px 8px",
+  fontSize: 10.5,
 };

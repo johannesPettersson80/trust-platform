@@ -424,12 +424,6 @@ END_PROGRAM
                         summary: "ADS is not configured.".to_string(),
                     });
                 }
-                ResourceCommand::AdsLiveValues { respond_to } => {
-                    let _ = respond_to.send(trust_runtime::ads::AdsLiveValuesSnapshot::new(
-                        1,
-                        Vec::new(),
-                    ));
-                }
                 ResourceCommand::OpcUaClientStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::opcua::OpcUaClientStatusReport {
                         enabled: false,

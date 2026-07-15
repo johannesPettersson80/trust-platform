@@ -2,83 +2,62 @@ import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
-  isStructuralRuntimeLifecycleChange,
   runtimeLifecycleService,
   type RuntimeLifecycleSnapshot,
 } from "./runtimeLifecycle";
-import {
-  listManagedRuntimes,
-  onDidChangeManagedRuntimes,
-} from "./localRuntime";
+import { listManagedRuntimes, onDidChangeManagedRuntimes } from "./localRuntime";
 import {
   getSelectedRuntimeId,
   onDidChangeSelectedRuntime,
 } from "./selectedRuntime";
 import {
   remoteLabelFromEndpoint,
-  runtimeOptions,
   selectedRuntime,
-  SIMULATOR_RUNTIME_ID,
   type RemoteRuntime,
+  type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import { workspaceHasReadableTrustProject } from "./workspaceProject";
-import { LatestOnlyRevision } from "./latestOnlyRevision";
-import {
-  runtimeAuthoritySelection,
-  runtimeModelSnapshotForLifecycle,
-} from "./runtimeAuthoritySelection";
 
 // §UX (reset 2026-06-22) — the status bar is PASSIVE. It shows the ACTIVE runtime's honest state and,
 // on click, reveals the truST sidebar. It contributes NO Start/Stop command: there is exactly ONE
-// run surface (the sidebar action row). The canvas is passive lifecycle status for the local
-// Simulator. Never fabricate running/connected.
+// run surface (the sidebar action row / canvas runtime node). Never fabricate running/connected.
 
-export function registerRuntimeControls(
-  context: vscode.ExtensionContext,
-): void {
+export function registerRuntimeControls(context: vscode.ExtensionContext): void {
   const item = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
-    100,
+    100
   );
   // Click only reveals the truST sidebar — it is not a run control.
   item.command = "trust.home.focus";
   item.tooltip = "Open the truST sidebar";
   context.subscriptions.push(item);
-  const refreshRevision = new LatestOnlyRevision();
 
   async function refresh(): Promise<void> {
-    const revision = refreshRevision.begin();
     const snapshot = await runtimeLifecycleService.snapshot();
-    const text = await statusText(context, snapshot);
-    if (!refreshRevision.isCurrent(revision)) {
-      return;
-    }
-    item.text = text;
+    item.text = await statusText(context, snapshot);
     item.show();
   }
 
   context.subscriptions.push(
-    runtimeLifecycleService.onDidChange((change) => {
-      if (isStructuralRuntimeLifecycleChange(change)) {
-        void refresh();
-      }
-    }),
+    runtimeLifecycleService.onDidChange(() => {
+      void refresh();
+    })
   );
   context.subscriptions.push(
     onDidChangeSelectedRuntime(() => {
       void refresh();
-    }),
+    })
   );
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => {
       void refresh();
-    }),
+    })
   );
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       void refresh();
-    }),
+    })
   );
   for (const pattern of ["**/trust-lsp.toml", "**/runtime.toml"]) {
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
@@ -92,7 +71,7 @@ export function registerRuntimeControls(
       }),
       watcher.onDidDelete(() => {
         void refresh();
-      }),
+      })
     );
   }
 
@@ -101,33 +80,37 @@ export function registerRuntimeControls(
 
 async function statusText(
   context: vscode.ExtensionContext,
-  snapshot: RuntimeLifecycleSnapshot,
+  snapshot: RuntimeLifecycleSnapshot
 ): Promise<string> {
   if (!(await workspaceHasReadableTrustProject())) {
     return "$(circle-outline) truST: No project";
   }
+  if (snapshot.status.runtimeState === "connected") {
+    const label =
+      snapshot.status.targetLabel?.trim() ||
+      connectedEndpointLabel(snapshot.status.endpoint);
+    return `$(plug) truST: ${label} connected`;
+  }
   const remotes = readRemotes();
   const managed = await listManagedRuntimes(context);
-  const stored = getSelectedRuntimeId();
-  const configuredSelectedId = runtimeOptions(remotes, managed).some(
-    (option) => option.id === stored,
-  )
-    ? stored
-    : SIMULATOR_RUNTIME_ID;
-  const authority = runtimeAuthoritySelection(
-    snapshot,
+  const selected = selectedRuntime({
+    snapshot: toModelSnapshot(snapshot),
     remotes,
     managed,
-    configuredSelectedId,
-  );
-  const selected = selectedRuntime({
-    snapshot: runtimeModelSnapshotForLifecycle(snapshot, authority.target),
-    remotes: authority.remotes,
-    managed,
-    selectedId: authority.selectedId,
-    managedSessionId: authority.managedSessionId,
+    selectedId: getSelectedRuntimeId(),
   });
   return selectedStatusText(selected);
+}
+
+function connectedEndpointLabel(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (!trimmed) {
+    return "runtime";
+  }
+  if (/^unix:\/\//i.test(trimmed)) {
+    return "runtime";
+  }
+  return remoteLabelFromEndpoint(trimmed);
 }
 
 function selectedStatusText(selected: SelectedRuntime): string {
@@ -152,7 +135,7 @@ function selectedStatusText(selected: SelectedRuntime): string {
 function statusTargetLabel(selected: SelectedRuntime): string {
   switch (selected.kind) {
     case "remote":
-      return selected.label;
+      return remoteLabelFromEndpoint(selected.id);
     case "local":
       return selected.id;
     case "simulator":
@@ -163,9 +146,7 @@ function statusTargetLabel(selected: SelectedRuntime): string {
 
 function readRemotes(): RemoteRuntime[] {
   const endpoints =
-    getTrustConfiguration(runtimeLifecycleService.runtimeConfigTarget()).get<
-      string[]
-    >("runtime.fleetEndpoints", []) ?? [];
+    getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
   const seen = new Set<string>();
   const remotes: RemoteRuntime[] = [];
   for (const raw of endpoints) {
@@ -177,4 +158,15 @@ function readRemotes(): RemoteRuntime[] {
     remotes.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint) });
   }
   return remotes;
+}
+
+function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {
+  return {
+    runtimeMode: snapshot.status.runtimeMode,
+    runtimeState: snapshot.status.runtimeState,
+    endpoint: snapshot.status.endpoint,
+    endpointConfigured: snapshot.status.endpointConfigured,
+    endpointReachable: snapshot.status.endpointReachable,
+    starting: snapshot.starting,
+  };
 }

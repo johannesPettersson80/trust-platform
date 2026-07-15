@@ -59,12 +59,6 @@ function externalLabel(ext: NCExternal, links: readonly NCLink[]): string {
     link.protocol.replace(/_/g, " ").toLowerCase(),
   ]);
   const lower = name.toLowerCase();
-  // ADS is a protocol, not a synonym for TwinCAT. Keep the runtime's
-  // vendor-neutral device identity instead of turning "ADS device" into the
-  // direction label "Read from ADS device" on the external counterpart.
-  if (link.protocol === "ads" && lower.startsWith("ads device ")) {
-    return name;
-  }
   for (const raw of rawProtocolNames) {
     if (lower === raw) {
       return protocolName(link.protocol);
@@ -234,6 +228,7 @@ export function buildGraph(
           role: ep.role ?? "",
           detail: ep.detail,
           health: ep.health,
+          runtimeHealth: rt.health,
           dimmed: Boolean(ep.dimmed),
           live: ep.live,
           connector: ep.connector,

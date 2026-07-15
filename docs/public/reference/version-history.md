@@ -2,24 +2,14 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.33`
-- public docs in this tree describe the `v0.24.33` workspace version unless a
+- current repository baseline: `v0.24.25`
+- public docs in this tree describe the `v0.24.25` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
-- ADS discovery in Devices & Connections uses one **Discover ADS devices**
-  action for this computer and the local network. It reports responding logical
-  services `851`–`854`, `301`, and `501`, keeps known address, AMS Net ID, and
-  custom ports under **Advanced**, and preserves actionable errors and remote
-  route recovery. Same-computer Windows ADS uses the installed native router
-  without a self-route. Simulator Start no longer opens Live Values, all visible
-  runtime surfaces share one accepted lifecycle state, and imported ADS tags
-  appear as read-only value/type/quality rows in Live Values. Windows simulator
-  scaffolds and existing local projects receive valid authenticated control
-  configuration without a manual TOML fix.
 - Beckhoff ADS client import is documented as an external-system workflow:
   the VS Code ADS panel and `/setup/ads` runtime-host wizard derive the runtime
   identity, plan routes, run the ADS Doctor, and import TwinCAT symbols into

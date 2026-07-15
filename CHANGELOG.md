@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.33`
+Target release: `v0.24.34`
 
 ### Added
 
@@ -14,6 +14,17 @@ Target release: `v0.24.33`
   port before browsing symbols, defaults to PLC port `851`, preserves non-851
   ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
   port, unsupported Symbol Upload, and an empty or incompatible symbol table.
+
+### Fixed
+
+- vscode/trust-runtime: Windows ADS discovery now uses the installed TwinCAT
+  router for same-computer port and symbol operations, and Devices & Connections
+  no longer offers an unverified ADS identity as an actionable fallback device.
+- vscode: Devices & Connections now renders cached project state before runtime
+  enrichment and schedules polling only after each refresh completes, preventing
+  slow Windows requests from starving the canvas; simulator Start now waits for
+  the real Structured Text debug session and bounds I/O probes so a successful
+  launch is not reported as a timeout.
 
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
@@ -30,10 +41,8 @@ Target release: `v0.24.33`
   configuration available.
 - vscode/trust-debug: Devices & Connections can add browsed ADS tags to a
   stopped project through the same deterministic `ads import-symbols` pipeline,
-  and simulator/debug launches now load the project's ADS configuration. Live
-  Values renders imported ADS rows under **Connected variables → ADS** with
-  value, IEC type, source connection/remote symbol, and runtime-owned
-  Good/Stale/Error quality; those commissioning rows are explicitly read-only.
+  and simulator/debug launches now load the project's ADS configuration so the
+  generated `_quality` globals prove the live TwinCAT read path in Live Values.
 - trust-runtime: Modbus TCP I/O can now explicitly select FC01/FC02/FC03 input
   reads and FC05/FC06/FC15/FC16 output writes through `input_function` and
   `output_function`, and can use optional per-point maps with bool/u16/i16/u32/
@@ -238,21 +247,6 @@ Target release: `v0.24.33`
 
 ### Changed
 
-- vscode/trust-runtime: replaced the location-driven TwinCAT discovery wizard
-  with one **Discover ADS devices** action. The normal action searches this
-  computer and the local network, checks logical ADS services `851`–`854`,
-  `301`, and `501`, and shows the responding services on each device while
-  keeping unavailable checks in collapsed technical details. Known Host/IP,
-  AMS Net ID, and up to four custom logical services are additive
-  **Advanced** recovery inputs. Exactly one browsable service is selected
-  automatically; multiple browsable services require an explicit choice. At
-  narrow editor widths, the single discovery action reflows to a full-width
-  button instead of clipping its label.
-- vscode: the Run card now starts one accepted Simulator session without
-  opening or focusing Live Values. The sidebar, status bar, and Devices &
-  Connections project the same Starting/Running/Stopped lifecycle state, and
-  Live Values is a passive value surface without hidden runtime lifecycle
-  controls.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
@@ -337,37 +331,6 @@ Target release: `v0.24.33`
 
 ### Fixed
 
-- vscode/trust-debug: Windows simulator projects now include authenticated TCP
-  control configuration, existing tokenless local projects are repaired before
-  launch, known placeholder tokens such as `some-secret-value` are rotated to a
-  random value, and per-workspace simulator control uses an authenticated
-  loopback endpoint so users no longer need to hand-edit `runtime.toml`.
-- trust-runtime/vscode: ADS discovery now rejects inline `host:port` and invalid
-  AMS Net IDs before wire I/O, preserves actionable command failures instead of
-  reporting a successful `0 found`, and keeps an identified ADS device visible
-  when route or logical-service checks fail. On Windows, same-computer
-  discovery, Doctor, symbol access, and runtime reads use the installed native
-  ADS router API with its router-assigned source identity; they do not require
-  a static self-route or fall back to a raw loopback AMS/TCP client.
-- trust-runtime: ADS LAN identity discovery now sends one bounded retry inside
-  the existing receive window, avoiding intermittent `0 found` results when the
-  first connectionless Identify request or reply is lost.
-- ci: Windows release gating now packages the real `win32-x64` VSIX, binds it
-  to the exact candidate commit, retains that byte-identical candidate for the
-  TwinCAT laptop, and runs the packaged Simulator Start/Stop/auth journey with
-  persistent screenshots. Its restart proof reads the canvas runtime card's
-  semantic lifecycle health while independently checking the visible
-  `Starting…` label, so punctuation cannot hide or falsely reject the Starting
-  state. The package gate requires the embedded runtime, debug adapter, and LSP
-  Windows binaries, proves the native same-computer ADS path, returns structured
-  local-router/runtime failures, and never opens a raw TCP `48898`
-  self-connection.
-- scripts: added one-command private Windows/TwinCAT acceptance for the exact
-  CI VSIX, covering zero-input discovery, logical ADS services `851`-`854`,
-  `301`, `501`, Advanced custom ports, native Doctor source/target AMS address
-  proof, read-only symbol import, restart, ADS Live Values, reviewed screenshots,
-  and byte-identical `StaticRoutes.xml` before/after evidence without modifying
-  TwinCAT routes.
 - ci: the main-branch version release guard now allows 90 minutes for a matching
   Release workflow to finish, with a larger job budget and a focused regression
   test, so healthy cold Windows artifact builds do not fail release evidence at

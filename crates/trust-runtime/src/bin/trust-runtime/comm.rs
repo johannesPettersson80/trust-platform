@@ -43,8 +43,6 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             origin,
             cidr,
             host,
-            target_net_id,
-            ams_port,
             adapter,
             timeout_ms,
             unit_id,
@@ -59,12 +57,6 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             }
             if let Some(host) = host {
                 scope.insert("host".to_string(), json!(host));
-            }
-            if let Some(target_net_id) = target_net_id {
-                scope.insert("target_ams_net_id".to_string(), json!(target_net_id));
-            }
-            if let Some(ams_port) = ams_port {
-                scope.insert("ams_port".to_string(), json!(ams_port));
             }
             if let Some(adapter) = adapter {
                 scope.insert("adapter".to_string(), json!(adapter));

@@ -1,6 +1,6 @@
-#[cfg(any(windows, test))]
+#[cfg(any(target_os = "windows", test))]
 use std::net::IpAddr;
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 use std::net::ToSocketAddrs;
 
 use trust_ads_core::{AdsRoute, PointQuality, SymbolDescriptor};
@@ -12,18 +12,13 @@ use super::transport::{
     AdsSubscribeRequest, AdsSubscription, AdsTransport, AdsTransportError, AdsWriteRequest,
 };
 
-/// Concrete backend selected for an ADS target on the current host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostAdsBackendKind {
-    /// Existing cross-platform ADS/TCP client used for remote targets.
     DirectTcp,
-    /// Installed TwinCAT router API used for targets on the same Windows host.
     NativeWindowsRouter,
 }
 
-/// Host-aware ADS transport. It preserves direct ADS/TCP for remote devices,
-/// but same-computer Windows traffic is never sent through the raw TCP client.
-pub struct HostAdsTransport {
+pub struct HostAdsClient {
     backend: HostAdsTransportInner,
 }
 
@@ -32,7 +27,7 @@ enum HostAdsTransportInner {
     NativeWindowsRouter(WindowsAdsTransport),
 }
 
-impl HostAdsTransport {
+impl HostAdsClient {
     #[must_use]
     pub fn new(route: AdsRoute) -> Self {
         let backend = match detected_backend_kind(route.host.as_str()) {
@@ -107,22 +102,9 @@ impl HostAdsTransport {
     pub fn symbol_version(&mut self) -> Result<u32, AdsTransportError> {
         <Self as AdsTransport>::symbol_version(self)
     }
-
-    /// Native source AMS address assigned by the local TwinCAT router.
-    ///
-    /// This is available only while the native Windows backend is connected.
-    #[must_use]
-    pub fn native_local_address(&self) -> Option<(String, u16)> {
-        match &self.backend {
-            HostAdsTransportInner::NativeWindowsRouter(transport) => transport
-                .local_address()
-                .map(|address| (address.net_id.to_string(), address.port)),
-            HostAdsTransportInner::DirectTcp(_) => None,
-        }
-    }
 }
 
-impl AdsTransport for HostAdsTransport {
+impl AdsTransport for HostAdsClient {
     fn connect(&mut self) -> Result<(), AdsTransportError> {
         match &mut self.backend {
             HostAdsTransportInner::DirectTcp(transport) => transport.connect(),
@@ -212,12 +194,12 @@ impl AdsTransport for HostAdsTransport {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(target_os = "windows"))]
 fn detected_backend_kind(_target_host: &str) -> HostAdsBackendKind {
     HostAdsBackendKind::DirectTcp
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn detected_backend_kind(target_host: &str) -> HostAdsBackendKind {
     let resolved_targets = resolve_target_addresses(target_host);
     let mut local_addresses = vec![
@@ -227,11 +209,6 @@ fn detected_backend_kind(target_host: &str) -> HostAdsBackendKind {
     if let Ok(interfaces) = if_addrs::get_if_addrs() {
         local_addresses.extend(interfaces.into_iter().map(|interface| interface.ip()));
     }
-    local_addresses.extend(
-        resolved_targets
-            .iter()
-            .filter_map(|target| routed_source_address(*target)),
-    );
     let computer_name = std::env::var("COMPUTERNAME").ok();
     select_backend_kind(
         true,
@@ -242,19 +219,7 @@ fn detected_backend_kind(target_host: &str) -> HostAdsBackendKind {
     )
 }
 
-pub(super) fn target_uses_native_windows_router(target_host: &str) -> bool {
-    #[cfg(windows)]
-    {
-        detected_backend_kind(target_host) == HostAdsBackendKind::NativeWindowsRouter
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = target_host;
-        false
-    }
-}
-
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn resolve_target_addresses(target_host: &str) -> Vec<IpAddr> {
     let normalized = target_host
         .trim()
@@ -269,18 +234,7 @@ fn resolve_target_addresses(target_host: &str) -> Vec<IpAddr> {
         .unwrap_or_default()
 }
 
-#[cfg(windows)]
-fn routed_source_address(target: IpAddr) -> Option<IpAddr> {
-    let bind = match target {
-        IpAddr::V4(_) => "0.0.0.0:0",
-        IpAddr::V6(_) => "[::]:0",
-    };
-    let socket = std::net::UdpSocket::bind(bind).ok()?;
-    socket.connect((target, 9)).ok()?;
-    socket.local_addr().ok().map(|address| address.ip())
-}
-
-#[cfg(any(windows, test))]
+#[cfg(any(target_os = "windows", test))]
 fn select_backend_kind(
     platform_is_windows: bool,
     target_host: &str,
@@ -307,7 +261,7 @@ fn select_backend_kind(
     }
 }
 
-#[cfg(any(windows, test))]
+#[cfg(any(target_os = "windows", test))]
 fn normalized_host(value: &str) -> String {
     value
         .trim()
@@ -317,7 +271,7 @@ fn normalized_host(value: &str) -> String {
         .to_ascii_lowercase()
 }
 
-#[cfg(any(windows, test))]
+#[cfg(any(target_os = "windows", test))]
 fn canonical_ip(address: IpAddr) -> IpAddr {
     match address {
         IpAddr::V6(address) => address
@@ -336,76 +290,45 @@ mod tests {
     }
 
     #[test]
-    fn non_windows_always_preserves_direct_ads_tcp() {
-        assert_eq!(
-            select_backend_kind(
-                false,
-                "localhost",
-                &[ip("127.0.0.1")],
-                &[ip("127.0.0.1")],
-                Some("PLC-DEV")
+    fn windows_same_computer_targets_use_native_router() {
+        for (host, resolved, local, computer_name) in [
+            ("localhost", vec![ip("127.0.0.1")], vec![], None),
+            ("127.0.0.1", vec![ip("127.0.0.1")], vec![], None),
+            (
+                "192.168.77.11",
+                vec![ip("192.168.77.11")],
+                vec![ip("192.168.77.11")],
+                Some("PLC-LAPTOP"),
             ),
-            HostAdsBackendKind::DirectTcp
-        );
-    }
-
-    #[test]
-    fn windows_loopback_and_localhost_use_native_router() {
-        for (host, resolved) in [
-            ("localhost", ip("127.0.0.1")),
-            ("127.0.0.1", ip("127.0.0.1")),
-            ("[::1]", ip("::1")),
+            ("plc-laptop", vec![], vec![], Some("PLC-LAPTOP")),
         ] {
             assert_eq!(
-                select_backend_kind(true, host, &[resolved], &[], None),
+                select_backend_kind(true, host, &resolved, &local, computer_name),
                 HostAdsBackendKind::NativeWindowsRouter
             );
         }
     }
 
     #[test]
-    fn windows_local_nic_ip_and_computer_name_use_native_router() {
+    fn linux_and_windows_remote_targets_preserve_direct_tcp() {
         assert_eq!(
             select_backend_kind(
-                true,
-                "192.168.50.42",
-                &[ip("192.168.50.42")],
-                &[ip("192.168.50.42")],
-                Some("PLC-DEV")
+                false,
+                "127.0.0.1",
+                &[ip("127.0.0.1")],
+                &[ip("127.0.0.1")],
+                None
             ),
-            HostAdsBackendKind::NativeWindowsRouter
+            HostAdsBackendKind::DirectTcp
         );
-        assert_eq!(
-            select_backend_kind(true, "plc-dev.", &[], &[], Some("PLC-DEV")),
-            HostAdsBackendKind::NativeWindowsRouter
-        );
-    }
-
-    #[test]
-    fn windows_remote_target_preserves_direct_ads_tcp() {
         assert_eq!(
             select_backend_kind(
                 true,
                 "192.168.77.40",
                 &[ip("192.168.77.40")],
-                &[ip("192.168.50.42")],
-                Some("PLC-DEV")
+                &[ip("192.168.77.11")],
+                Some("PLC-LAPTOP")
             ),
-            HostAdsBackendKind::DirectTcp
-        );
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn linux_factory_uses_direct_transport_even_for_loopback() {
-        let route = AdsRoute::new(
-            "fixture",
-            trust_ads_core::AmsNetId::new("127.0.0.1.1.1"),
-            "127.0.0.1",
-            851,
-        );
-        assert_eq!(
-            HostAdsTransport::new(route).backend_kind(),
             HostAdsBackendKind::DirectTcp
         );
     }

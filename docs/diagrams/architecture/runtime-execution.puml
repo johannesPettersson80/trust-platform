@@ -407,10 +407,9 @@ package "ADS Client Interop" as adsPkg #LightCyan {
         card "2. Generate single project-level\nsrc/generated/ads_generated.st" as ads2
         card "3. Compile generated globals\nas normal ST metadata" as ads3
         card "4. Bundle startup resolves declared global\n-> ValueRef + TypeId and starts workers" as ads4
-        card "5. Worker thread owns HostAdsTransport\nWindows-local: TcAdsDll router API\nremote: direct ADS/TCP" as ads5
+        card "5. Worker thread owns ADS transport\nsum-up read/write + notifications\n+ symbol-version checks" as ads5
         card "6. Shared cache stores\nValue + PointQuality" as ads6
         card "7. Scan boundary copies cache\nand queues write intents only" as ads7
-        card "8. Read-only ADS Live Values snapshot\nscan-owned value + committed quality" as ads8
     }
 
     ads1 --> ads2
@@ -419,7 +418,6 @@ package "ADS Client Interop" as adsPkg #LightCyan {
     ads4 --> ads5
     ads5 --> ads6
     ads6 --> ads7
-    ads7 --> ads8
 
     note right of ads7
         The scan thread performs no ADS
@@ -427,13 +425,6 @@ package "ADS Client Interop" as adsPkg #LightCyan {
         writes, notifications, reconnects,
         and symbol-version revalidation
         stay on the worker thread.
-    end note
-
-    note right of ads8
-        Local debug sessions expose this snapshot
-        as stAdsState. Remote debug sessions proxy
-        viewer-gated ads.live_values. Rendering the
-        snapshot never owns runtime lifecycle state.
     end note
 }
 

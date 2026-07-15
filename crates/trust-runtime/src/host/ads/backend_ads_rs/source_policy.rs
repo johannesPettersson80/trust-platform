@@ -94,28 +94,17 @@ mod tests {
             "LOCALHOST",
             "localhost.",
         ] {
+            let route = plain_route(host, Some("127.0.0.1.1.1"));
             assert_eq!(
-                source_policy_for_route(&plain_route(host, Some("192.168.10.20.1.1"))),
+                source_policy_for_route(&route),
                 AdsSourcePolicy::RouterAssigned,
-                "loopback host {host} must ask the local AMS router even when a source Net ID is configured"
+                "loopback host {host} must ask the local AMS Router for its source identity"
             );
             assert!(matches!(
-                ads_source_for_route(&plain_route(host, Some("192.168.10.20.1.1")))
-                    .expect("valid source policy"),
+                ads_source_for_route(&route).expect("valid loopback source policy"),
                 ads::Source::Request
             ));
         }
-    }
-
-    #[test]
-    fn loopback_source_policy_preserves_direct_server_fallback() {
-        let sources =
-            ads_source_candidates_for_route(&plain_route("127.0.0.1", Some("127.0.0.1.1.1")))
-                .expect("valid loopback source candidates");
-
-        assert_eq!(sources.len(), 2);
-        assert!(matches!(sources[0], ads::Source::Request));
-        assert!(matches!(sources[1], ads::Source::Addr(_)));
     }
 
     #[test]

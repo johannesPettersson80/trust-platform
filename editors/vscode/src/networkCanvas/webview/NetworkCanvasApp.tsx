@@ -14,10 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
 import { buildGraph } from "./layout";
-import {
-  headerFaultsForBanner,
-  visibleFaultsForValidationState,
-} from "./faults";
+import { visibleFaultsForValidationState } from "./faults";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./CasedEdge";
 import { AddDevicePanel } from "./AddDevicePanel";
@@ -28,6 +25,7 @@ import { AddRuntimePanel } from "./AddRuntimePanel";
 import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
 import { DiscoverPane } from "./DiscoverPane";
 import { BrowseTagsPanel } from "./BrowseTagsPanel";
+import { AdsMultiPortTagBrowser } from "./AdsMultiPortTagBrowser";
 import { useBrowseSession } from "./useBrowseSession";
 import { useCanvasHostState } from "./useCanvasHostState";
 import { NetworkCanvasHeader } from "./NetworkCanvasHeader";
@@ -62,23 +60,15 @@ function Canvas() {
     open: discoverOpen,
     show: openDiscoverPane,
     close: closeDiscoverPane,
-    handoffToBrowse: handoffDiscoveryToBrowse,
     toggle: toggleDiscoverPane,
-    reset: resetDiscoverPane,
     scanning: discoverScanning,
     progress: discoverProgress,
     results: discoverResults,
-    adsServiceProbes,
-    warning: discoverWarning,
-    warningDetails: discoverWarningDetails,
     error: discoverError,
-    errorDetails: discoverErrorDetails,
-    errorCode: discoverErrorCode,
     sessionCurrent: discoverSessionCurrent,
     prepareReady: prepareDiscoveryReady,
     handleMessage: handleDiscoveryMessage,
     startScan: onDiscoverScan,
-    probeAdsServices: onProbeAdsServices,
   } = useDiscoverPaneLifecycle(post);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -123,6 +113,8 @@ function Canvas() {
     routePlan: browseRoutePlan,
     error: browseError,
     loading: browseLoading,
+    adsImportLoading,
+    adsImportResult,
     open: openBrowse,
     openNode: onBrowse,
     handleMessage: handleBrowseMessage,
@@ -131,13 +123,15 @@ function Canvas() {
     createRoute: onCreateRoute,
     copy: onCopy,
     addTags: onAddTags,
+    addAdsTags: onAddAdsTags,
+    removeAdsTag: onRemoveAdsTag,
     close: closeBrowse,
   } = useBrowseSession(post, clearApplyResult);
   const onHostFocusNode = useCallback((nodeId: string) => {
     setSelectedId(nodeId);
     setFocusTargetId(nodeId);
   }, []);
-  const { graph, schema, reachable, setupMessage, lifecyclePhase, operationInProgress } = useCanvasHostState({
+  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
     handleDiscoveryMessage,
     handleBrowseMessage,
     prepareDiscoveryReady,
@@ -270,6 +264,7 @@ function Canvas() {
     origins: discoverOrigins,
     protocols: discoverProtocols,
     add: onDiscoverAdd,
+    isOnCanvas: isDiscoveredDeviceOnCanvas,
     adopt: onDiscoverAdopt,
   } = useDiscoverActions({
     nodes: built.nodes,
@@ -278,7 +273,6 @@ function Canvas() {
     openBrowse,
     clearApplyResult,
     close: closeDiscoverPane,
-    handoffToBrowse: handoffDiscoveryToBrowse,
     setSelectedId,
     setDraft,
     setEditMode,
@@ -541,8 +535,7 @@ function Canvas() {
     graph.faults,
     applyResultLocallyStale
   );
-  const headerFaults = headerFaultsForBanner(visibleFaults, graph.banner);
-  const fault = headerFaults[0];
+  const fault = visibleFaults[0];
   const editModeValue = useMemo(
     () => ({
       editMode,
@@ -627,7 +620,7 @@ function Canvas() {
         fieldIssueCount={applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0}
         fieldIssueMessage={applyResult?.message}
         fault={fault}
-        faultCount={headerFaults.length}
+        faultCount={visibleFaults.length}
         onFocusFault={focusNode}
         filterActive={filterOpen}
         onToggleFilter={onToggleFilter}
@@ -681,12 +674,7 @@ function Canvas() {
 
         {/* Reserves the active drawer's width in the flex row so the canvas column narrows by exactly
             that much — the right-anchored panel lands in this gap and never covers a node. */}
-        {drawerOpen && (
-          <div
-            aria-hidden="true"
-            style={{ width: `min(${activeDrawerW}px, 100%)`, flexShrink: 0 }}
-          />
-        )}
+        {drawerOpen && <div aria-hidden="true" style={{ width: activeDrawerW, flexShrink: 0 }} />}
 
         {addSlot?.kind === "device" && (
           <AddPane
@@ -758,24 +746,18 @@ function Canvas() {
 
         {discoverOpen && (
           <DiscoverPane
-            autoStartAds
             origins={discoverOrigins}
             discoverProtocols={discoverProtocols}
             scanning={discoverScanning}
             progress={discoverProgress}
             results={discoverResults}
-            adsServiceProbes={adsServiceProbes}
-            warning={discoverWarning}
-            warningDetails={discoverWarningDetails}
             error={discoverError}
-            errorDetails={discoverErrorDetails}
-            errorCode={discoverErrorCode}
             sessionCurrent={discoverSessionCurrent}
             onScan={onDiscoverScan}
-            onProbeAdsServices={onProbeAdsServices}
-            onReset={resetDiscoverPane}
             onAdd={onDiscoverAdd}
+            isOnCanvas={isDiscoveredDeviceOnCanvas}
             onAdopt={onDiscoverAdopt}
+            onOpenAdsPortSettings={() => post({ type: "openAdsDiscoverySettings" })}
             onClose={closeDiscoverPane}
           />
         )}
@@ -813,8 +795,6 @@ function Canvas() {
             params={selectedNode.data.params as Record<string, unknown> | undefined}
             reachable={reachable}
             applyResult={applyResult}
-            lifecyclePhase={lifecyclePhase}
-            operationInProgress={operationInProgress}
             post={post}
             onFocus={focusNode}
             onBrowse={onBrowse}
@@ -825,7 +805,27 @@ function Canvas() {
           />
         )}
 
-        {browseTags && (
+        {browseTags?.protocol === "ads" && (
+          <AdsMultiPortTagBrowser
+            targetLabel={browseTags.label}
+            target={browseTags.target}
+            tree={browseTree}
+            routeMissing={browseRouteMissing}
+            routePlan={browseRoutePlan}
+            error={browseError}
+            loading={browseLoading}
+            importLoading={adsImportLoading}
+            importResult={adsImportResult}
+            onCreateRoute={onCreateRoute}
+            onCopy={onCopy}
+            onBrowseTarget={onBrowseTarget}
+            onAddTags={onAddAdsTags}
+            onRemoveTag={onRemoveAdsTag}
+            onClose={closeBrowse}
+          />
+        )}
+
+        {browseTags && browseTags.protocol !== "ads" && (
           <BrowseTagsPanel
             title={browseTags.title}
             actionLabel={browseTags.actionLabel}

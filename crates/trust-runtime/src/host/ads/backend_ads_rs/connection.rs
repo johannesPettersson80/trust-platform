@@ -10,8 +10,6 @@ use crate::ads::transport::AdsTransportError;
 
 const ROUTER_NEGOTIATION_TIMEOUT: Duration = Duration::from_millis(500);
 
-/// Connects through a local AMS router when one answers, while preserving direct
-/// AMS/TCP test servers such as pyads on the same loopback protocol port.
 pub(super) fn connect_ads_client<A>(
     address: A,
     timeouts: AdsRsTimeouts,
@@ -22,7 +20,7 @@ where
 {
     let address = address
         .to_socket_addrs()
-        .map_err(|error| super::map_io_error("resolve ADS server address", error))?
+        .map_err(|error| AdsTransportError::new(format!("resolve ADS server address: {error}")))?
         .next()
         .ok_or_else(|| AdsTransportError::new("ADS server address resolved to no socket"))?;
     let sources = ads_source_candidates_for_route(route)?;
@@ -57,13 +55,19 @@ fn detect_loopback_server_kind(
     timeouts: AdsRsTimeouts,
 ) -> Result<LoopbackServerKind, AdsTransportError> {
     let mut stream = TcpStream::connect_timeout(&address, bounded_timeout(timeouts.connect))
-        .map_err(|error| super::map_io_error("connect local ADS router probe", error))?;
+        .map_err(|error| {
+            AdsTransportError::new(format!("connect local ADS Router probe: {error}"))
+        })?;
     stream
         .set_read_timeout(Some(bounded_timeout(timeouts.read)))
-        .map_err(|error| super::map_io_error("set local ADS router probe read timeout", error))?;
+        .map_err(|error| {
+            AdsTransportError::new(format!("set local ADS Router probe read timeout: {error}"))
+        })?;
     stream
         .set_write_timeout(Some(bounded_timeout(timeouts.write)))
-        .map_err(|error| super::map_io_error("set local ADS router probe write timeout", error))?;
+        .map_err(|error| {
+            AdsTransportError::new(format!("set local ADS Router probe write timeout: {error}"))
+        })?;
 
     const OPEN_PORT: [u8; 8] = [0, 16, 2, 0, 0, 0, 0, 0];
     if stream.write_all(&OPEN_PORT).is_err() {
@@ -74,10 +78,9 @@ fn detect_loopback_server_kind(
         return if is_direct_server_probe_failure(&error) {
             Ok(LoopbackServerKind::Direct)
         } else {
-            Err(super::map_io_error(
-                "read local AMS router probe reply",
-                error,
-            ))
+            Err(AdsTransportError::new(format!(
+                "read local AMS Router probe reply: {error}"
+            )))
         };
     }
     if reply[..6] != [0, 16, 8, 0, 0, 0] {
@@ -86,7 +89,9 @@ fn detect_loopback_server_kind(
 
     let close_port = [1, 0, 2, 0, 0, 0, reply[12], reply[13]];
     stream.write_all(&close_port).map_err(|error| {
-        super::map_io_error("close temporary local AMS router probe port", error)
+        AdsTransportError::new(format!(
+            "close temporary local AMS Router probe port: {error}"
+        ))
     })?;
     Ok(LoopbackServerKind::Router)
 }
@@ -110,9 +115,10 @@ fn is_direct_server_probe_failure(error: &std::io::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
     use std::net::TcpListener;
     use std::thread;
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     use trust_ads_core::{AdsSecurityPolicy, AmsNetId, TransportSecurity};
 
@@ -129,8 +135,6 @@ mod tests {
                 .read_exact(&mut router_request)
                 .expect("read router probe request");
             assert_eq!(router_request, [0, 16, 2, 0, 0, 0, 0, 0]);
-            // A direct pyads-style server can keep an incomplete router request open.
-            // Hold it well beyond the production detection timeout.
             thread::sleep(Duration::from_secs(2));
             drop(probe);
 
@@ -138,7 +142,7 @@ mod tests {
             drop(direct);
         });
         let route = AdsRoute {
-            name: "pyads-direct".to_string(),
+            name: "direct-loopback".to_string(),
             target_net_id: AmsNetId::new("127.0.0.1.1.1"),
             host: "127.0.0.1".to_string(),
             ams_port: 851,

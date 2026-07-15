@@ -852,7 +852,7 @@ pub(super) fn ads_fields() -> Vec<CommFieldSchema> {
             "json_array",
             json!([]),
             false,
-            "ADS connection entries. Enabling ADS requires at least one connection with at least one selected point.",
+            "ADS devices and their ports. Tags can be selected after the device is added.",
         ),
     ]
 }
@@ -871,7 +871,7 @@ pub(super) fn ads_server_fields() -> Vec<CommFieldSchema> {
             "string",
             json!("127.0.0.1"),
             true,
-            "Local IP address where ADS clients connect. Wildcard binds are rejected.",
+            "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected.",
         ),
         optional(field(
             "ams_net_id",
