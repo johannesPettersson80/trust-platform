@@ -1253,10 +1253,11 @@ same commit, with the closure evidence linked.
   `4bb98128`, then all nine cases passed with the same case and proof-contract
   digests. Stack, register, and tier-1 execution now charge the same original
   bytecode instructions across nested calls. The five resource-limit
-  malformed-input classes are required and covered. The invariant is G1 until
-  its causal broad remote gate is recorded; deadline/watchdog interaction and
-  `SPEC_GAP_VM_ERROR_MODEL_001` remain explicit debt. The register now contains
-  16 `open`, 4 `test_mapped`, and 14 `closed` records.
+  malformed-input classes are required and covered. The causal broad remote
+  gate `EVID_BROAD_REMOTE_PR_20260715_81EA8F2854DB` promotes the invariant to
+  G2; deadline/watchdog interaction and `SPEC_GAP_VM_ERROR_MODEL_001` remain
+  explicit debt. The register now contains 16 `open`, 4 `test_mapped`, and 14
+  `closed` records.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get

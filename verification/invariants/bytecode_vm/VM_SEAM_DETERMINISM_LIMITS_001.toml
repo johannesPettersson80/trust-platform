@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-15"
 claim = "STBC validation and execution enforce the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation instruction limits written in the product specifications."
-proof_level = "G1"
+proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime-core/src/vm",
@@ -19,10 +19,11 @@ gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_RED",
   "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_GREEN",
+  "EVID_BROAD_REMOTE_PR_20260715_81EA8F2854DB",
   "EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715",
 ]
 spec_gap_refs = []
-missing = ["broad_remote_gate", "time_or_clock_fault_cases"]
+missing = ["time_or_clock_fault_cases"]
 
 [spec]
 status = "specified"

@@ -39,9 +39,10 @@ the fixed instruction-budget proof.
   sections, with no live reference to the closed gap.
 - The five resource-limit malformed-input classes are `required` and map to
   `SPEC_BYTECODE_FORMAT_001#fixed-resource-limits`.
-- `VM_SEAM_DETERMINISM_LIMITS_001` is `implemented` at `G1` with the resource
-  cell covered. Promotion to `G2` remains blocked until a causal broad remote
-  gate is recorded.
+- `VM_SEAM_DETERMINISM_LIMITS_001` is `implemented` at `G2` with the resource
+  cell covered. `EVID_BROAD_REMOTE_PR_20260715_81EA8F2854DB` records the causal
+  broad `pr` gate at clean descendant `786576bcdd346362274133e2476e2dfec1f987a4`.
+  Deadline/watchdog timing remains explicit missing coverage.
 
 ## Validation
 
@@ -54,6 +55,6 @@ Focused product validation on `trust-builder` passed:
   trace cases).
 
 The metadata validator, spec-gap closure fixtures, promotion-evidence fixtures,
-and malformed-input coverage fixtures pass against this closeout. Broad remote
-gates and the resulting `G2` promotion are recorded separately so the causal
+and malformed-input coverage fixtures pass against this closeout. The broad
+remote gate and resulting `G2` promotion are separate commits so the causal
 evidence chain remains reviewable.
