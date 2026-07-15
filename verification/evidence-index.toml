@@ -672,6 +672,55 @@ last_reviewed = "2026-07-15"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_VM_BYTECODE_VALIDATOR_CONTRACT_VALIDATION_20260715"
+title = "Bytecode validator contract final validation"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/bytecode-validator-contract-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_ignored_test_staleness.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && git diff --check && ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-validator-final-5202fdb2\" && test \"$(git rev-parse HEAD)\" = 5202fdb27304d5e30880cdc608427a09b934ba2c && test -z \"$(git status --porcelain --untracked-files=all)\"'"
+commit = "3778447b604cf0e5ccabcc2eeb5329d869440991"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex bytecode validator contract validation"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
+linked_tests = [
+  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
+  "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
+  "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001",
+  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+  "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001",
+  "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+  "TEST_BYTECODE_TRANSFORM_SEED_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
+  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+  "TEST_BYTECODE_VERSION_REJECTION_001",
+]
+linked_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+last_reviewed = "2026-07-15"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_P2_EXISTING_TEST_CATALOG_20260709"
 title = "Phase 2 mechanical existing-test catalog"
 area = "verification"
