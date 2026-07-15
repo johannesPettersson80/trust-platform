@@ -5,6 +5,10 @@ use crate::ads::onboarding::errors::OnboardingWireError;
 use crate::ads::onboarding::identity::RuntimeAddressCandidate;
 use crate::ads::onboarding::wire::AdsOnboardingWire;
 
+#[path = "discover/interface_targets.rs"]
+mod interface_targets;
+pub use interface_targets::interface_directed_targets;
+
 /// Source that produced an ADS target discovery result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +23,9 @@ pub enum DiscoverySource {
 pub struct DiscoveryRequest {
     /// Optional IP/hostname entered by the user or selected by UI.
     pub target: Option<String>,
+    /// Additional runtime-host interface addresses to probe with directed identify.
+    #[serde(default)]
+    pub directed_targets: Vec<String>,
     /// Optional manually supplied target AMS Net ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ams_net_id: Option<String>,
@@ -43,6 +50,7 @@ impl DiscoveryRequest {
     pub fn manual(target: impl Into<String>) -> Self {
         Self {
             target: Some(target.into()),
+            directed_targets: Vec::new(),
             target_ams_net_id: None,
             ams_port: None,
             target_name: None,
@@ -58,6 +66,7 @@ impl DiscoveryRequest {
     ) -> Self {
         Self {
             target: Some(target.into()),
+            directed_targets: Vec::new(),
             target_ams_net_id: Some(ams_net_id.into()),
             ams_port: None,
             target_name: None,
@@ -105,17 +114,47 @@ pub fn discover_targets<W: AdsOnboardingWire>(
                 source: DiscoverySource::Manual,
             });
         } else {
-            let mut identity = wire.udp_identify(target)?;
+            match wire.udp_identify(target) {
+                Ok(mut identity) => {
+                    if identity.ip.is_empty() {
+                        identity.ip = target.to_string();
+                    }
+                    if let Some(port) = request.ams_port {
+                        identity.ams_port = port;
+                    }
+                    results.push(DiscoveryResult {
+                        target: identity,
+                        source: DiscoverySource::DirectedIdentify,
+                    });
+                }
+                Err(_) if request.include_broadcast => {}
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    if results.is_empty() {
+        for target in &request.directed_targets {
+            if request.target.as_deref() == Some(target.as_str()) {
+                continue;
+            }
+            let Ok(mut identity) = wire.udp_identify(target) else {
+                continue;
+            };
             if identity.ip.is_empty() {
-                identity.ip = target.to_string();
+                identity.ip = target.clone();
             }
             if let Some(port) = request.ams_port {
                 identity.ams_port = port;
             }
-            results.push(DiscoveryResult {
-                target: identity,
-                source: DiscoverySource::DirectedIdentify,
-            });
+            push_unique(
+                &mut results,
+                DiscoveryResult {
+                    target: identity,
+                    source: DiscoverySource::DirectedIdentify,
+                },
+            );
+            break;
         }
     }
 
@@ -203,3 +242,7 @@ fn push_unique(results: &mut Vec<DiscoveryResult>, result: DiscoveryResult) {
         results.push(result);
     }
 }
+
+#[cfg(test)]
+#[path = "discover/local_fallback_tests.rs"]
+mod local_fallback_tests;

@@ -11,11 +11,24 @@ import type { FleetTopologyResponse } from "./fleetTopology";
 import {
   ensureAdsRuntimeEnabled,
   offlineAdsImportSymbols,
+  offlineAdsRemoveTag,
   offlineBrowseSymbols,
   offlineCommApply,
   openGeneratedAdsDocuments,
   type AdsImportSymbolsReport,
 } from "./offlineComm";
+import {
+  adsConnectionNameForTarget,
+  adsPortBrowseEvidence,
+  respondingAdsPorts,
+} from "./adsDiscoveryPorts";
+import {
+  normalizeAdsTagSelections,
+  planAdsTagAdd,
+  type AdsTagBatchImportResult,
+  type AdsTagPortPath,
+  type AdsTagPortImportResult,
+} from "./adsTagBatch";
 
 export interface ProtocolActionDependencies {
   readonly panel: () => vscode.WebviewPanel | undefined;
@@ -29,6 +42,66 @@ export interface ProtocolActionDependencies {
 /** Owns protocol-specific browse/import mutations outside the panel lifecycle shell. */
 export class NetworkCanvasProtocolActions {
   constructor(private readonly dependencies: ProtocolActionDependencies) {}
+
+  async addAdsDevice(message: Record<string, unknown>): Promise<void> {
+    const context = this.dependencies.extensionContext();
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const target = isRecord(message.target) ? message.target : {};
+    const label =
+      typeof message.label === "string" && message.label.trim().length > 0
+        ? message.label.trim()
+        : "ADS device";
+    const host = stringField(target, "host", "ip");
+    const targetNetId = stringField(target, "target_net_id", "ams_net_id");
+    const ports = respondingAdsPorts(target);
+    const firstLocalNetId = localAdsNetId(target);
+    if (!context || !projectDir || !host || !targetNetId || ports.length === 0) {
+      await vscode.window.showWarningMessage(
+        "Could not add the ADS device. Scan it again so its address, AMS Net ID, and responding ports are available."
+      );
+      return;
+    }
+    if (!firstLocalNetId) {
+      await vscode.window.showWarningMessage(
+        "Could not add the ADS device because discovery did not return this computer's AMS Net ID. Scan it again and retry."
+      );
+      return;
+    }
+
+    const connections = ports.map((port) => {
+      const portTarget = { ...target, name: label, ams_port: port };
+      return {
+        name: adsConnectionNameForTarget(portTarget, label),
+        target_net_id: targetNetId,
+        host,
+        ams_port: port,
+        local_net_id: localAdsNetId(target, port) ?? firstLocalNetId,
+        transport: "plain",
+        insecure_transport: true,
+        auto_add_route: false,
+        points: [],
+      };
+    });
+    const result = await offlineCommApply(
+      context,
+      projectDir,
+      "ads",
+      { enabled: true, connections },
+      "add"
+    );
+    if (result?.applied) {
+      await this.dependencies.refresh();
+      return;
+    }
+    const errors = result?.field_errors
+      ?.map((error) => error.message)
+      .join("; ");
+    await vscode.window.showWarningMessage(
+      `Could not add the ADS device: ${
+        errors ?? result?.message ?? "check the discovered device and try again."
+      }`
+    );
+  }
 
   async browseSymbols(message: Record<string, unknown>): Promise<void> {
     const panel = this.dependencies.panel();
@@ -245,6 +318,196 @@ export class NetworkCanvasProtocolActions {
     await this.addTagsLive(message, projectDir, paths, runtime);
   }
 
+  async addAdsTagsBatch(message: Record<string, unknown>): Promise<void> {
+    const panel = this.dependencies.panel();
+    const context = this.dependencies.extensionContext();
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const browseSessionId =
+      typeof message.browseSessionId === "string"
+        ? message.browseSessionId
+        : undefined;
+    const adsImportRequestId =
+      typeof message.adsImportRequestId === "number" &&
+      Number.isSafeInteger(message.adsImportRequestId)
+        ? message.adsImportRequestId
+        : undefined;
+    if (!panel || !browseSessionId || adsImportRequestId === undefined) {
+      return;
+    }
+    const selections = normalizeAdsTagSelections(message.selections);
+    const source = isRecord(message.target) ? message.target : {};
+    const writable = Boolean(message.writable);
+    const changedPath = typeof message.changedPath === "string"
+      ? message.changedPath.trim()
+      : "";
+    const runtime = this.dependencies.runtimeTarget();
+    const ports: AdsTagPortImportResult[] = [];
+
+    if (!context || !projectDir) {
+      for (const selection of selections) {
+        ports.push({
+          port: selection.port,
+          paths: selection.paths,
+          applied: false,
+          addedCount: 0,
+          message: "Open a truST project before adding ADS tags.",
+        });
+      }
+    } else {
+      for (const selection of selections) {
+        const plan = planAdsTagAdd(
+          source.connections,
+          source,
+          selection.port,
+          selection.paths,
+        );
+        const target = {
+          ...source,
+          name: plan.connectionName,
+          ams_port: selection.port,
+        };
+        let imported: AdsTagPortImportResult;
+        if (
+          runtime?.status === "online_reachable" &&
+          runtime.endpoint
+        ) {
+          imported = await this.importAdsTagsLive(
+            projectDir,
+            target,
+            [...plan.paths],
+            writable,
+            runtime,
+            plan.connectionName,
+          );
+        } else {
+          const report = await offlineAdsImportSymbols(
+            context,
+            projectDir,
+            target,
+            [...plan.paths],
+            writable,
+            plan.connectionName,
+          );
+          imported = {
+            port: selection.port,
+            paths: plan.paths,
+            applied: report.applied,
+            addedCount: report.applied
+              ? report.selected_count ?? plan.paths.length
+              : 0,
+            message: report.message,
+          };
+        }
+        const changedPaths = changedPath && selection.paths.includes(changedPath)
+          ? [changedPath]
+          : [...selection.paths];
+        ports.push({
+          ...imported,
+          paths: changedPaths,
+          addedCount: imported.applied ? changedPaths.length : 0,
+          message: imported.applied
+            ? `Added ${changedPaths.length} ADS tag${changedPaths.length === 1 ? "" : "s"}.`
+            : imported.message,
+        });
+      }
+    }
+
+    const addedCount = ports.reduce(
+      (count, port) => count + port.addedCount,
+      0
+    );
+    const result: AdsTagBatchImportResult = {
+      operation: "add",
+      applied: ports.some((port) => port.applied),
+      addedCount,
+      restartRequired: ports.some((port) => port.applied),
+      ports,
+    };
+    if (result.applied) {
+      await this.dependencies.refresh();
+    }
+    if (this.dependencies.panel() === panel && panel.visible) {
+      void panel.webview.postMessage({
+        type: "adsTagsResult",
+        browseSessionId,
+        adsImportRequestId,
+        result,
+      });
+    }
+  }
+
+  async removeAdsTag(message: Record<string, unknown>): Promise<void> {
+    const panel = this.dependencies.panel();
+    const context = this.dependencies.extensionContext();
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const browseSessionId =
+      typeof message.browseSessionId === "string"
+        ? message.browseSessionId
+        : undefined;
+    const adsImportRequestId =
+      typeof message.adsImportRequestId === "number" &&
+      Number.isSafeInteger(message.adsImportRequestId)
+        ? message.adsImportRequestId
+        : undefined;
+    const selection = isRecord(message.selection)
+      ? (message.selection as unknown as AdsTagPortPath)
+      : undefined;
+    const source = isRecord(message.target) ? message.target : {};
+    if (
+      !panel ||
+      !browseSessionId ||
+      adsImportRequestId === undefined ||
+      !selection ||
+      !Number.isInteger(selection.port) ||
+      selection.port < 1 ||
+      selection.port > 65535 ||
+      typeof selection.path !== "string" ||
+      selection.path.trim().length === 0
+    ) {
+      return;
+    }
+
+    const removal = context && projectDir
+      ? await offlineAdsRemoveTag(
+          context,
+          projectDir,
+          source,
+          selection.port,
+          selection.path.trim(),
+        )
+      : {
+          applied: false,
+          removed_count: 0,
+          restart_required: false,
+          message: "Open a truST project before removing ADS tags.",
+        };
+    const result: AdsTagBatchImportResult = {
+      operation: "remove",
+      applied: removal.applied,
+      addedCount: 0,
+      removedCount: removal.removed_count,
+      restartRequired: removal.restart_required,
+      ports: [{
+        port: selection.port,
+        paths: [selection.path.trim()],
+        applied: removal.applied,
+        addedCount: 0,
+        message: removal.message,
+      }],
+    };
+    if (result.applied) {
+      await this.dependencies.refresh();
+    }
+    if (this.dependencies.panel() === panel && panel.visible) {
+      void panel.webview.postMessage({
+        type: "adsTagsResult",
+        browseSessionId,
+        adsImportRequestId,
+        result,
+      });
+    }
+  }
+
   private async addTagsOffline(
     message: Record<string, unknown>,
     projectDir: string,
@@ -289,11 +552,43 @@ export class NetworkCanvasProtocolActions {
     paths: string[],
     runtime: RuntimeTarget
   ): Promise<void> {
-    const endpoint = runtime.endpoint;
-    if (!endpoint) {
-      return;
+    const result = await this.importAdsTagsLive(
+      projectDir,
+      isRecord(message.target) ? message.target : {},
+      paths,
+      Boolean(message.writable),
+      runtime
+    );
+    if (result.applied) {
+      await vscode.window.showInformationMessage(
+        `${result.message} Restart the runtime to apply the generated ST symbols.`
+      );
+      await this.dependencies.refresh();
+    } else {
+      await vscode.window.showWarningMessage(`Could not add tags: ${result.message}`);
     }
-    const source = isRecord(message.target) ? message.target : {};
+  }
+
+  private async importAdsTagsLive(
+    projectDir: string,
+    source: Record<string, unknown>,
+    paths: string[],
+    writable: boolean,
+    runtime: RuntimeTarget,
+    connectionNameOverride?: string,
+  ): Promise<AdsTagPortImportResult> {
+    const endpoint = runtime.endpoint;
+    const port =
+      typeof source.ams_port === "number" ? source.ams_port : 851;
+    if (!endpoint) {
+      return {
+        port,
+        paths,
+        applied: false,
+        addedCount: 0,
+        message: "The selected runtime has no control endpoint.",
+      };
+    }
     const target: Record<string, unknown> = {
       name: typeof source.name === "string" ? source.name : undefined,
       ip: typeof source.host === "string" ? source.host : source.ip,
@@ -301,13 +596,11 @@ export class NetworkCanvasProtocolActions {
         typeof source.target_net_id === "string"
           ? source.target_net_id
           : source.ams_net_id,
-      ams_port: typeof source.ams_port === "number" ? source.ams_port : 851,
+      ams_port: port,
       tc_version: source.tc_version,
     };
-    const connectionName =
-      typeof source.name === "string" && source.name.trim().length > 0
-        ? source.name
-        : "ads_import";
+    const connectionName = connectionNameOverride ??
+      adsConnectionNameForTarget(source, "ads_import");
     try {
       const report = await sendRuntimeControlRequest<AdsImportSymbolsReport>(
         endpoint,
@@ -317,40 +610,48 @@ export class NetworkCanvasProtocolActions {
           connection_name: connectionName,
           symbols: paths,
           target,
-          write_acknowledged: Boolean(message.writable),
+          write_acknowledged: writable,
         },
         { timeoutMs: 20_000 }
       );
       if (!report?.applied) {
-        await vscode.window.showWarningMessage(
-          `Could not add tags: ${
-            report?.message ?? "the runtime rejected the import."
-          }`
-        );
-        return;
+        return {
+          port,
+          paths,
+          applied: false,
+          addedCount: 0,
+          message: report?.message ?? "The runtime rejected the import.",
+        };
       }
       const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
       if (!runtimeConfig.ok) {
-        await vscode.window.showWarningMessage(
-          `Added ADS tags, but ADS runtime was not enabled automatically: ${runtimeConfig.message}`
-        );
-        await this.dependencies.refresh();
-        return;
+        return {
+          port,
+          paths,
+          applied: false,
+          addedCount: 0,
+          message: `ADS runtime was not enabled automatically: ${runtimeConfig.message}`,
+        };
       }
       await openGeneratedAdsDocuments(report);
-      await vscode.window.showInformationMessage(
-        `Added ${countLabel(
-          report.selected_count ?? paths.length,
-          "ADS tag"
-        )}. Restart the runtime to apply the generated ST symbols.`
-      );
-      await this.dependencies.refresh();
+      const addedCount = report.selected_count ?? paths.length;
+      return {
+        port,
+        paths,
+        applied: true,
+        addedCount,
+        message: `Added ${countLabel(addedCount, "ADS tag")}.`,
+      };
     } catch (error) {
-      await vscode.window.showWarningMessage(
-        `Could not add tags: ${
+      return {
+        port,
+        paths,
+        applied: false,
+        addedCount: 0,
+        message: `${
           error instanceof Error ? error.message : String(error)
-        } (live ADS import needs an ads-wire runtime build).`
-      );
+        } (live ADS import needs an ads-wire runtime build).`,
+      };
     }
   }
 
@@ -408,6 +709,40 @@ function stringPaths(value: unknown, nonEmpty = false): string[] {
           typeof path === "string" && (!nonEmpty || path.trim().length > 0)
       )
     : [];
+}
+
+function localAdsNetId(
+  target: Record<string, unknown>,
+  port?: number
+): string | undefined {
+  const configured = stringField(target, "local_net_id", "local_ams_net_id");
+  if (configured) {
+    return configured;
+  }
+  const evidence = adsPortBrowseEvidence(target);
+  const matching = port === undefined
+    ? evidence
+    : evidence.filter((item) => item.port === port);
+  for (const item of [...matching, ...evidence]) {
+    const value = item.routePlan?.local?.ams_net_id;
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function stringField(
+  value: Record<string, unknown>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const item = value[key];
+    if (typeof item === "string" && item.trim().length > 0) {
+      return item.trim();
+    }
+  }
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

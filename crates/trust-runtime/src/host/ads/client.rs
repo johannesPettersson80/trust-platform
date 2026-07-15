@@ -93,6 +93,17 @@ pub struct AdsBinding {
     pub retain: bool,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AdsLiveValue {
+    pub connection_name: String,
+    pub ams_port: u16,
+    pub point_name: String,
+    pub input: bool,
+    pub writable: bool,
+    pub value: Value,
+    pub forced: bool,
+}
+
 pub fn resolve_declared_bindings(
     runtime: &Runtime,
     connection: &AdsConnectionConfig,
@@ -330,6 +341,51 @@ impl AdsConnectionBridge {
             .pending_writes
             .get(point_name)
             .cloned()
+    }
+
+    pub fn live_values(
+        &self,
+        storage: &VariableStorage,
+        connection_name: &str,
+        ams_port: u16,
+    ) -> Vec<AdsLiveValue> {
+        self.bindings
+            .iter()
+            .filter_map(|binding| {
+                storage
+                    .read_by_ref(binding.reference.clone())
+                    .cloned()
+                    .map(|value| AdsLiveValue {
+                        connection_name: connection_name.to_string(),
+                        ams_port,
+                        point_name: binding.point.point_name.clone(),
+                        input: point_reads(binding.point.access),
+                        writable: point_writes(binding.point.access),
+                        value,
+                        forced: false,
+                    })
+            })
+            .collect()
+    }
+
+    pub fn live_value_writable(&self, point_name: &str) -> Option<bool> {
+        self.bindings
+            .iter()
+            .find(|binding| binding.point.point_name == point_name)
+            .map(|binding| point_writes(binding.point.access))
+    }
+
+    pub fn queue_live_write(&mut self, point_name: &str, value: Value) -> bool {
+        if !self.bindings.iter().any(|binding| {
+            binding.point.point_name == point_name && point_writes(binding.point.access)
+        }) {
+            return false;
+        }
+        self.shared
+            .queue_write(point_name.to_string(), value.clone());
+        self.last_queued_values
+            .insert(point_name.to_string(), value);
+        true
     }
 }
 

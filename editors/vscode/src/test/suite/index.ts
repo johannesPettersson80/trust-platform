@@ -41,6 +41,11 @@ export function run(): Promise<void> {
   require("./runtime-target.test");
   require("./network-canvas.test");
   require("./network-canvas-github-issues.test");
+  require("./ads-multiport-live-values.test");
+  require("./ads-discovery-results-rendered.test");
+  require("./live-values-webview-interactions.test");
+  require("./ads-tag-selection-interactions.test");
+  require("./ads-tag-config-mutation.test");
   require("./network-canvas-session-model.test");
   require("./ads-status-summary.test");
   require("./libraries-model.test");

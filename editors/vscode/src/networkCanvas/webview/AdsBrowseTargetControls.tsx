@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 
+import { respondingAdsPorts } from "../adsDiscoveryPorts";
 import {
   adsPortDraftIsStale,
   adsTargetNetId,
@@ -23,6 +24,7 @@ export function AdsBrowseTargetControls({
   const [portDraft, setPortDraft] = useState(String(targetPort));
   const parsedPort = parseAdsPortInput(portDraft);
   const netId = adsTargetNetId(target);
+  const discoveredPorts = respondingAdsPorts(target);
 
   useEffect(() => {
     setPortDraft(String(targetPort));
@@ -35,6 +37,34 @@ export function AdsBrowseTargetControls({
         <span style={LABEL}>AMS Net ID</span>
         <code style={NET_ID}>{netId}</code>
       </div>
+      {discoveredPorts.length > 0 && (
+        <div data-role="responding-ads-ports" style={RESPONDING_PORTS}>
+          <span style={LABEL}>Responding ADS ports</span>
+          <div style={PORT_BUTTONS}>
+            {discoveredPorts.map((port) => (
+              <button
+                key={port}
+                type="button"
+                data-ads-port={port}
+                aria-pressed={parsedPort.port === port}
+                className={
+                  parsedPort.port === port
+                    ? "trust-button trust-button--primary"
+                    : "trust-button"
+                }
+                style={PORT_BUTTON}
+                onClick={() => {
+                  const draft = String(port);
+                  setPortDraft(draft);
+                  onDraftStaleChange(adsPortDraftIsStale(draft, target));
+                }}
+              >
+                {port}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={PORT_ROW}>
         <label style={{ flex: 1, minWidth: 0 }}>
           <span style={LABEL}>ADS port</span>
@@ -121,4 +151,18 @@ const PORT_ROW: React.CSSProperties = {
   alignItems: "end",
   gap: 8,
   marginTop: 8,
+};
+const RESPONDING_PORTS: React.CSSProperties = {
+  marginTop: 8,
+};
+const PORT_BUTTONS: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+  marginTop: 4,
+};
+const PORT_BUTTON: React.CSSProperties = {
+  minHeight: 23,
+  padding: "1px 8px",
+  fontSize: 10.5,
 };

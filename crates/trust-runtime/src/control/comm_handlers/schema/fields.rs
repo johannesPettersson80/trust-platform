@@ -852,7 +852,7 @@ pub(super) fn ads_fields() -> Vec<CommFieldSchema> {
             "json_array",
             json!([]),
             false,
-            "ADS connection entries. Enabling ADS requires at least one connection with at least one selected point.",
+            "ADS devices and their ports. Tags can be selected after the device is added.",
         ),
     ]
 }

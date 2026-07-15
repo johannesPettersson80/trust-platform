@@ -12,8 +12,12 @@ use super::transport::{
     AdsTransportError, AdsWriteRequest,
 };
 
+mod connection;
+mod source_policy;
+
+use connection::connect_ads_client;
+
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_SOURCE_PORT: u16 = 58_913;
 const DEFAULT_NOTIFICATION_CYCLE: Duration = Duration::from_millis(100);
 
 // Names mirror Beckhoff AdsDef.h; ads-rs exposes these as raw fields only.
@@ -215,20 +219,11 @@ impl AdsTransport for AdsRsTransport {
         self.notification_receiver = None;
         self.client = None;
 
-        let source = if let Some(local_net_id) = self.route.local_net_id.as_ref() {
-            ads::Source::Addr(ads::AmsAddr::new(
-                parse_ams_net_id(local_net_id)?,
-                DEFAULT_SOURCE_PORT,
-            ))
-        } else {
-            ads::Source::Auto
-        };
-        let client = ads::Client::new(
+        let client = connect_ads_client(
             (self.route.host.as_str(), ads::PORT),
-            self.timeouts.into_ads(),
-            source,
-        )
-        .map_err(map_ads_error)?;
+            self.timeouts,
+            &self.route,
+        )?;
         self.notification_receiver = Some(client.get_notification_channel());
         self.client = Some(client);
         Ok(())
@@ -527,7 +522,7 @@ fn request_symbol_handle(
     Ok(u32::from_le_bytes(handle_bytes))
 }
 
-fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTransportError> {
+pub(super) fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTransportError> {
     let expected = checked_byte_len(&request.data_type)?;
     if let AdsPointAddress::Index { size, .. } = request.address {
         let actual = usize::try_from(size).map_err(|_| {
@@ -546,7 +541,7 @@ fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTranspor
     Ok(())
 }
 
-fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
+pub(super) fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
     match handle.address {
         AdsPointAddress::Symbol(_) => (ads::index::RW_SYMVAL_BYHANDLE, handle.handle),
         AdsPointAddress::Index {
@@ -557,7 +552,7 @@ fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
     }
 }
 
-fn symbol_descriptor_from_ads(
+pub(super) fn symbol_descriptor_from_ads(
     symbol: &ads::symbol::Symbol,
     types: &ads::symbol::TypeMap,
 ) -> Result<Option<SymbolDescriptor>, AdsTransportError> {
@@ -709,14 +704,16 @@ fn string_capacity(
     })
 }
 
-fn checked_byte_len(descriptor: &AdsDataTypeDescriptor) -> Result<usize, AdsTransportError> {
+pub(super) fn checked_byte_len(
+    descriptor: &AdsDataTypeDescriptor,
+) -> Result<usize, AdsTransportError> {
     let byte_len = descriptor.byte_len().map_err(map_mapping_error)?;
     u32::try_from(byte_len)
         .map_err(|_| AdsTransportError::new("ADS point byte length exceeds u32"))?;
     Ok(byte_len)
 }
 
-fn now_ms() -> u64 {
+pub(super) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
@@ -727,7 +724,7 @@ fn map_ads_error(error: ads::Error) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 
-fn map_mapping_error(error: impl std::fmt::Display) -> AdsTransportError {
+pub(super) fn map_mapping_error(error: impl std::fmt::Display) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 

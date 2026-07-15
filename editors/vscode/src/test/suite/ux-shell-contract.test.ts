@@ -975,10 +975,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "denied write/force/release controls must be disabled before the user clicks"
     );
     assert.ok(
-      web.includes("writeDisabledReason || remoteReason || \"Write is not available for this value.\"") &&
+      web.includes("writeDisabledReason || entryReason || remoteReason || \"Write is not available for this value.\"") &&
         web.includes("\"Release force before writing this value.\"") &&
-        web.includes("if (!canForce && remoteReason)") &&
-        web.includes("forceButton.title = remoteReason") &&
+        web.includes("if (!canForce)") &&
+        web.includes("forceButton.title = entryReason || remoteReason || \"Force is not available for this value.\"") &&
         web.includes("setStatusText(currentAccess.reason)"),
       "denied controls must carry a visible reason, and forced rows must explain why Write is disabled"
     );
@@ -1172,15 +1172,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         `${name} must write/force the value chosen in the row control (BOOL toggle or numeric input)`
       );
       assert.ok(
+        source.includes("editCache.set(key, next)"),
+        `${name} must preserve a selected BOOL draft across live scan rerenders`
+      );
+      assert.ok(
         source.includes("if (isForced)") &&
           source.includes("actions.appendChild(releaseButton)") &&
           source.includes("actions.appendChild(forceButton)"),
         `${name} must show Release only for forced rows and Force otherwise`
       );
       assert.ok(
-        /const valueControl[\s\S]*(isForced|forced)[\s\S]*\?\s*null/.test(source) &&
-          source.includes("Release force before writing this value."),
-        `${name} must not crowd forced rows with an editable value control beside the FORCED badge`
+        !/const valueControl[\s\S]{0,120}(isForced|forced)[\s\S]{0,80}\?\s*null/.test(source) &&
+          source.includes("actions.appendChild(valueControl)"),
+        `${name} must keep the value control visible and disabled in place while a row is forced`
       );
     }
     for (const [name, source] of [

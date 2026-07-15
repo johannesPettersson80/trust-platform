@@ -15,6 +15,17 @@ Target release: `v0.24.31`
   ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
   port, unsupported Symbol Upload, and an empty or incompatible symbol table.
 
+### Fixed
+
+- vscode/trust-runtime: Windows ADS discovery now uses the installed TwinCAT
+  router for same-computer port and symbol operations, and Devices & Connections
+  no longer offers an unverified ADS identity as an actionable fallback device.
+- vscode: Devices & Connections now renders cached project state before runtime
+  enrichment and schedules polling only after each refresh completes, preventing
+  slow Windows requests from starving the canvas; simulator Start now waits for
+  the real Structured Text debug session and bounds I/O probes so a successful
+  launch is not reported as a timeout.
+
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing

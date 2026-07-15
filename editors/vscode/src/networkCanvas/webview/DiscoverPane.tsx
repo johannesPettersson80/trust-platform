@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
 import type { DiscoverCandidate } from "../offlineComm";
+import { respondingAdsPorts } from "../adsDiscoveryPorts";
 import { candidateDisabledReason } from "../discoverySession";
 import {
   adsTargetNetId,
-  candidateAdsPort,
-  parseAdsPortInput,
-  withCandidateAdsPort,
 } from "./adsTargetPort";
 import { discoveryConfidenceLabel, discoverySourceLabel } from "./connectorPresentation";
 import type {
@@ -32,12 +30,13 @@ interface Row {
 }
 
 const RECOMMENDED: Row[] = [
-  { key: "ads", protocol: "ads", label: "TwinCAT (ADS)", note: "network broadcast" },
+  { key: "ads", protocol: "ads", label: "ADS devices", note: "network broadcast" },
   { key: "discovery", protocol: "discovery", label: "truST runtimes", note: "mDNS" },
-  { key: "modbus-local", protocol: "modbus_tcp", label: "Modbus", note: "local network scan" },
+  { key: "modbus-local", protocol: "modbus_tcp", label: "Modbus devices", note: "local network scan" },
 ];
+const DISCOVERY_SELECTION_STORAGE_KEY = "trust.discovery.protocols";
 const TARGETED: Row[] = [
-  { key: "ads-host", protocol: "ads", label: "TwinCAT (ADS) device", note: "at host", input: "host" },
+  { key: "ads-host", protocol: "ads", label: "ADS device", note: "at host", input: "host" },
   // Discovering an external OPC-UA server to READ from is the opcua_client flow (the opcua server/
   // expose flow no longer advertises discover). Label names the thing being found.
   { key: "opcua", protocol: "opcua_client", label: "OPC UA server", note: "at host", input: "host" },
@@ -60,7 +59,9 @@ export function DiscoverPane({
   sessionCurrent,
   onScan,
   onAdd,
+  isOnCanvas,
   onAdopt,
+  onOpenAdsPortSettings,
   onClose,
 }: {
   origins: DiscoverOrigin[];
@@ -72,7 +73,9 @@ export function DiscoverPane({
   sessionCurrent: boolean;
   onScan: (req: DiscoverRequest) => void;
   onAdd: (candidate: DiscoverCandidate) => void;
+  isOnCanvas: (candidate: DiscoverCandidate) => boolean;
   onAdopt: (candidate: DiscoverCandidate) => void;
+  onOpenAdsPortSettings: () => void;
   onClose: () => void;
 }) {
   // Honesty: offer ONLY what the backend advertises as discover-capable (comm.schema actions ∋
@@ -94,10 +97,10 @@ export function DiscoverPane({
 
   const [origin, setOrigin] = useState(origins[0]?.id ?? "this_host");
   const [checked, setChecked] = useState<ReadonlySet<string>>(
-    new Set(recommended.map((r) => r.key))
+    () => restoredProtocolSelection()
   );
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [adsPortDrafts, setAdsPortDrafts] = useState<Record<string, string>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showTargeted, setShowTargeted] = useState(false);
   const [showRuntime, setShowRuntime] = useState(false);
   const selectedOrigin = origins.find((o) => o.id === origin) ?? origins[0];
@@ -124,21 +127,36 @@ export function DiscoverPane({
   };
   const selectedScanRows = allRows.filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r));
   const scanDisabled = scanning || selectedScanRows.length === 0;
+  const visibleResults = results.filter(
+    (candidate) =>
+      candidate.protocol !== "ads" ||
+      respondingAdsPorts(candidate.params).length > 0
+  );
 
-  // The schema can resolve after this pane mounts; seed the Recommended defaults once known (only
-  // while nothing is checked yet, so it never overrides a user's choice).
+  // The schema can resolve after this pane mounts. ADS is the one first-run default; after the user
+  // changes the visible choices, keep that choice for the next discovery session.
   const recKeys = recommended.map((r) => r.key).join(",");
   useEffect(() => {
     if (recommended.length > 0) {
-      setChecked((prev) => (prev.size === 0 ? new Set(recommended.map((r) => r.key)) : prev));
+      setChecked((prev) => {
+        const availableKeys = new Set(allRows.map((row) => row.key));
+        const availableSelection = new Set(
+          [...prev].filter((key) => availableKeys.has(key))
+        );
+        if (availableSelection.size > 0) {
+          return availableSelection;
+        }
+        const firstRunDefault = recommended.some((row) => row.key === "ads")
+          ? "ads"
+          : recommended[0]?.key;
+        return firstRunDefault ? new Set([firstRunDefault]) : availableSelection;
+      });
     }
   }, [recKeys]);
 
   useEffect(() => {
-    if (scanning) {
-      setAdsPortDrafts({});
-    }
-  }, [scanning]);
+    persistProtocolSelection(checked);
+  }, [checked]);
 
   const toggle = (key: string) =>
     setChecked((prev) => {
@@ -217,18 +235,6 @@ export function DiscoverPane({
 
       <div style={{ flex: 1, overflow: "auto" }}>
         <div className="trust-section">
-          <label style={LABEL}>Scan from</label>
-          <select value={origin} onChange={(e) => setOrigin(e.target.value)} className="trust-input" style={{ marginTop: 4 }}>
-            {origins.map((o) => (
-              <option key={o.id} value={o.id}>{o.label}</option>
-            ))}
-          </select>
-          <p className="trust-help" style={{ marginTop: 6 }}>
-            Choose the computer or runtime that can see the target network.
-          </p>
-        </div>
-
-        <div className="trust-section">
           {error && (
             <div className="trust-field__message trust-field__message--error">
               {error}
@@ -246,22 +252,66 @@ export function DiscoverPane({
               discoverable protocols.
             </p>
           )}
-
-          {recommended.length > 0 && <div style={SECTION}>Recommended</div>}
-          {recommended.map(renderRow)}
-
-          {targetedRows.length > 0 && (
-            <button style={TOGGLE} onClick={() => setShowTargeted((v) => !v)}>{showTargeted ? "▾" : "▸"} Known address or subnet</button>
+          {allRows.length > 0 && (
+            <p className="trust-help" style={{ margin: "4px 2px 8px" }}>
+              Choose what to find, then scan. Only the selected device types are searched.
+            </p>
           )}
-          {showTargeted && targetedRows.map(renderRow)}
-
-          {runtimeOnly.length > 0 && (
-            <button style={TOGGLE} onClick={() => setShowRuntime((v) => !v)}>{showRuntime ? "▾" : "▸"} Runtime hardware scans ⚠</button>
+          {recommended.length > 0 && (
+            <div>
+              <div style={SECTION}>What do you want to find?</div>
+              {recommended.map(renderRow)}
+            </div>
           )}
-          {showRuntime && runtimeOnly.map(renderRow)}
+          <button
+            type="button"
+            style={TOGGLE}
+            onClick={() => setShowAdvanced((value) => !value)}
+          >
+            {showAdvanced ? "▾" : "▸"} Advanced scan settings
+          </button>
+          {showAdvanced && (
+            <div style={ADVANCED_BOX}>
+              <label style={LABEL}>Scan from</label>
+              <select
+                value={origin}
+                onChange={(event) => setOrigin(event.target.value)}
+                className="trust-input"
+                style={{ marginTop: 4 }}
+              >
+                {origins.map((candidateOrigin) => (
+                  <option key={candidateOrigin.id} value={candidateOrigin.id}>
+                    {candidateOrigin.label}
+                  </option>
+                ))}
+              </select>
+              {discoverProtocols.has("ads") && (
+                <button
+                  type="button"
+                  onClick={onOpenAdsPortSettings}
+                  className="trust-button"
+                  style={{ width: "100%", marginTop: 5 }}
+                >
+                  Configure ADS ports to scan
+                </button>
+              )}
+              {targetedRows.length > 0 && (
+                <button style={TOGGLE} onClick={() => setShowTargeted((value) => !value)}>
+                  {showTargeted ? "▾" : "▸"} Known address or subnet
+                </button>
+              )}
+              {showTargeted && targetedRows.map(renderRow)}
+              {runtimeOnly.length > 0 && (
+                <button style={TOGGLE} onClick={() => setShowRuntime((value) => !value)}>
+                  {showRuntime ? "▾" : "▸"} Runtime hardware scans ⚠
+                </button>
+              )}
+              {showRuntime && runtimeOnly.map(renderRow)}
+            </div>
+          )}
         </div>
 
-        {(scanning || progress.length > 0 || results.length > 0) && (
+        {(scanning || progress.length > 0 || visibleResults.length > 0) && (
           <div className="trust-section">
             {progress.map((p) => (
               <div key={p.protocol + p.label} style={{ fontSize: 10.5, color: "var(--trust-text-muted)", lineHeight: 1.5 }}>
@@ -273,14 +323,14 @@ export function DiscoverPane({
                 {emptyResultCopy(selectedOrigin, hasRuntimeOriginReady)}
               </p>
             )}
-            {results.map((c) => {
+            {visibleResults.map((c) => {
               const isRuntime = typeof c.params.control_endpoint === "string";
               const isAds = c.protocol === "ads";
               const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
               const host = typeof c.params.host === "string" ? c.params.host : "";
               const displayEndpoint = formatDiscoveredEndpoint(endpoint);
-              const adsPortDraft = adsPortDrafts[c.id] ?? String(candidateAdsPort(c));
-              const adsPort = parseAdsPortInput(adsPortDraft);
+              const respondingPorts = isAds ? respondingAdsPorts(c.params) : [];
+              const onCanvas = isAds && isOnCanvas(c);
               const sessionDisabledReason = candidateDisabledReason(
                 c.protocol,
                 discoverProtocols,
@@ -288,17 +338,12 @@ export function DiscoverPane({
                 !c.originRuntimeId ||
                   origins.some((candidateOrigin) => candidateOrigin.id === c.originRuntimeId)
               );
-              const actionDisabledReason =
-                sessionDisabledReason ??
-                (isAds ? adsPort.error : undefined);
               const detail = isRuntime
                 ? runtimeDiscoveryDetail(host, displayEndpoint)
                 : [
                     isAds
-                      ? `${adsTargetNetId(c.params)} · ADS port ${adsPort.port ?? adsPortDraft}`
+                      ? `${respondingPorts.length} responding ADS ${respondingPorts.length === 1 ? "port" : "ports"}`
                       : protocolName(c.protocol),
-                    discoverySourceLabel(c.source),
-                    discoveryConfidenceLabel(c.confidence),
                   ]
                     .filter(Boolean)
                     .join(" · ");
@@ -307,33 +352,35 @@ export function DiscoverPane({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "var(--trust-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</div>
                     <div style={{ fontSize: 10, color: "var(--trust-text-muted)", lineHeight: 1.25, overflowWrap: "anywhere" }}>{detail}</div>
-                    {isAds && (
-                      <label style={ADS_PORT_LABEL}>
-                        ADS port
-                        <input
-                          data-role="ads-port"
-                          type="number"
-                          min={1}
-                          max={65535}
-                          step={1}
-                          value={adsPortDraft}
-                          aria-invalid={Boolean(adsPort.error)}
-                          aria-describedby={adsPort.error ? `${c.id}-ads-port-error` : undefined}
-                          onChange={(event) =>
-                            setAdsPortDrafts((previous) => ({
-                              ...previous,
-                              [c.id]: event.target.value,
-                            }))
-                          }
-                          className="trust-input"
-                          style={ADS_PORT_INPUT}
-                        />
-                      </label>
+                    {onCanvas && (
+                      <div style={ON_CANVAS_LABEL}>On canvas</div>
                     )}
-                    {isAds && adsPort.error && (
-                      <div id={`${c.id}-ads-port-error`} className="trust-field__message trust-field__message--error">
-                        {adsPort.error}
+                    {isAds && respondingPorts.length > 0 && (
+                      <div data-role="responding-ads-ports" style={ADS_RESPONDING_PORTS}>
+                        <span style={ADS_RESPONDING_LABEL}>ADS ports</span>
+                        <div style={ADS_PORT_BUTTONS}>
+                          {respondingPorts.map((port) => (
+                            <span
+                              key={port}
+                              data-ads-port={port}
+                              style={ADS_PORT_BUTTON}
+                            >
+                              {port}
+                            </span>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    {!isRuntime && (
+                      <details style={{ marginTop: 6 }}>
+                        <summary style={DETAILS_SUMMARY}>Details</summary>
+                        <div style={DETAILS_BODY}>
+                          {isAds && <span>AMS Net ID: {adsTargetNetId(c.params)}</span>}
+                          {host && <span>Host: {host}</span>}
+                          <span>{discoverySourceLabel(c.source)}</span>
+                          <span>{discoveryConfidenceLabel(c.confidence)}</span>
+                        </div>
+                      </details>
                     )}
                     {sessionDisabledReason && (
                       <div className="trust-field__message trust-field__message--error">
@@ -343,19 +390,22 @@ export function DiscoverPane({
                   </div>
                   <button
                     onClick={() => {
-                      if (actionDisabledReason) {
+                      if (sessionDisabledReason) {
                         return;
                       }
-                      const candidate = isAds && adsPort.port
-                        ? withCandidateAdsPort(c, adsPort.port)
-                        : c;
-                      isRuntime ? onAdopt(candidate) : onAdd(candidate);
+                      isRuntime ? onAdopt(c) : onAdd(c);
                     }}
-                    disabled={Boolean(actionDisabledReason)}
-                    title={actionDisabledReason}
-                    className="trust-button"
+                    disabled={Boolean(sessionDisabledReason)}
+                    title={sessionDisabledReason}
+                    className={isAds ? "trust-button trust-button--primary" : "trust-button"}
                   >
-                    {isRuntime ? "Adopt" : "+ Add"}
+                    {isRuntime
+                      ? "Adopt"
+                      : isAds
+                        ? onCanvas
+                          ? "Manage tags"
+                          : "Add to canvas"
+                        : "+ Add"}
                   </button>
                 </div>
               );
@@ -420,20 +470,65 @@ const ROW: React.CSSProperties = { display: "flex", alignItems: "flex-start", ga
 const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--trust-text-subtle)", letterSpacing: 0.2, margin: "2px 0 4px" };
 const TOGGLE: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--trust-text-muted)", fontSize: 11, cursor: "pointer", padding: "8px 2px 4px" };
 const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--trust-text)", marginBottom: 4, fontWeight: 600 };
+const ADVANCED_BOX: React.CSSProperties = { marginTop: 6, padding: "8px 9px", border: "1px solid var(--trust-border)", borderRadius: "var(--trust-radius-lg)", background: "var(--trust-surface)" };
 const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: "var(--trust-radius-lg)", border: "1px solid var(--trust-border)", background: "var(--trust-surface)" };
 const ICON: React.CSSProperties = { minHeight: 24, padding: 0, width: 26 };
 const SCAN_BUTTON: React.CSSProperties = { flex: 1 };
-const ADS_PORT_LABEL: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  marginTop: 6,
+const ADS_RESPONDING_PORTS: React.CSSProperties = {
+  marginTop: 7,
+};
+const ADS_RESPONDING_LABEL: React.CSSProperties = {
+  display: "block",
   color: "var(--trust-text-muted)",
   fontSize: 10,
+  marginBottom: 4,
 };
-const ADS_PORT_INPUT: React.CSSProperties = {
-  width: 84,
-  minHeight: 24,
-  padding: "2px 6px",
-  fontSize: 11,
+const ADS_PORT_BUTTONS: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
 };
+const ADS_PORT_BUTTON: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: 21,
+  padding: "1px 7px",
+  fontSize: 10.5,
+  border: "1px solid var(--trust-border)",
+  borderRadius: 999,
+  background: "var(--trust-surface-raised)",
+  color: "var(--trust-text)",
+};
+const DETAILS_SUMMARY: React.CSSProperties = { color: "var(--trust-text-muted)", cursor: "pointer", fontSize: 10 };
+const DETAILS_BODY: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2, marginTop: 4, color: "var(--trust-text-muted)", fontSize: 9.5 };
+const ON_CANVAS_LABEL: React.CSSProperties = {
+  display: "inline-block",
+  marginTop: 5,
+  color: "var(--trust-success)",
+  fontSize: 10,
+  fontWeight: 600,
+};
+
+function restoredProtocolSelection(): ReadonlySet<string> {
+  try {
+    const raw = window.localStorage.getItem(DISCOVERY_SELECTION_STORAGE_KEY);
+    const value = raw ? JSON.parse(raw) : undefined;
+    if (Array.isArray(value)) {
+      return new Set(value.filter((item): item is string => typeof item === "string"));
+    }
+  } catch {
+    // Webview storage can be unavailable in isolated test hosts; use the first-run default.
+  }
+  return new Set(["ads"]);
+}
+
+function persistProtocolSelection(selection: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(
+      DISCOVERY_SELECTION_STORAGE_KEY,
+      JSON.stringify([...selection])
+    );
+  } catch {
+    // Discovery still works when the host does not provide persistent webview storage.
+  }
+}

@@ -10,7 +10,6 @@ import type {
 } from "../communication/schemaForm";
 import {
   clientErrorResult,
-  fetchCommSchema,
   normalizeProtocolId,
 } from "../communication/runtimeComm";
 import {
@@ -21,34 +20,30 @@ import {
 } from "../runtimeTarget";
 import { getControlAuthToken } from "../runtimeAuth";
 import { localSimControl } from "../simControl";
-import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import {
   runtimeLifecycleService,
   type RuntimeLifecycleSnapshot,
   type RuntimeStartFailure,
 } from "../runtimeLifecycle";
+import type { IoState } from "../io-panel/types";
 import { getSelectedRuntimeId, setSelectedRuntimeId } from "../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
-  listManagedRuntimes,
   onDidChangeManagedRuntimes,
   showManagedRuntimeLogs,
   startManagedRuntime,
   stopManagedRuntime,
 } from "../localRuntime";
+import type { ManagedRuntime } from "../localRuntimeModel";
 import {
   attachManagedRuntimeAfterStart,
   disconnectManagedRuntimeAfterStop,
 } from "../managedRuntimeSession";
 import {
-  fetchFleetTopology,
-  mergeFleetTopologies,
   type FleetTopologyResponse,
 } from "./fleetTopology";
 import {
-  fetchConnectorStatus,
   fetchAndMergeFleetTopologiesWithConnectorStatus,
-  mergeConnectorStatusIntoTopology,
 } from "./connectorsStatus";
 import {
   buildNetworkCanvasModel,
@@ -61,10 +56,6 @@ import {
   type NetworkCanvasStage,
 } from "./model";
 import { buildCanvasGraph } from "./graphData";
-import {
-  offlineCommSchema,
-  offlineCommTopology,
-} from "./offlineComm";
 import {
   DiscoveryRequestTracker,
   isActiveWebviewSession,
@@ -83,11 +74,13 @@ import {
   LatestRefreshCoordinator,
   type LatestRefreshContext,
 } from "./refreshCoordinator";
+import { loadNetworkCanvasRefreshData } from "./refreshData";
 
 export const NETWORK_CANVAS_COMMAND = "trust-lsp.networkCanvas.open";
 
 const NETWORK_CANVAS_VIEW_TYPE = "trust-network-canvas";
 const REFRESH_INTERVAL_MS = 1500;
+const IO_RENDER_INTERVAL_MS = 100;
 
 let panel: vscode.WebviewPanel | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
@@ -95,9 +88,18 @@ let currentStage: NetworkCanvasStage = "welcome";
 let deviceRequested = false;
 let lastFailure: RuntimeStartFailure | undefined;
 let refreshTimer: NodeJS.Timeout | undefined;
+let refreshPollRunning = false;
+let refreshPollGeneration = 0;
+let ioRenderTimer: NodeJS.Timeout | undefined;
+let pendingIoState: IoState | undefined;
 let activeProtocol: NetworkCanvasProtocolId = "simulated";
 let activeSchema: CommSchemaResponse | undefined;
+let lastCapabilities: CommCapabilitiesResponse | undefined;
+let lastSnapshot: RuntimeLifecycleSnapshot | undefined;
 let lastTopology: FleetTopologyResponse | undefined;
+let lastDisplayTopology: FleetTopologyResponse | undefined;
+let lastTopologyError: string | undefined;
+let lastManagedRuntimes: ManagedRuntime[] = [];
 let activeRuntimeTarget: RuntimeTarget | undefined;
 let lastApplyResult: CommApplyResponse | undefined;
 let searchQuery = "";
@@ -154,6 +156,11 @@ export function registerNetworkCanvasPanel(context: vscode.ExtensionContext): vo
       void refreshNetworkCanvasPanel();
     })
   );
+  context.subscriptions.push(
+    runtimeLifecycleService.onDidIoStateChange((ioState) => {
+      renderNetworkCanvasIoState(ioState);
+    })
+  );
   // A managed runtime starting/stopping (here or from the Run bar) re-renders its node state.
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => {
@@ -201,6 +208,19 @@ async function showNetworkCanvasPanel(
       pendingFocusNodeId = undefined;
       quickAddOpen = false;
       runtimeSetupMessage = undefined;
+      activeRuntimeTarget = undefined;
+      activeSchema = undefined;
+      lastCapabilities = undefined;
+      lastSnapshot = undefined;
+      lastTopology = undefined;
+      lastDisplayTopology = undefined;
+      lastTopologyError = undefined;
+      lastManagedRuntimes = [];
+      pendingIoState = undefined;
+      if (ioRenderTimer) {
+        clearTimeout(ioRenderTimer);
+        ioRenderTimer = undefined;
+      }
       stopPolling();
     });
     panel.onDidChangeViewState(({ webviewPanel }) => {
@@ -258,8 +278,11 @@ async function refreshNetworkCanvasPanelOnce(
       return;
     }
   }
-  const snapshot = await runtimeLifecycleService.snapshot();
-  let runtime = await resolveRuntimeTarget(workspaceConfigResource());
+  const [snapshot, resolvedRuntime] = await Promise.all([
+    runtimeLifecycleService.snapshot(),
+    resolveRuntimeTarget(workspaceConfigResource()),
+  ]);
+  let runtime = resolvedRuntime;
   // The canvas SHOWS the local simulator as a node in the host but NEVER auto-starts it —
   // the user starts it on demand (the node's Start action). The graph below renders it
   // stopped until the lifecycle service proves it is running.
@@ -287,150 +310,108 @@ async function refreshNetworkCanvasPanelOnce(
       }
     }
   }
-  let capabilities: CommCapabilitiesResponse | undefined;
-  let topologyError: string | undefined;
-  let nextSchema: CommSchemaResponse | undefined;
-  let nextRuntimeSetupMessage: string | undefined;
-  let nextTopology: FleetTopologyResponse | undefined;
-  let offlineTopology: FleetTopologyResponse | undefined;
-  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-  // Offline-first: the protocol schema and the configured topology come from the trust-runtime
-  // CLI (no running runtime), so the canvas + settings work whether the project is stopped or
-  // online. (Returns undefined on an older binary without the `comm` subcommands → falls back.)
-  if (extensionContext) {
-    nextSchema = await offlineCommSchema(extensionContext);
-    if (projectDir) {
-      offlineTopology = await offlineCommTopology(extensionContext, projectDir);
-      nextTopology = offlineTopology;
-    }
+  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
+    return;
   }
+  lastSnapshot = snapshot;
+  activeRuntimeTarget = runtime;
+  postNetworkCanvasGraph(panelRef, false);
 
-  // Live overlay: when a runtime is reachable, prefer its live schema + topology (real status).
-  if (runtime.status === "online_reachable" && runtime.endpoint) {
-    try {
-      capabilities = await sendRuntimeControlRequest<CommCapabilitiesResponse>(
-        runtime.endpoint,
-        runtime.authToken,
-        "comm.capabilities",
-        undefined,
-        { timeoutMs: 2000 }
+  const refreshData = await loadNetworkCanvasRefreshData({
+    context: extensionContext,
+    projectDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    runtime,
+    loadPeerTopology: async () => {
+      const peers = (await resolveFleetTargets(runtime)).filter(
+        (target) => target.endpoint && target.endpoint !== runtime.endpoint
       );
-    } catch {
-      capabilities = undefined;
-    }
-    try {
-      const liveSchema = await fetchCommSchema(runtime);
-      if (liveSchema) {
-        nextSchema = liveSchema;
-      }
-    } catch (error) {
-      if (!nextSchema) {
-        nextRuntimeSetupMessage =
-          error instanceof Error ? error.message : String(error);
-      }
-    }
-    try {
-      // The local primary's own live topology (real status). Peers are resolved separately below.
-      const liveTopology = mergeConnectorStatusIntoTopology(
-        await fetchFleetTopology(runtime),
-        await fetchConnectorStatus(runtime).catch(() => undefined)
-      );
-      if (liveTopology) {
-        // Keep the project-file topology as a configured overlay when the selected runtime comes
-        // online. Live topology owns real state; offline topology contributes configured endpoints
-        // that may require restart before the runtime reports them.
-        const shouldPreserveProjectOverlay = offlineTopology !== undefined;
-        nextTopology = shouldPreserveProjectOverlay
-          ? mergeFleetTopologies([liveTopology, offlineTopology])
-          : liveTopology;
-      }
-    } catch (error) {
-      topologyError =
-        error instanceof Error
-          ? `Fleet topology unavailable: ${error.message}`
-          : `Fleet topology unavailable: ${String(error)}`;
-    }
+      return peers.length > 0
+        ? fetchAndMergeFleetTopologiesWithConnectorStatus(peers)
+        : undefined;
+    },
+  });
+  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
+    return;
   }
+  activeSchema = refreshData.schema;
+  lastCapabilities = refreshData.capabilities;
+  lastTopology = refreshData.localTopology;
+  lastDisplayTopology = refreshData.displayTopology;
+  lastTopologyError = refreshData.topologyError;
+  runtimeSetupMessage = refreshData.runtimeSetupMessage;
+  lastManagedRuntimes = refreshData.managed;
+  postNetworkCanvasGraph(panelRef, true);
+}
 
-  // §12.10: configured fleet peers (added hosts) ALWAYS resolve — real topology if reachable, a
-  // stopped node if not — whether or not the local primary is running, so an added host/runtime
-  // never silently vanishes. Kept separate from lastTopology so the local view is preserved.
-  let peerTopology: FleetTopologyResponse | undefined;
-  try {
-    const peers = (await resolveFleetTargets(runtime)).filter(
-      (target) => target.endpoint && target.endpoint !== runtime.endpoint
-    );
-    if (peers.length > 0) {
-      peerTopology = await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
-    }
-  } catch {
-    // Peers are best-effort; the local view still renders without them.
+function postNetworkCanvasGraph(
+  panelRef: vscode.WebviewPanel,
+  applyPendingFocus: boolean,
+): void {
+  const snapshot = lastSnapshot;
+  if (!snapshot || panel !== panelRef || !panelRef.visible) {
+    return;
   }
-
-  const displayTopology = peerTopology
-    ? mergeFleetTopologies([nextTopology, peerTopology])
-    : nextTopology;
-
   const model = buildNetworkCanvasModel(
     modelInputForSnapshot(currentStage, snapshot, {
-      schema: nextSchema,
-      capabilities,
+      schema: activeSchema,
+      capabilities: lastCapabilities,
       activeProtocol,
       applyResult: lastApplyResult,
       searchQuery,
       pinnedNodeId,
       quickAddOpen,
-      topology: displayTopology,
-      topologyError,
-      runtimeSetupMessage: nextRuntimeSetupMessage,
+      topology: lastDisplayTopology,
+      topologyError: lastTopologyError,
+      runtimeSetupMessage,
     })
   );
-  // Honest "attached" signal for the runtime-node controls: the endpoint we actually hold a live
-  // connection to (an attached remote), so exactly one remote shows "Disconnect" — never every
-  // reachable peer.
   const attachedEndpoint =
     snapshot.status.runtimeMode === "online" &&
     snapshot.status.runtimeState === "connected"
       ? snapshot.status.endpoint
       : undefined;
-  // Managed local runtimes (fleet.toml projects we own) injected as nodes so Start/Stop/Logs live on
-  // the canvas node (§0.6 / Phase 9). Same service the Run bar uses — one lifecycle model.
-  const managed = extensionContext
-    ? await listManagedRuntimes(extensionContext)
-    : [];
-  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
-    return;
-  }
-  activeRuntimeTarget = runtime;
-  activeSchema = nextSchema;
-  runtimeSetupMessage = nextRuntimeSetupMessage;
-  lastTopology = nextTopology;
   void panelRef.webview.postMessage({
     type: "graph",
     graph: buildCanvasGraph(
       model,
-      displayTopology,
+      lastDisplayTopology,
       undefined,
       attachedEndpoint,
-      managed,
+      lastManagedRuntimes,
       getSelectedRuntimeId()
     ),
   });
   void panelRef.webview.postMessage({
     type: "meta",
-    schema: nextSchema,
+    schema: activeSchema,
     applyResult: lastApplyResult,
-    reachable: runtime.status === "online_reachable",
-    setupMessage: nextRuntimeSetupMessage,
+    reachable: activeRuntimeTarget?.status === "online_reachable",
+    setupMessage: runtimeSetupMessage,
   });
-  if (pendingFocusNodeId) {
+  if (applyPendingFocus && pendingFocusNodeId) {
     void panelRef.webview.postMessage({
       type: "focusNode",
       nodeId: pendingFocusNodeId,
     });
     pendingFocusNodeId = undefined;
   }
+}
+
+function renderNetworkCanvasIoState(ioState: IoState): void {
+  pendingIoState = ioState;
+  if (ioRenderTimer) {
+    return;
+  }
+  ioRenderTimer = setTimeout(() => {
+    ioRenderTimer = undefined;
+    const nextIoState = pendingIoState;
+    pendingIoState = undefined;
+    if (!nextIoState || !lastSnapshot || !panel?.visible) {
+      return;
+    }
+    lastSnapshot = { ...lastSnapshot, ioState: nextIoState };
+    postNetworkCanvasGraph(panel, false);
+  }, IO_RENDER_INTERVAL_MS);
 }
 
 // §12.10 hybrid source: the primary runtime plus any configured fleet peers, each probed.
@@ -658,6 +639,9 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
     case "browseSymbols":
       await protocolActions.browseSymbols(message);
       break;
+    case "addAdsDevice":
+      await protocolActions.addAdsDevice(message);
+      break;
     case "createRoute":
       // The browse pane owns the visible recovery instructions. Keep this notification aligned with
       // that in-canvas flow; do not send users to retired ADS panels.
@@ -667,6 +651,18 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       break;
     case "addTags":
       await protocolActions.addTags(message);
+      break;
+    case "addAdsTagsBatch":
+      await protocolActions.addAdsTagsBatch(message);
+      break;
+    case "removeAdsTag":
+      await protocolActions.removeAdsTag(message);
+      break;
+    case "openAdsDiscoverySettings":
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "trust.ads.discoveryPorts"
+      );
       break;
     case "addEthercatChannels":
       await protocolActions.addEthercatChannels(message);
@@ -911,17 +907,35 @@ async function startConfiguredRuntime(): Promise<void> {
 }
 
 function startPolling(): void {
-  if (refreshTimer) {
+  if (refreshTimer || refreshPollRunning || !panel?.visible) {
     return;
   }
-  refreshTimer = setInterval(() => {
-    void refreshNetworkCanvasPanel();
+  const generation = refreshPollGeneration;
+  refreshTimer = setTimeout(() => {
+    refreshTimer = undefined;
+    void runRefreshPoll(generation);
   }, REFRESH_INTERVAL_MS);
 }
 
+async function runRefreshPoll(generation: number): Promise<void> {
+  if (generation !== refreshPollGeneration || !panel?.visible) {
+    return;
+  }
+  refreshPollRunning = true;
+  try {
+    await refreshNetworkCanvasPanel();
+  } finally {
+    refreshPollRunning = false;
+    if (generation === refreshPollGeneration && panel?.visible) {
+      startPolling();
+    }
+  }
+}
+
 function stopPolling(): void {
+  refreshPollGeneration += 1;
   if (refreshTimer) {
-    clearInterval(refreshTimer);
+    clearTimeout(refreshTimer);
     refreshTimer = undefined;
   }
 }

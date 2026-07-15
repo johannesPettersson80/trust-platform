@@ -4,7 +4,7 @@ use crate::ads::onboarding::route::{RouteAddRequest, RouteRemoveRequest};
 #[cfg(feature = "ads-wire")]
 use crate::ads::{
     AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsResolvedHandle,
-    AdsRsTransport, AdsSubscribeRequest, AdsWriteRequest,
+    AdsSubscribeRequest, AdsWriteRequest, HostAdsClient,
 };
 #[cfg(feature = "ads-wire")]
 use std::collections::BTreeMap;
@@ -19,6 +19,9 @@ use trust_ads_core::{
 };
 use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, SymbolDescriptor, SymbolFlag};
 use trust_runtime_core::value::Value;
+
+#[cfg(feature = "ads-wire")]
+mod identity;
 
 #[cfg(feature = "ads-wire")]
 const DEFAULT_ADS_PLC_PORT: u16 = 851;
@@ -94,7 +97,7 @@ pub struct AdsRsOnboardingWire {
     tcp_probe_timeout: Duration,
     udp_broadcast_window: Duration,
     transport_key: Option<String>,
-    transport: Option<AdsRsTransport>,
+    transport: Option<HostAdsClient>,
     local_identity: Option<LocalIdentity>,
     symbols_by_name: BTreeMap<String, SymbolDescriptor>,
     handles_by_id: BTreeMap<u32, AdsResolvedHandle>,
@@ -130,7 +133,7 @@ impl AdsRsOnboardingWire {
         &mut self,
         target: &TargetIdentity,
         failure_kind: OnboardingWireErrorKind,
-    ) -> Result<&mut AdsRsTransport, OnboardingWireError> {
+    ) -> Result<&mut HostAdsClient, OnboardingWireError> {
         let key = self.transport_key_for(target);
         if self.transport_key.as_deref() != Some(key.as_str()) {
             self.transport = None;
@@ -140,7 +143,7 @@ impl AdsRsOnboardingWire {
         }
         if self.transport.is_none() {
             let route = self.route_for_target(target);
-            let mut transport = AdsRsTransport::new(route);
+            let mut transport = HostAdsClient::new(route);
             transport
                 .connect()
                 .map_err(|error| map_transport_error(failure_kind, "connect ADS target", error))?;
@@ -289,19 +292,7 @@ impl Default for AdsRsOnboardingWire {
 #[cfg(feature = "ads-wire")]
 impl AdsOnboardingWire for AdsRsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        let info = ads::udp::get_info((target_ip, ads::UDP_PORT)).map_err(|error| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                format!("ADS UDP identify failed for {target_ip}: {error}"),
-            )
-        })?;
-        Ok(TargetIdentity {
-            name: Some(info.hostname),
-            ip: target_ip.to_string(),
-            ams_net_id: info.netid.to_string(),
-            ams_port: DEFAULT_ADS_PLC_PORT,
-            tc_version: tc_version_string(info.twincat_version),
-        })
+        identity::identify_target(target_ip, self.tcp_probe_timeout)
     }
 
     fn udp_identify_all(
@@ -649,6 +640,8 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
 pub enum MockAdsOnboardingScenario {
     Healthy,
     WrongIp,
+    DirectedIdentifyBlocked,
+    LoopbackIdentifyBlocked,
     WrongAmsNetId,
     MissingRoute,
     FirewallBlocked,
@@ -706,8 +699,13 @@ impl Default for MockAdsOnboardingWire {
 }
 
 impl AdsOnboardingWire for MockAdsOnboardingWire {
-    fn udp_identify(&mut self, _target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::WrongIp {
+    fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
+        if matches!(
+            self.scenario,
+            MockAdsOnboardingScenario::WrongIp | MockAdsOnboardingScenario::DirectedIdentifyBlocked
+        ) || (self.scenario == MockAdsOnboardingScenario::LoopbackIdentifyBlocked
+            && matches!(target_ip, "127.0.0.1" | "localhost"))
+        {
             return Err(OnboardingWireError::new(
                 OnboardingWireErrorKind::UdpIdentifyBlocked,
                 "target did not answer UDP identify",
@@ -720,6 +718,9 @@ impl AdsOnboardingWire for MockAdsOnboardingWire {
         &mut self,
         target_ip: &str,
     ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::DirectedIdentifyBlocked {
+            return Ok(vec![self.target.clone()]);
+        }
         self.udp_identify(target_ip).map(|target| vec![target])
     }
 

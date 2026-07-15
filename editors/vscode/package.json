@@ -241,6 +241,26 @@
           "description": "Additional runtime control endpoints to aggregate in Devices & Connections (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
           "scope": "resource"
         },
+        "trust.ads.discoveryPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "uniqueItems": true,
+          "default": [
+            301,
+            501,
+            851,
+            852,
+            853,
+            854
+          ],
+          "title": "ADS discovery ports",
+          "description": "Logical ADS ports tested after an ADS device is discovered. Responding ports are shown on the device and in Browse Tags.",
+          "scope": "resource"
+        },
         "trust.runtime.authTokenFallback": {
           "type": "string",
           "default": "",

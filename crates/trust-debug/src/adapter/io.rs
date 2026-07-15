@@ -350,6 +350,7 @@ impl DebugAdapter {
         if let Ok(runtime) = self.session.runtime_handle().try_lock() {
             let mut state = io_state_from_snapshot(self.runtime_io_snapshot(&runtime));
             self.apply_forced_flags(&mut state);
+            append_ads_live_values(&mut state, runtime.ads_live_values());
             return state;
         }
         IoStateEventBody {
@@ -365,6 +366,7 @@ impl DebugAdapter {
         let runtime = runtime_handle.try_lock().ok()?;
         let mut body = io_state_from_snapshot(self.runtime_io_snapshot(&runtime));
         self.apply_forced_flags(&mut body);
+        append_ads_live_values(&mut body, runtime.ads_live_values());
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(body.clone());
         }
@@ -377,6 +379,7 @@ impl DebugAdapter {
     ) -> IoStateEventBody {
         let mut body = io_state_from_snapshot(self.runtime_io_snapshot(runtime));
         self.apply_forced_flags(&mut body);
+        append_ads_live_values(&mut body, runtime.ads_live_values());
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(body.clone());
         }
@@ -457,6 +460,7 @@ impl DebugAdapter {
                     .map(str::to_string),
                 value: format_value(&value),
                 forced: false,
+                writable: None,
             });
         }
         self.apply_forced_flags(&mut state);
@@ -738,6 +742,7 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
                     value_type,
                     value,
                     forced: forced.iter().any(|forced| forced == &entry.address),
+                    writable: None,
                 }
             })
             .collect()
@@ -749,6 +754,31 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
         inputs: convert(snapshot.inputs, &forced),
         outputs: convert(snapshot.outputs, &forced),
         memory: convert(snapshot.memory, &forced),
+    }
+}
+
+pub(super) fn append_ads_live_values(
+    state: &mut IoStateEventBody,
+    values: Vec<trust_runtime::ads::AdsLiveValue>,
+) {
+    for value in values {
+        let entry = IoStateEntry {
+            name: Some(value.point_name.clone()),
+            address: format!("global:{}", value.point_name),
+            source: Some(format!(
+                "ADS {} · port {}",
+                value.connection_name, value.ams_port
+            )),
+            value_type: value_type_name(&value.value),
+            value: format_value(&value.value),
+            forced: value.forced,
+            writable: Some(value.writable),
+        };
+        if value.input {
+            state.inputs.push(entry);
+        } else {
+            state.outputs.push(entry);
+        }
     }
 }
 

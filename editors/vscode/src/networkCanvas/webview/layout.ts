@@ -228,6 +228,7 @@ export function buildGraph(
           role: ep.role ?? "",
           detail: ep.detail,
           health: ep.health,
+          runtimeHealth: rt.health,
           dimmed: Boolean(ep.dimmed),
           live: ep.live,
           connector: ep.connector,

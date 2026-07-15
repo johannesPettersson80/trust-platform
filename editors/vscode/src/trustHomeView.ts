@@ -52,7 +52,6 @@ import { getWorkspaceProjectState } from "./workspaceProject";
 //                        then visible truST destinations.
 // Target selection is select-only (no Add/Connect sentinel). A remote NEVER renders Stop; it renders
 // Disconnect because we only own our attach session.
-const SIDEBAR_ACTION_TIMEOUT_MS = 8000;
 
 type CompileState =
   | { readonly kind: "unknown" }
@@ -463,14 +462,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       }
     }
     const dispatched = this.dispatch(selected);
-    const result =
-      selected.primary.action === "start" && dispatched
-        ? await withSidebarActionTimeout(
-            dispatched,
-            SIDEBAR_ACTION_TIMEOUT_MS,
-            "Start timed out. Check the runtime port or target settings."
-          )
-        : await dispatched;
+    const result = await dispatched;
     if (result && !result.ok) {
       const failureMessage = actionFailureMessage(selected, result);
       this.applyMessage = failureMessage;
@@ -1344,36 +1336,6 @@ function deployButtonState(
 
 function compileSummary(response: CheckProgramResponse): string {
   return summarizeCheck(response);
-}
-
-async function withSidebarActionTimeout(
-  promise: Promise<RuntimeLifecycleResult>,
-  timeoutMs: number,
-  timeoutMessage: string
-): Promise<RuntimeLifecycleResult> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<RuntimeLifecycleResult>((resolve) => {
-        timer = setTimeout(
-          () =>
-            resolve({
-              ok: false,
-              failure: {
-                kind: "failed_spawn",
-                message: timeoutMessage,
-              },
-            }),
-          timeoutMs
-        );
-      }),
-    ]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
 }
 
 // HMI is adaptive (§0.5.13): open when a descriptor exists, otherwise scaffold then open. Never a dead

@@ -4,7 +4,8 @@ export function buildOfflineAdsImportArgs(
   projectDir: string,
   target: Record<string, unknown>,
   connectionName: string,
-  symbols: readonly string[]
+  symbols: readonly string[],
+  existingSnapshots: readonly string[] = [],
 ): string[] {
   const host = stringField(target, "host", "ip") ?? "";
   const args = [
@@ -29,10 +30,31 @@ export function buildOfflineAdsImportArgs(
   if (amsPort) {
     args.push("--ams-port", String(amsPort));
   }
+  for (const snapshot of existingSnapshots) {
+    args.push("--existing-snapshot", snapshot);
+  }
   for (const symbol of symbols) {
     args.push("--include", symbol);
   }
   return args;
+}
+
+export function buildAdsGeneratedImportArgs(
+  configPath: string,
+  snapshotPaths: readonly string[],
+  outputPath: string,
+): string[] {
+  return [
+    "ads",
+    "import",
+    "--config",
+    configPath,
+    ...snapshotPaths.flatMap((snapshot) => ["--snapshot", snapshot]),
+    "--output",
+    outputPath,
+    "--force",
+    "--json",
+  ];
 }
 
 export function buildOfflineBrowseSymbolsArgs(

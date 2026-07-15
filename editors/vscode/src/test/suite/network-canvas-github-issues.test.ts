@@ -67,7 +67,7 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
   });
 
-  test("#95 refresh coordinator is single-flight and latest-wins", async () => {
+  test("#95 refresh coordinator commits slow active work and coalesces pending refreshes", async () => {
     const coordinator = new LatestRefreshCoordinator();
     let releaseFirst: (() => void) | undefined;
     const firstGate = new Promise<void>((resolve) => {
@@ -109,8 +109,8 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.strictEqual(maxActive, 1, "refresh work must never overlap");
     assert.deepStrictEqual(
       committed,
-      [3],
-      "only the newest queued snapshot may commit",
+      [1, 3],
+      "slow active work must commit once and only the newest queued snapshot may follow",
     );
   });
 
@@ -199,6 +199,87 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.ok(source.includes("isActiveWebviewSession"));
   });
 
+  test("#95 polling waits for refresh completion before scheduling the next cycle", () => {
+    const source = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const polling = source.slice(
+      source.indexOf("function startPolling()"),
+      source.indexOf("function isRecord(")
+    );
+
+    assert.ok(
+      !polling.includes("setInterval("),
+      "a fixed interval can invalidate every slow Windows refresh before it renders",
+    );
+    assert.ok(
+      polling.includes("await refreshNetworkCanvasPanel()"),
+      "the polling loop must observe refresh completion",
+    );
+    assert.ok(
+      polling.includes("setTimeout("),
+      "the next poll must be scheduled after the completed refresh",
+    );
+  });
+
+  test("#95 canvas renders cached state before concurrent runtime enrichment", () => {
+    const source = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const refreshDataPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "src",
+      "networkCanvas",
+      "refreshData.ts",
+    );
+    const enrichment = fs.existsSync(refreshDataPath)
+      ? fs.readFileSync(refreshDataPath, "utf8")
+      : "";
+    const refresh = source.slice(
+      source.indexOf("async function refreshNetworkCanvasPanelOnce("),
+      source.indexOf("async function resolveFleetTargets(")
+    );
+    const initialPost = refresh.indexOf("postNetworkCanvasGraph(");
+    const enrichmentStart = refresh.indexOf("loadNetworkCanvasRefreshData(");
+
+    assert.ok(
+      refresh.includes("await Promise.all([") &&
+        refresh.includes("runtimeLifecycleService.snapshot()") &&
+        refresh.includes("resolveRuntimeTarget(workspaceConfigResource())"),
+      "runtime status and target resolution must start together before the first graph",
+    );
+    assert.ok(initialPost >= 0, "refresh must publish an initial graph");
+    assert.ok(
+      enrichmentStart >= 0 && initialPost < enrichmentStart,
+      "the initial graph must render before Windows subprocess enrichment begins",
+    );
+    assert.ok(
+      enrichment.includes("Promise.allSettled(") &&
+        enrichment.includes("fetchFleetTopology(runtime)") &&
+        enrichment.includes("fetchConnectorStatus(runtime)"),
+      "independent live-runtime enrichment must execute concurrently",
+    );
+  });
+
+  test("#95 runtime I/O events use cached canvas rendering instead of full refresh", () => {
+    const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const lifecycleSource = readSrc("runtimeLifecycle.ts");
+    const customEvent = lifecycleSource.slice(
+      lifecycleSource.indexOf("vscode.debug.onDidReceiveDebugSessionCustomEvent"),
+      lifecycleSource.indexOf("vscode.debug.onDidStartDebugSession")
+    );
+
+    assert.ok(
+      customEvent.includes("this.emitIoStateChanged()") &&
+        !customEvent.includes("this.emitChanged()"),
+      "stIoState must not announce a structural lifecycle change",
+    );
+    assert.ok(
+      panelSource.includes("runtimeLifecycleService.onDidIoStateChange") &&
+        panelSource.includes("renderNetworkCanvasIoState"),
+      "the canvas must render I/O changes from cached graph data",
+    );
+  });
+
   test("#96 write-enabled offline refusal is complete and actionable", () => {
     const prompt = adsImportFailurePrompt(
       "Write-enabled ADS imports need a running runtime so truST can apply the explicit write acknowledgement.",
@@ -269,38 +350,23 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
   });
 
-  test("#97 visual browse flow exposes an inline ADS port field", () => {
+  test("#97 visual browse flow groups discovered ADS ports", () => {
     const source = readSrc("networkCanvas/webview/DiscoverPane.tsx");
 
-    assert.ok(source.includes('data-role="ads-port"'));
-    assert.ok(source.includes("min={1}") && source.includes("max={65535}"));
-    assert.ok(source.includes("withCandidateAdsPort"));
+    assert.ok(!source.includes('data-role="ads-port"'));
+    assert.ok(source.includes('data-role="responding-ads-ports"'));
+    assert.ok(source.includes('? "Manage tags"'));
+    assert.ok(source.includes(': "Add to canvas"'));
 
-    const browseControls = readSrc(
-      "networkCanvas/webview/AdsBrowseTargetControls.tsx",
+    const browser = readSrc(
+      "networkCanvas/webview/AdsMultiPortTagBrowser.tsx",
     );
-    assert.ok(browseControls.includes('data-role="ads-browse-port"'));
-    assert.ok(browseControls.includes('data-role="browse-ads-symbols"'));
-    assert.ok(
-      browseControls.includes(
-        "Each ADS port is a separate server and symbol namespace",
-      ),
-    );
-    const browsePanel = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
-    assert.ok(browsePanel.includes("adsPortDraftStale"));
-    assert.ok(
-      browsePanel.includes(
-        "Browse the edited ADS port before adding tags from that server.",
-      ),
-    );
-    assert.ok(
-      browsePanel.includes("routeMissing && !adsPortDraftStale"),
-      "an old route result must be hidden after the port draft changes",
-    );
-    assert.ok(
-      browsePanel.includes("error && !adsPortDraftStale"),
-      "an old browse error must be hidden after the port draft changes",
-    );
+    assert.ok(browser.includes("Search tags on all ADS ports"));
+    assert.ok(browser.includes("onAddTags([{ port, paths }]"));
+    assert.ok(browser.includes('data-role="added-symbol-status"'));
+    assert.ok(browser.includes("Advanced: browse another ADS port"));
+    assert.ok(browser.includes("min={1}") && browser.includes("max={65535}"));
+    assert.ok(browser.includes("Done"));
 
     assert.strictEqual(
       classifyBrowseError("ads", { code: "ads_port_unavailable" }).title,

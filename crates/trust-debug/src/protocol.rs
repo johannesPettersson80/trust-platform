@@ -112,6 +112,8 @@ pub struct IoStateEntry {
     pub value: String,
     #[serde(default)]
     pub forced: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writable: Option<bool>,
 }
 
 /// Custom event body carrying I/O state snapshots.

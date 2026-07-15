@@ -511,11 +511,42 @@ impl DebugAdapter {
                         };
                     }
                 };
+                let ads_point = if let LValue::Name(name) = &target {
+                    match runtime.ads_live_value_writable(name.as_ref()) {
+                        Some(false) => {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(
+                                    &request,
+                                    &format!(
+                                        "ADS tag '{name}' is read-only. Enable writes for this tag and restart the runtime."
+                                    ),
+                                )],
+                                ..DispatchOutcome::default()
+                            };
+                        }
+                        Some(true) => Some(name.clone()),
+                        None => None,
+                    }
+                } else {
+                    None
+                };
                 if let Err(err) = runtime.write_lvalue(&target, coerced.clone(), frame_id) {
                     return DispatchOutcome {
                         responses: vec![self.error_response(&request, &map_runtime_error(err))],
                         ..DispatchOutcome::default()
                     };
+                }
+                if let Some(name) = ads_point {
+                    if !runtime.queue_ads_live_write(name.as_ref(), coerced.clone()) {
+                        let _ = runtime.write_lvalue(&target, current.clone(), frame_id);
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(
+                                &request,
+                                &format!("ADS write for tag '{name}' could not be queued."),
+                            )],
+                            ..DispatchOutcome::default()
+                        };
+                    }
                 }
                 if matches!(directive, SetDirective::Force(_)) {
                     if let Err(message) = self.apply_symbolic_force_directive(

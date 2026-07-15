@@ -12,8 +12,15 @@ import {
 } from "./discoveryErrors";
 import {
   offlineCommDiscover,
+  offlineBrowseSymbols,
+  type BrowseSymbolsResponse,
   type DiscoverCandidate,
 } from "./offlineComm";
+import {
+  adsDiscoveryPorts,
+  probeAdsCandidatePorts,
+  respondingAdsPorts,
+} from "./adsDiscoveryPorts";
 
 interface DiscoveryRequestItem {
   readonly protocol: string;
@@ -96,6 +103,12 @@ export async function runNetworkCanvasDiscovery(
     Boolean(runtimeTarget.endpoint);
   const runtimeRequested = request.origin !== "this_host";
   const all: DiscoverCandidate[] = [];
+  let adsIdentityFound = false;
+  const configuredAdsPorts = adsDiscoveryPorts(
+    vscode.workspace
+      .getConfiguration("trust")
+      .get<unknown[]>("ads.discoveryPorts"),
+  );
 
   const postIfCurrent = (payload: Record<string, unknown>): boolean => {
     if (!tracker.isCurrent(token, panel) || !panel.visible) {
@@ -162,26 +175,75 @@ export async function runNetworkCanvasDiscovery(
     if (!tracker.isCurrent(token, panel)) {
       return;
     }
-    const stamped = candidates.map((candidate) => ({
-      ...candidate,
-      protocol,
-      originRuntimeId: runtimeRequested ? request.origin : undefined,
-    }));
-    all.push(...stamped);
+    const stamped = await Promise.all(
+      candidates.map(async (candidate) => {
+        const discovered = {
+          ...candidate,
+          protocol,
+          originRuntimeId: runtimeRequested ? request.origin : undefined,
+        };
+        if (protocol !== "ads") {
+          return discovered;
+        }
+        return probeAdsCandidatePorts(
+          discovered,
+          configuredAdsPorts,
+          async (target) => {
+            if (viaRuntime && runtimeTarget?.endpoint) {
+              try {
+                return await sendRuntimeControlRequest<BrowseSymbolsResponse>(
+                  runtimeTarget.endpoint,
+                  runtimeTarget.authToken,
+                  "comm.browse_symbols",
+                  { protocol: "ads", kind: "symbols", target },
+                  { timeoutMs: 8_000 },
+                );
+              } catch {
+                return undefined;
+              }
+            }
+            return offlineBrowseSymbols(
+              extensionContext,
+              "ads",
+              target,
+              "symbols",
+            );
+          },
+        );
+      }),
+    );
+    const verified = stamped.filter(
+      (candidate) =>
+        candidate.protocol !== "ads" ||
+        respondingAdsPorts(candidate.params).length > 0,
+    );
+    if (protocol === "ads" && stamped.length > 0) {
+      adsIdentityFound = true;
+    }
+    all.push(...verified);
     if (
       !postIfCurrent({
         type: "discoverProgress",
         protocol,
         label,
         status: "done",
-        count: stamped.length,
+        count: verified.length,
       })
     ) {
       return;
     }
   }
 
-  postIfCurrent({ type: "discoverResults", candidates: all });
+  const adsVerificationError =
+    adsIdentityFound && !all.some((candidate) => candidate.protocol === "ads")
+      ? `TwinCAT identity was found, but none of the configured ADS ports ` +
+        `(${configuredAdsPorts.join(", ")}) responded.`
+      : undefined;
+  postIfCurrent({
+    type: "discoverResults",
+    candidates: all,
+    error: adsVerificationError,
+  });
 }
 
 function discoverLabel(protocol: string, host?: string, cidr?: string): string {

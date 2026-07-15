@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -10,10 +11,13 @@ import type {
 } from "../communication/schemaForm";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
+  buildAdsGeneratedImportArgs,
   buildOfflineAdsImportArgs,
   buildOfflineBrowseSymbolsArgs,
   classifyAdsBrowseCommandFailure,
 } from "./adsBrowseContract";
+import { adsConnectionNameForTarget } from "./adsDiscoveryPorts";
+import { removeAdsTagFromToml } from "./adsTagConfigMutation";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
@@ -135,16 +139,20 @@ export function ensureAdsRuntimeEnabled(
   const sectionHeader = "[runtime.ads]";
   let after = before;
   const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRe = new RegExp(`(^${escapedHeader}\\s*$)([\\s\\S]*?)(?=^\\[|\\s*$)`, "m");
+  const sectionRe = new RegExp(`^${escapedHeader}\\s*$`, "m");
   const match = sectionRe.exec(before);
   if (match) {
-    let section = `${match[1]}${match[2]}`;
+    const nextSectionRe = /^\s*\[[^\]\r\n]+\]\s*$/gm;
+    nextSectionRe.lastIndex = match.index + match[0].length;
+    const nextSection = nextSectionRe.exec(before);
+    const sectionEnd = nextSection?.index ?? before.length;
+    let section = before.slice(match.index, sectionEnd);
     section = upsertTomlKey(section, "enabled", "true");
     section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
     if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
       section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
     }
-    after = `${before.slice(0, match.index)}${section}${before.slice(match.index + match[0].length)}`;
+    after = `${before.slice(0, match.index)}${section}${before.slice(sectionEnd)}`;
   } else {
     const suffix = before.endsWith("\n") ? "\n" : "\n\n";
     after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
@@ -269,6 +277,15 @@ export interface RouteArtifact {
 
 export interface RoutePlan {
   route_name?: string;
+  target?: {
+    ip?: string;
+    ams_net_id?: string;
+    ams_port?: number;
+  };
+  local?: {
+    chosen_ip?: string;
+    ams_net_id?: string;
+  };
   artifacts?: RouteArtifact[];
 }
 
@@ -308,6 +325,103 @@ export interface OfflineAdsImportSymbolsResult {
   report?: AdsImportSymbolsReport;
 }
 
+export interface OfflineAdsTagRemovalResult {
+  applied: boolean;
+  removed_count: number;
+  restart_required: boolean;
+  message: string;
+}
+
+export async function offlineAdsRemoveTag(
+  context: vscode.ExtensionContext,
+  projectDir: string,
+  target: Record<string, unknown>,
+  port: number,
+  symbolPath: string,
+): Promise<OfflineAdsTagRemovalResult> {
+  const configPath = stringField(target, "config_path") ?? "ads.toml";
+  const adsTomlPath = path.join(projectDir, configPath);
+  let before: string;
+  try {
+    before = fs.readFileSync(adsTomlPath, "utf8");
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const mutation = removeAdsTagFromToml(before, {
+    host: stringField(target, "host", "ip"),
+    targetNetId: stringField(target, "target_net_id", "ams_net_id"),
+    port,
+    path: symbolPath,
+  });
+  if (mutation.removedCount === 0) {
+    return {
+      applied: true,
+      removed_count: 0,
+      restart_required: false,
+      message: "The ADS tag was already absent from ads.toml.",
+    };
+  }
+
+  const snapshots = existingAdsSnapshotPaths(projectDir);
+  if (snapshots.length === 0) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: "Could not regenerate ADS ST because no cached ADS symbol snapshots were found.",
+    };
+  }
+  const generatedPath = path.join(projectDir, "src", "generated", "ads_generated.st");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-tag-remove-"));
+  const tempConfigPath = path.join(tempDir, "ads.toml");
+  const tempGeneratedPath = path.join(tempDir, "ads_generated.st");
+  try {
+    fs.writeFileSync(tempConfigPath, mutation.text);
+    const regenerated = await runJsonCommand<Record<string, unknown>>(
+      runtimeBinary(context),
+      buildAdsGeneratedImportArgs(tempConfigPath, snapshots, tempGeneratedPath),
+      projectDir,
+    );
+    if (!regenerated.ok || !fs.existsSync(tempGeneratedPath)) {
+      return {
+        applied: false,
+        removed_count: 0,
+        restart_required: false,
+        message: regenerated.message ?? "Could not regenerate ADS ST after removing the tag.",
+      };
+    }
+    const generated = fs.readFileSync(tempGeneratedPath);
+    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
+    fs.writeFileSync(adsTomlPath, mutation.text);
+    fs.writeFileSync(generatedPath, generated);
+    try {
+      await vscode.workspace.openTextDocument(vscode.Uri.file(generatedPath));
+    } catch {
+      // The files were saved; opening the generated document only accelerates LSP refresh.
+    }
+    return {
+      applied: true,
+      removed_count: mutation.removedCount,
+      restart_required: true,
+      message: `Removed ${mutation.removedCount} ADS tag${mutation.removedCount === 1 ? "" : "s"}.`,
+    };
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function adsSymbolName(selectionKey: string): string {
   return selectionKey.startsWith("ads:symbol:")
     ? selectionKey.slice("ads:symbol:".length)
@@ -319,7 +433,8 @@ export async function offlineAdsImportSymbols(
   projectDir: string,
   target: Record<string, unknown>,
   symbols: string[],
-  writable: boolean
+  writable: boolean,
+  connectionNameOverride?: string,
 ): Promise<OfflineAdsImportSymbolsResult> {
   const host = stringField(target, "host", "ip");
   if (!host) {
@@ -343,12 +458,15 @@ export async function offlineAdsImportSymbols(
     };
   }
 
-  const connectionName = stringField(target, "name") ?? "ads_import";
+  const connectionName = connectionNameOverride ??
+    adsConnectionNameForTarget(target, "ads_import");
+  const existingSnapshots = existingAdsSnapshotPaths(projectDir);
   const args = buildOfflineAdsImportArgs(
     projectDir,
     target,
     connectionName,
-    normalizedSymbols
+    normalizedSymbols,
+    existingSnapshots,
   );
 
   const result = await runJsonCommand<AdsImportSymbolsReport>(
@@ -381,6 +499,19 @@ export async function offlineAdsImportSymbols(
     }. Restart the runtime to use the generated ST symbols.`,
     report: result.value,
   };
+}
+
+export function existingAdsSnapshotPaths(projectDir: string): string[] {
+  const directory = path.join(projectDir, "ads", "snapshots");
+  try {
+    return fs
+      .readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".symbols.json"))
+      .map((entry) => path.join(directory, entry.name))
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 export async function offlineBrowseSymbols(

@@ -5334,6 +5334,7 @@ dependencies = [
  "trust-plcopen",
  "trust-runtime-core",
  "trust-syntax",
+ "trust-tcads-native",
  "trust-wasm-analysis",
  "tungstenite",
  "ureq",
@@ -5361,6 +5362,13 @@ dependencies = [
  "logos",
  "rowan",
  "text-size",
+]
+
+[[package]]
+name = "trust-tcads-native"
+version = "0.24.31"
+dependencies = [
+ "libloading",
 ]
 
 [[package]]

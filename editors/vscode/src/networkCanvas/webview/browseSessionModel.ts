@@ -1,4 +1,14 @@
 import type { RoutePlan, SymbolNode } from "../offlineComm";
+import {
+  adsConnectionsForTarget,
+  adsTagSelectionsFromConnections,
+  normalizeAdsTagSelections,
+  type AdsTagBatchImportResult,
+} from "../adsTagBatch";
+import {
+  adsDiscoveryPorts,
+  adsPortBrowseEvidence,
+} from "../adsDiscoveryPorts";
 import { adsTargetPort, withAdsTargetPort } from "./adsTargetPort";
 import { browseAction } from "./browseActions";
 import type { BrowseErrorView } from "./browseErrorModel";
@@ -42,6 +52,8 @@ export interface BrowseSessionState {
   readonly routePlan?: RoutePlan;
   readonly error?: BrowseErrorView;
   readonly loading: boolean;
+  readonly adsImportLoading: boolean;
+  readonly adsImportResult?: AdsTagBatchImportResult;
 }
 
 export type BrowseSessionAction =
@@ -58,6 +70,11 @@ export type BrowseSessionAction =
       readonly routePlan?: RoutePlan;
       readonly error?: BrowseErrorView;
     }
+  | { readonly type: "adsImportStarted" }
+  | {
+      readonly type: "adsImportResult";
+      readonly result: AdsTagBatchImportResult;
+    }
   | { readonly type: "close" }
   | { readonly type: "reset" };
 
@@ -70,6 +87,7 @@ export interface BrowseOpenPlan {
 export const EMPTY_BROWSE_SESSION: BrowseSessionState = {
   routeMissing: false,
   loading: false,
+  adsImportLoading: false,
 };
 
 export function reduceBrowseSessionState(
@@ -82,14 +100,19 @@ export function reduceBrowseSessionState(
         panel: action.panel,
         routeMissing: false,
         loading: action.loading,
+        adsImportLoading: false,
       };
     case "request":
       if (!state.panel) {
         return state;
       }
       return {
+        ...state,
         panel: { ...state.panel, target: action.target },
+        tree: undefined,
         routeMissing: false,
+        routePlan: undefined,
+        error: undefined,
         loading: true,
       };
     case "result":
@@ -101,6 +124,18 @@ export function reduceBrowseSessionState(
         error: action.error,
         loading: false,
       };
+    case "adsImportStarted":
+      return state.panel
+        ? { ...state, adsImportLoading: true, adsImportResult: undefined }
+        : state;
+    case "adsImportResult":
+      return state.panel
+        ? {
+            ...state,
+            adsImportLoading: false,
+            adsImportResult: action.result,
+          }
+        : state;
     case "close":
       return state.panel ? { ...state, panel: undefined } : state;
     case "reset":
@@ -130,11 +165,13 @@ export function planBrowseOpen(
     actionLabel: action.actionLabel,
     mode: action.mode,
   };
+  const hasAdsDiscoveryEvidence =
+    protocol === "ads" && adsPortBrowseEvidence(normalizedTarget).length > 0;
   return {
     panel,
-    loading: protocol !== "ads",
+    loading: protocol !== "ads" || !hasAdsDiscoveryEvidence,
     request:
-      protocol === "ads"
+      hasAdsDiscoveryEvidence
         ? undefined
         : browseRequestFor(panel, normalizedTarget),
   };
@@ -162,6 +199,23 @@ export function normalizeEndpointBrowseTarget(
   ) {
     const first = connections[0];
     if (isRecord(first)) {
+      if (protocol === "ads") {
+        const matchingConnections = adsConnectionsForTarget(
+          connections,
+          first,
+        );
+        const imported = adsTagSelectionsFromConnections(connections, first);
+        return {
+          ...first,
+          connections: connections.filter(isRecord),
+          responding_ads_ports: adsDiscoveryPorts(
+            matchingConnections.flatMap((connection) =>
+              isRecord(connection) ? [connection.ams_port] : [],
+            ),
+          ),
+          imported_ads_symbols: imported,
+        };
+      }
       return first;
     }
   }

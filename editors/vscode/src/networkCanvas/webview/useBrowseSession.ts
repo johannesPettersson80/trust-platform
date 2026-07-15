@@ -1,6 +1,12 @@
 import { useCallback, useReducer, useRef } from "react";
 
 import type { RoutePlan, SymbolNode } from "../offlineComm";
+import {
+  normalizeAdsTagSelections,
+  type AdsTagPortSelection,
+  type AdsTagPortPath,
+  type AdsTagBatchImportResult,
+} from "../adsTagBatch";
 import type { InspectorNode } from "./NodeInspector";
 import {
   EMPTY_BROWSE_SESSION,
@@ -15,6 +21,7 @@ import {
 } from "./browseSessionModel";
 import { classifyBrowseError } from "./browseErrorModel";
 import { buildOpcuaConnection, selectedLeaves } from "./opcuaClientModel";
+import { withAdsTargetPort } from "./adsTargetPort";
 
 export interface BrowseSessionController extends BrowseSessionState {
   open(protocol: string, target: Record<string, unknown>, label: string): void;
@@ -22,9 +29,15 @@ export interface BrowseSessionController extends BrowseSessionState {
   handleMessage(message: unknown): boolean;
   browseTarget(target: Record<string, unknown>): void;
   trustCertificate(): void;
-  createRoute(): void;
+  createRoute(port?: number): void;
   copy(text: string): void;
   addTags(keys: string[], writable: boolean): void;
+  addAdsTags(
+    selections: readonly AdsTagPortSelection[],
+    writable: boolean,
+    changedPath: string,
+  ): void;
+  removeAdsTag(selection: AdsTagPortPath): void;
   close(): void;
 }
 
@@ -46,6 +59,7 @@ export function useBrowseSession(
   }
   const sessionId = sessionIdRef.current;
   const requestIdRef = useRef(0);
+  const adsImportRequestIdRef = useRef(0);
 
   const postBrowseRequest = useCallback(
     (request: BrowseSymbolsRequest) => {
@@ -68,6 +82,7 @@ export function useBrowseSession(
       }
       onBeforeOpen();
       requestIdRef.current += 1;
+      adsImportRequestIdRef.current += 1;
       panelRef.current = plan.panel;
       treeRef.current = undefined;
       protocolRef.current = protocol;
@@ -103,10 +118,25 @@ export function useBrowseSession(
     }
     if (message.type === "browseReset") {
       requestIdRef.current += 1;
+      adsImportRequestIdRef.current += 1;
       panelRef.current = undefined;
       treeRef.current = undefined;
       protocolRef.current = "";
       dispatch({ type: "reset" });
+      return true;
+    }
+    if (message.type === "adsTagsResult") {
+      if (
+        message.browseSessionId !== sessionId ||
+        message.adsImportRequestId !== adsImportRequestIdRef.current ||
+        !isRecord(message.result)
+      ) {
+        return true;
+      }
+      dispatch({
+        type: "adsImportResult",
+        result: message.result as unknown as AdsTagBatchImportResult,
+      });
       return true;
     }
     if (message.type !== "symbolTree") {
@@ -170,13 +200,16 @@ export function useBrowseSession(
     });
   }, [postBrowseRequest]);
 
-  const createRoute = useCallback(() => {
+  const createRoute = useCallback((port?: number) => {
     const panel = panelRef.current;
     if (panel) {
       post({
         type: "createRoute",
         protocol: panel.protocol,
-        target: panel.target,
+        target:
+          panel.protocol === "ads" && port
+            ? withAdsTargetPort(panel.target, port)
+            : panel.target,
       });
     }
   }, [post]);
@@ -188,9 +221,55 @@ export function useBrowseSession(
 
   const close = useCallback(() => {
     requestIdRef.current += 1;
+    adsImportRequestIdRef.current += 1;
     panelRef.current = undefined;
     dispatch({ type: "close" });
   }, []);
+
+  const addAdsTags = useCallback(
+    (
+      selections: readonly AdsTagPortSelection[],
+      writable: boolean,
+      changedPath: string,
+    ) => {
+      const panel = panelRef.current;
+      const normalized = normalizeAdsTagSelections(selections);
+      if (!panel || panel.protocol !== "ads" || normalized.length === 0) {
+        return;
+      }
+      const adsImportRequestId = ++adsImportRequestIdRef.current;
+      dispatch({ type: "adsImportStarted" });
+      post({
+        type: "addAdsTagsBatch",
+        browseSessionId: sessionId,
+        adsImportRequestId,
+        target: panel.target,
+        selections: normalized,
+        writable,
+        changedPath,
+      });
+    },
+    [post, sessionId]
+  );
+
+  const removeAdsTag = useCallback(
+    (selection: AdsTagPortPath) => {
+      const panel = panelRef.current;
+      if (!panel || panel.protocol !== "ads") {
+        return;
+      }
+      const adsImportRequestId = ++adsImportRequestIdRef.current;
+      dispatch({ type: "adsImportStarted" });
+      post({
+        type: "removeAdsTag",
+        browseSessionId: sessionId,
+        adsImportRequestId,
+        target: panel.target,
+        selection,
+      });
+    },
+    [post, sessionId]
+  );
 
   const addTags = useCallback(
     (keys: string[], writable: boolean) => {
@@ -238,6 +317,8 @@ export function useBrowseSession(
     createRoute,
     copy,
     addTags,
+    addAdsTags,
+    removeAdsTag,
     close,
   };
 }

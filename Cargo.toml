@@ -13,6 +13,7 @@ members = [
     "crates/trust-ads-server",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
+    "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
@@ -99,6 +100,7 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 
 [workspace.lints.rust]

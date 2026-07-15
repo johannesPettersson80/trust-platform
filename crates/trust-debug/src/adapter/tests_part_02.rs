@@ -8,6 +8,53 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[test]
+fn ads_globals_are_appended_as_ordinary_live_value_rows() {
+    let mut state = IoStateEventBody {
+        scan: Some(7),
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        memory: Vec::new(),
+    };
+
+    super::super::io::append_ads_live_values(
+        &mut state,
+        vec![
+            trust_runtime::ads::AdsLiveValue {
+                connection_name: "plc_port_301".to_string(),
+                ams_port: 301,
+                point_name: "plc_input".to_string(),
+                input: true,
+                writable: false,
+                value: RuntimeValue::Bool(true),
+                forced: true,
+            },
+            trust_runtime::ads::AdsLiveValue {
+                connection_name: "plc_port_851".to_string(),
+                ams_port: 851,
+                point_name: "plc_output".to_string(),
+                input: false,
+                writable: true,
+                value: RuntimeValue::DInt(12),
+                forced: false,
+            },
+        ],
+    );
+
+    assert_eq!(state.inputs[0].name.as_deref(), Some("plc_input"));
+    assert_eq!(state.inputs[0].address, "global:plc_input");
+    assert_eq!(
+        state.inputs[0].source.as_deref(),
+        Some("ADS plc_port_301 · port 301")
+    );
+    assert_eq!(state.inputs[0].value, "TRUE");
+    assert!(state.inputs[0].forced);
+    assert_eq!(state.inputs[0].writable, Some(false));
+    assert_eq!(state.outputs[0].address, "global:plc_output");
+    assert_eq!(state.outputs[0].value, "12");
+    assert_eq!(state.outputs[0].writable, Some(true));
+}
+
+#[test]
 fn dispatch_set_expression_force_supports_output_and_memory_io() {
     let mut runtime = Runtime::new();
     let output_addr = IoAddress::parse("%QX0.0").unwrap();

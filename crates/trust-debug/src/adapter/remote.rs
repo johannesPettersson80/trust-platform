@@ -306,6 +306,7 @@ impl RemoteSession {
                                 .get("forced")
                                 .and_then(|flag| flag.as_bool())
                                 .unwrap_or(false);
+                            let writable = entry.get("writable").and_then(|flag| flag.as_bool());
                             Some(IoStateEntry {
                                 name,
                                 address,
@@ -313,6 +314,7 @@ impl RemoteSession {
                                 value_type,
                                 value: value_str,
                                 forced,
+                                writable,
                             })
                         })
                         .collect::<Vec<_>>()

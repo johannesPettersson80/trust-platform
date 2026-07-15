@@ -17,15 +17,21 @@ pub mod validate;
 
 #[cfg(feature = "ads-wire")]
 pub mod backend_ads_rs;
+#[cfg(feature = "ads-wire")]
+mod backend_host;
+#[cfg(feature = "ads-wire")]
+mod backend_windows;
 
 #[cfg(test)]
 mod tests;
 
 #[cfg(feature = "ads-wire")]
 pub use backend_ads_rs::{AdsRsTimeouts, AdsRsTransport};
+#[cfg(feature = "ads-wire")]
+pub use backend_host::{HostAdsBackendKind, HostAdsClient};
 pub use client::{
     resolve_declared_bindings, AdsBinding, AdsBridgeError, AdsConnectionBridge, AdsConnectionState,
-    AdsConnectionWorker, AdsWorkerThread,
+    AdsConnectionWorker, AdsLiveValue, AdsWorkerThread,
 };
 pub use contracts::{
     parse_ads_toml, validate_ads_config_local_identity, AdsClientConfig, AdsConnectionConfig,

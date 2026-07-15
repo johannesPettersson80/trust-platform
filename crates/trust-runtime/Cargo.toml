@@ -13,6 +13,7 @@ trust-hir.workspace = true
 trust-ide.workspace = true
 trust-plcopen.workspace = true
 trust-ads-core.workspace = true
+trust-tcads-native.workspace = true
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, features = ["hir"] }
 trust-wasm-analysis.workspace = true

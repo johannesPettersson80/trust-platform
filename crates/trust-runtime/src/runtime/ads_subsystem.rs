@@ -8,7 +8,9 @@ use crate::ads::diagnostics::{
     ADS_DIAGNOSTICS_SCHEMA_VERSION,
 };
 use crate::ads::onboarding::ActiveAdsDeviceSnapshot;
-use crate::ads::{AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsWorkerThread};
+use crate::ads::{
+    AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsLiveValue, AdsWorkerThread,
+};
 use crate::error::RuntimeError;
 use crate::memory::VariableStorage;
 
@@ -114,6 +116,43 @@ impl AdsSubsystem {
                 .map_err(|err| ads_runtime_error(&connection.name, err))?;
         }
         Ok(())
+    }
+
+    pub(super) fn live_values(&self, storage: &VariableStorage) -> Vec<AdsLiveValue> {
+        self.connections
+            .iter()
+            .flat_map(|connection| {
+                connection.bridge.live_values(
+                    storage,
+                    connection.name.as_str(),
+                    connection.route.ams_port,
+                )
+            })
+            .collect()
+    }
+
+    pub(super) fn queue_live_write(
+        &mut self,
+        point_name: &str,
+        value: crate::value::Value,
+    ) -> bool {
+        self.connections.iter_mut().any(|connection| {
+            connection
+                .bridge
+                .queue_live_write(point_name, value.clone())
+        })
+    }
+
+    pub(super) fn live_value_writable(&self, point_name: &str) -> Option<bool> {
+        let mut found_read_only = false;
+        for connection in &self.connections {
+            match connection.bridge.live_value_writable(point_name) {
+                Some(true) => return Some(true),
+                Some(false) => found_read_only = true,
+                None => {}
+            }
+        }
+        found_read_only.then_some(false)
     }
 
     pub(super) fn shutdown(&mut self) -> Result<(), RuntimeError> {

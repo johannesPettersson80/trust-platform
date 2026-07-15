@@ -49,7 +49,10 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "client/worker.rs\nbackground transport owner" as worker
     component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
-    component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
+    component "backend_host.rs\nhost transport selector" as hostBackend
+    component "backend_ads_rs.rs\ndirect ADS/TCP backend" as backend
+    component "backend_windows.rs\nTwinCAT native-router backend" as windowsBackend
+    component "trust-tcads-native\nowned TcAdsDll port API" as tcadsNative
     component "mock.rs\nCI transport" as mock
 }
 
@@ -120,9 +123,13 @@ adsSubsystem --> bridge : owns bridges
 adsSubsystem --> worker : owns worker threads
 worker --> cache : updates reads/notifications\nand drains writes
 worker --> transport : owns network calls
-backend ..|> transport
+hostBackend ..|> transport
+hostBackend --> backend : remote target or\nnon-Windows host
+hostBackend --> windowsBackend : same-computer target\non Windows
+windowsBackend --> tcadsNative : safe owned port calls
 mock ..|> transport
 backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
+tcadsNative --> twincat : installed TwinCAT router\nstate, symbols, reads + writes
 
 scan --> adsSubsystem : apply_inputs / capture_outputs
 adsSubsystem --> cache : copy input values / queue output writes\n(no socket calls)
@@ -146,11 +153,11 @@ note right of vscodeAdsPanel
     imports never earn that badge.
 end note
 
-note right of backend
-    External ads crate is confined to
-    backend_ads_rs.rs behind ads-wire.
-    AdsTransport signatures expose only
-    trust-owned domain types.
+note right of hostBackend
+    Linux behavior and remote Windows targets
+    keep the direct backend. Same-computer
+    Windows targets use the installed TwinCAT
+    router for the complete AdsTransport flow.
 end note
 
 note bottom of core

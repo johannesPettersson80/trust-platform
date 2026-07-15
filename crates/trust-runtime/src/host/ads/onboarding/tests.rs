@@ -716,6 +716,7 @@ fn directed_broadcast_collects_multiple_ads_targets_from_one_subnet() {
     ]);
     let request = DiscoveryRequest {
         target: None,
+        directed_targets: Vec::new(),
         target_ams_net_id: None,
         ams_port: Some(851),
         target_name: None,

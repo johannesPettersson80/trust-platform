@@ -737,13 +737,28 @@ suite("truST sidebar — control surface contract", () => {
   test("Live Values normalizes runtime debug values before webview rendering", () => {
     const state = normalizeIoState({
       scan: 12841,
-      inputs: [],
+      inputs: [
+        {
+          address: "global:ads_read",
+          name: "ads_read",
+          source: "ADS plc_port_301 · port 301",
+          value: "Real(1.5)",
+          valueType: "REAL",
+        },
+      ],
       outputs: [
         {
           address: "%QX0.0",
           name: "Out",
           source: "MQTT topic trust/examples/mqtt/out",
           value: "Bool(true)",
+        },
+        {
+          address: "global:ads_write",
+          name: "ads_write",
+          source: "ADS plc_port_851 · port 851",
+          value: "DInt(12)",
+          valueType: "DINT",
         },
       ],
       memory: [
@@ -758,6 +773,21 @@ suite("truST sidebar — control surface contract", () => {
     assert.strictEqual(state.memory[1].value, "42");
     assert.strictEqual(state.memory[2].value, "T#250ms");
     assert.strictEqual(state.memory[2].valueType, "TIME");
+    assert.deepStrictEqual(
+      state.ads.map((entry) => entry.address),
+      ["global:ads_read", "global:ads_write"],
+      "ADS-backed globals belong to their own Live Values group"
+    );
+    assert.strictEqual(
+      state.inputs.length,
+      0,
+      "ADS tags must not be presented as process-image inputs"
+    );
+    assert.deepStrictEqual(
+      state.outputs.map((entry) => entry.address),
+      ["%QX0.0"],
+      "ADS tags must not be presented as process-image outputs"
+    );
     assert.strictEqual(state.scan, 12841);
 
     const ioPanelSource = loadSource("ioPanel.ts");
@@ -969,10 +999,27 @@ suite("truST sidebar — control surface contract", () => {
       "a debug session that immediately terminates must not be reported as a successful Start"
     );
     assert.ok(
-      startLocal.includes("withTimeout(") &&
-        source.includes("DEBUG_START_COMMAND_TIMEOUT_MS") &&
-        source.includes("Start debugging timed out"),
-      "Start must not wait forever on VS Code debug startup errors before rendering an inline sidebar failure"
+      startLocal.includes("waitForStructuredTextSessionOrCommand(") &&
+        source.includes("SIMULATOR_LAUNCH_TIMEOUT_MS = 15_000") &&
+        !source.includes("DEBUG_START_COMMAND_TIMEOUT_MS"),
+      "Start must use one Windows-safe deadline that observes both the command and the real debug session"
+    );
+    const launchObserver = source.slice(
+      source.indexOf("private async waitForStructuredTextSessionOrCommand("),
+      source.indexOf("private async waitForSessionGone(")
+    );
+    assert.ok(
+      launchObserver.includes("this.getStructuredTextSession()") &&
+        launchObserver.includes("commandOutcome.current") &&
+        launchObserver.indexOf("this.getStructuredTextSession()") <
+          launchObserver.indexOf("const outcome = commandOutcome.current"),
+      "an observed simulator session must win even while VS Code's command promise is still settling"
+    );
+    assert.ok(
+      source.includes("IO_STATE_REQUEST_TIMEOUT_MS = 5_000") &&
+        source.includes("I/O state request timed out") &&
+        requestIndex >= 0,
+      "the startup I/O acceptance probe must have its own bounded timeout"
     );
   });
 
@@ -1012,10 +1059,14 @@ suite("truST sidebar — control surface contract", () => {
       "Start/Connect failures must stay visible in the sidebar even when the simulator remains stopped"
     );
     assert.ok(
-      source.includes("withSidebarActionTimeout") &&
-        source.includes("SIDEBAR_ACTION_TIMEOUT_MS") &&
-        source.includes("Start timed out. Check the runtime port or target settings."),
-      "sidebar Start must regain control and render an inline failure if VS Code debug startup hangs"
+      !source.includes("withSidebarActionTimeout") &&
+        !source.includes("SIDEBAR_ACTION_TIMEOUT_MS") &&
+        !source.includes("Start timed out. Check the runtime port or target settings."),
+      "sidebar Start must not race the authoritative runtime lifecycle with a shorter timeout"
+    );
+    assert.ok(
+      source.includes("const result = await dispatched;"),
+      "sidebar Start must await the authoritative lifecycle result directly"
     );
     assert.ok(
       source.includes('applyMessageEl.style.display = applyMessage ? "block" : "none"'),

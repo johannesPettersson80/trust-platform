@@ -18,10 +18,11 @@ use trust_runtime::ads::onboarding::GuardedWriteProbe;
 use trust_runtime::ads::onboarding::{
     add_route_with_channel_policy, apply_symbol_import, build_symbol_import_response,
     derive_runtime_identity_from_source, directed_broadcast_targets_from_candidates,
-    discover_targets, resolve_os_source_ip, run_doctor as run_onboarding_doctor,
-    runtime_address_candidates_from_interfaces, ActiveDeviceStrategy, AdsOnboardingWire,
-    AdsRsOnboardingWire, DiscoveryRequest, DoctorCancellation, DoctorOptions, IdentityRequest,
-    RouteAddRequest, RouteCredentials, SymbolImportApplyRequest, SymbolImportRequest,
+    discover_targets, interface_directed_targets, resolve_os_source_ip,
+    run_doctor as run_onboarding_doctor, runtime_address_candidates_from_interfaces,
+    ActiveDeviceStrategy, AdsOnboardingWire, AdsRsOnboardingWire, DiscoveryRequest,
+    DoctorCancellation, DoctorOptions, IdentityRequest, RouteAddRequest, RouteCredentials,
+    SymbolImportApplyRequest, SymbolImportRequest,
 };
 use trust_runtime::ads::onboarding::{
     build_route_plan, build_route_remove_artifact, classify_local_address, RoutePlanRequest,
@@ -403,6 +404,11 @@ fn run_discover(
     {
         let candidates =
             runtime_address_candidates_from_interfaces().map_err(anyhow::Error::new)?;
+        let directed_targets = if target.is_none() {
+            interface_directed_targets(candidates.iter().map(|candidate| candidate.ip.as_str()))
+        } else {
+            Vec::new()
+        };
         let broadcast_targets = if no_broadcast {
             Vec::new()
         } else {
@@ -410,6 +416,7 @@ fn run_discover(
         };
         let request = DiscoveryRequest {
             target,
+            directed_targets,
             target_ams_net_id: target_net_id,
             ams_port: Some(ams_port),
             target_name: None,
@@ -501,7 +508,7 @@ fn run_browse(config_path: PathBuf, connection: Option<String>, json: bool) -> a
         let mut connections = Vec::with_capacity(selected.len());
         for connection_config in selected {
             let mut transport =
-                trust_runtime::ads::AdsRsTransport::new(connection_config.route.clone());
+                trust_runtime::ads::HostAdsClient::new(connection_config.route.clone());
             transport.connect().with_context(|| {
                 format!(
                     "failed to connect ADS connection '{}'",
@@ -994,7 +1001,7 @@ fn run_validate_live(
 fn load_live_snapshots(config: &AdsClientConfig) -> anyhow::Result<Vec<SymbolSnapshot>> {
     let mut snapshots = Vec::with_capacity(config.connections.len());
     for connection in &config.connections {
-        let mut transport = trust_runtime::ads::AdsRsTransport::new(connection.route.clone());
+        let mut transport = trust_runtime::ads::HostAdsClient::new(connection.route.clone());
         transport.connect().with_context(|| {
             format!(
                 "failed to connect ADS connection '{}'",

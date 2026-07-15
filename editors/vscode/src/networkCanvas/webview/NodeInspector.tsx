@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AdsClientSummary } from "./AdsClientSummary";
+import { buildAdsClientSummaryModel } from "./adsClientSummaryModel";
 import { adsConnectionIdentityParts } from "./adsConnectionSummary";
 import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
@@ -638,6 +640,14 @@ function SummaryView({
   const resultApplies = applyResult?.protocol === protocol;
   const ok = resultApplies && (applyResult?.applied || applyResult?.lifecycle_effect === "test_ok");
   const blocked = resultApplies && applyResult?.lifecycle_effect === "blocked";
+  const adsSummary = protocol === "ads" && protoSchema
+    ? buildAdsClientSummaryModel(
+        params,
+        str(d.health),
+        str(d.detail),
+        str(d.runtimeHealth),
+      )
+    : undefined;
 
   const [showAllActions, setShowAllActions] = useState(false);
   // S-14: a node inspector shows at most TWO visible secondary actions; any extras collapse behind an
@@ -657,28 +667,32 @@ function SummaryView({
 
   if (protoSchema) {
     // Endpoint with a known protocol: show its current settings (read-only).
-    title = protocolName(protocol);
-    kindLabel = `${roleCap(protocol, str(d.role))} · ${str(d.kind) === "field" ? "device" : "endpoint"}`;
+    title = adsSummary ? "ADS device" : protocolName(protocol);
+    kindLabel = adsSummary
+      ? "ADS connection"
+      : `${roleCap(protocol, str(d.role))} · ${str(d.kind) === "field" ? "device" : "endpoint"}`;
     accent = protocolColor(protocol);
     health = str(d.health);
-    rows.push(["Name", str(d.name)]);
-    const values = valuesFor(protoSchema, params);
-    for (const row of serverEndpointSummaryRows(protocol, params, d.live)) {
-      rows.push([row.label, row.value]);
-    }
-    for (const field of protoSchema.fields) {
-      if (!includeSummaryField(protocol, field)) {
-        continue;
+    if (!adsSummary) {
+      rows.push(["Name", str(d.name)]);
+      const values = valuesFor(protoSchema, params);
+      for (const row of serverEndpointSummaryRows(protocol, params, d.live)) {
+        rows.push([row.label, row.value]);
       }
-      const v = field.secret
-        ? (values[field.id] ? "••• (set)" : "—")
-        : summaryValueFor(protocol, field, values[field.id], params?.[field.id], params);
-      if (v) {
-        rows.push([summaryLabelFor(protocol, field), v]);
+      for (const field of protoSchema.fields) {
+        if (!includeSummaryField(protocol, field)) {
+          continue;
+        }
+        const v = field.secret
+          ? (values[field.id] ? "••• (set)" : "—")
+          : summaryValueFor(protocol, field, values[field.id], params?.[field.id], params);
+        if (v) {
+          rows.push([summaryLabelFor(protocol, field), v]);
+        }
       }
-    }
-    if (d.detail) {
-      rows.push(["State", endpointStatusRow(health, str(d.detail))]);
+      if (d.detail) {
+        rows.push(["State", endpointStatusRow(health, str(d.detail))]);
+      }
     }
   } else {
     switch (node.type) {
@@ -744,7 +758,9 @@ function SummaryView({
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
       <div className="trust-section trust-section--grow" style={{ paddingBottom: 18 }}>
-        {shown.length === 0 ? (
+        {adsSummary ? (
+          <AdsClientSummary model={adsSummary} onEdit={onEdit} />
+        ) : shown.length === 0 ? (
           <p className="trust-empty" style={{ padding: 0, textAlign: "left" }}>No further details.</p>
         ) : (
           shown.map(([k, v]) => {
@@ -769,7 +785,18 @@ function SummaryView({
         </div>
       )}
       <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none", borderTop: `1px solid ${t.border}`, background: t.surface }}>
-        {runtimeControls && onControl ? (
+        {adsSummary ? (
+          <button
+            type="button"
+            onClick={onBrowse}
+            disabled={!onBrowse}
+            title={onBrowse ? undefined : "Tag browsing is not available in this runtime."}
+            className="trust-button trust-button--primary"
+            style={{ flex: 1 }}
+          >
+            Manage tags
+          </button>
+        ) : runtimeControls && onControl ? (
           <>
             {runtimeControlLayout.primary && (
               <button

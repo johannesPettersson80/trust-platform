@@ -25,6 +25,7 @@ import { AddRuntimePanel } from "./AddRuntimePanel";
 import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
 import { DiscoverPane } from "./DiscoverPane";
 import { BrowseTagsPanel } from "./BrowseTagsPanel";
+import { AdsMultiPortTagBrowser } from "./AdsMultiPortTagBrowser";
 import { useBrowseSession } from "./useBrowseSession";
 import { useCanvasHostState } from "./useCanvasHostState";
 import { NetworkCanvasHeader } from "./NetworkCanvasHeader";
@@ -112,6 +113,8 @@ function Canvas() {
     routePlan: browseRoutePlan,
     error: browseError,
     loading: browseLoading,
+    adsImportLoading,
+    adsImportResult,
     open: openBrowse,
     openNode: onBrowse,
     handleMessage: handleBrowseMessage,
@@ -120,6 +123,8 @@ function Canvas() {
     createRoute: onCreateRoute,
     copy: onCopy,
     addTags: onAddTags,
+    addAdsTags: onAddAdsTags,
+    removeAdsTag: onRemoveAdsTag,
     close: closeBrowse,
   } = useBrowseSession(post, clearApplyResult);
   const onHostFocusNode = useCallback((nodeId: string) => {
@@ -259,6 +264,7 @@ function Canvas() {
     origins: discoverOrigins,
     protocols: discoverProtocols,
     add: onDiscoverAdd,
+    isOnCanvas: isDiscoveredDeviceOnCanvas,
     adopt: onDiscoverAdopt,
   } = useDiscoverActions({
     nodes: built.nodes,
@@ -749,7 +755,9 @@ function Canvas() {
             sessionCurrent={discoverSessionCurrent}
             onScan={onDiscoverScan}
             onAdd={onDiscoverAdd}
+            isOnCanvas={isDiscoveredDeviceOnCanvas}
             onAdopt={onDiscoverAdopt}
+            onOpenAdsPortSettings={() => post({ type: "openAdsDiscoverySettings" })}
             onClose={closeDiscoverPane}
           />
         )}
@@ -797,7 +805,27 @@ function Canvas() {
           />
         )}
 
-        {browseTags && (
+        {browseTags?.protocol === "ads" && (
+          <AdsMultiPortTagBrowser
+            targetLabel={browseTags.label}
+            target={browseTags.target}
+            tree={browseTree}
+            routeMissing={browseRouteMissing}
+            routePlan={browseRoutePlan}
+            error={browseError}
+            loading={browseLoading}
+            importLoading={adsImportLoading}
+            importResult={adsImportResult}
+            onCreateRoute={onCreateRoute}
+            onCopy={onCopy}
+            onBrowseTarget={onBrowseTarget}
+            onAddTags={onAddAdsTags}
+            onRemoveTag={onRemoveAdsTag}
+            onClose={closeBrowse}
+          />
+        )}
+
+        {browseTags && browseTags.protocol !== "ads" && (
           <BrowseTagsPanel
             title={browseTags.title}
             actionLabel={browseTags.actionLabel}

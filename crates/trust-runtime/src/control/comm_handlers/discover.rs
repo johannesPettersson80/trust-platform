@@ -9,6 +9,9 @@ use super::discovery_probe::{
     probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
 };
 
+#[cfg(feature = "ads-wire")]
+mod ads_discovery_target;
+
 const DISCOVER_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_TIMEOUT_MS: u64 = 150;
 const MAX_TIMEOUT_MS: u64 = 2_000;
@@ -464,12 +467,13 @@ fn discover_ads(
 ) -> Result<Vec<DiscoverCandidate>, String> {
     use crate::ads::onboarding::runtime_address_candidates_from_interfaces;
     use crate::ads::onboarding::{
-        directed_broadcast_targets_from_candidates, discover_targets, AdsRsOnboardingWire,
-        DiscoveryRequest, DiscoverySource,
+        directed_broadcast_targets_from_candidates, discover_targets, interface_directed_targets,
+        AdsRsOnboardingWire, DiscoveryRequest, DiscoverySource,
     };
 
     let mut request = DiscoveryRequest {
-        target: scope.host.clone(),
+        target: ads_discovery_target::directed_target(scope.host.as_deref()),
+        directed_targets: Vec::new(),
         target_ams_net_id: None,
         ams_port: Some(851),
         target_name: None,
@@ -483,6 +487,8 @@ fn discover_ads(
     } else if request.include_broadcast {
         let candidates = runtime_address_candidates_from_interfaces()
             .map_err(|error| format!("enumerate interfaces for ADS broadcast: {error}"))?;
+        request.directed_targets =
+            interface_directed_targets(candidates.iter().map(|candidate| candidate.ip.as_str()));
         request.broadcast_targets = directed_broadcast_targets_from_candidates(&candidates);
     }
     if request.include_broadcast && request.broadcast_targets.is_empty() {

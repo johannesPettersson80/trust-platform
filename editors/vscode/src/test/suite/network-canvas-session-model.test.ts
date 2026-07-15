@@ -15,17 +15,42 @@ import {
 } from "../../networkCanvas/webview/discoverPaneModel";
 
 suite("Network Canvas session models", function () {
-  test("ADS browse waits for an explicit port confirmation", () => {
+  test("ADS browse opens the default port without an extra confirmation", () => {
     const plan = planBrowseOpen(
       "ads",
       { host: "192.168.10.5", ams_net_id: "5.23.91.12.1.1" },
-      "TwinCAT"
+      "ADS device"
     );
 
     assert.ok(plan);
     assert.strictEqual(plan.panel.target.ams_port, 851);
-    assert.strictEqual(plan.loading, false);
-    assert.strictEqual(plan.request, undefined);
+    assert.strictEqual(plan.loading, true);
+    assert.deepStrictEqual(plan.request, {
+      protocol: "ads",
+      target: {
+        host: "192.168.10.5",
+        ams_net_id: "5.23.91.12.1.1",
+        ams_port: 851,
+      },
+      kind: "symbols",
+    });
+
+    const discovered = planBrowseOpen(
+      "ads",
+      {
+        host: "192.168.10.5",
+        ams_net_id: "5.23.91.12.1.1",
+        ams_port: 301,
+        responding_ads_ports: [301, 851],
+        ads_port_browse_results: [
+          { port: 301, tree: [], routeMissing: false },
+          { port: 851, tree: [], routeMissing: false },
+        ],
+      },
+      "ADS device"
+    );
+    assert.strictEqual(discovered?.loading, false);
+    assert.strictEqual(discovered?.request, undefined);
   });
 
   test("non-ADS and local browse plans retain their immediate request behavior", () => {
@@ -108,13 +133,61 @@ suite("Network Canvas session models", function () {
     );
   });
 
-  test("endpoint browse keeps the first configured ADS or OPC UA connection", () => {
+  test("endpoint browse keeps OPC UA and groups configured ADS ports", () => {
     const first = { endpoint_url: "opc.tcp://primary:4840" };
     const params = { connections: [first, { endpoint_url: "opc.tcp://backup:4840" }] };
 
     assert.strictEqual(normalizeEndpointBrowseTarget("opcua_client", params), first);
-    assert.strictEqual(normalizeEndpointBrowseTarget("ads", params), first);
     assert.strictEqual(normalizeEndpointBrowseTarget("mqtt", params), params);
+
+    assert.deepStrictEqual(
+      normalizeEndpointBrowseTarget("ads", {
+        connections: [
+          {
+            name: "plc_port_301",
+            host: "192.168.10.5",
+            ams_net_id: "5.23.91.12.1.1",
+            ams_port: 301,
+            points: [{ symbol: "Task.Input" }],
+          },
+          {
+            name: "plc_port_851",
+            host: "192.168.10.5",
+            ams_net_id: "5.23.91.12.1.1",
+            ams_port: 851,
+            points: [{ symbol: "MAIN.Start" }],
+          },
+        ],
+      }),
+      {
+        name: "plc_port_301",
+        host: "192.168.10.5",
+        ams_net_id: "5.23.91.12.1.1",
+        ams_port: 301,
+        points: [{ symbol: "Task.Input" }],
+        connections: [
+          {
+            name: "plc_port_301",
+            host: "192.168.10.5",
+            ams_net_id: "5.23.91.12.1.1",
+            ams_port: 301,
+            points: [{ symbol: "Task.Input" }],
+          },
+          {
+            name: "plc_port_851",
+            host: "192.168.10.5",
+            ams_net_id: "5.23.91.12.1.1",
+            ams_port: 851,
+            points: [{ symbol: "MAIN.Start" }],
+          },
+        ],
+        responding_ads_ports: [301, 851],
+        imported_ads_symbols: [
+          { port: 301, paths: ["Task.Input"] },
+          { port: 851, paths: ["MAIN.Start"] },
+        ],
+      },
+    );
   });
 
   test("discover model derives honest origins, protocols, and device drafts", () => {

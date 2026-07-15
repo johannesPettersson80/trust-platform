@@ -55,6 +55,7 @@ struct ConnectionSection {
     transport: Option<String>,
     insecure_transport: Option<bool>,
     auto_add_route: Option<bool>,
+    #[serde(default)]
     points: Vec<PointSection>,
 }
 
@@ -136,9 +137,6 @@ impl ConnectionSection {
         let name = non_empty("connections.name", self.name)?;
         let target_net_id = non_empty("connections.target_net_id", self.target_net_id)?;
         let host = non_empty("connections.host", self.host)?;
-        if self.points.is_empty() {
-            return invalid(format!("connections '{name}' requires at least one point"));
-        }
         let transport = parse_transport(self.transport.as_deref().unwrap_or("secure"))?;
         let insecure_transport = self.insecure_transport.unwrap_or(false);
         if matches!(transport, TransportSecurity::Plain) && !insecure_transport {

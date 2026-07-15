@@ -10,7 +10,7 @@ pub mod wire;
 
 pub use discover::{
     directed_broadcast_target, directed_broadcast_targets_from_candidates, discover_targets,
-    DiscoveryRequest, DiscoveryResult, DiscoverySource,
+    interface_directed_targets, DiscoveryRequest, DiscoveryResult, DiscoverySource,
 };
 pub use doctor::{
     default_step_timeouts, run_doctor, ActiveAdsDeviceSnapshot, ActiveDeviceStrategy,

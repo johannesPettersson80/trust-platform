@@ -40,6 +40,7 @@ export interface NCEndpoint {
   name: string;
   role?: string;
   health: string;
+  runtimeHealth?: string;
   detail: string;
   dimmed?: boolean;
   live?: {
