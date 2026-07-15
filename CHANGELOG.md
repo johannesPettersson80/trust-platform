@@ -17,6 +17,9 @@ Target release: `v0.24.34`
 
 ### Fixed
 
+- ci/docs: Browser IDE capture automation now requests the editor session
+  required to switch the active tutorial project, keeping post-merge docs
+  captures aligned with the IDE authorization contract.
 - vscode/trust-runtime: Windows ADS discovery now uses the installed TwinCAT
   router for same-computer port and symbol operations, and Devices & Connections
   no longer offers an unverified ADS identity as an actionable fallback device.

@@ -24,7 +24,7 @@ test("capture browser ide with tutorial loaded", async ({ page }) => {
     const response = await fetch("/api/ide/session", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({role: "viewer"}),
+      body: JSON.stringify({role: "editor"}),
     });
     if (!response.ok) {
       throw new Error(`session bootstrap failed: ${response.status}`);
