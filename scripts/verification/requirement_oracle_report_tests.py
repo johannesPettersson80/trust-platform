@@ -39,8 +39,8 @@ GROUP_EXPECTATIONS = {
     "VERIF-P6-001": {
         "area_ids": ["compiler_iec"],
         "invariant_count": 5,
-        "eligible_oracle_count": 4,
-        "spec_gap_blocked_count": 1,
+        "eligible_oracle_count": 5,
+        "spec_gap_blocked_count": 0,
     },
     "VERIF-P6-002": {
         "area_ids": ["runtime_safety"],
@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 53,
                 "mapped_phase6_invariants": 35,
                 "other_area_invariants": 18,
-                "eligible_oracles": 24,
-                "missing_oracles": 29,
-                "future_enforcement_candidates": 22,
+                "eligible_oracles": 25,
+                "missing_oracles": 28,
+                "future_enforcement_candidates": 21,
             },
         )
         self.assertEqual(53, len(self.analysis["invariants"]))
-        self.assertEqual(29, len(self.analysis["missing_oracles"]))
+        self.assertEqual(28, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},
@@ -150,14 +150,17 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
 
     def test_gap_placeholder_is_not_upgraded_by_an_eligible_candidate_source(self) -> None:
         rows = {row["invariant_id"]: row for row in self.analysis["invariants"]}
-        string_row = rows["IEC_STRING_001"]
+        declared_type_row = rows["VM_SEAM_DECLARED_TYPE_001"]
 
-        self.assertEqual(["SPEC_IEC_DATA_TYPES_CANDIDATE_001"], string_row["spec_source_refs"])
-        self.assertTrue(
-            self.validator.spec_sources["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]["oracle_eligible"]
+        self.assertEqual(
+            ["SPEC_VM_VALUE_SEMANTICS_001"],
+            declared_type_row["spec_source_refs"],
         )
-        self.assertEqual("spec_gap_blocked", string_row["oracle_state"])
-        self.assertEqual("SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001", string_row["oracle_ref"])
+        self.assertTrue(
+            self.validator.spec_sources["SPEC_VM_VALUE_SEMANTICS_001"]["oracle_eligible"]
+        )
+        self.assertEqual("spec_gap_blocked", declared_type_row["oracle_state"])
+        self.assertEqual("SPEC_GAP_VM_ERROR_MODEL_001", declared_type_row["oracle_ref"])
 
     def test_public_claim_cannot_be_relabelled_as_an_oracle(self) -> None:
         validator = loaded_validator()
@@ -195,7 +198,9 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
         for label in ("closed", "unattached"):
             with self.subTest(label=label):
                 validator = loaded_validator()
-                invariant = copy.deepcopy(validator.invariants["IEC_STRING_001"])
+                invariant = copy.deepcopy(
+                    validator.invariants["VM_SEAM_DECLARED_TYPE_001"]
+                )
                 gap_id = invariant["oracle"]["ref"]
                 if label == "closed":
                     gap = copy.deepcopy(validator.spec_gaps[gap_id])
