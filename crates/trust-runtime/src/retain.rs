@@ -24,5 +24,7 @@ const RETAIN_TRAILER: &[u8; 4] = b"ENDR";
 
 include!("retain/manager.rs");
 include!("retain/store.rs");
+#[cfg(test)]
+include!("retain/store_tests.rs");
 include!("retain/codec.rs");
 include!("retain/reader.rs");

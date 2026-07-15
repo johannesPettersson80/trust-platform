@@ -14,6 +14,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     browserName: "chromium",
+    channel: process.env.TRUST_CAPTURE_BROWSER_CHANNEL || undefined,
     viewport: { width: 1280, height: 720 }
   },
   webServer: [

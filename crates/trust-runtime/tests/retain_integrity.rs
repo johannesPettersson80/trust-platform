@@ -67,6 +67,35 @@ fn rewrite_v2_payload_value(path: &std::path::Path, before: &[u8], after: &[u8])
 }
 
 #[test]
+fn retain_store_reports_real_path_failures_without_silent_defaults() {
+    let directory_path = temp_path("directory_instead_of_file");
+    let _ = std::fs::remove_file(&directory_path);
+    let _ = std::fs::remove_dir_all(&directory_path);
+    std::fs::create_dir_all(&directory_path).expect("create directory at retain file path");
+    let load_error = FileRetainStore::new(&directory_path)
+        .load()
+        .expect_err("a directory must not load as an empty retain snapshot");
+    assert!(
+        load_error.to_string().contains("read") || load_error.to_string().contains("open"),
+        "expected a visible filesystem read failure, got {load_error}"
+    );
+    std::fs::remove_dir_all(&directory_path).expect("remove retain test directory");
+
+    let parent_file = temp_path("file_instead_of_parent");
+    let _ = std::fs::remove_file(&parent_file);
+    std::fs::write(&parent_file, b"not a directory").expect("create blocking parent file");
+    let child_path = parent_file.join("retain.bin");
+    let store_error = FileRetainStore::new(&child_path)
+        .store(&count_snapshot(Value::DInt(1)))
+        .expect_err("a file parent must not accept a retain snapshot");
+    assert!(
+        store_error.to_string().contains("create retain dir"),
+        "expected a visible retain-directory failure, got {store_error}"
+    );
+    std::fs::remove_file(parent_file).expect("remove blocking parent file");
+}
+
+#[test]
 fn retain_store_rejects_trailing_garbage() {
     let path = temp_path("trailing");
     let _ = std::fs::remove_file(&path);

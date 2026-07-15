@@ -224,12 +224,7 @@ fn raw_get(addr: &str, path: &str, timeout: Duration) -> std::io::Result<String>
     Ok(response)
 }
 
-fn raw_post(
-    addr: &str,
-    path: &str,
-    body: &str,
-    timeout: Duration,
-) -> std::io::Result<String> {
+fn raw_post(addr: &str, path: &str, body: &str, timeout: Duration) -> std::io::Result<String> {
     let mut stream = TcpStream::connect(addr)?;
     stream.set_read_timeout(Some(timeout))?;
     stream.set_write_timeout(Some(timeout))?;

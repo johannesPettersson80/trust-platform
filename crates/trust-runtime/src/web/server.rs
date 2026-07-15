@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+use super::request_dispatch::{RequestHandler, WebRequestDispatcher};
 use super::*;
 pub struct WebServer {
     // Retained to keep the web thread alive for the lifetime of the server handle.
@@ -112,51 +113,83 @@ pub fn start_web_server_with_mode(
     )?));
     let runtime_cloud_ha = Arc::new(Mutex::new(RuntimeCloudHaCoordinator::default()));
     let web_tls_enabled = config.tls;
-    let handle = thread::spawn(move || {
-        for mut request in server.incoming_requests() {
-            let method = request.method().clone();
-            let url = request.url().to_string();
-            let url_path = url.split('?').next().unwrap_or(url.as_str());
-            request = match handle_config_ui_route(
+    let request_handler: RequestHandler = Arc::new(move |mut request| {
+        let method = request.method().clone();
+        let url = request.url().to_string();
+        let url_path = url.split('?').next().unwrap_or(url.as_str());
+        request = match handle_config_ui_route(
+            request,
+            &method,
+            url.as_str(),
+            ConfigUiRouteContext {
+                mode,
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                control_state: &control_state,
+                bundle_root: &bundle_root,
+            },
+        ) {
+            ConfigUiRouteOutcome::Handled => return,
+            ConfigUiRouteOutcome::NotHandled(request) => request,
+        };
+        request = match handle_ui_route(
+            request,
+            &method,
+            url.as_str(),
+            url_path,
+            UiRouteContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                control_state: &control_state,
+                hmi_asset_root: bundle_root.clone().or_else(|| {
+                    crate::control::hmi_asset_project_root_port(control_state.as_ref())
+                }),
+            },
+        ) {
+            UiRouteOutcome::Handled => return,
+            UiRouteOutcome::NotHandled(request) => request,
+        };
+        request = match handle_aux_route(
+            request,
+            &method,
+            url.as_str(),
+            AuxRouteContext {
+                mode,
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                web_tls_enabled,
+                control_state: &control_state,
+                discovery: &discovery,
+                bundle_root: &bundle_root,
+            },
+        ) {
+            AuxRouteOutcome::Handled => return,
+            AuxRouteOutcome::NotHandled(request) => request,
+        };
+        request = match handle_ads_route(
+            request,
+            &method,
+            url.as_str(),
+            AdsRouteContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                web_tls_enabled,
+                control_state: &control_state,
+            },
+        ) {
+            AdsRouteOutcome::Handled => return,
+            AdsRouteOutcome::NotHandled(request) => request,
+        };
+        if mode == WebServerMode::Runtime {
+            request = match handle_runtime_cloud_route(
                 request,
                 &method,
                 url.as_str(),
-                ConfigUiRouteContext {
-                    mode,
-                    auth_mode: auth,
-                    auth_token: &auth_token,
-                    pairing: pairing.as_deref(),
-                    control_state: &control_state,
-                    bundle_root: &bundle_root,
-                },
-            ) {
-                ConfigUiRouteOutcome::Handled => continue,
-                ConfigUiRouteOutcome::NotHandled(request) => request,
-            };
-            request = match handle_ui_route(
-                request,
-                &method,
-                url.as_str(),
-                url_path,
-                UiRouteContext {
-                    auth_mode: auth,
-                    auth_token: &auth_token,
-                    pairing: pairing.as_deref(),
-                    control_state: &control_state,
-                    hmi_asset_root: bundle_root.clone().or_else(|| {
-                        crate::control::hmi_asset_project_root_port(control_state.as_ref())
-                    }),
-                },
-            ) {
-                UiRouteOutcome::Handled => continue,
-                UiRouteOutcome::NotHandled(request) => request,
-            };
-            request = match handle_aux_route(
-                request,
-                &method,
-                url.as_str(),
-                AuxRouteContext {
-                    mode,
+                RuntimeCloudRouteContext {
                     auth_mode: auth,
                     auth_token: &auth_token,
                     pairing: pairing.as_deref(),
@@ -164,91 +197,63 @@ pub fn start_web_server_with_mode(
                     control_state: &control_state,
                     discovery: &discovery,
                     bundle_root: &bundle_root,
+                    profile: runtime_cloud_profile,
+                    wan_allow_write: runtime_cloud_wan_allow_write.as_slice(),
+                    config_state: &runtime_cloud_config,
+                    config_path: runtime_cloud_config_path.as_deref(),
+                    link_transport_state: &runtime_cloud_link_transport,
+                    link_transport_path: runtime_cloud_link_transport_path.as_deref(),
+                    rollouts_state: &runtime_cloud_rollouts,
+                    rollouts_path: runtime_cloud_rollouts_path.as_deref(),
+                    ha_state: &runtime_cloud_ha,
                 },
             ) {
-                AuxRouteOutcome::Handled => continue,
-                AuxRouteOutcome::NotHandled(request) => request,
+                RuntimeCloudRouteOutcome::Handled => return,
+                RuntimeCloudRouteOutcome::NotHandled(request) => request,
             };
-            request = match handle_ads_route(
-                request,
-                &method,
-                url.as_str(),
-                AdsRouteContext {
-                    auth_mode: auth,
-                    auth_token: &auth_token,
-                    pairing: pairing.as_deref(),
-                    web_tls_enabled,
-                    control_state: &control_state,
-                },
-            ) {
-                AdsRouteOutcome::Handled => continue,
-                AdsRouteOutcome::NotHandled(request) => request,
-            };
-            if mode == WebServerMode::Runtime {
-                request = match handle_runtime_cloud_route(
-                    request,
-                    &method,
-                    url.as_str(),
-                    RuntimeCloudRouteContext {
-                        auth_mode: auth,
-                        auth_token: &auth_token,
-                        pairing: pairing.as_deref(),
-                        web_tls_enabled,
-                        control_state: &control_state,
-                        discovery: &discovery,
-                        bundle_root: &bundle_root,
-                        profile: runtime_cloud_profile,
-                        wan_allow_write: runtime_cloud_wan_allow_write.as_slice(),
-                        config_state: &runtime_cloud_config,
-                        config_path: runtime_cloud_config_path.as_deref(),
-                        link_transport_state: &runtime_cloud_link_transport,
-                        link_transport_path: runtime_cloud_link_transport_path.as_deref(),
-                        rollouts_state: &runtime_cloud_rollouts,
-                        rollouts_path: runtime_cloud_rollouts_path.as_deref(),
-                        ha_state: &runtime_cloud_ha,
-                    },
-                ) {
-                    RuntimeCloudRouteOutcome::Handled => continue,
-                    RuntimeCloudRouteOutcome::NotHandled(request) => request,
-                };
-            }
-            request = match handle_ide_route(
-                request,
-                &method,
-                url.as_str(),
-                IdeRouteContext {
-                    auth_mode: auth,
-                    auth_token: &auth_token,
-                    pairing: pairing.as_deref(),
-                    control_state: &control_state,
-                    bundle_root: &bundle_root,
-                    ide_state: &ide_state,
-                    ide_task_store: &ide_task_store,
-                    ide_task_seq: &ide_task_seq,
-                },
-            ) {
-                IdeRouteOutcome::Handled => continue,
-                IdeRouteOutcome::NotHandled(request) => request,
-            };
-            request = match handle_ops_route(
-                request,
-                &method,
-                url.as_str(),
-                OpsRouteContext {
-                    auth_mode: auth,
-                    auth_token: &auth_token,
-                    pairing: pairing.as_deref(),
-                    web_url: web_url.as_str(),
-                    control_state: &control_state,
-                    bundle_root: &bundle_root,
-                    web_tls_enabled,
-                },
-            ) {
-                OpsRouteOutcome::Handled => continue,
-                OpsRouteOutcome::NotHandled(request) => request,
-            };
-            let response = Response::from_string("not found").with_status_code(StatusCode(404));
-            let _ = request.respond(response);
+        }
+        request = match handle_ide_route(
+            request,
+            &method,
+            url.as_str(),
+            IdeRouteContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                control_state: &control_state,
+                bundle_root: &bundle_root,
+                ide_state: &ide_state,
+                ide_task_store: &ide_task_store,
+                ide_task_seq: &ide_task_seq,
+            },
+        ) {
+            IdeRouteOutcome::Handled => return,
+            IdeRouteOutcome::NotHandled(request) => request,
+        };
+        request = match handle_ops_route(
+            request,
+            &method,
+            url.as_str(),
+            OpsRouteContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                web_url: web_url.as_str(),
+                control_state: &control_state,
+                bundle_root: &bundle_root,
+                web_tls_enabled,
+            },
+        ) {
+            OpsRouteOutcome::Handled => return,
+            OpsRouteOutcome::NotHandled(request) => request,
+        };
+        let response = Response::from_string("not found").with_status_code(StatusCode(404));
+        let _ = request.respond(response);
+    });
+    let dispatcher = WebRequestDispatcher::new(request_handler);
+    let handle = thread::spawn(move || {
+        for request in server.incoming_requests() {
+            dispatcher.dispatch(request);
         }
     });
 
