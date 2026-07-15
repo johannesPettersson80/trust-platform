@@ -55,38 +55,45 @@ pub(super) fn queue_hmi_runtime_write_port(
     state: &ControlState,
     target: &str,
     requested_value: &serde_json::Value,
-) -> Result<RuntimeHmiQueuedWrite, String> {
+) -> Result<RuntimeHmiQueuedWrite, HmiWriteError> {
     let target = target.trim();
     if target.is_empty() {
-        return Err("missing params.id".to_string());
+        return Err(HmiWriteError::plain("missing params.id"));
     }
 
     let descriptor = hmi_descriptor_snapshot(state);
     let customization = descriptor.customization;
     if !customization.write_enabled() {
-        return Err("hmi.write disabled in read-only mode".to_string());
+        return Err(HmiWriteError::plain(
+            "hmi.write disabled in read-only mode",
+        ));
     }
     if customization.write_allowlist().is_empty() {
-        return Err("hmi.write allowlist is empty".to_string());
+        return Err(HmiWriteError::plain("hmi.write allowlist is empty"));
     }
 
     let metadata = state
         .metadata
         .lock()
-        .map_err(|_| "metadata unavailable".to_string())?;
-    let snapshot =
-        load_runtime_snapshot(state).ok_or_else(|| "runtime snapshot unavailable".to_string())?;
+        .map_err(|_| HmiWriteError::plain("metadata unavailable"))?;
+    let snapshot = load_runtime_snapshot(state)
+        .ok_or_else(|| HmiWriteError::plain("runtime snapshot unavailable"))?;
     let point =
         crate::hmi::resolve_write_point(state.resource_name.as_str(), &metadata, Some(&snapshot), target)
-            .ok_or_else(|| format!("unknown hmi target '{target}'"))?;
+            .ok_or_else(|| HmiWriteError::plain(format!("unknown hmi target '{target}'")))?;
     let allowed = customization.write_target_allowed(point.id.as_str())
         || customization.write_target_allowed(point.path.as_str());
     if !allowed {
-        return Err("hmi.write target is not in allowlist".to_string());
+        return Err(HmiWriteError::plain(
+            "hmi.write target is not in allowlist",
+        ));
     }
 
     let template = crate::hmi::resolve_write_value_template(&point, &snapshot).ok_or_else(|| {
-        format!("hmi.write target '{}' is currently unavailable", point.id)
+        HmiWriteError::plain(format!(
+            "hmi.write target '{}' is currently unavailable",
+            point.id
+        ))
     })?;
     let value = parse_hmi_write_value(
         requested_value,
@@ -94,7 +101,12 @@ pub(super) fn queue_hmi_runtime_write_port(
         bounded_string_capacity(point.data_type.as_str()),
         bounded_subrange(point.data_type.as_str()),
     )
-        .ok_or_else(|| format!("invalid hmi.write value for target '{}'", point.id))?;
+    .map_err(|failure| {
+        HmiWriteError::admission(
+            format!("invalid hmi.write value for target '{}'", point.id),
+            failure,
+        )
+    })?;
 
     match &point.binding {
         crate::hmi::HmiWriteBinding::ProgramVar { program, variable } => {
@@ -102,13 +114,16 @@ pub(super) fn queue_hmi_runtime_write_port(
                 .storage
                 .get_global(program.as_str())
                 .ok_or_else(|| {
-                    format!("hmi.write target '{}' is currently unavailable", point.id)
+                    HmiWriteError::plain(format!(
+                        "hmi.write target '{}' is currently unavailable",
+                        point.id
+                    ))
                 })?
             else {
-                return Err(format!(
+                return Err(HmiWriteError::plain(format!(
                     "hmi.write target '{}' is currently unavailable",
                     point.id
-                ));
+                )));
             };
             state
                 .debug

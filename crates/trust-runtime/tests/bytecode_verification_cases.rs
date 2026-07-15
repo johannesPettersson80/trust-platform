@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 use trust_runtime::bytecode::{BytecodeError, BytecodeModule, SectionData, SectionId};
-use trust_runtime::error::RuntimeError;
 use trust_runtime::Runtime;
 use verification_cases::{
     case_file_digest, run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe,
@@ -15,34 +14,6 @@ use verification_cases::{
 
 const TEST_ID: &str = "TEST_BYTECODE_VALIDATOR_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml";
-
-// Keeps the red contract compilable before the product exposes stable codes.
-// Once an inherent stable_code method exists, Rust resolves that method first.
-#[allow(dead_code)]
-trait MissingStableCodeProbe {
-    fn stable_code(&self) -> MissingStableCode;
-}
-
-#[derive(Clone, Copy)]
-struct MissingStableCode;
-
-impl MissingStableCode {
-    const fn as_str(self) -> &'static str {
-        "missing_stable_error_code"
-    }
-}
-
-impl MissingStableCodeProbe for BytecodeError {
-    fn stable_code(&self) -> MissingStableCode {
-        MissingStableCode
-    }
-}
-
-impl MissingStableCodeProbe for RuntimeError {
-    fn stable_code(&self) -> MissingStableCode {
-        MissingStableCode
-    }
-}
 
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -195,11 +166,7 @@ fn expected_rejection(case: &CaseRecord) -> Result<(&str, &str, Option<&str>), S
             other => Err(format!("{} has unknown truncate point {other:?}", case.id)),
         },
         "unknown_opcode" => Ok(("invalid_opcode", "bytecode_invalid_opcode", None)),
-        "jump_target" => Ok((
-            "invalid_jump_target",
-            "bytecode_invalid_jump_target",
-            None,
-        )),
+        "jump_target" => Ok(("invalid_jump_target", "bytecode_invalid_jump_target", None)),
         "stack_underflow" => Ok((
             "invalid_section",
             "bytecode_invalid_section",

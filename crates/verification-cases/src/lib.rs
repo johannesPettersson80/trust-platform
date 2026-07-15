@@ -329,7 +329,10 @@ mod tests {
         let relative = Path::new("verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml");
         let absolute = crate::workspace_root().join(relative);
 
-        assert_eq!(crate::artifact_case_file_path(&absolute), relative.to_string_lossy());
+        assert_eq!(
+            crate::artifact_case_file_path(&absolute),
+            relative.to_string_lossy()
+        );
     }
 
     #[derive(Default)]

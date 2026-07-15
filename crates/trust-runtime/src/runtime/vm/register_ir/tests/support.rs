@@ -671,7 +671,7 @@ fn fill_register_execution_pools_to_limit() {
 
 fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
     assert!(
-        matches!(&err, RuntimeError::InvalidBytecode(message) if message.contains(needle)),
+        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
         "unexpected error: {err:?}"
     );
 }

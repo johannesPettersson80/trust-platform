@@ -110,6 +110,32 @@ note bottom of refBridge
     - storage read/write cloning pressure
 end note
 
+package "Stable Machine Error Boundary" as errorPkg #HoneyDew {
+    component "StableErrorCode\n(trust-runtime-core/error_code.rs)" as stableCode
+    component "BytecodeError::stable_code()\n(decoder + validator category)" as bytecodeCode
+    component "VmTrap::stable_code() +\nRuntimeError::stable_code()" as runtimeCode
+    component "typed HMI write admission failure\n(type / string / subrange / non-finite)" as hmiWriteCode
+    artifact "ControlResponse.error_code\n(stable lower-snake-case identifier)" as controlErrorCode
+
+    bytecodeGuard --> bytecodeCode : rejected candidate
+    bytecodeCode --> stableCode
+    vmEntry --> runtimeCode : execution trap
+    runtimeCode --> stableCode
+    hmiWriteCode --> stableCode
+    hmiWriteCode --> controlErrorCode : rejected before queueing
+}
+
+note right of errorPkg
+    Stable identifiers are selected by
+    exhaustive enum matches. Diagnostic
+    text remains separate and is never
+    parsed to recover a machine code.
+
+    BytecodeError -> RuntimeError and
+    VmTrap -> RuntimeError preserve the
+    selected bytecode_* / vm_* code.
+end note
+
 package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRose {
     component "Runtime::evaluate_expression()\n(runtime/core/evaluation.rs)" as runtimeEval
     component "helper_eval::const_expr\ncompile-time const folding" as constEval
@@ -157,7 +183,8 @@ legend right
        - memory.rs
     4. `helper_eval` handles const/debug/config/init helpers only.
     5. Bytecode resource limits are checked before executable materialization.
-    6. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
+    6. Stable bytecode, VM, runtime, and HMI error identifiers do not depend on diagnostic text.
+    7. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
 end legend
 
 @enduml

@@ -43,5 +43,5 @@ pub(super) fn checked_local_count(local_ref_count: u32) -> Result<usize, VmTrap>
 }
 
 fn invalid_bytecode(message: &'static str) -> RuntimeError {
-    RuntimeError::InvalidBytecode(message.into())
+    RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
 }

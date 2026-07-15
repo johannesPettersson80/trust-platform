@@ -1,7 +1,7 @@
 use alloc::{format, vec::Vec};
 
 use crate::bytecode::{TypeData, TypeTable};
-use crate::error::RuntimeError;
+use crate::error::{RuntimeError, StableErrorCode};
 
 const POINTER_REFERENCE_HANDLE_SIZE_BYTES: u64 = core::mem::size_of::<usize>() as u64;
 const SIZEOF_TYPE_MAX_DEPTH: usize = 128;
@@ -18,20 +18,24 @@ fn sizeof_type_from_table_inner(
     stack: &mut Vec<u32>,
 ) -> Result<u64, RuntimeError> {
     if stack.len() >= SIZEOF_TYPE_MAX_DEPTH {
-        return Err(RuntimeError::InvalidBytecode(
+        return Err(RuntimeError::bytecode(
+            StableErrorCode::VmBytecodeDecode,
             format!(
                 "SIZEOF type nesting exceeds max depth {SIZEOF_TYPE_MAX_DEPTH} at index {type_idx}"
-            )
-            .into(),
+            ),
         ));
     }
     if stack.contains(&type_idx) {
-        return Err(RuntimeError::InvalidBytecode(
-            format!("SIZEOF type recursion at index {type_idx}").into(),
+        return Err(RuntimeError::bytecode(
+            StableErrorCode::VmBytecodeDecode,
+            format!("SIZEOF type recursion at index {type_idx}"),
         ));
     }
     let entry = types.entries.get(type_idx as usize).ok_or_else(|| {
-        RuntimeError::InvalidBytecode(format!("invalid type index {type_idx} for SIZEOF").into())
+        RuntimeError::bytecode(
+            StableErrorCode::BytecodeInvalidIndex,
+            format!("invalid type index {type_idx} for SIZEOF"),
+        )
     })?;
     stack.push(type_idx);
     let result = (|| match &entry.data {
@@ -106,8 +110,9 @@ fn sizeof_primitive_type(prim_id: u16, max_length: u16) -> Result<u64, RuntimeEr
                     .ok_or(RuntimeError::Overflow)
             }
         }
-        other => Err(RuntimeError::InvalidBytecode(
-            format!("unsupported primitive type id {other} for SIZEOF").into(),
+        other => Err(RuntimeError::bytecode(
+            StableErrorCode::VmBytecodeDecode,
+            format!("unsupported primitive type id {other} for SIZEOF"),
         )),
     }
 }

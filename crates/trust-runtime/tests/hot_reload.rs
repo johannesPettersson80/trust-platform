@@ -404,8 +404,8 @@ END_PROGRAM
         .expect("reload response");
     let err = result.expect_err("reload should fail");
     assert!(
-        matches!(err, RuntimeError::InvalidBytecode(_)),
-        "expected InvalidBytecode, got {err:?}"
+        matches!(err, RuntimeError::Bytecode { .. }),
+        "expected coded bytecode error, got {err:?}"
     );
 
     handle.stop();

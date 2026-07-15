@@ -395,7 +395,7 @@ pub(super) enum VmRef {
 }
 
 pub(super) fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
-    RuntimeError::InvalidBytecode(message.into())
+    RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
 }
 
 fn decode_ref_table(

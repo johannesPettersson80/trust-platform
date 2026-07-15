@@ -2,11 +2,14 @@
 
 #![allow(missing_docs)]
 
+use alloc::string::ToString;
 use smol_str::SmolStr;
 use thiserror::Error;
 
 use crate::datetime::DateTimeCalcError;
 use crate::value::DateTimeError;
+
+pub use crate::error_code::StableErrorCode;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -165,6 +168,15 @@ pub enum RuntimeError {
     #[error("invalid bytecode '{0}'")]
     InvalidBytecode(SmolStr),
 
+    /// Bytecode or VM structural failure with a preserved stable identifier.
+    #[error("invalid bytecode '{detail}'")]
+    Bytecode {
+        /// Stable machine-readable failure identifier.
+        code: StableErrorCode,
+        /// Human-readable diagnostic detail.
+        detail: SmolStr,
+    },
+
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
     ThreadSpawn(SmolStr),
@@ -222,6 +234,79 @@ pub enum RuntimeError {
     /// Control protocol error.
     #[error("control error '{0}'")]
     ControlError(SmolStr),
+}
+
+impl RuntimeError {
+    /// Construct a bytecode/VM structural error without losing its stable code.
+    pub fn bytecode(code: StableErrorCode, detail: impl Into<SmolStr>) -> Self {
+        Self::Bytecode {
+            code,
+            detail: detail.into(),
+        }
+    }
+
+    /// Return the stable machine identifier for this runtime failure.
+    #[must_use]
+    pub const fn stable_code(&self) -> StableErrorCode {
+        match self {
+            Self::UndefinedVariable(_) => StableErrorCode::RuntimeUndefinedVariable,
+            Self::UndefinedFunction(_) => StableErrorCode::RuntimeUndefinedFunction,
+            Self::UndefinedProgram(_) => StableErrorCode::RuntimeUndefinedProgram,
+            Self::UndefinedFunctionBlock(_) => StableErrorCode::RuntimeUndefinedFunctionBlock,
+            Self::UndefinedTask(_) => StableErrorCode::RuntimeUndefinedTask,
+            Self::UndefinedLabel(_) => StableErrorCode::RuntimeUndefinedLabel,
+            Self::UndefinedField(_) => StableErrorCode::RuntimeUndefinedField,
+            Self::InvalidTaskSingle(_) => StableErrorCode::RuntimeInvalidTaskSingle,
+            Self::InvalidIoAddress(_) => StableErrorCode::RuntimeInvalidIoAddress,
+            Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
+            Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
+            Self::InvalidArgumentName(_) => StableErrorCode::RuntimeInvalidArgumentName,
+            Self::AssertionFailed(_) => StableErrorCode::RuntimeAssertionFailed,
+            Self::DivisionByZero => StableErrorCode::RuntimeDivisionByZero,
+            Self::ModuloByZero => StableErrorCode::RuntimeModuloByZero,
+            Self::Overflow => StableErrorCode::RuntimeOverflow,
+            Self::IndexOutOfBounds { .. } => StableErrorCode::RuntimeIndexOutOfBounds,
+            Self::SubrangeViolation { .. } => StableErrorCode::RuntimeSubrangeViolation,
+            Self::NullReference => StableErrorCode::RuntimeNullReference,
+            Self::InvalidControlFlow => StableErrorCode::RuntimeInvalidControlFlow,
+            Self::ForStepZero => StableErrorCode::RuntimeForStepZero,
+            Self::ConditionNotBool => StableErrorCode::RuntimeConditionNotBool,
+            Self::CaseSelectorType => StableErrorCode::RuntimeCaseSelectorType,
+            Self::DateTimeRange(_) => StableErrorCode::RuntimeDateTimeRange,
+            Self::InvalidFrame(_) => StableErrorCode::RuntimeInvalidFrame,
+            Self::ResourceFaulted => StableErrorCode::RuntimeResourceFaulted,
+            Self::ResourcePanic(_) => StableErrorCode::RuntimeResourcePanic,
+            Self::IoDriver(_) => StableErrorCode::RuntimeIoDriver,
+            Self::IoTransport(_) => StableErrorCode::RuntimeIoTransport,
+            Self::IoAddress(_) => StableErrorCode::RuntimeIoAddress,
+            Self::IoFreshness(_) => StableErrorCode::RuntimeIoFreshness,
+            Self::InitFailed { .. } => StableErrorCode::RuntimeInitFailed,
+            Self::UnsupportedBytecodeVersion { .. } => {
+                StableErrorCode::RuntimeUnsupportedBytecodeVersion
+            }
+            Self::InvalidBytecodeMetadata(_) => StableErrorCode::RuntimeInvalidBytecodeMetadata,
+            Self::InvalidBytecode(_) => StableErrorCode::RuntimeInvalidBytecode,
+            Self::Bytecode { code, .. } => *code,
+            Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
+            Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
+            Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
+            Self::SafeStateFailed { .. } => StableErrorCode::RuntimeSafeStateFailed,
+            Self::ExecutionTimeout => StableErrorCode::RuntimeExecutionTimeout,
+            Self::SimulationFault(_) => StableErrorCode::RuntimeSimulationFault,
+            Self::InvalidConfig(_) => StableErrorCode::RuntimeInvalidConfig,
+            Self::InvalidBundle(_) => StableErrorCode::RuntimeInvalidBundle,
+            Self::RetainStore(_) => StableErrorCode::RuntimeRetainStore,
+            Self::RetainCorruption(_) => StableErrorCode::RuntimeRetainCorruption,
+            Self::RetainMigration(_) => StableErrorCode::RuntimeRetainMigration,
+            Self::ControlError(_) => StableErrorCode::RuntimeControlError,
+        }
+    }
+}
+
+impl From<crate::bytecode::BytecodeError> for RuntimeError {
+    fn from(error: crate::bytecode::BytecodeError) -> Self {
+        Self::bytecode(error.stable_code(), error.to_string())
+    }
 }
 
 impl From<DateTimeError> for RuntimeError {

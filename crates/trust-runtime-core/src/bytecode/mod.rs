@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use thiserror::Error;
 
+use crate::error_code::StableErrorCode;
 use crate::task::TaskConfig;
 
 pub use format::*;
@@ -97,6 +98,30 @@ pub enum BytecodeError {
         /// Invalid index value.
         index: u32,
     },
+}
+
+impl BytecodeError {
+    /// Return the stable machine identifier for this bytecode failure.
+    #[must_use]
+    pub const fn stable_code(&self) -> StableErrorCode {
+        match self {
+            Self::InvalidMagic => StableErrorCode::BytecodeInvalidMagic,
+            Self::UnsupportedVersion { .. } => StableErrorCode::BytecodeUnsupportedVersion,
+            Self::InvalidHeader(_) => StableErrorCode::BytecodeInvalidHeader,
+            Self::InvalidChecksum { .. } => StableErrorCode::BytecodeInvalidChecksum,
+            Self::InvalidSectionTable(_) => StableErrorCode::BytecodeInvalidSectionTable,
+            Self::SectionOutOfBounds => StableErrorCode::BytecodeSectionOutOfBounds,
+            Self::SectionOverlap => StableErrorCode::BytecodeSectionOverlap,
+            Self::SectionAlignment => StableErrorCode::BytecodeSectionAlignment,
+            Self::UnexpectedEof => StableErrorCode::BytecodeUnexpectedEof,
+            Self::InvalidSection(_) => StableErrorCode::BytecodeInvalidSection,
+            Self::MissingSection(_) => StableErrorCode::BytecodeMissingSection,
+            Self::InvalidOpcode(_) => StableErrorCode::BytecodeInvalidOpcode,
+            Self::InvalidJumpTarget(_) => StableErrorCode::BytecodeInvalidJumpTarget,
+            Self::InvalidPouId(_) => StableErrorCode::BytecodeInvalidPouId,
+            Self::InvalidIndex { .. } => StableErrorCode::BytecodeInvalidIndex,
+        }
+    }
 }
 
 /// Bytecode reader utility for little-endian byte streams.
@@ -292,6 +317,81 @@ mod tests {
             reader.read_u8(),
             Err(super::BytecodeError::UnexpectedEof)
         ));
+    }
+
+    #[test]
+    fn bytecode_error_variants_have_exact_stable_codes() {
+        let errors = [
+            (super::BytecodeError::InvalidMagic, "bytecode_invalid_magic"),
+            (
+                super::BytecodeError::UnsupportedVersion { major: 2, minor: 0 },
+                "bytecode_unsupported_version",
+            ),
+            (
+                super::BytecodeError::InvalidHeader("header".into()),
+                "bytecode_invalid_header",
+            ),
+            (
+                super::BytecodeError::InvalidChecksum {
+                    expected: 1,
+                    actual: 2,
+                },
+                "bytecode_invalid_checksum",
+            ),
+            (
+                super::BytecodeError::InvalidSectionTable("table".into()),
+                "bytecode_invalid_section_table",
+            ),
+            (
+                super::BytecodeError::SectionOutOfBounds,
+                "bytecode_section_out_of_bounds",
+            ),
+            (
+                super::BytecodeError::SectionOverlap,
+                "bytecode_section_overlap",
+            ),
+            (
+                super::BytecodeError::SectionAlignment,
+                "bytecode_section_alignment",
+            ),
+            (
+                super::BytecodeError::UnexpectedEof,
+                "bytecode_unexpected_eof",
+            ),
+            (
+                super::BytecodeError::InvalidSection("section".into()),
+                "bytecode_invalid_section",
+            ),
+            (
+                super::BytecodeError::MissingSection("section".into()),
+                "bytecode_missing_section",
+            ),
+            (
+                super::BytecodeError::InvalidOpcode(0xff),
+                "bytecode_invalid_opcode",
+            ),
+            (
+                super::BytecodeError::InvalidJumpTarget(8),
+                "bytecode_invalid_jump_target",
+            ),
+            (
+                super::BytecodeError::InvalidPouId(7),
+                "bytecode_invalid_pou_id",
+            ),
+            (
+                super::BytecodeError::InvalidIndex {
+                    kind: "const".into(),
+                    index: 4,
+                },
+                "bytecode_invalid_index",
+            ),
+        ];
+
+        for (error, expected) in errors {
+            assert_eq!(error.stable_code().as_str(), expected);
+            let runtime = crate::error::RuntimeError::from(error);
+            assert_eq!(runtime.stable_code().as_str(), expected);
+        }
     }
 
     #[test]

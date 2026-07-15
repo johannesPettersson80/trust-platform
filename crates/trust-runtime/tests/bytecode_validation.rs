@@ -5,7 +5,7 @@ use trust_runtime::bytecode::{
     BytecodeError, BytecodeModule, ConstEntry, PouKind, RefEntry, RefLocation, Section,
     SectionData, SectionId, TypeData, TypeEntry, TypeKind, VarMeta, VarMetaEntry,
 };
-use trust_runtime::error::RuntimeError;
+use trust_runtime::error::{RuntimeError, StableErrorCode};
 use trust_runtime::harness::bytecode_module_from_source;
 use trust_runtime::Runtime;
 
@@ -168,7 +168,10 @@ fn required_sections_are_rejected_before_runtime_apply() {
         assert!(
             matches!(
                 Runtime::new().apply_bytecode_bytes(&bytes, None),
-                Err(RuntimeError::InvalidBytecode(_))
+                Err(RuntimeError::Bytecode {
+                    code: StableErrorCode::BytecodeMissingSection,
+                    ..
+                })
             ),
             "product apply accepted module missing {section_id:?}"
         );

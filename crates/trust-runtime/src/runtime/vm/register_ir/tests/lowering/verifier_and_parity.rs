@@ -11,7 +11,10 @@ fn register_ir_verifier_rejects_unknown_block_target() {
     });
     lowered.blocks[0].instruction_costs.push(0);
     let err = verify_register_program(&lowered).expect_err("verification should fail");
-    let RuntimeError::InvalidBytecode(message) = err else {
+    let RuntimeError::Bytecode {
+        detail: message, ..
+    } = err
+    else {
         panic!("expected InvalidBytecode verification error");
     };
     assert!(
@@ -169,7 +172,10 @@ fn register_ir_lowering_rejects_invalid_jump_target() {
         .copied()
         .expect("main pou id");
     let err = lower_pou_to_register_ir(&vm_module, pou_id).expect_err("invalid jump must fail");
-    let RuntimeError::InvalidBytecode(message) = err else {
+    let RuntimeError::Bytecode {
+        detail: message, ..
+    } = err
+    else {
         panic!("expected InvalidBytecode lowering error");
     };
     assert!(

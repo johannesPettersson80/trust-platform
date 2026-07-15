@@ -30,7 +30,7 @@ mod tests {
             ConstEntry, ConstPool, EnumVariant, Field, StringTable, TypeData, TypeEntry, TypeKind,
             TypeTable,
         },
-        error::RuntimeError,
+        error::{RuntimeError, StableErrorCode},
         memory::InstanceId,
         program_model::{BinaryOp, UnaryOp},
         value::{DateTimeProfile, Value},
@@ -64,7 +64,8 @@ mod tests {
         ));
         assert!(matches!(
             VmTrap::InvalidOpcode(0xFF).into_runtime_error(),
-            RuntimeError::InvalidBytecode(message) if message.contains("0xFF")
+            RuntimeError::Bytecode { code: StableErrorCode::BytecodeInvalidOpcode, detail }
+                if detail.contains("0xFF")
         ));
     }
 
@@ -283,7 +284,10 @@ mod tests {
         };
         assert!(matches!(
             super::decode_const_pool_entries(&bad_utf8, &string_types, &strings),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("UTF-8")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("UTF-8")
         ));
 
         let unsupported_types = TypeTable {
@@ -298,7 +302,10 @@ mod tests {
         };
         assert!(matches!(
             super::decode_const_pool_entries(&unsupported, &unsupported_types, &strings),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("unsupported const type kind")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("unsupported const type kind")
         ));
     }
 
@@ -361,11 +368,17 @@ mod tests {
         };
         assert!(matches!(
             super::sizeof_type_from_table(&recursive, 0),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("recursion")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("recursion")
         ));
         assert!(matches!(
             super::sizeof_type_from_table(&types, 99),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("invalid type index")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::BytecodeInvalidIndex,
+                detail,
+            }) if detail.as_str().contains("invalid type index")
         ));
     }
 

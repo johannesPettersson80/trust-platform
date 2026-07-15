@@ -355,9 +355,7 @@ impl Runtime {
             return Ok(());
         }
         let module = self.build_vm_module()?;
-        module
-            .validate()
-            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
+        module.validate().map_err(error::RuntimeError::from)?;
         let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
         self.vm_module = Some(vm_module);
         Ok(())
@@ -366,8 +364,9 @@ impl Runtime {
     fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
         if self.source_text_index.is_empty() {
             return crate::bytecode::build_module_from_runtime(self).map_err(|err| {
-                error::RuntimeError::InvalidBytecode(
-                    format!("vm module build failed: {err}").into(),
+                error::RuntimeError::bytecode(
+                    err.stable_code(),
+                    format!("vm module build failed: {err}"),
                 )
             });
         }
@@ -382,7 +381,10 @@ impl Runtime {
             })
             .collect::<Vec<_>>();
         crate::bytecode::build_module_from_runtime_with_sources(self, &sources).map_err(|err| {
-            error::RuntimeError::InvalidBytecode(format!("vm module build failed: {err}").into())
+            error::RuntimeError::bytecode(
+                err.stable_code(),
+                format!("vm module build failed: {err}"),
+            )
         })
     }
 

@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.48`
+Target release: `v0.24.49`
 
 ### Fixed
 
+- trust-runtime: bytecode decoding, validation, VM traps, and runtime failures
+  now expose stable lower-snake-case machine identifiers without parsing
+  diagnostic text; HMI type, bounded-string, subrange, and non-finite write
+  rejections return the matching identifier in `error_code` before queueing.
 - trust-runtime: STBC decoding, validation, executable materialization, and VM
   execution now enforce the documented fixed container, instruction,
   reference, local, parameter, native-call, operand-stack, call-depth, and
@@ -69,8 +73,7 @@ Target release: `v0.24.48`
 - trust-runtime: documented the complete STBC validator-before-apply contract,
   added product-path malformed-bytecode case execution, and promoted the
   existing owner, reference, call, jump, stack, schema, checksum, and version
-  rejection checks from quarantine into the regular test suite; stable public
-  error identifiers and numeric resource limits remain explicit open work.
+  rejection checks from quarantine into the regular test suite.
 - trust-runtime: added focused automatic-restart storage coverage and cataloged
   the existing runtime panic-containment and bounded Modbus slow-device tests;
   broader restart, latency, and reload-migration cases remain explicit
