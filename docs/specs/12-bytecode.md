@@ -99,6 +99,38 @@ does not define maximum container size, instruction count, stack depth, local
 count, reference count, call depth, or execution-time limits; those broader
 determinism and resource-limit contracts remain separately specified.
 
+#### 4.6 Fixed Resource Limits
+
+The STBC decoder, validator, and executor enforce the following fixed limits.
+They are part of the bytecode version 1.x product contract and are not
+configuration knobs:
+
+| Resource | Maximum |
+| --- | ---: |
+| Encoded STBC container | 67,108,864 bytes (64 MiB) |
+| Decoded instructions in one module | 1,000,000 |
+| References in one module | 65,536 |
+| Local references in one POU | 65,536 |
+| Declared POU parameters | 1,024 |
+| Native-call arguments | 1,024 |
+| Operand-stack values | 16,384 |
+| Active VM call frames | 1,024 |
+| Executed instructions in one top-level VM invocation | 1,000,000 |
+
+The encoded-container limit is checked before checksum calculation or section
+decoding. Count and decoded-instruction limits are checked before count-sized
+or instruction-state allocation. A module above any validation limit is
+rejected as a complete candidate before it can replace the active module.
+
+The execution budget counts each executed bytecode instruction, not only loop
+back-edges. Nested POU and native calls share the caller's remaining budget.
+The stack interpreter and optimized register/tier-1 paths charge the same
+original bytecode instructions even when lowering fuses or expands internal
+operations. Exhausting the instruction budget faults the invocation through
+the existing execution-timeout category; it does not define a stable public
+error identifier. Deadline/watchdog checks remain independent and may fault an
+invocation before its instruction budget is exhausted.
+
 ### 5. Section IDs (Version 1.x)
 
 | ID | Name | Required | Purpose |
@@ -702,10 +734,10 @@ those variants or strings as cross-process CLI, control-protocol, evidence, or
 machine API identifiers. That public error-code contract remains open under
 `SPEC_GAP_VM_ERROR_MODEL_001`.
 
-The collection bounds in section 4.5 and existing executor safeguards do not
-by themselves establish general maximum container, instruction, operand-stack,
-local, reference, call-depth, or execution-time budgets. Those product limits
-remain open under `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001`.
+The fixed limits in section 4.6 are validated before apply and enforced again
+at their allocation or execution boundary. They do not stabilize
+`BytecodeError` text or the public runtime error model, which remains open
+under `SPEC_GAP_VM_ERROR_MODEL_001`.
 
 #### 7.5 Fault Semantics
 

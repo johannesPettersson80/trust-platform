@@ -31,7 +31,7 @@ id = "TEST_IEC_STRING_IMPORTED_CAPACITY_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_55DE77B00C6511880E2E"
 discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
+test_class = "integration"
 area = "compiler_iec"
 path = "crates/trust-hir/src/db/queries/database/database_tests_part_01.rs"
 name = "analyze_salsa_preserves_cross_file_constant_string_capacity_on_in_out_parameters"
@@ -2775,6 +2775,40 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_VM_RESOURCE_LIMIT_CASES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F249C0ED30C6D840D514"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/vm_resource_limit_cases.rs"
+name = "vm_resource_limit_trace_cases"
+command = "cargo test -p trust-runtime --test vm_resource_limit_cases vm_resource_limit_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+spec_gap_ref = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+malformed_input_class_ids = [
+  "argument_count_resource_limit",
+  "call_depth_resource_limit",
+  "instructions_resource_limit",
+  "locals_resource_limit",
+  "refs_resource_limit",
+]
+expected_result = "The fixed STBC and VM resource caps reject oversized candidates and over-budget execution while the tracked OSCAT fixture remains valid."
+expected_failure_mode = "A candidate above a fixed resource cap is accepted, an over-budget invocation completes, or a within-limit tracked fixture regresses."
+evidence_destination = "target/gate-artifacts/cases/TEST_VM_RESOURCE_LIMIT_CASES_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "slow"
+case_file = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml"
+case_file_digest = "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61a3410c2ee5f"
+last_reviewed = "2026-07-15"
 
 [[tests]]
 schema_version = 2

@@ -31,10 +31,10 @@ covers = [
   "reference_and_owner_semantics",
   "lowering_fail_closed_contract",
   "collection_count_bounds",
+  "fixed_vm_resource_limits",
 ]
 known_limitations = [
   "Stable cross-interface VM error identifiers remain incomplete; see SPEC_GAP_VM_ERROR_MODEL_001.",
-  "General VM determinism and resource budgets remain incomplete; see SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001.",
 ]
 conflicts_with = []
 
@@ -93,12 +93,13 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-15"
 covers = [
   "process_image_model",
   "scan_cycle_execution",
   "retain_values",
   "runtime_value_model",
+  "vm_instruction_budget",
 ]
 known_limitations = [
   "This source does not by itself close bytecode validator or safe-state hardware proof gaps.",

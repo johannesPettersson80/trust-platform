@@ -605,6 +605,14 @@ Per IEC 61131-3, within each **scheduled task** execution:
 
 `execute_cycle` determines due tasks (periodic/event) and invokes `execute_task` in scheduler order.
 
+The bytecode executor applies the fixed resource limits in
+`12-bytecode.md` section 4.6. In particular, one top-level VM invocation may
+execute at most 1,000,000 original bytecode instructions. Nested calls share
+that remaining budget, and every execution backend charges the same original
+bytecode instruction count. Budget exhaustion is reported through the current
+execution-timeout category before the invocation can complete; configured
+deadline and watchdog checks remain independent.
+
 ```rust
 impl Runtime {
     fn execute_task(&mut self, task: &TaskConfig) -> Result<(), RuntimeError> {
