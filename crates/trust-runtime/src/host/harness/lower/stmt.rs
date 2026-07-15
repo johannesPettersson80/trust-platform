@@ -6,11 +6,11 @@ use trust_hir::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
-use super::super::{CompileError, LoweringContext};
+use super::super::{lower_type_ref, CompileError, LoweringContext};
 use super::expr::{
-    const_value_from_node, enum_literal_value, field_expr_property_accessor_name, lower_expr,
-    lower_expr_with_context, lower_expression_type, lower_lvalue, resolve_initializer_enum_variant,
-    PropertyAccessor,
+    const_value_from_node, enum_literal_value, field_expr_property_accessor_name,
+    lower_enclosing_storage_type, lower_expr, lower_expr_with_context, lower_expression_type,
+    lower_lvalue, resolve_initializer_enum_variant, PropertyAccessor,
 };
 
 pub(in crate::harness) fn lower_stmt_list(
@@ -90,7 +90,7 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
     if exprs.len() != 2 {
         return Err(CompileError::new("invalid assignment"));
     }
-    let target_type = lower_expression_type(&exprs[0], ctx)?;
+    let target_type = lower_assignment_target_type(&exprs[0], ctx)?;
     let property_setter = field_expr_property_accessor_name(&exprs[0], ctx, PropertyAccessor::Set)?;
     let target = lower_lvalue(&exprs[0], ctx)?;
     let value = lower_expr_with_context(&exprs[1], ctx, target_type)?;
@@ -132,6 +132,62 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
             location,
         })
     }
+}
+
+fn lower_assignment_target_type(
+    target: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if let Some(type_id) = lower_expression_type(target, ctx)? {
+        return Ok(Some(type_id));
+    }
+    if target.kind() != SyntaxKind::NameRef {
+        return Ok(None);
+    }
+
+    let target_name = node_text(target);
+    let mut inside_property_getter = false;
+    for ancestor in target.ancestors().skip(1) {
+        match ancestor.kind() {
+            SyntaxKind::PropertyGet => inside_property_getter = true,
+            SyntaxKind::PropertySet => return Ok(None),
+            SyntaxKind::Function | SyntaxKind::Method => {
+                return lower_declared_return_slot_type(&ancestor, &target_name, ctx);
+            }
+            SyntaxKind::Property if inside_property_getter => {
+                return lower_declared_return_slot_type(&ancestor, &target_name, ctx);
+            }
+            SyntaxKind::Program
+            | SyntaxKind::FunctionBlock
+            | SyntaxKind::Class
+            | SyntaxKind::Interface => return Ok(None),
+            _ => {}
+        }
+    }
+    Ok(None)
+}
+
+fn lower_declared_return_slot_type(
+    declaration: &SyntaxNode,
+    target_name: &str,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    let Some(name) = declaration
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+    else {
+        return Ok(None);
+    };
+    if !node_text(&name).eq_ignore_ascii_case(target_name) {
+        return Ok(None);
+    }
+    let Some(type_ref) = declaration
+        .children()
+        .find(|child| child.kind() == SyntaxKind::TypeRef)
+    else {
+        return Ok(None);
+    };
+    lower_type_ref(&type_ref, ctx).map(Some)
 }
 
 fn bound_string_assignment_expr(
@@ -382,20 +438,31 @@ fn const_case_label_int(
 }
 
 fn lower_for(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {
-    let control = node
+    let control_node = node
         .children()
         .find(|child| child.kind() == SyntaxKind::Name)
         .ok_or_else(|| CompileError::new("missing FOR control variable"))?;
-    let control = node_text(&control).into();
+    let control_name = node_text(&control_node);
+    let control_type = lower_enclosing_storage_type(node, &control_name, ctx)?;
+    let control = control_name.into();
 
     let exprs = direct_expr_children(node);
     if exprs.len() < 2 {
         return Err(CompileError::new("missing FOR bounds"));
     }
-    let start = lower_expr(&exprs[0], ctx)?;
-    let end = lower_expr(&exprs[1], ctx)?;
+    let start = lower_expr_with_context(&exprs[0], ctx, control_type)?;
+    let end = lower_expr_with_context(&exprs[1], ctx, control_type)?;
     let step = if exprs.len() >= 3 {
-        lower_expr(&exprs[2], ctx)?
+        lower_expr_with_context(&exprs[2], ctx, control_type)?
+    } else if let Some(type_id) = control_type {
+        Expr::Literal(
+            crate::harness::initializer::coerce_evaluated_initializer_value(
+                Value::DInt(1),
+                type_id,
+                ctx.registry,
+                &ctx.profile,
+            )?,
+        )
     } else {
         Expr::Literal(Value::Int(1))
     };

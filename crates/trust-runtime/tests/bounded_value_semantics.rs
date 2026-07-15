@@ -2,6 +2,118 @@ use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
 #[test]
+fn function_return_arithmetic_materializes_the_declared_integer_type() {
+    let library = r#"
+NAMESPACE Oscat
+FUNCTION DIR_TO_DEG : INT
+DIR_TO_DEG := (16 * 45 + 1) / 2;
+END_FUNCTION
+END_NAMESPACE
+"#;
+
+    let program = r#"
+USING Oscat;
+PROGRAM Main
+VAR
+    result : INT;
+END_VAR
+result := DIR_TO_DEG();
+END_PROGRAM
+"#;
+
+    let mut harness =
+        TestHarness::from_sources(&[library, program]).expect("compile namespaced runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(harness.get_output("result"), Some(Value::Int(360)));
+}
+
+#[test]
+fn for_loop_bounds_materialize_the_control_variable_type() {
+    let source = r#"
+PROGRAM Main
+VAR
+    index : SINT;
+    iterations : INT;
+END_VAR
+FOR index := 0 TO 2 DO
+    iterations := iterations + INT#1;
+END_FOR;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(harness.get_output("iterations"), Some(Value::Int(3)));
+}
+
+#[test]
+fn call_arguments_materialize_formal_parameter_types() {
+    let source = r#"
+FUNCTION IdentityReal : REAL
+VAR_INPUT
+    value : REAL;
+END_VAR
+IdentityReal := value;
+END_FUNCTION
+
+FUNCTION_BLOCK RealLatch
+VAR_INPUT
+    value : REAL;
+END_VAR
+VAR_OUTPUT
+    latched : REAL;
+END_VAR
+latched := value;
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    block : RealLatch;
+    function_named : REAL;
+    function_positional : REAL;
+    block_named : REAL;
+    block_positional : REAL;
+END_VAR
+function_named := IdentityReal(value := 360.0);
+function_positional := IdentityReal(45.0);
+block(value := 1.0, latched => block_named);
+block(value := 2.0, latched => block_positional);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(
+        harness.get_output("function_named"),
+        Some(Value::Real(360.0))
+    );
+    assert_eq!(
+        harness.get_output("function_positional"),
+        Some(Value::Real(45.0))
+    );
+    assert_eq!(harness.get_output("block_named"), Some(Value::Real(1.0)));
+    assert_eq!(
+        harness.get_output("block_positional"),
+        Some(Value::Real(2.0))
+    );
+}
+
+#[test]
 fn precision_losing_typed_integer_to_float_assignments_require_explicit_conversion() {
     let source = r#"
 PROGRAM Main

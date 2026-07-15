@@ -709,7 +709,8 @@ fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<E
         return Ok(Expr::StructInitializer(fields));
     }
     let target = lower_expr(&target_node, ctx)?;
-    let args = lower_call_args(node, ctx)?;
+    let parameter_contexts = lower_call_parameter_contexts(&target_node, ctx)?;
+    let args = lower_call_args(node, ctx, &parameter_contexts)?;
     Ok(Expr::Call {
         target: Box::new(target),
         args,
@@ -844,6 +845,7 @@ fn lower_aggregate_call_args(
 fn lower_call_args(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
+    parameter_contexts: &[CallParameterContext],
 ) -> Result<Vec<CallArg>, CompileError> {
     let arg_list = node
         .children()
@@ -852,11 +854,25 @@ fn lower_call_args(
         return Ok(Vec::new());
     };
     let mut args = Vec::new();
-    for arg in arg_list
+    for (index, arg) in arg_list
         .children()
         .filter(|child| child.kind() == SyntaxKind::Arg)
+        .enumerate()
     {
-        args.push(lower_call_arg(&arg, ctx)?);
+        let name = arg
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .map(|name| node_text(&name));
+        let expected_type = match name.as_deref() {
+            Some(name) => parameter_contexts
+                .iter()
+                .find(|parameter| parameter.name.eq_ignore_ascii_case(name))
+                .and_then(|parameter| parameter.type_id),
+            None => parameter_contexts
+                .get(index)
+                .and_then(|parameter| parameter.type_id),
+        };
+        args.push(lower_call_arg(&arg, ctx, expected_type)?);
     }
     Ok(args)
 }
@@ -864,6 +880,7 @@ fn lower_call_args(
 fn lower_call_arg(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
+    expected_type: Option<TypeId>,
 ) -> Result<CallArg, CompileError> {
     let name = node
         .children()
@@ -886,11 +903,15 @@ fn lower_call_arg(
         ArgValue::Target(lower_lvalue(&expr_node, ctx)?)
     } else if field_expr_property_accessor_name(&expr_node, ctx, PropertyAccessor::Get)?.is_some()
     {
-        ArgValue::Expr(lower_expr(&expr_node, ctx)?)
+        ArgValue::Expr(lower_expr_with_context(&expr_node, ctx, expected_type)?)
     } else {
         match lower_lvalue(&expr_node, ctx) {
             Ok(target) => ArgValue::Target(target),
-            Err(_) => ArgValue::Expr(lower_expr(&expr_node, ctx)?),
+            Err(_) => ArgValue::Expr(lower_expr_with_context(
+                &expr_node,
+                ctx,
+                expected_type,
+            )?),
         }
     };
 
