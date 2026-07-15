@@ -1,11 +1,11 @@
 # Phase 5 Suite and Gate Audit
 
 Generator: `phase5-suite-audit v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `0bfa631c5403f189fa8aa25dfacb777222761ad33aebf47e144bf4a77127c5b6`
-Input SHA-256: `sha256:b229bbbba1abf914ba23960a8d5d503539c3a5d468b1ba64dfaf34e5b651782c`
+Generated JSON SHA-256: `56103f84670125a32bcf1da0684a0a5dca6f1040450dc54ca98de9bc45009537`
+Input SHA-256: `sha256:88869f59f4d41241ed46b8b069367af854c509aef80cca4dbb58a9683af19aee`
 
 This report inventories suite ownership and routing without creating proof,
 closing specification gaps, interpreting suite inheritance, or changing enforcement.

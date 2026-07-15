@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `3a8286897153f09455302f315c5ef08e416f50d66cd026a7b9c8c4bf84cd8013`
-Input SHA-256: `sha256:7d55442e95259a3b14a6f764573486061be0b117b0182cbb0c8a74cf8b965740`
+Generated JSON SHA-256: `59a1013fad60f3622d9a9eae06f8516fa4bc48e2a5ad144d75d095e82df65ca6`
+Input SHA-256: `sha256:60fade7e5aa60f7aabcfa8bceccd9cc294f3c113b5bd1dbb83de32089d1c25b1`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -22,18 +22,18 @@ mean every required coverage slot is assigned or covered.
 - Recorded mapped-area cells: 68
 - Catalog-bound case files: 4
 - Case observations: 31
-- Blocked case observations: 7
+- Blocked case observations: 0
 
 ## Declared State Counts
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 13 |
+| `covered` | 15 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 31 |
-| `gap_open` | 24 |
+| `spec_gap` | 27 |
+| `gap_open` | 26 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -99,7 +99,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | none | none |
+| `wrong_type_or_shape` | `assigned` | `gap_open` | none | none |
 
 ### `VM_SEAM_REF_001`
 
@@ -114,7 +114,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | none | none |
+| `wrong_type_or_shape` | `assigned` | `gap_open` | none | none |
 
 ### `VM_SEAM_STRING_BOUND_001`
 
@@ -155,11 +155,11 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `boundary_high` | `missing_cell` | none | none | none |
 | `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
-| `extra_or_unknown` | `assigned` | `spec_gap` | `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71`, `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955` | none |
+| `extra_or_unknown` | `assigned` | `spec_gap` | none | none |
 | `happy_path` | `missing_cell` | none | none | none |
-| `missing_required` | `assigned` | `spec_gap` | `VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_D6833A8D`, `VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_58B11C2B` | none |
+| `missing_required` | `assigned` | `covered` | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE`, `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F`, `VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9` | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
 
 ## Area: `compiler_iec`
 

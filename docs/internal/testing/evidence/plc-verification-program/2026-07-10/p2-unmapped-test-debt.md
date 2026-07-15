@@ -1,23 +1,23 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `498d2c9b97dbdee351ed25c66e5900e0b7fa59e74f4743b02eea41c062b24649`
-Input SHA-256: `sha256:de30e6078338c7957c7d18dde832b872ab86f6fbf3783ea8ba5cbffc9375ce32`
+Generated JSON SHA-256: `4d46382e26b49f96d4e9ebb34e5995f7b340765838c17be04184c7f1f9d23b5b`
+Input SHA-256: `sha256:a32035edad2104ac260854197e2e01b7b5e87521b9bd3a27c5e93a310073a628`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3942
-- Mapped scanner facts: 151
-- Unmapped scanner facts: 3791
-- Generated-test catalog rows: 151
+- Scanner facts: 3948
+- Mapped scanner facts: 174
+- Unmapped scanner facts: 3774
+- Generated-test catalog rows: 174
 - Artifact catalog rows: 5
-- Ignored unmapped facts: 37
+- Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
 - Debt fails this report: no
 
@@ -27,7 +27,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1448 | 109 | 1339 |
+| `rust_integration_test` | 1454 | 132 | 1322 |
 | `rust_unit_test` | 1699 | 42 | 1657 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
@@ -621,9 +621,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_18496B8779AF7C3D150A` | `rust_integration_test` | `crates/trust-runtime/tests/build.rs` | `workspace_builds` | `not_ignored` |
 | `DISC_D6DAC722D68243D27E1F` | `rust_integration_test` | `crates/trust-runtime/tests/build_unbound_program.rs` | `configuration_without_program_instance_errors_by_default` | `not_ignored` |
 | `DISC_F06EBA3CB4306F18298B` | `rust_integration_test` | `crates/trust-runtime/tests/build_unbound_program.rs` | `explicit_extra_program_instance_keeps_test_builder_opt_in` | `not_ignored` |
-| `DISC_BDB3FF86B2273DD827C1` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_container.rs` | `checksum_validation` | `not_ignored` |
 | `DISC_B71ADAD1F3E8F1FF0373` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_container.rs` | `section_table_validation` | `not_ignored` |
-| `DISC_6FE11E79A06AEA138657` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_container.rs` | `version_gate` | `not_ignored` |
 | `DISC_11C0595A088CC9249A4C` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs` | `encoder_emits_method_tables` | `not_ignored` |
 | `DISC_BDED3CC98816CD7074F2` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs` | `encoder_roundtrip_validates` | `not_ignored` |
 | `DISC_067960017E02589D06C7` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs` | `encoder_emits_composite_types` | `not_ignored` |
@@ -663,12 +661,10 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_CB10FB386D6143E4F283` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_sections.rs` | `string_table_padding` | `not_ignored` |
 | `DISC_C3573E2945A5A4514EEA` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_sections.rs` | `type_table_decode` | `not_ignored` |
 | `DISC_54B9D55A890BE64BBC2C` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_sections.rs` | `var_meta_decode` | `not_ignored` |
-| `DISC_41562587AD279081DFC3` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `call_validation` | `not_ignored` |
 | `DISC_790E7CD2B51AC6800D26` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `debug_map_validation` | `not_ignored` |
 | `DISC_57639696D571884A9785` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `jump_validation` | `not_ignored` |
 | `DISC_644141E632E9E3CD1370` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `opcode_validation` | `not_ignored` |
 | `DISC_A7D063C4AAD7DB68FD24` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `opcode_validation_extended` | `not_ignored` |
-| `DISC_E4521EB1299D2E86F016` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `pou_local_ranges_reject_shared_frame_owner` | `not_ignored` |
 | `DISC_A6FCBE2677A8C090BECF` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `validator_rejects_unsupported_runtime_opcodes_before_dispatch` | `not_ignored` |
 | `DISC_EE4152F4361F181CB55B` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `var_meta_rejects_duplicate_ref_idx` | `not_ignored` |
 | `DISC_6B26ADB3DF20D72F0DB6` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_validation.rs` | `var_meta_rejects_duplicate_textual_name_at_different_string_indices` | `not_ignored` |
@@ -708,11 +704,9 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_F1F0C6C285477DAB1239` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_rejects_invalid_jump_target` | `not_ignored` |
 | `DISC_6D15F1D43CA3BDA8C505` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_rejects_invalid_opcode` | `not_ignored` |
 | `DISC_51482BB47DB5575280CE` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_rejects_malformed_operands` | `not_ignored` |
-| `DISC_7D6DBE32ECF7F31D1748` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_accepts_local_path_ref_for_pou_owned_local_slot` | `not_ignored` |
 | `DISC_FDE1B5B9C014CC5BF7BC` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_rejects_duplicate_pou_ids` | `not_ignored` |
 | `DISC_3A6CAB92BC8F60C11C2F` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_rejects_invalid_const_index_operand` | `not_ignored` |
 | `DISC_2017F195D5EEFC4FC922` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_rejects_invalid_ref_index_operand` | `not_ignored` |
-| `DISC_C74FB437C18E65242C35` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_rejects_local_ref_outside_pou_local_range` | `not_ignored` |
 | `DISC_66836DF45D5768143A94` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | `vm_validator_rejects_unsupported_call_method_opcode` | `not_ignored` |
 | `DISC_5FE5A5E7AEECAD1E3875` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_differential.rs` | `register_and_stack_paths_match_for_composite_value_program` | `not_ignored` |
 | `DISC_11A95B0F67F0AD60B921` | `rust_integration_test` | `crates/trust-runtime/tests/bytecode_vm_differential.rs` | `register_and_stack_paths_match_for_deep_ref_chain_field_index_parity` | `not_ignored` |
@@ -996,18 +990,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_BDEAFF431FC2B9A44DFD` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs` | `phase10_ads_opcua_publish_clone_partial_baseline` | `ignored` |
 | `DISC_8A83ABE26CDE3A14E938` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs` | `phase10_debug_snapshot_overhead_baseline` | `ignored` |
 | `DISC_9DA8F1E2D659F4E0F5E7` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs` | `phase10_retain_fsync_impact_baseline` | `ignored` |
-| `DISC_53DB35C22AFA96FE355B` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `crafted_frame_local_ref_cannot_persist_to_global_storage` | `ignored` |
-| `DISC_BCA3C293212BE0D52B3D` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `crafted_multi_owner_instance_refs_are_rejected_before_execution` | `ignored` |
 | `DISC_7DBEF68950F9AC3B5F29` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `ref_return_name_is_rejected_before_runtime_lowering` | `not_ignored` |
-| `DISC_1B5448C8DB96DF53A63C` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_bool_operands_for_arithmetic_opcode` | `ignored` |
-| `DISC_80833EFC8B17DF0C8754` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_const_type_incompatible_with_store_ref_target` | `ignored` |
-| `DISC_E8D36E045CD657B29BDD` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_inout_parameter_bound_to_literal_argument` | `ignored` |
-| `DISC_F850C3D482F1F1486738` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_invalid_parameter_direction_metadata` | `ignored` |
-| `DISC_1685CC6D1F65B9539D13` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_leftover_stack_at_pou_return` | `ignored` |
-| `DISC_C160AB9422688E289F44` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_legacy_call_opcode_even_when_target_exists` | `ignored` |
-| `DISC_EC610E3917E2D7BC4E2B` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_multi_owner_instance_ref_contract` | `ignored` |
-| `DISC_36947D824681068CB733` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_persistent_frame_local_ref_escape` | `ignored` |
-| `DISC_0D216C5A37ABCA5C342D` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs` | `validator_rejects_stack_underflow_store_ref` | `ignored` |
 | `DISC_106B06B9E9AC0F00A1CD` | `rust_integration_test` | `crates/trust-runtime/tests/plant_demo_io.rs` | `plant_demo_configuration_binds_io_and_tasks` | `not_ignored` |
 | `DISC_04E3AE8E579EE7353332` | `rust_integration_test` | `crates/trust-runtime/tests/platform_std.rs` | `monotonic_time` | `not_ignored` |
 | `DISC_27187199BD3E588FC6BB` | `rust_integration_test` | `crates/trust-runtime/tests/platform_std.rs` | `sleep_not_in_tests` | `not_ignored` |

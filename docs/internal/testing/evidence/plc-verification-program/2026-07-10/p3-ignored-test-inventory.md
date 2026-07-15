@@ -1,19 +1,19 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `53ef9b9e51c77be0e603ca14e7188592a49c39c1e4165be9a80cc4e83891007c`
-Input SHA-256: `sha256:b3fa4399085477ae67d97b5abad03728e7a1708110c9751c860f8af11c7eb81f`
+Generated JSON SHA-256: `42f0d6abc486f45939b42fc549ef2592af04bc8523bbd2c2195fb59b202a941d`
+Input SHA-256: `sha256:a009e092749553fc0303a541e71b559a81a12442771e88e7d93c32754a4abd00`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
 
 ## Summary
 
-- Records: 40
-- Statically ignored: 38
+- Records: 29
+- Statically ignored: 27
 - Conditional ignore observations: 2
 - Diagnostics: 0
 - Errors: 0
@@ -22,7 +22,7 @@ establish expected behavior, or count as product proof.
 | Source kind | Records |
 | --- | ---: |
 | `playwright_test` | 1 |
-| `rust_integration_test` | 26 |
+| `rust_integration_test` | 15 |
 | `rust_unit_test` | 12 |
 | `vscode_test` | 1 |
 
@@ -33,7 +33,7 @@ establish expected behavior, or count as product proof.
 | `conformance` | 21 | 0 | 0 | 0 | `limitation` |
 | `node` | 47 | 1 | 0 | 1 | `mechanical` |
 | `playwright` | 7 | 1 | 1 | 0 | `mechanical` |
-| `rust` | 556 | 38 | 37 | 1 | `mechanical` |
+| `rust` | 557 | 27 | 26 | 1 | `mechanical` |
 | `shell` | 29 | 0 | 0 | 0 | `limitation` |
 
 Surface notes:
@@ -64,17 +64,6 @@ Surface notes:
 | `DISC_BDEAFF431FC2B9A44DFD` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs:105` | `phase10_ads_opcua_publish_clone_partial_baseline` | Phase 10 benchmark; run explicitly with --ignored --nocapture |
 | `DISC_8A83ABE26CDE3A14E938` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs:44` | `phase10_debug_snapshot_overhead_baseline` | Phase 10 benchmark; run explicitly with --ignored --nocapture |
 | `DISC_9DA8F1E2D659F4E0F5E7` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase10_performance.rs:76` | `phase10_retain_fsync_impact_baseline` | Phase 10 benchmark; run explicitly with --ignored --nocapture |
-| `DISC_53DB35C22AFA96FE355B` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1192` | `crafted_frame_local_ref_cannot_persist_to_global_storage` | red test for runtime-safety Phase 11 SEAM-TEST-007 |
-| `DISC_BCA3C293212BE0D52B3D` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:897` | `crafted_multi_owner_instance_refs_are_rejected_before_execution` | red test for runtime-safety Phase 11 SEAM-TEST-008 |
-| `DISC_1B5448C8DB96DF53A63C` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:984` | `validator_rejects_bool_operands_for_arithmetic_opcode` | red test for runtime-safety Phase 11 SEAM-TEST-009C |
-| `DISC_80833EFC8B17DF0C8754` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1000` | `validator_rejects_const_type_incompatible_with_store_ref_target` | red test for runtime-safety Phase 11 SEAM-TEST-009D |
-| `DISC_E8D36E045CD657B29BDD` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1024` | `validator_rejects_inout_parameter_bound_to_literal_argument` | red test for runtime-safety Phase 11 SEAM-TEST-009E |
-| `DISC_F850C3D482F1F1486738` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1010` | `validator_rejects_invalid_parameter_direction_metadata` | red test for runtime-safety Phase 11 SEAM-TEST-009E |
-| `DISC_1685CC6D1F65B9539D13` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:975` | `validator_rejects_leftover_stack_at_pou_return` | red test for runtime-safety Phase 11 SEAM-TEST-009C |
-| `DISC_C160AB9422688E289F44` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1038` | `validator_rejects_legacy_call_opcode_even_when_target_exists` | red test for runtime-safety Phase 11 SEAM-TEST-009F |
-| `DISC_EC610E3917E2D7BC4E2B` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:946` | `validator_rejects_multi_owner_instance_ref_contract` | red test for runtime-safety Phase 11 SEAM-TEST-009B |
-| `DISC_36947D824681068CB733` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:1229` | `validator_rejects_persistent_frame_local_ref_escape` | red test for runtime-safety Phase 11 SEAM-TEST-009A |
-| `DISC_0D216C5A37ABCA5C342D` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/phase11_seam_contract.rs:966` | `validator_rejects_stack_underflow_store_ref` | red test for runtime-safety Phase 11 SEAM-TEST-009C |
 | `DISC_6F5F5107DDE61D3C1E43` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:456` | `perf_completion_budget` | ignore |
 | `DISC_A5BFD4D2FEC4A5FE7C73` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:759` | `perf_diagnostics_budget` | ignore |
 | `DISC_F7D08DE71C821B2157CF` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:668` | `perf_document_highlight_scaling_budget` | ignore |

@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-15T13:48:56+02:00"
+    "2026-07-15T19:14:22+02:00"
   ],
-  "commit": "3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc",
+  "commit": "df6c89e6425f93acc2949fc71cd8cce4d0d08435",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:296c15dd95256cc724a136fbace1dedc27f30432c4689829b4c84ca2d921d431",
+  "input_digest": "sha256:2be9e9cf3b1ddc6f7fcfecf27e52648e7a3ae2a05f3e15c672cc9a458aefe9c2",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1295,6 +1295,7 @@
     "crates/trust-runtime/tests/bytecode_roundtrip.rs",
     "crates/trust-runtime/tests/bytecode_sections.rs",
     "crates/trust-runtime/tests/bytecode_validation.rs",
+    "crates/trust-runtime/tests/bytecode_verification_cases.rs",
     "crates/trust-runtime/tests/bytecode_vm_core.rs",
     "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs",
     "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs",
@@ -2035,42 +2036,42 @@
       "area": "bytecode_vm",
       "associated_tests": [
         {
-          "id": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
+          "id": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
           "id_kind": "committed_case_id",
           "ignore_state": "not_applicable",
-          "name": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
+          "name": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
           "path": "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml",
           "source_kind": "case_table"
         },
         {
-          "id": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
+          "id": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
           "id_kind": "committed_case_id",
           "ignore_state": "not_applicable",
-          "name": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
+          "name": "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
           "path": "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml",
           "source_kind": "case_table"
         },
         {
-          "id": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
+          "id": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
           "id_kind": "committed_case_id",
           "ignore_state": "not_applicable",
-          "name": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
+          "name": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
           "path": "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml",
           "source_kind": "case_table"
         },
         {
-          "id": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F",
+          "id": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
           "id_kind": "committed_case_id",
           "ignore_state": "not_applicable",
-          "name": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F",
+          "name": "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
           "path": "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml",
           "source_kind": "case_table"
         },
         {
-          "id": "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9",
+          "id": "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C",
           "id_kind": "committed_case_id",
           "ignore_state": "not_applicable",
-          "name": "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9",
+          "name": "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C",
           "path": "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml",
           "source_kind": "case_table"
         }
@@ -2088,10 +2089,10 @@
       "mutations": [
         {
           "association_ids": [
-            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
-            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
-            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
-            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F"
+            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
           ],
           "build_command": [
             "cargo",
@@ -2120,7 +2121,7 @@
         },
         {
           "association_ids": [
-            "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"
+            "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
           ],
           "build_command": [
             "cargo",
@@ -2154,15 +2155,15 @@
       "owner": "trust-runtime",
       "result_artifact": {
         "path": "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json",
-        "sha256": "sha256:6e2c0eeb9fd016823bc6c62561bf37680a1b84fdb303e3e3dec8077dafe44e38"
+        "sha256": "sha256:329a2d46a14eb0c1f29c9dfac6f94ba112529a0daecb3b48f47038f429db9dc8"
       },
       "results": [
         {
           "association_ids": [
-            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
-            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
-            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
-            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F"
+            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+            "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+            "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
           ],
           "build_command": [
             "cargo",
@@ -2174,9 +2175,9 @@
             "--no-run"
           ],
           "build_exit_status": 0,
-          "build_output_tail": "Compiling trust-runtime v0.24.44 (/home/johannes/.cache/codex-targets/trust-platform-gate/tmp/trust-bytecode-validator-mutation-8u3e82oc/crates/trust-runtime)\nwarning: unused variable: `tables`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:146:5\n    |\n146 |     tables: &InstructionValidationTables<'_>,\n    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_tables`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `pou`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:147:5\n    |\n147 |     pou: &PouEntry,\n    |     ^^^ help: if this is intentional, prefix it with an underscore: `_pou`\n\nwarning: unused variable: `code`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:148:5\n    |\n148 |     code: &[u8],\n    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: fields `strings`, `index`, `types`, `const_pool`, and `ref_table` are never read\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:138:5\n    |\n137 | struct InstructionValidationTables<'a> {\n    |        --------------------------- fields in this struct\n138 |     strings: &'a StringTable,\n    |     ^^^^^^^\n139 |     index: &'a PouIndex,\n    |     ^^^^^\n140 |     types: &'a TypeTable,\n    |     ^^^^^\n141 |     const_pool: &'a ConstPool,\n    |     ^^^^^^^^^^\n142 |     ref_table: &'a RefTable,\n    |     ^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `pou_local_owner` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:184:4\n    |\n184 | fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `ensure_pou_ref_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:194:4\n    |\n194 | fn ensure_pou_ref_operand(\n    |    ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `unsupported_runtime_opcode_name` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:220:4\n    |\n220 | fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `validate_partial_access_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:235:4\n    |\n235 | fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 8 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.35s\n  Executable tests/bytecode_validation.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_validation-a423a59166034f68)",
+          "build_output_tail": "Compiling trust-runtime v0.24.47 (/tmp/trust-bytecode-validator-mutation-tuyuwgrq/crates/trust-runtime)\nwarning: unused variable: `tables`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:146:5\n    |\n146 |     tables: &InstructionValidationTables<'_>,\n    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_tables`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `pou`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:147:5\n    |\n147 |     pou: &PouEntry,\n    |     ^^^ help: if this is intentional, prefix it with an underscore: `_pou`\n\nwarning: unused variable: `code`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:148:5\n    |\n148 |     code: &[u8],\n    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: fields `strings`, `index`, `types`, `const_pool`, and `ref_table` are never read\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:138:5\n    |\n137 | struct InstructionValidationTables<'a> {\n    |        --------------------------- fields in this struct\n138 |     strings: &'a StringTable,\n    |     ^^^^^^^\n139 |     index: &'a PouIndex,\n    |     ^^^^^\n140 |     types: &'a TypeTable,\n    |     ^^^^^\n141 |     const_pool: &'a ConstPool,\n    |     ^^^^^^^^^^\n142 |     ref_table: &'a RefTable,\n    |     ^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `pou_local_owner` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:184:4\n    |\n184 | fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `ensure_pou_ref_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:194:4\n    |\n194 | fn ensure_pou_ref_operand(\n    |    ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `unsupported_runtime_opcode_name` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:220:4\n    |\n220 | fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `validate_partial_access_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:235:4\n    |\n235 | fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 8 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.82s\n  Executable tests/bytecode_validation.rs (/home/johannes/.cache/codex-targets/trust-platform-bytecode-validator-mutation/debug/deps/bytecode_validation-325cfbf742ef8c43)",
           "build_timed_out": false,
-          "duration_seconds": 35.409,
+          "duration_seconds": 34.252,
           "function": "validate_instruction_stream",
           "generated_mutant_name": "pou_and_instr.rs:150:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
           "genre": "FnValue",
@@ -2193,12 +2194,12 @@
             "bytecode_validation"
           ],
           "test_exit_status": 101,
-          "test_output_tail": "ported_runtime_opcodes_before_dispatch ... FAILED\ntest debug_map_validation ... ok\ntest call_validation ... FAILED\ntest pou_local_ranges_reject_shared_frame_owner ... ok\ntest var_meta_rejects_duplicate_textual_name_at_different_string_indices ... ok\ntest var_meta_rejects_local_ref_outside_every_pou_range ... ok\ntest var_meta_rejects_duplicate_ref_idx ... ok\ntest var_meta_rejects_local_retain_and_initializer_state ... ok\n\nfailures:\n\n---- validator_rejects_unsupported_runtime_opcodes_before_dispatch stdout ----\n\nthread 'validator_rejects_unsupported_runtime_opcodes_before_dispatch' (2201535) panicked at crates/trust-runtime/tests/bytecode_validation.rs:48:9:\nunexpected validation error for CALL_METHOD: UnexpectedEof\n\n---- call_validation stdout ----\n\nthread 'call_validation' (2201529) panicked at crates/trust-runtime/tests/bytecode_validation.rs:132:5:\nassertion failed: matches!(err, BytecodeError::InvalidPouId(99))\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    call_validation\n    validator_rejects_unsupported_runtime_opcodes_before_dispatch\n\ntest result: FAILED. 9 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s\n\n\nwarning: unused variable: `tables`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:146:5\n    |\n146 |     tables: &InstructionValidationTables<'_>,\n    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_tables`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `pou`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:147:5\n    |\n147 |     pou: &PouEntry,\n    |     ^^^ help: if this is intentional, prefix it with an underscore: `_pou`\n\nwarning: unused variable: `code`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:148:5\n    |\n148 |     code: &[u8],\n    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: fields `strings`, `index`, `types`, `const_pool`, and `ref_table` are never read\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:138:5\n    |\n137 | struct InstructionValidationTables<'a> {\n    |        --------------------------- fields in this struct\n138 |     strings: &'a StringTable,\n    |     ^^^^^^^\n139 |     index: &'a PouIndex,\n    |     ^^^^^\n140 |     types: &'a TypeTable,\n    |     ^^^^^\n141 |     const_pool: &'a ConstPool,\n    |     ^^^^^^^^^^\n142 |     ref_table: &'a RefTable,\n    |     ^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `pou_local_owner` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:184:4\n    |\n184 | fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `ensure_pou_ref_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:194:4\n    |\n194 | fn ensure_pou_ref_operand(\n    |    ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `unsupported_runtime_opcode_name` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:220:4\n    |\n220 | fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `validate_partial_access_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:235:4\n    |\n235 | fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 8 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.82s\n     Running tests/bytecode_validation.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_validation-a423a59166034f68)\nerror: test failed, to rerun pass `-p trust-runtime --test bytecode_validation`",
+          "test_output_tail": "_instruction_boundary ... ok\ntest required_sections_are_rejected_before_runtime_apply ... ok\ntest var_meta_rejects_duplicate_textual_name_at_different_string_indices ... ok\ntest var_meta_rejects_duplicate_ref_idx ... ok\ntest var_meta_rejects_local_ref_outside_every_pou_range ... ok\ntest pou_local_ranges_reject_shared_frame_owner ... ok\ntest var_meta_rejects_local_retain_and_initializer_state ... ok\n\nfailures:\n\n---- call_validation stdout ----\n\nthread 'call_validation' (820533) panicked at crates/trust-runtime/tests/bytecode_validation.rs:192:5:\nassertion failed: matches!(err, BytecodeError::InvalidPouId(99))\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- validator_rejects_unsupported_runtime_opcodes_before_dispatch stdout ----\n\nthread 'validator_rejects_unsupported_runtime_opcodes_before_dispatch' (820541) panicked at crates/trust-runtime/tests/bytecode_validation.rs:50:9:\nunexpected validation error for CALL_METHOD: UnexpectedEof\n\n\nfailures:\n    call_validation\n    validator_rejects_unsupported_runtime_opcodes_before_dispatch\n\ntest result: FAILED. 11 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s\n\n\nwarning: unused variable: `tables`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:146:5\n    |\n146 |     tables: &InstructionValidationTables<'_>,\n    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_tables`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `pou`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:147:5\n    |\n147 |     pou: &PouEntry,\n    |     ^^^ help: if this is intentional, prefix it with an underscore: `_pou`\n\nwarning: unused variable: `code`\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:148:5\n    |\n148 |     code: &[u8],\n    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: fields `strings`, `index`, `types`, `const_pool`, and `ref_table` are never read\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:138:5\n    |\n137 | struct InstructionValidationTables<'a> {\n    |        --------------------------- fields in this struct\n138 |     strings: &'a StringTable,\n    |     ^^^^^^^\n139 |     index: &'a PouIndex,\n    |     ^^^^^\n140 |     types: &'a TypeTable,\n    |     ^^^^^\n141 |     const_pool: &'a ConstPool,\n    |     ^^^^^^^^^^\n142 |     ref_table: &'a RefTable,\n    |     ^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `pou_local_owner` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:184:4\n    |\n184 | fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `ensure_pou_ref_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:194:4\n    |\n194 | fn ensure_pou_ref_operand(\n    |    ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `unsupported_runtime_opcode_name` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:220:4\n    |\n220 | fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `validate_partial_access_operand` is never used\n   --> crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs:235:4\n    |\n235 | fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 8 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.23s\n     Running tests/bytecode_validation.rs (/home/johannes/.cache/codex-targets/trust-platform-bytecode-validator-mutation/debug/deps/bytecode_validation-325cfbf742ef8c43)\nerror: test failed, to rerun pass `-p trust-runtime --test bytecode_validation`",
           "test_timed_out": false
         },
         {
           "association_ids": [
-            "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"
+            "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
           ],
           "build_command": [
             "cargo",
@@ -2210,9 +2211,9 @@
             "--no-run"
           ],
           "build_exit_status": 0,
-          "build_output_tail": "Compiling trust-runtime v0.24.44 (/home/johannes/.cache/codex-targets/trust-platform-gate/tmp/trust-bytecode-validator-mutation-8u3e82oc/crates/trust-runtime)\nwarning: unused variable: `types`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:11:5\n   |\n11 |     types: &TypeTable,\n   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_types`\n   |\n   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `const_pool`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:12:5\n   |\n12 |     const_pool: &ConstPool,\n   |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_const_pool`\n\nwarning: unused variable: `code`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:13:5\n   |\n13 |     code: &[u8],\n   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: enum `StackShape` is never used\n --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:2:6\n  |\n2 | enum StackShape {\n  |      ^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: struct `StackInstruction` is never constructed\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:19:8\n   |\n19 | struct StackInstruction {\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `decode_stack_instructions` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:27:4\n   |\n27 | fn decode_stack_instructions(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `apply_stack_instruction` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:78:4\n   |\n78 | fn apply_stack_instruction(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `enqueue_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:239:4\n    |\n239 | fn enqueue_stack_state(\n    |    ^^^^^^^^^^^^^^^^^^^\n\nwarning: function `merge_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:264:4\n    |\n264 | fn merge_stack_state(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `pop_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:287:4\n    |\n287 | fn pop_stack_shape(stack: &mut Vec<StackShape>, opcode: u8) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `const_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:295:4\n    |\n295 | fn const_stack_shape(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `type_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:310:4\n    |\n310 | fn type_stack_shape(types: &TypeTable, type_id: u32) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 12 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.53s\n  Executable tests/bytecode_vm_core.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_vm_core-75b4af30e2a7605b)",
+          "build_output_tail": "Compiling trust-runtime v0.24.47 (/tmp/trust-bytecode-validator-mutation-tuyuwgrq/crates/trust-runtime)\nwarning: unused variable: `types`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:11:5\n   |\n11 |     types: &TypeTable,\n   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_types`\n   |\n   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `const_pool`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:12:5\n   |\n12 |     const_pool: &ConstPool,\n   |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_const_pool`\n\nwarning: unused variable: `code`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:13:5\n   |\n13 |     code: &[u8],\n   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: enum `StackShape` is never used\n --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:2:6\n  |\n2 | enum StackShape {\n  |      ^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: struct `StackInstruction` is never constructed\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:19:8\n   |\n19 | struct StackInstruction {\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `decode_stack_instructions` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:27:4\n   |\n27 | fn decode_stack_instructions(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `apply_stack_instruction` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:78:4\n   |\n78 | fn apply_stack_instruction(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `enqueue_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:239:4\n    |\n239 | fn enqueue_stack_state(\n    |    ^^^^^^^^^^^^^^^^^^^\n\nwarning: function `merge_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:264:4\n    |\n264 | fn merge_stack_state(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `pop_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:287:4\n    |\n287 | fn pop_stack_shape(stack: &mut Vec<StackShape>, opcode: u8) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `const_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:295:4\n    |\n295 | fn const_stack_shape(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `type_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:310:4\n    |\n310 | fn type_stack_shape(types: &TypeTable, type_id: u32) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 12 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.91s\n  Executable tests/bytecode_vm_core.rs (/home/johannes/.cache/codex-targets/trust-platform-bytecode-validator-mutation/debug/deps/bytecode_vm_core-6ed20611a3dabd9e)",
           "build_timed_out": false,
-          "duration_seconds": 36.027,
+          "duration_seconds": 34.519,
           "function": "validate_stack_shape",
           "generated_mutant_name": "stack_shape.rs:15:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())",
           "genre": "FnValue",
@@ -2232,7 +2233,7 @@
             "--exact"
           ],
           "test_exit_status": 101,
-          "test_output_tail": "running 1 test\ntest vm_rejects_stack_underflow ... FAILED\n\nfailures:\n\n---- vm_rejects_stack_underflow stdout ----\n\nthread 'vm_rejects_stack_underflow' (2203560) panicked at crates/trust-runtime/tests/bytecode_vm_core/support.rs:127:10:\nmutated module should fail during apply: ()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    vm_rejects_stack_underflow\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.02s\n\n\nwarning: unused variable: `types`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:11:5\n   |\n11 |     types: &TypeTable,\n   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_types`\n   |\n   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `const_pool`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:12:5\n   |\n12 |     const_pool: &ConstPool,\n   |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_const_pool`\n\nwarning: unused variable: `code`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:13:5\n   |\n13 |     code: &[u8],\n   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: enum `StackShape` is never used\n --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:2:6\n  |\n2 | enum StackShape {\n  |      ^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: struct `StackInstruction` is never constructed\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:19:8\n   |\n19 | struct StackInstruction {\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `decode_stack_instructions` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:27:4\n   |\n27 | fn decode_stack_instructions(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `apply_stack_instruction` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:78:4\n   |\n78 | fn apply_stack_instruction(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `enqueue_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:239:4\n    |\n239 | fn enqueue_stack_state(\n    |    ^^^^^^^^^^^^^^^^^^^\n\nwarning: function `merge_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:264:4\n    |\n264 | fn merge_stack_state(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `pop_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:287:4\n    |\n287 | fn pop_stack_shape(stack: &mut Vec<StackShape>, opcode: u8) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `const_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:295:4\n    |\n295 | fn const_stack_shape(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `type_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:310:4\n    |\n310 | fn type_stack_shape(types: &TypeTable, type_id: u32) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 12 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.26s\n     Running tests/bytecode_vm_core.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_vm_core-75b4af30e2a7605b)\nerror: test failed, to rerun pass `-p trust-runtime --test bytecode_vm_core`",
+          "test_output_tail": "running 1 test\ntest vm_rejects_stack_underflow ... FAILED\n\nfailures:\n\n---- vm_rejects_stack_underflow stdout ----\n\nthread 'vm_rejects_stack_underflow' (821810) panicked at crates/trust-runtime/tests/bytecode_vm_core/support.rs:127:10:\nmutated module should fail during apply: ()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    vm_rejects_stack_underflow\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.02s\n\n\nwarning: unused variable: `types`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:11:5\n   |\n11 |     types: &TypeTable,\n   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_types`\n   |\n   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused variable: `const_pool`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:12:5\n   |\n12 |     const_pool: &ConstPool,\n   |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_const_pool`\n\nwarning: unused variable: `code`\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:13:5\n   |\n13 |     code: &[u8],\n   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_code`\n\nwarning: enum `StackShape` is never used\n --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:2:6\n  |\n2 | enum StackShape {\n  |      ^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: struct `StackInstruction` is never constructed\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:19:8\n   |\n19 | struct StackInstruction {\n   |        ^^^^^^^^^^^^^^^^\n\nwarning: function `decode_stack_instructions` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:27:4\n   |\n27 | fn decode_stack_instructions(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `apply_stack_instruction` is never used\n  --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:78:4\n   |\n78 | fn apply_stack_instruction(\n   |    ^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `enqueue_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:239:4\n    |\n239 | fn enqueue_stack_state(\n    |    ^^^^^^^^^^^^^^^^^^^\n\nwarning: function `merge_stack_state` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:264:4\n    |\n264 | fn merge_stack_state(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `pop_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:287:4\n    |\n287 | fn pop_stack_shape(stack: &mut Vec<StackShape>, opcode: u8) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^\n\nwarning: function `const_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:295:4\n    |\n295 | fn const_stack_shape(\n    |    ^^^^^^^^^^^^^^^^^\n\nwarning: function `type_stack_shape` is never used\n   --> crates/trust-runtime/src/bytecode/validate/stack_shape.rs:310:4\n    |\n310 | fn type_stack_shape(types: &TypeTable, type_id: u32) -> Result<StackShape, BytecodeError> {\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: `trust-runtime` (lib) generated 12 warnings (run `cargo fix --lib -p trust-runtime` to apply 3 suggestions)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s\n     Running tests/bytecode_vm_core.rs (/home/johannes/.cache/codex-targets/trust-platform-bytecode-validator-mutation/debug/deps/bytecode_vm_core-6ed20611a3dabd9e)\nerror: test failed, to rerun pass `-p trust-runtime --test bytecode_vm_core`",
           "test_timed_out": false
         }
       ],
@@ -2557,7 +2558,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-15T13:48:56+02:00",
+  "timestamp": "2026-07-15T19:14:22+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",

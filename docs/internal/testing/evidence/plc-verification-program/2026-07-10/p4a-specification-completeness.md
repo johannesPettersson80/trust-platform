@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `44817795c7901ea0722949b34e3afe7b675ba66e9f6e37ae7e7fbf1252ec44b0`
-Input SHA-256: `sha256:b270368f4506f02756acad231201d7efa5a71c63ccc3991702389312d274a88a`
+Generated JSON SHA-256: `dee1cfd33692b94badac0fabb748a8154ec809528e317300a99e0561a456bb40`
+Input SHA-256: `sha256:542ed5e3a796040fea570c4d8021177eddcd453a3d05c8d0da464d693c8e015f`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,12 +13,12 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 24
-- Tests with expected results: 156
+- Invariants without specified specs: 21
+- Tests with expected results: 179
 - Tests without oracle/spec/gap binding: 3
 - Coverage cells: 68
-- Coverage cells marked spec_gap: 31
-- Bytecode pilot gaps: 5
+- Coverage cells marked spec_gap: 27
+- Bytecode pilot gaps: 4
 - Registered public-claim sources: 4
 
 ## Invariants Without Specified Specs
@@ -46,9 +46,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap` | `missing` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
-| `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap` | `missing` | `SPEC_GAP_BYTECODE_VALIDATOR_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Expected-Result Tests Without Oracle Binding
 
@@ -86,12 +83,8 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | 1 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | 0 | `resource_limit` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | 1 | `time_or_clock_fault` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
-| `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | 0 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 2 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 3 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 0 | `missing_required` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 1 | `wrong_type_or_shape` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 2 | `extra_or_unknown` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Bytecode/VM Pilot Gap Classification
@@ -99,13 +92,12 @@ declared scopes. It does not mean the specifications or tests are complete.
 Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 
 - `test_gap`: 2
-- `spec_gap`: 3
+- `spec_gap`: 2
 - `hardware_tool_blocked`: 0
 - `not_applicable`: 0
 
 | Gap | Classification | Source kind | Detail | Related records |
 | --- | --- | --- | --- | --- |
-| `SPEC_GAP_BYTECODE_VALIDATOR_001` | `spec_gap` | `spec_gap_record` | Which frontend and VM invariants must bytecode validation reject before a module can be applied? | `VM_SEAM_OWNER_001`, `VM_SEAM_REF_001`, `VM_SEAM_VALID_001` |
 | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `spec_gap` | `spec_gap_record` | Which VM determinism, instruction, stack, local, reference, call-depth, and resource limits must be specified and tested independently of bytecode validator structure? | `VM_SEAM_DETERMINISM_LIMITS_001` |
 | `SPEC_GAP_VM_ERROR_MODEL_001` | `spec_gap` | `spec_gap_record` | Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, `VM_SEAM_VALID_001` |
 | `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |

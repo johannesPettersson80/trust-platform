@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
-Generated: `2026-07-15T13:48:56+02:00`
+Source revision: `df6c89e6425f93acc2949fc71cd8cce4d0d08435`
+Generated: `2026-07-15T19:14:22+02:00`
 Platform: `linux-aarch64`
-Generated JSON SHA-256: `1af2a7555f921829329a3073fb8724d6494eeee7cd73f0bcbb9b90d6e74d2174`
-Input SHA-256: `sha256:fd614b3103f7b145f0681f623eb444104c0efea13e517d12eae818d11645b5ef`
+Generated JSON SHA-256: `1512e818baf24d3c70b23123d51f4a4498b2e6bfa3b8803044f5dac77f9460a4`
+Input SHA-256: `sha256:06d979393e70027298133d8ae2fb4c4505aa1b58a8ec3dcfaba76e13d6814ee4`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,9 +17,9 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 25
-- Missing oracles: 28
-- Future enforcement candidates: 21
+- Eligible oracles: 27
+- Missing oracles: 26
+- Future enforcement candidates: 19
 
 ## Mapping Groups
 
@@ -83,11 +83,11 @@ context is limited to the non-exhaustive registered source inventory.
 | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `SPEC_BYTECODE_FORMAT_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
-| `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
+| `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
+| `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
 | `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
+| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Missing Oracles
 
@@ -116,11 +116,9 @@ context is limited to the non-exhaustive registered source inventory.
 | `UI_STATUS_001` | `false_status` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `true` |
 | `VM_SEAM_DECLARED_TYPE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `wrong_result` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `true` |
-| `VM_SEAM_OWNER_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
-| `VM_SEAM_REF_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
 | `VM_SEAM_STRING_BOUND_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_SUBRANGE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
-| `VM_SEAM_VALID_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
+| `VM_SEAM_VALID_001` | `silent_corruption` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 
 ## Boundaries
 
