@@ -1,6 +1,18 @@
 name: Docs Captures
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/docs-captures.yml"
+      - "docs/public/assets/capture-inventory.json"
+      - "docs/public/assets/images/**"
+      - "editors/vscode/**"
+      - "examples/tutorials/12_hmi_pid_process_dashboard/**"
+      - "manual-tests/trust-lsp-smoke/**"
+      - "scripts/build_browser_analysis_wasm_spike.sh"
+      - "scripts/captures/**"
+      - "scripts/check_public_docs_assets.py"
+      - "scripts/generate_public_docs_media.py"
   push:
     branches:
       - main
@@ -20,8 +32,7 @@ on:
     - cron: "0 4 * * *"
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,6 +42,8 @@ jobs:
   refresh:
     name: Refresh Automated Docs Captures
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -92,6 +105,23 @@ jobs:
           path: |
             docs/public/assets/images/**/*.png
             docs/public/assets/images/**/*.gif
+
+  create-refresh-pr:
+    name: Create Capture Refresh PR
+    needs: refresh
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download refreshed captures
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-captures
+          path: docs/public/assets/images
 
       - name: Create capture refresh PR
         continue-on-error: true
