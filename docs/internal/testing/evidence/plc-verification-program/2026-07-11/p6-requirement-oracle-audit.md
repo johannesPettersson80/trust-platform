@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
-Generated: `2026-07-15T03:35:09+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `9744622551d76abe5d619ba4045aec7d69c69e1b3e46107c68fcaa567afe7947`
-Input SHA-256: `sha256:bf91a2f9646d8abb5b4e45ea77d660718f91ebcb800701bbf6a5e549d4913578`
+Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
+Generated: `2026-07-15T13:48:56+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `1af2a7555f921829329a3073fb8724d6494eeee7cd73f0bcbb9b90d6e74d2174`
+Input SHA-256: `sha256:fd614b3103f7b145f0681f623eb444104c0efea13e517d12eae818d11645b5ef`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -17,15 +17,15 @@ context is limited to the non-exhaustive registered source inventory.
 - Invariants: 53
 - Phase 6 mapped invariants: 35
 - Other-area invariants: 18
-- Eligible oracles: 24
-- Missing oracles: 29
-- Future enforcement candidates: 22
+- Eligible oracles: 25
+- Missing oracles: 28
+- Future enforcement candidates: 21
 
 ## Mapping Groups
 
 | Board row | Areas | Invariants | Eligible oracle | Spec-gap blocked |
 | --- | --- | ---: | ---: | ---: |
-| `VERIF-P6-001` | `compiler_iec` | 5 | 4 | 1 |
+| `VERIF-P6-001` | `compiler_iec` | 5 | 5 | 0 |
 | `VERIF-P6-002` | `runtime_safety` | 11 | 10 | 1 |
 | `VERIF-P6-003` | `protocols` | 7 | 1 | 6 |
 | `VERIF-P6-004` | `editor_safety` | 6 | 5 | 1 |
@@ -46,7 +46,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_PREC_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_EXPRESSIONS_001` | `SPEC_IEC_EXPRESSIONS_001` | none |
-| `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` |
+| `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_SUBRANGE_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
@@ -80,13 +80,13 @@ context is limited to the non-exhaustive registered source inventory.
 | `SEC_AUTHZ_001` | `control_security` | `security` | `gap_open/S0` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | none |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
-| `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
+| `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `SPEC_BYTECODE_FORMAT_001`, `SPEC_RUNTIME_SEMANTICS_001` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` |
 | `VM_SEAM_ENC_001` | `bytecode_vm` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_BYTECODE_FORMAT_001` | none |
 | `VM_SEAM_OWNER_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
 | `VM_SEAM_REF_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001` |
-| `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_VALUE_SEMANTICS_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
+| `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
+| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_VM_ERROR_MODEL_001` | `SPEC_VM_VALUE_SEMANTICS_001` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 | `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `SPEC_BYTECODE_FORMAT_001` | `SPEC_GAP_BYTECODE_VALIDATOR_001`, `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Missing Oracles
@@ -96,7 +96,6 @@ context is limited to the non-exhaustive registered source inventory.
 | `DEBUG_BEHAVIOR_LOCKED_001` | `false_status` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` | `true` |
 | `DEV_COMMIT_SCOPE_001` | `data_loss` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` | `false` |
 | `DEV_TEST_DISCOVERY_001` | `false_status` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` | `true` |
-| `IEC_STRING_001` | `wrong_result` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `true` |
 | `PLAT_PATH_001` | `platform` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `false` |
 | `PLAT_VSCODE_001` | `compatibility` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `false` |
 | `PROTO_ADS_001` | `false_status` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` | `true` |
@@ -115,12 +114,12 @@ context is limited to the non-exhaustive registered source inventory.
 | `SEC_ARTIFACT_001` | `supply_chain` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` | `false` |
 | `SEC_DEP_AUDIT_001` | `supply_chain` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` | `false` |
 | `UI_STATUS_001` | `false_status` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` | `true` |
-| `VM_SEAM_DECLARED_TYPE_001` | `wrong_result` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `true` |
+| `VM_SEAM_DECLARED_TYPE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_DETERMINISM_LIMITS_001` | `wrong_result` | `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001` | `true` |
 | `VM_SEAM_OWNER_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
 | `VM_SEAM_REF_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
-| `VM_SEAM_STRING_BOUND_001` | `wrong_result` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `true` |
-| `VM_SEAM_SUBRANGE_001` | `wrong_result` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `true` |
+| `VM_SEAM_STRING_BOUND_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
+| `VM_SEAM_SUBRANGE_001` | `wrong_result` | `SPEC_GAP_VM_ERROR_MODEL_001` | `true` |
 | `VM_SEAM_VALID_001` | `silent_corruption` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `true` |
 
 ## Boundaries

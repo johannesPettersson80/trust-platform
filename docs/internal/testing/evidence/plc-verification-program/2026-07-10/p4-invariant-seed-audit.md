@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
-Generated: `2026-07-15T03:35:09+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `d616fd478cd2270323c0036b14b9771f96d54f73bcdb5b4fc9c1c985cda9d626`
-Input SHA-256: `sha256:cbd78f2eafc3aabce8d573bdfbe67df7f399ddb5f0e94bd0391ecdb769e963e0`
+Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
+Generated: `2026-07-15T13:48:56+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `bc737f617cf4b32db7946b8e8977dbc3ed4d2361c6661074aec291d748f373c9`
+Input SHA-256: `sha256:ea9245d37f9d3cd55fd891d0deee0e235ef1854c278e3f97912869f4efe74b14`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -17,10 +17,10 @@ closes no specification gap, and changes no runtime behavior.
 - Authorized merged aliases: 1
 - Newly introduced Phase 4 records: 36
 - Pre-existing seed mappings: 8
-- Baseline lifecycle records: 32
-- Execution-ready lifecycle records: 12
-- Gap-open records: 16
-- Spec-gap records: 22
+- Baseline lifecycle records: 28
+- Execution-ready lifecycle records: 16
+- Gap-open records: 17
+- Spec-gap records: 21
 - Test-written records: 0
 - Implemented records: 6
 - Validated records: 0
@@ -50,16 +50,16 @@ closes no specification gap, and changes no runtime behavior.
 | `RT_SAFE_FORCE_001` | `RT_SAFE_FORCE_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `spec_gap/S0` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` | `none` |
 | `RT_SAFE_NAN_001` | `RT_SAFE_NAN_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_RUNTIME_ENGINE_001` | `RISK_RUNTIME_NONFINITE_INGRESS_001` |
 | `RT_RELOAD_001` | `RT_RELOAD_001` | `runtime_safety` | `VERIF-P4-003` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_RUNTIME_ENGINE_001` | `RISK_RUNTIME_RELOAD_TRANSACTION_001` |
-| `VM_SEAM_TYPE_001` | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `none` |
-| `VM_SEAM_TYPE_002` | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_VM_VALUE_SEMANTICS_001` | `none` |
+| `VM_SEAM_TYPE_001` | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:execution_ready` | `spec_gap/S0` | `SPEC_GAP_VM_ERROR_MODEL_001` | `none` |
+| `VM_SEAM_TYPE_002` | `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:execution_ready` | `spec_gap/S0` | `SPEC_GAP_VM_ERROR_MODEL_001` | `none` |
 | `VM_SEAM_REF_001` | `VM_SEAM_REF_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
 | `VM_SEAM_OWNER_001` | `VM_SEAM_OWNER_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
 | `VM_SEAM_VALID_001` | `VM_SEAM_VALID_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_BYTECODE_VALIDATOR_001` | `none` |
 | `VM_SEAM_ENC_001` | `VM_SEAM_ENC_001` | `bytecode_vm` | `VERIF-P4-002` | `preexisting` | `v1:execution_ready` | `gap_open/S0` | `SPEC_BYTECODE_FORMAT_001` | `none` |
 | `IEC_PARSE_RECOVER_001` | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:execution_ready` | `gap_open/S0` | `SPEC_IEC_DECISIONS_001` | `none` |
 | `IEC_PREC_001` | `IEC_PREC_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_IEC_EXPRESSIONS_001` | `none` |
-| `IEC_STRING_001` | `IEC_STRING_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` | `none` |
-| `IEC_SUBRANGE_001` | `IEC_SUBRANGE_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_IEC_DECISIONS_001` | `none` |
+| `IEC_STRING_001` | `IEC_STRING_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:execution_ready` | `gap_open/S0` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `none` |
+| `IEC_SUBRANGE_001` | `IEC_SUBRANGE_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:execution_ready` | `gap_open/S0` | `SPEC_IEC_DECISIONS_001` | `none` |
 | `IEC_TIMER_001` | `IEC_TIMER_001` | `compiler_iec` | `VERIF-P4-001` | `phase4` | `v1:execution_ready` | `implemented/G2` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` | `RISK_IEC_TIMER_SEMANTICS_001` |
 | `PLCO_IMPORT_001` | `PLCO_IMPORT_001` | `plcopen_devtools` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `none` |
 | `DEV_TEST_DISCOVERY_001` | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` | `none` |

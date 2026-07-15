@@ -1,11 +1,11 @@
 # Phase 10 Focused Mutation Program
 
 Generator: `mutation-program-audit v1`
-Source revision: `2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b`
-Generated: `2026-07-15T03:35:09+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `8a791da99144a6b51313d31715aae7769c3815d4d2074072416289fda0e8870c`
-Input SHA-256: `sha256:518dec3429436fb43167949e3fe3385288a1ebece3bb6aebcba904f8002ed3c9`
+Source revision: `3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc`
+Generated: `2026-07-15T13:48:56+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `35854dd07f991f5159d3afa0c827f78b803c2768aea964e124db724e1799206d`
+Input SHA-256: `sha256:296c15dd95256cc724a136fbace1dedc27f30432c4689829b4c84ca2d921d431`
 
 This report separates one validated measured pilot from five planned focused
 shards. It creates no proof, invariant coverage, spec-gap closure, release

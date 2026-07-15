@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-15T03:35:09+02:00"
+    "2026-07-15T13:48:56+02:00"
   ],
-  "commit": "2298b6dc4ff55ec6a1ecbb2a7c8b10b15785394b",
+  "commit": "3c63c89f2f9a435046c4b7791d9c3246bcc5ffcc",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:518dec3429436fb43167949e3fe3385288a1ebece3bb6aebcba904f8002ed3c9",
+  "input_digest": "sha256:296c15dd95256cc724a136fbace1dedc27f30432c4689829b4c84ca2d921d431",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -270,6 +270,7 @@
     "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs",
     "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs",
     "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs",
+    "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs",
     "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs",
     "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs",
     "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs",
@@ -941,10 +942,12 @@
     "crates/trust-runtime/src/host/harness/io/sizing.rs",
     "crates/trust-runtime/src/host/harness/io/types.rs",
     "crates/trust-runtime/src/host/harness/lower/expr.rs",
+    "crates/trust-runtime/src/host/harness/lower/expr/call_context.rs",
     "crates/trust-runtime/src/host/harness/lower/expr/constants.rs",
     "crates/trust-runtime/src/host/harness/lower/expr/literals.rs",
     "crates/trust-runtime/src/host/harness/lower/expr/lowering.rs",
     "crates/trust-runtime/src/host/harness/lower/expr/operators.rs",
+    "crates/trust-runtime/src/host/harness/lower/expr/storage_context.rs",
     "crates/trust-runtime/src/host/harness/lower/mod.rs",
     "crates/trust-runtime/src/host/harness/lower/stmt.rs",
     "crates/trust-runtime/src/host/harness/mod.rs",
@@ -1147,6 +1150,7 @@
     "crates/trust-runtime/src/runtime/vm/register_ir/tier1/state.rs",
     "crates/trust-runtime/src/runtime/vm/stack.rs",
     "crates/trust-runtime/src/runtime/vm/type_policy.rs",
+    "crates/trust-runtime/src/runtime/vm/type_policy/tests.rs",
     "crates/trust-runtime/src/runtime/watchdog_subsystem.rs",
     "crates/trust-runtime/src/runtime_cloud/config_policy.rs",
     "crates/trust-runtime/src/runtime_cloud/contracts.rs",
@@ -1275,6 +1279,7 @@
     "crates/trust-runtime/tests/agent_command/workspace_protocol.rs",
     "crates/trust-runtime/tests/api_smoke.rs",
     "crates/trust-runtime/tests/boundary_resolver.rs",
+    "crates/trust-runtime/tests/bounded_value_semantics.rs",
     "crates/trust-runtime/tests/build.rs",
     "crates/trust-runtime/tests/build_unbound_program.rs",
     "crates/trust-runtime/tests/bytecode_container.rs",
@@ -2015,7 +2020,7 @@
     "json": "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json",
     "markdown": "docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md"
   },
-  "platform": "linux-x86_64",
+  "platform": "linux-aarch64",
   "report_status": "complete",
   "schema_version": 1,
   "scope": {
@@ -2552,7 +2557,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-15T03:35:09+02:00",
+  "timestamp": "2026-07-15T13:48:56+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_only",
