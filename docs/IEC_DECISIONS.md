@@ -6,6 +6,36 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-15 - Accuracy-preserving implicit conversion matrix
+
+- Area: Assignment, initialization, function results, and POU parameter transfer
+- IEC context: IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion in
+  assignments and input/output parameter transfer only when it keeps the value
+  and accuracy of the source type, and forbids implicit conversion for
+  `VAR_IN_OUT`.
+- Decision:
+  - Signed integers widen only within `SINT -> INT -> DINT -> LINT`.
+  - Unsigned integers widen only within `USINT -> UINT -> UDINT -> ULINT`.
+  - Bit strings widen only within `BYTE -> WORD -> DWORD -> LWORD`.
+  - Integer-to-real implicit conversion is limited to ranges that are exactly
+    representable for every source value: `SINT` and `INT` may widen to
+    `REAL`; `SINT`, `INT`, and `DINT` may widen to `LREAL`.
+  - `REAL` may widen to `LREAL`. Typed `DINT -> REAL` and `LINT -> LREAL`
+    require an explicit conversion because some source values require
+    rounding. Signed/unsigned cross-family, numeric/`BOOL`, and other
+    incompatible conversions also require an explicit conversion where one
+    exists.
+  - Contextual untyped numeric literals may initialize or assign directly to a
+    target type when the literal is representable by that target.
+  - A value that reaches a declared VM primitive with an incompatible runtime
+    tag is rejected with `TypeMismatch` before storage. Stable public error-code
+    mapping remains governed by `SPEC_GAP_VM_ERROR_MODEL_001`.
+- Reason:
+  - Type width alone is not sufficient for integer-to-floating conversion:
+    binary32 cannot represent every `DINT`, and binary64 cannot represent every
+    `LINT`. Requiring explicit conversion makes possible rounding visible in
+    source while retaining the exact IEC-permitted widenings.
+
 ## 2026-07-14 - Malformed Structured Text parser recovery policy
 
 - Area: Structured Text control-flow and expression parsing
@@ -59,6 +89,8 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - `VAR_IN_OUT` requires identical string family and identical effective capacity after alias and constant-expression resolution. Width-changing and bounded-to-unbounded `VAR_IN_OUT` bindings are rejected with diagnostic category `E205` rather than converted.
   - A rejected `VAR_IN_OUT` binding cannot mutate caller state.
   - Literal bounds and truncation count Unicode scalar values. The same rules apply to bounded `STRING[n]` and `WSTRING[n]`.
+  - `STRING` and `WSTRING` are separate families. Cross-family assignment or
+    parameter transfer requires an explicit standard conversion function.
 - Reason:
   - Truncation preserves the product's established ordinary-assignment behavior while enforcing every receiving declaration's maximum.
   - Exact-capacity `VAR_IN_OUT` avoids an implicit round trip that can change a caller even when the called POU performs no write.
@@ -68,11 +100,16 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Area: ST subrange data types and runtime writes
 - IEC context: IEC 61131-3 Ed.3 §6.4.4.4.1 defines subrange values by inclusive lower/upper limits and treats values outside that range as errors; Table 11 defines user-defined subrange declarations.
 - Decision:
+  - Constant initializers outside the inclusive declared bounds are rejected at
+    compile time.
   - Runtime writes into subrange-typed storage are checked against the declared bounds.
   - Out-of-range execution-time assignment, function/FB parameter copy-in, dynamic-reference writes, HMI/control writes, and retain reload surface a deterministic runtime error.
   - The runtime must not silently clamp, wrap, or store an out-of-range value.
   - A rejected write is not committed: the target retains the exact value it held before the attempted write.
-  - Declaration-initialization edge cases remain out of this Phase 11 decision unless a separate initializer-specific proof row is opened.
+  - A source with the wrong base type is rejected at compile time with `E203`.
+    Crafted bytecode presenting the wrong runtime value tag is rejected with
+    `TypeMismatch` before storage; stable public error-code mapping remains a
+    separate contract.
 - Reason:
   - Existing specs already describe subrange range violations as errors; Phase 11 proof showed the runtime currently stores out-of-range values silently.
   - A visible runtime error is safer and more auditable than silently changing the value.

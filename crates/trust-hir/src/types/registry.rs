@@ -243,9 +243,12 @@ mod tests {
         // Widening is compatible
         assert!(registry.is_assignable(TypeId::DINT, TypeId::INT));
         assert!(registry.is_assignable(TypeId::REAL, TypeId::INT));
+        assert!(registry.is_assignable(TypeId::LREAL, TypeId::DINT));
 
         // Narrowing is not compatible
         assert!(!registry.is_assignable(TypeId::INT, TypeId::DINT));
+        assert!(!registry.is_assignable(TypeId::REAL, TypeId::DINT));
+        assert!(!registry.is_assignable(TypeId::LREAL, TypeId::LINT));
 
         // Generic types
         assert!(registry.is_assignable(TypeId::ANY_ELEMENTARY, TypeId::BOOL));

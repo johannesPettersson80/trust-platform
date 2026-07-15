@@ -109,10 +109,14 @@ fn normalize_value_for_type_table(
             max_length,
         } => {
             let value = normalize_string_primitive(*prim_id, *max_length, value);
-            Ok(match default_value_for_primitive(*prim_id) {
+            let value = match default_value_for_primitive(*prim_id) {
                 Some(target) => normalize_assignment_for_target(&target, value),
                 None => value,
-            })
+            };
+            if !primitive_value_matches(*prim_id, &value) {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            Ok(value)
         }
         TypeData::Reference { .. } => Ok(match value {
             Value::Null => Value::Reference(None),
@@ -203,8 +207,18 @@ fn primitive_value_matches(prim_id: u16, value: &Value) -> bool {
             | (13, Value::ULInt(_))
             | (14, Value::Real(_))
             | (15, Value::LReal(_))
+            | (16, Value::Time(_))
+            | (17, Value::LTime(_))
+            | (18, Value::Date(_))
+            | (19, Value::LDate(_))
+            | (20, Value::Tod(_))
+            | (21, Value::LTod(_))
+            | (22, Value::Dt(_))
+            | (23, Value::Ldt(_))
             | (24, Value::String(_))
             | (25, Value::WString(_))
+            | (26, Value::Char(_))
+            | (27, Value::WChar(_))
     )
 }
 
@@ -244,3 +258,6 @@ fn default_value_for_primitive(prim_id: u16) -> Option<Value> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests;

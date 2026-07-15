@@ -194,6 +194,21 @@ and input/output parameter assignment, requires it to preserve value and
 accuracy, and forbids it for `VAR_IN_OUT` assignment. Sections 6.4.4.1.2 and
 6.5.1.3 permit compatible literal or constant-expression initializers.
 
+The permitted typed widening matrix is closed:
+
+- signed integer: `SINT -> INT -> DINT -> LINT`;
+- unsigned integer: `USINT -> UINT -> UDINT -> ULINT`;
+- bit string: `BYTE -> WORD -> DWORD -> LWORD`;
+- exact integer-to-real: `SINT`/`INT -> REAL` and
+  `SINT`/`INT`/`DINT -> LREAL`;
+- real: `REAL -> LREAL`.
+
+Typed `DINT -> REAL` and `LINT -> LREAL` require explicit conversion because
+some source values cannot be represented without rounding. Signed/unsigned
+cross-family, numeric/`BOOL`, and otherwise incompatible conversions are not
+implicit. Contextual untyped literals remain allowed when representable by the
+target.
+
 When semantic analysis permits an implicit numeric widening, variable
 initialization, assignment, function-result assignment, and POU input/output
 parameter transfer materialize the value as the declared target type before it
@@ -209,24 +224,44 @@ compilation with diagnostic category `E205`. A narrowing assignment that
 cannot preserve the source value and accuracy is rejected unless the program
 uses an explicit conversion;
 incompatible assignment uses diagnostic category `E203`. Diagnostic prose is
-not part of this contract. Signed/unsigned boundary combinations, finite-range
-REAL/integer edges, and otherwise incompatible conversions not stated here
-remain separate specification boundaries.
+not part of this contract. At the VM boundary, a value whose runtime tag cannot
+materialize as the declared primitive is rejected with `TypeMismatch` before
+storage. Stable public error identifiers remain governed by
+`SPEC_GAP_VM_ERROR_MODEL_001`.
+
+#### 2.3.1 Bounded String Runtime Writes
+
+Every write into declared `STRING[n]` or `WSTRING[n]` storage applies the
+receiving declaration's capacity in Unicode scalar values. Initializers,
+ordinary assignment, function and function-block input copy-in, output
+copy-back, and function-result assignment truncate only the excess suffix and
+preserve the first `n` scalar values. An in-bound value is stored unchanged.
+
+`VAR_IN_OUT` does not convert or resize its actual argument: the string family
+and effective declared capacity must match exactly after alias resolution, and
+a rejected binding cannot mutate caller state. `STRING` and `WSTRING` remain
+separate families. Source-level cross-family assignment or binding is rejected
+unless an explicit standard conversion is used; crafted VM input with the
+wrong string-family runtime tag returns `TypeMismatch` before storage. Stable
+public error identifiers remain governed by `SPEC_GAP_VM_ERROR_MODEL_001`.
 
 #### 2.4 Subrange Runtime Writes
 
-Subrange lower and upper bounds are inclusive. Assignment, POU parameter
-copy-in, and dynamic-reference writes into subrange-typed storage validate the
+Subrange lower and upper bounds are inclusive. Constant initializers outside
+those bounds fail semantic analysis with an out-of-range diagnostic.
+Assignment, POU parameter copy-in, and dynamic-reference writes into
+subrange-typed storage validate the
 incoming value before modifying the target. An out-of-range value produces a
 visible runtime error and leaves the target at its previous value; the runtime
 must not clamp, wrap, or partially store the rejected value. The same rule
 applies at HMI/control and retain-reload write boundaries when declared
-subrange type information is available. Declaration-initialization behavior,
-wrong-type conversion, and stable error identifiers remain separate contract
-boundaries.
+subrange type information is available. A wrong-base-type source fails
+semantic analysis with `E203`; crafted VM input with the wrong runtime tag
+returns `TypeMismatch` without modifying storage. Stable public error
+identifiers remain a separate contract boundary.
 
 This product rule implements the reviewed subrange decision in
-`docs/IEC_DECISIONS.md` and does not extend it to those unresolved boundaries.
+`docs/IEC_DECISIONS.md`; it does not define that stable public error mapping.
 
 #### 2.5 Time/Date Representation
 

@@ -360,13 +360,24 @@ END_IF;
 
 ### Implicit Conversions
 
-Implicit conversions are allowed from smaller to larger types within the same category:
+IEC 61131-3 Ed.3 section 6.6.1.6 requires implicit conversion to preserve both
+value and accuracy. truST therefore permits only this closed widening matrix:
 
 ```
 SINT → INT → DINT → LINT
 USINT → UINT → UDINT → ULINT
+BYTE → WORD → DWORD → LWORD
+SINT, INT → REAL
+SINT, INT, DINT → LREAL
 REAL → LREAL
 ```
+
+Typed `DINT -> REAL` and `LINT -> LREAL` are not implicit conversions because
+not every source value is exactly representable by the floating target. They
+require an explicit conversion function, as do signed/unsigned cross-family,
+numeric/`BOOL`, and `STRING`/`WSTRING` cross-family conversions. Contextual
+untyped numeric literals remain assignable when the literal is representable by
+the target. No implicit conversion is applied to `VAR_IN_OUT`.
 
 ### Explicit Conversions
 
@@ -437,6 +448,9 @@ when a source string is longer than its assignment target. For bounded
 These rules apply at function and function-block call boundaries. They prevent
 call copy-back from storing a value longer than the receiving declaration and
 prevent a no-op `VAR_IN_OUT` call from silently changing caller state.
+
+`STRING` and `WSTRING` remain distinct assignment families. Use the explicit
+standard conversion functions when crossing between them.
 
 This focused contract covers ordinary assignment, literal bounds, and direct
 function/function-block parameter boundaries. Cross-family conversion and

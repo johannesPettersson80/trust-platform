@@ -80,6 +80,7 @@ impl SymbolCollector<'_> {
 
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             self.check_string_initializer(type_id, &expr);
+            self.check_subrange_initializer(type_id, &expr);
             self.check_aggregate_initializer_fields(type_id, &expr);
         }
 
@@ -164,6 +165,26 @@ impl SymbolCollector<'_> {
                 );
             }
             _ => {}
+        }
+    }
+
+    fn check_subrange_initializer(&mut self, type_id: TypeId, expr: &SyntaxNode) {
+        let resolved = self.table.resolve_alias_type(type_id);
+        let Some(Type::Subrange { lower, upper, .. }) = self.table.type_by_id(resolved) else {
+            return;
+        };
+        let (lower, upper) = (*lower, *upper);
+        let scopes = scope_chain_for_node(expr);
+        let mut guard = FxHashSet::default();
+        let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard) else {
+            return;
+        };
+        if value < lower || value > upper {
+            self.diagnostics.error(
+                DiagnosticCode::OutOfRange,
+                expr.text_range(),
+                format!("integer default {value} is outside target type range {lower}..{upper}"),
+            );
         }
     }
 

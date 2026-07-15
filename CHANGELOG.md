@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.46`
+Target release: `v0.24.47`
 
 ### Fixed
 
+- trust-hir/trust-runtime: implicit numeric assignment now permits only
+  accuracy-preserving widenings, ordinary subrange initializers are checked at
+  both bounds, contextual subrange literals retain their declared runtime tag,
+  and crafted primitive-tag mismatches fail before storage.
 - trust-runtime: the embedded web server now isolates read-only traffic from a
   fixed, bounded body/mutation lane, so incomplete request bodies cannot block
   HMI and control reads; saturated lanes fail promptly with HTTP 503 and the

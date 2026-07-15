@@ -1,6 +1,26 @@
 use super::defs::{Type, TypeId};
 use super::registry::TypeRegistry;
 
+pub(crate) fn is_accuracy_preserving_implicit_conversion(target: &Type, source: &Type) -> bool {
+    matches!(
+        (target, source),
+        (Type::Int, Type::SInt)
+            | (Type::DInt, Type::SInt | Type::Int)
+            | (Type::LInt, Type::SInt | Type::Int | Type::DInt)
+            | (Type::UInt, Type::USInt)
+            | (Type::UDInt, Type::USInt | Type::UInt)
+            | (Type::ULInt, Type::USInt | Type::UInt | Type::UDInt)
+            | (Type::Real, Type::SInt | Type::Int)
+            | (
+                Type::LReal,
+                Type::SInt | Type::Int | Type::DInt | Type::Real
+            )
+            | (Type::Word, Type::Byte)
+            | (Type::DWord, Type::Byte | Type::Word)
+            | (Type::LWord, Type::Byte | Type::Word | Type::DWord)
+    )
+}
+
 impl TypeRegistry {
     /// Checks if two types are compatible for assignment.
     #[must_use]
@@ -65,20 +85,8 @@ impl TypeRegistry {
             (Type::String { .. }, Type::String { .. }) => true,
             (Type::WString { .. }, Type::WString { .. }) => true,
 
-            // Numeric widening (safe conversions)
-            (Type::Int, Type::SInt) => true,
-            (Type::DInt, Type::SInt | Type::Int) => true,
-            (Type::LInt, Type::SInt | Type::Int | Type::DInt) => true,
-            (Type::UInt, Type::USInt) => true,
-            (Type::UDInt, Type::USInt | Type::UInt) => true,
-            (Type::ULInt, Type::USInt | Type::UInt | Type::UDInt) => true,
-            (Type::Real, Type::SInt | Type::Int | Type::DInt) => true,
-            (Type::LReal, Type::SInt | Type::Int | Type::DInt | Type::LInt | Type::Real) => true,
-
-            // Bit string widening
-            (Type::Word, Type::Byte) => true,
-            (Type::DWord, Type::Byte | Type::Word) => true,
-            (Type::LWord, Type::Byte | Type::Word | Type::DWord) => true,
+            // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.
+            (target, source) if is_accuracy_preserving_implicit_conversion(target, source) => true,
 
             // Generic type matching
             (Type::Any, _) => true,

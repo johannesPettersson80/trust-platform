@@ -15,7 +15,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_expression_kind, node_text};
 use super::super::{
-    coerce_value_to_type, lower_type_ref, resolve_type_name, CompileError, LoweringContext,
+    coerce_initializer_value_to_type, coerce_value_to_type, lower_type_ref, resolve_type_name,
+    CompileError, LoweringContext,
 };
 
 include!("expr/lowering.rs");

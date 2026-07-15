@@ -53,10 +53,20 @@ impl<'a> TypeChecker<'a> {
             return false;
         };
         let normalized = self.normalize_subrange(ty);
-        if !normalized.is_float() {
+        if is_untyped_real_literal_expr(expr) {
+            return normalized.is_float();
+        }
+        if !is_untyped_int_literal_expr(expr) {
             return false;
         }
-        is_untyped_real_literal_expr(expr)
+        let Ok(value) = self.try_eval_const_int_expr(expr) else {
+            return false;
+        };
+        match normalized {
+            Type::Real => integer_is_exact_in_binary_float(value, 24),
+            Type::LReal => integer_is_exact_in_binary_float(value, 53),
+            _ => false,
+        }
     }
 
     pub(super) fn warn_implicit_conversion(
@@ -144,6 +154,16 @@ impl<'a> TypeChecker<'a> {
             .type_name(id)
             .unwrap_or_else(|| SmolStr::new("?"))
     }
+}
+
+fn integer_is_exact_in_binary_float(value: i64, precision_bits: u32) -> bool {
+    let magnitude = value.unsigned_abs();
+    if magnitude == 0 {
+        return true;
+    }
+    let significant_bits = u64::BITS - magnitude.leading_zeros();
+    significant_bits <= precision_bits
+        || magnitude.trailing_zeros() >= significant_bits - precision_bits
 }
 
 pub(super) fn direct_address_type(text: &str) -> TypeId {

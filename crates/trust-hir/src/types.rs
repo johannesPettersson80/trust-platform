@@ -8,6 +8,7 @@ mod compat;
 mod defs;
 mod registry;
 
+pub(crate) use compat::is_accuracy_preserving_implicit_conversion;
 pub use defs::{
     ArrayDimensionExt, InitializerCatalog, InitializerId, InitializerRecord, StructField, Type,
     TypeId, UnionVariant,
