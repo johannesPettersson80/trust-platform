@@ -8,14 +8,17 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 owner = "trust-runtime"
 status = "planned"
-last_reviewed = "2026-07-09"
-description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
-mitigation = "Map each VM assumption to required spec tags, crafted-bytecode negative tests, and validator invariants."
+last_reviewed = "2026-07-15"
+description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions; the written contract and mapped test set now cover the reviewed validator boundary, while stable public error identity remains open."
+mitigation = "Keep the mapped decoder, validator, product-apply, owner, reference, call, jump, and stack checks active; retain mutation adequacy and close the independent public error-model gap before claiming a stable external failure identity."
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
-related_invariants = ["VM_SEAM_VALID_001"]
-related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001", "SPEC_GAP_VM_ERROR_MODEL_001"]
+related_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
+related_spec_gaps = ["SPEC_GAP_VM_ERROR_MODEL_001"]
 related_spec_sources = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
-evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]
+evidence_refs = [
+  "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709",
+  "EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715",
+]
 
 [[risks]]
 schema_version = 1

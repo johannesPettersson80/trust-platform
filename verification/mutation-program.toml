@@ -38,10 +38,10 @@ selector_name = "pou_and_instr.rs:150:5: replace validate_instruction_stream -> 
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"]
 association_ids = [
-  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
-  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
-  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
-  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F",
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
 ]
 
 [[shards.mutations]]
@@ -54,46 +54,46 @@ replacement = "Ok(())"
 selector_name = "stack_shape.rs:15:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "vm_rejects_stack_underflow", "--", "--exact"]
-association_ids = ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"]
+association_ids = ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"]
 
 [[shards.associated_tests]]
 id_kind = "committed_case_id"
-id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955"
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633"
 source_kind = "case_table"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955"
+name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633"
 ignore_state = "not_applicable"
 
 [[shards.associated_tests]]
 id_kind = "committed_case_id"
-id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71"
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA"
 source_kind = "case_table"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71"
+name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA"
 ignore_state = "not_applicable"
 
 [[shards.associated_tests]]
 id_kind = "committed_case_id"
-id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE"
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85"
 source_kind = "case_table"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE"
+name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85"
 ignore_state = "not_applicable"
 
 [[shards.associated_tests]]
 id_kind = "committed_case_id"
-id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F"
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
 source_kind = "case_table"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F"
+name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
 ignore_state = "not_applicable"
 
 [[shards.associated_tests]]
 id_kind = "committed_case_id"
-id = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"
+id = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
 source_kind = "case_table"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
-name = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"
+name = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
 ignore_state = "not_applicable"
 
 [[shards]]

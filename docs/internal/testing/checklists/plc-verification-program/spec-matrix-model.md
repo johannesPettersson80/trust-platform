@@ -41,11 +41,11 @@ area = "bytecode_vm"
 tag = "bytecode_validator_semantic_contract"
 title = "Bytecode validator semantic contract"
 owner = "trust-runtime"
-status = "spec_gap"
+status = "mapped"
 expected_authority = ["normative_product", "reviewed_decision"]
-spec_gap_ref = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+source_ref = "SPEC_BYTECODE_FORMAT_001"
 blocks = "test_mapping"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-15"
 
 [[required_specs]]
 schema_version = 1

@@ -301,8 +301,8 @@
         "reviewed_posture": {
           "enum": [
             "source_present",
-            "gap_open",
             "gap_open_partial",
+            "gap_open",
             "partial_source_no_gap",
             "nonoracle_context_only",
             "unrepresented",

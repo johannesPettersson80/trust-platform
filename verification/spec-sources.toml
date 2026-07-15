@@ -15,9 +15,10 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/12-bytecode.md"
 version = "current"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-15"
 covers = [
   "bytecode_container",
+  "bytecode_validator_semantic_contract",
   "section_table",
   "type_table",
   "constant_pool",
@@ -27,11 +28,12 @@ covers = [
   "resource_metadata",
   "io_map",
   "retain_init",
+  "reference_and_owner_semantics",
   "lowering_fail_closed_contract",
   "collection_count_bounds",
 ]
 known_limitations = [
-  "Validator semantic contract remains incomplete; see SPEC_GAP_BYTECODE_VALIDATOR_001.",
+  "Stable cross-interface VM error identifiers remain incomplete; see SPEC_GAP_VM_ERROR_MODEL_001.",
   "General VM determinism and resource budgets remain incomplete; see SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001.",
 ]
 conflicts_with = []

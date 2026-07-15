@@ -606,10 +606,10 @@ owner = "trust-runtime"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-shard.md"
-command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-count-502fff48\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate/tmp\" python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-gate\" --output-json /tmp/8437-bytecode-validator-mutation.json --output-markdown /tmp/8437-bytecode-validator-mutation.md'"
-commit = "8437e60842680bf07236fbd40f5ba23926463520"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-validator-38b6d095\" && python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-bytecode-validator-mutation\"'"
+commit = "38b6d09592913e373441511ccc8b5411938dc63f"
 platform = "trust-builder-linux-x86_64"
-date = "2026-07-13"
+date = "2026-07-15"
 suite_id = "nightly"
 producer = "bytecode-validator-mutation.py v1"
 generated_report_version = "bytecode-validator-mutation-report-v1"
@@ -618,8 +618,57 @@ linked_invariants = ["VM_SEAM_VALID_001"]
 linked_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
 mutation_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 mutation_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
-mutation_report_digest = "sha256:6e2c0eeb9fd016823bc6c62561bf37680a1b84fdb303e3e3dec8077dafe44e38"
-last_reviewed = "2026-07-14"
+mutation_report_digest = "sha256:329a2d46a14eb0c1f29c9dfac6f94ba112529a0daecb3b48f47038f429db9dc8"
+last_reviewed = "2026-07-15"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715"
+title = "Bytecode validator specification and mapped-test closeout"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-15/bytecode-validator-contract-closeout.md"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-validator-cb41439d\" && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" cargo test -p trust-runtime --test bytecode_container --test bytecode_validation --test bytecode_decode_resource_bounds --test bytecode_verification_cases --test phase11_seam_contract --test bytecode_vm_core' && ssh trust-builder 'cd \"$HOME/projects/trust-platform-bytecode-validator-38b6d095\" && python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-bytecode-validator-mutation\"'"
+commit = "38b6d09592913e373441511ccc8b5411938dc63f"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-15"
+suite_id = "supporting_local"
+producer = "codex bytecode validator contract closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
+linked_tests = [
+  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
+  "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
+  "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001",
+  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+  "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001",
+  "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+  "TEST_BYTECODE_TRANSFORM_SEED_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
+  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+  "TEST_BYTECODE_VERSION_REJECTION_001",
+]
+linked_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+last_reviewed = "2026-07-15"
 
 [[evidence]]
 schema_version = 1

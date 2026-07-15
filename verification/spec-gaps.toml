@@ -44,8 +44,9 @@ affected_tests = [
   "TEST_BYTECODE_VERSION_REJECTION_001",
 ]
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715"]
 last_reviewed = "2026-07-15"
 
 [[spec_gaps]]

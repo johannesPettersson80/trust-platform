@@ -144,10 +144,10 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"],
                 [
-                    "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_32935955",
-                    "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_CA909A71",
-                    "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_6DD115EE",
-                    "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_09FC189F",
+                    "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+                    "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+                    "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+                    "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
                 ],
             ),
             _mutation(
@@ -163,7 +163,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
                     "cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core",
                     "vm_rejects_stack_underflow", "--", "--exact",
                 ],
-                ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_1CBF84A9"],
+                ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"],
             ),
         ],
     },

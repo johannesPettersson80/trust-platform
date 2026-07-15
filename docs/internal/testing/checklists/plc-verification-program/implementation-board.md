@@ -1234,6 +1234,17 @@ same commit, with the closure evidence linked.
   written. `SPEC_GAP_VM_ERROR_MODEL_001` remains open; this batch does not
   claim stable public VM error identifiers. The register now contains 18
   `open`, 4 `test_mapped`, and 12 `closed` records.
+
+  Bytecode-validator progress (2026-07-15):
+  `SPEC_GAP_BYTECODE_VALIDATOR_001` is closed against the normative
+  validator-before-apply section in `docs/specs/12-bytecode.md`. A complete
+  transform seed, seven generated product-path cases, 26 mapped test records,
+  and 23 covered required malformed-input classes exercise the reviewed
+  decoder/validator boundary. The clean two-mutant validator shard reports 2
+  caught and zero survivors. No product acceptance defect reproduced, so this
+  batch contains no manufactured red/fix pair. The five numeric resource-limit
+  classes and `SPEC_GAP_VM_ERROR_MODEL_001` remain open. The register now
+  contains 17 `open`, 4 `test_mapped`, and 13 `closed` records.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1249,6 +1260,13 @@ same commit, with the closure evidence linked.
   STRING binding records are now linked from `IEC_STRING_001`. The affected
   Phase 4 seeds moved through the existing reviewed `execution_ready`
   lifecycle rather than bypassing seed controls.
+
+  Bytecode-validator progress (2026-07-15): 26 mapped records now bind the
+  reviewed validator, owner, reference, container, and product-apply checks to
+  `VM_SEAM_VALID_001`, `VM_SEAM_OWNER_001`, and `VM_SEAM_REF_001`. The complete
+  transform seed and all seven generated cases are runnable, and 11 Phase 11
+  validator tests no longer carry `#[ignore]`. Stable public error identity
+  remains explicit debt rather than an inferred oracle.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1266,6 +1284,13 @@ same commit, with the closure evidence linked.
   loss. Focused regression results and the exact product revision are recorded
   in the two 2026-07-15 closeout artifacts; producer-authentic proof remains
   open, so affected invariants stay at `S0`.
+
+  Bytecode-validator progress (2026-07-15): all 93 focused Rust tests passed
+  and both reviewed validator mutants were caught. No malformed input was
+  accepted, so there is no product fix or fabricated red/green proof in this
+  batch. The characterization and mutation results are durable closeout
+  evidence; the three affected invariants remain at `S0` pending proof and
+  broad-gate promotion work.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.

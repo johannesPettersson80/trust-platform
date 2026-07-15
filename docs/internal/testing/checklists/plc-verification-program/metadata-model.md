@@ -591,11 +591,12 @@ last_reviewed = "2026-07-08"
 
 covers = [
   "bytecode_container",
-  "instruction_stream_shape",
+  "bytecode_validator_semantic_contract",
+  "reference_and_owner_semantics",
 ]
 
 known_limitations = [
-  "validator semantic contract is incomplete and tracked by SPEC_GAP_BYTECODE_VALIDATOR_001",
+  "stable public VM error identifiers remain tracked by SPEC_GAP_VM_ERROR_MODEL_001",
 ]
 
 conflicts_with = []
@@ -1457,11 +1458,11 @@ status = "planned"
 description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions."
 mitigation = "Map each VM assumption to crafted-bytecode negative tests and validator invariants."
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
-related_invariants = ["VM_SEAM_VALID_001"]
-related_spec_gaps = ["SPEC_GAP_BYTECODE_VALIDATOR_001"]
+related_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
+related_spec_gaps = ["SPEC_GAP_VM_ERROR_MODEL_001"]
 related_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
-evidence_refs = []
-last_reviewed = "2026-07-08"
+evidence_refs = ["EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
 ```
 
 Required fields:
