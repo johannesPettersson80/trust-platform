@@ -39,7 +39,7 @@ struct FaultingFileOps {
 
 impl FaultingFileOps {
     fn error(&self) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, self.stage.label())
+        io::Error::other(self.stage.label())
     }
 }
 
@@ -100,14 +100,14 @@ struct FaultingTempFile {
 impl Write for FaultingTempFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.stage == FaultStage::Write {
-            return Err(io::Error::new(io::ErrorKind::Other, self.stage.label()));
+            return Err(io::Error::other(self.stage.label()));
         }
         self.inner.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
         if self.stage == FaultStage::Flush {
-            return Err(io::Error::new(io::ErrorKind::Other, self.stage.label()));
+            return Err(io::Error::other(self.stage.label()));
         }
         self.inner.flush()
     }
@@ -116,7 +116,7 @@ impl Write for FaultingTempFile {
 impl RetainTempFile for FaultingTempFile {
     fn sync_all(&self) -> io::Result<()> {
         if self.stage == FaultStage::FileSync {
-            return Err(io::Error::new(io::ErrorKind::Other, self.stage.label()));
+            return Err(io::Error::other(self.stage.label()));
         }
         self.inner.sync_all()
     }
@@ -129,7 +129,7 @@ struct FaultingReader {
 impl Read for FaultingReader {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
         let _ = &self.inner;
-        Err(io::Error::new(io::ErrorKind::Other, "read fault"))
+        Err(io::Error::other("read fault"))
     }
 }
 
