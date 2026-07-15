@@ -3,6 +3,7 @@ mod bytecode_helpers;
 use bytecode_helpers::base_module;
 use trust_runtime::bytecode::{
     BytecodeError, BytecodeModule, BytecodeVersion, Section, SectionData, SectionId,
+    BYTECODE_MAX_PARAMETERS_PER_POU,
 };
 
 fn section_payload_offset(bytes: &[u8], section_id: SectionId) -> usize {
@@ -234,7 +235,7 @@ fn nested_reference_counts_must_fit_before_allocation() {
 fn nested_pou_counts_must_fit_before_allocation() {
     assert_count_rejected(
         SectionId::PouIndex,
-        pou_index_entry(0, 4096),
+        pou_index_entry(0, BYTECODE_MAX_PARAMETERS_PER_POU as u32),
         "POU_INDEX parameter count exceeds section bounds",
     );
 
