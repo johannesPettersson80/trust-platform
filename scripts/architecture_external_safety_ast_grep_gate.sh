@@ -61,10 +61,17 @@ run_pattern() {
 
   jq --arg rule "$label" '
     .[]
+    | (
+        if $rule == "unsafe_fn_type_alias_system" then
+          ([.text | split("\n") | to_entries[] | select(.value | contains("unsafe")) | .key] | first // 0)
+        else
+          0
+        end
+      ) as $unsafe_line_offset
     | {
         rule: $rule,
         path: .file,
-        line: (.range.start.line + 1),
+        line: (.range.start.line + 1 + $unsafe_line_offset),
         column: (.range.start.column + 1),
         text: .text
       }
@@ -76,6 +83,7 @@ run_pattern "unsafe_impl" 'unsafe impl $TRAIT for $TYPE { $$$BODY }'
 run_pattern "unsafe_fn_no_return" 'unsafe fn $NAME($$$ARGS) { $$$BODY }'
 run_pattern "unsafe_fn_return" 'unsafe fn $NAME($$$ARGS) -> $RET { $$$BODY }'
 run_pattern "unsafe_fn_generic_return" 'unsafe fn $NAME<$GENERIC>($$$ARGS) -> $RET { $$$BODY }'
+run_pattern "unsafe_fn_type_alias_system" 'type $NAME = unsafe extern "system" fn($$$ARGS) -> $RET;'
 
 jq -s 'flatten' "$RAW_TMP_DIR"/*.json >"$RAW_JSON"
 jq -s '
