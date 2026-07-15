@@ -53,7 +53,7 @@ class ObviousSpecTopic:
 OBVIOUS_SPEC_TOPICS = (
     ObviousSpecTopic("P1A004_BYTECODE_FORMAT", "bytecode format", "source_present", ("SPEC_BYTECODE_FORMAT_001",), areas=("bytecode_vm",)),
     ObviousSpecTopic("P1A004_BYTECODE_VALIDATOR", "bytecode validator", "gap_open", ("SPEC_BYTECODE_FORMAT_001",), open_spec_gap_ids=("SPEC_GAP_BYTECODE_VALIDATOR_001",), areas=("bytecode_vm",)),
-    ObviousSpecTopic("P1A004_VM_VALUE_SEMANTICS", "VM value semantics", "gap_open", ("SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"), open_spec_gap_ids=("SPEC_GAP_VM_VALUE_SEMANTICS_001",), areas=("bytecode_vm",)),
+    ObviousSpecTopic("P1A004_VM_VALUE_SEMANTICS", "VM value semantics", "source_present", ("SPEC_VM_VALUE_SEMANTICS_001",), areas=("bytecode_vm",)),
     ObviousSpecTopic("P1A004_SCAN_CYCLE_LIFECYCLE", "scan-cycle lifecycle", "source_present", ("SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"), areas=("runtime_safety",)),
     ObviousSpecTopic("P1A004_STOP_SAFE_STATE", "stop/safe-state", "source_present", ("SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"), areas=("runtime_safety",)),
     ObviousSpecTopic("P1A004_RETAIN_RESTART", "retain/restart", "source_present", ("SPEC_IEC_DECISIONS_001", "SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001", "SPEC_RUNTIME_SEMANTICS_001"), areas=("runtime_safety",)),

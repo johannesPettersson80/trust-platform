@@ -92,6 +92,17 @@ class SpecSourceScannerTests(unittest.TestCase):
         self.assertEqual(topic.reviewed_posture, "source_present")
         self.assertEqual(topic.open_spec_gap_ids, ())
 
+    def test_vm_value_semantics_topic_uses_the_closed_gap_source_posture(self) -> None:
+        topic = next(
+            item
+            for item in OBVIOUS_SPEC_TOPICS
+            if item.topic_id == "P1A004_VM_VALUE_SEMANTICS"
+        )
+
+        self.assertEqual(topic.reviewed_posture, "source_present")
+        self.assertEqual(topic.eligible_source_ids, ("SPEC_VM_VALUE_SEMANTICS_001",))
+        self.assertEqual(topic.open_spec_gap_ids, ())
+
     def test_stop_safe_state_topic_uses_the_closed_gap_source_posture(self) -> None:
         topic = next(
             item for item in OBVIOUS_SPEC_TOPICS if item.topic_id == "P1A004_STOP_SAFE_STATE"
