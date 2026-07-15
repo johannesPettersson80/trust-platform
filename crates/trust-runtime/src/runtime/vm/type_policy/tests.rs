@@ -27,18 +27,15 @@ fn primitive_policy_rejects_incompatible_runtime_tags() {
     let real = primitive_table(14);
     let lreal = primitive_table(15);
 
-    assert_eq!(
+    for error in [
         normalize_value_for_type_table(&real, 0, Value::DInt(16_777_217), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
-    assert_eq!(
         normalize_value_for_type_table(&lreal, 0, Value::LInt(9_007_199_254_740_993), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
-    assert_eq!(
         normalize_value_for_type_table(&real, 0, Value::Bool(true), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
+    ] {
+        let error = error.expect_err("incompatible primitive tag must reject");
+        assert_eq!(error, RuntimeError::TypeMismatch);
+        assert_eq!(error.stable_code().as_str(), "runtime_type_mismatch");
+    }
 }
 
 #[test]
@@ -77,14 +74,14 @@ fn bounded_string_policy_truncates_by_scalar_and_rejects_wrong_family() {
         normalize_value_for_type_table(&wstring, 0, Value::WString("🙂ΩX".into()), 0),
         Ok(Value::WString("🙂Ω".into()))
     );
-    assert_eq!(
+    for error in [
         normalize_value_for_type_table(&string, 0, Value::WString("AB".into()), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
-    assert_eq!(
         normalize_value_for_type_table(&wstring, 0, Value::String("AB".into()), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
+    ] {
+        let error = error.expect_err("cross-family string tag must reject");
+        assert_eq!(error, RuntimeError::TypeMismatch);
+        assert_eq!(error.stable_code().as_str(), "runtime_type_mismatch");
+    }
 }
 
 #[test]
@@ -120,16 +117,17 @@ fn subrange_policy_accepts_inclusive_bounds_and_rejects_other_values() {
         normalize_value_for_type_table(&table, 1, Value::Int(2), 0),
         Ok(Value::Int(2))
     );
-    assert!(matches!(
+    for error in [
         normalize_value_for_type_table(&table, 1, Value::Int(-3), 0),
-        Err(RuntimeError::SubrangeViolation { .. })
-    ));
-    assert!(matches!(
         normalize_value_for_type_table(&table, 1, Value::Int(3), 0),
-        Err(RuntimeError::SubrangeViolation { .. })
-    ));
-    assert_eq!(
-        normalize_value_for_type_table(&table, 1, Value::Real(1.0), 0),
-        Err(RuntimeError::TypeMismatch)
-    );
+    ] {
+        let error = error.expect_err("out-of-range subrange value must reject");
+        assert!(matches!(error, RuntimeError::SubrangeViolation { .. }));
+        assert_eq!(error.stable_code().as_str(), "runtime_subrange_violation");
+    }
+
+    let error = normalize_value_for_type_table(&table, 1, Value::Real(1.0), 0)
+        .expect_err("wrong subrange base tag must reject");
+    assert_eq!(error, RuntimeError::TypeMismatch);
+    assert_eq!(error.stable_code().as_str(), "runtime_type_mismatch");
 }

@@ -135,3 +135,107 @@ impl From<RuntimeError> for VmTrap {
         Self::Runtime(value)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use super::VmTrap;
+    use crate::error::{RuntimeError, StableErrorCode};
+
+    #[test]
+    fn vm_traps_preserve_stable_codes_across_runtime_conversion() {
+        let cases = vec![
+            (
+                VmTrap::InvalidOpcode(0xff),
+                StableErrorCode::BytecodeInvalidOpcode,
+            ),
+            (
+                VmTrap::InvalidJumpTarget(17),
+                StableErrorCode::BytecodeInvalidJumpTarget,
+            ),
+            (
+                VmTrap::InvalidRefIndex(3),
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (
+                VmTrap::InvalidConstIndex(4),
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (
+                VmTrap::InvalidLocalRef {
+                    ref_index: 2,
+                    start: 8,
+                    count: 3,
+                },
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (VmTrap::StackUnderflow, StableErrorCode::VmStackUnderflow),
+            (VmTrap::StackOverflow, StableErrorCode::VmStackOverflow),
+            (
+                VmTrap::CallStackUnderflow,
+                StableErrorCode::VmCallStackUnderflow,
+            ),
+            (
+                VmTrap::CallStackOverflow,
+                StableErrorCode::VmCallStackOverflow,
+            ),
+            (
+                VmTrap::UnsupportedOpcode("reserved"),
+                StableErrorCode::VmUnsupportedOpcode,
+            ),
+            (
+                VmTrap::UnsupportedRefLocation("external"),
+                StableErrorCode::VmUnsupportedReferenceLocation,
+            ),
+            (
+                VmTrap::ConditionNotBool,
+                StableErrorCode::RuntimeConditionNotBool,
+            ),
+            (VmTrap::NullReference, StableErrorCode::RuntimeNullReference),
+            (
+                VmTrap::DeadlineExceeded,
+                StableErrorCode::RuntimeExecutionTimeout,
+            ),
+            (
+                VmTrap::BudgetExceeded,
+                StableErrorCode::RuntimeExecutionTimeout,
+            ),
+            (VmTrap::ForStepZero, StableErrorCode::RuntimeForStepZero),
+            (VmTrap::MissingPou(9), StableErrorCode::BytecodeInvalidPouId),
+            (
+                VmTrap::MissingProgram("missing".into()),
+                StableErrorCode::RuntimeUndefinedProgram,
+            ),
+            (
+                VmTrap::MissingFunctionBlock("missing".into()),
+                StableErrorCode::RuntimeUndefinedFunctionBlock,
+            ),
+            (
+                VmTrap::InvalidNativeCallKind(7),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::InvalidNativeSymbolIndex(8),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::InvalidNativeCall("invalid".into()),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::BytecodeDecode("invalid".into()),
+                StableErrorCode::VmBytecodeDecode,
+            ),
+            (
+                VmTrap::Runtime(RuntimeError::TypeMismatch),
+                StableErrorCode::RuntimeTypeMismatch,
+            ),
+        ];
+
+        for (trap, expected) in cases {
+            assert_eq!(trap.stable_code(), expected);
+            assert_eq!(trap.into_runtime_error().stable_code(), expected);
+        }
+    }
+}
