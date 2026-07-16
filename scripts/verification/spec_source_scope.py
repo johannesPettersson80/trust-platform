@@ -24,6 +24,17 @@ EVIDENCE_BACKED_SPEC_DOCUMENTS = frozenset(
     }
 )
 EVIDENCE_PLANE_PREFIX = "docs/internal/testing/evidence/"
+REVIEWED_POSTURES = (
+    "source_present",
+    "gap_open_partial",
+    "gap_open",
+    "partial_source_no_gap",
+    "nonoracle_context_only",
+    "unrepresented",
+    "partial_gap_no_source",
+    "gap_open_public_context_only",
+    "gap_open_nonoracle_context",
+)
 
 
 @dataclass(frozen=True)

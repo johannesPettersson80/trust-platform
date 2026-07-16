@@ -12,7 +12,7 @@ from typing import Any
 from .metadata_validator.constants import AREAS
 from .spec_source_analysis import SCOPE
 from .spec_source_models import BLOCK_KINDS
-from .spec_source_scope import OBVIOUS_SPEC_TOPICS
+from .spec_source_scope import OBVIOUS_SPEC_TOPICS, REVIEWED_POSTURES
 from .spec_source_report import (
     BOUNDARIES,
     GENERATOR,
@@ -333,8 +333,9 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
     expected_topic_ids = [topic.topic_id for topic in OBVIOUS_SPEC_TOPICS]
     if _property(obvious_properties, "topic_id").get("enum") != expected_topic_ids:
         failures.append("specification-source schema obvious-topic ID enum drifts")
-    reviewed_postures = list(dict.fromkeys(topic.reviewed_posture for topic in OBVIOUS_SPEC_TOPICS))
-    if _property(obvious_properties, "reviewed_posture").get("enum") != reviewed_postures:
+    if _property(obvious_properties, "reviewed_posture").get("enum") != list(
+        REVIEWED_POSTURES
+    ):
         failures.append("specification-source schema reviewed-posture enum drifts")
     area_items = _property(obvious_properties, "areas").get("items", {})
     area_enum = area_items.get("enum") if isinstance(area_items, Mapping) else None
@@ -488,11 +489,8 @@ def _validate_obvious_topics(rows: list[dict[str, Any]], failures: list[str]) ->
     actual_ids = [row.get("topic_id") for row in rows]
     if actual_ids != expected_ids:
         failures.append("obvious specification topics must match reviewed board order")
-    reviewed_postures = tuple(
-        dict.fromkeys(topic.reviewed_posture for topic in OBVIOUS_SPEC_TOPICS)
-    )
     for row in rows:
-        if row.get("reviewed_posture") not in reviewed_postures:
+        if row.get("reviewed_posture") not in REVIEWED_POSTURES:
             failures.append(f"obvious topic {row.get('topic_id')} reviewed posture is invalid")
         areas = row.get("areas")
         if not _canonical_strings(areas) or not areas or any(area not in AREAS for area in areas):

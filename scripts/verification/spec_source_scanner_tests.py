@@ -10,7 +10,7 @@ from pathlib import Path
 from .spec_source_markdown import scan_public_prose
 from .spec_source_models import BLOCK_KINDS, stable_document_id
 from .spec_source_scanner import discover_spec_documents
-from .spec_source_scope import OBVIOUS_SPEC_TOPICS
+from .spec_source_scope import OBVIOUS_SPEC_TOPICS, REVIEWED_POSTURES
 
 
 class SpecSourceScannerTests(unittest.TestCase):
@@ -54,6 +54,23 @@ class SpecSourceScannerTests(unittest.TestCase):
         self.assertEqual(tuple(item.topic_id for item in OBVIOUS_SPEC_TOPICS), expected_ids)
         self.assertEqual(len({item.topic_id for item in OBVIOUS_SPEC_TOPICS}), 21)
         self.assertTrue(all(item.board_topic and item.reviewed_posture for item in OBVIOUS_SPEC_TOPICS))
+        self.assertEqual(
+            REVIEWED_POSTURES,
+            (
+                "source_present",
+                "gap_open_partial",
+                "gap_open",
+                "partial_source_no_gap",
+                "nonoracle_context_only",
+                "unrepresented",
+                "partial_gap_no_source",
+                "gap_open_public_context_only",
+                "gap_open_nonoracle_context",
+            ),
+        )
+        self.assertTrue(
+            all(item.reviewed_posture in REVIEWED_POSTURES for item in OBVIOUS_SPEC_TOPICS)
+        )
         self.assertEqual(
             tuple(item.areas for item in OBVIOUS_SPEC_TOPICS),
             (
