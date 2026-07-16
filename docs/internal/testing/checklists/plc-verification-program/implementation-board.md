@@ -1037,8 +1037,13 @@ Acceptance:
   shard cannot become measured without a delivered artifact SHA-256 and direct
   execution confirmation. Association IDs are labels only, never killed-by or
   executed-test claims. Durable report:
-  The prior 2026-07-12 generic report is superseded by the measured source
-  artifacts and will be rebound in the follow-up evidence commit.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md`;
+  generated JSON SHA-256:
+  `e7d05db03de0e2829d1ce163826e94cba5e12f73840583ae09ec5a056d636647`.
+  It binds clean report source commit
+  `e7af0a5ad77174ee7883534f6b53f9e41acda95c` and replaces the superseded
+  2026-07-12 report.
   No proof, invariant promotion, spec-gap closure, product/runtime behavior,
   CI enforcement, workflow, skill, or agent-instruction change is made.
 
