@@ -345,6 +345,24 @@ TOML shape convention:
   explicit case or scanner association IDs. Those IDs are traceability labels,
   not claims that a named test killed a mutant. Shards are capped at two
   mutants; broad workspace and `test-all` commands fail validation.
+- The four reviewed source-only shards use one fail-closed executor and one
+  closed artifact format. Run each shard from a clean committed checkout and
+  write only to the exact `result_artifact_path` reserved by its manifest row:
+
+  ```text
+  python3 scripts/run_focused_mutation_shard.py \
+    --shard-id MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001 \
+    --json-out docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json \
+    --target-dir /absolute/generated/cargo-target
+  ```
+
+  The executor archives `HEAD`, cleans only the selected package, requires the
+  focused baseline to pass, applies exactly one reviewed cargo-mutants
+  selector, and runs only the bound focused test. Signals, disk/quota failures,
+  unknown nonzero exits, and selected-test ambiguity are infrastructure errors,
+  not adequacy results. Artifacts retain raw process output and are revalidated
+  against an input-identical source commit. The connector delivered-binary
+  shard is deliberately rejected by this source runner.
 - Generate and validate the durable Phase 10 report with:
 
   ```text

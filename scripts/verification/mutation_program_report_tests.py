@@ -16,6 +16,7 @@ from .mutation_program_live import (
     REPORT_SCHEMA_PATH,
     REQUIRED_OPEN_ROWS,
     build_live_mutation_program_state,
+    _normalize_focused_result,
     validate_open_board_rows,
     validate_timestamp,
     _survivor_resolution_paths,
@@ -59,6 +60,36 @@ class MutationProgramReportTests(unittest.TestCase):
         for row in self.payload["shards"][1:]:
             self.assertEqual("planned", row["execution_status"])
             self.assertEqual([], row["results"])
+
+    def test_focused_artifact_results_are_normalized_without_raw_logs(self) -> None:
+        result = _normalize_focused_result(
+            {
+                "id": "MUTANT_X",
+                "source_file": "crates/example.rs",
+                "function": "example",
+                "genre": "FnValue",
+                "replacement": "false",
+                "generated_mutant_name": "generated",
+                "build_command": ["cargo", "test", "--no-run"],
+                "build_exit_status": 0,
+                "build_stdout": "x" * 5000,
+                "build_stderr": "build-end",
+                "build_timed_out": False,
+                "test_command": ["cargo", "test", "case"],
+                "test_exit_status": 101,
+                "test_stdout": "y" * 5000,
+                "test_stderr": "test-end",
+                "test_timed_out": False,
+                "duration_seconds": 1.0,
+                "result": "caught",
+                "association_ids": ["DISC_X"],
+            }
+        )
+        self.assertLessEqual(len(result["build_output_tail"]), 4000)
+        self.assertTrue(result["build_output_tail"].endswith("build-end"))
+        self.assertTrue(result["test_output_tail"].endswith("test-end"))
+        self.assertNotIn("build_stdout", result)
+        self.assertNotIn("test_stderr", result)
 
     def test_program_boundaries_create_no_proof_coverage_or_release_claim(self) -> None:
         boundaries = self.payload["boundaries"]

@@ -65,6 +65,34 @@ class MutationProgramContractTests(unittest.TestCase):
         failures = validate_mutation_program_contract(ROOT, corrupted)
         self.assertTrue(any("result" in item for item in failures), failures)
 
+    def test_source_shards_reserve_exact_durable_artifact_paths(self) -> None:
+        self.assertEqual(
+            [
+                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json",
+                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json",
+                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json",
+                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json",
+            ],
+            [row["result_artifact_path"] for row in self.program["shards"][1:5]],
+        )
+        self.assertNotIn("result_artifact_path", self.program["shards"][0])
+        self.assertNotIn("result_artifact_path", self.program["shards"][5])
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["result_artifact_path"] = "../escape.json"
+        failures = validate_mutation_program_contract(ROOT, corrupted)
+        self.assertTrue(any("artifact path" in item for item in failures), failures)
+
+    def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
+        shards = copy.deepcopy(self.program["shards"])
+        shards[1]["execution_status"] = "measured"
+        failures: list[str] = []
+        survivors = contract_module._validate_focused_shards(ROOT, shards, failures)
+        self.assertEqual(set(), survivors)
+        self.assertTrue(
+            any("focused mutation artifact cannot be loaded" in item for item in failures),
+            failures,
+        )
+
     def test_each_mutant_partitions_the_reviewed_associations_exactly(self) -> None:
         for shard in self.program["shards"]:
             expected = [row["id"] for row in shard["associated_tests"]]

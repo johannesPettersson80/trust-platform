@@ -8,12 +8,9 @@ import json
 import os
 import platform
 import subprocess
-import tempfile
-import time
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator
 
 from .metadata_validator.constants import ROOT
 from .metadata_validator.mutation_shards import (
@@ -24,62 +21,20 @@ from .metadata_validator.mutation_shards import (
     load_mutation_contract,
     validate_mutation_report,
 )
+from .mutation_execution import (
+    CommandResult,
+    apply_generated_mutant,
+    archived_head as shared_archived_head,
+    discover_mutants,
+    run_command,
+    select_generated_mutant,
+    source_offset,
+)
 
 
 RUNNER_VERSION = "bytecode-validator-mutation.py v1"
 TOOL_NAME = "cargo-mutants-single-file-adapter"
 DEFAULT_TEST_ID = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
-
-
-@dataclass(frozen=True)
-class CommandResult:
-    command: tuple[str, ...]
-    returncode: int | None
-    stdout: str
-    stderr: str
-    timed_out: bool
-    duration_seconds: float
-
-
-def select_generated_mutant(candidates: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
-    matches = [
-        candidate
-        for candidate in candidates
-        if candidate.get("function", {}).get("function_name") == config.get("function")
-        and candidate.get("genre") == config.get("genre")
-        and candidate.get("replacement") == config.get("replacement")
-    ]
-    if len(matches) != 1:
-        raise MutationContractError(
-            f"mutation selector for {config.get('function')} found {len(matches)} generated mutants"
-        )
-    return matches[0]
-
-
-def apply_generated_mutant(source: str, candidate: dict[str, Any]) -> str:
-    span = candidate.get("span", {})
-    start = source_offset(source, span.get("start", {}))
-    end = source_offset(source, span.get("end", {}))
-    if start > end:
-        raise MutationContractError("generated mutant span is reversed")
-    replacement = candidate.get("replacement")
-    if not isinstance(replacement, str):
-        raise MutationContractError("generated mutant replacement is not text")
-    return source[:start] + replacement + source[end:]
-
-
-def source_offset(source: str, position: dict[str, Any]) -> int:
-    line = position.get("line")
-    column = position.get("column")
-    if not isinstance(line, int) or not isinstance(column, int) or line < 1 or column < 1:
-        raise MutationContractError(f"invalid one-based source position {position!r}")
-    lines = source.splitlines(keepends=True)
-    if line > len(lines):
-        raise MutationContractError(f"source line {line} is out of range")
-    line_text = lines[line - 1]
-    if column - 1 > len(line_text):
-        raise MutationContractError(f"source column {column} is out of range on line {line}")
-    return sum(len(item) for item in lines[: line - 1]) + column - 1
 
 
 def classify_mutant(build: CommandResult, test: CommandResult | None) -> str:
@@ -262,24 +217,6 @@ def execute_shard(
     return report
 
 
-def discover_mutants(source_path: Path, cwd: Path, env: dict[str, str]) -> list[dict[str, Any]]:
-    result = run_command(
-        ("cargo", "mutants", "--Zmutate-file", str(source_path), "--list", "--json"),
-        cwd=cwd,
-        env=env,
-        timeout=120,
-    )
-    if result.timed_out or result.returncode != 0:
-        raise MutationContractError(f"cargo-mutants single-file discovery failed for {source_path}")
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise MutationContractError(f"cargo-mutants returned invalid JSON for {source_path}: {exc}") from exc
-    if not isinstance(data, list):
-        raise MutationContractError(f"cargo-mutants returned non-list JSON for {source_path}")
-    return data
-
-
 def clean_mutation_target(cwd: Path, env: dict[str, str], timeout: float) -> None:
     result = run_command(
         ("cargo", "clean", "-p", "trust-runtime"),
@@ -320,52 +257,6 @@ def outcome_record(
     }
 
 
-def run_command(
-    command: Sequence[str],
-    *,
-    cwd: Path,
-    env: dict[str, str],
-    timeout: float,
-) -> CommandResult:
-    started = time.monotonic()
-    try:
-        completed = subprocess.run(
-            list(command),
-            cwd=cwd,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
-        return CommandResult(
-            tuple(command),
-            completed.returncode,
-            completed.stdout,
-            completed.stderr,
-            False,
-            time.monotonic() - started,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return CommandResult(
-            tuple(command),
-            None,
-            decode_timeout_output(exc.stdout),
-            decode_timeout_output(exc.stderr),
-            True,
-            time.monotonic() - started,
-        )
-    except OSError as exc:
-        return CommandResult(
-            tuple(command),
-            None,
-            "",
-            str(exc),
-            False,
-            time.monotonic() - started,
-        )
-
-
 def command_has_infrastructure_failure(result: CommandResult) -> bool:
     return (result.returncode is None and not result.timed_out) or has_infrastructure_failure(
         result.returncode,
@@ -375,30 +266,7 @@ def command_has_infrastructure_failure(result: CommandResult) -> bool:
 
 @contextlib.contextmanager
 def archived_head(root: Path) -> Iterator[Path]:
-    with tempfile.TemporaryDirectory(prefix="trust-bytecode-validator-mutation-") as temp:
-        scratch = Path(temp)
-        archive = subprocess.Popen(
-            [
-                "git",
-                "archive",
-                "--format=tar",
-                "HEAD",
-                "Cargo.toml",
-                "Cargo.lock",
-                ".cargo",
-                "crates",
-                "xtask",
-                "third_party",
-            ],
-            cwd=root,
-            stdout=subprocess.PIPE,
-        )
-        assert archive.stdout is not None
-        extract = subprocess.run(["tar", "-x", "-C", str(scratch)], stdin=archive.stdout, check=False)
-        archive.stdout.close()
-        archive_status = archive.wait()
-        if archive_status != 0 or extract.returncode != 0:
-            raise MutationContractError("failed to create isolated Git archive workspace")
+    with shared_archived_head(root, prefix="trust-bytecode-validator-mutation-") as scratch:
         yield scratch
 
 
@@ -429,12 +297,6 @@ def output_tail(result: CommandResult | None, limit: int = 4000) -> str:
         return ""
     combined = (result.stdout + "\n" + result.stderr).strip()
     return combined[-limit:]
-
-
-def decode_timeout_output(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    return value.decode(errors="replace") if isinstance(value, bytes) else value
 
 
 def git_output(root: Path, args: list[str]) -> str:

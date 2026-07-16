@@ -1,0 +1,45 @@
+@startuml
+title Focused Source Mutation Execution
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Reviewed control plane" {
+  [mutation-program.toml] as Program
+  [focused mutation artifact schema] as ArtifactSchema
+}
+
+package "Source-only executor" {
+  [run_focused_mutation_shard.py] as CLI
+  [clean HEAD guard] as CleanGuard
+  [isolated git archive] as Archive
+  [cargo-mutants selector] as Selector
+  [package clean + baseline] as Baseline
+  [mutant build + exact focused test] as MutationRun
+}
+
+package "Durable adequacy evidence" {
+  [canonical execution artifact] as Artifact
+  [at-rest source and outcome validator] as Validator
+  [generic Phase 10 report] as Report
+}
+
+Program --> CLI : exact source shard,\nselector, commands,\nreserved output path
+CLI --> CleanGuard
+CleanGuard --> Archive : clean full SHA
+Archive --> Selector
+Selector --> Baseline
+Baseline --> MutationRun
+MutationRun --> Artifact : raw exits, timeouts,\nstdout/stderr, associations
+ArtifactSchema --> Artifact
+Program --> Validator
+Artifact --> Validator
+Validator --> Report : caught / survived /\nunviable / timeout
+
+note bottom of Artifact
+  Adequacy only.
+  No proof, invariant promotion,
+  spec-gap closure, or CI enforcement.
+end note
+
+@enduml

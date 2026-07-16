@@ -10,6 +10,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from .focused_mutation_artifact import (
+    canonical_json,
+    validate_execution_artifact,
+    validate_execution_artifact_source,
+)
 from .metadata_validator.mutation_contracts import load_mutation_contract
 from .metadata_validator.mutation_reports import validate_mutation_report
 from .test_catalog_json_schema import validate_json_schema_instance
@@ -21,7 +26,7 @@ from .test_catalog_validation import check_supported_schema_keywords
 MUTATION_PROGRAM_PATH = "verification/mutation-program.toml"
 MUTATION_PROGRAM_SCHEMA_PATH = "verification/schemas/mutation-program.schema.json"
 MUTATION_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "5089dcf4cb78949d31cee89275ff59b54e887e2ebd9cbdb5ec18444e2b06603b"
+    "5aa5e3fb5871e52337746f0679f9ad30cc2a3e15b154dc8a572523b4cdeacc43"
 )
 LEGACY_TEST_ID = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 LEGACY_REPORT_PATH = (
@@ -46,7 +51,7 @@ ROOT_CONSTS = {
     "coverage_posture": "adequacy_signal_not_safety_proof",
     "execution_posture": "report_only",
     "max_mutants_per_shard": 2,
-    "last_reviewed": "2026-07-11",
+    "last_reviewed": "2026-07-16",
 }
 ROOT_FIELDS = {*ROOT_CONSTS, "survivor_policy", "survivor_resolutions", "shards"}
 SURVIVOR_POLICY = {
@@ -67,12 +72,19 @@ SHARD_FIELDS = {
     "association_semantics",
     "delivered_build_requirement",
     "owner",
+    "result_artifact_path",
     "legacy_catalog_test_id",
     "legacy_report_path",
     "delivered_binary_path",
     "delivered_confirmation",
     "mutations",
     "associated_tests",
+}
+RESULT_ARTIFACT_PATHS = {
+    REQUIRED_SHARD_IDS[1]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json",
+    REQUIRED_SHARD_IDS[2]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json",
+    REQUIRED_SHARD_IDS[3]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json",
+    REQUIRED_SHARD_IDS[4]: "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json",
 }
 MUTATION_FIELDS = {
     "id",
@@ -173,6 +185,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "invariant_ids": ["VM_SEAM_DECLARED_TYPE_001"],
         "execution_status": "planned",
         "owner": "trust-runtime",
+        "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[1]],
         "delivered_build_requirement": "not_applicable_source_mutation",
         "mutations": [
             _mutation(
@@ -198,6 +211,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "invariant_ids": ["IEC_SUBRANGE_001"],
         "execution_status": "planned",
         "owner": "trust-hir",
+        "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[2]],
         "delivered_build_requirement": "not_applicable_source_mutation",
         "mutations": [
             _mutation(
@@ -223,6 +237,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "invariant_ids": ["IEC_PARSE_RECOVER_001"],
         "execution_status": "planned",
         "owner": "trust-syntax",
+        "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[3]],
         "delivered_build_requirement": "not_applicable_source_mutation",
         "mutations": [
             _mutation(
@@ -249,6 +264,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "invariant_ids": ["RT_SAFE_RESTART_001", "RT_SAFE_RETAIN_001"],
         "execution_status": "planned",
         "owner": "trust-runtime",
+        "result_artifact_path": RESULT_ARTIFACT_PATHS[REQUIRED_SHARD_IDS[4]],
         "delivered_build_requirement": "not_applicable_source_mutation",
         "mutations": [
             _mutation(
@@ -371,10 +387,11 @@ def validate_mutation_program_contract(root: Path, program: Any) -> list[str]:
     for index, row in enumerate(shards):
         _validate_shard(root, row, index, invariants, failures)
     legacy_survivor_ids = _validate_legacy_shard(root, shards, failures)
+    focused_survivor_ids = _validate_focused_shards(root, shards, failures)
     _validate_survivor_resolutions(
         root,
         program.get("survivor_resolutions"),
-        legacy_survivor_ids,
+        legacy_survivor_ids | focused_survivor_ids,
         failures,
     )
     _validate_scanner_associations(root, shards, failures)
@@ -451,6 +468,12 @@ def _validate_shard(
         "delivered_binary_path" in value or "delivered_confirmation" in value
     ):
         failures.append(f"mutation shard {label} cannot claim delivered-build confirmation")
+    artifact_path = value.get("result_artifact_path")
+    if shard_id in RESULT_ARTIFACT_PATHS:
+        if artifact_path != RESULT_ARTIFACT_PATHS[shard_id]:
+            failures.append(f"mutation shard {label} result artifact path drifts")
+    elif artifact_path is not None:
+        failures.append(f"mutation shard {label} cannot reserve a focused result artifact path")
 
     invariant_ids = value.get("invariant_ids")
     if isinstance(invariant_ids, list):
@@ -602,6 +625,57 @@ def _validate_legacy_shard(
         for item in survivors
         if isinstance(item, Mapping) and isinstance(item.get("id"), str)
     }
+
+
+def _validate_focused_shards(
+    root: Path,
+    shards: list[Any],
+    failures: list[str],
+) -> set[tuple[str, str]]:
+    survivors: set[tuple[str, str]] = set()
+    for shard in shards[1:5]:
+        if not isinstance(shard, Mapping) or shard.get("execution_status") != "measured":
+            continue
+        shard_id = shard.get("id")
+        label = shard_id if isinstance(shard_id, str) else "unknown focused shard"
+        artifact = _safe_tracked_file(
+            root,
+            shard.get("result_artifact_path"),
+            f"measured mutation shard {label} result artifact",
+            failures,
+        )
+        if artifact is None:
+            failures.append(f"{label} focused mutation artifact cannot be loaded")
+            continue
+        try:
+            raw = artifact.read_bytes()
+            payload = json.loads(raw)
+        except (OSError, json.JSONDecodeError) as exc:
+            failures.append(f"{label} focused mutation artifact cannot be loaded: {exc}")
+            continue
+        if not isinstance(payload, Mapping):
+            failures.append(f"{label} focused mutation artifact root must be an object")
+            continue
+        if canonical_json(payload).encode() != raw:
+            failures.append(f"{label} focused mutation artifact must use canonical JSON")
+        failures.extend(
+            f"{label} focused mutation artifact: {message}"
+            for message in validate_execution_artifact(root, payload, shard)
+        )
+        failures.extend(
+            f"{label} focused mutation artifact: {message}"
+            for message in validate_execution_artifact_source(root, payload, shard)
+        )
+        outcomes = payload.get("mutations")
+        if isinstance(outcomes, list):
+            survivors.update(
+                (label, row["id"])
+                for row in outcomes
+                if isinstance(row, Mapping)
+                and isinstance(row.get("id"), str)
+                and row.get("result") == "survived"
+            )
+    return survivors
 
 
 def _validate_survivor_resolutions(

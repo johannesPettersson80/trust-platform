@@ -7,7 +7,7 @@ proof_posture = "adequacy_only_no_proof"
 coverage_posture = "adequacy_signal_not_safety_proof"
 execution_posture = "report_only"
 max_mutants_per_shard = 2
-last_reviewed = "2026-07-11"
+last_reviewed = "2026-07-16"
 survivor_resolutions = []
 
 [survivor_policy]
@@ -105,6 +105,7 @@ execution_status = "planned"
 association_semantics = "association_only_not_execution_claim"
 delivered_build_requirement = "not_applicable_source_mutation"
 owner = "trust-runtime"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json"
 
 [[shards.mutations]]
 id = "MUTANT_RUNTIME_APPLY_CONVERSION_DEFAULT"
@@ -135,6 +136,7 @@ execution_status = "planned"
 association_semantics = "association_only_not_execution_claim"
 delivered_build_requirement = "not_applicable_source_mutation"
 owner = "trust-hir"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json"
 
 [[shards.mutations]]
 id = "MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP"
@@ -165,6 +167,7 @@ execution_status = "planned"
 association_semantics = "association_only_not_execution_claim"
 delivered_build_requirement = "not_applicable_source_mutation"
 owner = "trust-syntax"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json"
 
 [[shards.mutations]]
 id = "MUTANT_PARSER_RECOVERY_EOF_COMPARISON"
@@ -195,6 +198,7 @@ execution_status = "planned"
 association_semantics = "association_only_not_execution_claim"
 delivered_build_requirement = "not_applicable_source_mutation"
 owner = "trust-runtime"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json"
 
 [[shards.mutations]]
 id = "MUTANT_RETAIN_ON_WARM_FALSE"

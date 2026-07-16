@@ -184,6 +184,14 @@ not claim execution or mutant causality. Mutation and coverage are adequacy
 signals only, and a future delivered-binary run must carry artifact identity
 and direct-execution confirmation before it may be measured.
 
+The four planned source-only shards reserve exact durable JSON paths and share
+`scripts/run_focused_mutation_shard.py`. The runner accepts no other shard,
+requires a clean committed checkout, executes inside an isolated Git archive,
+and treats infrastructure-shaped failures as errors. A source shard may move
+from `planned` to `measured` only in the same reviewed change that commits its
+canonical artifact; the at-rest contract re-derives outcomes and binds all
+runner, schema, source, and associated-test inputs to the artifact commit.
+
 The Phase 2 existing-test scanner is:
 
 ```text

@@ -28,7 +28,7 @@
     "coverage_posture": {"const": "adequacy_signal_not_safety_proof"},
     "execution_posture": {"const": "report_only"},
     "max_mutants_per_shard": {"const": 2},
-    "last_reviewed": {"const": "2026-07-11"},
+    "last_reviewed": {"const": "2026-07-16"},
     "survivor_resolutions": {
       "type": "array",
       "items": {"$ref": "#/$defs/survivor_resolution"}
@@ -131,6 +131,10 @@
           "enum": ["not_applicable_source_mutation", "required_before_execution"]
         },
         "owner": {"type": "string", "minLength": 1},
+        "result_artifact_path": {
+          "type": "string",
+          "pattern": "^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\\.json$"
+        },
         "legacy_catalog_test_id": {"const": "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"},
         "legacy_report_path": {
           "const": "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"

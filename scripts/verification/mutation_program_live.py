@@ -13,7 +13,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from .bytecode_validator_mutation import discover_mutants
+from .focused_mutation_artifact import (
+    SCHEMA_PATH as FOCUSED_ARTIFACT_SCHEMA_PATH,
+    canonical_json,
+    validate_execution_artifact,
+)
+from .mutation_execution import discover_mutants
 from .metadata_validator.constants import ROOT as METADATA_ROOT
 from .metadata_validator.core import Validator
 from .metadata_validator.mutation_shards import (
@@ -76,7 +81,9 @@ REPORT_CONTRACT_PATHS = {
     "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md",
     "docs/internal/testing/checklists/plc-verification-program/verification-areas.md",
     "scripts/report_mutation_program.py",
+    "scripts/run_focused_mutation_shard.py",
     "scripts/validate_mutation_program_report.py",
+    FOCUSED_ARTIFACT_SCHEMA_PATH,
     MUTATION_PROGRAM_PATH,
     MUTATION_PROGRAM_SCHEMA_PATH,
     REPORT_SCHEMA_PATH,
@@ -143,7 +150,7 @@ def build_live_mutation_program_state(
     _validate_test_joins(program, facts)
     generated_names = _resolve_selectors(root, program)
     pilot_report, pilot_digest = _load_pilot_report(root)
-    shards = _build_shard_rows(program, generated_names, pilot_report, pilot_digest)
+    shards = _build_shard_rows(root, program, generated_names, pilot_report, pilot_digest)
     summary = _summarize(shards)
     coverage = {
         "runs": 0,
@@ -176,6 +183,7 @@ def build_live_mutation_program_state(
             | set(scan.provenance.input_paths)
             | source_paths
             | invariant_paths
+            | _measured_artifact_paths(program)
             | _survivor_resolution_paths(program)
             | {"verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"}
         )
@@ -364,6 +372,7 @@ def _load_pilot_report(root: Path) -> tuple[dict[str, Any], str]:
 
 
 def _build_shard_rows(
+    root: Path,
     program: Mapping[str, Any],
     generated_names: Mapping[str, str],
     pilot_report: Mapping[str, Any],
@@ -399,6 +408,17 @@ def _build_shard_rows(
             artifact = {"path": PILOT_REPORT_PATH, "sha256": pilot_digest}
             if [item["id"] for item in results] != [item["id"] for item in mutations]:
                 raise ValueError("bytecode pilot outcomes do not match configured program mutants")
+        elif index < 5 and shard.get("execution_status") == "measured":
+            payload, digest = _load_focused_artifact(root, shard)
+            results = [
+                _normalize_focused_result(item)
+                for item in _artifact_mutations(payload)
+            ]
+            artifact = {"path": shard["result_artifact_path"], "sha256": digest}
+            if [item["id"] for item in results] != [item["id"] for item in mutations]:
+                raise ValueError(
+                    f"{shard['id']} focused outcomes do not match configured program mutants"
+                )
         rows.append(
             {
                 "id": shard["id"],
@@ -451,6 +471,75 @@ def _normalize_pilot_result(value: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _normalize_focused_result(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Adapt a source-runner artifact to the closed generic report row."""
+
+    fields = (
+        "id",
+        "source_file",
+        "function",
+        "genre",
+        "replacement",
+        "generated_mutant_name",
+        "build_exit_status",
+        "build_timed_out",
+        "test_exit_status",
+        "test_timed_out",
+        "duration_seconds",
+        "result",
+    )
+    result = {field: value.get(field) for field in fields}
+    result["build_command"] = list(value.get("build_command", []))
+    result["test_command"] = list(value.get("test_command", []))
+    result["build_output_tail"] = _output_tail(
+        value.get("build_stdout"), value.get("build_stderr")
+    )
+    result["test_output_tail"] = _output_tail(
+        value.get("test_stdout"), value.get("test_stderr")
+    )
+    result["association_ids"] = list(value.get("association_ids", []))
+    return result
+
+
+def _output_tail(stdout: Any, stderr: Any) -> str:
+    output = "\n".join(
+        item for item in (stdout, stderr) if isinstance(item, str) and item
+    )
+    return output[-4000:]
+
+
+def _load_focused_artifact(
+    root: Path, shard: Mapping[str, Any]
+) -> tuple[dict[str, Any], str]:
+    relative = shard.get("result_artifact_path")
+    if not isinstance(relative, str):
+        raise ValueError(f"{shard.get('id')} measured shard lacks result_artifact_path")
+    path = root / relative
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"focused mutation artifact cannot be loaded at {relative}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"focused mutation artifact at {relative} must be an object")
+    if canonical_json(payload).encode() != raw:
+        raise ValueError(f"focused mutation artifact at {relative} must use canonical JSON")
+    failures = validate_execution_artifact(root, payload, shard)
+    if failures:
+        raise ValueError(
+            f"focused mutation artifact at {relative} is invalid: " + "; ".join(failures)
+        )
+    digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+    return payload, digest
+
+
+def _artifact_mutations(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    value = payload.get("mutations")
+    if not isinstance(value, list) or not all(isinstance(item, Mapping) for item in value):
+        raise ValueError("focused mutation artifact mutations must be an object array")
+    return value
+
+
 def _summarize(shards: list[dict[str, Any]]) -> dict[str, int]:
     results = [result for shard in shards for result in shard["results"]]
     return {
@@ -498,6 +587,15 @@ def _survivor_resolution_paths(program: Mapping[str, Any]) -> set[str]:
         if isinstance(item, Mapping)
         and isinstance(item.get("resolution_ref"), str)
         and item["resolution_ref"]
+    }
+
+
+def _measured_artifact_paths(program: Mapping[str, Any]) -> set[str]:
+    return {
+        shard["result_artifact_path"]
+        for shard in _program_shards(program)
+        if shard.get("execution_status") == "measured"
+        and isinstance(shard.get("result_artifact_path"), str)
     }
 
 
