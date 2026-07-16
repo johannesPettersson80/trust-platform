@@ -1273,6 +1273,16 @@ same commit, with the closure evidence linked.
   proof. No proof row or case digest was rewritten. Formal closeout remains
   part of `VERIF-P16-002` and requires a separately reviewed proof-contract
   migration or a new pre-bound execution contract.
+
+  Runtime-control progress (2026-07-16):
+  `SPEC_GAP_DEBUG_AUTHORIZATION_001`,
+  `SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001`,
+  `SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001`, and
+  `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` are closed against the written
+  runtime-engine and debug-adapter contracts. Their closeout rows bind the
+  current case definitions and producer-authentic targeted evidence. The
+  register now contains 15 `open`, 1 `spec_updated`, and 18 `closed` records;
+  this progress does not claim that the remaining gaps are resolved.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1295,6 +1305,13 @@ same commit, with the closure evidence linked.
   transform seed and all seven generated cases are runnable, and 11 Phase 11
   validator tests no longer carry `#[ignore]`. Stable public error identity
   remains explicit debt rather than an inferred oracle.
+
+  Runtime-control progress (2026-07-16): four hand-authored trace runners now
+  catalog authorization, pause/watchdog, force lifecycle, and scan-thread
+  panic containment. They map `DEBUG_AUTH_001`, `DEBUG_PAUSE_001`,
+  `SEC_AUTHZ_001`, `RT_SAFE_FORCE_001`, and `RT_SAFE_PANIC_001` to explicit
+  written oracles and current-contract proof pairs. This is not an exhaustive
+  mapping of the full 53-invariant denominator.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1319,9 +1336,25 @@ same commit, with the closure evidence linked.
   batch. The characterization and mutation results are durable closeout
   evidence; the three affected invariants remain at `S0` pending proof and
   broad-gate promotion work.
+
+  Runtime-control progress (2026-07-16): the authorization trace produced a
+  genuine five-case red because denied-role responses omitted the written
+  `insufficient_role` code. The runtime fix centralizes reviewed operation
+  classification and returns the stable code before dispatch; the paired
+  green passes all eight cases with the same case and execution-contract
+  digests. Pause/watchdog, force lifecycle, and panic containment passed
+  current-contract baseline/compare runs, so no red or product fix was
+  fabricated for those already-correct behaviors.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
+
+  Runtime-control progress (2026-07-16): `DEBUG_AUTH_001`,
+  `DEBUG_PAUSE_001`, `SEC_AUTHZ_001`, `RT_SAFE_FORCE_001`, and
+  `RT_SAFE_PANIC_001` are `implemented` at G1 on current targeted proof or
+  current behavior-lock evidence. The registry now contains 39 S0, 5 G1, and
+  9 G2 invariants. No broad-gate result was retroactively used to manufacture
+  G2 for this batch.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed
