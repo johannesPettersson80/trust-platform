@@ -1288,6 +1288,17 @@ same commit, with the closure evidence linked.
   current case definitions and producer-authentic targeted evidence. The
   register now contains 15 `open`, 1 `spec_updated`, and 18 `closed` records;
   this progress does not claim that the remaining gaps are resolved.
+
+  Protocol-truth progress (2026-07-16):
+  `SPEC_GAP_PUBLIC_WIRE_CLAIM_001`,
+  `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001`,
+  `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001`, and
+  `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` are closed against the normative
+  runtime-engine contract, public evidence-status table, three hand-authored
+  trace runners, and durable closeout evidence. The register now contains 11
+  `open`, 1 `spec_updated`, and 22 `closed` records. Physical device, broker,
+  and EtherCAT topology evidence remains explicit invariant debt rather than a
+  software-specification claim, so this row stays open.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1327,6 +1338,12 @@ same commit, with the closure evidence linked.
   passed on unchanged product code. The full 53-invariant denominator is not
   mapped yet, and PLCopen real-vendor corpus evidence remains explicit debt,
   so this row stays open.
+
+  Protocol-truth progress (2026-07-16): three cataloged case runners bind ADS
+  and OPC UA status projection, Modbus/MQTT discovery confidence, and EtherCAT
+  unavailable-resource behavior to six previously S0 protocol invariants.
+  They add 12 reviewed cases without inferring physical-hardware proof. The
+  full 53-invariant denominator remains open.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1377,6 +1394,15 @@ same commit, with the closure evidence linked.
   recorded lock-baseline/lock-compare pairs rather than manufacturing red
   evidence. No runtime, parser, or importer product fix was warranted by this
   batch.
+
+  Protocol-truth progress (2026-07-16): the seven-case discovery trace found
+  a genuine defect: an authentication-rejected MQTT CONNACK was overclassified
+  as `confirmed`. `prove.py` recorded one failed case at `60e0394d`; the
+  minimal runtime fix reports `likely` while preserving `auth_required`, the
+  warning, clean-session CONNECT, and DISCONNECT, and the paired green passes
+  all seven cases. Connector status and EtherCAT resource traces already
+  matched the new written contract, so they use lock pairs rather than
+  manufactured red evidence.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1394,6 +1420,13 @@ same commit, with the closure evidence linked.
   G2 invariants. The clean builder broad gates validate the batch but are not
   approved causal promotion evidence, and `PLCO_IMPORT_001` still names the
   real-vendor corpus gap; no G2 or validated status is claimed.
+
+  Protocol-truth progress (2026-07-16): `PROTO_ADS_001`, `PROTO_MODBUS_001`,
+  `PROTO_MQTT_001`, `PROTO_ETHERCAT_001`, `PROTO_DISCOVERY_TRUTH_001`, and
+  `PROTO_STATUS_TRUTH_001` are `implemented` at G1 on current-oracle,
+  producer-authentic lock comparisons. The registry now contains 30 S0, 14 G1,
+  and 9 G2 invariants. Broad remote and physical interoperability evidence
+  remains open; no G2 or validated status is claimed for this batch.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed
