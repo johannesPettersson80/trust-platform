@@ -125,6 +125,30 @@ class SpecSourceScannerTests(unittest.TestCase):
         )
         self.assertEqual(topic.open_spec_gap_ids, ())
 
+    def test_control_topics_use_the_closed_gap_source_posture(self) -> None:
+        topics = {item.topic_id: item for item in OBVIOUS_SPEC_TOPICS}
+
+        hmi = topics["P1A004_HMI_API_UI"]
+        self.assertEqual(hmi.reviewed_posture, "gap_open_partial")
+        self.assertEqual(hmi.open_spec_gap_ids, ("SPEC_GAP_UI_STATUS_VOCABULARY_001",))
+
+        for topic_id, sources in {
+            "P1A004_DEBUG_DAP_FORCE_WRITE_RELEASE_LIFECYCLE": (
+                "SPEC_DEBUG_ADAPTER_001",
+                "SPEC_RUNTIME_ENGINE_001",
+            ),
+            "P1A004_CONTROL_RBAC_SECURITY": (
+                "SPEC_DEBUG_ADAPTER_001",
+                "SPEC_RUNTIME_ENGINE_001",
+            ),
+            "P1A004_CLI_CONTROL_SOCKET_SURFACES": ("SPEC_RUNTIME_ENGINE_001",),
+        }.items():
+            with self.subTest(topic_id=topic_id):
+                topic = topics[topic_id]
+                self.assertEqual(topic.reviewed_posture, "source_present")
+                self.assertEqual(topic.eligible_source_ids, sources)
+                self.assertEqual(topic.open_spec_gap_ids, ())
+
     def test_discovery_uses_only_tracked_reviewed_text_surfaces(self) -> None:
         with tracked_repository(
             {
