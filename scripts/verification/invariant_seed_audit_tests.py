@@ -125,6 +125,11 @@ class SeedManifestContractTests(unittest.TestCase):
                 "IEC_SUBRANGE_001",
                 "IEC_TIMER_001",
                 "PLCO_IMPORT_001",
+                "PROTO_DISC_001",
+                "PROTO_MODBUS_001",
+                "PROTO_MQTT_001",
+                "PROTO_ETHERCAT_001",
+                "PROTO_ADS_001",
                 "PROTO_OPCUA_001",
                 "DEBUG_AUTH_001",
                 "DEBUG_PAUSE_001",
@@ -139,7 +144,9 @@ class SeedManifestContractTests(unittest.TestCase):
     def test_only_reviewed_seeds_may_enter_execution_lifecycle(self) -> None:
         manifest = _load_manifest(self.root)
         unreviewed = next(
-            row for row in manifest["seeds"] if row["seed_id"] == "PROTO_MQTT_001"
+            row
+            for row in manifest["seeds"]
+            if row["seed_id"] == "DEV_TEST_DISCOVERY_001"
         )
         unreviewed["lifecycle_state"] = EXECUTION_READY
         _write_manifest(self.root, manifest)
@@ -658,6 +665,9 @@ class SeedAuditReportTests(unittest.TestCase):
         manifest_schema = json.loads(MANIFEST_SCHEMA_PATH.read_text())
         report_schema = json.loads(REPORT_SCHEMA_PATH.read_text())
         self.assertEqual([], validate_schema_contract(report_schema, manifest_schema=manifest_schema))
+        summary = report_schema["$defs"]["summary"]["properties"]
+        self.assertEqual(14, summary["baseline_lifecycle"]["const"])
+        self.assertEqual(30, summary["execution_ready_lifecycle"]["const"])
         self.assertFalse(manifest_schema["additionalProperties"])
         self.assertFalse(manifest_schema["$defs"]["seed"]["additionalProperties"])
         self.assertEqual(2, manifest_schema["properties"]["schema_version"]["const"])
