@@ -3986,3 +3986,25 @@ linked_invariants = ["DEBUG_AUTH_001", "DEBUG_PAUSE_001", "RT_SAFE_FORCE_001", "
 linked_tests = ["TEST_CONTROL_AUTHORIZATION_TRACE_001", "TEST_DEBUG_PAUSE_TRACE_001", "TEST_RUNTIME_FORCE_LIFECYCLE_001", "TEST_RUNTIME_PANIC_TRACE_001"]
 linked_spec_gaps = ["SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001", "SPEC_GAP_DEBUG_AUTHORIZATION_001", "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001", "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
 last_reviewed = "2026-07-16"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P10_SOURCE_MUTATION_EXECUTION_VALIDATION_20260716"
+title = "Phase 10 source mutation execution validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-source-mutation-closure-validation.md"
+command = "ssh trust-builder 'cd $HOME/projects/trust-platform-mutation-execution && test \"$(git rev-parse HEAD)\" = 796ef95c8b8908ff3e56d9dad58a215a8144c7c6 && export CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate TMPDIR=$HOME/.cache/codex-targets/trust-platform-gate-tmp && just fmt && just clippy && just verification-veryquick && just test-all </dev/null && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md && python3 scripts/check_diagram_drift.py && git diff --check && test -z \"$(git status --porcelain --untracked-files=all)\"'"
+commit = "796ef95c8b8908ff3e56d9dad58a215a8144c7c6"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex Phase 10 source mutation execution"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-16"
