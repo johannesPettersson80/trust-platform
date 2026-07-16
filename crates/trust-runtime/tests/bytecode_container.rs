@@ -95,10 +95,9 @@ fn unknown_optional_section_is_preserved_and_ignored_by_runtime_apply() {
     const UNKNOWN_SECTION_ID: u16 = 0x7FFF;
     const PAYLOAD: &[u8] = b"optional-v1-extension";
 
-    let mut module = trust_runtime::harness::bytecode_module_from_source(
-        "PROGRAM Main\nEND_PROGRAM\n",
-    )
-    .expect("compile runtime-resolvable bytecode module");
+    let mut module =
+        trust_runtime::harness::bytecode_module_from_source("PROGRAM Main\nEND_PROGRAM\n")
+            .expect("compile runtime-resolvable bytecode module");
     module.sections.push(Section {
         id: UNKNOWN_SECTION_ID,
         flags: 0,
