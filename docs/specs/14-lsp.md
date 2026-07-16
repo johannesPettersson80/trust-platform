@@ -431,6 +431,27 @@ the line length clamps to the line end, as required by the
 - Incremental sync using `TextDocumentContentChangeEvent` ranges.
 - Full-document replacement is supported when the change range is omitted.
 
+##### 7.2.1 Document Close and Durable Project Truth
+
+`textDocument/didClose` discards the server's unsaved buffer for the closed
+URI. Closing a document never writes that buffer to disk and never treats its
+contents as durable project state.
+
+- When the URI resolves to a readable file, the server reloads the file from
+  disk, marks the document closed, and uses those bytes as project truth.
+- When the URI is not a file URI or its file cannot be read, the server removes
+  the document from the project index.
+- Closing invalidates semantic, semantic-token, and diagnostic caches that
+  could retain the discarded contents. Dependent files are recomputed against
+  the reloaded or removed durable source.
+- For push diagnostics, the server publishes an empty diagnostic list only for
+  the closed URI. It does not publish an empty-success result for dependent
+  files. Pull-diagnostic clients receive results recomputed from durable project
+  truth on their next request.
+
+This lifecycle is an LSP/project-state contract. It does not define IEC
+program execution or an IEC 61131-3 deviation.
+
 #### 7.3 Semantic Token Types
 
 | Token Type | Usage |

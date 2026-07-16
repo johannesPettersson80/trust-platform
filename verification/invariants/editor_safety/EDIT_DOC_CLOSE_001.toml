@@ -24,15 +24,55 @@ missing = [
 ]
 
 [spec]
-status = "ambiguous"
+status = "specified"
 source_refs = ["SPEC_LSP_CONTRACT_001"]
 
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
 
+[[behavior]]
+partition = { equals = "TRACKED_FILE_RELOAD" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Closing a readable file discards its unsaved buffer and replaces it with the current disk bytes as closed project state."
+
+[[behavior]]
+partition = { equals = "UNREADABLE_OR_NON_FILE_REMOVE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Closing a document without a readable durable file removes it from the project index rather than retaining unsaved contents."
+
+[[behavior]]
+partition = { equals = "DISCARDED_CONTENT_CACHE_INVALIDATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Semantic, semantic-token, and diagnostic caches cannot retain content discarded by didClose."
+
+[[behavior]]
+partition = { equals = "DEPENDENT_RECOMPUTE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Dependent semantic and diagnostic results are recomputed from the reloaded or removed durable source."
+
+[[behavior]]
+partition = { equals = "DIAGNOSTIC_PROTOCOL_RECONCILIATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Push clients clear only the closed URI and pull clients recompute later results from durable project truth."
+
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "spec_gap"
-rationale = "The durable-source, cache-invalidation, and dependent-diagnostic lifecycle after didClose is not yet specified."
+rationale = "The lifecycle is written, but producer-authentic trace execution and closeout evidence are still missing."
 spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
