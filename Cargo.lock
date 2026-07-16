@@ -5260,6 +5260,7 @@ dependencies = [
  "trust-ide",
  "trust-runtime",
  "trust-syntax",
+ "verification-cases",
 ]
 
 [[package]]
