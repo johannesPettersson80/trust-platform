@@ -3,21 +3,27 @@ id = "EDIT_DIAG_CANCEL_001"
 title = "Cancelled diagnostics cannot publish false empty success"
 area = "editor_safety"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-lsp"
 last_reviewed = "2026-07-14"
 claim = "Diagnostic cancellation must not be represented as a successful empty result that hides real diagnostics."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-lsp/src/handlers/diagnostics.rs"]
-tests = []
-gates = []
-evidence_refs = []
-spec_gap_refs = []
-missing = [
-  "producer_authentic_red_green_proof",
-  "broad_remote_gate",
+tests = [
+  "TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001",
+  "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
 ]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001_LOCK_COMPARE",
+  "EVID_WORKSPACE_DIAGNOSTIC_CANCELLATION_FIX_20260714",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -69,5 +75,5 @@ rationale = "A non-cancelled workspace request returns complete reports rather t
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Focused push, pull, and workspace tests cover the written cancellation contract; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "Focused push, pull, and workspace tests cover the written cancellation contract with a current-contract lock comparison; a causal broad gate remains open."

@@ -1299,6 +1299,13 @@ same commit, with the closure evidence linked.
   `open`, 1 `spec_updated`, and 22 `closed` records. Physical device, broker,
   and EtherCAT topology evidence remains explicit invariant debt rather than a
   software-specification claim, so this row stays open.
+
+  Editor/LSP progress (2026-07-16):
+  `SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001` is closed against the normative LSP
+  durable-project-truth section, two mapped tests, historical red/green defect
+  evidence, and a current-contract lock pair. The register now contains 11
+  `open`, 1 `spec_updated`, and 23 `closed` records; this row stays open for
+  the remaining gaps.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1344,6 +1351,12 @@ same commit, with the closure evidence linked.
   unavailable-resource behavior to six previously S0 protocol invariants.
   They add 12 reviewed cases without inferring physical-hardware proof. The
   full 53-invariant denominator remains open.
+
+  Editor/LSP progress (2026-07-16): five hand-authored trace runners add 29
+  committed cases for local and project rename safety, UTF-16 positions,
+  diagnostic cancellation, and document-close durable-source behavior. In
+  total, 23 catalog rows now map these five invariants, including the existing
+  focused regressions. The full 54-invariant denominator remains open.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1403,6 +1416,14 @@ same commit, with the closure evidence linked.
   all seven cases. Connector status and EtherCAT resource traces already
   matched the new written contract, so they use lock pairs rather than
   manufactured red evidence.
+
+  Editor/LSP progress (2026-07-16): the document-close trace produced a
+  genuine one-case red because the readable-file reload path retained
+  semantic-token and pull-diagnostic caches from the discarded unsaved
+  buffer. The two-line cache eviction fix passes all five cases at green. The
+  rename, UTF-16 position, and cancellation traces already matched their
+  written contracts, so they use current-contract lock pairs without
+  manufactured failures.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1427,6 +1448,13 @@ same commit, with the closure evidence linked.
   producer-authentic lock comparisons. The registry now contains 30 S0, 14 G1,
   and 9 G2 invariants. Broad remote and physical interoperability evidence
   remains open; no G2 or validated status is claimed for this batch.
+
+  Editor/LSP progress (2026-07-16): `EDIT_RENAME_001`, `EDIT_RENAME_002`,
+  `EDIT_LSP_POS_001`, `EDIT_DIAG_CANCEL_001`, and `EDIT_DOC_CLOSE_001` are
+  `implemented` at G1 on producer-authentic current-contract lock comparisons;
+  the document-close defect also retains its historical red/green pair. The
+  registry now contains 26 S0, 19 G1, and 9 G2 invariants. Causal broad proof
+  remains open, so no G2 or validated status is claimed for this batch.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed

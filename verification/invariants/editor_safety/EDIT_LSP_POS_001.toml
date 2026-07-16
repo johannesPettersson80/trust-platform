@@ -3,24 +3,33 @@ id = "EDIT_LSP_POS_001"
 title = "LSP positions follow the negotiated encoding"
 area = "editor_safety"
 risk = "silent_corruption"
-status = "gap_open"
+status = "implemented"
 owner = "trust-lsp"
 last_reviewed = "2026-07-14"
 claim = "LSP wire positions and lengths must follow the negotiated encoding, including supplementary-plane characters."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/main.rs",
   "crates/trust-lsp/src/handlers/lsp_utils.rs",
 ]
-tests = []
-gates = []
-evidence_refs = []
-spec_gap_refs = []
-missing = [
-  "producer_authentic_red_green_proof",
-  "broad_remote_gate",
+tests = [
+  "TEST_LSP_POSITION_ENCODING_TRACE_001",
+  "TEST_LSP_POSITION_ENCODING_HANDSHAKE_001",
+  "TEST_LSP_POSITION_ENCODING_SYNC_001",
+  "TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001",
+  "TEST_LSP_POSITION_ENCODING_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001",
 ]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_LSP_POSITION_ENCODING_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_LSP_POSITION_ENCODING_TRACE_001_LOCK_COMPARE",
+  "EVID_LSP_POSITION_ENCODING_FIX_20260714",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -56,5 +65,5 @@ rationale = "LF, CRLF, and bare CR each advance exactly one line and their termi
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "gap_open"
-rationale = "Focused initialization, sync, hover, semantic-token, and line-ending tests cover the UTF-16 contract; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "Focused initialization, sync, hover, semantic-token, and line-ending tests cover the UTF-16 contract with a current-contract lock comparison; a causal broad gate remains open."

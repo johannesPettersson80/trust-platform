@@ -5145,3 +5145,25 @@ case_file_digest = "sha256:9ab5679c9ed203ba3cd56f60f2862d9aa38a28620b98497bbe69f
 per_case_summary = ["EDIT_DOC_CLOSE_001_TRACKED_FILE_RELOAD:passed", "EDIT_DOC_CLOSE_001_UNREADABLE_OR_NON_FILE_REMOVE:passed", "EDIT_DOC_CLOSE_001_CACHE_INVALIDATION:passed", "EDIT_DOC_CLOSE_001_DEPENDENT_RECOMPUTE:passed", "EDIT_DOC_CLOSE_001_PULL_DIAGNOSTIC_RECOMPUTE:passed"]
 case_result_digest = "sha256:29fa6d5f32cab7a7e2ab2ec9d2bc1527223624767b7dab4c2afd2d5465331bdc"
 paired_lock_baseline = "EVID_TEST_LSP_DOCUMENT_CLOSE_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716"
+title = "LSP document-close specification gap closeout"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/lsp-document-close-gap-closeout.md"
+command = "python3 scripts/validate_verification_metadata.py && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-lsp handlers::tests::lsp_trace_cases::lsp_document_close_trace_cases -- --exact && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo test -p trust-lsp handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk -- --exact"
+commit = "25f967ee66937a50cc219720c5ea9d27dbb788eb"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex editor and LSP correctness batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["EDIT_DOC_CLOSE_001"]
+linked_tests = ["TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001", "TEST_LSP_DOCUMENT_CLOSE_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"]
+last_reviewed = "2026-07-16"

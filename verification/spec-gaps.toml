@@ -653,8 +653,9 @@ affected_tests = [
   "TEST_LSP_DOCUMENT_CLOSE_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716"]
 last_reviewed = "2026-07-16"
 
 [[spec_gaps]]

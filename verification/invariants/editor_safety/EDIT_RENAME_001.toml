@@ -3,21 +3,30 @@ id = "EDIT_RENAME_001"
 title = "Rename refuses shadow capture"
 area = "editor_safety"
 risk = "silent_corruption"
-status = "gap_open"
+status = "implemented"
 owner = "trust-ide"
 last_reviewed = "2026-07-10"
 claim = "Rename must refuse when the resulting name would capture or be captured by another visible symbol."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-ide/src"]
-tests = []
-gates = []
-evidence_refs = []
-spec_gap_refs = []
-missing = [
-  "producer_authentic_red_green_proof",
-  "broad_remote_gate",
+tests = [
+  "TEST_EDITOR_RENAME_LOCAL_TRACE_001",
+  "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+  "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+  "TEST_EDITOR_RENAME_CASE_ONLY_001",
+  "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_LSP_RENAME_CONFLICT_ERROR_001",
 ]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_EDITOR_RENAME_LOCAL_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_EDITOR_RENAME_LOCAL_TRACE_001_LOCK_COMPARE",
+  "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -69,5 +78,5 @@ rationale = "Rename refuses an invalid IEC identifier or reserved keyword before
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Focused scope, field, case-only, and reference-rebinding tests cover the written conflict contract; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "Focused scope, field, case-only, and reference-rebinding tests cover the written conflict contract with a current-contract lock comparison; a causal broad gate remains open."

@@ -491,16 +491,16 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-16"
 covers = [
   "diagnostic_cancellation",
+  "document_close_durable_project_truth",
   "lsp_position_encoding",
   "lsp_range_operations",
   "lsp_incremental_sync",
+  "rename_conflict_safety",
 ]
-known_limitations = [
-  "Rename conflict partitions remain a focused open specification gap.",
-]
+known_limitations = []
 conflicts_with = []
 
 [[spec_sources]]
