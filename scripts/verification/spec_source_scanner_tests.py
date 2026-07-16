@@ -128,6 +128,20 @@ class SpecSourceScannerTests(unittest.TestCase):
         self.assertEqual(topic.reviewed_posture, "source_present")
         self.assertEqual(topic.open_spec_gap_ids, ())
 
+    def test_protocol_status_topic_uses_the_closed_gap_source_posture(self) -> None:
+        topic = next(
+            item
+            for item in OBVIOUS_SPEC_TOPICS
+            if item.topic_id == "P1A004_PROTOCOL_STATUS_DISCOVERY"
+        )
+
+        self.assertEqual(topic.reviewed_posture, "source_present")
+        self.assertEqual(
+            topic.eligible_source_ids,
+            ("SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"),
+        )
+        self.assertEqual(topic.open_spec_gap_ids, ())
+
     def test_source_transformations_topic_uses_the_closed_gap_source_posture(self) -> None:
         topic = next(
             item
