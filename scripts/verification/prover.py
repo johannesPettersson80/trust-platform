@@ -544,6 +544,12 @@ class ProofProducer:
         record: dict[str, Any],
         test: dict[str, Any],
     ) -> None:
+        binding = record.get("proof_contract_binding", "current")
+        if binding != "current":
+            raise ProofError(
+                f"{evidence_id} proof_contract_binding {binding!r} does not authorize current proof",
+                failure_kind="metadata_error",
+            )
         version = record.get("proof_contract_version")
         if version != PROOF_CONTRACT_VERSION:
             raise ProofError(
@@ -714,6 +720,7 @@ class ProofProducer:
             "command_exit_status": command_exit_status,
             "proof_contract_digest": self.current_proof_contract_digest(test),
             "proof_contract_version": PROOF_CONTRACT_VERSION,
+            "proof_contract_binding": "current",
         }
         if artifact_path is not None:
             record["case_artifact_path"] = str(artifact_path.relative_to(self.root))

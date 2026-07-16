@@ -15,6 +15,10 @@ from ..proof_contract import (
     ProofContractError,
     proof_contract_digest,
 )
+from .historical_proof_contract import (
+    HistoricalProofContractError,
+    load_historical_proof_contract,
+)
 
 
 Fail = Callable[[Path, str], None]
@@ -22,7 +26,11 @@ RevisionExists = Callable[[str], bool]
 IsAncestor = Callable[[str, str], bool]
 FULL_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 PROOF_KINDS = {"red", "green", "protective_red", "lock_baseline", "lock_compare"}
+PROOF_CONTRACT_BINDINGS = {"current", "source_revision"}
 CANONICAL_PROOF_PATH = "verification/evidence-index.toml"
+HistoricalContractLoader = Callable[
+    [str, str], tuple[dict[str, Any], dict[str, dict[str, Any]]]
+]
 
 
 def validate_proof_contract_binding(
@@ -32,6 +40,7 @@ def validate_proof_contract_binding(
     record: dict[str, Any],
     tests: dict[str, dict[str, Any]],
     invariants: dict[str, dict[str, Any]],
+    historical_contract_loader: HistoricalContractLoader | None = None,
 ) -> None:
     """Bind every proof-producing record to its complete live metadata contract."""
 
@@ -48,12 +57,17 @@ def validate_proof_contract_binding(
             f"{evidence_id} unsupported proof_contract_version {version!r}; "
             f"expected {PROOF_CONTRACT_VERSION!r}",
         )
-    _current_contract_digest(
+    binding = record.get("proof_contract_binding", "current")
+    if binding not in PROOF_CONTRACT_BINDINGS:
+        fail(path, f"{evidence_id} has unknown proof_contract_binding {binding!r}")
+        return
+    _bound_contract_digest(
         fail=fail,
         path=path,
         record=record,
         tests=tests,
         invariants=invariants,
+        historical_contract_loader=historical_contract_loader,
     )
 
 
@@ -316,14 +330,14 @@ def _validate_paired_contract(
     invariants: dict[str, dict[str, Any]],
     pair_label: str,
 ) -> None:
-    current = _current_contract_digest(
+    current = _bound_contract_digest(
         fail=fail,
         path=path,
         record=record,
         tests=tests,
         invariants=invariants,
     )
-    paired_current = _current_contract_digest(
+    paired_current = _bound_contract_digest(
         fail=fail,
         path=path,
         record=paired,
@@ -338,8 +352,72 @@ def _validate_paired_contract(
     if current is not None and paired_current is not None and current != paired_current:
         fail(
             path,
-            f"{record.get('id', '<unknown>')} and {pair_label} resolve different current proof contracts",
+            f"{record.get('id', '<unknown>')} and {pair_label} resolve different bound proof contracts",
         )
+
+
+def _bound_contract_digest(
+    *,
+    fail: Fail,
+    path: Path,
+    record: dict[str, Any],
+    tests: dict[str, dict[str, Any]],
+    invariants: dict[str, dict[str, Any]],
+    historical_contract_loader: HistoricalContractLoader | None = None,
+) -> str | None:
+    binding = record.get("proof_contract_binding", "current")
+    if binding == "current":
+        return _current_contract_digest(
+            fail=fail,
+            path=path,
+            record=record,
+            tests=tests,
+            invariants=invariants,
+        )
+    if binding != "source_revision":
+        fail(
+            path,
+            f"{record.get('id', '<unknown>')} has unknown proof_contract_binding {binding!r}",
+        )
+        return None
+
+    evidence_id = str(record.get("id", "<unknown>"))
+    linked_tests = record.get("linked_tests")
+    if not isinstance(linked_tests, list) or len(linked_tests) != 1:
+        fail(path, f"{evidence_id} proof contract must link exactly one test")
+        return None
+    test_id = linked_tests[0]
+    if not isinstance(test_id, str) or not test_id:
+        fail(path, f"{evidence_id} source-revision proof links invalid test {test_id!r}")
+        return None
+    revision = record.get("commit")
+    if not isinstance(revision, str):
+        fail(path, f"{evidence_id} source-revision proof has no commit")
+        return None
+    loader = historical_contract_loader or load_historical_proof_contract
+    try:
+        historical_test, historical_invariants = loader(revision, test_id)
+        expected = proof_contract_digest(
+            test=historical_test,
+            invariants=historical_invariants,
+        )
+    except (HistoricalProofContractError, ProofContractError, TypeError, ValueError) as exc:
+        fail(path, f"{evidence_id} source-revision proof contract is invalid: {exc}")
+        return None
+    if record.get("linked_invariants") != historical_test.get("invariants"):
+        fail(
+            path,
+            f"{evidence_id} linked_invariants do not match source-revision catalog row",
+        )
+    actual = record.get("proof_contract_digest")
+    if actual is None:
+        fail(path, f"{evidence_id} missing proof_contract_digest")
+    elif actual != expected:
+        fail(
+            path,
+            f"{evidence_id} proof_contract_digest does not match source-revision catalog and invariants",
+        )
+    return expected
 
 
 def _current_contract_digest(

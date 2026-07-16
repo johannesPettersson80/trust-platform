@@ -678,6 +678,23 @@ class InvariantPromotionEvidenceTests(unittest.TestCase):
 
         self.assert_contains(failures, "proof_level G1 requires targeted green/lock proof")
 
+    def test_source_revision_targeted_proof_cannot_promote_current_invariant(self) -> None:
+        evidence = {
+            "EVID_HISTORICAL": evidence_record(
+                evidence_id="EVID_HISTORICAL",
+                proof_kind="green",
+                proof_scope="targeted",
+                proof_contract_binding="source_revision",
+            )
+        }
+
+        failures = validate_promotion(
+            invariant_record("G1", ["EVID_HISTORICAL"]),
+            evidence,
+        )
+
+        self.assert_contains(failures, "proof_level G1 requires targeted green/lock proof")
+
     def test_hostile_reference_types_fail_without_an_exception(self) -> None:
         invariant = invariant_record("G1", [])
         invariant["evidence_refs"] = [{"not": "hashable"}]

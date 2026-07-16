@@ -33,6 +33,7 @@
     "case_artifact_digest": { "type": "string" },
     "case_file_digest": { "type": "string" },
     "proof_contract_version": { "enum": ["execution_contract_v2"] },
+    "proof_contract_binding": { "enum": ["current", "source_revision"] },
     "proof_contract_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "case_result_digest": { "type": "string" },
     "trust_verify_run_id": { "type": "string" },

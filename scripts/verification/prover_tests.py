@@ -39,6 +39,7 @@ class RedProofProducerTests(unittest.TestCase):
                 result.record["proof_contract_version"],
                 PROOF_CONTRACT_VERSION,
             )
+            self.assertEqual(result.record["proof_contract_binding"], "current")
             self.assertEqual(result.record["proof_contract_digest"], fx.contract_digest())
             self.assertTrue(result.evidence_path.exists())
 
@@ -360,6 +361,20 @@ class GreenProverTests(unittest.TestCase):
 
             self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
 
+    def test_green_refuses_source_revision_red_before_running(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.write_evidence(
+                "EVID_RED",
+                proof_contract_binding="source_revision",
+            )
+
+            with self.assertRaisesRegex(ProofError, "proof_contract_binding"):
+                fx.prover().green("TEST_RED", "EVID_RED")
+
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
     def test_green_refuses_invariant_list_or_content_drift_before_running(self) -> None:
         for mutation in ("list", "content"):
             with self.subTest(mutation=mutation), fixture() as fx:
@@ -548,6 +563,7 @@ class LockProverTests(unittest.TestCase):
             self.assertEqual(baseline.record["command_exit_status"], 0)
             self.assertEqual(baseline.record["per_case_summary"], ["CASE_FAIL:passed"])
             self.assertEqual(baseline.record["proof_contract_digest"], fx.contract_digest())
+            self.assertEqual(baseline.record["proof_contract_binding"], "current")
             self.assertTrue(str(baseline.record["case_result_digest"]).startswith("sha256:"))
             self.assertTrue(str(baseline.record["case_artifact_digest"]).startswith("sha256:"))
             self.assertTrue(baseline.evidence_path.exists())
@@ -890,6 +906,7 @@ class fixture:
         per_case_summary: list[str] | None = None,
         producer: str = "prove.py v1",
         proof_contract_version: str | None = PROOF_CONTRACT_VERSION,
+        proof_contract_binding: str | None = None,
     ) -> None:
         record = {
             "schema_version": 1,
@@ -922,6 +939,8 @@ class fixture:
         }
         if proof_contract_version is not None:
             record["proof_contract_version"] = proof_contract_version
+        if proof_contract_binding is not None:
+            record["proof_contract_binding"] = proof_contract_binding
         record["proof_contract_digest"] = self.contract_digest()
         path = self.evidence_dir / f"{evidence_id}.toml"
         path.parent.mkdir(parents=True, exist_ok=True)

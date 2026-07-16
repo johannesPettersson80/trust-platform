@@ -289,6 +289,7 @@ def _is_targeted_closing_proof(
     producer = str(record.get("producer", ""))
     return (
         record.get("proof_scope") == "targeted"
+        and record.get("proof_contract_binding", "current") == "current"
         and isinstance(record.get("proof_kind"), str)
         and record.get("proof_kind") in CLOSING_PROOF_KINDS
         and _has_clean_commit(record)
@@ -329,6 +330,7 @@ def _is_targeted_red_proof(
     }
     return (
         record.get("proof_scope") == "targeted"
+        and record.get("proof_contract_binding", "current") == "current"
         and isinstance(record.get("proof_kind"), str)
         and record.get("proof_kind") in {"red", "protective_red"}
         and record.get("failure_kind") in {"assertion_failure", "expected_rejection"}

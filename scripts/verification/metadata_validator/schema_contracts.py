@@ -49,6 +49,7 @@ from .constants import (
     TEST_CLASSES,
 )
 from .case_trace_contract import CASE_PROVENANCE_KINDS
+from .evidence_proof import PROOF_CONTRACT_BINDINGS
 from .spec_sources import (
     COMMON_REQUIRED_FIELDS as SPEC_SOURCE_REQUIRED_FIELDS,
     EXTERNAL_REFERENCE_FIELDS,
@@ -77,6 +78,7 @@ SCHEMA_ENUM_EXPECTATIONS = {
         "proof_kind": PROOF_KINDS,
         "proof_scope": PROOF_SCOPES,
         "proof_contract_version": {PROOF_CONTRACT_VERSION},
+        "proof_contract_binding": PROOF_CONTRACT_BINDINGS,
     },
     "ignored-test.schema.json": {
         "area": AREAS,

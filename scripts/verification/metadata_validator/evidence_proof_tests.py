@@ -386,6 +386,58 @@ class EvidenceProofContractBindingTests(unittest.TestCase):
             "unsupported proof_contract_version",
         )
 
+    def test_source_revision_binding_uses_historical_contract(self) -> None:
+        historical_test = dict(DEFAULT_TEST)
+        historical_invariants = {"INV": dict(DEFAULT_INVARIANTS["INV"])}
+        record = red_record(
+            proof_contract_binding="source_revision",
+            proof_contract_digest=proof_contract_digest(
+                test=historical_test,
+                invariants=historical_invariants,
+            ),
+        )
+        live_invariants = {
+            "INV": dict(
+                DEFAULT_INVARIANTS["INV"],
+                oracle={"ref": "SPEC_REVIEWED_AFTER_PROOF"},
+            )
+        }
+
+        failures = validate_binding(
+            record,
+            invariants=live_invariants,
+            historical_loader=lambda _commit, _test_id: (
+                historical_test,
+                historical_invariants,
+            ),
+        )
+
+        self.assertEqual(failures, [])
+
+    def test_source_revision_binding_rejects_historical_digest_tamper(self) -> None:
+        record = red_record(
+            proof_contract_binding="source_revision",
+            proof_contract_digest="sha256:" + "f" * 64,
+        )
+
+        failures = validate_binding(
+            record,
+            historical_loader=lambda _commit, _test_id: (
+                DEFAULT_TEST,
+                DEFAULT_INVARIANTS,
+            ),
+        )
+
+        self.assert_contains_failure(
+            failures,
+            "does not match source-revision catalog and invariants",
+        )
+
+    def test_unknown_proof_contract_binding_is_rejected(self) -> None:
+        failures = validate_binding(red_record(proof_contract_binding="archive"))
+
+        self.assert_contains_failure(failures, "unknown proof_contract_binding")
+
     def assert_contains_failure(self, failures: list[str], expected: str) -> None:
         self.assertTrue(
             any(expected in failure for failure in failures),
@@ -438,6 +490,7 @@ def validate_binding(
     *,
     tests: dict[str, dict[str, object]] | None = None,
     invariants: dict[str, dict[str, object]] | None = None,
+    historical_loader=None,
 ) -> list[str]:
     failures: list[str] = []
     validate_proof_contract_binding(
@@ -446,6 +499,7 @@ def validate_binding(
         record=record,
         tests=tests or {"TEST_RED": DEFAULT_TEST},
         invariants=invariants or DEFAULT_INVARIANTS,
+        historical_contract_loader=historical_loader,
     )
     return failures
 
