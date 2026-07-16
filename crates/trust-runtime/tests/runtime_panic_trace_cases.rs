@@ -141,7 +141,9 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
     wait_for_fault(&handle)?;
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
-    handle.join().map_err(|error| error.to_string())?;
+    handle
+        .join()
+        .map_err(|_| "panic safe-output resource thread escaped containment".to_string())?;
     let safe_output = writes
         .lock()
         .map_err(|_| "panic writes lock poisoned".to_string())?

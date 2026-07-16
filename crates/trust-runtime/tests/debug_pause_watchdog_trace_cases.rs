@@ -140,7 +140,9 @@ fn statement_pause_observation(
     ]);
     handle.stop();
     debug.continue_run();
-    handle.join().map_err(|error| error.to_string())?;
+    handle
+        .join()
+        .map_err(|_| "statement-pause resource thread panicked".to_string())?;
     Ok(observed)
 }
 
@@ -192,7 +194,9 @@ fn resource_pause_observation(
         ),
     ]);
     handle.stop();
-    handle.join().map_err(|error| error.to_string())?;
+    handle
+        .join()
+        .map_err(|_| "between-cycle resource thread panicked".to_string())?;
     Ok(observed)
 }
 
