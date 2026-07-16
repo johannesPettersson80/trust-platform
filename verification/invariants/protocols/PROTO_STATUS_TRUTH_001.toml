@@ -3,18 +3,21 @@ id = "PROTO_STATUS_TRUTH_001"
 title = "Protocol status reports distinguish proven connectivity from assumptions"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-08"
 claim = "Protocol status surfaces must distinguish confirmed protocol behavior, loopback proof, mock-only proof, and hardware-unproven states."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
 tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
 gates = ["pr", "hardware_lab"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate", "physical_device_status_evidence"]
+missing = ["broad_remote_gate", "physical_device_status_evidence"]
 
 [spec]
 status = "specified"
@@ -50,5 +53,5 @@ rationale = "A stale point remains a point-quality condition and does not silent
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The written trace covers ADS and OPC UA normalized status plus point staleness; current-contract proof, a broad gate, and physical-device status evidence remain open."
+state = "covered"
+rationale = "The current-contract lock comparison covers ADS and OPC UA normalized status plus point staleness; a broad gate and physical-device status evidence remain open."

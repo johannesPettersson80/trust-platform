@@ -3,18 +3,21 @@ id = "PROTO_MODBUS_001"
 title = "Modbus discovery confidence is honest"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "Modbus discovery must not report protocol confirmation from transport reachability unless the confidence label says only port reachable."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = []
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate", "physical_device_interop_evidence"]
 
 [spec]
 status = "specified"
@@ -26,5 +29,5 @@ ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The written discovery trace covers device identification, safe-read confirmation, and TCP-only reachability; a current-contract lock comparison and broad remote gate remain open."
+state = "covered"
+rationale = "The current-contract lock comparison covers device identification, safe-read confirmation, and TCP-only reachability; a broad gate and physical-device interoperability evidence remain open."

@@ -3,18 +3,21 @@ id = "PROTO_DISCOVERY_TRUTH_001"
 title = "Protocol discovery labels do not overclaim"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-08"
 claim = "Discovery results must label protocol handshakes, likely devices, and mere port reachability without collapsing them into one truthful state."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
 tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = ["pr", "hardware_lab"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate", "physical_device_interop_evidence"]
+missing = ["broad_remote_gate", "physical_device_interop_evidence"]
 
 [spec]
 status = "specified"
@@ -82,5 +85,5 @@ rationale = "A TCP listener without CONNACK remains port-reachable only."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The written trace covers reviewed Modbus and MQTT confidence boundaries; current-contract proof, a broad gate, and physical-device interoperability evidence remain open."
+state = "covered"
+rationale = "The current-contract lock comparison covers reviewed Modbus and MQTT confidence boundaries; a broad gate and physical-device interoperability evidence remain open."

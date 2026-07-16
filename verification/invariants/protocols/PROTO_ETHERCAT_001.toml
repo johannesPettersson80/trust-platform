@@ -3,18 +3,21 @@ id = "PROTO_ETHERCAT_001"
 title = "EtherCAT unavailable-resource behavior is bounded and visible"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "Unavailable EtherCAT hardware or configuration must not create unbounded resource use or a false healthy status."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
 gates = []
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate", "physical_hardware_topology_evidence"]
+missing = ["broad_remote_gate", "physical_hardware_topology_evidence"]
 
 [spec]
 status = "specified"
@@ -42,5 +45,5 @@ rationale = "The deterministic mock process image may be healthy while remaining
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The written trace covers deferred construction, terminal missing-adapter failure, and mock operation; current-contract proof, a broad gate, and physical topology evidence remain open."
+state = "covered"
+rationale = "The current-contract lock comparison covers deferred construction, terminal missing-adapter failure, and mock operation; a broad gate and physical topology evidence remain open."

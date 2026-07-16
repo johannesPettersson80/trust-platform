@@ -3,18 +3,21 @@ id = "PROTO_MQTT_001"
 title = "MQTT discovery confidence and session lifetime are honest"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "MQTT discovery must distinguish a protocol handshake from port reachability and must not leave discovery sessions active without a contract."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = []
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate", "physical_broker_interop_evidence"]
 
 [spec]
 status = "specified"
@@ -26,5 +29,5 @@ ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The written discovery trace covers accepted, rejected, auth-rejected, and TCP-only outcomes plus clean-session disconnect; a current-contract lock comparison and broad remote gate remain open."
+state = "covered"
+rationale = "The current-contract lock comparison covers accepted, rejected, auth-rejected, and TCP-only outcomes plus clean-session disconnect; a broad gate and physical-broker interoperability evidence remain open."
