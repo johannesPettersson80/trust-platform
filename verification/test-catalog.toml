@@ -1578,7 +1578,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/protocols/PROTO_STATUS_TRUTH_001.toml"
-case_file_digest = "sha256:d750ca6ac6b92651f7e27de87c92a88960f96415693424e8a4371d5f8c0c356f"
+case_file_digest = "sha256:39e449f0b4495f45a700d9a3ef2b30d5c02a1dd13b7220113bdd08e22b5b3a16"
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -1604,7 +1604,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/protocols/PROTO_DISCOVERY_TRUTH_001.toml"
-case_file_digest = "sha256:d5e970a36ac73985d6a38e4df1c45323ee723d26796561732a49fea930c9fed8"
+case_file_digest = "sha256:4001ec6744b6e51654c25af1508afcbe1f0ba80407da87df9775f2652d9571a3"
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -1630,7 +1630,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/protocols/PROTO_ETHERCAT_001.toml"
-case_file_digest = "sha256:39b9aa5624851abd83a1322f5dd877e24283ab8910444775a4f497cada55d147"
+case_file_digest = "sha256:07c0e48f9133daa2b31968e2ee3991d360fd5f03087c869cc0606952ebab0149"
 last_reviewed = "2026-07-16"
 
 [[tests]]

@@ -19,7 +19,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_STATUS_TRUTH_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:d750ca6ac6b92651f7e27de87c92a88960f96415693424e8a4371d5f8c0c356f";
+    "sha256:39e449f0b4495f45a700d9a3ef2b30d5c02a1dd13b7220113bdd08e22b5b3a16";
 
 #[test]
 fn connector_status_truth_trace_cases() {

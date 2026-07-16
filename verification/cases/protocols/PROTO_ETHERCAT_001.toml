@@ -7,7 +7,7 @@ status = "planned"
 invariant = "PROTO_ETHERCAT_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:624b824c30af8e635f2bb7a06f4a2359c86bcf4435ba4a32b4847eb526d2a11f"
-source_digest = "sha256:d6e711aea0956a6c4e6a77b63d02a4ddfa3ca80de76b7f8fa054dfe9d09e4689"
+source_digest = "sha256:a088ab86b48c4785847d67637ad2d04b93aea9470f97a0b05dc649615827b35f"
 last_reviewed = "2026-07-16"
 
 [[case]]

@@ -13,7 +13,7 @@ mod trace_cases {
     const TEST_ID: &str = "TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001";
     const CASE_FILE: &str = "verification/cases/protocols/PROTO_ETHERCAT_001.toml";
     const CASE_FILE_DIGEST: &str =
-        "sha256:39b9aa5624851abd83a1322f5dd877e24283ab8910444775a4f497cada55d147";
+        "sha256:07c0e48f9133daa2b31968e2ee3991d360fd5f03087c869cc0606952ebab0149";
 
     #[test]
     #[cfg(all(feature = "ethercat-wire", unix))]

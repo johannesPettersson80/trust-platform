@@ -7,7 +7,7 @@ status = "planned"
 invariant = "PROTO_DISCOVERY_TRUTH_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:72e378cd0ebce069addbbe9dfa4f8d146801595989abf6e6352bc9fb5896765a"
-source_digest = "sha256:695a365a14c1fad2ddcce68c7b7baaed3719845d304800cce62ee17c00f0d5d2"
+source_digest = "sha256:5c66c498a1a6aad9fb4e0bfeeb91c031734d38917079c091aa14df0ad0fe1cdb"
 last_reviewed = "2026-07-16"
 
 [[case]]

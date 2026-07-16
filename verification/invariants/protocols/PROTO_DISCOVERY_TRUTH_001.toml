@@ -3,7 +3,7 @@ id = "PROTO_DISCOVERY_TRUTH_001"
 title = "Protocol discovery labels do not overclaim"
 area = "protocols"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-08"
 claim = "Discovery results must label protocol handshakes, likely devices, and mere port reachability without collapsing them into one truthful state."
@@ -13,16 +13,16 @@ source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
 tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = ["pr", "hardware_lab"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_PUBLIC_WIRE_CLAIM_001"]
-missing = ["protocol_discovery_confidence_contract"]
+spec_gap_refs = []
+missing = ["producer_authentic_current_lock_proof", "broad_remote_gate", "physical_device_interop_evidence"]
 
 [spec]
-status = "ambiguous"
-source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
-kind = "public_doc"
-ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[behavior]]
 partition = { equals = "MODBUS_DEVICE_ID_CONFIRMED" }
@@ -82,6 +82,5 @@ rationale = "A TCP listener without CONNACK remains port-reachable only."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "spec_gap"
-rationale = "Discovery confidence taxonomy must be specified before protocol claims are mapped."
-spec_gap_ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"
+state = "gap_open"
+rationale = "The written trace covers reviewed Modbus and MQTT confidence boundaries; current-contract proof, a broad gate, and physical-device interoperability evidence remain open."

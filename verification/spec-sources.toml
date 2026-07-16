@@ -311,7 +311,7 @@ covers = [
   "protocol_matrix",
 ]
 known_limitations = [
-  "Needs connector/protocol proof matrix before it can be treated as proven; see SPEC_GAP_PUBLIC_WIRE_CLAIM_001.",
+  "Protocol evidence status is documented in docs/public/connect/protocol-matrix.md; loopback and mock evidence do not establish physical-site readiness.",
 ]
 conflicts_with = []
 

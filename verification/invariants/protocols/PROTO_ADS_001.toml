@@ -3,7 +3,7 @@ id = "PROTO_ADS_001"
 title = "ADS status and tooling surfaces report honest connection state"
 area = "protocols"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "ADS status, route, browse, and import surfaces must not collapse configured, reachable, connected, and live into one state."
@@ -13,19 +13,18 @@ source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_PROTOCOL_STATUS_MODEL_001"]
-missing = ["ads_status_lifecycle_contract", "cross_surface_status_cases"]
+spec_gap_refs = []
+missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "spec_gap"
-rationale = "Canonical connector state and freshness transitions are not specified."
-spec_gap_ref = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"
+state = "gap_open"
+rationale = "The written connector-status trace covers ADS lifecycle projection; a current-contract lock comparison and broad remote gate remain open."

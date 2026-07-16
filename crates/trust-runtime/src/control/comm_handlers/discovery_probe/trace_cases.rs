@@ -19,7 +19,7 @@ use super::{
 const TEST_ID: &str = "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_DISCOVERY_TRUTH_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:d5e970a36ac73985d6a38e4df1c45323ee723d26796561732a49fea930c9fed8";
+    "sha256:4001ec6744b6e51654c25af1508afcbe1f0ba80407da87df9775f2652d9571a3";
 
 #[test]
 fn protocol_discovery_confidence_trace_cases() {

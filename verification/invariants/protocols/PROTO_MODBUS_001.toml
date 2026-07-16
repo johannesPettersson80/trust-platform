@@ -3,7 +3,7 @@ id = "PROTO_MODBUS_001"
 title = "Modbus discovery confidence is honest"
 area = "protocols"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "Modbus discovery must not report protocol confirmation from transport reachability unless the confidence label says only port reachable."
@@ -13,19 +13,18 @@ source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = []
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001"]
-missing = ["modbus_discovery_handshake_contract", "confidence_transition_cases"]
+spec_gap_refs = []
+missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "spec_gap"
-rationale = "The exchange required for each Modbus confidence state is unspecified."
-spec_gap_ref = "SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001"
+state = "gap_open"
+rationale = "The written discovery trace covers device identification, safe-read confirmation, and TCP-only reachability; a current-contract lock comparison and broad remote gate remain open."

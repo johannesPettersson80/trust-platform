@@ -259,9 +259,10 @@ affected_invariants = [
 ]
 affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001", "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PUBLIC_WIRE_CLAIM_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -521,9 +522,10 @@ blocking_question = "Which protocol exchange distinguishes a confirmed endpoint 
 affected_invariants = ["PROTO_MODBUS_001", "PROTO_MQTT_001"]
 affected_tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PROTOCOL_DISCOVERY_HANDSHAKE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -538,9 +540,10 @@ blocking_question = "What bounded memory, retry, timeout, and status behavior is
 affected_invariants = ["PROTO_ETHERCAT_001"]
 affected_tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_ETHERCAT_UNAVAILABLE_RESOURCE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -555,9 +558,10 @@ blocking_question = "Which canonical states, freshness transitions, and error de
 affected_invariants = ["PROTO_ADS_001", "PROTO_OPCUA_001"]
 affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
-last_reviewed = "2026-07-10"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PROTOCOL_STATUS_MODEL_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1

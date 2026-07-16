@@ -79,14 +79,14 @@ area = "protocols"
 risk = "false_status"
 owner = "trust-runtime"
 status = "planned"
-last_reviewed = "2026-07-10"
-description = "The external review imported the historical session-per-poll finding and requires the persistent lifecycle decision to remain explicit."
-mitigation = "Keep lifecycle coverage at S0 until cataloged tests and durable proof are linked without promoting the review evidence itself."
+last_reviewed = "2026-07-16"
+description = "The external review imported the historical session-per-poll finding; the persistent lifecycle and normalized status contracts are now explicit and exercised by cataloged traces."
+mitigation = "Keep the persistent lifecycle and connector-status traces active; retain broad-gate and physical-device evidence as invariant debt rather than reopening the resolved status specification gap."
 source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
 related_invariants = ["PROTO_OPCUA_001"]
-related_spec_gaps = ["SPEC_GAP_PROTOCOL_STATUS_MODEL_001"]
-related_spec_sources = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
-evidence_refs = []
+related_spec_gaps = []
+related_spec_sources = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"]
+evidence_refs = ["EVID_PROTOCOL_STATUS_MODEL_GAP_CLOSEOUT_20260716"]
 
 [[risks]]
 schema_version = 1
