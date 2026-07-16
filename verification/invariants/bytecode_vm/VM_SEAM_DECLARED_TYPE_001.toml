@@ -3,11 +3,11 @@ id = "VM_SEAM_DECLARED_TYPE_001"
 title = "Declared types cannot be erased into wrong runtime tag semantics"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
 claim = "Only value-and-accuracy-preserving implicit conversions materialize the declared runtime tag; lossy or incompatible assignments reject before storage."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
 tests = [
@@ -46,10 +46,13 @@ tests = [
   "TEST_VM_DECLARED_TYPE_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+evidence_refs = [
+  "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
+  "EVID_TEST_VM_DECLARED_TYPE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_DECLARED_TYPE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
 missing = [
-  "producer_authentic_proof",
   "broad_remote_gate",
 ]
 
@@ -183,5 +186,5 @@ rationale = "Mapped compiler, runtime, and VM policy tests cover the closed accu
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Mapped tests and the case-backed policy runner cover narrowing, VAR_IN_OUT, lossy float, BOOL, and primitive-tag rejection against the stable runtime identifiers; producer-authentic lock proof remains open."
+state = "covered"
+rationale = "Mapped tests and the case-backed policy runner cover narrowing, VAR_IN_OUT, lossy float, BOOL, and primitive-tag rejection against the stable runtime identifiers with a current producer-authentic lock comparison."

@@ -3,11 +3,11 @@ id = "VM_SEAM_SUBRANGE_001"
 title = "Subrange writes cannot silently store out-of-range values"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
 claim = "Runtime writes to subrange-typed storage accept inclusive bounds and reject out-of-range or wrong-tag values without modifying the target; the stable public error identifier remains explicit."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
 tests = [
@@ -21,10 +21,13 @@ tests = [
   "TEST_VM_SUBRANGE_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+evidence_refs = [
+  "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
+  "EVID_TEST_VM_SUBRANGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_SUBRANGE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
 missing = [
-  "producer_authentic_proof",
   "broad_remote_gate",
 ]
 
@@ -89,5 +92,5 @@ rationale = "The mapped runtime transaction test covers below-minimum rejection 
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Wrong-type rejection is case-backed against runtime_type_mismatch, while out-of-range cases bind runtime_subrange_violation; producer-authentic lock proof remains open."
+state = "covered"
+rationale = "Wrong-type rejection is case-backed against runtime_type_mismatch and out-of-range cases bind runtime_subrange_violation with a current producer-authentic lock comparison."

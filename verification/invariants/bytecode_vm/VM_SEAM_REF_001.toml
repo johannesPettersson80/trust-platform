@@ -3,11 +3,11 @@ id = "VM_SEAM_REF_001"
 title = "Frame-local references cannot escape their owning frame"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
 claim = "Bytecode validation and runtime reference handling must prevent a local-frame reference from being stored where it can later dereference against a different frame."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/validate", "crates/trust-runtime-core/src/vm"]
 tests = [
@@ -18,9 +18,12 @@ tests = [
   "TEST_VM_REF_ESCAPE_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_VM_REF_ESCAPE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_REF_ESCAPE_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "bytecode_reference"
@@ -55,5 +58,5 @@ rationale = "A frame-local reference cannot be stored in longer-lived storage di
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Mapped tests cover local-range rejection, same-owner local path acceptance, and direct/product-path frame-local escape rejection; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The case-backed runner covers local-range rejection and direct/product-path frame-local escape rejection with a current producer-authentic lock comparison; mapped tests retain same-owner local path acceptance."

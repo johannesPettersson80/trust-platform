@@ -3,18 +3,22 @@ id = "VM_SEAM_STRING_BOUND_001"
 title = "STRING[n] bounds are enforced on every runtime write path"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
 claim = "Writes into bounded STRING and WSTRING storage apply the receiving scalar-value capacity, while cross-family runtime tags reject before storage."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
 tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_STRING_BOUND_TRACE_001"]
 gates = ["veryquick", "pr"]
-evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+evidence_refs = [
+  "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
+  "EVID_TEST_VM_STRING_BOUND_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_STRING_BOUND_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "string_value"
@@ -71,5 +75,5 @@ rationale = "The mapped VM primitive-policy test covers Unicode-scalar truncatio
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Wrong-family tag rejection is case-backed against runtime_type_mismatch; producer-authentic lock proof remains open."
+state = "covered"
+rationale = "Wrong-family tag rejection is case-backed against runtime_type_mismatch with a current producer-authentic lock comparison."

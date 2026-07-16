@@ -3,11 +3,11 @@ id = "VM_SEAM_OWNER_001"
 title = "Bytecode instance ownership is explicit or rejected"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
 claim = "A bytecode POU body must either declare an unambiguous instance owner or fail validation before stale absolute instance IDs can be executed."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/validate", "crates/trust-runtime-core/src/vm"]
 tests = [
@@ -17,9 +17,12 @@ tests = [
   "TEST_VM_OWNER_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_VM_OWNER_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_OWNER_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "pou_reference_table"
@@ -54,5 +57,5 @@ rationale = "A POU body that uses instance references from more than one explici
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Mapped direct-validator and product-apply tests cover shared frame owners and crafted multi-owner instance references; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The case-backed direct-validator and product-apply runner covers shared frame owners and crafted multi-owner instance references with a current producer-authentic lock comparison."

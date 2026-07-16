@@ -1306,6 +1306,16 @@ same commit, with the closure evidence linked.
   evidence, and a current-contract lock pair. The register now contains 11
   `open`, 1 `spec_updated`, and 23 `closed` records; this row stays open for
   the remaining gaps.
+
+  VM seam proof progress (2026-07-17):
+  `SPEC_GAP_VM_ERROR_MODEL_001` is formally closed without rewriting its
+  historical red/green proof. The existing nine-test stable-error closeout
+  remains source-revision evidence, while current invariant and catalog rows
+  now point directly at the active bytecode, runtime, and value-semantics
+  sources. `docs/specs/12-bytecode.md` also records the observed STBC 1.x
+  unknown-optional-section rule, pinned by a product-apply regression. The
+  register now contains 11 `open` and 24 `closed` records; this row remains
+  open for the eleven unresolved specifications.
 - [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
@@ -1357,6 +1367,14 @@ same commit, with the closure evidence linked.
   diagnostic cancellation, and document-close durable-source behavior. In
   total, 23 catalog rows now map these five invariants, including the existing
   focused regressions. The full 54-invariant denominator remains open.
+
+  VM seam proof progress (2026-07-17): six new case-backed runners and the
+  existing bytecode-validator runner execute 38 committed cases for declared
+  type materialization, STRING bounds, subranges, encoder fail-closed
+  behavior, local-owner isolation, reference escape, and validator semantics.
+  Three new case-table records pin the encoder/owner/reference generators, and
+  a standalone product-apply regression pins unknown optional STBC sections.
+  The full 54-invariant denominator remains open.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1424,6 +1442,16 @@ same commit, with the closure evidence linked.
   rename, UTF-16 position, and cancellation traces already matched their
   written contracts, so they use current-contract lock pairs without
   manufactured failures.
+
+  VM seam proof progress (2026-07-17): all 38 VM seam cases passed at clean
+  baseline and comparison revisions, and the refreshed bytecode-validator
+  mutation shard caught both reviewed mutants with zero survivors. No product
+  acceptance defect reproduced, so this batch makes no runtime/product change
+  and manufactures no red proof. Tests-first work instead found two fixture
+  mistakes and two verification-tooling defects: generated case source
+  provenance included mutable proof lifecycle, and `prove.py` could not emit a
+  replacement lock pair without colliding with historical evidence IDs. Both
+  tooling defects have focused regression tests.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1455,6 +1483,16 @@ same commit, with the closure evidence linked.
   the document-close defect also retains its historical red/green pair. The
   registry now contains 26 S0, 19 G1, and 9 G2 invariants. Causal broad proof
   remains open, so no G2 or validated status is claimed for this batch.
+
+  VM seam proof progress (2026-07-17): `VM_SEAM_DECLARED_TYPE_001`,
+  `VM_SEAM_ENC_001`, `VM_SEAM_OWNER_001`, `VM_SEAM_REF_001`,
+  `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, and
+  `VM_SEAM_VALID_001` are `implemented` at G1 on current producer-authentic
+  lock comparisons. The generator provenance migration also replaced the
+  current lock pairs for `IEC_PREC_001` and `PLCO_IMPORT_001` without deleting
+  their source-revision history. The registry now contains 19 S0, 26 G1, and
+  9 G2 invariants; causal broad and physical/corpus obligations remain open,
+  so no G2 or validated status is claimed for this batch.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed
