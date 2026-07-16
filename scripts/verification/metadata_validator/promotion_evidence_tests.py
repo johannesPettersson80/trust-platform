@@ -734,7 +734,7 @@ class FullValidatorPromotionEvidenceTests(unittest.TestCase):
     def test_r1_cannot_bypass_any_promotion_evidence_tier(self) -> None:
         validator = Validator()
         validator.load_records()
-        validator.invariants["IEC_PREC_001"]["proof_level"] = "R1"
+        validator.invariants["UI_STATUS_001"]["proof_level"] = "R1"
 
         validator.validate()
 

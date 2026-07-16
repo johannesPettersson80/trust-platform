@@ -1317,6 +1317,16 @@ same commit, with the closure evidence linked.
   `SEC_AUTHZ_001`, `RT_SAFE_FORCE_001`, and `RT_SAFE_PANIC_001` to explicit
   written oracles and current-contract proof pairs. This is not an exhaustive
   mapping of the full 53-invariant denominator.
+
+  Three-invariant behavior-lock progress (2026-07-16): the catalog now binds
+  `TEST_IEC_PRECEDENCE_TRACE_001`, `TEST_PLCOPEN_IMPORT_TRACE_001`, and
+  `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001` to 21 committed cases for
+  `IEC_PREC_001`, `PLCO_IMPORT_001`, and `PROTO_OPCUA_001`. The runners cover
+  expression evaluation, PLCopen executable-body admission, and the OPC UA
+  client lifecycle state machine against explicit written oracles. All three
+  passed on unchanged product code. The full 53-invariant denominator is not
+  mapped yet, and PLCopen real-vendor corpus evidence remains explicit debt,
+  so this row stays open.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1360,6 +1370,13 @@ same commit, with the closure evidence linked.
   retained and the shard was rerun with the viable `convert_value` identity
   comparison selector. No baseline product bug appeared, so no red proof or
   product fix was invented.
+
+  Three-invariant behavior-lock progress (2026-07-16): all 21 new precedence,
+  PLCopen import, and OPC UA lifecycle cases passed at both clean proof
+  checkpoints with identical per-case results. `prove.py v1` therefore
+  recorded lock-baseline/lock-compare pairs rather than manufacturing red
+  evidence. No runtime, parser, or importer product fix was warranted by this
+  batch.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1370,6 +1387,13 @@ same commit, with the closure evidence linked.
   current behavior-lock evidence. The registry now contains 39 S0, 5 G1, and
   9 G2 invariants. No broad-gate result was retroactively used to manufacture
   G2 for this batch.
+
+  Three-invariant behavior-lock progress (2026-07-16): `IEC_PREC_001`,
+  `PLCO_IMPORT_001`, and `PROTO_OPCUA_001` are `implemented` at G1 on stable,
+  producer-authentic lock pairs. The registry now contains 36 S0, 8 G1, and 9
+  G2 invariants. The clean builder broad gates validate the batch but are not
+  approved causal promotion evidence, and `PLCO_IMPORT_001` still names the
+  real-vendor corpus gap; no G2 or validated status is claimed.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed

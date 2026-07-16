@@ -4209,3 +4209,25 @@ case_file_digest = "sha256:d5f1740836a29c1a0742f3040e5060a01fc78f07e99870a8c139f
 per_case_summary = ["PROTO_OPCUA_001_PERSISTENT_SESSION:passed", "PROTO_OPCUA_001_STALE_VALUE_HOLD_AND_RECOVERY:passed", "PROTO_OPCUA_001_SESSION_LOSS_BACKOFF:passed", "PROTO_OPCUA_001_SUBSCRIPTION_RECREATED_AFTER_RECONNECT:passed", "PROTO_OPCUA_001_SUBSCRIPTION_TRANSFER_RECOVERY:passed", "PROTO_OPCUA_001_REJECTED_WRITE_POINT_FAULT_ISOLATION:passed"]
 case_result_digest = "sha256:d0c40744a4b8ae4bbc3ad4c60ae5731b124a1a7d2c9739e0075b405096695792"
 paired_lock_baseline = "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_THREE_INVARIANT_BEHAVIOR_LOCK_BATCH_VALIDATION_20260716"
+title = "Three-invariant case-backed behavior-lock batch validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/three-invariant-behavior-lock-batch-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py --report docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6a-tooling-selftest-fixture-report.md && python3 scripts/check_test_catalog_staleness.py && python3 scripts/gen_cases_v2.py --invariant IEC_PREC_001 --check && python3 scripts/gen_cases_v2.py --invariant PLCO_IMPORT_001 --check && python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check && git diff --check"
+commit = "12a41da548d7ffde5290fdc6b5a237de4bdaac7a"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex three-invariant behavior-lock batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_PREC_001", "PLCO_IMPORT_001", "PROTO_OPCUA_001"]
+linked_tests = ["TEST_IEC_PRECEDENCE_TRACE_001", "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001", "TEST_PLCOPEN_IMPORT_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-16"
