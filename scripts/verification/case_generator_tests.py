@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -9,6 +10,9 @@ from pathlib import Path
 from scripts.verification.case_generator import CaseGenerationError, generate_case_file
 from scripts.verification.case_generator_v2 import generate_case_file as generate_case_file_v2
 from scripts.verification.execution_contract import invariant_execution_contract_digest
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class _Validator:
@@ -111,6 +115,17 @@ class CaseGeneratorTests(unittest.TestCase):
             "IEC_PREC_001", _Validator(behavior_changed)
         )
         self.assertNotEqual(behavior_record["source_digest"], record["source_digest"])
+
+    def test_metadata_gate_dispatches_all_committed_generated_case_versions(self) -> None:
+        result = subprocess.run(
+            ["scripts/verification_metadata_gate.sh"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
