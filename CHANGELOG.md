@@ -6,10 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.51`
+Target release: `v0.24.52`
 
 ### Fixed
 
+- trust-lsp: closing an unsaved file-backed document now evicts its cached
+  semantic tokens and pull-diagnostic result before restoring the durable disk
+  contents, preventing discarded buffer state from surviving `didClose`.
 - trust-runtime: MQTT discovery now reports authentication and authorization
   CONNACK rejections as `likely` protocol evidence instead of overclaiming an
   accepted, confirmed broker session; clean-session DISCONNECT behavior is

@@ -139,6 +139,8 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) {
                 doc.file_id = file_id;
                 touch_document(doc, access);
             }
+            state.semantic_tokens.write().remove(uri);
+            state.diagnostics.write().remove(uri);
             invalidate_project_caches(state);
             enforce_memory_budget(state);
             return;
