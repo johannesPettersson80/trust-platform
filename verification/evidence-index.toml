@@ -4721,3 +4721,25 @@ case_file_digest = "sha256:07c0e48f9133daa2b31968e2ee3991d360fd5f03087c869cc0606
 per_case_summary = ["PROTO_ETHERCAT_001_MISSING_ADAPTER_TERMINAL:passed", "PROTO_ETHERCAT_001_MOCK_OPERATIONAL_NON_HARDWARE:passed"]
 case_result_digest = "sha256:ff89a6ac71a5a31fc6ce35e6238366be80901216d75e03b9a48b98009dfd69f8"
 paired_lock_baseline = "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_PROTOCOL_TRUTH_UNAVAILABLE_RESOURCE_BATCH_VALIDATION_20260716"
+title = "Protocol truth and unavailable-resource product batch validation"
+area = "protocols"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/protocol-truth-unavailable-resource-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && just fmt && just clippy && just test-all && cargo test -p trust-runtime --test api_smoke && cargo test -p trust-runtime --test debug_control && cargo test -p trust-runtime --test complete_program && cargo test -p trust-runtime --test runtime_reliability && scripts/runtime_comms_conformance_gate.sh && scripts/runtime_mesh_tls_stability_gate.sh --iterations 8 && RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets && git diff --check"
+commit = "8cc3199e155b54bfb8f167091ea90eb3483da947"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex protocol truth unavailable-resource product batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["PROTO_ADS_001", "PROTO_DISCOVERY_TRUTH_001", "PROTO_ETHERCAT_001", "PROTO_MODBUS_001", "PROTO_MQTT_001", "PROTO_STATUS_TRUTH_001"]
+linked_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001", "TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001", "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001", "SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001", "SPEC_GAP_PROTOCOL_STATUS_MODEL_001", "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"]
+last_reviewed = "2026-07-16"
