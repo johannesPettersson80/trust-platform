@@ -374,7 +374,7 @@ class CoverageMatrixGapTests(unittest.TestCase):
                 "case_files": 4,
                 "case_observations": 31,
                 "blocked_case_observations": 0,
-                "state_counts": empty_state_counts(spec_gap=25, gap_open=27, covered=16),
+                "state_counts": empty_state_counts(spec_gap=24, gap_open=23, covered=21),
             },
         )
         self.assertTrue(TOOL_INPUT_PATHS.issubset(paths))
