@@ -1,11 +1,11 @@
 # Phase 9 Fuzz Program Audit
 
 Generator: `fuzz-program-audit v1`
-Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
-Generated: `2026-07-16T02:44:00+02:00`
+Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
+Generated: `2026-07-16T09:38:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `874ca49c47c65d987dc2f99e798797d3d3aabb8c02b1e27add56ffa92db09959`
-Input SHA-256: `sha256:f2c9272d87faf2a4365c3841fc239721d60abf645b91e628025aa6a64bf644e8`
+Generated JSON SHA-256: `843fc5d2f29158801341b83c83e1c6e9eb567dcf7f062b12c5aaff5634be45ce`
+Input SHA-256: `sha256:be4f7b8a184041f0b2429bf8f3b8705a861ecfee0dff658a623bda0bb211a4bb`
 
 This is a report-only inventory of existing fuzz targets, deterministic
 fuzz-like smokes, required surfaces, execution profiles, and target gaps.

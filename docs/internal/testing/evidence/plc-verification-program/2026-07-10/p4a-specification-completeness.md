@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
-Generated: `2026-07-16T02:44:00+02:00`
+Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
+Generated: `2026-07-16T09:38:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `9323f814e833662484c332b6cbd904e19c2310d27d8f15ddf155132b5fd0a65e`
-Input SHA-256: `sha256:ef0e18c1befbba9d654f23e86e1d724ae22e62c0a0f745f24cd680ce6fcce7a4`
+Generated JSON SHA-256: `4ad4a61115ac05a0e7e5f266a65f6bb7c800b72ce31693d3758c6748310afc55`
+Input SHA-256: `sha256:bb57a392be1723b7170d7b6742fa20b2b090c46c083ebc617b08b42db406d60e`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -14,10 +14,10 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 - Invariants: 53
 - Invariants without specified specs: 20
-- Tests with expected results: 184
+- Tests with expected results: 187
 - Tests without oracle/spec/gap binding: 3
 - Coverage cells: 68
-- Coverage cells marked spec_gap: 25
+- Coverage cells marked spec_gap: 24
 - Bytecode pilot gaps: 3
 - Registered public-claim sources: 4
 
@@ -74,7 +74,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `REL_CLAIM_001` | `release` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001` |
 | `REL_CONF_001` | `release` | `false_status` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
 | `REL_VERSION_001` | `release` | `false_status` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
-| `RT_SAFE_FORCE_001` | `runtime_safety` | `safety_critical` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001` |
 | `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |

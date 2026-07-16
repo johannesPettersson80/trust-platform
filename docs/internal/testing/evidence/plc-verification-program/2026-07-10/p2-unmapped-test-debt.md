@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
-Generated: `2026-07-16T02:44:00+02:00`
+Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
+Generated: `2026-07-16T09:38:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `c22034e725be0eb30777d9201d1c457c044f752768c960b718e32ecbd75a4c78`
-Input SHA-256: `sha256:ba16b4be5550f54252eaaa12dfc36609b84d2c9868dd8854e7adcc71cb995499`
+Generated JSON SHA-256: `0d0b1fd7dfd1984d8d26cc74817e1d046ddb1b481f7da0dd38b59e7672811230`
+Input SHA-256: `sha256:c868e94f8d5f675485e921bb9f0fe5d17460a176fc04e2fb0efd8997d82523b1`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3961
-- Mapped scanner facts: 179
-- Unmapped scanner facts: 3782
-- Generated-test catalog rows: 179
+- Scanner facts: 3966
+- Mapped scanner facts: 182
+- Unmapped scanner facts: 3784
+- Generated-test catalog rows: 182
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1455 | 133 | 1322 |
-| `rust_unit_test` | 1711 | 46 | 1665 |
+| `rust_integration_test` | 1457 | 135 | 1322 |
+| `rust_unit_test` | 1714 | 47 | 1667 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -2235,6 +2235,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_7A5A4A61FEA7C1CD98DF` | `rust_unit_test` | `crates/trust-runtime/src/control/fleet_handlers/tests.rs` | `ads_server_params_humanize_allowed_clients_without_raw_pin_objects` | `not_ignored` |
 | `DISC_EE2684C84A8E510D7E97` | `rust_unit_test` | `crates/trust-runtime/src/control/fleet_handlers/tests.rs` | `host_name_normalization_trims_whitespace_and_trailing_dot` | `not_ignored` |
 | `DISC_11EF0C4F73B1544D8B3F` | `rust_unit_test` | `crates/trust-runtime/src/control/fleet_handlers/tests.rs` | `host_name_uses_os_hostname_before_literal_fallback` | `not_ignored` |
+| `DISC_A2D72CD1E66CDA51A5A6` | `rust_unit_test` | `crates/trust-runtime/src/control/operation_registry.rs` | `debug_surface_classification_is_owned_by_the_operation_registry` | `not_ignored` |
+| `DISC_E0EA51662EC8697B47D6` | `rust_unit_test` | `crates/trust-runtime/src/control/operation_registry.rs` | `reviewed_operation_registry_has_unique_names_and_default_deny_boundary` | `not_ignored` |
 | `DISC_B4CE6789A4A5D02DE0ED` | `rust_unit_test` | `crates/trust-runtime/src/control/policy.rs` | `ads_connector_status_and_ads_mutations_keep_role_boundaries` | `not_ignored` |
 | `DISC_E089E5D43399F96CC63F` | `rust_unit_test` | `crates/trust-runtime/src/control/policy.rs` | `ads_import_symbols_requires_engineer_for_live_target_only` | `not_ignored` |
 | `DISC_151AF83E7ACDF303EB01` | `rust_unit_test` | `crates/trust-runtime/src/control/policy.rs` | `comm_browse_symbols_requires_engineer_for_live_target_only` | `not_ignored` |

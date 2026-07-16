@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
-Generated: `2026-07-16T02:44:00+02:00`
+Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
+Generated: `2026-07-16T09:38:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `14f997b2f49854973537ca82ef1b32ab479d015bc6fa2257c3d9b707daea09e3`
-Input SHA-256: `sha256:a983c5dd0392e2461c31ece0894d9859650a83eac85001484137543f95c8f615`
+Generated JSON SHA-256: `606c441b9cfbd80a7755f5adfd5ddd035efb4e77253cf9a81007fa4a0c31e536`
+Input SHA-256: `sha256:172606ac3063548d2de7dc9f57f90258ab8d1f8e86a750ad6f07e739e6353063`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 16 |
+| `covered` | 21 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 25 |
-| `gap_open` | 27 |
+| `spec_gap` | 24 |
+| `gap_open` | 23 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -206,13 +206,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `auth_or_permission` | `additional_recorded` | `gap_open` | none | none |
+| `auth_or_permission` | `additional_recorded` | `covered` | none | none |
 
 ### `SEC_AUTHZ_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `auth_or_permission` | `additional_recorded` | `gap_open` | none | none |
+| `auth_or_permission` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `editor_safety`
 
@@ -228,7 +228,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `time_or_clock_fault` | `additional_recorded` | `gap_open` | none | none |
+| `time_or_clock_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `EDIT_DIAG_CANCEL_001`
 
@@ -392,7 +392,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
 
 ### `RT_SAFE_IO_001`
 
@@ -417,7 +417,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `concurrency_or_cancellation` | `additional_recorded` | `gap_open` | none | none |
+| `concurrency_or_cancellation` | `additional_recorded` | `covered` | none | none |
 
 ### `RT_SAFE_RESTART_001`
 

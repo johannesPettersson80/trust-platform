@@ -1,11 +1,11 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
-Generated: `2026-07-16T02:44:00+02:00`
+Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
+Generated: `2026-07-16T09:38:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `5b5ad834d33c9b38388abd22d684d637bb884ce753d1164358fa95521fe3980d`
-Input SHA-256: `sha256:3dba457f429ccee538615563173f5ea76308766ca7d1a80d3ae4c6fa4ae140b2`
+Generated JSON SHA-256: `f8b2b498a89859fd330699a3cca28810c9972a8e3c58669884695bd0b6eb9417`
+Input SHA-256: `sha256:ae0e05f8bf0a8cdc3733ee773fa0726eb2230f448f3327649ade3ca72c0efcd8`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
@@ -33,7 +33,7 @@ establish expected behavior, or count as product proof.
 | `conformance` | 21 | 0 | 0 | 0 | `limitation` |
 | `node` | 47 | 1 | 0 | 1 | `mechanical` |
 | `playwright` | 7 | 1 | 1 | 0 | `mechanical` |
-| `rust` | 562 | 27 | 26 | 1 | `mechanical` |
+| `rust` | 566 | 27 | 26 | 1 | `mechanical` |
 | `shell` | 29 | 0 | 0 | 0 | `limitation` |
 
 Surface notes:
