@@ -1,22 +1,22 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `f71729e9ec9314de8dea09a7062d3546c81b546b`
-Generated: `2026-07-16T16:12:00+02:00`
+Source revision: `1a920832045429a1683bedd9693d0aa3daad3535`
+Generated: `2026-07-16T19:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ec4eae998ae586f29e63db7ff6be1eace47ec3d6fc0677acf011e5e9223fa290`
-Input SHA-256: `sha256:4dc3467dc6adb1a3379b163c6491337506ef1688ff6eda2cfd6f79e7f7796f01`
+Generated JSON SHA-256: `1d96b22e884981b7218bce07933b1d4905bbedee9fadcc567dfdbb54ad5bb100`
+Input SHA-256: `sha256:592b5a55c01ea113eb8db22c4e7bd55b5b54eed60727f73d2a5a52082046b3ec`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3970
-- Classified scanner facts: 185
+- Scanner facts: 3973
+- Classified scanner facts: 188
 - Unmapped scanner facts: 3785
-- Catalog records: 190
-- Runnable catalog records: 186
+- Catalog records: 193
+- Runnable catalog records: 189
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
@@ -31,8 +31,8 @@ mean every scanner fact or required test class is mapped.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1459 | 137 | 1322 |
-| `rust_unit_test` | 1716 | 48 | 1668 |
+| `rust_integration_test` | 1460 | 138 | 1322 |
+| `rust_unit_test` | 1718 | 50 | 1668 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -71,6 +71,7 @@ Classified mappings:
 - `DISC_6EDF6218DDBF01A4060E` -> `TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001`
 - `DISC_A324C9FF622A5F835C5A` -> `TEST_BYTECODE_VALIDATOR_CASES_001`
 - `DISC_6FE11E79A06AEA138657` -> `TEST_BYTECODE_VERSION_REJECTION_001`
+- `DISC_1E139E65D6EA58F838A8` -> `TEST_CONNECTOR_STATUS_TRUTH_TRACE_001`
 - `DISC_269219F3ACC34E73387B` -> `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001`
 - `DISC_636CB8D8E6B5C60C383F` -> `TEST_CONTROL_AUTHORIZATION_TRACE_001`
 - `DISC_8664E7408C2C3D60D5C5` -> `TEST_DEBUG_AUTHORIZATION_MATRIX_001`
@@ -85,6 +86,7 @@ Classified mappings:
 - `DISC_B3D707B941701C75F0A3` -> `TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001`
 - `DISC_EB9C1ED2E879B48CDDDD` -> `TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001`
 - `DISC_9B5074A2F4ECFB141D84` -> `TEST_EDITOR_RENAME_SHADOW_CAPTURE_001`
+- `DISC_CA616B8FA0E5BB982CB5` -> `TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001`
 - `DISC_F4B46894F7E22B37EC5F` -> `TEST_IEC_CONTEXT_LITERAL_CONVERSION_001`
 - `DISC_44D0C7B1DA8B0B5C0B8B` -> `TEST_IEC_CONTEXT_LITERAL_PRECISION_REJECTION_001`
 - `DISC_A5D3D4D2770B1A5B5B0E` -> `TEST_IEC_CROSS_FAMILY_CONVERSION_REJECTION_001`
@@ -135,6 +137,7 @@ Classified mappings:
 - `DISC_DBCE837999092CDE3372` -> `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001`
 - `DISC_0F2A9C178711CAFD31F3` -> `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`
 - `DISC_E88335AA584F723ECF04` -> `TEST_PLCOPEN_IMPORT_TRACE_001`
+- `DISC_320D1EE366A7EDAC74A1` -> `TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001`
 - `DISC_EE9408494F62E80474E3` -> `TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001`
 - `DISC_8F0C898E72D907AA065A` -> `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001`
 - `DISC_846E4BECA070B0C77CDA` -> `TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001`
@@ -311,7 +314,7 @@ Additional catalog classes:
 
 Additional catalog classes:
 
-- `behavior_lock`: runnable `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`; non-runnable none
+- `behavior_lock`: runnable `TEST_CONNECTOR_STATUS_TRUTH_TRACE_001`, `TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001`, `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`, `TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001`; non-runnable none
 
 ## Area: `release`
 

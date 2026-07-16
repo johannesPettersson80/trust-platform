@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `f71729e9ec9314de8dea09a7062d3546c81b546b`
-Generated: `2026-07-16T16:12:00+02:00`
+Source revision: `1a920832045429a1683bedd9693d0aa3daad3535`
+Generated: `2026-07-16T19:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `b109d5ae1f336d2acb51cae72aba6c841bda71888213bbc7cec047de27d303b3`
-Input SHA-256: `sha256:ab2081db257e2a1840e7099cb9aecc10fd16e0b94a479c15bba169534dcf9466`
+Generated JSON SHA-256: `790ede4d4f60b3f70ab5daca126a7deeb6ea9da33ec63f3845f7ad6db8fe3fdd`
+Input SHA-256: `sha256:13ad6e4eb07e11ba5e52a1c99503c5fd18a2f80e227fb41debd4f847df2a5995`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,11 +28,11 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 24 |
+| `covered` | 30 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 24 |
+| `spec_gap` | 18 |
 | `gap_open` | 20 |
 | `deferred` | 0 |
 
@@ -294,31 +294,31 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_DISCOVERY_TRUTH_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `hardware_or_network_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_ETHERCAT_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `resource_limit` | `additional_recorded` | `spec_gap` | none | none |
+| `resource_limit` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_MODBUS_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `hardware_or_network_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_MQTT_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_OPCUA_001`
 
@@ -330,7 +330,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `hardware_or_network_fault` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `release`
 

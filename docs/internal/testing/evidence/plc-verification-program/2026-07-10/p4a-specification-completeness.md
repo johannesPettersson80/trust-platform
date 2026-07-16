@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `f71729e9ec9314de8dea09a7062d3546c81b546b`
-Generated: `2026-07-16T16:12:00+02:00`
+Source revision: `1a920832045429a1683bedd9693d0aa3daad3535`
+Generated: `2026-07-16T19:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `14e762668683c6d568e0ec870ee45c11c5847774ff2443053ca2ec79c11bffe9`
-Input SHA-256: `sha256:ffc0eac6ffbc6729b7b1aaef5ca28587f1fd1e3e16ee2fbdc37029b2dfbe955d`
+Generated JSON SHA-256: `8e9e7e8367d23d98e10fd2d6595b0e1bef0ec837b468ec9da71de9e8bf43b3bd`
+Input SHA-256: `sha256:c69d7f7750caa1d65cb95c1d3f054f1fae0c9e2699d878211b84f1f49f06e426`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 53
-- Invariants without specified specs: 20
-- Tests with expected results: 190
+- Invariants without specified specs: 14
+- Tests with expected results: 193
 - Tests without oracle/spec/gap binding: 3
 - Coverage cells: 68
-- Coverage cells marked spec_gap: 24
+- Coverage cells marked spec_gap: 18
 - Bytecode pilot gaps: 3
 - Registered public-claim sources: 4
 
@@ -30,12 +30,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `PROTO_ADS_001` | `protocols` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` |
-| `PROTO_DISCOVERY_TRUTH_001` | `protocols` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
-| `PROTO_ETHERCAT_001` | `protocols` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` |
-| `PROTO_MODBUS_001` | `protocols` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
-| `PROTO_MQTT_001` | `protocols` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
-| `PROTO_STATUS_TRUTH_001` | `protocols` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
 | `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | `spec_gap` | `ambiguous` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | `spec_gap` | `ambiguous` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
 | `REL_CLAIM_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001` |
@@ -63,12 +57,6 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `PROTO_ADS_001` | `protocols` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` |
-| `PROTO_DISCOVERY_TRUTH_001` | `protocols` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
-| `PROTO_ETHERCAT_001` | `protocols` | `false_status` | 0 | `resource_limit` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` |
-| `PROTO_MODBUS_001` | `protocols` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
-| `PROTO_MQTT_001` | `protocols` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
-| `PROTO_STATUS_TRUTH_001` | `protocols` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
 | `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | 0 | `happy_path` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
 | `REL_CLAIM_001` | `release` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001` |
@@ -105,7 +93,7 @@ Basis: `registered_spec_sources_only`. Exhaustive public-doc scan: `no`.
 | Source | Area | Status | Surface | Invariants | Oracles | Spec gaps |
 | --- | --- | --- | --- | --- | --- | --- |
 | `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `release` | `active` | `README.md` | `DEBUG_BEHAVIOR_LOCKED_001`, `REL_CONF_001`, `RUNTIME_BEHAVIOR_LOCKED_001` | none | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001`, `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
-| `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `protocols` | `active` | `README.md` | `PROTO_ADS_001`, `PROTO_DISCOVERY_TRUTH_001`, `PROTO_ETHERCAT_001`, `PROTO_MODBUS_001`, `PROTO_MQTT_001`, `PROTO_STATUS_TRUTH_001`, `REL_CLAIM_001`, `UI_STATUS_001` | none | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001`, `SPEC_GAP_PROTOCOL_STATUS_MODEL_001`, `SPEC_GAP_PUBLIC_WIRE_CLAIM_001`, `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
+| `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `protocols` | `active` | `README.md` | `REL_CLAIM_001`, `UI_STATUS_001` | none | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001`, `SPEC_GAP_PROTOCOL_STATUS_MODEL_001`, `SPEC_GAP_PUBLIC_WIRE_CLAIM_001`, `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
 | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `release` | `active` | `docs/public/start/install-from-source.md#optional-openot-reference-checkout` | `RELEASE_SOURCE_BUILD_OPENOT_001`, `REL_VERSION_001`, `SEC_ARTIFACT_001`, `SEC_DEP_AUDIT_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001`, `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
 | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `release` | `active` | `README.md` | `PLAT_PATH_001`, `PLAT_VSCODE_001`, `RELEASE_PLATFORM_MATRIX_001`, `REL_CLAIM_001`, `REL_VERSION_001`, `SEC_ARTIFACT_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 

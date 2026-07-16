@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-16T16:12:00+02:00"
+    "2026-07-16T19:07:00+02:00"
   ],
-  "commit": "f71729e9ec9314de8dea09a7062d3546c81b546b",
+  "commit": "1a920832045429a1683bedd9693d0aa3daad3535",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:577dcc780355a914e4b572dbcc625d264ae51b15a1ed9ce20e44966d9d58848b",
+  "input_digest": "sha256:998cf850bf3f2ffe6bf2c55c71480c3414899f50231320cbe6be66bca739ce6b",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -692,6 +692,7 @@
     "crates/trust-runtime/src/control/comm_handlers/discover.rs",
     "crates/trust-runtime/src/control/comm_handlers/discover_tests.rs",
     "crates/trust-runtime/src/control/comm_handlers/discovery_probe.rs",
+    "crates/trust-runtime/src/control/comm_handlers/discovery_probe/trace_cases.rs",
     "crates/trust-runtime/src/control/comm_handlers/mod.rs",
     "crates/trust-runtime/src/control/comm_handlers/probe.rs",
     "crates/trust-runtime/src/control/comm_handlers/schema.rs",
@@ -1042,6 +1043,7 @@
     "crates/trust-runtime/src/io/ethercat/mock_bus.rs",
     "crates/trust-runtime/src/io/ethercat/models.rs",
     "crates/trust-runtime/src/io/ethercat/tests.rs",
+    "crates/trust-runtime/src/io/ethercat/trace_cases.rs",
     "crates/trust-runtime/src/io/gpio.rs",
     "crates/trust-runtime/src/io/interface.rs",
     "crates/trust-runtime/src/io/loopback.rs",
@@ -1486,6 +1488,7 @@
     "crates/trust-runtime/tests/process_image.rs",
     "crates/trust-runtime/tests/prometheus_integration.rs",
     "crates/trust-runtime/tests/protocol_envelope.rs",
+    "crates/trust-runtime/tests/protocol_status_trace_cases.rs",
     "crates/trust-runtime/tests/real_world.rs",
     "crates/trust-runtime/tests/realtime_t0_integration.rs",
     "crates/trust-runtime/tests/registry_command.rs",
@@ -2758,7 +2761,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-16T16:12:00+02:00",
+  "timestamp": "2026-07-16T19:07:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",

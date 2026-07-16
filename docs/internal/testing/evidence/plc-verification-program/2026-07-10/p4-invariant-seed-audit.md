@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `f71729e9ec9314de8dea09a7062d3546c81b546b`
-Generated: `2026-07-16T16:12:00+02:00`
+Source revision: `1a920832045429a1683bedd9693d0aa3daad3535`
+Generated: `2026-07-16T19:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `2848e31a65ce7cf7a4bd4b40a67c528f9381e6ad660308de88ba40454bfa2b50`
-Input SHA-256: `sha256:56c3142852c15895ddb0dfc46204e1276d1c8b5b737b0781b354c7db6b3c6375`
+Generated JSON SHA-256: `6a48460a91b66a428db1d663c9ef40aeb100bcbb5eabdffe59d23dc3b73afdb1`
+Input SHA-256: `sha256:cb6f0badcd2889760110c628f56a36cb52a9ebf9489b2740cc19d9f1c5ff50e1`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -17,12 +17,12 @@ closes no specification gap, and changes no runtime behavior.
 - Authorized merged aliases: 1
 - Newly introduced Phase 4 records: 36
 - Pre-existing seed mappings: 8
-- Baseline lifecycle records: 19
-- Execution-ready lifecycle records: 25
+- Baseline lifecycle records: 14
+- Execution-ready lifecycle records: 30
 - Gap-open records: 12
-- Spec-gap records: 18
+- Spec-gap records: 13
 - Test-written records: 0
-- Implemented records: 14
+- Implemented records: 19
 - Validated records: 0
 - Imported P4-000 review risks: 5
 
@@ -64,11 +64,11 @@ closes no specification gap, and changes no runtime behavior.
 | `PLCO_IMPORT_001` | `PLCO_IMPORT_001` | `plcopen_devtools` | `VERIF-P4-005` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `none` |
 | `DEV_TEST_DISCOVERY_001` | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` | `none` |
 | `DEV_COMMIT_SCOPE_001` | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` | `none` |
-| `PROTO_DISC_001` | `PROTO_DISCOVERY_TRUTH_001` | `protocols` | `VERIF-P4-004` | `preexisting` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` | `none` |
-| `PROTO_MODBUS_001` | `PROTO_MODBUS_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` | `none` |
-| `PROTO_MQTT_001` | `PROTO_MQTT_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` | `none` |
-| `PROTO_ETHERCAT_001` | `PROTO_ETHERCAT_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` | `none` |
-| `PROTO_ADS_001` | `PROTO_ADS_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:baseline` | `spec_gap/S0` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` | `none` |
+| `PROTO_DISC_001` | `PROTO_DISCOVERY_TRUTH_001` | `protocols` | `VERIF-P4-004` | `preexisting` | `v1:execution_ready` | `implemented/G1` | `SPEC_RUNTIME_ENGINE_001` | `none` |
+| `PROTO_MODBUS_001` | `PROTO_MODBUS_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RUNTIME_ENGINE_001` | `none` |
+| `PROTO_MQTT_001` | `PROTO_MQTT_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RUNTIME_ENGINE_001` | `none` |
+| `PROTO_ETHERCAT_001` | `PROTO_ETHERCAT_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RUNTIME_ENGINE_001` | `none` |
+| `PROTO_ADS_001` | `PROTO_ADS_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RUNTIME_ENGINE_001` | `none` |
 | `PROTO_OPCUA_001` | `PROTO_OPCUA_001` | `protocols` | `VERIF-P4-004` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `RISK_OPCUA_CLIENT_LIFECYCLE_001` |
 | `EDIT_RENAME_001` | `EDIT_RENAME_001` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
 | `EDIT_RENAME_002` | `EDIT_RENAME_002` | `editor_safety` | `VERIF-P4-005` | `phase4` | `v1:baseline` | `gap_open/S0` | `SPEC_LSP_CONTRACT_001` | `none` |
