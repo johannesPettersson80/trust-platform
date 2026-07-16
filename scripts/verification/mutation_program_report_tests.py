@@ -40,10 +40,10 @@ class MutationProgramReportTests(unittest.TestCase):
 
     def test_report_distinguishes_measured_from_planned(self) -> None:
         self.assertEqual(6, self.payload["summary"]["shards"])
-        self.assertEqual(1, self.payload["summary"]["measured_shards"])
-        self.assertEqual(5, self.payload["summary"]["planned_shards"])
-        self.assertEqual(2, self.payload["summary"]["measured_mutants"])
-        self.assertEqual(2, self.payload["summary"]["caught"])
+        self.assertEqual(5, self.payload["summary"]["measured_shards"])
+        self.assertEqual(1, self.payload["summary"]["planned_shards"])
+        self.assertEqual(6, self.payload["summary"]["measured_mutants"])
+        self.assertEqual(6, self.payload["summary"]["caught"])
         self.assertEqual(0, self.payload["summary"]["survived"])
         self.assertEqual([], self.payload["survivors"])
         for result in self.payload["shards"][0]["results"]:
@@ -57,9 +57,12 @@ class MutationProgramReportTests(unittest.TestCase):
             )
             self.assertNotIn("related_case_ids", result)
             self.assertNotIn("survivor_action", result)
-        for row in self.payload["shards"][1:]:
-            self.assertEqual("planned", row["execution_status"])
-            self.assertEqual([], row["results"])
+        for row in self.payload["shards"][1:5]:
+            self.assertEqual("measured", row["execution_status"])
+            self.assertEqual(1, len(row["results"]))
+            self.assertEqual("caught", row["results"][0]["result"])
+        self.assertEqual("planned", self.payload["shards"][5]["execution_status"])
+        self.assertEqual([], self.payload["shards"][5]["results"])
 
     def test_focused_artifact_results_are_normalized_without_raw_logs(self) -> None:
         result = _normalize_focused_result(
@@ -92,6 +95,14 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertNotIn("test_stderr", result)
 
     def test_program_boundaries_create_no_proof_coverage_or_release_claim(self) -> None:
+        self.assertEqual(
+            "validated_bytecode_pilot_and_four_source_execution_artifacts",
+            self.payload["scope"]["measured_basis"],
+        )
+        self.assertEqual(
+            "single_file_list_and_bound_source_execution_artifacts",
+            self.payload["tool"]["selection_mode"],
+        )
         boundaries = self.payload["boundaries"]
         self.assertFalse(boundaries["report_creates_proof"])
         self.assertFalse(boundaries["report_creates_invariant_coverage"])
@@ -102,10 +113,7 @@ class MutationProgramReportTests(unittest.TestCase):
 
     def test_semantic_tamper_fails_live_recompute(self) -> None:
         corrupted = copy.deepcopy(self.payload)
-        corrupted["shards"][1]["execution_status"] = "measured"
-        corrupted["shards"][1]["results"] = copy.deepcopy(self.payload["shards"][0]["results"][:1])
-        corrupted["summary"]["measured_shards"] += 1
-        corrupted["summary"]["planned_shards"] -= 1
+        corrupted["shards"][1]["owner"] = "invented-owner"
         failures = validate_report_payload(corrupted, expected_state=self.state)
         self.assertTrue(any("live Phase 10" in item for item in failures), failures)
 

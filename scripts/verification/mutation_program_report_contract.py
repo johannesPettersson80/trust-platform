@@ -124,7 +124,7 @@ ALLOWED_SURVIVOR_ACTIONS = {
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 ASSOCIATED_TEST_FIELDS = {"id_kind", "id", "source_kind", "path", "name", "ignore_state"}
 REPORT_SCHEMA_SEMANTIC_DIGEST = (
-    "3711954bcbfffc04a9d2a905191865cbc18ec1cace320106cac10164d704c49f"
+    "9e3ccc6e21ac925b768f7ad1b359f3d9d2d3ee9d8f20219fbecd2076e5633629"
 )
 
 
@@ -211,7 +211,7 @@ def validate_schema_contract(schema: object) -> list[str]:
     for field, expected in {
         "name": "cargo-mutants",
         "version": "cargo-mutants 27.0.0",
-        "selection_mode": "single_file_list_only",
+        "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
     }.items():
         if _property_schema(tool, field).get("const") != expected:
             failures.append(f"mutation survivor report schema tool {field} const drifted")
@@ -247,7 +247,7 @@ def validate_report_payload(
         "tool": {
             "name": "cargo-mutants",
             "version": "cargo-mutants 27.0.0",
-            "selection_mode": "single_file_list_only",
+            "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
         },
     }.items():
         if payload.get(field) != expected:

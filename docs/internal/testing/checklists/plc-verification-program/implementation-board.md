@@ -1020,13 +1020,15 @@ Acceptance:
   where relevant.
 - [x] `VERIF-P10-006` Keep first mutation gates focused.
 
-  The report-only Phase 10 registry at clean source commit
-  `9eacebaa6f272d8a76f038e777279bc69067b5c2` defines the six exact listed
-  shards and seven single-file selectors, capped at two mutants per shard.
-  The refreshed bytecode-validator pilot is the only measured shard: two
+  The report-only Phase 10 registry defines the six exact listed shards and
+  seven single-file selectors, capped at two mutants per shard. The refreshed
+  bytecode-validator pilot and four source-only shards are measured: six
   caught, zero survivors, zero unviable, zero timeouts, and zero errors. The
-  other five shards remain explicitly `planned` with empty result arrays;
-  selector and live-test binding is not execution evidence.
+  source artifacts bind clean execution commit
+  `56f68f2bbdb12c655f681668c5a5fddda4f4d659`; connector projection remains
+  explicitly `planned` with an empty result array because no delivered-binary
+  execution was performed. Selector and association binding alone is not
+  execution evidence.
 
   The closed generic report derives outcomes from raw exit/timeout fields,
   rejects infrastructure errors, and requires every future measured survivor
@@ -1035,9 +1037,8 @@ Acceptance:
   shard cannot become measured without a delivered artifact SHA-256 and direct
   execution confirmation. Association IDs are labels only, never killed-by or
   executed-test claims. Durable report:
-  `docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md`;
-  generated JSON SHA-256:
-  `cd41cb7c7b3536510df4dfee3004863ba8f199acc59d6f609d368b0bda95bc52`.
+  The prior 2026-07-12 generic report is superseded by the measured source
+  artifacts and will be rebound in the follow-up evidence commit.
   No proof, invariant promotion, spec-gap closure, product/runtime behavior,
   CI enforcement, workflow, skill, or agent-instruction change is made.
 
@@ -1345,6 +1346,16 @@ same commit, with the closure evidence linked.
   digests. Pause/watchdog, force lifecycle, and panic containment passed
   current-contract baseline/compare runs, so no red or product fix was
   fabricated for those already-correct behaviors.
+
+  Focused source-mutation progress (2026-07-16): runtime conversion, HIR
+  subrange diagnostics, parser recovery, and retain/restart each caught their
+  one viable reviewed mutant on `trust-builder`, with zero survivors,
+  unviable outcomes, timeouts, or infrastructure errors in the accepted
+  artifacts. The mutation tool's original conversion default-return selector
+  did not compile because `Value` has no `Default`; that diagnostic attempt is
+  retained and the shard was rerun with the viable `convert_value` identity
+  comparison selector. No baseline product bug appeared, so no red proof or
+  product fix was invented.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.

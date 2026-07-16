@@ -17,8 +17,8 @@ DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/mutation-survivor-r
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/mutation-survivor-report.md")
 SCOPE = {
     "mutation_basis": "six_exact_focused_shards_and_seven_single_file_selectors",
-    "measured_basis": "validated_legacy_bytecode_pilot_only",
-    "planned_basis": "selector_and_live_test_binding_without_execution",
+    "measured_basis": "validated_bytecode_pilot_and_four_source_execution_artifacts",
+    "planned_basis": "connector_selector_binding_without_delivered_execution",
     "survivor_basis": "derived_survived_outcomes_with_resolved_durable_action",
     "coverage_basis": "zero_runs_no_fabricated_percentage",
 }
@@ -32,8 +32,8 @@ BOUNDARIES = {
     "ci_enforcement_changed": False,
 }
 LIMITATIONS = (
-    "Only the existing bytecode-validator pilot is measured; five other focused shards are definitions with empty result arrays.",
-    "Cargo-mutants single-file listing resolves each selector but does not execute a baseline, build, test, mutation, or coverage command.",
+    "The bytecode-validator pilot and four source-only shards are measured; the connector-projection shard remains planned with an empty result array.",
+    "Report generation resolves selectors but executes no mutation or coverage command; source outcomes come only from separately committed clean-HEAD execution artifacts.",
     "Caught and survived are derived from raw build/test exit and timeout fields; infrastructure failures are errors and cannot count as caught or unviable.",
     "Associated scanner and case identities are traceability labels, not claims that a specific test or blocked case killed a mutant.",
     "Mutation and coverage results are test-adequacy signals, never release safety proof, invariant coverage, or spec-gap closure.",
@@ -66,7 +66,7 @@ class MutationProgramReport:
             "tool": {
                 "name": "cargo-mutants",
                 "version": self.tool_version,
-                "selection_mode": "single_file_list_only",
+                "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
             },
             "shards": [dict(item) for item in self.shards],
             "survivors": [dict(item) for item in self.survivors],
@@ -130,8 +130,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"Generated JSON SHA-256: `{json_digest}`",
         f"Input SHA-256: `{payload['input_digest']}`",
         "",
-        "This report separates one validated measured pilot from five planned focused",
-        "shards. It creates no proof, invariant coverage, spec-gap closure, release",
+        "This report separates five validated measured shards from one planned connector",
+        "shard. It creates no proof, invariant coverage, spec-gap closure, release",
         "evidence, product behavior, or CI enforcement change.",
         "",
         "## Summary",
@@ -190,7 +190,7 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             for row in payload["survivors"]
         )
     else:
-        lines.append("No survivors are present in the measured pilot.")
+        lines.append("No survivors are present in the measured shards.")
     lines.extend(["", "## Boundaries", ""])
     lines.extend(
         f"- `{field}`: `{str(payload['boundaries'][field]).lower()}`"

@@ -31,7 +31,7 @@ class MutationProgramContractTests(unittest.TestCase):
         )
         self.assertEqual(6, len(self.program["shards"]))
         self.assertEqual(
-            ["measured", "planned", "planned", "planned", "planned", "planned"],
+            ["measured", "measured", "measured", "measured", "measured", "planned"],
             [row["execution_status"] for row in self.program["shards"]],
         )
         self.assertEqual(
@@ -85,6 +85,10 @@ class MutationProgramContractTests(unittest.TestCase):
     def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
         shards = copy.deepcopy(self.program["shards"])
         shards[1]["execution_status"] = "measured"
+        shards[1]["result_artifact_path"] = (
+            "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
+            "missing-focused-mutation.json"
+        )
         failures: list[str] = []
         survivors = contract_module._validate_focused_shards(ROOT, shards, failures)
         self.assertEqual(set(), survivors)

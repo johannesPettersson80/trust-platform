@@ -177,14 +177,14 @@ The exhaustive mapping row, fault-toggle row, and production-hook guard row
 remain open.
 
 Phase 10 defines six exact focused mutation shards and seven selected mutants.
-Only the existing bytecode-validator pilot is measured; runtime conversion,
-HIR diagnostics, parser recovery, retain/restart, and connector projection are
-planned definitions with empty result arrays. Exact live test associations do
-not claim execution or mutant causality. Mutation and coverage are adequacy
-signals only, and a future delivered-binary run must carry artifact identity
-and direct-execution confirmation before it may be measured.
+The bytecode-validator pilot plus runtime conversion, HIR diagnostics, parser
+recovery, and retain/restart are measured from committed artifacts. Connector
+projection remains planned with an empty result array. Exact live test
+associations do not claim execution or mutant causality. Mutation and coverage
+are adequacy signals only, and a future delivered-binary run must carry
+artifact identity and direct-execution confirmation before it may be measured.
 
-The four planned source-only shards reserve exact durable JSON paths and share
+The four measured source-only shards reserve exact durable JSON paths and share
 `scripts/run_focused_mutation_shard.py`. The runner accepts no other shard,
 requires a clean committed checkout, executes inside an isolated Git archive,
 and treats infrastructure-shaped failures as errors. A source shard may move

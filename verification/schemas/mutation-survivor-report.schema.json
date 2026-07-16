@@ -64,8 +64,8 @@
       "required": ["mutation_basis", "measured_basis", "planned_basis", "survivor_basis", "coverage_basis"],
       "properties": {
         "mutation_basis": { "const": "six_exact_focused_shards_and_seven_single_file_selectors" },
-        "measured_basis": { "const": "validated_legacy_bytecode_pilot_only" },
-        "planned_basis": { "const": "selector_and_live_test_binding_without_execution" },
+        "measured_basis": { "const": "validated_bytecode_pilot_and_four_source_execution_artifacts" },
+        "planned_basis": { "const": "connector_selector_binding_without_delivered_execution" },
         "survivor_basis": { "const": "derived_survived_outcomes_with_resolved_durable_action" },
         "coverage_basis": { "const": "zero_runs_no_fabricated_percentage" }
       }
@@ -94,7 +94,7 @@
       "properties": {
         "name": { "const": "cargo-mutants" },
         "version": { "const": "cargo-mutants 27.0.0" },
-        "selection_mode": { "const": "single_file_list_only" }
+        "selection_mode": { "const": "single_file_list_and_bound_source_execution_artifacts" }
       }
     },
     "associated_test": {

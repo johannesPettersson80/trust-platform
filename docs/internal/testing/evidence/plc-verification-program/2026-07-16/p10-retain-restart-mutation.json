@@ -1,0 +1,91 @@
+{
+  "baseline_commands": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "runtime_restart",
+        "warm_restart_preserves_retain_and_initializes_nonretain",
+        "--",
+        "--exact"
+      ],
+      "duration_seconds": 44.407,
+      "exit_status": 0,
+      "timed_out": false
+    }
+  ],
+  "boundaries": {
+    "artifact_closes_spec_gaps": false,
+    "artifact_creates_proof": false,
+    "artifact_promotes_invariants": false,
+    "association_ids_are_execution_claims": false
+  },
+  "contract_digest": "sha256:13867d06e20543a09ba61882a0f5f773260f4fc8c9b6cbe44caf676efab40b0b",
+  "finished_at": "2026-07-16T10:01:23Z",
+  "id": "MUTATION_EXECUTION_RETAIN_RESTART_001",
+  "mutations": [
+    {
+      "association_ids": [
+        "DISC_83FE96819CB25F21CA77"
+      ],
+      "build_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "runtime_restart",
+        "--no-run"
+      ],
+      "build_duration_seconds": 33.635,
+      "build_exit_status": 0,
+      "build_stderr": "   Compiling trust-runtime v0.24.50 (/tmp/trust-focused-mutation-j8bu1bpw/crates/trust-runtime)\nwarning: unused variable: `policy`\n   --> crates/trust-runtime/src/runtime/restart.rs:685:19\n    |\n685 | fn retain_on_warm(policy: RetainPolicy) -> bool {\n    |                   ^^^^^^ help: if this is intentional, prefix it with an underscore: `_policy`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: `trust-runtime` (lib) generated 1 warning (run `cargo fix --lib -p trust-runtime` to apply 1 suggestion)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.56s\n  Executable tests/runtime_restart.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/runtime_restart-256e817dc637a179)\n",
+      "build_stdout": "",
+      "build_timed_out": false,
+      "duration_seconds": 34.15,
+      "function": "retain_on_warm",
+      "generated_mutant_name": "restart.rs:686:5: replace retain_on_warm -> bool with false",
+      "genre": "FnValue",
+      "id": "MUTANT_RETAIN_ON_WARM_FALSE",
+      "replacement": "false",
+      "result": "caught",
+      "source_file": "crates/trust-runtime/src/runtime/restart.rs",
+      "test_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "runtime_restart",
+        "warm_restart_preserves_retain_and_initializes_nonretain",
+        "--",
+        "--exact"
+      ],
+      "test_duration_seconds": 0.516,
+      "test_exit_status": 101,
+      "test_stderr": "warning: unused variable: `policy`\n   --> crates/trust-runtime/src/runtime/restart.rs:685:19\n    |\n685 | fn retain_on_warm(policy: RetainPolicy) -> bool {\n    |                   ^^^^^^ help: if this is intentional, prefix it with an underscore: `_policy`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: `trust-runtime` (lib) generated 1 warning (run `cargo fix --lib -p trust-runtime` to apply 1 suggestion)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s\n     Running tests/runtime_restart.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/runtime_restart-256e817dc637a179)\nerror: test failed, to rerun pass `-p trust-runtime --test runtime_restart`\n",
+      "test_stdout": "\nrunning 1 test\ntest warm_restart_preserves_retain_and_initializes_nonretain ... FAILED\n\nfailures:\n\n---- warm_restart_preserves_retain_and_initializes_nonretain stdout ----\n\nthread 'warm_restart_preserves_retain_and_initializes_nonretain' (3082891) panicked at crates/trust-runtime/tests/runtime_restart.rs:116:5:\nassertion `left == right` failed\n  left: Some(Int(1))\n right: Some(Int(42))\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    warm_restart_preserves_retain_and_initializes_nonretain\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.02s\n\n",
+      "test_timed_out": false
+    }
+  ],
+  "platform": "linux-x86_64",
+  "runner": "focused-mutation-shard.py v1",
+  "schema_version": 1,
+  "shard_id": "MUTATION_SHARD_RETAIN_RESTART_001",
+  "source_commit": "56f68f2bbdb12c655f681668c5a5fddda4f4d659",
+  "started_at": "2026-07-16T10:00:03Z",
+  "status": "complete",
+  "summary": {
+    "caught": 1,
+    "error": 0,
+    "survived": 0,
+    "timeout": 0,
+    "total": 1,
+    "unviable": 0
+  },
+  "tool": "cargo-mutants-single-file-adapter",
+  "tool_version": "cargo-mutants 27.0.0"
+}

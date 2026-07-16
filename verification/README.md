@@ -43,8 +43,9 @@ Current seed scope:
   each known-bad case to its production catcher without claiming assertion
   strength or simulating the not-yet-implemented spec-source scanner.
 - a report-only Phase 10 mutation program with six exact focused shards. The
-  bytecode-validator pilot is the only measured shard; the other five are
-  selector- and live-test-bound definitions with no fabricated execution.
+  bytecode-validator pilot and four source-only shards are measured from bound
+  artifacts; connector projection remains planned without fabricated
+  delivered-binary execution.
 
 TOML shape convention:
 
