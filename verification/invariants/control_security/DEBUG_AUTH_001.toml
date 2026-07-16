@@ -3,22 +3,28 @@ id = "DEBUG_AUTH_001"
 title = "Debug writes and forces require explicit authorization"
 area = "control_security"
 risk = "security"
-status = "gap_open"
+status = "implemented"
 owner = "trust-debug"
 last_reviewed = "2026-07-16"
 claim = "A default viewer or control connection must not gain write, force, or release authority without an explicit authorization contract."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "security_policy"
 source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
 tests = [
   "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
   "TEST_CONTROL_AUTHORIZATION_TRACE_001",
 ]
-gates = []
-evidence_refs = []
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_GREEN",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_COMPARE",
+  "EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716",
+  "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
+]
 spec_gap_refs = []
 missing = [
-  "producer_authentic_current_lock_proof",
   "broad_remote_gate",
 ]
 
@@ -48,5 +54,5 @@ rationale = "Viewer and Operator write, force, and release requests are denied b
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Focused product tests cover debug activation and mutation denial boundaries; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed authorization trace covers the reviewed activation and mutation denial boundaries with a current-contract lock comparison; a causal broad gate remains open."

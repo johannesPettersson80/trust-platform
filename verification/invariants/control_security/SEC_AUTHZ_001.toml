@@ -3,11 +3,11 @@ id = "SEC_AUTHZ_001"
 title = "Runtime control authorization is explicit and default deny"
 area = "control_security"
 risk = "security"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
 tests = [
@@ -15,11 +15,17 @@ tests = [
   "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
   "TEST_CONTROL_AUTHORIZATION_TRACE_001",
 ]
-gates = []
-evidence_refs = []
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_GREEN",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_COMPARE",
+  "EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716",
+  "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
+]
 spec_gap_refs = []
 missing = [
-  "producer_authentic_current_lock_proof",
   "broad_remote_gate",
 ]
 
@@ -65,5 +71,5 @@ rationale = "Engineer may force and release I/O only after the debug surface is 
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "The written matrix and focused product tests cover high-risk debug and fail-safe defaults; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed authorization trace covers the reviewed default-deny, debug activation, force, and release role boundaries with a current-contract lock comparison; a causal broad gate remains open."

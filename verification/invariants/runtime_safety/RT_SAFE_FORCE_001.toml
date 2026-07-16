@@ -3,11 +3,11 @@ id = "RT_SAFE_FORCE_001"
 title = "Force and write lifetime is bounded and visible"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "Force, write, and release state must not persist through lifecycle boundaries without an explicit contract."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
 tests = [
@@ -19,14 +19,17 @@ tests = [
   "TEST_RUNTIME_FORCE_FAULT_001",
   "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
 ]
-gates = []
+gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_RED",
   "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_GREEN",
   "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_LOCK_COMPARE",
+  "EVID_RUNTIME_FORCE_LIFECYCLE_GAP_CLOSEOUT_20260716",
 ]
 spec_gap_refs = []
-missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -54,5 +57,5 @@ rationale = "A deliberate safe-state boundary clears the active I/O force before
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The written lifecycle and focused traces cover restart and safe-state clearing boundaries; producer-authentic current-contract proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed force-lifecycle trace covers restart and safe-state clearing boundaries with a current-contract lock comparison; a causal broad gate remains open."

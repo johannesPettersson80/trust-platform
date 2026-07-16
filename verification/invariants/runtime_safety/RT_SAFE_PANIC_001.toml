@@ -3,11 +3,11 @@ id = "RT_SAFE_PANIC_001"
 title = "Scan-cycle panic cannot leave a healthy status"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "A scan-cycle panic must be contained and surfaced without leaving control surfaces reporting healthy execution."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
 tests = [
@@ -17,9 +17,12 @@ tests = [
   "TEST_RUNTIME_PANIC_THREAD_GUARD_001",
   "TEST_RUNTIME_PANIC_CYCLE_GUARD_001",
 ]
-gates = []
-evidence_refs = []
-missing = ["producer_bound_runtime_status_proof", "broad_remote_gate"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_PANIC_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_PANIC_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -63,5 +66,5 @@ rationale = "ResourcePanic is not retried by the ordinary restart policy and rem
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Four existing containment tests are cataloged across cycle, I/O-driver, safe-output, and outer-thread boundaries; producer-bound proof remains open."
+state = "covered"
+rationale = "The committed panic trace covers cycle, I/O-driver, safe-output, outer-thread, and restart-policy boundaries with a current-contract lock comparison; a causal broad gate remains open."
