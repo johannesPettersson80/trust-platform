@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.50`
+Target release: `v0.24.51`
 
 ### Fixed
 
+- trust-runtime: MQTT discovery now reports authentication and authorization
+  CONNACK rejections as `likely` protocol evidence instead of overclaiming an
+  accepted, confirmed broker session; clean-session DISCONNECT behavior is
+  preserved.
 - trust-runtime: control requests denied by the reviewed role matrix now return
   the stable `insufficient_role` error code before dispatch; reviewed operation
   names, fixed minimum roles, and debug-surface classification share one

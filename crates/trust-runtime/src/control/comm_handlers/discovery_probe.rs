@@ -234,13 +234,13 @@ pub(super) fn probe_mqtt(target: SocketAddr, timeout: Duration) -> Option<Discov
         Ok(code @ (4 | 5)) => {
             let _ = stream.write_all(&[0xe0, 0x00]);
             Some(
-                DiscoveryProbeOutcome::confirmed(
+                DiscoveryProbeOutcome::likely(
                     "mqtt_connack_auth_rejected",
                     format!("MQTT CONNACK rejected anonymous discovery with code {code}."),
                 )
                 .with_auth_required()
                 .with_warning(
-                    "MQTT broker requires credentials; discovery confirmed MQTT without storing a session.",
+                    "MQTT broker requires credentials; discovery identified MQTT-shaped evidence without establishing a session.",
                 ),
             )
         }
@@ -475,7 +475,7 @@ mod tests {
 
         let outcome = probe_mqtt(addr, Duration::from_millis(250)).expect("outcome");
 
-        assert_eq!(outcome.confidence, CONFIRMED);
+        assert_eq!(outcome.confidence, LIKELY);
         assert_eq!(outcome.source, "mqtt_connack_auth_rejected");
         assert!(outcome.auth_required);
         assert!(outcome

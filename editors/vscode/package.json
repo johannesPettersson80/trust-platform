@@ -3,7 +3,7 @@
   "displayName": "truST",
   "description": "truST — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.50",
+  "version": "0.24.51",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
