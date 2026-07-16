@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import tomllib
@@ -50,6 +51,7 @@ EXIT_USAGE = 5
 EXIT_METADATA_INVALID = 6
 EXIT_PROOF_ERROR = 7
 PRODUCER = "prove.py v1"
+LOCK_RERUN_LABEL_RE = re.compile(r"^[A-Z0-9][A-Z0-9_]{0,31}$")
 
 
 class MetadataValidationError(RuntimeError):
@@ -212,7 +214,10 @@ class ProofProducer:
             per_case_summary=run.per_case_summary,
         )
 
-    def lock_baseline(self, test_id: str) -> ProofResult:
+    def lock_baseline(
+        self, test_id: str, *, rerun_label: str | None = None
+    ) -> ProofResult:
+        record_id = lock_record_id(test_id, "lock_baseline", rerun_label)
         self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         self.require_case_file_backed_test(test_id, test)
@@ -229,9 +234,27 @@ class ProofProducer:
             case_file_digest=run.case_file_digest,
             case_result_digest=run.case_result_digest,
             per_case_summary=run.per_case_summary,
+            record_id=record_id,
         )
 
-    def lock_compare(self, test_id: str, baseline_evidence_id: str) -> ProofResult:
+    def lock_compare(
+        self,
+        test_id: str,
+        baseline_evidence_id: str,
+        *,
+        rerun_label: str | None = None,
+    ) -> ProofResult:
+        record_id = lock_record_id(test_id, "lock_compare", rerun_label)
+        if rerun_label is not None:
+            expected_baseline_id = lock_record_id(
+                test_id, "lock_baseline", rerun_label
+            )
+            if baseline_evidence_id != expected_baseline_id:
+                raise ProofError(
+                    f"{baseline_evidence_id} does not match rerun label {rerun_label!r}; "
+                    f"expected {expected_baseline_id}",
+                    failure_kind="metadata_error",
+                )
         self.run_provenance_check(self.proof_revision.begin)
         test = self.lookup_runnable_test(test_id)
         self.require_case_file_backed_test(test_id, test)
@@ -273,6 +296,7 @@ class ProofProducer:
             case_file_digest=run.case_file_digest,
             case_result_digest=run.case_result_digest,
             per_case_summary=run.per_case_summary,
+            record_id=record_id,
         )
 
     def run_cataloged_command(self, test_id: str, test: dict[str, Any]) -> CommandRun:
@@ -653,9 +677,8 @@ class ProofProducer:
         case_file_digest: str | None,
         case_result_digest: str,
         per_case_summary: list[str],
+        record_id: str,
     ) -> ProofResult:
-        suffix = "LOCK_BASELINE" if proof_kind == "lock_baseline" else "LOCK_COMPARE"
-        record_id = f"EVID_{test['id']}_{suffix}"
         record, evidence_path = self.base_proof_record(
             test=test,
             record_id=record_id,
@@ -890,6 +913,19 @@ def first_or_default(value: Any, default: str) -> str:
     return default
 
 
+def lock_record_id(test_id: str, proof_kind: str, rerun_label: str | None) -> str:
+    suffix = "LOCK_BASELINE" if proof_kind == "lock_baseline" else "LOCK_COMPARE"
+    base = f"EVID_{test_id}_{suffix}"
+    if rerun_label is None:
+        return base
+    if not LOCK_RERUN_LABEL_RE.fullmatch(rerun_label):
+        raise ProofError(
+            "lock rerun label must use 1-32 uppercase ASCII letters, digits, or underscores",
+            failure_kind="metadata_error",
+        )
+    return f"{base}_{rerun_label}"
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Produce truST verification proof evidence.")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -900,6 +936,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     green.add_argument("--red-evidence", required=True, dest="red_evidence_id")
     lock = subcommands.add_parser("lock", help="run or compare behavior-lock proof")
     lock.add_argument("--test", required=True, dest="test_id")
+    lock.add_argument(
+        "--rerun-label",
+        help="append a reviewed uppercase label to a replacement lock pair",
+    )
     lock_mode = lock.add_mutually_exclusive_group(required=True)
     lock_mode.add_argument("--baseline", action="store_true")
     lock_mode.add_argument("--compare", dest="baseline_evidence_id")
@@ -922,10 +962,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"green proof written: {result.evidence_path.relative_to(ROOT)}")
             return EXIT_OK
         if args.baseline:
-            result = prover.lock_baseline(args.test_id)
+            result = prover.lock_baseline(args.test_id, rerun_label=args.rerun_label)
             print(f"lock baseline proof written: {result.evidence_path.relative_to(ROOT)}")
             return EXIT_OK
-        result = prover.lock_compare(args.test_id, args.baseline_evidence_id)
+        result = prover.lock_compare(
+            args.test_id,
+            args.baseline_evidence_id,
+            rerun_label=args.rerun_label,
+        )
     except MetadataValidationError as exc:
         print(str(exc), file=sys.stderr)
         return EXIT_METADATA_INVALID

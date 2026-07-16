@@ -548,6 +548,47 @@ class GreenProverTests(unittest.TestCase):
 
 
 class LockProverTests(unittest.TestCase):
+    def test_lock_rerun_label_scopes_baseline_and_compare_ids(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped", extra={"test_class": "behavior_lock"})
+            fx.add_writer("passed", exit_code=0)
+            baseline = fx.prover().lock_baseline("TEST_RED", rerun_label="CASE_V2")
+            fx.add_writer("passed", exit_code=0)
+
+            compare = fx.prover().lock_compare(
+                "TEST_RED", baseline.record["id"], rerun_label="CASE_V2"
+            )
+
+            self.assertEqual(
+                baseline.record["id"], "EVID_TEST_RED_LOCK_BASELINE_CASE_V2"
+            )
+            self.assertEqual(
+                compare.record["id"], "EVID_TEST_RED_LOCK_COMPARE_CASE_V2"
+            )
+            self.assertEqual(
+                compare.record["paired_lock_baseline"], baseline.record["id"]
+            )
+
+    def test_lock_rerun_label_rejects_invalid_or_mismatched_identity(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped", extra={"test_class": "behavior_lock"})
+            fx.add_writer("passed", exit_code=0)
+
+            with self.assertRaisesRegex(ProofError, "rerun label"):
+                fx.prover().lock_baseline("TEST_RED", rerun_label="case-v2")
+
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+            fx.write_lock_baseline("EVID_TEST_RED_LOCK_BASELINE_OTHER")
+            with self.assertRaisesRegex(ProofError, "does not match rerun label"):
+                fx.prover().lock_compare(
+                    "TEST_RED",
+                    "EVID_TEST_RED_LOCK_BASELINE_OTHER",
+                    rerun_label="CASE_V2",
+                )
+            self.assertFalse((fx.artifact_dir / "TEST_RED.json").exists())
+
     def test_lock_baseline_records_result_digest_and_case_summary(self) -> None:
         with fixture() as fx:
             fx.add_case_file("CASE_FAIL")
