@@ -131,6 +131,10 @@ class SeedManifestContractTests(unittest.TestCase):
                 "PROTO_ETHERCAT_001",
                 "PROTO_ADS_001",
                 "PROTO_OPCUA_001",
+                "EDIT_RENAME_001",
+                "EDIT_RENAME_002",
+                "EDIT_LSP_POS_001",
+                "EDIT_DIAG_CANCEL_001",
                 "DEBUG_AUTH_001",
                 "DEBUG_PAUSE_001",
                 "SEC_AUTHZ_001",
@@ -666,8 +670,8 @@ class SeedAuditReportTests(unittest.TestCase):
         report_schema = json.loads(REPORT_SCHEMA_PATH.read_text())
         self.assertEqual([], validate_schema_contract(report_schema, manifest_schema=manifest_schema))
         summary = report_schema["$defs"]["summary"]["properties"]
-        self.assertEqual(14, summary["baseline_lifecycle"]["const"])
-        self.assertEqual(30, summary["execution_ready_lifecycle"]["const"])
+        self.assertEqual(10, summary["baseline_lifecycle"]["const"])
+        self.assertEqual(34, summary["execution_ready_lifecycle"]["const"])
         self.assertFalse(manifest_schema["additionalProperties"])
         self.assertFalse(manifest_schema["$defs"]["seed"]["additionalProperties"])
         self.assertEqual(2, manifest_schema["properties"]["schema_version"]["const"])
