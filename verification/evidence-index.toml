@@ -606,10 +606,10 @@ owner = "trust-runtime"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-shard.md"
-command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-stable-error-f305dd45\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-bytecode-validator-mutation\"'"
-commit = "f305dd45f98bdbbe282985dad4fcbe82c5132fb3"
+command = "ssh trust-builder 'cd \"$HOME/projects/trust-platform-vm-seam-5ac4a12b\" && TMPDIR=\"$HOME/.cache/codex-targets/trust-platform-gate-tmp\" python3 scripts/bytecode_validator_mutation.py --target-dir \"$HOME/.cache/codex-targets/trust-platform-bytecode-validator-mutation\"'"
+commit = "5ac4a12b581ab60e6453ee067df2194fa3159453"
 platform = "trust-builder-linux-x86_64"
-date = "2026-07-16"
+date = "2026-07-17"
 suite_id = "nightly"
 producer = "bytecode-validator-mutation.py v1"
 generated_report_version = "bytecode-validator-mutation-report-v1"
@@ -618,8 +618,8 @@ linked_invariants = ["VM_SEAM_VALID_001"]
 linked_tests = ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
 mutation_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
 mutation_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
-mutation_report_digest = "sha256:88e97c57ed47e698f5c3c8d33611e3d8f0a4cdae0135ee84451bfa10c00713a2"
-last_reviewed = "2026-07-16"
+mutation_report_digest = "sha256:ea49674613d05b9272d5bd9eadfe2fdc46bb249607b2ce9e56da86d14326ee11"
+last_reviewed = "2026-07-17"
 
 [[evidence]]
 schema_version = 1
