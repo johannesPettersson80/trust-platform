@@ -1,11 +1,11 @@
 # Specification Source and Public Prose Audit
 
 Generator: `spec-source-audit v1`
-Source revision: `d6a0e75fa951131ce96df55894829df176253eb0`
-Generated: `2026-07-16T09:38:00+02:00`
+Source revision: `a4b84cc9732a7e3284c5560ef14ec3fcffdf7475`
+Generated: `2026-07-16T09:53:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `52fa7d08cec427b2cb66cee5928e79b1c0fba7869444bbc5eaaaac801c2407cf`
-Input SHA-256: `sha256:5b5dde717af1ae45bc3f07427e7f9c631ffd49f6c13d82b576a14e4d6611c893`
+Generated JSON SHA-256: `9192b880d9cc80520e2f9fe6b2d78684b7ecf4450e9651305cb3287ee9abfa16`
+Input SHA-256: `sha256:5aa2f97635c6c8c48480d4e27ccfff15f42cf7b29abfc363b166a63155cf6264`
 
 This report is the mechanical denominator for tracked specification documents,
 required-topic metadata, and public rendered prose. Unreviewed prose stays visible
@@ -245,7 +245,7 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_DOC_F13DC4D1070FECCFE0D7A7A8` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/broad-remote-gate-producer.md` | `f694baba80757a824b711e9da617b1229e58f852743171de9bd445c6feb449cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_2036F079B0576D255E5EDEA0` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/execution-slice-001.md` | `2234a6bd362dd6ee3f97042aa333f5d610998958fe91e20f585e633faea994cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_9C926023A12DA35C31614C0A` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/fable-review-brief.md` | `d3d94c4f96c494fa890a0589b79d751f93fa9136afa3f14a5108a3b3a319a529` | none | `unreviewed_candidate` |
-| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `4034b963ded12a93cc6b81e7d41cb0c53b0ba5271090f5b87a4fc6107a1241c0` | none | `unreviewed_candidate` |
+| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `85be7594736aa4a95c573a580743ce52a53da4f3baa065baca1be360d1c4c4a0` | none | `unreviewed_candidate` |
 | `SPEC_DOC_A9D23F28FE4A07B226088C21` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md` | `776b3e6c05e8e83a336928ddcf9b163fd28aaa84af2dd606bc4fd1f71473c6e4` | none | `unreviewed_candidate` |
 | `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `84a7a46e5955d781c84da6e6fab8eceed7632baa9f2e5aedeb3da2e40708fcaa` | none | `unreviewed_candidate` |
 | `SPEC_DOC_44B898C7A9661FD96FE44644` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/policy.md` | `e19cfb0e29c4cc7e829f8783cbbc68fc576d1cea175ea191afac5ba45d6a5628` | none | `unreviewed_candidate` |
