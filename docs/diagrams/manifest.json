@@ -8,7 +8,7 @@
   "docs/diagrams/architecture/runtime-execution.puml": "21b5f60aab30463729c7c73d4fd79f6ca3e9f2bb3b4dbf8d27d30f2822353785",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
   "docs/diagrams/architecture/system-architecture.puml": "1548a8b2828fdc61113d9132417018b3f4c8902506f50147a48d01e44fbe24b4",
-  "docs/diagrams/debug/debug-architecture.puml": "c016da344bbde62d95911dbf4fdb5b2afdedf6525a9dec81e10365ef5c42c2a2",
+  "docs/diagrams/debug/debug-architecture.puml": "b7f12a262caf68aa68666e49aedaac03db9deab7c1a2ba50e30233b54f6a83dc",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
   "docs/diagrams/debug/debug-breakpoint-after-launch-intended.puml": "3ad28b011555187f43da1b5bb4a95f4a2d267e55d77daf1f9411008745d9b527",
   "docs/diagrams/debug/debug-state-machine.puml": "c1a7201b2d0d475f66fcaf3302927e0f7d1677a459595aee4c8222347dcc666a",
