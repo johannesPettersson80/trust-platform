@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 54,
                 "mapped_phase6_invariants": 36,
                 "other_area_invariants": 18,
-                "eligible_oracles": 36,
-                "missing_oracles": 18,
-                "future_enforcement_candidates": 11,
+                "eligible_oracles": 40,
+                "missing_oracles": 14,
+                "future_enforcement_candidates": 7,
             },
         )
         self.assertEqual(54, len(self.analysis["invariants"]))
-        self.assertEqual(18, len(self.analysis["missing_oracles"]))
+        self.assertEqual(14, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},
@@ -150,17 +150,20 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
 
     def test_gap_placeholder_is_not_upgraded_by_an_eligible_candidate_source(self) -> None:
         rows = {row["invariant_id"]: row for row in self.analysis["invariants"]}
-        declared_type_row = rows["VM_SEAM_DECLARED_TYPE_001"]
+        behavior_lock_row = rows["DEBUG_BEHAVIOR_LOCKED_001"]
 
         self.assertEqual(
-            ["SPEC_VM_VALUE_SEMANTICS_001"],
-            declared_type_row["spec_source_refs"],
+            ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_DEBUG_ADAPTER_001"],
+            behavior_lock_row["spec_source_refs"],
         )
         self.assertTrue(
-            self.validator.spec_sources["SPEC_VM_VALUE_SEMANTICS_001"]["oracle_eligible"]
+            self.validator.spec_sources["SPEC_DEBUG_ADAPTER_001"]["oracle_eligible"]
         )
-        self.assertEqual("spec_gap_blocked", declared_type_row["oracle_state"])
-        self.assertEqual("SPEC_GAP_VM_ERROR_MODEL_001", declared_type_row["oracle_ref"])
+        self.assertEqual("spec_gap_blocked", behavior_lock_row["oracle_state"])
+        self.assertEqual(
+            "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001",
+            behavior_lock_row["oracle_ref"],
+        )
 
     def test_public_claim_cannot_be_relabelled_as_an_oracle(self) -> None:
         validator = loaded_validator()
@@ -199,7 +202,7 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
             with self.subTest(label=label):
                 validator = loaded_validator()
                 invariant = copy.deepcopy(
-                    validator.invariants["VM_SEAM_DECLARED_TYPE_001"]
+                    validator.invariants["DEBUG_BEHAVIOR_LOCKED_001"]
                 )
                 gap_id = invariant["oracle"]["ref"]
                 if label == "closed":

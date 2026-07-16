@@ -371,10 +371,10 @@ class CoverageMatrixGapTests(unittest.TestCase):
                 "missing_required_slots": 63,
                 "additional_recorded_cells": 52,
                 "recorded_cells": 69,
-                "case_files": 4,
-                "case_observations": 31,
+                "case_files": 7,
+                "case_observations": 38,
                 "blocked_case_observations": 0,
-                "state_counts": empty_state_counts(spec_gap=18, gap_open=16, covered=35),
+                "state_counts": empty_state_counts(spec_gap=14, gap_open=12, covered=43),
             },
         )
         self.assertTrue(TOOL_INPUT_PATHS.issubset(paths))
@@ -384,7 +384,7 @@ class CoverageMatrixGapTests(unittest.TestCase):
         self.assertIn("verification/spec-sources.toml", paths)
         self.assertEqual(
             len([path for path in paths if path.startswith("verification/cases/")]),
-            4,
+            7,
         )
 
 
