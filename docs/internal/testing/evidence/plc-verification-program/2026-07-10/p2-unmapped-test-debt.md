@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `423e7407ad7e1ca3985c872b033fe42d786f6a82`
-Generated: `2026-07-16T19:41:00+02:00`
+Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
+Generated: `2026-07-16T23:26:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `630242e763c790fded6ae112d2643fd1c75d7e5b40d9727a355058dcf8daffd6`
-Input SHA-256: `sha256:1f61c252d3ffa9d5a180e00874fc4fdea3cefd37e67907f2ecb792774b9ee84d`
+Generated JSON SHA-256: `a1885ea9adfacfe761960c581346a0b2021594694db2c6b3a8d268cd3df64ff7`
+Input SHA-256: `sha256:70aa810e1a2d0f39e5bc78cdd8c604b79c3fc321963b28fb7da81053efc94513`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3973
-- Mapped scanner facts: 188
-- Unmapped scanner facts: 3785
-- Generated-test catalog rows: 188
+- Scanner facts: 3978
+- Mapped scanner facts: 194
+- Unmapped scanner facts: 3784
+- Generated-test catalog rows: 194
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -28,7 +28,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1460 | 138 | 1322 |
-| `rust_unit_test` | 1718 | 50 | 1668 |
+| `rust_unit_test` | 1723 | 56 | 1667 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -1857,7 +1857,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_A8ED715318640DA93A0E` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_04.rs` | `lsp_document_symbols_include_configuration_hierarchy` | `not_ignored` |
 | `DISC_414E6D26E88310EAB561` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_04.rs` | `lsp_external_diagnostics_provide_quick_fixes` | `not_ignored` |
 | `DISC_2299CAC2F904F85FB282` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_04.rs` | `lsp_workspace_symbols_include_dependency_sources` | `not_ignored` |
-| `DISC_9DC62C547895CF5C3B8E` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk` | `not_ignored` |
 | `DISC_DD95439A5C1FC7F35099` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_document_symbols_include_members` | `not_ignored` |
 | `DISC_29AFB7D7177472E38F54` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_hmi_toml_diagnostics_use_open_source_buffers` | `not_ignored` |
 | `DISC_5E1F500FAB91DA314921` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile` | `not_ignored` |

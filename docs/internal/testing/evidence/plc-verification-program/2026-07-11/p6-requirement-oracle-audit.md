@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `423e7407ad7e1ca3985c872b033fe42d786f6a82`
-Generated: `2026-07-16T19:41:00+02:00`
+Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
+Generated: `2026-07-16T23:26:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e7b2e03fce5304ada8f1b399e2c96541303bad1a8003d8a89b8c6572f5fd891c`
-Input SHA-256: `sha256:ec6defc4d402ece432450d41a5e36e5d71c1e19ca51ae257d1f39081f69b173b`
+Generated JSON SHA-256: `2afa1ff167dcd22c655ecd4e12d3be10e446fea71ceed49dcf5142b9e3256b86`
+Input SHA-256: `sha256:186a6cf736518e3322b5dc0c68c24ca055f8ad6e3d0f9d00ef96a3d6f283c356`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -14,10 +14,10 @@ context is limited to the non-exhaustive registered source inventory.
 
 ## Summary
 
-- Invariants: 53
-- Phase 6 mapped invariants: 35
+- Invariants: 54
+- Phase 6 mapped invariants: 36
 - Other-area invariants: 18
-- Eligible oracles: 35
+- Eligible oracles: 36
 - Missing oracles: 18
 - Future enforcement candidates: 11
 
@@ -28,7 +28,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `VERIF-P6-001` | `compiler_iec` | 5 | 5 | 0 |
 | `VERIF-P6-002` | `runtime_safety` | 11 | 11 | 0 |
 | `VERIF-P6-003` | `protocols` | 7 | 7 | 0 |
-| `VERIF-P6-004` | `editor_safety` | 6 | 5 | 1 |
+| `VERIF-P6-004` | `editor_safety` | 7 | 6 | 1 |
 | `VERIF-P6-005` | `control_security, supply_chain_platform` | 6 | 2 | 4 |
 
 ## Invariant Oracle Ledger
@@ -40,10 +40,11 @@ context is limited to the non-exhaustive registered source inventory.
 | `DEBUG_PAUSE_001` | `editor_safety` | `safety_critical` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_DEBUG_ADAPTER_001`, `SPEC_RUNTIME_ENGINE_001` | none |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` | none | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` | none | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
-| `EDIT_LSP_POS_001` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
-| `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
-| `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
+| `EDIT_DIAG_CANCEL_001` | `editor_safety` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
+| `EDIT_DOC_CLOSE_001` | `editor_safety` | `silent_corruption` | `implemented/G1` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
+| `EDIT_LSP_POS_001` | `editor_safety` | `silent_corruption` | `implemented/G1` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
+| `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | `implemented/G1` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
+| `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `implemented/G1` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_PREC_001` | `compiler_iec` | `wrong_result` | `implemented/G1` | `eligible_oracle` | `SPEC_IEC_EXPRESSIONS_001` | `SPEC_IEC_EXPRESSIONS_001` | none |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |

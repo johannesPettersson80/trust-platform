@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-16T19:41:00+02:00"
+    "2026-07-16T23:26:00+02:00"
   ],
-  "commit": "423e7407ad7e1ca3985c872b033fe42d786f6a82",
+  "commit": "f9f416580a2e7b22a184bb856ab4a0847235d0f8",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:52890d08a4e9b371e88f9257e329310b20c5f4b5549511c8ece4698f4cfd9367",
+  "input_digest": "sha256:cdc5ed51707843830bbbe0105f980a84301a23d185e3e3fe34503dca720759e6",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -412,10 +412,13 @@
     "crates/trust-lsp/src/handlers/tests/core_part_11.rs",
     "crates/trust-lsp/src/handlers/tests/core_part_12.rs",
     "crates/trust-lsp/src/handlers/tests/formatting_and_navigation.rs",
+    "crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs",
     "crates/trust-lsp/src/handlers/tests/mod.rs",
     "crates/trust-lsp/src/handlers/tests/mod_part_01.rs",
     "crates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs",
     "crates/trust-lsp/src/handlers/tests/mod_part_02.rs",
+    "crates/trust-lsp/src/handlers/tests/rename_trace_cases.rs",
+    "crates/trust-lsp/src/handlers/tests/trace_support.rs",
     "crates/trust-lsp/src/handlers/workspace.rs",
     "crates/trust-lsp/src/handlers/workspace/indexing_and_throttle.rs",
     "crates/trust-lsp/src/handlers/workspace/namespace_and_rename.rs",
@@ -1994,6 +1997,7 @@
     "verification/invariants/editor_safety/DEBUG_BEHAVIOR_LOCKED_001.toml",
     "verification/invariants/editor_safety/DEBUG_PAUSE_001.toml",
     "verification/invariants/editor_safety/EDIT_DIAG_CANCEL_001.toml",
+    "verification/invariants/editor_safety/EDIT_DOC_CLOSE_001.toml",
     "verification/invariants/editor_safety/EDIT_LSP_POS_001.toml",
     "verification/invariants/editor_safety/EDIT_RENAME_001.toml",
     "verification/invariants/editor_safety/EDIT_RENAME_002.toml",
@@ -2761,7 +2765,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-16T19:41:00+02:00",
+  "timestamp": "2026-07-16T23:26:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",

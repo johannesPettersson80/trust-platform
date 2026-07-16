@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `423e7407ad7e1ca3985c872b033fe42d786f6a82`
-Generated: `2026-07-16T19:41:00+02:00`
+Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
+Generated: `2026-07-16T23:26:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `4dbf8ef447de640e3c86dac9aeda62eea42fb5a7087c27fbbc24ab35f40752d3`
-Input SHA-256: `sha256:22ccf1c15e9842131978f072b05a4193d4196ad83f79400512af0287b6633380`
+Generated JSON SHA-256: `3688f33bb9741a6fefab9884817937f5ce10813545acbd4a0c1623e83b5298fc`
+Input SHA-256: `sha256:564305958e80acf3ca744770e697c06ca8f56bc81813c1d7b0ff602555c19fda`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -13,13 +13,13 @@ mean every required coverage slot is assigned or covered.
 ## Summary
 
 - Mapped areas: 11
-- Mapped-area invariants: 53
+- Mapped-area invariants: 54
 - Out-of-scope invariants: 0
 - Required family slots: 80
 - Assigned required slots: 17
 - Missing required slots: 63
-- Additional recorded cells: 51
-- Recorded mapped-area cells: 68
+- Additional recorded cells: 52
+- Recorded mapped-area cells: 69
 - Catalog-bound case files: 4
 - Case observations: 31
 - Blocked case observations: 0
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 30 |
+| `covered` | 35 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
 | `spec_gap` | 18 |
-| `gap_open` | 20 |
+| `gap_open` | 16 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -234,25 +234,31 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `concurrency_or_cancellation` | `additional_recorded` | `gap_open` | none | none |
+| `concurrency_or_cancellation` | `additional_recorded` | `covered` | none | none |
+
+### `EDIT_DOC_CLOSE_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `persistence_or_recovery` | `additional_recorded` | `covered` | none | none |
 
 ### `EDIT_LSP_POS_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `encoding_or_unicode` | `additional_recorded` | `gap_open` | none | none |
+| `encoding_or_unicode` | `additional_recorded` | `covered` | none | none |
 
 ### `EDIT_RENAME_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `duplicate_or_collision` | `additional_recorded` | `gap_open` | none | none |
+| `duplicate_or_collision` | `additional_recorded` | `covered` | none | none |
 
 ### `EDIT_RENAME_002`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `duplicate_or_collision` | `additional_recorded` | `gap_open` | none | none |
+| `duplicate_or_collision` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `hmi_ui`
 
