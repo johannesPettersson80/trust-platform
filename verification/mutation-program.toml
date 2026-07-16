@@ -108,13 +108,13 @@ owner = "trust-runtime"
 result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json"
 
 [[shards.mutations]]
-id = "MUTANT_RUNTIME_APPLY_CONVERSION_DEFAULT"
+id = "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON"
 source_file = "crates/trust-runtime/src/stdlib/conversions/dispatch.rs"
 source_digest = "sha256:fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27"
-function = "apply_conversion"
-genre = "FnValue"
-replacement = "Ok(Default::default())"
-selector_name = "dispatch.rs:19:5: replace apply_conversion -> Result<Value, RuntimeError> with Ok(Default::default())"
+function = "convert_value"
+genre = "BinaryOperator"
+replacement = "!="
+selector_name = "dispatch.rs:78:16: replace == with != in convert_value"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "conversion_functions", "--", "--exact"]
 association_ids = ["DISC_11144C19050BB255758E"]

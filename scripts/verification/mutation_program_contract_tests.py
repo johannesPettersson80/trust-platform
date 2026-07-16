@@ -109,6 +109,24 @@ class MutationProgramContractTests(unittest.TestCase):
         failures = validate_mutation_program_contract(ROOT, corrupted)
         self.assertTrue(any("partition associated tests" in item for item in failures), failures)
 
+    def test_runtime_conversion_shard_uses_a_viable_generated_selector(self) -> None:
+        mutation = self.program["shards"][1]["mutations"][0]
+        self.assertEqual(
+            {
+                "id": "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON",
+                "function": "convert_value",
+                "genre": "BinaryOperator",
+                "replacement": "!=",
+                "selector_name": (
+                    "dispatch.rs:78:16: replace == with != in convert_value"
+                ),
+            },
+            {
+                field: mutation[field]
+                for field in ("id", "function", "genre", "replacement", "selector_name")
+            },
+        )
+
     def test_survivor_resolution_registry_cannot_invent_or_omit_outcomes(self) -> None:
         self.assertEqual([], self.program["survivor_resolutions"])
         corrupted = copy.deepcopy(self.program)
