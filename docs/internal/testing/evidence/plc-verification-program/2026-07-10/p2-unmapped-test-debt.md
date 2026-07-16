@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `1242961436eeadfb52cd34328e2ca75de2fb6cb9`
-Generated: `2026-07-15T23:48:32+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `2d48a2db2cbf3c941c4f4e234d9024cf74466e676e136c6371c953bae3fff2ff`
-Input SHA-256: `sha256:19aa8043cb3e1ed902465b0a0da004a2a4c0e1079f46e9ddd422c79bbc8dbb2e`
+Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
+Generated: `2026-07-16T02:44:00+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `c22034e725be0eb30777d9201d1c457c044f752768c960b718e32ecbd75a4c78`
+Input SHA-256: `sha256:ba16b4be5550f54252eaaa12dfc36609b84d2c9868dd8854e7adcc71cb995499`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3957
-- Mapped scanner facts: 175
+- Scanner facts: 3961
+- Mapped scanner facts: 179
 - Unmapped scanner facts: 3782
-- Generated-test catalog rows: 175
+- Generated-test catalog rows: 179
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -28,7 +28,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1455 | 133 | 1322 |
-| `rust_unit_test` | 1707 | 42 | 1665 |
+| `rust_unit_test` | 1711 | 46 | 1665 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -1963,6 +1963,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_248BA198613ED4EEA4CB` | `rust_unit_test` | `crates/trust-runtime-core/src/cycle.rs` | `ready_task_sort_preserves_priority_due_time_and_stable_index_order` | `not_ignored` |
 | `DISC_E21E21DCD1EF068951BC` | `rust_unit_test` | `crates/trust-runtime-core/src/datetime.rs` | `rejects_invalid_month_length` | `not_ignored` |
 | `DISC_3BACCC2F19E340EBE5E8` | `rust_unit_test` | `crates/trust-runtime-core/src/datetime.rs` | `rejects_invalid_non_leap_day` | `not_ignored` |
+| `DISC_9A7AE24526A19A0BB7EE` | `rust_unit_test` | `crates/trust-runtime-core/src/error_code.rs` | `stable_error_codes_use_lower_snake_case` | `not_ignored` |
 | `DISC_7079FED218012C4E6274` | `rust_unit_test` | `crates/trust-runtime-core/src/memory.rs` | `memory_identity_values_preserve_equality_and_hash_shape` | `not_ignored` |
 | `DISC_25B0EF01FE0B077934F8` | `rust_unit_test` | `crates/trust-runtime-core/src/numeric.rs` | `integer_conversions_preserve_overflow_and_signedness_errors` | `not_ignored` |
 | `DISC_4FB7BEEED7E435C425AD` | `rust_unit_test` | `crates/trust-runtime-core/src/numeric.rs` | `numeric_kind_and_rank_preserve_existing_widening_order` | `not_ignored` |
@@ -2341,8 +2342,6 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_823AF3E2C3D2B40FF980` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_processing_stays_under_cycle_budget` | `not_ignored` |
 | `DISC_0DE0CA028C404CD81DB2` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_queues_allowlisted_program_variable_write` | `not_ignored` |
 | `DISC_A864D7153154B46359C6` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_rejects_non_allowlisted_target` | `not_ignored` |
-| `DISC_F99DDE5C72C87AAEC469` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_rejects_overlong_bounded_string` | `not_ignored` |
-| `DISC_509AD0A5B81568F80699` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_rejects_type_mismatch` | `not_ignored` |
 | `DISC_013C0E328B3E8D1DF885` | `rust_unit_test` | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | `hmi_write_supports_path_allowlist_and_alias_param` | `not_ignored` |
 | `DISC_6BD58A110ADF5AF44CEA` | `rust_unit_test` | `crates/trust-runtime/src/control/types.rs` | `io_snapshot_json_includes_optional_source` | `not_ignored` |
 | `DISC_166ED313DD8C0A197E71` | `rust_unit_test` | `crates/trust-runtime/src/control/types.rs` | `io_snapshot_json_includes_optional_value_type` | `not_ignored` |
@@ -3104,6 +3103,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_D097DB1E2FB45715FC5E` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `schema_version_mismatch_is_rejected_before_execution` | `not_ignored` |
 | `DISC_247AAB98DD35F057E1EA` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `stamped_artifact_dir_overrides_compile_time_workspace_path` | `not_ignored` |
 | `DISC_FD838D2673518C6E333A` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `trust_verify_env_stamps_are_recorded_in_artifact` | `not_ignored` |
+| `DISC_C932AA981C465EDBACC6` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `workspace_absolute_case_path_is_recorded_as_committed_relative_identity` | `not_ignored` |
 | `DISC_C19E83C321C481A8A26B` | `rust_unit_test` | `crates/verification-cases/src/model.rs` | `case_file_rejects_unknown_root_and_case_fields` | `not_ignored` |
 | `DISC_BF51D273F54F7F04E17B` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/ci/broken/src/tests.st` | `CI_Fails` | `not_ignored` |
 | `DISC_5D5012DB3A3EBBFDB859` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/ci/green/src/tests.st` | `CI_AlsoPasses` | `not_ignored` |

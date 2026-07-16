@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `1242961436eeadfb52cd34328e2ca75de2fb6cb9`
-Generated: `2026-07-15T23:48:32+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `a0d6783c45019e0d525a0ee6cab60cfc6d8739557eb23ef61de01fe2f908ce32`
-Input SHA-256: `sha256:59b68a33fe34f8c67e79d63418eddc389c57eec6631ea5eede4152adf9e437d5`
+Source revision: `b2f0ce18257585e741dbfeadc9a6d9852cbf7cf4`
+Generated: `2026-07-16T02:44:00+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `bc444794744d294f2888bbe4e250afdacd7251b217b16a4e0335d6fb93d646ff`
+Input SHA-256: `sha256:0678ffe90b5d4c9ff7d142b8bf43aa4d140718bb7f2422252d6fc878203293fb`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,8 +13,8 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3957
-- Fact-bearing files: 695
+- Scanner facts: 3961
+- Fact-bearing files: 697
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 14
 - Broad multi-invariant claim candidates: 6
@@ -28,8 +28,8 @@ a move, split, rename, fixture merge, or behavior change.
 - VS Code files: 38
 - VS Code registrations: 38
 - Large registered VS Code files: 5
-- Catalog records: 180
-- Scanner facts with reviewed duration: 175
+- Catalog records: 184
+- Scanner facts with reviewed duration: 179
 - Scanner facts without reviewed duration: 3782
 - Catalog rows explicitly classified slow: 3
 - Reviewed proposal decisions: 1
@@ -53,14 +53,14 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/src/config/tests.rs` | 1154 | 71 | 0 | `large_file` |
 | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | 1123 | 7 | 0 | `large_file` |
 | `crates/trust-runtime/src/control/tests/core.rs` | 5785 | 71 | 0 | `large_file` |
-| `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | 868 | 14 | 2 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | 884 | 14 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | 1291 | 29 | 0 | `large_file` |
 | `crates/trust-runtime/src/host/ads/tests.rs` | 1404 | 36 | 1 | `large_file` |
 | `crates/trust-runtime/src/io/mqtt/tests.rs` | 1240 | 31 | 1 | `large_file` |
-| `crates/trust-runtime/src/runtime/vm/type_policy/tests.rs` | 135 | 4 | 4 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/src/runtime/vm/type_policy/tests.rs` | 133 | 4 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bounded_value_semantics.rs` | 222 | 6 | 6 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs` | 302 | 7 | 7 | `reviewed_mapping_diversity` |
-| `crates/trust-runtime/tests/bytecode_verification_cases.rs` | 289 | 2 | 2 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/tests/bytecode_verification_cases.rs` | 315 | 2 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs` | 281 | 9 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/debug_pause_watchdog.rs` | 122 | 2 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion/src/tests.st` | 1748 | 19 | 0 | `large_file` |
@@ -110,12 +110,16 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_POSITION_ENCODING_HANDSHAKE_001` claims 1 invariants; result `single_invariant`.
+- `TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_NORMALIZE_NON_WIDENING_001` claims 1 invariants; result `single_invariant`.
+- `TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001` claims 1 invariants; result `single_invariant`.
 - `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_DEBUG_AUTHORIZATION_MATRIX_001` claims 2 invariants; result `candidate_missing_coverage_dimensions`.
 - `TEST_RUNTIME_FORCE_AUTH_CHANGE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_HMI_NONFINITE_WRITE_001` claims 1 invariants; result `single_invariant`.
+- `TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001` claims 1 invariants; result `single_invariant`.
+- `TEST_VM_HMI_TYPE_ERROR_CODE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001` claims 1 invariants; result `single_invariant`.
@@ -306,7 +310,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3957
+- Scanner facts listed: 3961
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_043E03287D0BD498DBFE` / `TEST_VM_DECLARED_DINT_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
@@ -368,6 +372,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_4E9CC7F9F0911410DC2E` / `TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001`: `fast` at `crates/trust-runtime/tests/string_binding_bounds.rs`.
 - Scanner `DISC_4F07551DC5298B929A70` / `TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001`: `fast` at `crates/trust-runtime/tests/errors_policy.rs`.
 - Scanner `DISC_503BF56E15C30663AC1A` / `TEST_LSP_RENAME_CONFLICT_ERROR_001`: `fast` at `crates/trust-lsp/src/handlers/tests/core_part_01.rs`.
+- Scanner `DISC_509AD0A5B81568F80699` / `TEST_VM_HMI_TYPE_ERROR_CODE_001`: `fast` at `crates/trust-runtime/src/control/tests/hmi_values_write.rs`.
 - Scanner `DISC_5210F54B3E0F89CA2DE0` / `TEST_RUNTIME_RETAIN_NONFINITE_SAVE_001`: `fast` at `crates/trust-runtime/tests/retain_integrity.rs`.
 - Scanner `DISC_53DB35C22AFA96FE355B` / `TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_5416CCD3FD48F9F31374` / `TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001`: `fast` at `crates/trust-runtime/src/io/mqtt/point_map.rs`.
@@ -399,6 +404,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_7D6DBE32ECF7F31D1748` / `TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001`: `fast` at `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs`.
 - Scanner `DISC_80833EFC8B17DF0C8754` / `TEST_BYTECODE_STORE_TYPE_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_82037BF366E0CC07D92C` / `TEST_IEC_TIMER_RUNTIME_VARIANTS_001`: `fast` at `crates/trust-runtime/tests/fb_timers_full.rs`.
+- Scanner `DISC_82DF586FECB97A31B50C` / `TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001`: `fast` at `crates/trust-runtime-core/src/vm/errors.rs`.
 - Scanner `DISC_83FE96819CB25F21CA77` / `TEST_RUNTIME_RESTART_WARM_STORAGE_001`: `fast` at `crates/trust-runtime/tests/runtime_restart.rs`.
 - Scanner `DISC_846E4BECA070B0C77CDA` / `TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001`: `fast` at `crates/trust-ads-core/src/mapping.rs`.
 - Scanner `DISC_852E381BD310A63FCE71` / `TEST_RUNTIME_FORCE_FAULT_001`: `fast` at `crates/trust-runtime/tests/force_lifecycle_boundaries.rs`.
@@ -406,6 +412,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_8664E7408C2C3D60D5C5` / `TEST_DEBUG_AUTHORIZATION_MATRIX_001`: `fast` at `crates/trust-runtime/src/control/tests/authorization_matrix.rs`.
 - Scanner `DISC_88F921D24D3708CEF3E1` / `TEST_BYTECODE_CONTAINER_INVALID_MAGIC`: `fast` at `crates/trust-runtime/tests/bytecode_container.rs`.
 - Scanner `DISC_8925B3C0E6A786597E4B` / `TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001`: `fast` at `crates/trust-runtime/tests/runtime_safety_fail_closed.rs`.
+- Scanner `DISC_8CD53CDE1E92A31A96D1` / `TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001`: `fast` at `crates/trust-runtime-core/src/bytecode/mod.rs`.
 - Scanner `DISC_8D254A3AADEDD4121B5F` / `TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001`: `fast` at `crates/trust-runtime/src/io/mqtt/tests/safe_state.rs`.
 - Scanner `DISC_8E59F13125886D732DA2` / `TEST_VM_DECLARED_PARAMETER_COPY_IN_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_8F0C898E72D907AA065A` / `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001`: `fast` at `crates/trust-runtime/src/host/ads/tests.rs`.
@@ -477,6 +484,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_F7316A527BB51A15C20F` / `TEST_IEC_STRING_IMPORTED_MISMATCH_001`: `fast` at `crates/trust-hir/src/db/queries/database/database_tests_part_01.rs`.
 - Scanner `DISC_F850C3D482F1F1486738` / `TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_F85382D0B4505D5984DB` / `TEST_VM_COERCION_ASSIGNMENT_WIDENING_001`: `fast` at `crates/trust-runtime/tests/coercion_proof.rs`.
+- Scanner `DISC_F99DDE5C72C87AAEC469` / `TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001`: `fast` at `crates/trust-runtime/src/control/tests/hmi_values_write.rs`.
 - Scanner `DISC_FAEEFF50E8BC4B81FB79` / `TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001`: `fast` at `crates/trust-syntax/tests/parser_error_recovery.rs`.
 - Scanner `DISC_FCA63C2A07B9C48D971E` / `TEST_BYTECODE_TRANSFORM_SEED_001`: `fast` at `crates/trust-runtime/tests/bytecode_verification_cases.rs`.
 - Scanner `DISC_FD5D2B3F7B42E18220E6` / `TEST_LSP_POSITION_ENCODING_HOVER_001`: `fast` at `crates/trust-lsp/src/handlers/tests/core_part_01.rs`.
