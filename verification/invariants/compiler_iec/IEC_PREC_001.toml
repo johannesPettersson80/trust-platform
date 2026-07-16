@@ -3,17 +3,20 @@ id = "IEC_PREC_001"
 title = "Expression precedence follows the active product contract"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-hir"
 last_reviewed = "2026-07-16"
 claim = "Expression parsing and evaluation must preserve the documented operator precedence and associativity."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src", "crates/trust-hir/src"]
 tests = ["TEST_IEC_PRECEDENCE_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
-missing = ["producer_authentic_behavior_lock", "broad_remote_gate"]
+evidence_refs = [
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -90,4 +93,4 @@ rationale = "Boolean AND binds more tightly than XOR, and XOR binds more tightly
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "covered"
-rationale = "The mapped case runner executes every reviewed precedence and associativity partition through real Structured Text; producer-authentic lock evidence and a broad gate remain open."
+rationale = "The mapped case runner executes every reviewed precedence and associativity partition through real Structured Text with a current-contract lock comparison; a causal broad gate remains open."

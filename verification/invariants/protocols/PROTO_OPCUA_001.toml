@@ -3,17 +3,20 @@ id = "PROTO_OPCUA_001"
 title = "OPC UA client session lifecycle is persistent and observable"
 area = "protocols"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "OPC UA client sessions and subscriptions must follow the reviewed persistent lifecycle and expose stale and reconnecting state."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src"]
 tests = ["TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
-missing = ["producer_authentic_behavior_lock", "broad_remote_gate"]
+evidence_refs = [
+  "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -74,4 +77,4 @@ rationale = "A server-rejected point write faults that point visibly without tea
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "covered"
-rationale = "The mapped protocol-trace runner covers persistent session reuse, stale-value hold and recovery, reconnect backoff, subscription recreation and transfer, and point-level write rejection; producer-authentic lock evidence and a broad gate remain open."
+rationale = "The mapped protocol-trace runner covers persistent session reuse, stale-value hold and recovery, reconnect backoff, subscription recreation and transfer, and point-level write rejection with a current-contract lock comparison; a causal broad gate remains open."
