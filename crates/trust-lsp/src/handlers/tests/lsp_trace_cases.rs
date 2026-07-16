@@ -27,7 +27,7 @@ const DIAGNOSTIC_CASE_FILE_DIGEST: &str =
 const CLOSE_TEST_ID: &str = "TEST_LSP_DOCUMENT_CLOSE_TRACE_001";
 const CLOSE_CASE_FILE: &str = "verification/cases/editor_safety/EDIT_DOC_CLOSE_001.toml";
 const CLOSE_CASE_FILE_DIGEST: &str =
-    "sha256:f52ea3467abccad9ea91536c944709bc9b546529cc3fc07888efad59754b4e94";
+    "sha256:9ab5679c9ed203ba3cd56f60f2862d9aa38a28620b98497bbe69f9f31c0b2ff9";
 
 #[test]
 fn lsp_position_encoding_trace_cases() {

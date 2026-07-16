@@ -1606,7 +1606,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_DOC_CLOSE_001.toml"
-case_file_digest = "sha256:f52ea3467abccad9ea91536c944709bc9b546529cc3fc07888efad59754b4e94"
+case_file_digest = "sha256:9ab5679c9ed203ba3cd56f60f2862d9aa38a28620b98497bbe69f9f31c0b2ff9"
 last_reviewed = "2026-07-16"
 
 [[tests]]

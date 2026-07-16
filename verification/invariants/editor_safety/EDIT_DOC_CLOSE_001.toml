@@ -3,7 +3,7 @@ id = "EDIT_DOC_CLOSE_001"
 title = "Document close discards unsaved state and restores durable project truth"
 area = "editor_safety"
 risk = "silent_corruption"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-lsp"
 last_reviewed = "2026-07-16"
 claim = "Closing a document must discard its unsaved buffer, remove stale semantic state, and recompute project truth from durable sources."
@@ -18,7 +18,6 @@ gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"]
 missing = [
-  "written_document_close_contract",
   "producer_authentic_behavior_lock",
   "broad_remote_gate",
 ]
@@ -29,7 +28,7 @@ source_refs = ["SPEC_LSP_CONTRACT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
+ref = "SPEC_LSP_CONTRACT_001"
 
 [[behavior]]
 partition = { equals = "TRACKED_FILE_RELOAD" }
@@ -73,6 +72,5 @@ rationale = "Push clients clear only the closed URI and pull clients recompute l
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "spec_gap"
-rationale = "The lifecycle is written, but producer-authentic trace execution and closeout evidence are still missing."
-spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
+state = "gap_open"
+rationale = "The lifecycle is written and red/green tested; current-contract behavior-lock evidence and gap closeout remain open."

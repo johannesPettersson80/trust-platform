@@ -7,7 +7,7 @@ status = "planned"
 invariant = "EDIT_DOC_CLOSE_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:b74c5ddf458f508bde55f0bec5422c71658f85888c4a0c3b260c1bd09cd1fddb"
-source_digest = "sha256:f36f3650887b9fbd01e62e8af0383fcf5d11f7c699a8b382ca2556ca527ce8ec"
+source_digest = "sha256:7bfbde36a896237adb8e0b4217be477daa9dcc42904c1ec6d45ffe25cfabd651"
 last_reviewed = "2026-07-16"
 
 [[case]]
