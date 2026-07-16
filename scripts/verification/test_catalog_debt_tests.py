@@ -294,8 +294,8 @@ class UnmappedTestDebtTests(unittest.TestCase):
             facts=scan.inferred_facts,
         )
 
-        self.assertEqual(analysis["summary"]["scanner_facts"], 3970)
-        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 185)
+        self.assertEqual(analysis["summary"]["scanner_facts"], 3973)
+        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 188)
         self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3785)
         self.assertEqual(len(analysis["unmapped_tests"]), 3785)
         self.assertEqual(

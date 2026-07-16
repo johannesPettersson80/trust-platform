@@ -51,8 +51,8 @@ GROUP_EXPECTATIONS = {
     "VERIF-P6-003": {
         "area_ids": ["protocols"],
         "invariant_count": 7,
-        "eligible_oracle_count": 1,
-        "spec_gap_blocked_count": 6,
+        "eligible_oracle_count": 7,
+        "spec_gap_blocked_count": 0,
     },
     "VERIF-P6-004": {
         "area_ids": ["editor_safety"],
@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 53,
                 "mapped_phase6_invariants": 35,
                 "other_area_invariants": 18,
-                "eligible_oracles": 29,
-                "missing_oracles": 24,
-                "future_enforcement_candidates": 17,
+                "eligible_oracles": 35,
+                "missing_oracles": 18,
+                "future_enforcement_candidates": 11,
             },
         )
         self.assertEqual(53, len(self.analysis["invariants"]))
-        self.assertEqual(24, len(self.analysis["missing_oracles"]))
+        self.assertEqual(18, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},

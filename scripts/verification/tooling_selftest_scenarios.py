@@ -231,7 +231,7 @@ def metadata_safety_validated_gap_open() -> RawResult:
 
 def metadata_safety_validated_spec_gap() -> RawResult:
     return _metadata_case(
-        lambda validator: _promote_for_fixture(validator, "PROTO_MQTT_001"),
+        lambda validator: _promote_for_fixture(validator, "UI_STATUS_001"),
         "validate_invariants",
     )
 
