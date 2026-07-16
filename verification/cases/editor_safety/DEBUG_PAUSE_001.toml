@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_DEBUG_PAUSE_001"
+title = "Debug and resource pause watchdog state-machine cases"
+area = "editor_safety"
+owner = "trust-debug"
+status = "planned"
+invariant = "DEBUG_PAUSE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:1a576b63c2bf59ae9b7530024773771bc263f4d15570aaead885294d905dd786"
+source_digest = "sha256:650452a2d5d3dca5890a7a18518a612686422ecada5fadf35a7b63bec6f57bf6"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "DEBUG_PAUSE_001_STATEMENT_DWELL_EXCLUDED"
+family = "time_or_clock_fault"
+input = { scenario = "DEBUG_STATEMENT_PAUSE_LONGER_THAN_WATCHDOG" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "statement_pause_longer_than_watchdog", dwell_ms = 100, watchdog_ms = 20 }, expected = { state = "running", has_error = false }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction" },
+]
+
+[[case]]
+id = "DEBUG_PAUSE_001_BETWEEN_CYCLES_STARTS_NO_SCAN"
+family = "ordering_or_lifecycle"
+input = { scenario = "RESOURCE_PAUSE_BETWEEN_CYCLES" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "resource_pause_between_cycles", dwell_ms = 100, watchdog_ms = 20 }, expected = { state = "running", has_error = false, cycle_events_during_pause = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction" },
+]

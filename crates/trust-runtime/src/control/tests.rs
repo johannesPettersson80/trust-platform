@@ -7,4 +7,5 @@ include!("tests/goldens.rs");
 include!("tests/hmi.rs");
 include!("tests/debug_mutation_lifecycle.rs");
 include!("tests/authorization_matrix.rs");
+include!("tests/authorization_trace.rs");
 include!("tests/core.rs");

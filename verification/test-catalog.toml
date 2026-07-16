@@ -3170,6 +3170,33 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_CONTROL_AUTHORIZATION_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_636CB8D8E6B5C60C383F"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "control_security"
+path = "crates/trust-runtime/src/control/tests/authorization_trace.rs"
+name = "control_authorization_trace_cases"
+command = "cargo test -p trust-runtime --lib control::tests::control_authorization_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+expected_result = "The reviewed role matrix returns stable insufficient_role denials before state change and permits only the reviewed Admin activation and Engineer force/release transitions."
+expected_failure_mode = "A denied role mutates debug state, a permitted role is rejected, an unclassified request bypasses the Admin fail-safe, or denial lacks the stable insufficient_role code."
+evidence_destination = "target/gate-artifacts/cases/TEST_CONTROL_AUTHORIZATION_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/control_security/SEC_AUTHZ_001.toml"
+case_file_digest = "sha256:470f9f576bf29368acb906b8b05679dfc745704fe26380a6ea7a15deda672b7b"
+spec_gap_ref = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
 id = "TEST_DEBUG_PAUSE_WATCHDOG_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_234FF0395E492391D0E0"
@@ -3217,6 +3244,33 @@ requires_network = false
 duration_class = "fast"
 spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
 last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DEBUG_PAUSE_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AC6B130967B7B99212D8"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_pause_watchdog_trace_cases.rs"
+name = "debug_pause_watchdog_trace_cases"
+command = "cargo test -p trust-runtime --test debug_pause_watchdog_trace_cases debug_pause_watchdog_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["DEBUG_PAUSE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-and-resource-pause-interaction"
+expected_result = "Committed traces show statement dwell excluded from active watchdog deadlines and a between-cycle resource pause starting no scan or watchdog interval."
+expected_failure_mode = "Paused wall time consumes the watchdog budget, a between-cycle pause begins a scan, or the same-run case artifact is absent."
+evidence_destination = "target/gate-artifacts/cases/TEST_DEBUG_PAUSE_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/editor_safety/DEBUG_PAUSE_001.toml"
+case_file_digest = "sha256:55b162ceb84c960ea196be182d8ad5d5f740f9fc2f6bf47a012b81ab776efe9d"
+spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2
@@ -3366,6 +3420,32 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 last_reviewed = "2026-07-14"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_PANIC_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_92FCECA7163F38786723"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_panic_trace_cases.rs"
+name = "runtime_panic_trace_cases"
+command = "cargo test -p trust-runtime --test runtime_panic_trace_cases runtime_panic_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+expected_result = "Committed traces prove input, safe-output, outer-thread, and restart-policy panic boundaries remain visibly faulted as ResourcePanic."
+expected_failure_mode = "A panic escapes the resource guard, leaves a healthy status, skips configured safe output, follows ordinary restart policy, or emits no same-run case artifact."
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_PANIC_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/runtime_safety/RT_SAFE_PANIC_001.toml"
+case_file_digest = "sha256:b3d0a395b84d31729cf2a16720a8dcf8063ac9b842418a75775ea47912c82fe9"
+last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2

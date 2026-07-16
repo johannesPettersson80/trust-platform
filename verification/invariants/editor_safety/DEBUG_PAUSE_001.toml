@@ -3,9 +3,9 @@ id = "DEBUG_PAUSE_001"
 title = "Debug pause has explicit watchdog and scan-deadline semantics"
 area = "editor_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "spec_gap"
 owner = "trust-debug"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-16"
 claim = "Breakpoint and pause handling must not leave scan deadlines, watchdogs, I/O, or safe-state behavior implicit."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -13,10 +13,14 @@ source_refs = [
   "crates/trust-runtime/src/host/debug/control",
   "crates/trust-runtime/src/scheduler/runner_loop.rs",
 ]
-tests = []
+tests = [
+  "TEST_DEBUG_PAUSE_WATCHDOG_001",
+  "TEST_RUNTIME_PAUSE_WATCHDOG_001",
+  "TEST_DEBUG_PAUSE_TRACE_001",
+]
 gates = []
 evidence_refs = []
-spec_gap_refs = []
+spec_gap_refs = ["SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"]
 missing = [
   "seed_lifecycle_execution_ready_review",
   "producer_authentic_red_green_proof",
@@ -29,7 +33,7 @@ source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001"
+ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
 
 [[behavior]]
 partition = { equals = "DEBUG_STATEMENT_PAUSE_LONGER_THAN_WATCHDOG" }
@@ -49,5 +53,6 @@ rationale = "A resource pause between cycles starts no scan, output commit, or w
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
+state = "spec_gap"
 rationale = "Focused product tests cover statement-boundary and between-cycle pauses, including the fixed watchdog defect; producer-authentic proof and a causal broad gate remain open."
+spec_gap_ref = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"

@@ -1,0 +1,83 @@
+schema_version = 1
+id = "CASES_SEC_AUTHZ_001"
+title = "Runtime control authorization state-machine cases"
+area = "control_security"
+owner = "trust-runtime"
+status = "planned"
+invariant = "SEC_AUTHZ_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:9ef0d107e868d12461158bec5829456f3e7777e46c37db43290cbb86a7b777d3"
+source_digest = "sha256:0842384193cf8b6c5134331e16409c6d0369b2f8a4e2ef662299cf0f5760372c"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "SEC_AUTHZ_001_VIEWER_FORCE_DENIED"
+family = "auth_or_permission"
+input = { scenario = "DEBUG_MUTATION_BY_VIEWER_OR_OPERATOR" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "viewer_force_denied" }, expected = { ok = false, error_code = "insufficient_role", debug_enabled = true, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_OPERATOR_FORCE_DENIED"
+family = "auth_or_permission"
+input = { scenario = "DEBUG_MUTATION_BY_VIEWER_OR_OPERATOR" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "operator_force_denied" }, expected = { ok = false, error_code = "insufficient_role", debug_enabled = true, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_ENGINEER_ACTIVATION_DENIED"
+family = "auth_or_permission"
+input = { scenario = "SECURITY_CONFIGURATION_BY_NON_ADMIN" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "engineer_debug_activation_denied" }, expected = { ok = false, error_code = "insufficient_role", debug_enabled = false, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_ADMIN_ACTIVATION_ALLOWED"
+family = "auth_or_permission"
+input = { scenario = "AUTHORIZED_DEBUG_MUTATION" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "admin_debug_activation_allowed" }, expected = { ok = true, error_code = "none", debug_enabled = true, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_ENGINEER_FORCE_ALLOWED"
+family = "auth_or_permission"
+input = { scenario = "AUTHORIZED_DEBUG_MUTATION" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "engineer_force_allowed" }, expected = { ok = true, error_code = "none", debug_enabled = true, forced_count = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_VIEWER_RELEASE_DENIED"
+family = "auth_or_permission"
+input = { scenario = "DEBUG_MUTATION_BY_VIEWER_OR_OPERATOR" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "viewer_release_denied" }, expected = { ok = false, error_code = "insufficient_role", debug_enabled = true, forced_count = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_ENGINEER_RELEASE_ALLOWED"
+family = "auth_or_permission"
+input = { scenario = "AUTHORIZED_DEBUG_MUTATION" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "engineer_release_allowed" }, expected = { ok = true, error_code = "none", debug_enabled = true, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]
+
+[[case]]
+id = "SEC_AUTHZ_001_UNCLASSIFIED_ENGINEER_DENIED"
+family = "auth_or_permission"
+input = { scenario = "UNCLASSIFIED_CONTROL_OPERATION" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "unclassified_engineer_denied" }, expected = { ok = false, error_code = "insufficient_role", debug_enabled = true, forced_count = 0 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization" },
+]

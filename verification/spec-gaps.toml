@@ -642,8 +642,11 @@ owner = "trust-debug"
 status = "spec_gap"
 gap_class = "missing_security"
 blocking_question = "Which authenticated roles may write, force, or release each address class, and what denial contract applies by default?"
-affected_invariants = ["DEBUG_AUTH_001"]
-affected_tests = ["TEST_DEBUG_AUTHORIZATION_MATRIX_001"]
+affected_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+affected_tests = [
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+]
 candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
 resolution_status = "test_mapped"
 closeout_evidence = []
@@ -663,6 +666,7 @@ affected_invariants = ["DEBUG_PAUSE_001"]
 affected_tests = [
   "TEST_DEBUG_PAUSE_WATCHDOG_001",
   "TEST_RUNTIME_PAUSE_WATCHDOG_001",
+  "TEST_DEBUG_PAUSE_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
 resolution_status = "test_mapped"
@@ -730,10 +734,11 @@ owner = "trust-runtime"
 status = "spec_gap"
 gap_class = "missing_security"
 blocking_question = "Which roles may invoke every control, API, HMI, file-read, write, force, and release operation, including the default-deny boundary?"
-affected_invariants = ["SEC_AUTHZ_001"]
+affected_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
 affected_tests = [
   "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
   "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
 resolution_status = "test_mapped"

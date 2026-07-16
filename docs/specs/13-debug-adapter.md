@@ -114,7 +114,9 @@ breakpoint mutation, evaluation, write, force, and release require Engineer.
 Viewer and Operator mutation attempts must fail before queued writes or force
 state changes. Only Admin may enable the debug surface or change control mode;
 Engineer authority permits use of an already enabled surface, not activation of
-that surface. (DEV-050)
+that surface. Runtime role denials carry the stable control error code
+`insufficient_role`; the adapter must preserve that authorization category when
+reporting the failed request. (DEV-050)
 
 Current attach limitation: arbitrary `setVariable` / `setExpression` variable writes are not
 supported in attach mode. Live Values I/O operations are the supported write path while attached:

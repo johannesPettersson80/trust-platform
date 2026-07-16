@@ -671,6 +671,12 @@ admin`; a higher role includes lower-role permissions. Authorization is checked
 before dispatch, so a denied request must not change runtime, debug, I/O, HMI,
 configuration, pairing, or connector state. (DEV-050)
 
+A role denial returns the stable wire error code `insufficient_role` together
+with the required role in the human-readable error. Missing and invalid
+credentials retain their separate authentication error codes. Clients must use
+the stable code, not parse the prose, when distinguishing authentication from
+authorization failure.
+
 Authentication and transport defaults are:
 
 - A configured control token identifies the Admin role. A valid pairing token
