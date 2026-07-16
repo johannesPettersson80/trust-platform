@@ -257,9 +257,9 @@ affected_invariants = [
   "PROTO_STATUS_TRUTH_001",
   "PROTO_DISCOVERY_TRUTH_001",
 ]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
-resolution_status = "open"
+affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001", "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "spec_updated"
 closeout_evidence = []
 last_reviewed = "2026-07-08"
 
@@ -519,9 +519,9 @@ status = "spec_gap"
 gap_class = "missing_behavior"
 blocking_question = "Which protocol exchange distinguishes a confirmed endpoint from a likely endpoint or port reachability for each connector?"
 affected_invariants = ["PROTO_MODBUS_001", "PROTO_MQTT_001"]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
-resolution_status = "open"
+affected_tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "spec_updated"
 closeout_evidence = []
 last_reviewed = "2026-07-10"
 
@@ -536,9 +536,9 @@ status = "spec_gap"
 gap_class = "missing_hardware_contract"
 blocking_question = "What bounded memory, retry, timeout, and status behavior is required when EtherCAT hardware or configuration is unavailable?"
 affected_invariants = ["PROTO_ETHERCAT_001"]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
-resolution_status = "open"
+affected_tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "spec_updated"
 closeout_evidence = []
 last_reviewed = "2026-07-10"
 
@@ -553,9 +553,9 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "Which canonical states, freshness transitions, and error details must each connector expose without collapsing configured, reachable, and live?"
 affected_invariants = ["PROTO_ADS_001", "PROTO_OPCUA_001"]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
-resolution_status = "open"
+affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "spec_updated"
 closeout_evidence = []
 last_reviewed = "2026-07-10"
 

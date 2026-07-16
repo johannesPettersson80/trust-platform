@@ -10,7 +10,7 @@ claim = "Protocol status surfaces must distinguish confirmed protocol behavior, 
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
-tests = []
+tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
 gates = ["pr", "hardware_lab"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_PUBLIC_WIRE_CLAIM_001"]
@@ -23,6 +23,30 @@ source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
 [oracle]
 kind = "public_doc"
 ref = "SPEC_GAP_PUBLIC_WIRE_CLAIM_001"
+
+[[behavior]]
+partition = { equals = "ADS_STATUS_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "ADS starting, not-ready, ready, degraded, stale, reconnecting, disabled, and faulted source states retain distinct normalized state and health."
+
+[[behavior]]
+partition = { equals = "OPCUA_STATUS_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "OPC UA configured, no-snapshot, ready, degraded, stale, reconnecting, and faulted states do not collapse into healthy connectivity."
+
+[[behavior]]
+partition = { equals = "POINT_STALE_SEPARATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "A stale point remains a point-quality condition and does not silently rewrite the connector lifecycle state."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"

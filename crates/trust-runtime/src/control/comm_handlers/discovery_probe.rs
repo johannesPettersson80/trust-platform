@@ -339,6 +339,9 @@ fn read_remaining_length(stream: &mut TcpStream) -> Result<usize, std::io::Error
 }
 
 #[cfg(test)]
+mod trace_cases;
+
+#[cfg(test)]
 mod tests {
     use std::net::TcpListener;
     use std::sync::mpsc;

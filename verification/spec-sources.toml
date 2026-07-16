@@ -72,6 +72,9 @@ covers = [
   "managed_debug_floating_point_ingress",
   "simulation_coupling_thresholds",
   "typed_process_image_nonfinite_egress",
+  "connector_status_truth_contract",
+  "protocol_discovery_confidence_contract",
+  "ethercat_unavailable_resource_contract",
 ]
 known_limitations = [
   "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",

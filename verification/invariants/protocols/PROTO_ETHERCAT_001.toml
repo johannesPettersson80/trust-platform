@@ -8,9 +8,9 @@ owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "Unavailable EtherCAT hardware or configuration must not create unbounded resource use or a false healthy status."
 proof_level = "S0"
-contract_kind = "fault_scenario"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src"]
-tests = []
+tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"]
@@ -23,6 +23,22 @@ source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"
+
+[[behavior]]
+partition = { equals = "MISSING_ADAPTER_TERMINAL" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A missing adapter does not block construction, faults on first wire use, and stays terminal without another allocation or retry until the driver is rebuilt."
+
+[[behavior]]
+partition = { equals = "MOCK_OPERATIONAL_NON_HARDWARE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The deterministic mock process image may be healthy while remaining explicitly non-hardware evidence."
 
 [[coverage.cells]]
 dimension = "resource_limit"

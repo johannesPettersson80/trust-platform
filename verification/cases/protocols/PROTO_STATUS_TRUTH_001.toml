@@ -1,0 +1,119 @@
+schema_version = 1
+id = "CASES_PROTO_STATUS_TRUTH_001"
+title = "Connector status truth traces"
+area = "protocols"
+owner = "trust-runtime"
+status = "planned"
+invariant = "PROTO_STATUS_TRUTH_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:cf102bd6ae8ec4c12b35aebb3054be70e1991d33890fbb51437e90d40be95a02"
+source_digest = "sha256:68043c720d7fc503aafe9f085e5318ac455751c8a08a4dfe9daaaaa945c38af3"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "PROTO_STATUS_TRUTH_001_ADS_STATUS_LIFECYCLE"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "ADS_STATUS_LIFECYCLE" }, scenario = "ADS_STATUS_LIFECYCLE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "ads_source", state = "connecting" }
+expected = { state = "starting", health = "unknown" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "ads_report", state = "not_ready", degraded_points = 0 }
+expected = { state = "not_ready", health = "unknown" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "ads_report", state = "connected", degraded_points = 0 }
+expected = { state = "ready", health = "ok" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "ads_report", state = "connected", degraded_points = 2 }
+expected = { state = "degraded", health = "degraded" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 4
+stimulus = { action = "ads_report", state = "stale", degraded_points = 0 }
+expected = { state = "stale", health = "degraded" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 5
+stimulus = { action = "ads_report", state = "reconnecting", degraded_points = 0 }
+expected = { state = "reconnecting", health = "degraded" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 6
+stimulus = { action = "ads_report", state = "disabled", degraded_points = 0 }
+expected = { state = "disabled", health = "unknown" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 7
+stimulus = { action = "ads_report", state = "faulted", degraded_points = 0 }
+expected = { state = "faulted", health = "faulted" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_STATUS_TRUTH_001_OPCUA_STATUS_LIFECYCLE"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "OPCUA_STATUS_LIFECYCLE" }, scenario = "OPCUA_STATUS_LIFECYCLE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "opcua_client", state = "configured", degraded_points = 0 }
+expected = { state = "configured", health = "unknown" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "opcua_server", state = "no_snapshot" }
+expected = { state = "not_ready", health = "unknown" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "opcua_client", state = "connected", degraded_points = 0 }
+expected = { state = "ready", health = "ok" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "opcua_client", state = "connected", degraded_points = 1 }
+expected = { state = "degraded", health = "degraded" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 4
+stimulus = { action = "opcua_client", state = "stale", degraded_points = 0 }
+expected = { state = "stale", health = "degraded" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case.trace]]
+sequence = 5
+stimulus = { action = "opcua_client", state = "faulted", degraded_points = 0 }
+expected = { state = "faulted", health = "faulted" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_STATUS_TRUTH_001_POINT_STALE_SEPARATION"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "POINT_STALE_SEPARATION" }, scenario = "POINT_STALE_SEPARATION" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "point_stale" }
+expected = { state = "degraded", health = "degraded", point_quality = "stale", degraded_points = 1 }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"

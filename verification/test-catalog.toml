@@ -1557,6 +1557,84 @@ last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2
+id = "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1E139E65D6EA58F838A8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/protocol_status_trace_cases.rs"
+name = "connector_status_truth_trace_cases"
+command = "cargo test -p trust-runtime --test protocol_status_trace_cases connector_status_truth_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PROTO_ADS_001", "PROTO_OPCUA_001", "PROTO_STATUS_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+expected_result = "ADS and OPC UA source states, health, snapshot readiness, degraded point counts, and point-level staleness retain the reviewed normalized meanings."
+expected_failure_mode = "A configured, not-ready, stale, or degraded connector is collapsed into ready/healthy, point staleness rewrites connector state, or the same-run case artifact drifts."
+evidence_destination = "target/gate-artifacts/cases/TEST_CONNECTOR_STATUS_TRUTH_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/protocols/PROTO_STATUS_TRUTH_001.toml"
+case_file_digest = "sha256:d750ca6ac6b92651f7e27de87c92a88960f96415693424e8a4371d5f8c0c356f"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
+id = "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_320D1EE366A7EDAC74A1"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/control/comm_handlers/discovery_probe/trace_cases.rs"
+name = "protocol_discovery_confidence_trace_cases"
+command = "cargo test -p trust-runtime --lib control::comm_handlers::discovery_probe::trace_cases::protocol_discovery_confidence_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PROTO_DISCOVERY_TRUTH_001", "PROTO_MODBUS_001", "PROTO_MQTT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+expected_result = "Modbus and MQTT probes distinguish protocol confirmation, protocol-shaped rejection, and TCP-only reachability while MQTT discovery always uses and closes a clean session."
+expected_failure_mode = "TCP reachability is overclaimed as protocol confirmation, a rejected MQTT session is called accepted, clean-session or DISCONNECT behavior drifts, or the same-run artifact is stale."
+evidence_destination = "target/gate-artifacts/cases/TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/protocols/PROTO_DISCOVERY_TRUTH_001.toml"
+case_file_digest = "sha256:d5e970a36ac73985d6a38e4df1c45323ee723d26796561732a49fea930c9fed8"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CA616B8FA0E5BB982CB5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/io/ethercat/trace_cases.rs"
+name = "ethercat_unavailable_resource_trace_cases"
+command = "cargo test -p trust-runtime --lib io::ethercat::trace_cases::ethercat_unavailable_resource_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PROTO_ETHERCAT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+expected_result = "A missing EtherCAT adapter defers construction, faults visibly on wire use, and stays terminal without retry until rebuild, while mock operation remains explicitly non-hardware evidence."
+expected_failure_mode = "Construction blocks, missing hardware reports healthy, a post-allocation failure retries or reallocates, mock operation is treated as physical proof, or the case artifact drifts."
+evidence_destination = "target/gate-artifacts/cases/TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/protocols/PROTO_ETHERCAT_001.toml"
+case_file_digest = "sha256:39b9aa5624851abd83a1322f5dd877e24283ab8910444775a4f497cada55d147"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
 id = "TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_82DF586FECB97A31B50C"

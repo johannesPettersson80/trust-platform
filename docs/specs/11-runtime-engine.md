@@ -442,6 +442,72 @@ Protocol roadmap priority after OPC UA baseline:
 - First: MQTT
 - Next: EtherNet/IP
 
+##### Connector status and discovery truth contract
+
+Connector reporting is an additive supervisory contract over protocol-owned
+transport loops. It does not replace `IoDriver`, ADS, OPC UA, Modbus, MQTT, or
+EtherCAT execution. Every connector report uses the following closed
+vocabularies (DEV-051):
+
+- lifecycle state: `disabled`, `configured`, `starting`, `ready`, `degraded`,
+  `reconnecting`, `stale`, `not_ready`, or `faulted`;
+- health: `ok`, `degraded`, `faulted`, or `unknown`;
+- discovery confidence: `confirmed`, `likely`, `port_reachable`, or
+  `unavailable`;
+- point quality: `good`, `stale`, `bad`, `unsupported`, `unavailable`,
+  `write_pending`, or `write_failed`.
+
+`ready` with `ok` health requires current protocol or driver evidence.
+Configuration, a starting worker, a listener without a runtime snapshot, and
+transport reachability do not satisfy that requirement. They remain
+`configured`, `starting`, `not_ready`, or `unknown` as applicable. A connector
+is `stale` when the whole connection is no longer fresh. A single stale point
+uses point quality `stale`; the connector may remain usable but must report
+degraded point counts instead of collapsing the point and connector states.
+ADS reports without a usable runtime snapshot are `not_ready`/`unknown`.
+Connected ADS or OPC UA reports are `ready`/`ok` only with no degraded points;
+otherwise they are `degraded`/`degraded`. Reconnecting, stale, disabled, and
+faulted source states retain their distinct normalized states.
+
+Discovery confidence describes evidence, not desirability or deployment
+readiness:
+
+- `confirmed` requires a valid protocol-level exchange. Modbus uses FC43/14
+  device identification or an explicitly configured FC03 safe read. A normal
+  or protocol-valid Modbus exception response confirms the protocol. MQTT uses
+  an accepted CONNACK.
+- `likely` requires a protocol-shaped response that does not establish an
+  accepted session. An MQTT authentication or authorization rejection is
+  `likely` with `auth_required = true`; other valid rejected CONNACK responses
+  are also `likely`.
+- `port_reachable` proves only that the TCP connection succeeded. It must not
+  be rendered or consumed as a confirmed Modbus device or MQTT broker.
+- `unavailable` means that no useful discovery evidence was obtained.
+
+MQTT discovery sets `clean_session = true` and sends DISCONNECT immediately
+after every received CONNACK, including rejected CONNACK responses. It does not
+leave a discovery session active. MQTTS port reachability without a TLS MQTT
+exchange remains `port_reachable`.
+
+##### EtherCAT unavailable-resource contract
+
+Creating an EtherCAT driver with a non-mock adapter does not require the
+adapter to be present, so project construction and runtime startup remain
+non-blocking. The first operation that needs the wire attempts bounded hardware
+initialization. If the adapter, configuration, or post-allocation hardware
+resource is unavailable, the operation returns an error and the connector is
+faulted rather than healthy (DEV-052).
+
+EtherCrab process-data storage cannot be safely allocated repeatedly after a
+post-allocation initialization failure. Such a failure is therefore terminal
+for that driver instance: later reads and writes return the visible
+`ethercat hardware unavailable until driver rebuild` error without another
+allocation attempt or retry window. Recovery requires constructing a new
+driver instance. This terminal rule prevents an unavailable adapter from
+causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
+proves deterministic software behavior only and is not evidence that physical
+EtherCAT hardware is available or production-ready.
+
 #### 6.6 Fault, Overrun, and Watchdog Handling
 
 The runtime traps execution faults and reports them through a unified fault channel. By default, a fault transitions the resource into a **FAULT** state and halts further task execution until restarted.
