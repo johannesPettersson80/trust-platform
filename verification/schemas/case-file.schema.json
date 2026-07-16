@@ -29,7 +29,9 @@
         "hand_authored_state_machine_v1"
       ]
     },
-    "generator": { "const": "gen_cases.py v1" },
+    "generator": {
+      "enum": ["gen_cases.py v1", "gen_cases_v2.py v1"]
+    },
     "generator_digest": { "$ref": "#/$defs/digest" },
     "source_digest": { "$ref": "#/$defs/digest" },
     "trace_definition_digest": { "$ref": "#/$defs/digest" },

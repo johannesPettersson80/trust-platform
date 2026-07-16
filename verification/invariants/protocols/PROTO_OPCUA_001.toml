@@ -5,15 +5,15 @@ area = "protocols"
 risk = "false_status"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-16"
 claim = "OPC UA client sessions and subscriptions must follow the reviewed persistent lifecycle and expose stale and reconnecting state."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src"]
-tests = []
-gates = []
+tests = ["TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001"]
+gates = ["pr"]
 evidence_refs = []
-missing = ["cataloged_opcua_lifecycle_cases", "durable_lifecycle_proof"]
+missing = ["producer_authentic_behavior_lock", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -23,7 +23,55 @@ source_refs = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
 kind = "reviewed_decision"
 ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
 
+[[behavior]]
+partition = { equals = "PERSISTENT_SESSION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Repeated scan ticks and output writes reuse one connected session rather than reconnecting per scan or write."
+
+[[behavior]]
+partition = { equals = "STALE_VALUE_HOLD_AND_RECOVERY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "status_degraded" }
+rationale = "A freshness timeout marks the connection stale without overwriting the last PLC value, and a later subscription update restores connected state."
+
+[[behavior]]
+partition = { equals = "SESSION_LOSS_BACKOFF" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Session loss becomes reconnecting and the worker honors its bounded backoff before opening another session."
+
+[[behavior]]
+partition = { equals = "SUBSCRIPTION_RECREATED_AFTER_RECONNECT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A reconnect recreates the read subscription and accepts a later subscription value through the same PLC binding."
+
+[[behavior]]
+partition = { equals = "SUBSCRIPTION_TRANSFER_RECOVERY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "When the transport can recover the session and transfer subscriptions, the worker does not create an unnecessary replacement session."
+
+[[behavior]]
+partition = { equals = "REJECTED_WRITE_POINT_FAULT_ISOLATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A server-rejected point write faults that point visibly without tearing down the otherwise healthy persistent session."
+
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "The reviewed lifecycle decision exists, but cataloged cases and accepted proof are not linked."
+state = "covered"
+rationale = "The mapped protocol-trace runner covers persistent session reuse, stale-value hold and recovery, reconnect backoff, subscription recreation and transfer, and point-level write rejection; producer-authentic lock evidence and a broad gate remain open."

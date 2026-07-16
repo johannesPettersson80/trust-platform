@@ -140,7 +140,7 @@ canonical_invariant_id = "IEC_PREC_001"
 board_row = "VERIF-P4-001"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "IEC_STRING_001"
@@ -173,7 +173,7 @@ canonical_invariant_id = "PLCO_IMPORT_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "DEV_TEST_DISCOVERY_001"
@@ -237,7 +237,7 @@ canonical_invariant_id = "PROTO_OPCUA_001"
 board_row = "VERIF-P4-004"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 p4_000_risk_id = "RISK_OPCUA_CLIENT_LIFECYCLE_001"
 
 [[seeds]]

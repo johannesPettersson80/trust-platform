@@ -120,9 +120,12 @@ class SeedManifestContractTests(unittest.TestCase):
                 "VM_SEAM_VALID_001",
                 "VM_SEAM_ENC_001",
                 "IEC_PARSE_RECOVER_001",
+                "IEC_PREC_001",
                 "IEC_STRING_001",
                 "IEC_SUBRANGE_001",
                 "IEC_TIMER_001",
+                "PLCO_IMPORT_001",
+                "PROTO_OPCUA_001",
                 "DEBUG_AUTH_001",
                 "DEBUG_PAUSE_001",
                 "SEC_AUTHZ_001",
@@ -136,7 +139,7 @@ class SeedManifestContractTests(unittest.TestCase):
     def test_only_reviewed_seeds_may_enter_execution_lifecycle(self) -> None:
         manifest = _load_manifest(self.root)
         unreviewed = next(
-            row for row in manifest["seeds"] if row["seed_id"] == "IEC_PREC_001"
+            row for row in manifest["seeds"] if row["seed_id"] == "PROTO_MQTT_001"
         )
         unreviewed["lifecycle_state"] = EXECUTION_READY
         _write_manifest(self.root, manifest)

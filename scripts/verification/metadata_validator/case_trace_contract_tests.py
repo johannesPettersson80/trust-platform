@@ -53,6 +53,7 @@ class CaseTraceContractTests(unittest.TestCase):
             invariant=invariant or self.invariant,
             spec_sources=self.spec_sources,
             expected_generator_digest=GENERATOR_DIGEST,
+            expected_generator_v2_digest=GENERATOR_DIGEST,
             expected_source_digest=SOURCE_DIGEST,
         )
 
@@ -94,6 +95,20 @@ class CaseTraceContractTests(unittest.TestCase):
         case_data = {
             "schema_version": 1,
             "generator": "gen_cases.py v1",
+            "generator_digest": GENERATOR_DIGEST,
+            "source_digest": SOURCE_DIGEST,
+            "case": [{"id": "GENERATED"}],
+        }
+
+        kind = self.validate(case_data)
+
+        self.assertEqual(kind, GENERATED_DECISION_TABLE_V1)
+        self.assertEqual(self.failures, [])
+
+    def test_versioned_non_bytecode_generator_is_accepted(self) -> None:
+        case_data = {
+            "schema_version": 1,
+            "generator": "gen_cases_v2.py v1",
             "generator_digest": GENERATOR_DIGEST,
             "source_digest": SOURCE_DIGEST,
             "case": [{"id": "GENERATED"}],
@@ -167,9 +182,21 @@ class CaseTraceContractTests(unittest.TestCase):
         self.validate(self.hand_case(), invariant)
 
         joined = "\n".join(self.failures)
-        self.assertIn("requires invariant contract_kind = state_machine", joined)
+        self.assertIn(
+            "requires invariant contract_kind = state_machine or protocol_trace",
+            joined,
+        )
         self.assertNotIn("spec.status", joined)
         self.assertNotIn("spec_gap_refs", joined)
+
+    def test_hand_authored_trace_accepts_protocol_trace_invariant(self) -> None:
+        invariant = deepcopy(self.invariant)
+        invariant["contract_kind"] = "protocol_trace"
+
+        kind = self.validate(self.hand_case(), invariant)
+
+        self.assertEqual(kind, HAND_AUTHORED_STATE_MACHINE_V1)
+        self.assertEqual(self.failures, [])
 
     def test_hand_authored_trace_digest_is_recomputed(self) -> None:
         case_data = self.hand_case()

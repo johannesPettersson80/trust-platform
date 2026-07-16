@@ -171,6 +171,11 @@ def _validate_spec_source_schema_contract(schema: dict[str, Any]) -> list[str]:
 
 def _validate_case_file_schema_contract(schema: dict[str, Any]) -> list[str]:
     failures: list[str] = []
+    if schema.get("properties", {}).get("generator", {}).get("enum") != [
+        "gen_cases.py v1",
+        "gen_cases_v2.py v1",
+    ]:
+        failures.append("case-file schema generator versions drift")
     _check_closed_object(
         schema,
         CASE_FILE_REQUIRED_ROOT_FIELDS,

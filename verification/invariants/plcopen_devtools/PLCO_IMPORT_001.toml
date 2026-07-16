@@ -5,15 +5,15 @@ area = "plcopen_devtools"
 risk = "silent_corruption"
 status = "gap_open"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-16"
 claim = "Unsupported executable non-ST PLCopen content must reject loudly without causing benign metadata to hide valid ST."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-plcopen/src"]
-tests = []
-gates = []
+tests = ["TEST_PLCOPEN_IMPORT_TRACE_001"]
+gates = ["pr"]
 evidence_refs = []
-missing = ["cataloged_plcopen_body_cases", "real_vendor_corpus_proof"]
+missing = ["producer_authentic_behavior_lock", "broad_remote_gate", "real_vendor_corpus_proof"]
 
 [spec]
 status = "specified"
@@ -23,7 +23,71 @@ source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
 kind = "trust_contract"
 ref = "SPEC_PLCOPEN_IMPORT_DECISION_001"
 
+[[behavior]]
+partition = { equals = "ST_BODY_IMPORT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-only-import-profile"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A supported ST POU body is emitted as an ST source file."
+
+[[behavior]]
+partition = { equals = "ST_BODY_WITH_BENIGN_METADATA" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-only-import-profile"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Opaque addData metadata beside a valid ST body does not hide or replace the ST program."
+
+[[behavior]]
+partition = { equals = "FBD_BODY_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+error_code = "PLCO215"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An FBD body is skipped with PLCO215 and is never scraped into an ST source."
+
+[[behavior]]
+partition = { equals = "LD_BODY_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+error_code = "PLCO216"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An LD body is skipped with PLCO216 and is never scraped into an ST source."
+
+[[behavior]]
+partition = { equals = "SFC_BODY_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+error_code = "PLCO217"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An SFC body is skipped with PLCO217 and is never scraped into an ST source."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_EXECUTABLE_BODY_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+error_code = "PLCO218"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unknown executable body is skipped with PLCO218 and its XML text is never treated as ST."
+
+[[behavior]]
+partition = { equals = "MIXED_ST_AND_UNSUPPORTED_BODY" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A valid ST POU remains importable while an unsupported sibling POU is skipped with its named error diagnostic."
+
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The reviewed import decision exists, but cataloged cases and real-vendor proof are not linked."
+state = "covered"
+rationale = "The mapped case runner covers supported ST, benign metadata, each named unsupported body, and mixed-document isolation; producer-authentic lock evidence, a broad gate, and real-vendor corpus proof remain open."

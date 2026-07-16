@@ -1,0 +1,53 @@
+schema_version = 1
+id = "CASES_PLCO_IMPORT_001"
+title = "Generated cases for Unsupported executable PLCopen content rejects loudly"
+area = "plcopen_devtools"
+owner = "trust-plcopen"
+status = "planned"
+invariant = "PLCO_IMPORT_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:c09b28c4fea61e58b4322228c4f34a0d384f5871b998f8a0d9cf217dbc4e7036"
+source_digest = "sha256:77306b1da182ed94372e091a804856f1dc7a7f6104f41542c3d1455b2d505200"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "PLCO_IMPORT_001_ST_BODY_IMPORT_A352DEE4"
+family = "happy_path"
+input = { source_partition = { equals = "ST_BODY_IMPORT" }, scenario = "ST_BODY_IMPORT" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-only-import-profile" }
+
+[[case]]
+id = "PLCO_IMPORT_001_ST_BODY_WITH_BENIGN_METADATA_19049E61"
+family = "extra_or_unknown"
+input = { source_partition = { equals = "ST_BODY_WITH_BENIGN_METADATA" }, scenario = "ST_BODY_WITH_BENIGN_METADATA" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-only-import-profile" }
+
+[[case]]
+id = "PLCO_IMPORT_001_FBD_BODY_REJECTED_C22BAB6E"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "FBD_BODY_REJECTED" }, scenario = "FBD_BODY_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, error_code = "PLCO215", no_partial_apply = true, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics" }
+
+[[case]]
+id = "PLCO_IMPORT_001_LD_BODY_REJECTED_04D6E1B5"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "LD_BODY_REJECTED" }, scenario = "LD_BODY_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, error_code = "PLCO216", no_partial_apply = true, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics" }
+
+[[case]]
+id = "PLCO_IMPORT_001_SFC_BODY_REJECTED_646387CA"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "SFC_BODY_REJECTED" }, scenario = "SFC_BODY_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, error_code = "PLCO217", no_partial_apply = true, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics" }
+
+[[case]]
+id = "PLCO_IMPORT_001_UNKNOWN_EXECUTABLE_BODY_REJECTED_3AD1C269"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "UNKNOWN_EXECUTABLE_BODY_REJECTED" }, scenario = "UNKNOWN_EXECUTABLE_BODY_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, error_code = "PLCO218", no_partial_apply = true, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics" }
+
+[[case]]
+id = "PLCO_IMPORT_001_MIXED_ST_AND_UNSUPPORTED_BODY_564D002E"
+family = "extra_or_unknown"
+input = { source_partition = { equals = "MIXED_ST_AND_UNSUPPORTED_BODY" }, scenario = "MIXED_ST_AND_UNSUPPORTED_BODY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics" }

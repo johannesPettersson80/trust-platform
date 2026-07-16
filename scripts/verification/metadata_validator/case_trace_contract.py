@@ -55,6 +55,7 @@ def validate_case_provenance(
     invariant: dict[str, Any],
     spec_sources: dict[str, dict[str, Any]],
     expected_generator_digest: str,
+    expected_generator_v2_digest: str | None = None,
     expected_source_digest: str,
 ) -> str:
     """Validate the mutually exclusive generated and hand-authored contracts."""
@@ -78,6 +79,7 @@ def validate_case_provenance(
             test_id=test_id,
             case_data=case_data,
             expected_generator_digest=expected_generator_digest,
+            expected_generator_v2_digest=expected_generator_v2_digest,
         )
     else:
         _validate_hand_authored_state_machine(
@@ -98,14 +100,21 @@ def _validate_generated_case(
     test_id: str,
     case_data: dict[str, Any],
     expected_generator_digest: str,
+    expected_generator_v2_digest: str | None,
 ) -> None:
-    if case_data.get("generator") != "gen_cases.py v1":
-        fail(path, f"{test_id} generated case_file must name generator = 'gen_cases.py v1'")
-    if case_data.get("generator_digest") != expected_generator_digest:
+    generator = case_data.get("generator")
+    expected_by_generator = {
+        "gen_cases.py v1": expected_generator_digest,
+        "gen_cases_v2.py v1": expected_generator_v2_digest,
+    }
+    if generator not in expected_by_generator:
+        fail(path, f"{test_id} generated case_file names unknown generator {generator!r}")
+    expected_digest = expected_by_generator.get(generator)
+    if expected_digest is None or case_data.get("generator_digest") != expected_digest:
         fail(
             path,
             f"{test_id} case_file generator_digest mismatch: expected "
-            f"{expected_generator_digest}, actual {case_data.get('generator_digest')}",
+            f"{expected_digest}, actual {case_data.get('generator_digest')}",
         )
     if "trace_definition_digest" in case_data:
         fail(path, f"{test_id} generated case_file forbids trace_definition_digest")
@@ -127,11 +136,11 @@ def _validate_hand_authored_state_machine(
             path,
             f"{test_id} hand-authored case_file forbids generator and generator_digest",
         )
-    if invariant.get("contract_kind") != "state_machine":
+    if invariant.get("contract_kind") not in {"state_machine", "protocol_trace"}:
         fail(
             path,
             f"{test_id} hand-authored case_file requires invariant "
-            "contract_kind = state_machine",
+            "contract_kind = state_machine or protocol_trace",
         )
     cases = case_data.get("case")
     if not isinstance(cases, list) or not cases:

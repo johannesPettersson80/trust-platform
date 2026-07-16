@@ -89,6 +89,9 @@ TOML shape convention:
   `oracle_ref` copy expected outcomes from the behavior row; the tool never
   invents expected behavior. In the bytecode/VM pilot it can also derive
   blocked transform cases from committed seed artifacts.
+- `scripts/gen_cases_v2.py --invariant <ID>` extends the same behavior-row
+  derivation to non-bytecode decision tables without changing the frozen
+  `gen_cases.py v1` digest that existing bytecode proof records bind.
 - `crates/verification-cases` is the dev-helper crate for tests that consume
   committed case tables. It records blocked cases without execution, wraps
   runnable cases with `StateProbe` snapshots, and writes JSON artifacts under

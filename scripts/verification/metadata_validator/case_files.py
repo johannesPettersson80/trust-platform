@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..case_digests import current_generator_digest, file_digest
+from ..case_digests_v2 import current_generator_digest as current_generator_v2_digest
 from ..case_contract_fields import CASE_FILE_CASE_FIELDS, CASE_FILE_ROOT_FIELDS
 from ..execution_contract import (
     ExecutionContractError,
@@ -91,6 +92,7 @@ def validate_case_file(
         invariant=invariant,
         spec_sources=spec_sources,
         expected_generator_digest=expected_generator_digest,
+        expected_generator_v2_digest=current_generator_v2_digest(),
         expected_source_digest=expected_source_digest,
     )
 

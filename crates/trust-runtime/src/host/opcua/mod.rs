@@ -33,4 +33,6 @@ include!("client_bridge.rs");
 include!("client_worker.rs");
 
 #[cfg(test)]
+mod lifecycle_cases;
+#[cfg(test)]
 mod tests;

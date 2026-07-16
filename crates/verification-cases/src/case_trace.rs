@@ -39,11 +39,13 @@ fn validate_generated(
     case_file: &CaseFile,
     kind: &str,
 ) -> Result<(String, Option<String>), CaseRunError> {
-    if case_file.generator.as_deref() != Some("gen_cases.py v1")
-        || case_file.generator_digest.is_none()
+    if !matches!(
+        case_file.generator.as_deref(),
+        Some("gen_cases.py v1" | "gen_cases_v2.py v1")
+    ) || case_file.generator_digest.is_none()
     {
         return Err(CaseRunError::InvalidCaseProvenance {
-            message: "generated_decision_table_v1 requires gen_cases.py v1 and generator_digest"
+            message: "generated_decision_table_v1 requires a reviewed gen_cases generator and generator_digest"
                 .to_string(),
         });
     }
@@ -184,8 +186,39 @@ mod tests {
     use crate::{CaseFile, CaseRunArtifact};
 
     use super::{
-        trace_definition_digest, validate_case_file_provenance, HAND_AUTHORED_STATE_MACHINE_V1,
+        trace_definition_digest, validate_case_file_provenance, GENERATED_DECISION_TABLE_V1,
+        HAND_AUTHORED_STATE_MACHINE_V1,
     };
+
+    #[test]
+    fn generated_v2_provenance_is_accepted() {
+        let case_file: CaseFile = toml::from_str(
+            r#"schema_version = 1
+id = "CASES_GENERATED_V2"
+title = "Generated v2 cases"
+area = "compiler_iec"
+owner = "verification"
+status = "planned"
+invariant = "INV_GENERATED_V2"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:generator"
+source_digest = "sha256:source"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "CASE_GENERATED_V2"
+family = "happy_path"
+input = { scenario = "GENERATED_V2" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_GENERATED_V2#behavior" }
+"#,
+        )
+        .unwrap();
+
+        let (kind, trace_digest) = validate_case_file_provenance(&case_file).unwrap();
+
+        assert_eq!(kind, GENERATED_DECISION_TABLE_V1);
+        assert_eq!(trace_digest, None);
+    }
 
     #[test]
     fn hand_authored_trace_provenance_is_artifact_ready() {

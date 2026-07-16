@@ -1454,6 +1454,84 @@ last_reviewed = "2026-07-14"
 
 [[tests]]
 schema_version = 2
+id = "TEST_IEC_PRECEDENCE_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_06CD7DEDEF34CE12046F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/iec_precedence_trace_cases.rs"
+name = "expression_precedence_trace_cases"
+command = "cargo test -p trust-runtime --test iec_precedence_trace_cases expression_precedence_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["IEC_PREC_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+expected_result = "Every committed arithmetic, comparison, and boolean precedence partition executes through real Structured Text and yields the reviewed value."
+expected_failure_mode = "The parser or runtime groups an operator at the wrong precedence or associativity level, or the runner fails to emit a case-bound same-run artifact."
+evidence_destination = "target/gate-artifacts/cases/TEST_IEC_PRECEDENCE_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/compiler_iec/IEC_PREC_001.toml"
+case_file_digest = "sha256:dc72275d11e7a0d173b7354180180025fbf854a65160debc0782737a7a9b6072"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
+id = "TEST_PLCOPEN_IMPORT_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E88335AA584F723ECF04"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_import_trace_cases.rs"
+name = "plcopen_import_trace_cases"
+command = "cargo test -p trust-runtime --test plcopen_import_trace_cases plcopen_import_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_IMPORT_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001"
+expected_result = "Supported ST imports, benign body metadata, every named unsupported executable body, and mixed-document isolation match the reviewed PLCopen import contract."
+expected_failure_mode = "Unsupported executable XML is scraped into ST or accepted silently, benign metadata hides valid ST, a mixed document loses its supported POU, or the same-run artifact binding drifts."
+evidence_destination = "target/gate-artifacts/cases/TEST_PLCOPEN_IMPORT_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/plcopen_devtools/PLCO_IMPORT_001.toml"
+case_file_digest = "sha256:63dfa0f217c42b24809673cc37951f0adf61754cee4a68625dea2a9aa64a2841"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0F2A9C178711CAFD31F3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/lifecycle_cases.rs"
+name = "opcua_client_lifecycle_trace_cases"
+command = "cargo test -p trust-runtime --lib opcua::lifecycle_cases::opcua_client_lifecycle_trace_cases -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PROTO_OPCUA_001"]
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
+expected_result = "The public OPC UA bridge and worker follow every committed persistent-session, stale, reconnect, subscription-recovery, and point-fault trace."
+expected_failure_mode = "The worker reconnects per scan or write, loses the last good stale value, bypasses backoff, fails to recreate or transfer subscriptions, tears down on a point rejection, or emits a stale artifact."
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/protocols/PROTO_OPCUA_001.toml"
+case_file_digest = "sha256:d5f1740836a29c1a0742f3040e5060a01fc78f07e99870a8c139f27c41191e7d"
+last_reviewed = "2026-07-16"
+
+[[tests]]
+schema_version = 2
 id = "TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_8CD53CDE1E92A31A96D1"
