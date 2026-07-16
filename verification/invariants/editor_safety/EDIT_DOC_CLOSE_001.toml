@@ -1,0 +1,38 @@
+schema_version = 1
+id = "EDIT_DOC_CLOSE_001"
+title = "Document close discards unsaved state and restores durable project truth"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "spec_gap"
+owner = "trust-lsp"
+last_reviewed = "2026-07-16"
+claim = "Closing a document must discard its unsaved buffer, remove stale semantic state, and recompute project truth from durable sources."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-lsp/src/handlers/sync.rs",
+  "crates/trust-lsp/src/state/documents.rs",
+]
+tests = []
+gates = []
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"]
+missing = [
+  "written_document_close_contract",
+  "producer_authentic_behavior_lock",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "ambiguous"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "spec_gap"
+rationale = "The durable-source, cache-invalidation, and dependent-diagnostic lifecycle after didClose is not yet specified."
+spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"

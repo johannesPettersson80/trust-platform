@@ -639,6 +639,23 @@ last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1
+id = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
+title = "LSP document-close durable-source lifecycle needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "After didClose discards an unsaved buffer, which durable source replaces it, which caches must be invalidated, and how must dependent diagnostics be recomputed?"
+affected_invariants = ["EDIT_DOC_CLOSE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
 id = "SPEC_GAP_DEBUG_AUTHORIZATION_001"
 title = "Debug write and force authorization needs a written contract"
 area = "control_security"
