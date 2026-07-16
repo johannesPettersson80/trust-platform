@@ -3383,3 +3383,25 @@ case_file_digest = "sha256:102262b53ce12ae6a7c2c18ffb52f8a1ae243b80d2baf6a64b3ce
 paired_red_evidence = "EVID_TEST_BYTECODE_VALIDATOR_CASES_001_RED"
 formerly_red_case_ids = ["VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC", "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_4DDD6D2B", "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633", "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA", "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85", "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F", "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"]
 per_case_summary = ["VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC:passed", "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_4DDD6D2B:passed", "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633:passed", "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA:passed", "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85:passed", "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F:passed", "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C:passed"]
+
+[[evidence]]
+schema_version = 1
+id = "EVID_VM_STABLE_ERROR_MODEL_BATCH_VALIDATION_20260716"
+title = "VM and bytecode stable error model product batch validation"
+area = "bytecode_vm"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/vm-stable-error-model-batch-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py --report docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6a-tooling-selftest-fixture-report.md && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && git diff --check"
+commit = "61308e8ce52241f426275e756f4143daec17a887"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex stable error model product batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_SEAM_VALID_001", "VM_SEAM_DECLARED_TYPE_001", "VM_SEAM_STRING_BOUND_001", "VM_SEAM_SUBRANGE_001"]
+linked_tests = ["TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001", "TEST_BYTECODE_VALIDATOR_CASES_001", "TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001", "TEST_VM_HMI_TYPE_ERROR_CODE_001", "TEST_VM_PRIMITIVE_TAG_REJECTION_001", "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001", "TEST_VM_SUBRANGE_TYPE_POLICY_001", "TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001"]
+linked_spec_gaps = ["SPEC_GAP_VM_ERROR_MODEL_001"]
+last_reviewed = "2026-07-16"
