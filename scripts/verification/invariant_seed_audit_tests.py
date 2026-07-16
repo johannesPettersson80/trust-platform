@@ -123,6 +123,9 @@ class SeedManifestContractTests(unittest.TestCase):
                 "IEC_STRING_001",
                 "IEC_SUBRANGE_001",
                 "IEC_TIMER_001",
+                "DEBUG_AUTH_001",
+                "DEBUG_PAUSE_001",
+                "SEC_AUTHZ_001",
             ],
             [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
         )
