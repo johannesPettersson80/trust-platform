@@ -27,7 +27,7 @@ include!("ethercat/ethercrab_bus.rs");
 include!("ethercat/driver.rs");
 include!("ethercat/config.rs");
 include!("ethercat/tests.rs");
-#[cfg(test)]
+#[cfg(all(test, feature = "ethercat-wire", unix))]
 include!("ethercat/trace_cases.rs");
 
 /// Public, sanitized EtherCAT module metadata for authoring and topology views.
