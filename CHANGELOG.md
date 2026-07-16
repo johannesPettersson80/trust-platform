@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.49`
+Target release: `v0.24.50`
 
 ### Fixed
 
+- trust-runtime: control requests denied by the reviewed role matrix now return
+  the stable `insufficient_role` error code before dispatch; reviewed operation
+  names, fixed minimum roles, and debug-surface classification share one
+  internal registry while unclassified operations remain Admin-only.
 - trust-runtime: bytecode decoding, validation, VM traps, and runtime failures
   now expose stable lower-snake-case machine identifiers without parsing
   diagnostic text; HMI type, bounded-string, subrange, and non-finite write

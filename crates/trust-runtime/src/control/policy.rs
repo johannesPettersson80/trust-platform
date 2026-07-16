@@ -1,107 +1,22 @@
 use crate::security::AccessRole;
 
+use super::operation_registry::{operation_policy, RolePolicy};
+
 pub(super) fn is_debug_request(kind: &str) -> bool {
-    matches!(
-        kind,
-        "pause"
-            | "resume"
-            | "step_in"
-            | "step_over"
-            | "step_out"
-            | "breakpoints.set"
-            | "breakpoints.clear"
-            | "breakpoints.clear_all"
-            | "breakpoints.clear_id"
-            | "breakpoints.list"
-            | "eval"
-            | "set"
-            | "var.force"
-            | "var.unforce"
-            | "var.forced"
-            | "debug.state"
-            | "debug.stops"
-            | "debug.stack"
-            | "debug.scopes"
-            | "debug.variables"
-            | "debug.evaluate"
-            | "debug.breakpoint_locations"
-    )
+    operation_policy(kind).is_some_and(|policy| policy.debug_surface)
 }
 
 pub(crate) fn required_role_for_control_request(
     kind: &str,
     params: Option<&serde_json::Value>,
 ) -> AccessRole {
-    match kind {
-        "status"
-        | "health"
-        | "tasks.stats"
-        | "events.tail"
-        | "events"
-        | "faults"
-        | "config.get"
-        | "connectors.status"
-        | "ads.discover"
-        | "ads.identity"
-        | "ads.doctor.status"
-        | "ads.route_plan"
-        | "ads.status"
-        | "ads.server.status"
-        | "ads.server.symbols"
-        | "ads.server.doctor.status"
-        | "ads.server.route_plan"
-        | "comm.capabilities"
-        | "comm.schema"
-        | "comm.discover"
-        | "fleet.topology"
-        | "io.list"
-        | "io.read"
-        | "hmi.schema.get"
-        | "hmi.values.get"
-        | "hmi.trends.get"
-        | "hmi.alarms.get"
-        | "hmi.descriptor.get"
-        | "historian.query"
-        | "historian.alerts"
-        | "debug.state"
-        | "debug.stops"
-        | "debug.stack"
-        | "debug.scopes"
-        | "debug.variables"
-        | "debug.breakpoint_locations"
-        | "breakpoints.list"
-        | "var.forced" => AccessRole::Viewer,
-        "ads.doctor" | "ads.doctor.start" => required_role_for_ads_doctor(params),
-        "comm.browse_symbols" => required_role_for_comm_browse_symbols(params),
-        "ads.import_symbols" | "ads.import_symbols.apply" => {
-            required_role_for_ads_import_symbols(params)
-        }
-        "ads.server.doctor" | "ads.server.doctor.start" => AccessRole::Engineer,
-        "pause" | "resume" | "restart" | "hmi.alarm.ack" | "pair.claim" => AccessRole::Operator,
-        "step_in"
-        | "step_over"
-        | "step_out"
-        | "breakpoints.set"
-        | "breakpoints.clear"
-        | "breakpoints.clear_all"
-        | "breakpoints.clear_id"
-        | "eval"
-        | "set"
-        | "var.force"
-        | "var.unforce"
-        | "io.write"
-        | "io.force"
-        | "io.unforce"
-        | "debug.evaluate"
-        | "hmi.write"
-        | "hmi.descriptor.update"
-        | "hmi.scaffold.reset"
-        | "comm.apply"
-        | "comm.test" => AccessRole::Engineer,
-        "config.set" => required_role_for_config_set(params),
-        "shutdown" | "bytecode.reload" | "ads.route_add" | "ads.route_remove" | "pair.start"
-        | "pair.list" | "pair.revoke" => AccessRole::Admin,
-        _ => AccessRole::Admin,
+    match operation_policy(kind).map(|policy| policy.role) {
+        Some(RolePolicy::Fixed(role)) => role,
+        Some(RolePolicy::AdsDoctor) => required_role_for_ads_doctor(params),
+        Some(RolePolicy::AdsImportSymbols) => required_role_for_ads_import_symbols(params),
+        Some(RolePolicy::CommBrowseSymbols) => required_role_for_comm_browse_symbols(params),
+        Some(RolePolicy::ConfigSet) => required_role_for_config_set(params),
+        None => AccessRole::Admin,
     }
 }
 

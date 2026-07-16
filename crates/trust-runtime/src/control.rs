@@ -14,6 +14,7 @@ mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod io_handlers;
+mod operation_registry;
 mod policy;
 mod program_handlers;
 mod status_handlers;
@@ -558,7 +559,8 @@ pub(crate) fn handle_request_value(
         required_role_for_control_request(request.r#type.as_str(), request.params.as_ref());
     if !request_role.allows(required_role) {
         let error = format!("forbidden: requires role {}", required_role.as_str());
-        let response = ControlResponse::error(request.id, error.clone());
+        let response =
+            ControlResponse::error_with_code(request.id, error.clone(), "insufficient_role");
         let audit_id = record_audit(
             state,
             ControlAuditRecord {
