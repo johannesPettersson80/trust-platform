@@ -18,7 +18,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_DEBUG_PAUSE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/editor_safety/DEBUG_PAUSE_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:55b162ceb84c960ea196be182d8ad5d5f740f9fc2f6bf47a012b81ab776efe9d";
+    "sha256:4dac762598287cd3ff224a0688b8e36ffa5c20130795655c70d9d794bda45b15";
 
 const COUNTER_SOURCE: &str = r#"
 PROGRAM Main

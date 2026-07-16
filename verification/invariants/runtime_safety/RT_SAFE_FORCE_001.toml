@@ -3,9 +3,9 @@ id = "RT_SAFE_FORCE_001"
 title = "Force and write lifetime is bounded and visible"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-16"
 claim = "Force, write, and release state must not persist through lifecycle boundaries without an explicit contract."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -25,8 +25,8 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_GREEN",
   "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714",
 ]
-spec_gap_refs = ["SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
-missing = ["source_oracle_proof_contract_transition", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["producer_authentic_current_lock_proof", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -34,7 +34,7 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[behavior]]
 partition = { equals = "RESTART_CLEARS_DEBUG_MUTATIONS" }
@@ -54,6 +54,5 @@ rationale = "A deliberate safe-state boundary clears the active I/O force before
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "spec_gap"
-rationale = "Force, write, and release transitions require a focused lifecycle contract."
-spec_gap_ref = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+state = "gap_open"
+rationale = "The written lifecycle and focused traces cover restart and safe-state clearing boundaries; producer-authentic current-contract proof and a causal broad gate remain open."

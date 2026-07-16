@@ -444,9 +444,10 @@ affected_tests = [
   "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
 ]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
-last_reviewed = "2026-07-14"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_FORCE_LIFECYCLE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -648,9 +649,10 @@ affected_tests = [
   "TEST_CONTROL_AUTHORIZATION_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
-last_reviewed = "2026-07-14"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEBUG_ADAPTER_001"
+closeout_evidence = ["EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -669,9 +671,10 @@ affected_tests = [
   "TEST_DEBUG_PAUSE_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
-last_reviewed = "2026-07-14"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_DEBUG_PAUSE_WATCHDOG_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -741,9 +744,10 @@ affected_tests = [
   "TEST_CONTROL_AUTHORIZATION_TRACE_001",
 ]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
-last_reviewed = "2026-07-14"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1

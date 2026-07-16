@@ -7,7 +7,7 @@ status = "planned"
 invariant = "SEC_AUTHZ_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:9ef0d107e868d12461158bec5829456f3e7777e46c37db43290cbb86a7b777d3"
-source_digest = "sha256:0842384193cf8b6c5134331e16409c6d0369b2f8a4e2ef662299cf0f5760372c"
+source_digest = "sha256:02213264871ca289142dd83773376d095552a8d891eb1d549bcafc558e213bb5"
 last_reviewed = "2026-07-16"
 
 [[case]]

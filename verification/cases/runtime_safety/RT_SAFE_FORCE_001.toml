@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_SAFE_FORCE_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:1e67ebc8dddfc22a214c63a4188caa9edd98dd85976dbd36cccdb65fbdc43082"
-source_digest = "sha256:d36b03f1147437c2b287201eb0fb61bc47c72cd787c80989a2263dbda612a223"
+source_digest = "sha256:012409e8de236f482ba8b404ce440cf616c3c7ca0d828a3d08bd7d1fd36b7bc6"
 last_reviewed = "2026-07-14"
 
 [[case]]

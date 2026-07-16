@@ -15,7 +15,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_FORCE_LIFECYCLE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_FORCE_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:54aa127239e290a67249047cb771f7e46572c8af5ede8365f9b6513a76d96bc2";
+    "sha256:a09b4d3924e7bbc8b9928569de8b7c6ad761568bf6ce588d0835a2e9d4402105";
 
 const FORCE_LIFECYCLE_SOURCE: &str = r#"
 VAR_GLOBAL

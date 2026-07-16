@@ -62,14 +62,14 @@ area = "control_security"
 risk = "security"
 owner = "trust-runtime"
 status = "planned"
-last_reviewed = "2026-07-10"
-description = "The external review confirmed unresolved viewer, control, file-read, write, force, and release authorization boundaries."
-mitigation = "Define the control authorization matrix and debug authorization contract before accepting allow-or-deny expectations."
+last_reviewed = "2026-07-16"
+description = "The external review identified unresolved viewer, control, file-read, write, force, and release authorization boundaries; the role matrix and stable denial contract are now written and exercised by focused product tests."
+mitigation = "Keep the explicit default-deny operation registry and role-transition traces active; retain broad-gate and exhaustive operation-denominator work as invariant debt rather than reopening the resolved specification gaps."
 source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
 related_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
-related_spec_gaps = ["SPEC_GAP_DEBUG_AUTHORIZATION_001", "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"]
+related_spec_gaps = []
 related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
-evidence_refs = []
+evidence_refs = ["EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716", "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716"]
 
 [[risks]]
 schema_version = 1

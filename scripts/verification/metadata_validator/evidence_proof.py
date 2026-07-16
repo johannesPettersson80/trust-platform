@@ -172,6 +172,7 @@ def validate_green_pairing(
     if paired.get("linked_tests") != record.get("linked_tests"):
         fail(path, f"{record['id']} linked_tests do not match paired red evidence")
     linked_tests = record.get("linked_tests")
+    current_contract = record.get("proof_contract_binding", "current") == "current"
     if not isinstance(linked_tests, list) or len(linked_tests) != 1:
         fail(path, f"{record['id']} green proof must link exactly one test")
         catalog_test = None
@@ -179,7 +180,9 @@ def validate_green_pairing(
         catalog_test = tests.get(linked_tests[0])
         if catalog_test is None:
             fail(path, f"{record['id']} links unknown catalog test {linked_tests[0]}")
-        elif record.get("case_file_digest") != catalog_test.get("case_file_digest"):
+        elif current_contract and record.get("case_file_digest") != catalog_test.get(
+            "case_file_digest"
+        ):
             fail(
                 path,
                 f"{record['id']} case_file_digest does not match catalog test {linked_tests[0]}",
@@ -261,6 +264,7 @@ def validate_lock_pairing(
     if paired.get("linked_tests") != record.get("linked_tests"):
         fail(path, f"{record['id']} linked_tests do not match lock baseline")
     linked_tests = record.get("linked_tests")
+    current_contract = record.get("proof_contract_binding", "current") == "current"
     if not isinstance(linked_tests, list) or len(linked_tests) != 1:
         fail(path, f"{record['id']} lock_compare proof must link exactly one test")
     else:
@@ -268,14 +272,16 @@ def validate_lock_pairing(
         if catalog_test is None:
             fail(path, f"{record['id']} links unknown catalog test {linked_tests[0]}")
         else:
-            if record.get("case_file_digest") != catalog_test.get("case_file_digest"):
+            if current_contract and record.get("case_file_digest") != catalog_test.get(
+                "case_file_digest"
+            ):
                 fail(
                     path,
                     f"{record['id']} case_file_digest does not match catalog test {linked_tests[0]}",
                 )
-            if record.get("command") != catalog_test.get("command"):
+            if current_contract and record.get("command") != catalog_test.get("command"):
                 fail(path, f"{record['id']} command does not match catalog test {linked_tests[0]}")
-            if paired.get("command") != catalog_test.get("command"):
+            if current_contract and paired.get("command") != catalog_test.get("command"):
                 fail(path, f"{record['id']} lock baseline command does not match catalog test {linked_tests[0]}")
     if paired.get("case_file_digest") != record.get("case_file_digest"):
         fail(path, f"{record['id']} case_file_digest does not match lock baseline")

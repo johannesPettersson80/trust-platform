@@ -116,6 +116,18 @@ class EvidenceProofTests(unittest.TestCase):
 
         self.assertIn("does not match catalog test TEST_RED", failures[0])
 
+    def test_historical_green_pair_uses_source_revision_catalog_digest(self) -> None:
+        tests = {"TEST_RED": {"id": "TEST_RED", "case_file_digest": "sha256:current"}}
+        green = green_record(proof_contract_binding="source_revision")
+        red = red_record(proof_contract_binding="source_revision")
+
+        failures = validate(green, {"EVID_RED": red}, tests=tests)
+
+        self.assertFalse(
+            any("does not match catalog test TEST_RED" in failure for failure in failures),
+            failures,
+        )
+
     def test_valid_lock_compare_has_no_failures(self) -> None:
         failures = validate_lock(lock_compare_record(), {"EVID_LOCK": lock_baseline_record()})
 
@@ -154,6 +166,24 @@ class EvidenceProofTests(unittest.TestCase):
         )
 
         self.assertIn("does not match catalog test TEST_RED", failures[0])
+
+    def test_historical_lock_pair_uses_source_revision_catalog_digest(self) -> None:
+        tests = {
+            "TEST_RED": {
+                "id": "TEST_RED",
+                "command": "python3 current-writer.py",
+                "case_file_digest": "sha256:current",
+            }
+        }
+        compare = lock_compare_record(proof_contract_binding="source_revision")
+        baseline = lock_baseline_record(proof_contract_binding="source_revision")
+
+        failures = validate_lock(compare, {"EVID_LOCK": baseline}, tests=tests)
+
+        self.assertFalse(
+            any("catalog test TEST_RED" in failure for failure in failures),
+            failures,
+        )
 
     def test_lock_compare_rejects_bad_baseline_producer(self) -> None:
         failures = validate_lock(

@@ -52,7 +52,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-16"
 covers = [
   "scan_cycle_architecture",
   "clock_abstraction",
@@ -162,7 +162,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/13-debug-adapter.md"
 version = "current"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-16"
 covers = [
   "dap_launch_attach",
   "breakpoint_stop_semantics",
