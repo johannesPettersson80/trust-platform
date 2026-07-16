@@ -656,8 +656,10 @@ fn output_binding_rejects_conflicting_reference_types_for_nonstring_target() {
 
     assert!(matches!(
         error,
-        VmTrap::Runtime(RuntimeError::InvalidBytecode(message))
-            if message.contains("conflicting type metadata")
+        VmTrap::Runtime(RuntimeError::Bytecode {
+            code: crate::error::StableErrorCode::VmBytecodeDecode,
+            detail,
+        }) if detail.contains("conflicting type metadata")
     ));
     assert_eq!(runtime.storage.get_global("VALUE"), Some(&Value::DInt(1)));
 }
