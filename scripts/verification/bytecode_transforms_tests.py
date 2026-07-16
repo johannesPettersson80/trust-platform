@@ -5,14 +5,15 @@ from __future__ import annotations
 import tempfile
 import unittest
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 
 from scripts.verification.bytecode_transforms import (
     BytecodeTransformError,
     generate_bytecode_transform_case_file,
 )
-from scripts.verification.case_digests import file_digest
 from scripts.verification.case_generator import generate_case_file
+from scripts.verification.execution_contract import invariant_execution_contract_digest
 
 
 SEED_BYTES = bytes.fromhex(
@@ -38,7 +39,7 @@ class BytecodeTransformTests(unittest.TestCase):
                 fixture.invariant,
                 root=fixture.root,
             )
-            expected_source_digest = file_digest(fixture.invariant_path)
+            expected_source_digest = invariant_execution_contract_digest(fixture.invariant)
 
         self.assertEqual(record["invariant"], "VM_SEAM_VALID_001")
         self.assertEqual(record["status"], "planned")
@@ -184,6 +185,30 @@ class BytecodeTransformTests(unittest.TestCase):
             second = generate_bytecode_transform_case_file(fixture.invariant, root=fixture.root)
 
         self.assertEqual(first, second)
+
+    def test_transform_source_digest_ignores_proof_lifecycle_only(self) -> None:
+        with transform_fixture() as fixture:
+            baseline = generate_bytecode_transform_case_file(
+                fixture.invariant, root=fixture.root
+            )
+            promoted = deepcopy(fixture.invariant)
+            promoted.update(
+                {
+                    "status": "implemented",
+                    "proof_level": "G1",
+                    "tests": ["TEST_BYTECODE_VALIDATOR_CASES_001"],
+                    "evidence_refs": ["EVID_LOCK_COMPARE"],
+                    "missing": ["broad_remote_gate"],
+                }
+            )
+            fixture.invariant_path.write_text("proof_level = \"G1\"\n")
+            promoted_record = generate_bytecode_transform_case_file(
+                promoted, root=fixture.root
+            )
+
+        self.assertEqual(
+            promoted_record["source_digest"], baseline["source_digest"]
+        )
 
     def test_seed_path_must_stay_inside_workspace(self) -> None:
         with transform_fixture() as fixture:

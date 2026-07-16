@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from .bytecode_transforms import BytecodeTransformError, generate_bytecode_transform_case_file
-from .case_digests import current_generator_digest, file_digest
+from .case_digests import current_generator_digest
+from .execution_contract import invariant_execution_contract_digest
 from .metadata_validator.constants import CASE_FAMILIES, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 
@@ -78,7 +79,7 @@ def generate_case_file(invariant_id: str, validator: Validator) -> dict[str, Any
         "invariant": invariant_id,
         "generator": GENERATOR_VERSION,
         "generator_digest": current_generator_digest(),
-        "source_digest": file_digest(invariant["_path"]),
+        "source_digest": invariant_execution_contract_digest(invariant),
         "last_reviewed": invariant["last_reviewed"],
         "case": cases,
     }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -43,6 +44,73 @@ class CaseGeneratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CaseGenerationError, "scoped to bytecode_vm"):
             generate_case_file("IEC_PREC_001", _Validator(invariant))
+
+    def test_v1_bytecode_source_digest_ignores_proof_lifecycle_only(self) -> None:
+        invariant = {
+            "id": "VM_TEST_001",
+            "title": "VM behavior",
+            "area": "bytecode_vm",
+            "owner": "trust-runtime",
+            "contract_kind": "decision_table",
+            "status": "gap_open",
+            "proof_level": "S0",
+            "tests": ["TEST_OLD"],
+            "evidence_refs": [],
+            "missing": ["producer_authentic_proof"],
+            "last_reviewed": "2026-07-17",
+            "coverage": {
+                "cells": [
+                    {
+                        "dimension": "happy_path",
+                        "state": "gap_open",
+                        "rationale": "proof pending",
+                    }
+                ]
+            },
+            "behavior": [
+                {
+                    "partition": {"equals": "SUPPORTED"},
+                    "case_family": "happy_path",
+                    "oracle_ref": "SPEC_X#behavior",
+                    "outcome": "accept_value",
+                    "delta": {"target": "set_to_expected"},
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "VM_TEST_001.toml"
+            invariant["_path"] = path
+            path.write_text("lifecycle = 'S0'\n")
+            baseline = generate_case_file("VM_TEST_001", _Validator(invariant))
+
+            promoted = deepcopy(invariant)
+            promoted.update(
+                {
+                    "status": "implemented",
+                    "proof_level": "G1",
+                    "tests": ["TEST_OLD", "TEST_CASE_RUNNER"],
+                    "evidence_refs": ["EVID_LOCK_COMPARE"],
+                    "missing": ["broad_remote_gate"],
+                }
+            )
+            promoted["coverage"]["cells"][0].update(
+                {"state": "covered", "rationale": "targeted proof complete"}
+            )
+            path.write_text("lifecycle = 'G1'\n")
+            promoted_record = generate_case_file(
+                "VM_TEST_001", _Validator(promoted)
+            )
+            self.assertEqual(
+                promoted_record["source_digest"], baseline["source_digest"]
+            )
+
+            changed = deepcopy(promoted)
+            changed["behavior"][0]["outcome"] = "reject"
+            path.write_text("behavior = 'reject'\n")
+            changed_record = generate_case_file("VM_TEST_001", _Validator(changed))
+            self.assertNotEqual(
+                changed_record["source_digest"], baseline["source_digest"]
+            )
 
     def test_v2_generates_non_bytecode_decision_table_cases(self) -> None:
         invariant = {

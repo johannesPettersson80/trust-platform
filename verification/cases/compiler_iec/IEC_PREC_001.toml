@@ -6,9 +6,9 @@ owner = "trust-hir"
 status = "planned"
 invariant = "IEC_PREC_001"
 generator = "gen_cases_v2.py v1"
-generator_digest = "sha256:094a5e2fadb21bcde33c1a3d785927f593fff3d46d58f7d1d8e8e3b627127cf7"
+generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
 source_digest = "sha256:0498fa048327ac842476ddde0375be24a0ae4741f3e5a6409a49825be17d9f66"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-17"
 
 [[case]]
 id = "IEC_PREC_001_MULTIPLICATIVE_BEFORE_ADDITIVE_9A3C35EC"

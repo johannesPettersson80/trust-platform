@@ -6,9 +6,9 @@ owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_STRING_BOUND_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:23274b63ceea58feae905297892d6cd78a4e2fe9e7583bc18efea5ed525899cd"
-source_digest = "sha256:79d88f599459992eaab9345c9c2a383037202b6a7f05a8de724a7d3b071b9beb"
-last_reviewed = "2026-07-15"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:7428554a0ef3cb4de3af2f2eadc9f22212c887f7cfbc018f4d779e7616d64ae6"
+last_reviewed = "2026-07-17"
 
 [[case]]
 id = "VM_SEAM_STRING_BOUND_001_MIN_D165B4CE"

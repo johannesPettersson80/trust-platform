@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "gap_open"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-17"
 claim = "Bytecode validation and runtime reference handling must prevent a local-frame reference from being stored where it can later dereference against a different frame."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -15,6 +15,7 @@ tests = [
   "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
   "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
   "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+  "TEST_VM_REF_ESCAPE_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = []

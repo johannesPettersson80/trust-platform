@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-17"
 claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail bytecode-module construction visibly rather than emitting NOP or returning partial bytecode."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -14,6 +14,7 @@ tests = [
   "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
   "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
   "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
+  "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = []

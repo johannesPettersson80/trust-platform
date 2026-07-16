@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "gap_open"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-17"
 claim = "A bytecode POU body must either declare an unambiguous instance owner or fail validation before stale absolute instance IDs can be executed."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -14,6 +14,7 @@ tests = [
   "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001",
   "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001",
   "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001",
+  "TEST_VM_OWNER_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = []

@@ -70,7 +70,13 @@ Section table rules:
   container before any section is selected for validation or execution.
 - Offsets must be 4-byte aligned.
 - Sections must not overlap.
-- Unknown section IDs are ignored unless marked required by the runtime configuration.
+- In STBC version 1.x, an unknown section ID with `flags = 0` is an optional
+  extension. The decoder preserves its payload as uninterpreted bytes, semantic
+  validation ignores it, and runtime apply does not execute or otherwise
+  interpret it.
+- STBC version 1.x defines no required-extension flag. A future producer that
+  needs an unknown section to be mandatory must use a separately reviewed
+  versioned contract; it cannot encode that requirement in a version 1.x file.
 
 #### 4.3 Section Flags
 

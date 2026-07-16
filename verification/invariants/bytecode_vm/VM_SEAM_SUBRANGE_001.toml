@@ -3,9 +3,9 @@ id = "VM_SEAM_SUBRANGE_001"
 title = "Subrange writes cannot silently store out-of-range values"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-17"
 claim = "Runtime writes to subrange-typed storage accept inclusive bounds and reject out-of-range or wrong-tag values without modifying the target; the stable public error identifier remains explicit."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -18,12 +18,12 @@ tests = [
   "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
   "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
   "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+  "TEST_VM_SUBRANGE_TRACE_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
-spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
+spec_gap_refs = []
 missing = [
-  "stable_error_code",
   "producer_authentic_proof",
   "broad_remote_gate",
 ]
@@ -39,7 +39,7 @@ source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+ref = "SPEC_VM_VALUE_SEMANTICS_001"
 
 [[behavior]]
 partition = { min = 0, max = 100 }
@@ -89,6 +89,5 @@ rationale = "The mapped runtime transaction test covers below-minimum rejection 
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Wrong-type rejection is tested, but the stable public error identifier remains open."
-spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+state = "gap_open"
+rationale = "Wrong-type rejection is case-backed against runtime_type_mismatch, while out-of-range cases bind runtime_subrange_violation; producer-authentic lock proof remains open."

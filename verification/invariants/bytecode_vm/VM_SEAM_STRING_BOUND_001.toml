@@ -3,18 +3,18 @@ id = "VM_SEAM_STRING_BOUND_001"
 title = "STRING[n] bounds are enforced on every runtime write path"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-17"
 claim = "Writes into bounded STRING and WSTRING storage apply the receiving scalar-value capacity, while cross-family runtime tags reject before storage."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
-tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001"]
+tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_STRING_BOUND_TRACE_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
-spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
-missing = ["stable_error_code", "producer_authentic_red_green_proof", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [input]
 name = "string_value"
@@ -27,7 +27,7 @@ source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+ref = "SPEC_VM_VALUE_SEMANTICS_001"
 
 [[behavior]]
 partition = { min = 0, max = 5 }
@@ -71,6 +71,5 @@ rationale = "The mapped VM primitive-policy test covers Unicode-scalar truncatio
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-rationale = "Wrong-family tag rejection is tested, but the stable public error identifier remains open."
-spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+state = "gap_open"
+rationale = "Wrong-family tag rejection is case-backed against runtime_type_mismatch; producer-authentic lock proof remains open."

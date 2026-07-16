@@ -1256,3 +1256,6 @@ END_PROGRAM
     assert_eq!(harness.get_output("d"), Some(Value::DInt(200)));
     assert_eq!(harness.get_output("e"), Some(Value::DInt(40_000)));
 }
+
+#[path = "phase11_seam_contract/vm_seam_case_support.rs"]
+mod vm_seam_case_support;

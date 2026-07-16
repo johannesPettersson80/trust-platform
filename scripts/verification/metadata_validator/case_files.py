@@ -6,7 +6,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, Callable
 
-from ..case_digests import current_generator_digest, file_digest
+from ..case_digests import current_generator_digest
 from ..case_digests_v2 import current_generator_digest as current_generator_v2_digest
 from ..case_contract_fields import CASE_FILE_CASE_FIELDS, CASE_FILE_ROOT_FIELDS
 from ..execution_contract import (
@@ -84,18 +84,16 @@ def validate_case_file(
             )
             return
     else:
-        expected_source_digest = file_digest(invariant["_path"])
+        try:
+            expected_source_digest = invariant_execution_contract_digest(invariant)
+        except ExecutionContractError as exc:
+            fail(
+                path,
+                f"{test_record['id']} invariant execution contract is invalid: {exc}",
+            )
+            return
         if case_data.get("generator") == "gen_cases_v2.py v1":
-            try:
-                expected_generator_v2_source_digest = (
-                    invariant_execution_contract_digest(invariant)
-                )
-            except ExecutionContractError as exc:
-                fail(
-                    path,
-                    f"{test_record['id']} invariant execution contract is invalid: {exc}",
-                )
-                return
+            expected_generator_v2_source_digest = expected_source_digest
     validate_case_provenance(
         fail=fail,
         path=path,

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .case_digests import current_generator_digest, file_digest
+from .execution_contract import invariant_execution_contract_digest
 from .metadata_validator.constants import CASE_FAMILIES, ROOT
 
 
@@ -73,7 +74,7 @@ def generate_bytecode_transform_case_file(
         "invariant": invariant["id"],
         "generator": "gen_cases.py v1",
         "generator_digest": current_generator_digest(),
-        "source_digest": file_digest(invariant["_path"]),
+        "source_digest": invariant_execution_contract_digest(invariant),
         "last_reviewed": invariant["last_reviewed"],
         "case": cases,
     }

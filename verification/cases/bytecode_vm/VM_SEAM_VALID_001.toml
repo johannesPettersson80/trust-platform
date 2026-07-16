@@ -6,9 +6,9 @@ owner = "trust-runtime"
 status = "active"
 invariant = "VM_SEAM_VALID_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:23274b63ceea58feae905297892d6cd78a4e2fe9e7583bc18efea5ed525899cd"
-source_digest = "sha256:c9db18f27f8e8e251c7145b1bcd0800498b261614fe753d2713d31a6358b8740"
-last_reviewed = "2026-07-15"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:9996ab0fd60501f5709c585982d78e0038758f4cf6802b2462b8123d5b306419"
+last_reviewed = "2026-07-17"
 
 [[case]]
 id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC"

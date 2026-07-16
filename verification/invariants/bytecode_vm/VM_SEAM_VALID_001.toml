@@ -3,9 +3,9 @@ id = "VM_SEAM_VALID_001"
 title = "Bytecode validator rejects VM semantic contract violations"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-17"
 claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -33,11 +33,12 @@ tests = [
   "TEST_BYTECODE_VALIDATOR_CASES_001",
   "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
   "TEST_BYTECODE_VERSION_REJECTION_001",
+  "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001",
 ]
 gates = ["veryquick", "pr"]
 evidence_refs = ["EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709"]
-spec_gap_refs = ["SPEC_GAP_VM_ERROR_MODEL_001"]
-missing = ["stable_error_code", "producer_authentic_red_green_proof", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
 
 [transform_seed]
 path = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml"
@@ -54,7 +55,7 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+ref = "SPEC_BYTECODE_FORMAT_001"
 
 [[behavior]]
 partition = { equals = "TRUNCATED_REQUIRED_CONTAINER_DATA" }
@@ -82,6 +83,14 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Reserved and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_OPTIONAL_SECTION_FLAGS_ZERO" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An unknown STBC 1.x section with flags zero is preserved as uninterpreted bytes and ignored by validation and runtime apply."
 
 [[behavior]]
 partition = { equals = "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY" }
@@ -113,6 +122,5 @@ rationale = "Mapped validator tests cover invalid jumps, stack dataflow, referen
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "spec_gap"
-rationale = "Mapped tests cover duplicate standardized section IDs; stable typed error semantics and the remaining unknown-section contract stay open."
-spec_gap_ref = "SPEC_GAP_VM_ERROR_MODEL_001"
+state = "gap_open"
+rationale = "Mapped tests cover duplicate standardized section rejection, reserved opcode rejection, and preservation plus product-path ignore semantics for unknown optional sections; producer-authentic lock proof remains open."

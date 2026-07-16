@@ -8,12 +8,12 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 owner = "trust-runtime"
 status = "planned"
-last_reviewed = "2026-07-16"
-description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions; the written contract, mapped test set, and stable machine identifiers now cover the reviewed validator boundary, while formal proof-ledger closeout of the error-model gap remains open."
-mitigation = "Keep the mapped decoder, validator, product-apply, owner, reference, call, jump, stack, and exact-code checks active; retain mutation adequacy and complete proof-contract-preserving closure of the independent public error-model gap before claiming program-level closure."
+last_reviewed = "2026-07-17"
+description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions; the written contract, mapped test set, stable machine identifiers, and STBC 1.x optional-section rule now cover the reviewed validator boundary."
+mitigation = "Keep the mapped decoder, validator, product-apply, owner, reference, call, jump, stack, optional-section, and exact-code checks active; retain mutation adequacy and producer-authentic targeted proof before claiming invariant closure."
 source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 related_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
-related_spec_gaps = ["SPEC_GAP_VM_ERROR_MODEL_001"]
+related_spec_gaps = []
 related_spec_sources = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
 evidence_refs = [
   "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709",

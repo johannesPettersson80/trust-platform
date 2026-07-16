@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_VM_SEAM_ENC_001"
+title = "Generated cases for Unencodable source constructs fail closed"
+area = "bytecode_vm"
+owner = "trust-runtime"
+status = "planned"
+invariant = "VM_SEAM_ENC_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:e3961ae3977d3c50c801f98898ebc4d27d89a7b295940eb3645de863eab779d1"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "VM_SEAM_ENC_001_SUPPORTED_LOOP_CONTROL_D29CD0E7"
+family = "happy_path"
+input = { source_partition = { equals = "SUPPORTED_LOOP_CONTROL" }, scenario = "SUPPORTED_LOOP_CONTROL" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+
+[[case]]
+id = "VM_SEAM_ENC_001_UNSUPPORTED_STATEMENT_695F0675"
+family = "extra_or_unknown"
+input = { source_partition = { equals = "UNSUPPORTED_STATEMENT" }, scenario = "UNSUPPORTED_STATEMENT" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+
+[[case]]
+id = "VM_SEAM_ENC_001_UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX_8588F066"
+family = "extra_or_unknown"
+input = { source_partition = { equals = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }, scenario = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }

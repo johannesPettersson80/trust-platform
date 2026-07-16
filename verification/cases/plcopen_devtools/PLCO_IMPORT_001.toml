@@ -6,9 +6,9 @@ owner = "trust-plcopen"
 status = "planned"
 invariant = "PLCO_IMPORT_001"
 generator = "gen_cases_v2.py v1"
-generator_digest = "sha256:094a5e2fadb21bcde33c1a3d785927f593fff3d46d58f7d1d8e8e3b627127cf7"
+generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
 source_digest = "sha256:2ac4f1a06110e03d5f2a573fa93ebb3cc0af6c53428313936f93a0a65fc40627"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-17"
 
 [[case]]
 id = "PLCO_IMPORT_001_ST_BODY_IMPORT_A352DEE4"
