@@ -1,11 +1,11 @@
 # Specification Source and Public Prose Audit
 
 Generator: `spec-source-audit v1`
-Source revision: `16e332f091ff984b3e92ee343adbcb5b9ca23be1`
-Generated: `2026-07-16T10:33:00+02:00`
+Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
+Generated: `2026-07-16T10:18:30Z`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `79dd1b4d57dac3819d5e1d5ebdf591a2338c61d7566cb8bfae30b1191a04a7b1`
-Input SHA-256: `sha256:16c940671bede94b89199b799cf653421f5b24347911b57bf87d386f024439e2`
+Generated JSON SHA-256: `3bb6dee66a77139d09521375e0f507f19db1c9f6ba56c735fa53fc15585624ad`
+Input SHA-256: `sha256:54c0ca2375f89faad11038cc0d0d2f955b2489177a9bdf46efd914fd8f884190`
 
 This report is the mechanical denominator for tracked specification documents,
 required-topic metadata, and public rendered prose. Unreviewed prose stays visible
@@ -226,7 +226,7 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_DOC_A3E9E30DBCC49E879E6B62BD` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-automation-tooling.md` | `81ad2d5e6f1f7230c857d2f4c92218e47606c06794fdfbd921bf831807bc9a4e` | none | `unreviewed_candidate` |
 | `SPEC_DOC_1600FC481E0D392B22F73858` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-doctor-full-map-execution-checklist.md` | `c7ee77a34990a3d9c0f0254446e7c6a84faf99c99959277f130da873aa34f5c0` | none | `unreviewed_candidate` |
 | `SPEC_DOC_E3B4EDC50E38119A34021B3C` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-external-safety-dependency-follow-up-checklist.md` | `c2edf0dd300481b4bcd5aa7fea07a1bcd65b1499d8e8b259d69df9ccd4e5296b` | none | `unreviewed_candidate` |
-| `SPEC_DOC_BF86BF8725CA2C53779D654A` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-improvements.md` | `d7a65ebf5c2abe08bd97df96059043497c7586202946e2d82567a7847238d771` | none | `unreviewed_candidate` |
+| `SPEC_DOC_BF86BF8725CA2C53779D654A` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-improvements.md` | `6cdff667f150a53f8d7e601233056d67ea4ec742872810bd88ae4d1a5948d04f` | none | `unreviewed_candidate` |
 | `SPEC_DOC_04FEC76C12CF68C2A7D48C98` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-post-closeout-gap-closure-checklist.md` | `009f0034d8737414c6b3817dde165aa8824f0ea50d58fa8f753c001b87c33ccc` | none | `unreviewed_candidate` |
 | `SPEC_DOC_5232DE20A7250368C378DFF1` | `markdown` | `true` | none | `docs/internal/testing/checklists/architecture-workboard-index.md` | `ce405ba1b9782eb2c680b1f5d207af1a801855020f6ad659c6bfa61d7c9d578b` | none | `unreviewed_candidate` |
 | `SPEC_DOC_6B1CD090CAE758FA02D9D712` | `markdown` | `true` | none | `docs/internal/testing/checklists/codesys-twincat-parity.md` | `47118d5260cd324147c58ea303edbe26f0378961e383074ad73001fb285e884f` | none | `unreviewed_candidate` |
@@ -241,11 +241,11 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_DOC_238A9EEA5050EBC3129E9EE3` | `markdown` | `true` | none | `docs/internal/testing/checklists/ld-specification-detailed-checklist.md` | `5efcf2e1b594aee40d98a2af4fb102132cbbe7d45a83f7f5217b794ae13bd5b6` | none | `unreviewed_candidate` |
 | `SPEC_DOC_44AA6FC275EC86D678D6D734` | `markdown` | `true` | none | `docs/internal/testing/checklists/parser-recovery-hardening-execution-checklist.md` | `95119d8a595af2aa6cb284a90e024dc0244dcdba0a2033d151032076f891ec4c` | none | `unreviewed_candidate` |
 | `SPEC_DOC_BEB93831D67FCCC5DE661B23` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program-checklist.md` | `06da57936db5b2f5f66a8677be944fda65b325773c154c4c15c49a57be22daef` | none | `unreviewed_candidate` |
-| `SPEC_DOC_C427866127FC57A60CD77282` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/README.md` | `d7be8f7ce0e04ee8ad794b311ce4f9cd1c5be16b8e6850b8a2c19b6161699665` | none | `unreviewed_candidate` |
+| `SPEC_DOC_C427866127FC57A60CD77282` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/README.md` | `c09ad88ecf0becc250fd5cb904d22b4638edf1686e1194836abe05dac19a2e62` | none | `unreviewed_candidate` |
 | `SPEC_DOC_F13DC4D1070FECCFE0D7A7A8` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/broad-remote-gate-producer.md` | `f694baba80757a824b711e9da617b1229e58f852743171de9bd445c6feb449cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_2036F079B0576D255E5EDEA0` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/execution-slice-001.md` | `2234a6bd362dd6ee3f97042aa333f5d610998958fe91e20f585e633faea994cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_9C926023A12DA35C31614C0A` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/fable-review-brief.md` | `d3d94c4f96c494fa890a0589b79d751f93fa9136afa3f14a5108a3b3a319a529` | none | `unreviewed_candidate` |
-| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `85be7594736aa4a95c573a580743ce52a53da4f3baa065baca1be360d1c4c4a0` | none | `unreviewed_candidate` |
+| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `00a142d81a22a3db501c346cc1d9c4bd3f7af9452bc5946f43a7933abd25bd05` | none | `unreviewed_candidate` |
 | `SPEC_DOC_A9D23F28FE4A07B226088C21` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md` | `776b3e6c05e8e83a336928ddcf9b163fd28aaa84af2dd606bc4fd1f71473c6e4` | none | `unreviewed_candidate` |
 | `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `84a7a46e5955d781c84da6e6fab8eceed7632baa9f2e5aedeb3da2e40708fcaa` | none | `unreviewed_candidate` |
 | `SPEC_DOC_44B898C7A9661FD96FE44644` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/policy.md` | `e19cfb0e29c4cc7e829f8783cbbc68fc576d1cea175ea191afac5ba45d6a5628` | none | `unreviewed_candidate` |
