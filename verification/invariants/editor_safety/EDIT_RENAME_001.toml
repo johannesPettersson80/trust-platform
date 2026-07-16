@@ -8,7 +8,7 @@ owner = "trust-ide"
 last_reviewed = "2026-07-10"
 claim = "Rename must refuse when the resulting name would capture or be captured by another visible symbol."
 proof_level = "S0"
-contract_kind = "decision_table"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-ide/src"]
 tests = []
 gates = []
@@ -58,6 +58,14 @@ oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
 outcome = "reject"
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "The complete candidate edit is refused when any edited reference would become unresolved or bind to a different visible symbol."
+
+[[behavior]]
+partition = { equals = "INVALID_OR_RESERVED_REPLACEMENT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Rename refuses an invalid IEC identifier or reserved keyword before constructing any edit."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"

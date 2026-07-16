@@ -73,6 +73,9 @@ mod code_actions_and_commands;
 mod completion_hover;
 mod core;
 mod formatting_and_navigation;
+mod lsp_trace_cases;
+mod rename_trace_cases;
+mod trace_support;
 
 mod mod_part_01;
 mod mod_part_02;

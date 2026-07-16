@@ -648,7 +648,10 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "After didClose discards an unsaved buffer, which durable source replaces it, which caches must be invalidated, and how must dependent diagnostics be recomputed?"
 affected_invariants = ["EDIT_DOC_CLOSE_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001",
+  "TEST_LSP_DOCUMENT_CLOSE_TRACE_001",
+]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
 resolution_status = "open"
 closeout_evidence = []

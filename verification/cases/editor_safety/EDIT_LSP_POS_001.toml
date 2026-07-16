@@ -1,0 +1,74 @@
+schema_version = 1
+id = "CASES_EDIT_LSP_POS_001"
+title = "LSP UTF-16 position and line-boundary traces"
+area = "editor_safety"
+owner = "trust-lsp"
+status = "planned"
+invariant = "EDIT_LSP_POS_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:24dcedea5b719e71cc7d38dac145b0b6bc90abe343f1b1e3f2ba4bad03a11f6c"
+source_digest = "sha256:9cea20d14911e47fcd5abaaedba85784227cac763bdbd2b4c87322eeb4861d11"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "EDIT_LSP_POS_001_INITIALIZE_UTF16"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "INITIALIZE_POSITION_ENCODING" }, scenario = "INITIALIZE_UTF16" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "initialize" }, expected = { encoding = "utf-16" }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_INCREMENTAL_EDIT_AFTER_EMOJI"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "SUPPLEMENTARY_SCALAR_POSITION" }, scenario = "INCREMENTAL_EDIT_AFTER_EMOJI" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { line = 0, character = 2 }, expected = { content = "😀y := 1;\n" }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_LF_LINE_MAPPING"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "LSP_LINE_ENDINGS" }, scenario = "LF_LINE_MAPPING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { ending = "LF" }, expected = { line = 1, character = 0, terminator_line = 0, terminator_character = 3 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_CRLF_LINE_MAPPING"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "LSP_LINE_ENDINGS" }, scenario = "CRLF_LINE_MAPPING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { ending = "CRLF" }, expected = { line = 1, character = 0, terminator_line = 0, terminator_character = 3 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_BARE_CR_LINE_MAPPING"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "LSP_LINE_ENDINGS" }, scenario = "BARE_CR_LINE_MAPPING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { ending = "CR" }, expected = { line = 1, character = 0, terminator_line = 0, terminator_character = 3 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_OVERLONG_COLUMN_CLAMP"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "LSP_LINE_ENDINGS" }, scenario = "OVERLONG_COLUMN_CLAMP" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { line = 0, character = 99 }, expected = { byte_offset = 5 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_HOVER_RANGE_AFTER_EMOJI"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "SUPPLEMENTARY_SCALAR_POSITION" }, scenario = "HOVER_RANGE_AFTER_EMOJI" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "hover" }, expected = { request_character = 11, range_start_character = 11, range_end_character = 12 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_SEMANTIC_TOKEN_AFTER_EMOJI"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "SUPPLEMENTARY_SCALAR_POSITION" }, scenario = "SEMANTIC_TOKEN_AFTER_EMOJI" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "semantic_tokens" }, expected = { delta_start = 2, length = 1 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]
+
+[[case]]
+id = "EDIT_LSP_POS_001_EOF_AFTER_TRAILING_NEWLINE"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "LSP_LINE_ENDINGS" }, scenario = "EOF_AFTER_TRAILING_NEWLINE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "round_trip_eof" }, expected = { line = 2, character = 0, byte_offset = 25 }, oracle_ref = "SPEC_LSP_CONTRACT_001#position-encoding-and-line-boundaries" }]

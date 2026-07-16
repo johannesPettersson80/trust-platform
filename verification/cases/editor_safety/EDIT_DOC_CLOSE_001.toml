@@ -1,0 +1,46 @@
+schema_version = 1
+id = "CASES_EDIT_DOC_CLOSE_001"
+title = "LSP document-close durable-source traces"
+area = "editor_safety"
+owner = "trust-lsp"
+status = "planned"
+invariant = "EDIT_DOC_CLOSE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:b74c5ddf458f508bde55f0bec5422c71658f85888c4a0c3b260c1bd09cd1fddb"
+source_digest = "sha256:f36f3650887b9fbd01e62e8af0383fcf5d11f7c699a8b382ca2556ca527ce8ec"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "EDIT_DOC_CLOSE_001_TRACKED_FILE_RELOAD"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "TRACKED_FILE_RELOAD" }, scenario = "TRACKED_FILE_RELOAD" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "close" }, expected = { present = true, is_open = false, content = "disk" }, oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth" }]
+
+[[case]]
+id = "EDIT_DOC_CLOSE_001_UNREADABLE_OR_NON_FILE_REMOVE"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "UNREADABLE_OR_NON_FILE_REMOVE" }, scenario = "UNREADABLE_OR_NON_FILE_REMOVE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "close" }, expected = { present = false, project_source_present = false }, oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth" }]
+
+[[case]]
+id = "EDIT_DOC_CLOSE_001_CACHE_INVALIDATION"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "DISCARDED_CONTENT_CACHE_INVALIDATION" }, scenario = "CACHE_INVALIDATION" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "close" }, expected = { semantic_tokens_cached = false, diagnostics_cached = false, content = "disk" }, oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth" }]
+
+[[case]]
+id = "EDIT_DOC_CLOSE_001_DEPENDENT_RECOMPUTE"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "DEPENDENT_RECOMPUTE" }, scenario = "DEPENDENT_RECOMPUTE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "close" }, expected = { before_argument_error = true, after_argument_error = false }, oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth" }]
+
+[[case]]
+id = "EDIT_DOC_CLOSE_001_PULL_DIAGNOSTIC_RECOMPUTE"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "DIAGNOSTIC_PROTOCOL_RECONCILIATION" }, scenario = "PULL_DIAGNOSTIC_RECOMPUTE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "close_then_pull" }, expected = { closed_uri_is_open = false, dependent_argument_error = false }, oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth" }]

@@ -8,7 +8,7 @@ owner = "trust-ide"
 last_reviewed = "2026-07-10"
 claim = "Cross-file rename conflict checks must include imported and merged project symbols."
 proof_level = "S0"
-contract_kind = "decision_table"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-ide/src", "crates/trust-hir/src"]
 tests = []
 gates = []
@@ -50,6 +50,14 @@ oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
 outcome = "reject"
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "A project-wide candidate edit is refused when a use-site local or imported symbol would capture an edited cross-file reference."
+
+[[behavior]]
+partition = { equals = "SAFE_CROSS_FILE_RENAME" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "When the complete merged-project edit preserves every reference binding, rename returns declaration and use-site edits without partial mutation."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"

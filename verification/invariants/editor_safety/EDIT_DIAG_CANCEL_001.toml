@@ -51,6 +51,22 @@ outcome = "reject"
 delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A cancelled push diagnostic collection publishes nothing, including no false empty-success publication."
 
+[[behavior]]
+partition = { equals = "PUSH_COLLECTION_COMPLETED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-cancelled push collection publishes the diagnostics actually produced by the analyzed snapshot."
+
+[[behavior]]
+partition = { equals = "WORKSPACE_COLLECTION_COMPLETED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-cancelled workspace request returns complete reports rather than cancellation or partial-success output."
+
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
 state = "gap_open"

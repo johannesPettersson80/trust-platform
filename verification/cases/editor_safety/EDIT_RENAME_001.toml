@@ -1,0 +1,53 @@
+schema_version = 1
+id = "CASES_EDIT_RENAME_001"
+title = "Local rename conflict traces"
+area = "editor_safety"
+owner = "trust-ide"
+status = "planned"
+invariant = "EDIT_RENAME_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:e3cc55d1f89ca98ad74fa9614c914c62bbbf7ec98ea52656b78f102884e66a1d"
+source_digest = "sha256:54e5fa48d9221abc9d6a077b1678f7894ce07eb0495e016f577ba15f0ed2247b"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "EDIT_RENAME_001_DECLARING_SCOPE_COLLISION"
+family = "duplicate_or_collision"
+input = { source_partition = { equals = "DECLARING_SCOPE_COLLISION" }, scenario = "DECLARING_SCOPE_COLLISION" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "Limit" }, expected = { accepted = false, error = "declaring_scope_conflict", edit_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]
+
+[[case]]
+id = "EDIT_RENAME_001_CASE_INSENSITIVE_SCOPE_COLLISION"
+family = "duplicate_or_collision"
+input = { source_partition = { equals = "DECLARING_SCOPE_COLLISION" }, scenario = "CASE_INSENSITIVE_SCOPE_COLLISION" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "lImIt" }, expected = { accepted = false, error = "declaring_scope_conflict", edit_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]
+
+[[case]]
+id = "EDIT_RENAME_001_CASE_ONLY_SELF_RENAME"
+family = "duplicate_or_collision"
+input = { source_partition = { equals = "CASE_ONLY_SAME_SYMBOL" }, scenario = "CASE_ONLY_SELF_RENAME" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "SPEED" }, expected = { accepted = true, error = "none", edit_count = 2, replacement = "SPEED" }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]
+
+[[case]]
+id = "EDIT_RENAME_001_STRUCT_FIELD_COLLISION"
+family = "duplicate_or_collision"
+input = { source_partition = { equals = "FIELD_COLLISION" }, scenario = "STRUCT_FIELD_COLLISION" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "Limit" }, expected = { accepted = false, error = "declaring_scope_conflict", edit_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]
+
+[[case]]
+id = "EDIT_RENAME_001_INVALID_IDENTIFIER"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "INVALID_OR_RESERVED_REPLACEMENT" }, scenario = "INVALID_IDENTIFIER" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "1Speed" }, expected = { accepted = false, error = "invalid_identifier", edit_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]
+
+[[case]]
+id = "EDIT_RENAME_001_RESERVED_KEYWORD"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "INVALID_OR_RESERVED_REPLACEMENT" }, scenario = "RESERVED_KEYWORD" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { replacement = "PROGRAM" }, expected = { accepted = false, error = "reserved_keyword", edit_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety" }]

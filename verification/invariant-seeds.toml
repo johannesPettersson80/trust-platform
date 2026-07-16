@@ -246,7 +246,7 @@ canonical_invariant_id = "EDIT_RENAME_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "EDIT_RENAME_002"
@@ -254,7 +254,7 @@ canonical_invariant_id = "EDIT_RENAME_002"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "EDIT_LSP_POS_001"
@@ -262,7 +262,7 @@ canonical_invariant_id = "EDIT_LSP_POS_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "EDIT_DIAG_CANCEL_001"
@@ -270,7 +270,7 @@ canonical_invariant_id = "EDIT_DIAG_CANCEL_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "UI_STATUS_001"

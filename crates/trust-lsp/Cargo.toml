@@ -39,3 +39,4 @@ trust-runtime.workspace = true
 [dev-dependencies]
 expect-test.workspace = true
 insta.workspace = true
+verification-cases.workspace = true

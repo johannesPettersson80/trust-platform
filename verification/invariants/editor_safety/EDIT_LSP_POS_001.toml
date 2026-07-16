@@ -8,7 +8,7 @@ owner = "trust-lsp"
 last_reviewed = "2026-07-14"
 claim = "LSP wire positions and lengths must follow the negotiated encoding, including supplementary-plane characters."
 proof_level = "S0"
-contract_kind = "decision_table"
+contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/main.rs",
   "crates/trust-lsp/src/handlers/lsp_utils.rs",
