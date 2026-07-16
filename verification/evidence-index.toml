@@ -3964,3 +3964,25 @@ case_artifact_digest = "sha256:845524a2154a921691bc59cfc8aa292b7cbf33975c06a3815
 case_file_digest = "sha256:a09b4d3924e7bbc8b9928569de8b7c6ad761568bf6ce588d0835a2e9d4402105"
 per_case_summary = ["RT_SAFE_FORCE_001_RESTART_CLEARS_DEBUG_MUTATIONS:passed", "RT_SAFE_FORCE_001_SAFE_STATE_CLEARS_IO_FORCE:passed"]
 case_result_digest = "sha256:07e53110ab2b89f6d86b6fb9d81891369dcd3e600b7b969448b2a1ec1b72f5bf"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_CONTROL_SAFETY_BATCH_VALIDATION_20260716"
+title = "Runtime control safety product batch validation"
+area = "runtime_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/runtime-control-safety-batch-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py --report docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6a-tooling-selftest-fixture-report.md && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-12/p10-mutation-survivor-report.md && python3 scripts/check_diagram_drift.py && git diff --check"
+commit = "d0c7594b1d2254d66a1b61bfc5c9d5b7e4294133"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-16"
+suite_id = "supporting_local"
+producer = "codex runtime control safety product batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["DEBUG_AUTH_001", "DEBUG_PAUSE_001", "RT_SAFE_FORCE_001", "RT_SAFE_PANIC_001", "SEC_AUTHZ_001"]
+linked_tests = ["TEST_CONTROL_AUTHORIZATION_TRACE_001", "TEST_DEBUG_PAUSE_TRACE_001", "TEST_RUNTIME_FORCE_LIFECYCLE_001", "TEST_RUNTIME_PANIC_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001", "SPEC_GAP_DEBUG_AUTHORIZATION_001", "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001", "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"]
+last_reviewed = "2026-07-16"
