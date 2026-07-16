@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
-Generated: `2026-07-16T10:18:30Z`
+Source revision: `e45fb8cbf5351c8dc312fdc85f47c3e09d125585`
+Generated: `2026-07-16T15:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `fac7b772efde31b3818769ed53639a864b2c5a37c180429b26f51a92cd649ad1`
-Input SHA-256: `sha256:72799fbcc60e4f50d65ab5b49c5c90eae1614246e62e419a19ef24c860af24c5`
+Generated JSON SHA-256: `b87fe3f457bc37910a69e4793550efe20044a069b7875cb1558d6e81db96fe51`
+Input SHA-256: `sha256:b5a60de48b23eff2e4bb4143eba9a3525a5df8923d96d5dbeb33f23dd4c4c296`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3966
-- Mapped scanner facts: 182
-- Unmapped scanner facts: 3784
-- Generated-test catalog rows: 182
+- Scanner facts: 3970
+- Mapped scanner facts: 185
+- Unmapped scanner facts: 3785
+- Generated-test catalog rows: 185
 - Artifact catalog rows: 5
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1457 | 135 | 1322 |
-| `rust_unit_test` | 1714 | 47 | 1667 |
+| `rust_integration_test` | 1459 | 137 | 1322 |
+| `rust_unit_test` | 1716 | 48 | 1668 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -3092,6 +3092,7 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_51DF2D1159582D47FC75` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_06.rs` | `canonical_ast_similarity_drops_below_contamination_threshold_for_structural_change` | `not_ignored` |
 | `DISC_AA77C85739530FB74348` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_06.rs` | `canonical_ast_strips_comments_and_identifier_values` | `not_ignored` |
 | `DISC_B88734C266501D2AF32C` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `finite_toml_float_is_rejected_before_trace_digesting` | `not_ignored` |
+| `DISC_A6A172528FBDB9B2EF6F` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `generated_v2_provenance_is_accepted` | `not_ignored` |
 | `DISC_DE0884DB9274146F41BB` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `hand_authored_trace_provenance_is_artifact_ready` | `not_ignored` |
 | `DISC_31C7CA5475CFABF17E4A` | `rust_unit_test` | `crates/verification-cases/src/case_trace.rs` | `unicode_trace_digest_matches_metadata_validator_contract` | `not_ignored` |
 | `DISC_87302EF69E1E2E42E300` | `rust_unit_test` | `crates/verification-cases/src/lib.rs` | `blocked_cases_are_recorded_without_executing_the_runner` | `not_ignored` |

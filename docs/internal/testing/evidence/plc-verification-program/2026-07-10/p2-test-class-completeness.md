@@ -1,22 +1,22 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
-Generated: `2026-07-16T10:18:30Z`
+Source revision: `e45fb8cbf5351c8dc312fdc85f47c3e09d125585`
+Generated: `2026-07-16T15:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `022f5547f92a22dd5215cd12e111d1f78e22c4da153a3657021ba2de2ea9ad33`
-Input SHA-256: `sha256:331f740f90f9d70fc82780a42d8141ab65e1c228ab6a4e994b141c2d42229dc3`
+Generated JSON SHA-256: `e038a94923547fb93e7217c90f23dcb9829094ea517236c771e92488a337dcb1`
+Input SHA-256: `sha256:940c1fa8acf65e0a52b521c39e485ef26b7049fb3fd35fa0d60b51205ad38b21`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 3966
-- Classified scanner facts: 182
-- Unmapped scanner facts: 3784
-- Catalog records: 187
-- Runnable catalog records: 183
+- Scanner facts: 3970
+- Classified scanner facts: 185
+- Unmapped scanner facts: 3785
+- Catalog records: 190
+- Runnable catalog records: 186
 - Non-runnable catalog records: 4
 - Mapped areas: 11
 - Required class slots: 32
@@ -31,8 +31,8 @@ mean every scanner fact or required test class is mapped.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1457 | 135 | 1322 |
-| `rust_unit_test` | 1714 | 47 | 1667 |
+| `rust_integration_test` | 1459 | 137 | 1322 |
+| `rust_unit_test` | 1716 | 48 | 1668 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 
@@ -97,6 +97,7 @@ Classified mappings:
 - `DISC_3E6CBEABE26D9C3AE875` -> `TEST_IEC_PARSER_REQUIRED_DELIMITERS_001`
 - `DISC_0A4A33F9FA0BEF44D267` -> `TEST_IEC_PARSER_UNCLOSED_CALL_001`
 - `DISC_FAEEFF50E8BC4B81FB79` -> `TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001`
+- `DISC_06CD7DEDEF34CE12046F` -> `TEST_IEC_PRECEDENCE_TRACE_001`
 - `DISC_A2698249E8827008FE24` -> `TEST_IEC_STRING_FB_INOUT_REJECTION_001`
 - `DISC_40D602971AB9F58ADC84` -> `TEST_IEC_STRING_FB_INPUT_INOUT_001`
 - `DISC_23588E738D07E62BA79E` -> `TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001`
@@ -132,6 +133,8 @@ Classified mappings:
 - `DISC_39BF089F7544B5199036` -> `TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001`
 - `DISC_503BF56E15C30663AC1A` -> `TEST_LSP_RENAME_CONFLICT_ERROR_001`
 - `DISC_DBCE837999092CDE3372` -> `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001`
+- `DISC_0F2A9C178711CAFD31F3` -> `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`
+- `DISC_E88335AA584F723ECF04` -> `TEST_PLCOPEN_IMPORT_TRACE_001`
 - `DISC_EE9408494F62E80474E3` -> `TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001`
 - `DISC_8F0C898E72D907AA065A` -> `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001`
 - `DISC_846E4BECA070B0C77CDA` -> `TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001`
@@ -247,6 +250,7 @@ Additional catalog classes:
 
 Additional catalog classes:
 
+- `behavior_lock`: runnable `TEST_IEC_PRECEDENCE_TRACE_001`; non-runnable none
 - `failing_regression`: runnable `TEST_IEC_PARSER_REQUIRED_DELIMITERS_001`, `TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001`, `TEST_IEC_TIMER_TOF_DURATION_OVERFLOW_001`, `TEST_IEC_TIMER_TON_DURATION_OVERFLOW_001`, `TEST_IEC_TIMER_TP_DURATION_OVERFLOW_001`, `TEST_IEC_TIMER_TRACE_001`; non-runnable none
 - `integration`: runnable `TEST_IEC_PARSER_DEEP_PAREN_BOUND_001`, `TEST_IEC_PARSER_DEEP_UNARY_BOUND_001`, `TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001`, `TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001`, `TEST_IEC_PARSER_UNCLOSED_CALL_001`, `TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001`, `TEST_IEC_STRING_FB_INOUT_REJECTION_001`, `TEST_IEC_STRING_FB_INPUT_INOUT_001`, `TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001`, `TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001`, `TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001`, `TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001`, `TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001`, `TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001`, `TEST_IEC_STRING_IMPORTED_CAPACITY_001`, `TEST_IEC_STRING_IMPORTED_MISMATCH_001`, `TEST_IEC_STRING_INOUT_ALIAS_001`, `TEST_IEC_STRING_INOUT_DIAGNOSTIC_001`, `TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001`, `TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001`, `TEST_IEC_STRING_UNICODE_ASSIGNMENT_001`, `TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001`, `TEST_IEC_TIMER_RUNTIME_VARIANTS_001`, `TEST_IEC_WSTRING_FB_INOUT_REJECTION_001`, `TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001`, `TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001`; non-runnable none
 
@@ -293,6 +297,10 @@ Additional catalog classes:
 | `negative_malformed_input` | none | none | no |
 | `unit` | none | none | no |
 
+Additional catalog classes:
+
+- `behavior_lock`: runnable `TEST_PLCOPEN_IMPORT_TRACE_001`; non-runnable none
+
 ## Area: `protocols`
 
 | Required class | Runnable tests | Non-runnable rows | Complete |
@@ -300,6 +308,10 @@ Additional catalog classes:
 | `integration` | none | none | no |
 | `protocol_loopback` | none | none | no |
 | `unit` | none | none | no |
+
+Additional catalog classes:
+
+- `behavior_lock`: runnable `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`; non-runnable none
 
 ## Area: `release`
 

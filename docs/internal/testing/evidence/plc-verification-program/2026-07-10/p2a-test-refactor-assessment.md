@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
-Generated: `2026-07-16T10:18:30Z`
+Source revision: `e45fb8cbf5351c8dc312fdc85f47c3e09d125585`
+Generated: `2026-07-16T15:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e8fbf2a7417ff0d378caafb7cb3b8ca7deaa8b048751ce337a1e89eb0dea926b`
-Input SHA-256: `sha256:4730d4b1e0ad190de7b9ff69aee2023df5f561a9af997342a903aaff5924fe08`
+Generated JSON SHA-256: `01e8a6fc242a3f7626c0a40e365998a090dca985458c18479c5680b6948e41da`
+Input SHA-256: `sha256:20740c55d76d32164ef5657fa198b960c16290f1a88f171a7702d734c37c2f4a`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,24 +13,24 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 3966
-- Fact-bearing files: 701
+- Scanner facts: 3970
+- Fact-bearing files: 704
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 14
 - Broad multi-invariant claim candidates: 7
 - Exact fact-file duplicate groups: 0
 - Whitespace-normalized fact-file duplicate groups: 0
 - Exact case-input duplicate groups: 3
-- Same-table structural case-input peer groups: 15
+- Same-table structural case-input peer groups: 18
 - Shared case-file reference groups: 1
 - Malformed-class overlap groups: 8
 - VS Code facts: 456
 - VS Code files: 38
 - VS Code registrations: 38
 - Large registered VS Code files: 5
-- Catalog records: 187
-- Scanner facts with reviewed duration: 182
-- Scanner facts without reviewed duration: 3784
+- Catalog records: 190
+- Scanner facts with reviewed duration: 185
+- Scanner facts without reviewed duration: 3785
 - Catalog rows explicitly classified slow: 3
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -125,6 +125,7 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_MESH_NONFINITE_INGRESS_001` claims 1 invariants; result `single_invariant`.
+- `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_TYPED_INPUT_NONFINITE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001` claims 1 invariants; result `single_invariant`.
@@ -193,6 +194,7 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_RUNTIME_FORCE_PAUSE_RESUME_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_FORCE_RELEASE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_FORCE_STOP_001` claims 1 invariants; result `single_invariant`.
+- `TEST_IEC_PRECEDENCE_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_IEC_TIMER_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001` claims 1 invariants; result `single_invariant`.
@@ -220,6 +222,7 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001` claims 1 invariants; result `single_invariant`.
+- `TEST_PLCOPEN_IMPORT_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_RELOAD_TRANSACTION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001` claims 1 invariants; result `single_invariant`.
 - `TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001` claims 1 invariants; result `single_invariant`.
@@ -272,7 +275,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Exact fact-file groups: 0
 - Whitespace-normalized fact-file groups: 0
 - Exact case-input groups: 3
-- Same-table structural case-input peer groups: 15
+- Same-table structural case-input peer groups: 18
 - Shared case-file reference groups: 1
 - Explicit malformed-class overlap groups: 8
 - Free-form source-body similarity: `not_assessed`
@@ -287,9 +290,12 @@ a move, split, rename, fixture merge, or behavior change.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85`, `VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F`; shape `sha256:4c2dbca3a9792afb543b0301d33ce1a8bd127b78dee5e254a7c0f3350539b70f`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_4DDD6D2B`, `VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC`; shape `sha256:e0bd21a1e4c5110f2132f018441b9faa042eff4a8587ab2ce394077f907edf8d`.
 - Structural peers in `verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml`: `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA`, `VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633`; shape `sha256:7afbe67384583995479cd4b26ae4dfb1e78bf262fb626d55f38a7b05699ab8e3`.
+- Structural peers in `verification/cases/compiler_iec/IEC_PREC_001.toml`: `IEC_PREC_001_ADDITIVE_LEFT_ASSOCIATIVE_780E3108`, `IEC_PREC_001_AND_BEFORE_XOR_BEFORE_OR_6AC7B6D0`, `IEC_PREC_001_COMPARISON_BEFORE_BOOLEAN_AND_5391BC0E`, `IEC_PREC_001_EXPONENTIATION_LEFT_ASSOCIATIVE_21D9554E`, `IEC_PREC_001_MULTIPLICATIVE_BEFORE_ADDITIVE_9A3C35EC`, `IEC_PREC_001_MULTIPLICATIVE_LEFT_ASSOCIATIVE_55CA8AD0`, `IEC_PREC_001_PARENTHESES_OVERRIDE_PRECEDENCE_ED1DEEBA`, `IEC_PREC_001_UNARY_BEFORE_EXPONENTIATION_584586B7`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/compiler_iec/IEC_TIMER_001.toml`: `IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD`, `IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD`, `IEC_TIMER_001_TON_TIME_BASIC_DELAY`, `IEC_TIMER_001_TP_TIME_BASIC_PULSE`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/control_security/SEC_AUTHZ_001.toml`: `SEC_AUTHZ_001_ADMIN_ACTIVATION_ALLOWED`, `SEC_AUTHZ_001_ENGINEER_ACTIVATION_DENIED`, `SEC_AUTHZ_001_ENGINEER_FORCE_ALLOWED`, `SEC_AUTHZ_001_ENGINEER_RELEASE_ALLOWED`, `SEC_AUTHZ_001_OPERATOR_FORCE_DENIED`, `SEC_AUTHZ_001_UNCLASSIFIED_ENGINEER_DENIED`, `SEC_AUTHZ_001_VIEWER_FORCE_DENIED`, `SEC_AUTHZ_001_VIEWER_RELEASE_DENIED`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/editor_safety/DEBUG_PAUSE_001.toml`: `DEBUG_PAUSE_001_BETWEEN_CYCLES_STARTS_NO_SCAN`, `DEBUG_PAUSE_001_STATEMENT_DWELL_EXCLUDED`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
+- Structural peers in `verification/cases/plcopen_devtools/PLCO_IMPORT_001.toml`: `PLCO_IMPORT_001_FBD_BODY_REJECTED_C22BAB6E`, `PLCO_IMPORT_001_LD_BODY_REJECTED_04D6E1B5`, `PLCO_IMPORT_001_MIXED_ST_AND_UNSUPPORTED_BODY_564D002E`, `PLCO_IMPORT_001_SFC_BODY_REJECTED_646387CA`, `PLCO_IMPORT_001_ST_BODY_IMPORT_A352DEE4`, `PLCO_IMPORT_001_ST_BODY_WITH_BENIGN_METADATA_19049E61`, `PLCO_IMPORT_001_UNKNOWN_EXECUTABLE_BODY_REJECTED_3AD1C269`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
+- Structural peers in `verification/cases/protocols/PROTO_OPCUA_001.toml`: `PROTO_OPCUA_001_PERSISTENT_SESSION`, `PROTO_OPCUA_001_REJECTED_WRITE_POINT_FAULT_ISOLATION`, `PROTO_OPCUA_001_SESSION_LOSS_BACKOFF`, `PROTO_OPCUA_001_STALE_VALUE_HOLD_AND_RECOVERY`, `PROTO_OPCUA_001_SUBSCRIPTION_RECREATED_AFTER_RECONNECT`, `PROTO_OPCUA_001_SUBSCRIPTION_TRANSFER_RECOVERY`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/runtime_safety/RT_SAFE_FORCE_001.toml`: `RT_SAFE_FORCE_001_RESTART_CLEARS_DEBUG_MUTATIONS`, `RT_SAFE_FORCE_001_SAFE_STATE_CLEARS_IO_FORCE`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/runtime_safety/RT_SAFE_PANIC_001.toml`: `RT_SAFE_PANIC_001_INPUT_DRIVER_VISIBLE`, `RT_SAFE_PANIC_001_OUTER_THREAD_VISIBLE`, `RT_SAFE_PANIC_001_RESTART_POLICY_DOES_NOT_RETRY`, `RT_SAFE_PANIC_001_SAFE_OUTPUT`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/runtime_safety/RT_SAFE_RESTART_TIME_002.toml`: `RT_SAFE_RESTART_TIME_002_COLD_PRESERVES_TIME_AND_REINITIALIZES_STATE`, `RT_SAFE_RESTART_TIME_002_WARM_PRESERVES_TIME_AND_REINITIALIZES_STATE`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
@@ -318,16 +324,18 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 3966
+- Scanner facts listed: 3970
 - Artifact catalog rows listed separately: 5
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_043E03287D0BD498DBFE` / `TEST_VM_DECLARED_DINT_RUNTIME_TAG_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_05908CB5750AA05E1CDC` / `TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001`: `fast` at `crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs`.
+- Scanner `DISC_06CD7DEDEF34CE12046F` / `TEST_IEC_PRECEDENCE_TRACE_001`: `fast` at `crates/trust-runtime/tests/iec_precedence_trace_cases.rs`.
 - Scanner `DISC_093B7EAE0DCB979D4540` / `TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001`: `fast` at `crates/trust-runtime/tests/retain_integrity.rs`.
 - Scanner `DISC_09809EC05A9886BFB1A0` / `TEST_IEC_PARSER_DEEP_UNARY_BOUND_001`: `fast` at `crates/trust-syntax/tests/parser_error_recovery.rs`.
 - Scanner `DISC_0A4A33F9FA0BEF44D267` / `TEST_IEC_PARSER_UNCLOSED_CALL_001`: `fast` at `crates/trust-syntax/tests/parser_expressions.rs`.
 - Scanner `DISC_0B4C0B6E0201F0AC32CB` / `TEST_LSP_POSITION_ENCODING_HANDSHAKE_001`: `fast` at `crates/trust-lsp/src/main.rs`.
 - Scanner `DISC_0D216C5A37ABCA5C342D` / `TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
+- Scanner `DISC_0F2A9C178711CAFD31F3` / `TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001`: `fast` at `crates/trust-runtime/src/host/opcua/lifecycle_cases.rs`.
 - Scanner `DISC_110C6B5B49703576EB1E` / `TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001`: `fast` at `crates/trust-runtime/tests/string_binding_bounds.rs`.
 - Scanner `DISC_1257BED418738BD81458` / `TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001`: `fast` at `crates/trust-runtime/src/control/tests/hmi_values_write.rs`.
 - Scanner `DISC_12A4F21EF84C13A91D28` / `TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001`: `fast` at `crates/trust-runtime/tests/retain_failure_trace_cases.rs`.
@@ -477,6 +485,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_E4A27307965153DFADA9` / `TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001`: `fast` at `crates/trust-runtime/tests/bounded_value_semantics.rs`.
 - Scanner `DISC_E6963439801BFF301755` / `TEST_RUNTIME_PANIC_SAFE_OUTPUT_001`: `fast` at `crates/trust-runtime/tests/runtime_safety_fail_closed.rs`.
 - Scanner `DISC_E6ED69DD8B97B244A411` / `TEST_IEC_STRING_INOUT_ALIAS_001`: `fast` at `crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs`.
+- Scanner `DISC_E88335AA584F723ECF04` / `TEST_PLCOPEN_IMPORT_TRACE_001`: `fast` at `crates/trust-runtime/tests/plcopen_import_trace_cases.rs`.
 - Scanner `DISC_E8D36E045CD657B29BDD` / `TEST_BYTECODE_INOUT_LITERAL_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
 - Scanner `DISC_EB73AB6889251287113D` / `TEST_IEC_LOSSY_TYPED_FLOAT_REJECTION_001`: `fast` at `crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs`.
 - Scanner `DISC_EB9C1ED2E879B48CDDDD` / `TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001`: `fast` at `crates/trust-ide/tests/ide_features/ide_features_part_02.rs`.

@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
-Generated: `2026-07-16T10:18:30Z`
+Source revision: `e45fb8cbf5351c8dc312fdc85f47c3e09d125585`
+Generated: `2026-07-16T15:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `3daad31e9cf65a7a02b59a18629b2a83b0e178adc007ee1fb13b7f6e845616ff`
-Input SHA-256: `sha256:b74a39dbb61a3a544526bac4d1366da74421a89a2afebdd174d783c2b3f39ebf`
+Generated JSON SHA-256: `e3e3f9206e9a4b2762524d49ea2434616892b1e1f26df68b93d9cc98d0eb837f`
+Input SHA-256: `sha256:a843f6b42bd68090f2ee8bd5fd33a0502e4b5fd247b73a9eb502431f582067f2`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -45,19 +45,19 @@ context is limited to the non-exhaustive registered source inventory.
 | `EDIT_RENAME_001` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
 | `EDIT_RENAME_002` | `editor_safety` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_LSP_CONTRACT_001` | `SPEC_LSP_CONTRACT_001` | none |
 | `IEC_PARSE_RECOVER_001` | `compiler_iec` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
-| `IEC_PREC_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_EXPRESSIONS_001` | `SPEC_IEC_EXPRESSIONS_001` | none |
+| `IEC_PREC_001` | `compiler_iec` | `wrong_result` | `implemented/G1` | `eligible_oracle` | `SPEC_IEC_EXPRESSIONS_001` | `SPEC_IEC_EXPRESSIONS_001` | none |
 | `IEC_STRING_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_SUBRANGE_001` | `compiler_iec` | `wrong_result` | `gap_open/S0` | `eligible_oracle` | `SPEC_IEC_DECISIONS_001` | `SPEC_IEC_DECISIONS_001` | none |
 | `IEC_TIMER_001` | `compiler_iec` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `PLCO_IMPORT_001` | `plcopen_devtools` | `silent_corruption` | `gap_open/S0` | `eligible_oracle` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | none |
+| `PLCO_IMPORT_001` | `plcopen_devtools` | `silent_corruption` | `implemented/G1` | `eligible_oracle` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | none |
 | `PROTO_ADS_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_PROTOCOL_STATUS_MODEL_001` |
 | `PROTO_DISCOVERY_TRUTH_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
 | `PROTO_ETHERCAT_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001` |
 | `PROTO_MODBUS_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
 | `PROTO_MQTT_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001` |
-| `PROTO_OPCUA_001` | `protocols` | `false_status` | `gap_open/S0` | `eligible_oracle` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | none |
+| `PROTO_OPCUA_001` | `protocols` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | none |
 | `PROTO_STATUS_TRUTH_001` | `protocols` | `false_status` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `SPEC_GAP_PUBLIC_WIRE_CLAIM_001` |
 | `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` | `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
 | `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | `spec_gap/S0` | `spec_gap_blocked` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` | `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |

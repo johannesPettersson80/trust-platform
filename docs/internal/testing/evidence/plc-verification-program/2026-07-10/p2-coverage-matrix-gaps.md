@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `81f475234f199a5299f7442c8314e0b6f1d30696`
-Generated: `2026-07-16T10:18:30Z`
+Source revision: `e45fb8cbf5351c8dc312fdc85f47c3e09d125585`
+Generated: `2026-07-16T15:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `943bf0cedfe3486e0b540348a58f57c7fc815031221cd6a0b130491f604663f8`
-Input SHA-256: `sha256:f01f231b415254061f0ba9d1e9711f9b3e7d618427bdbea02bfe1a9c4d5e6d78`
+Generated JSON SHA-256: `e4a6a59695643f0a699d7165b1680772e3a36a547f074c6a0acd45040a4f4488`
+Input SHA-256: `sha256:24f22d577c33ccb470b92ba10310c74dd7acdfde39c9fc74154dc3b78b2edc54`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 21 |
+| `covered` | 24 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
 | `spec_gap` | 24 |
-| `gap_open` | 23 |
+| `gap_open` | 20 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -177,7 +177,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `gap_open` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
 
 ### `IEC_STRING_001`
 
@@ -284,7 +284,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `wrong_type_or_shape` | `additional_recorded` | `gap_open` | none | none |
+| `wrong_type_or_shape` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `protocols`
 
@@ -324,7 +324,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `persistence_or_recovery` | `additional_recorded` | `gap_open` | none | none |
+| `persistence_or_recovery` | `additional_recorded` | `covered` | none | none |
 
 ### `PROTO_STATUS_TRUTH_001`
 

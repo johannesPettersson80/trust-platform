@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-16T10:18:30Z"
+    "2026-07-16T15:45:00+02:00"
   ],
-  "commit": "81f475234f199a5299f7442c8314e0b6f1d30696",
+  "commit": "e45fb8cbf5351c8dc312fdc85f47c3e09d125585",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:6f64da16898dec727dc98d6eb54bf8dac83681486ac39a80eab1fc32bafcd382",
+  "input_digest": "sha256:6a85ba9fc24ac11d368a49debe29463f06cce9e31f385406442dda788b7e9913",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -987,6 +987,7 @@
     "crates/trust-runtime/src/host/opcua/client_cache.rs",
     "crates/trust-runtime/src/host/opcua/client_worker.rs",
     "crates/trust-runtime/src/host/opcua/contracts.rs",
+    "crates/trust-runtime/src/host/opcua/lifecycle_cases.rs",
     "crates/trust-runtime/src/host/opcua/mapping.rs",
     "crates/trust-runtime/src/host/opcua/mod.rs",
     "crates/trust-runtime/src/host/opcua/tests.rs",
@@ -1442,6 +1443,7 @@
     "crates/trust-runtime/tests/hot_reload.rs",
     "crates/trust-runtime/tests/iec_counters.rs",
     "crates/trust-runtime/tests/iec_examples.rs",
+    "crates/trust-runtime/tests/iec_precedence_trace_cases.rs",
     "crates/trust-runtime/tests/iec_timer_trace_cases.rs",
     "crates/trust-runtime/tests/iec_timers.rs",
     "crates/trust-runtime/tests/init_fail_closed.rs",
@@ -1472,6 +1474,7 @@
     "crates/trust-runtime/tests/platform_std.rs",
     "crates/trust-runtime/tests/plcopen_codesys_import_runtime.rs",
     "crates/trust-runtime/tests/plcopen_command.rs",
+    "crates/trust-runtime/tests/plcopen_import_trace_cases.rs",
     "crates/trust-runtime/tests/plcopen_migration.rs",
     "crates/trust-runtime/tests/plcopen_motion_oop_library.rs",
     "crates/trust-runtime/tests/plcopen_st_complete_parity.rs",
@@ -1758,7 +1761,10 @@
     "scripts/verification/bytecode_validator_mutation_tests.py",
     "scripts/verification/case_contract_fields.py",
     "scripts/verification/case_digests.py",
+    "scripts/verification/case_digests_v2.py",
     "scripts/verification/case_generator.py",
+    "scripts/verification/case_generator_tests.py",
+    "scripts/verification/case_generator_v2.py",
     "scripts/verification/conformance_alignment.py",
     "scripts/verification/conformance_alignment_cli.py",
     "scripts/verification/conformance_alignment_contract.py",
@@ -2752,7 +2758,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-16T10:18:30Z",
+  "timestamp": "2026-07-16T15:45:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
