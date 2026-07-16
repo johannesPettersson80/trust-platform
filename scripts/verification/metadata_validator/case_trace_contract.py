@@ -57,6 +57,7 @@ def validate_case_provenance(
     expected_generator_digest: str,
     expected_generator_v2_digest: str | None = None,
     expected_source_digest: str,
+    expected_generator_v2_source_digest: str | None = None,
 ) -> str:
     """Validate the mutually exclusive generated and hand-authored contracts."""
 
@@ -65,11 +66,20 @@ def validate_case_provenance(
         fail(path, f"{test_id} case_file has unknown case_provenance_kind {kind!r}")
         return str(kind)
 
-    if case_data.get("source_digest") != expected_source_digest:
+    expected_case_source_digest = expected_source_digest
+    if (
+        kind == GENERATED_DECISION_TABLE_V1
+        and case_data.get("generator") == "gen_cases_v2.py v1"
+    ):
+        expected_case_source_digest = expected_generator_v2_source_digest
+    if (
+        expected_case_source_digest is None
+        or case_data.get("source_digest") != expected_case_source_digest
+    ):
         fail(
             path,
             f"{test_id} case_file source_digest mismatch: expected "
-            f"{expected_source_digest}, actual {case_data.get('source_digest')}",
+            f"{expected_case_source_digest}, actual {case_data.get('source_digest')}",
         )
 
     if kind == GENERATED_DECISION_TABLE_V1:

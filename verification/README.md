@@ -91,7 +91,9 @@ TOML shape convention:
   blocked transform cases from committed seed artifacts.
 - `scripts/gen_cases_v2.py --invariant <ID>` extends the same behavior-row
   derivation to non-bytecode decision tables without changing the frozen
-  `gen_cases.py v1` digest that existing bytecode proof records bind.
+  `gen_cases.py v1` digest that existing bytecode proof records bind. Its
+  source digest uses the stable invariant execution-contract projection, so
+  later proof-lifecycle bookkeeping does not invalidate unchanged case inputs.
 - `crates/verification-cases` is the dev-helper crate for tests that consume
   committed case tables. It records blocked cases without execution, wraps
   runnable cases with `StateProbe` snapshots, and writes JSON artifacts under

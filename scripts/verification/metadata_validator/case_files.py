@@ -73,6 +73,7 @@ def validate_case_file(
         fail(path, f"{test_record['id']} case_file area does not match invariant area")
 
     expected_generator_digest = current_generator_digest()
+    expected_generator_v2_source_digest = None
     if case_data.get("case_provenance_kind") == HAND_AUTHORED_STATE_MACHINE_V1:
         try:
             expected_source_digest = invariant_execution_contract_digest(invariant)
@@ -84,6 +85,17 @@ def validate_case_file(
             return
     else:
         expected_source_digest = file_digest(invariant["_path"])
+        if case_data.get("generator") == "gen_cases_v2.py v1":
+            try:
+                expected_generator_v2_source_digest = (
+                    invariant_execution_contract_digest(invariant)
+                )
+            except ExecutionContractError as exc:
+                fail(
+                    path,
+                    f"{test_record['id']} invariant execution contract is invalid: {exc}",
+                )
+                return
     validate_case_provenance(
         fail=fail,
         path=path,
@@ -94,6 +106,7 @@ def validate_case_file(
         expected_generator_digest=expected_generator_digest,
         expected_generator_v2_digest=current_generator_v2_digest(),
         expected_source_digest=expected_source_digest,
+        expected_generator_v2_source_digest=expected_generator_v2_source_digest,
     )
 
     cases = case_data.get("case")

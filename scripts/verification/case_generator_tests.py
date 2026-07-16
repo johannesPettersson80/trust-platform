@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from scripts.verification.case_generator import CaseGenerationError, generate_case_file
 from scripts.verification.case_generator_v2 import generate_case_file as generate_case_file_v2
+from scripts.verification.execution_contract import invariant_execution_contract_digest
 
 
 class _Validator:
@@ -47,6 +49,15 @@ class CaseGeneratorTests(unittest.TestCase):
             "owner": "trust-hir",
             "contract_kind": "decision_table",
             "last_reviewed": "2026-07-16",
+            "coverage": {
+                "cells": [
+                    {
+                        "dimension": "ordering_or_lifecycle",
+                        "state": "gap_open",
+                        "rationale": "pending proof",
+                    }
+                ]
+            },
             "behavior": [
                 {
                     "partition": {"equals": "MULTIPLICATIVE_BEFORE_ADDITIVE"},
@@ -62,11 +73,44 @@ class CaseGeneratorTests(unittest.TestCase):
 
         self.assertEqual(record["generator"], "gen_cases_v2.py v1")
         self.assertEqual(record["area"], "compiler_iec")
+        self.assertEqual(record["source_digest"], invariant_execution_contract_digest(invariant))
         self.assertEqual(len(record["case"]), 1)
         self.assertEqual(
             record["case"][0]["input"]["scenario"],
             "MULTIPLICATIVE_BEFORE_ADDITIVE",
         )
+
+        lifecycle_only = deepcopy(invariant)
+        lifecycle_only.update(
+            {
+                "status": "implemented",
+                "proof_level": "G1",
+                "tests": ["TEST_IEC_PRECEDENCE_TRACE_001"],
+                "gates": ["pr"],
+                "evidence_refs": ["EVID_LOCK_COMPARE"],
+                "missing": ["broad_remote_gate"],
+            }
+        )
+        lifecycle_only["coverage"] = {
+            "cells": [
+                {
+                    "dimension": "ordering_or_lifecycle",
+                    "state": "covered",
+                    "rationale": "proof lifecycle advanced",
+                }
+            ]
+        }
+        lifecycle_record = generate_case_file_v2(
+            "IEC_PREC_001", _Validator(lifecycle_only)
+        )
+        self.assertEqual(lifecycle_record["source_digest"], record["source_digest"])
+
+        behavior_changed = deepcopy(invariant)
+        behavior_changed["behavior"][0]["outcome"] = "reject"
+        behavior_record = generate_case_file_v2(
+            "IEC_PREC_001", _Validator(behavior_changed)
+        )
+        self.assertNotEqual(behavior_record["source_digest"], record["source_digest"])
 
 
 if __name__ == "__main__":

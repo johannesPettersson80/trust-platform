@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .case_digests import file_digest
 from .case_digests_v2 import current_generator_digest
 from .case_generator import (
     EXIT_DIFF,
@@ -24,6 +23,7 @@ from .case_generator import (
     render_toml,
     write_output,
 )
+from .execution_contract import invariant_execution_contract_digest
 from .metadata_validator.core import Validator
 
 
@@ -60,7 +60,7 @@ def generate_case_file(invariant_id: str, validator: Validator) -> dict[str, Any
         "invariant": invariant_id,
         "generator": GENERATOR_VERSION,
         "generator_digest": current_generator_digest(),
-        "source_digest": file_digest(invariant["_path"]),
+        "source_digest": invariant_execution_contract_digest(invariant),
         "last_reviewed": invariant["last_reviewed"],
         "case": cases,
     }

@@ -23,6 +23,7 @@ from scripts.verification.metadata_validator.case_trace_contract import (
 PATH = Path("verification/test-catalog.toml")
 GENERATOR_DIGEST = "sha256:" + "1" * 64
 SOURCE_DIGEST = "sha256:" + "2" * 64
+V2_SOURCE_DIGEST = "sha256:" + "4" * 64
 
 
 class CaseTraceContractTests(unittest.TestCase):
@@ -55,6 +56,7 @@ class CaseTraceContractTests(unittest.TestCase):
             expected_generator_digest=GENERATOR_DIGEST,
             expected_generator_v2_digest=GENERATOR_DIGEST,
             expected_source_digest=SOURCE_DIGEST,
+            expected_generator_v2_source_digest=V2_SOURCE_DIGEST,
         )
 
     def hand_case(self) -> dict:
@@ -105,12 +107,25 @@ class CaseTraceContractTests(unittest.TestCase):
         self.assertEqual(kind, GENERATED_DECISION_TABLE_V1)
         self.assertEqual(self.failures, [])
 
-    def test_versioned_non_bytecode_generator_is_accepted(self) -> None:
+    def test_versioned_non_bytecode_generator_rejects_full_file_source_digest(self) -> None:
         case_data = {
             "schema_version": 1,
             "generator": "gen_cases_v2.py v1",
             "generator_digest": GENERATOR_DIGEST,
             "source_digest": SOURCE_DIGEST,
+            "case": [{"id": "GENERATED"}],
+        }
+
+        self.validate(case_data)
+
+        self.assertIn("source_digest mismatch", "\n".join(self.failures))
+
+    def test_versioned_non_bytecode_generator_is_accepted(self) -> None:
+        case_data = {
+            "schema_version": 1,
+            "generator": "gen_cases_v2.py v1",
+            "generator_digest": GENERATOR_DIGEST,
+            "source_digest": V2_SOURCE_DIGEST,
             "case": [{"id": "GENERATED"}],
         }
 

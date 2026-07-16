@@ -13,6 +13,7 @@ GENERATOR_DIGEST_PATHS = (
     ROOT / "scripts/verification/case_digests_v2.py",
     ROOT / "scripts/verification/case_generator.py",
     ROOT / "scripts/verification/case_digests.py",
+    ROOT / "scripts/verification/execution_contract.py",
     ROOT / "scripts/verification/metadata_validator/constants.py",
 )
 

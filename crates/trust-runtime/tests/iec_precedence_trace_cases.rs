@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_PRECEDENCE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_PREC_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:dc72275d11e7a0d173b7354180180025fbf854a65160debc0782737a7a9b6072";
+    "sha256:c23709e713899ce7926b7a04a60c3f3fdcc0cb6407b54440d211746b79791ea7";
 
 #[test]
 fn expression_precedence_trace_cases() {

@@ -1475,7 +1475,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_PREC_001.toml"
-case_file_digest = "sha256:dc72275d11e7a0d173b7354180180025fbf854a65160debc0782737a7a9b6072"
+case_file_digest = "sha256:c23709e713899ce7926b7a04a60c3f3fdcc0cb6407b54440d211746b79791ea7"
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -1501,7 +1501,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/plcopen_devtools/PLCO_IMPORT_001.toml"
-case_file_digest = "sha256:63dfa0f217c42b24809673cc37951f0adf61754cee4a68625dea2a9aa64a2841"
+case_file_digest = "sha256:1a44c22e641c00fdc7ec9a0f0ddb3cdf1cec59b3626d22558cc3731e7914101e"
 last_reviewed = "2026-07-16"
 
 [[tests]]
