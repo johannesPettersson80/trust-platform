@@ -26,3 +26,4 @@ boxcar = { version = "0.2.14", features = ["loom"] }
 insta.workspace = true
 serde.workspace = true
 toml.workspace = true
+verification-cases.workspace = true

@@ -10,7 +10,10 @@ claim = "Subrange write handling must remain aligned with the active reviewed de
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
-tests = ["TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001"]
+tests = [
+  "TEST_IEC_SUBRANGE_TRACE_001",
+  "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
+]
 gates = ["pr"]
 evidence_refs = []
 missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
@@ -24,16 +27,26 @@ kind = "reviewed_decision"
 ref = "SPEC_IEC_DECISIONS_001"
 
 [[behavior]]
-partition = { equals = "OUT_OF_RANGE_CONSTANT_INITIALIZER" }
+partition = { equals = "BELOW_LOWER_BOUND_INITIALIZER" }
 case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
-rationale = "A constant initializer outside either inclusive subrange bound is rejected during semantic analysis."
+rationale = "A constant initializer below the inclusive lower bound is rejected during semantic analysis."
 
 [[behavior]]
-partition = { wrong_type = "REAL_TO_INT_SUBRANGE" }
+partition = { equals = "ABOVE_UPPER_BOUND_INITIALIZER" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A constant initializer above the inclusive upper bound is rejected during semantic analysis."
+
+[[behavior]]
+partition = { equals = "REAL_TO_INT_SUBRANGE" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
 outcome = "reject"
 no_partial_apply = true

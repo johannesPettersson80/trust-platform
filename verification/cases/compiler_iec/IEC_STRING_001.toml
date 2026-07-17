@@ -1,0 +1,131 @@
+schema_version = 1
+id = "CASES_IEC_STRING_001"
+title = "Generated cases for STRING bounds remain enforced across binding boundaries"
+area = "compiler_iec"
+owner = "trust-hir"
+status = "planned"
+invariant = "IEC_STRING_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
+source_digest = "sha256:9baef58411b64a29a2e1eb2c51e32fb8df4933b8f71e28d5d781ecfb6d36d0ed"
+last_reviewed = "2026-07-15"
+
+[[case]]
+id = "IEC_STRING_001_HIR_INOUT_EQUAL_ALIAS_DD817223"
+family = "boundary_high"
+input = { source_partition = { equals = "HIR_INOUT_EQUAL_ALIAS" }, scenario = "HIR_INOUT_EQUAL_ALIAS" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_HIR_INOUT_MISMATCH_1E9D1FD2"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "HIR_INOUT_MISMATCH" }, scenario = "HIR_INOUT_MISMATCH" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_STRING_WSTRING_CROSS_FAMILY_6C05FADD"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "STRING_WSTRING_CROSS_FAMILY" }, scenario = "STRING_WSTRING_CROSS_FAMILY" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#implicit-conversions" }
+
+[[case]]
+id = "IEC_STRING_001_FB_OUTPUT_COPYBACK_STRING_9E0FC54F"
+family = "boundary_high"
+input = { source_partition = { equals = "FB_OUTPUT_COPYBACK_STRING" }, scenario = "FB_OUTPUT_COPYBACK_STRING" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FUNCTION_OUTPUT_COPYBACK_STRING_6843B725"
+family = "boundary_high"
+input = { source_partition = { equals = "FUNCTION_OUTPUT_COPYBACK_STRING" }, scenario = "FUNCTION_OUTPUT_COPYBACK_STRING" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_LOCAL_OUTPUT_COPYBACK_STRING_8FA2BA21"
+family = "boundary_high"
+input = { source_partition = { equals = "LOCAL_OUTPUT_COPYBACK_STRING" }, scenario = "LOCAL_OUTPUT_COPYBACK_STRING" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_LOCAL_ALIAS_COPYBACK_WSTRING_AC67D589"
+family = "boundary_high"
+input = { source_partition = { equals = "LOCAL_ALIAS_COPYBACK_WSTRING" }, scenario = "LOCAL_ALIAS_COPYBACK_WSTRING" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FB_INOUT_MISMATCH_STRING_AC942A20"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "FB_INOUT_MISMATCH_STRING" }, scenario = "FB_INOUT_MISMATCH_STRING" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FB_OUTPUT_COPYBACK_WSTRING_756A092E"
+family = "boundary_high"
+input = { source_partition = { equals = "FB_OUTPUT_COPYBACK_WSTRING" }, scenario = "FB_OUTPUT_COPYBACK_WSTRING" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FB_INOUT_MISMATCH_WSTRING_F5BDDBEB"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "FB_INOUT_MISMATCH_WSTRING" }, scenario = "FB_INOUT_MISMATCH_WSTRING" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_UNICODE_LITERAL_BOUND_8C17CCD9"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "UNICODE_LITERAL_BOUND" }, scenario = "UNICODE_LITERAL_BOUND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_UNICODE_ASSIGNMENT_BOUND_FA58C3C5"
+family = "encoding_or_unicode"
+input = { source_partition = { equals = "UNICODE_ASSIGNMENT_BOUND" }, scenario = "UNICODE_ASSIGNMENT_BOUND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FUNCTION_RECEIVER_BOUND_B927E5EF"
+family = "boundary_high"
+input = { source_partition = { equals = "FUNCTION_RECEIVER_BOUND" }, scenario = "FUNCTION_RECEIVER_BOUND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FUNCTION_RESULT_BOUND_E6D2E79D"
+family = "boundary_high"
+input = { source_partition = { equals = "FUNCTION_RESULT_BOUND" }, scenario = "FUNCTION_RESULT_BOUND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FUNCTION_INPUT_EQUAL_INOUT_9D7C4411"
+family = "boundary_high"
+input = { source_partition = { equals = "FUNCTION_INPUT_EQUAL_INOUT" }, scenario = "FUNCTION_INPUT_EQUAL_INOUT" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FUNCTION_INOUT_MISMATCH_6DD1624F"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "FUNCTION_INOUT_MISMATCH" }, scenario = "FUNCTION_INOUT_MISMATCH" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_NESTED_FIELD_COPYBACK_FFDD0C4B"
+family = "boundary_high"
+input = { source_partition = { equals = "NESTED_FIELD_COPYBACK" }, scenario = "NESTED_FIELD_COPYBACK" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_FB_INPUT_EQUAL_INOUT_5B247E55"
+family = "boundary_high"
+input = { source_partition = { equals = "FB_INPUT_EQUAL_INOUT" }, scenario = "FB_INPUT_EQUAL_INOUT" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_IMPORTED_CAPACITY_EQUAL_65EC0D8A"
+family = "boundary_high"
+input = { source_partition = { equals = "IMPORTED_CAPACITY_EQUAL" }, scenario = "IMPORTED_CAPACITY_EQUAL" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }
+
+[[case]]
+id = "IEC_STRING_001_IMPORTED_CAPACITY_MISMATCH_59881371"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "IMPORTED_CAPACITY_MISMATCH" }, scenario = "IMPORTED_CAPACITY_MISMATCH" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds" }

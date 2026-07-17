@@ -430,6 +430,10 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 }
 
 #[cfg(test)]
+#[path = "runner_loop/restart_storage_trace_cases.rs"]
+mod restart_storage_trace_cases;
+
+#[cfg(test)]
 mod runner_loop_poison_tests {
     use super::*;
     use crate::harness::TestHarness;

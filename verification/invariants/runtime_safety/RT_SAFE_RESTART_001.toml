@@ -11,6 +11,7 @@ proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
 tests = [
+  "TEST_RUNTIME_RESTART_STORAGE_TRACE_001",
   "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
   "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
   "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
@@ -26,6 +27,30 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "COLD_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cold restart initializes retained, NON_RETAIN, and ordinary storage from declared values."
+
+[[behavior]]
+partition = { equals = "WARM_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Warm restart preserves RETAIN storage and initializes NON_RETAIN and ordinary storage."
+
+[[behavior]]
+partition = { equals = "AUTOMATIC_FAULT_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Automatic recovery from a non-panic cycle fault uses the warm-restart storage transition and clears the handled error."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

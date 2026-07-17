@@ -8,9 +8,10 @@ owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Slow device and protocol work must not block the scan-cycle critical path."
 proof_level = "S0"
-contract_kind = "fault_scenario"
+contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
 tests = [
+  "TEST_RUNTIME_IO_BOUND_TRACE_001",
   "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001",
   "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
 ]
@@ -25,6 +26,22 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "DELAYED_MODBUS_READ" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A delayed Modbus read remains on the worker while read_inputs returns through the bounded scan-facing handoff."
+
+[[behavior]]
+partition = { equals = "DELAYED_MODBUS_WRITE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A delayed Modbus write remains on the worker while write_outputs returns through the bounded scan-facing handoff."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"

@@ -5220,6 +5220,7 @@ dependencies = [
  "toml",
  "tracing",
  "trust-syntax",
+ "verification-cases",
 ]
 
 [[package]]
@@ -5363,6 +5364,7 @@ dependencies = [
  "logos",
  "rowan",
  "text-size",
+ "verification-cases",
 ]
 
 [[package]]

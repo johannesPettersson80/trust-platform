@@ -11,6 +11,7 @@ proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
 tests = [
+  "TEST_IEC_PARSER_RECOVERY_TRACE_001",
   "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
   "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
   "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
@@ -38,13 +39,85 @@ kind = "trust_contract"
 ref = "SPEC_IEC_DECISIONS_001"
 
 [[behavior]]
-partition = { equals = "MISSING_REQUIRED_CONTROL_TOKEN" }
+partition = { equals = "CASE_MISSING_OF" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Missing CASE, ELSIF, FOR, WHILE, and REPEAT separators make the parse unsuccessful rather than accepting a partial construct."
+rationale = "CASE without OF is rejected with the reviewed required-token diagnostic."
+
+[[behavior]]
+partition = { equals = "CASE_LABEL_MISSING_COLON" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A CASE label without its colon is rejected visibly."
+
+[[behavior]]
+partition = { equals = "ELSIF_MISSING_THEN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "ELSIF without THEN is rejected visibly."
+
+[[behavior]]
+partition = { equals = "FOR_MISSING_CONTROL_VARIABLE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "FOR without a control variable is rejected visibly."
+
+[[behavior]]
+partition = { equals = "FOR_MISSING_ASSIGNMENT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "FOR without its assignment token is rejected visibly."
+
+[[behavior]]
+partition = { equals = "FOR_MISSING_TO" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "FOR without TO is rejected visibly."
+
+[[behavior]]
+partition = { equals = "FOR_MISSING_DO" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "FOR without DO is rejected visibly."
+
+[[behavior]]
+partition = { equals = "WHILE_MISSING_DO" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "WHILE without DO is rejected visibly."
+
+[[behavior]]
+partition = { equals = "REPEAT_MISSING_UNTIL" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "REPEAT without UNTIL is rejected visibly."
 
 [[behavior]]
 partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY" }
@@ -74,7 +147,7 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "Unknown tokens diagnose and recovery advances or stops at a synchronization boundary."
 
 [[behavior]]
-partition = { equals = "UNCLOSED_EXPRESSION_DELIMITER" }
+partition = { equals = "UNCLOSED_CALL_DELIMITER" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
 outcome = "reject"
@@ -83,13 +156,22 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "An unclosed call delimiter fails visibly at a bounded expression or statement boundary."
 
 [[behavior]]
-partition = { equals = "EXCESSIVE_EXPRESSION_NESTING" }
+partition = { equals = "DEEP_UNARY_NESTING" }
 case_family = "resource_limit"
 oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Deep unary and parenthesized expressions stop at the parser nesting limit with a diagnostic instead of recursing without bound."
+rationale = "Deep unary expressions stop at the parser nesting limit with a diagnostic instead of recursing without bound."
+
+[[behavior]]
+partition = { equals = "DEEP_PAREN_NESTING" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Deep parenthesized expressions stop at the parser nesting limit with a diagnostic instead of recursing without bound."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

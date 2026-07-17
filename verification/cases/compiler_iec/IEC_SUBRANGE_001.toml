@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_IEC_SUBRANGE_001"
+title = "Generated cases for Subrange writes follow the reviewed product decision"
+area = "compiler_iec"
+owner = "trust-hir"
+status = "planned"
+invariant = "IEC_SUBRANGE_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
+source_digest = "sha256:cb03d5ce762b351e9c9d05066a2a52d9fd0a160e985f5c202b9a82acd71d929c"
+last_reviewed = "2026-07-15"
+
+[[case]]
+id = "IEC_SUBRANGE_001_BELOW_LOWER_BOUND_INITIALIZER_C22D03A7"
+family = "boundary_high"
+input = { source_partition = { equals = "BELOW_LOWER_BOUND_INITIALIZER" }, scenario = "BELOW_LOWER_BOUND_INITIALIZER" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy" }
+
+[[case]]
+id = "IEC_SUBRANGE_001_ABOVE_UPPER_BOUND_INITIALIZER_82099BC8"
+family = "boundary_high"
+input = { source_partition = { equals = "ABOVE_UPPER_BOUND_INITIALIZER" }, scenario = "ABOVE_UPPER_BOUND_INITIALIZER" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy" }
+
+[[case]]
+id = "IEC_SUBRANGE_001_REAL_TO_INT_SUBRANGE_E0D5BF63"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "REAL_TO_INT_SUBRANGE" }, scenario = "REAL_TO_INT_SUBRANGE" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy" }
