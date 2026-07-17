@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `017187bb74e29ab9fa412521307695e71e9969e7`
-Generated: `2026-07-17T11:01:00+02:00`
+Source revision: `2da2877b3ee6269a8effd0a993c885e9bfad162c`
+Generated: `2026-07-17T11:29:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `040ff1169138406d5ee4a193279d0c2839d50d8872027f5b4906cfe1c871bb04`
-Input SHA-256: `sha256:fbc2713b776fc586f7762c5310dede01e06eb5d08b8d07e1620e6de182ed3f82`
+Generated JSON SHA-256: `a47e819cc4f0f6c917a6533767da57ffecf01d4710718722ef59afd142efac51`
+Input SHA-256: `sha256:f312e31f3be5f252694d9cbb039c306481d85a0ba487fabfa5757e6ddbcd2bc8`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -69,11 +69,11 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/tests/modbus_driver.rs` | 907 | 23 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/openot_telemetry.rs` | 3148 | 37 | 0 | `large_file` |
 | `crates/trust-runtime/tests/phase11_seam_contract.rs` | 1261 | 22 | 21 | `large_file`, `reviewed_mapping_diversity` |
-| `crates/trust-runtime/tests/protocol_status_trace_cases.rs` | 352 | 2 | 2 | `reviewed_mapping_diversity` |
+| `crates/trust-runtime/tests/protocol_status_trace_cases.rs` | 370 | 2 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/retain_integrity.rs` | 539 | 13 | 3 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | 800 | 17 | 5 | `reviewed_mapping_diversity` |
 | `crates/trust-syntax/tests/parser_error_recovery.rs` | 218 | 12 | 6 | `reviewed_mapping_diversity` |
-| `crates/verification-cases/tests/release_evidence_trace_cases.rs` | 204 | 11 | 11 | `reviewed_mapping_diversity` |
+| `crates/verification-cases/tests/release_evidence_trace_cases.rs` | 199 | 11 | 11 | `reviewed_mapping_diversity` |
 | `editors/vscode/src/test/suite/hmi.integration.test.ts` | 1445 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/ladder-engine.test.ts` | 1093 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/network-canvas.test.ts` | 2109 | 56 | 0 | `large_file` |
