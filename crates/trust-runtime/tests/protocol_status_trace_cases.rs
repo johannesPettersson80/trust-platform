@@ -55,7 +55,11 @@ fn connector_status_truth_trace_cases() {
 fn ui_connector_status_trace_cases() {
     let workspace = workspace_root();
     let mut probe = StatusProbe::default();
-    let config = RunConfig::new(UI_TEST_ID, workspace.join(UI_CASE_FILE), UI_CASE_FILE_DIGEST);
+    let config = RunConfig::new(
+        UI_TEST_ID,
+        workspace.join(UI_CASE_FILE),
+        UI_CASE_FILE_DIGEST,
+    );
     let artifact = run_case_file(&config, &mut probe, run_ui_status_case)
         .expect("UI connector-status artifact must be written");
     let failed = artifact
@@ -70,13 +74,14 @@ fn ui_connector_status_trace_cases() {
             )
         })
         .collect::<Vec<_>>();
-    assert!(failed.is_empty(), "UI status trace failures: {}", failed.join("; "));
+    assert!(
+        failed.is_empty(),
+        "UI status trace failures: {}",
+        failed.join("; ")
+    );
 }
 
-fn run_ui_status_case(
-    case: &CaseRecord,
-    probe: &mut StatusProbe,
-) -> Result<CaseExecution, String> {
+fn run_ui_status_case(case: &CaseRecord, probe: &mut StatusProbe) -> Result<CaseExecution, String> {
     let scenario = case
         .input
         .get("scenario")
@@ -106,7 +111,10 @@ fn run_ui_status_case(
                 "states": ["disabled", "configured", "starting", "ready", "degraded", "reconnecting", "stale", "not_ready", "faulted"],
                 "health": ["ok", "degraded", "faulted", "unknown"],
             });
-            (value.clone(), (value != expected).then(|| format!("{value}")))
+            (
+                value.clone(),
+                (value != expected).then(|| format!("{value}")),
+            )
         }
         "FRESHNESS_AND_DETAIL_PRESERVATION" => {
             let report = ConnectorStatusBuilder::new(
@@ -152,18 +160,28 @@ fn run_ui_status_case(
                 && report.points[0].quality == PointQuality::Stale
                 && configured.freshness_ms.is_none()
                 && configured.state == ConnectorState::Configured;
-            (value, (!passed).then(|| "status detail was not preserved".to_string()))
+            (
+                value,
+                (!passed).then(|| "status detail was not preserved".to_string()),
+            )
         }
         "UNKNOWN_STATUS_IDENTIFIER" => {
             let rejected = serde_json::from_str::<ConnectorState>("\"invented_healthy\"").is_err();
             let value = json!({"accepted": !rejected, "rendered_healthy": false, "diagnostic_visible": rejected});
-            (value, (!rejected).then(|| "unknown state was accepted".to_string()))
+            (
+                value,
+                (!rejected).then(|| "unknown state was accepted".to_string()),
+            )
         }
         other => return Err(format!("unreviewed UI status scenario {other}")),
     };
     probe.observed = Some(observed);
     Ok(CaseExecution {
-        result: if mismatch.is_none() { CaseResult::Passed } else { CaseResult::Failed },
+        result: if mismatch.is_none() {
+            CaseResult::Passed
+        } else {
+            CaseResult::Failed
+        },
         observed_error: mismatch,
         observed_status: Some("ui_status_contract_checked".to_string()),
     })

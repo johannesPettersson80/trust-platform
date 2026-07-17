@@ -131,21 +131,14 @@ fn run_release_trace(test_id: &str, case_file: &str, case_file_digest: &str) {
     );
 }
 
-fn run_release_case(
-    case: &CaseRecord,
-    probe: &mut ReleaseProbe,
-) -> Result<CaseExecution, String> {
+fn run_release_case(case: &CaseRecord, probe: &mut ReleaseProbe) -> Result<CaseExecution, String> {
     let scenario = case
         .input
         .get("scenario")
         .and_then(toml::Value::as_str)
         .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
     let output = Command::new("python3")
-        .args([
-            "scripts/release_claim_contract.py",
-            "--scenario",
-            scenario,
-        ])
+        .args(["scripts/release_claim_contract.py", "--scenario", scenario])
         .env("TRUST_RELEASE_EVIDENCE_DATE", "2026-07-17")
         .current_dir(workspace_root())
         .output()
@@ -159,7 +152,9 @@ fn run_release_case(
         let payload: JsonValue = serde_json::from_slice(&output.stdout)
             .map_err(|error| format!("release claim output was not JSON: {error}"))?;
         if payload.get("scenario").and_then(JsonValue::as_str) != Some(scenario) {
-            return Err(format!("release claim output did not bind scenario {scenario}"));
+            return Err(format!(
+                "release claim output did not bind scenario {scenario}"
+            ));
         }
         probe.target = Some(payload);
     } else {

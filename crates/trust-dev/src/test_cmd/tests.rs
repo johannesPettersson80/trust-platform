@@ -163,9 +163,17 @@ fn developer_test_discovery_trace_cases() {
         .cases
         .iter()
         .filter(|case| case.result != CaseResult::Passed)
-        .map(|case| case.observed_error.clone().unwrap_or_else(|| case.id.clone()))
+        .map(|case| {
+            case.observed_error
+                .clone()
+                .unwrap_or_else(|| case.id.clone())
+        })
         .collect::<Vec<_>>();
-    assert!(failures.is_empty(), "discovery failures: {}", failures.join("; "));
+    assert!(
+        failures.is_empty(),
+        "discovery failures: {}",
+        failures.join("; ")
+    );
 }
 
 fn run_discovery_trace_case(
@@ -205,8 +213,11 @@ fn run_discovery_trace_case(
         "UNSUPPORTED_OR_EMPTY_DISCOVERY" => {
             let sources_root = root.join("src");
             std::fs::create_dir_all(&sources_root).map_err(|error| error.to_string())?;
-            std::fs::write(sources_root.join("Main.txt"), "TEST_PROGRAM Main\nEND_TEST_PROGRAM\n")
-                .map_err(|error| error.to_string())?;
+            std::fs::write(
+                sources_root.join("Main.txt"),
+                "TEST_PROGRAM Main\nEND_TEST_PROGRAM\n",
+            )
+            .map_err(|error| error.to_string())?;
             std::fs::write(sources_root.join("Generated.stbc"), "not a source")
                 .map_err(|error| error.to_string())?;
             let sources = load_sources(&root).map_err(|error| error.to_string())?;
@@ -231,7 +242,11 @@ fn run_discovery_trace_case(
     };
     let _ = std::fs::remove_dir_all(root);
     Ok(CaseExecution {
-        result: if failure.is_none() { CaseResult::Passed } else { CaseResult::Failed },
+        result: if failure.is_none() {
+            CaseResult::Passed
+        } else {
+            CaseResult::Failed
+        },
         observed_error: failure,
         observed_status: Some("source_discovery_checked".to_string()),
     })

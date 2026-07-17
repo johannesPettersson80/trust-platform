@@ -303,13 +303,11 @@ mod tests {
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
     use verification_cases::{
-        run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe,
-        StateSnapshot,
+        run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     };
 
     const TRACE_TEST_ID: &str = "TEST_DEV_COMMIT_SCOPE_TRACE_001";
-    const TRACE_CASE_FILE: &str =
-        "verification/cases/plcopen_devtools/DEV_COMMIT_SCOPE_001.toml";
+    const TRACE_CASE_FILE: &str = "verification/cases/plcopen_devtools/DEV_COMMIT_SCOPE_001.toml";
     const TRACE_CASE_DIGEST: &str =
         "sha256:abc30f653558fd4c40ff0f4e325482641a1c6eafb25d584b1b71ca56f433d2ea";
 
@@ -382,7 +380,11 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        assert!(failures.is_empty(), "commit trace failures: {}", failures.join("; "));
+        assert!(
+            failures.is_empty(),
+            "commit trace failures: {}",
+            failures.join("; ")
+        );
     }
 
     fn run_commit_trace_case(
@@ -431,7 +433,11 @@ mod tests {
                 std::fs::create_dir_all(&project).expect("create project");
                 project
             };
-            let relative = if root_scope { "Main.st" } else { "project/Motor Ω.st" };
+            let relative = if root_scope {
+                "Main.st"
+            } else {
+                "project/Motor Ω.st"
+            };
             std::fs::write(repo.join(relative), "PROGRAM Main\nEND_PROGRAM\n")
                 .expect("write collision fixture");
             run_git(&repo, &["add", relative]);
@@ -446,7 +452,9 @@ mod tests {
             let _ = std::fs::remove_dir_all(&repo);
             let message = result.as_ref().err().map(|error| format!("{error:#}"));
             if result.is_ok()
-                || !message.as_deref().is_some_and(|text| text.contains(relative))
+                || !message
+                    .as_deref()
+                    .is_some_and(|text| text.contains(relative))
                 || before != after
                 || commit_count.trim() != "1"
             {
@@ -465,8 +473,7 @@ mod tests {
             .expect("write old source");
         run_git(&repo, &["add", "project/Old.st"]);
         run_git(&repo, &["commit", "-m", "Add old source"]);
-        std::fs::rename(project.join("Old.st"), project.join("New.st"))
-            .expect("rename source");
+        std::fs::rename(project.join("Old.st"), project.join("New.st")).expect("rename source");
         run_git(&repo, &["add", "-A", "project"]);
         let result = run_commit(
             Some(project),
@@ -474,7 +481,9 @@ mod tests {
             false,
         );
         let _ = std::fs::remove_dir_all(&repo);
-        result.is_ok().then(|| "staged rename was not rejected".to_string())
+        result
+            .is_ok()
+            .then(|| "staged rename was not rejected".to_string())
     }
 
     fn validate_outside_scope_staging() -> Option<String> {
@@ -616,7 +625,10 @@ mod tests {
             "collision must not create a commit"
         );
         let staged = run_git(&repo, &["status", "--porcelain", "--", "project/Main.st"]);
-        assert!(staged.starts_with("A  project/Main.st"), "index changed: {staged:?}");
+        assert!(
+            staged.starts_with("A  project/Main.st"),
+            "index changed: {staged:?}"
+        );
 
         let _ = std::fs::remove_dir_all(repo);
     }
@@ -629,8 +641,7 @@ mod tests {
         let repo = unique_temp_dir("commit-root-staged-collision");
         init_repo(&repo);
         seed_repo(&repo);
-        std::fs::write(repo.join("Main.st"), "PROGRAM Main\nEND_PROGRAM\n")
-            .expect("write source");
+        std::fs::write(repo.join("Main.st"), "PROGRAM Main\nEND_PROGRAM\n").expect("write source");
         run_git(&repo, &["add", "Main.st"]);
 
         let result = run_commit(
