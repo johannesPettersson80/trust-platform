@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime model specs (`18-21`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-24`), and the current
 non-numbered SFC profile note (`sfc-profile`).
 
 ## Document Index
@@ -66,6 +66,9 @@ These specifications are based on:
 - Project model and build/run ownership (see `19-project-model.md`)
 - Agent API contract (see `20-agent-api-v1.md`)
 - Harness protocol (see `21-harness-protocol.md`)
+- Developer source-discovery and commit workflows (see `22-developer-workflows.md`)
+- Connector status vocabulary (see `23-connector-status.md`)
+- Release evidence contracts (see `24-release-evidence.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -83,7 +86,9 @@ For debugging behavior, use `docs/specs/13-debug-adapter.md`.
 For LSP/IDE behavior, use `docs/specs/14-lsp.md`.
 For configuration/resource/task declarations, use `docs/specs/18-configurations-resources-tasks.md`.
 For machine-facing orchestration contracts, use `docs/specs/20-agent-api-v1.md`
-and `docs/specs/21-harness-protocol.md`.
+and `docs/specs/21-harness-protocol.md`. For developer workflow, connector
+status, and release evidence contracts, use `docs/specs/22-developer-workflows.md`,
+`docs/specs/23-connector-status.md`, and `docs/specs/24-release-evidence.md`.
 
 For IEC coverage tracking and spec-to-test mapping, see:
 - `docs/specs/coverage/standard-functions-coverage.md`
