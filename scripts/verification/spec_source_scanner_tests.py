@@ -160,8 +160,12 @@ class SpecSourceScannerTests(unittest.TestCase):
         topics = {item.topic_id: item for item in OBVIOUS_SPEC_TOPICS}
 
         hmi = topics["P1A004_HMI_API_UI"]
-        self.assertEqual(hmi.reviewed_posture, "gap_open_partial")
-        self.assertEqual(hmi.open_spec_gap_ids, ("SPEC_GAP_UI_STATUS_VOCABULARY_001",))
+        self.assertEqual(hmi.reviewed_posture, "source_present")
+        self.assertEqual(
+            hmi.eligible_source_ids,
+            ("SPEC_CONNECTOR_STATUS_001", "SPEC_RUNTIME_ENGINE_001"),
+        )
+        self.assertEqual(hmi.open_spec_gap_ids, ())
 
         for topic_id, sources in {
             "P1A004_DEBUG_DAP_FORCE_WRITE_RELEASE_LIFECYCLE": (
@@ -179,6 +183,41 @@ class SpecSourceScannerTests(unittest.TestCase):
                 self.assertEqual(topic.reviewed_posture, "source_present")
                 self.assertEqual(topic.eligible_source_ids, sources)
                 self.assertEqual(topic.open_spec_gap_ids, ())
+
+    def test_release_topics_drop_closed_gaps_but_keep_public_claim_debt(self) -> None:
+        topics = {item.topic_id: item for item in OBVIOUS_SPEC_TOPICS}
+
+        supply_chain = topics["P1A004_SUPPLY_CHAIN"]
+        self.assertEqual(supply_chain.reviewed_posture, "source_present")
+        self.assertEqual(
+            supply_chain.eligible_source_ids,
+            ("SPEC_RELEASE_EVIDENCE_001",),
+        )
+        self.assertEqual(supply_chain.open_spec_gap_ids, ())
+
+        platform = topics["P1A004_PLATFORM_PACKAGE_BEHAVIOR"]
+        self.assertEqual(platform.reviewed_posture, "gap_open_partial")
+        self.assertEqual(platform.eligible_source_ids, ("SPEC_RELEASE_EVIDENCE_001",))
+        self.assertEqual(
+            platform.open_spec_gap_ids,
+            (
+                "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001",
+                "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001",
+            ),
+        )
+
+        release = topics["P1A004_RELEASE_PROOF"]
+        self.assertEqual(release.reviewed_posture, "gap_open_partial")
+        self.assertEqual(release.eligible_source_ids, ("SPEC_RELEASE_EVIDENCE_001",))
+        self.assertEqual(
+            release.open_spec_gap_ids,
+            (
+                "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001",
+                "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001",
+                "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001",
+                "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001",
+            ),
+        )
 
     def test_discovery_uses_only_tracked_reviewed_text_surfaces(self) -> None:
         with tracked_repository(
