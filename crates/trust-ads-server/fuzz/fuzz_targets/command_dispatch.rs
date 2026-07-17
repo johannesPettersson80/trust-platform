@@ -1,5 +1,7 @@
 #![no_main]
 
+use std::sync::Arc;
+
 use libfuzzer_sys::fuzz_target;
 use trust_ads_core::{
     AdsDataTypeDescriptor, AmsNetId, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
@@ -18,7 +20,7 @@ use trust_ads_server::{
 const MAX_FUZZ_PAYLOAD: usize = 4096;
 
 struct FuzzHost {
-    snapshot: SymbolSnapshot,
+    snapshot: Arc<SymbolSnapshot>,
     version: u32,
     allow: bool,
 }
@@ -49,7 +51,7 @@ impl FuzzHost {
         let version = u32_from(data, 1).unwrap_or(1).max(1);
         let allow = data.get(5).is_none_or(|byte| byte & 0x80 == 0);
         Self {
-            snapshot,
+            snapshot: Arc::new(snapshot),
             version,
             allow,
         }
@@ -66,8 +68,8 @@ impl FuzzHost {
 }
 
 impl SymbolSource for FuzzHost {
-    fn snapshot(&self) -> &SymbolSnapshot {
-        &self.snapshot
+    fn snapshot(&self) -> Arc<SymbolSnapshot> {
+        Arc::clone(&self.snapshot)
     }
 
     fn version(&self) -> u32 {

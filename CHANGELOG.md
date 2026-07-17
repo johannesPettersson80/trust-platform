@@ -10,6 +10,9 @@ Target release: `v0.24.53`
 
 ### Fixed
 
+- trust-ads-server: restored the command-dispatch cargo-fuzz target after the
+  symbol snapshot interface moved to shared `Arc` ownership, so all registered
+  ADS fuzz targets compile and execute under the bounded campaign.
 - trust-dev: project-scoped commits now abort before mutation when the Git index
   already contains an in-scope path, while repository-root commits reject any
   pre-staged path and dry runs leave both the worktree and index unchanged.
