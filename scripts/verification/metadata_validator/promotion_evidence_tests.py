@@ -735,6 +735,7 @@ class FullValidatorPromotionEvidenceTests(unittest.TestCase):
         validator = Validator()
         validator.load_records()
         validator.invariants["UI_STATUS_001"]["proof_level"] = "R1"
+        validator.invariants["UI_STATUS_001"]["evidence_refs"] = []
 
         validator.validate()
 

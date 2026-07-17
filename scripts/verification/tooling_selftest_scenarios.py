@@ -230,10 +230,13 @@ def metadata_safety_validated_gap_open() -> RawResult:
 
 
 def metadata_safety_validated_spec_gap() -> RawResult:
-    return _metadata_case(
-        lambda validator: _promote_for_fixture(validator, "UI_STATUS_001"),
-        "validate_invariants",
-    )
+    def mutate(validator: Validator) -> None:
+        _promote_for_fixture(validator, "UI_STATUS_001")
+        validator.invariants["UI_STATUS_001"]["coverage"]["cells"][0][
+            "state"
+        ] = "spec_gap"
+
+    return _metadata_case(mutate, "validate_invariants")
 
 
 def metadata_validated_low_proof() -> RawResult:

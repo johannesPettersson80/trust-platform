@@ -57,14 +57,14 @@ GROUP_EXPECTATIONS = {
     "VERIF-P6-004": {
         "area_ids": ["editor_safety"],
         "invariant_count": 7,
-        "eligible_oracle_count": 6,
-        "spec_gap_blocked_count": 1,
+        "eligible_oracle_count": 7,
+        "spec_gap_blocked_count": 0,
     },
     "VERIF-P6-005": {
         "area_ids": ["control_security", "supply_chain_platform"],
         "invariant_count": 6,
-        "eligible_oracle_count": 2,
-        "spec_gap_blocked_count": 4,
+        "eligible_oracle_count": 6,
+        "spec_gap_blocked_count": 0,
     },
 }
 
@@ -127,13 +127,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "invariants_total": 54,
                 "mapped_phase6_invariants": 36,
                 "other_area_invariants": 18,
-                "eligible_oracles": 40,
-                "missing_oracles": 14,
-                "future_enforcement_candidates": 7,
+                "eligible_oracles": 54,
+                "missing_oracles": 0,
+                "future_enforcement_candidates": 0,
             },
         )
         self.assertEqual(54, len(self.analysis["invariants"]))
-        self.assertEqual(14, len(self.analysis["missing_oracles"]))
+        self.assertEqual(0, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},
@@ -148,22 +148,23 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                     self.assertEqual(value, groups[board_row][field])
                 self.assertEqual(groups[board_row]["invariant_count"], len(groups[board_row]["invariant_ids"]))
 
-    def test_gap_placeholder_is_not_upgraded_by_an_eligible_candidate_source(self) -> None:
+    def test_public_claim_context_does_not_replace_the_eligible_oracle(self) -> None:
         rows = {row["invariant_id"]: row for row in self.analysis["invariants"]}
         behavior_lock_row = rows["DEBUG_BEHAVIOR_LOCKED_001"]
 
         self.assertEqual(
-            ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_DEBUG_ADAPTER_001"],
+            [
+                "SPEC_RELEASE_EVIDENCE_001",
+                "PUBLIC_CLAIM_BEHAVIOR_LOCKED_001",
+                "SPEC_DEBUG_ADAPTER_001",
+            ],
             behavior_lock_row["spec_source_refs"],
         )
         self.assertTrue(
             self.validator.spec_sources["SPEC_DEBUG_ADAPTER_001"]["oracle_eligible"]
         )
-        self.assertEqual("spec_gap_blocked", behavior_lock_row["oracle_state"])
-        self.assertEqual(
-            "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001",
-            behavior_lock_row["oracle_ref"],
-        )
+        self.assertEqual("eligible_oracle", behavior_lock_row["oracle_state"])
+        self.assertEqual("SPEC_RELEASE_EVIDENCE_001", behavior_lock_row["oracle_ref"])
 
     def test_public_claim_cannot_be_relabelled_as_an_oracle(self) -> None:
         validator = loaded_validator()
@@ -204,7 +205,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 invariant = copy.deepcopy(
                     validator.invariants["DEBUG_BEHAVIOR_LOCKED_001"]
                 )
-                gap_id = invariant["oracle"]["ref"]
+                gap_id = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+                gap = copy.deepcopy(validator.spec_gaps[gap_id])
+                gap["resolution_status"] = "open"
+                validator.spec_gaps[gap_id] = gap
+                invariant["oracle"] = {"kind": "spec_gap", "ref": gap_id}
+                invariant["spec_gap_refs"] = [gap_id]
+                validator.invariants[invariant["id"]] = invariant
                 if label == "closed":
                     gap = copy.deepcopy(validator.spec_gaps[gap_id])
                     gap["resolution_status"] = "closed"
