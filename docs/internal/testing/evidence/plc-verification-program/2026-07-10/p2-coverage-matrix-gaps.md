@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
-Generated: `2026-07-17T02:39:00+02:00`
+Source revision: `3a53c0c1b936464ed515300b591b541f2b4c1e01`
+Generated: `2026-07-17T05:25:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `d556f5bd456e33bf706b36ccd5585d735d5dc50ead5845a2198795faff9859e9`
-Input SHA-256: `sha256:921d3f02f2ed9358e0c9ddd19ed71bc13a9ad648004a025feec478399116fc09`
+Generated JSON SHA-256: `e2618868a66b296a6fe8170c3a5a780700e31be81ad45db5355c4222f526bc3d`
+Input SHA-256: `sha256:fa9d720aaeab1ee2dd48eb89c4b5d0ecb6b2fb1f86d5240c687dc3845addeb70`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 43 |
+| `covered` | 50 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
 | `spec_gap` | 14 |
-| `gap_open` | 12 |
+| `gap_open` | 5 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -177,9 +177,9 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `extra_or_unknown` | `additional_recorded` | `gap_open` | none | none |
-| `resource_limit` | `additional_recorded` | `gap_open` | none | none |
-| `wrong_type_or_shape` | `additional_recorded` | `gap_open` | none | none |
+| `extra_or_unknown` | `additional_recorded` | `covered` | none | none |
+| `resource_limit` | `additional_recorded` | `covered` | none | none |
+| `wrong_type_or_shape` | `additional_recorded` | `covered` | none | none |
 
 ### `IEC_PREC_001`
 
@@ -191,13 +191,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `boundary_high` | `additional_recorded` | `gap_open` | none | none |
+| `boundary_high` | `additional_recorded` | `covered` | none | none |
 
 ### `IEC_SUBRANGE_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `boundary_high` | `additional_recorded` | `gap_open` | none | none |
+| `boundary_high` | `additional_recorded` | `covered` | none | none |
 
 ### `IEC_TIMER_001`
 
@@ -412,7 +412,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `hardware_or_network_fault` | `additional_recorded` | `gap_open` | none | none |
+| `hardware_or_network_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `RT_SAFE_IO_WORKER_001`
 
@@ -437,7 +437,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `persistence_or_recovery` | `additional_recorded` | `gap_open` | none | none |
+| `persistence_or_recovery` | `additional_recorded` | `covered` | none | none |
 
 ### `RT_SAFE_RESTART_TIME_002`
 

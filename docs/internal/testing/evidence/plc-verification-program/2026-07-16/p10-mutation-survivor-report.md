@@ -1,11 +1,11 @@
 # Phase 10 Focused Mutation Program
 
 Generator: `mutation-program-audit v1`
-Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
-Generated: `2026-07-17T02:39:00+02:00`
+Source revision: `3a53c0c1b936464ed515300b591b541f2b4c1e01`
+Generated: `2026-07-17T05:25:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `595c4efc26950f5bf7d1b39f40bbaa3bfa9e6dff8f78ca862b31c24edc509660`
-Input SHA-256: `sha256:13520d2e2c6e13a111badeedb152f36b35fa40bbec77bb76232b02c62fc34fe6`
+Generated JSON SHA-256: `8b965b90615dcc592361738b6831ff7182be5e62674f95fb48c6d84be7fe39a0`
+Input SHA-256: `sha256:0cedb8343af712e04522ba55205e05b3f67069f3c63101c4282f9d0e05eb58ff`
 
 This report separates five validated measured shards from one planned connector
 shard. It creates no proof, invariant coverage, spec-gap closure, release
