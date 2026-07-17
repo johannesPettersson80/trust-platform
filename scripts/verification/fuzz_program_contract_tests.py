@@ -291,6 +291,15 @@ class FuzzProgramContractTests(unittest.TestCase):
             sum(row["target_kind"] == "bounded_rust_smoke" for row in self.program["targets"]),
         )
 
+    def test_bounded_rust_smokes_select_one_test_binary(self) -> None:
+        for row in self.program["targets"]:
+            if row["target_kind"] != "bounded_rust_smoke":
+                continue
+            self.assertTrue(
+                " --lib " in row["command"] or " --test " in row["command"],
+                f"{row['id']} compiles unrelated test binaries: {row['command']}",
+            )
+
     def test_crash_handoff_is_policy_only_and_p9_005_stays_open(self) -> None:
         handoff = self.program["crash_regression_handoff"]
         self.assertEqual("not_enforced", handoff["enforcement_status"])
