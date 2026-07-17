@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_REL_CLAIM_001"
+title = "Public hardware proof-level trace"
+area = "release"
+owner = "docs"
+status = "planned"
+invariant = "REL_CLAIM_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:ff1ee9a0a05b07d79bb16218bd88f00e2db966ba9350cef93daf2cf358991058"
+source_digest = "sha256:7180c1b58f97ebf7f6fece28895f58c4e78d2c63dcd1000687cdcf466e4cc800"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "REL_CLAIM_001_PROOF_LEVELS"
+family = "hardware_or_network_fault"
+input = { scenario = "HARDWARE_PROOF_LEVELS" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#hardware-and-conformance-claims", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "public_protocol_matrix" }, expected = { levels = ["mock", "loopback", "simulation", "interoperability", "device_in_loop"], hardware_level = "device_in_loop" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#hardware-and-conformance-claims" }]

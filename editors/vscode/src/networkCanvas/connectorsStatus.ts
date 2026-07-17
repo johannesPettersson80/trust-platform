@@ -34,6 +34,48 @@ interface ConnectorStatusResponse {
   connectors?: ConnectorStatusReport[];
 }
 
+export type CanonicalConnectorState =
+  | "disabled"
+  | "configured"
+  | "starting"
+  | "ready"
+  | "degraded"
+  | "reconnecting"
+  | "stale"
+  | "not_ready"
+  | "faulted";
+
+export type CanonicalConnectorHealth = "ok" | "degraded" | "faulted" | "unknown";
+
+export function canonicalConnectorState(value: unknown): CanonicalConnectorState {
+  switch (stringValue(value)) {
+    case "disabled":
+    case "configured":
+    case "starting":
+    case "ready":
+    case "degraded":
+    case "reconnecting":
+    case "stale":
+    case "not_ready":
+    case "faulted":
+      return stringValue(value) as CanonicalConnectorState;
+    default:
+      throw new Error(`unknown connector state: ${String(value)}`);
+  }
+}
+
+export function canonicalConnectorHealth(value: unknown): CanonicalConnectorHealth {
+  switch (stringValue(value)) {
+    case "ok":
+    case "degraded":
+    case "faulted":
+    case "unknown":
+      return stringValue(value) as CanonicalConnectorHealth;
+    default:
+      throw new Error(`unknown connector health: ${String(value)}`);
+  }
+}
+
 export async function fetchConnectorStatus(
   runtime: RuntimeTarget,
   timeoutMs = 2000
@@ -179,8 +221,8 @@ function projectConnectorStatus(report: ConnectorStatusReport): FleetTopologyCon
   const counts = report.point_counts ?? {};
   return {
     connector_id: stringValue(report.connector_id) || "connector",
-    state: stringValue(report.state) || "unknown",
-    health: stringValue(report.health) || "unknown",
+    state: canonicalConnectorState(report.state),
+    health: canonicalConnectorHealth(report.health),
     confidence: stringValue(report.confidence) || "unavailable",
     point_counts: {
       total: numberValue(counts.total),

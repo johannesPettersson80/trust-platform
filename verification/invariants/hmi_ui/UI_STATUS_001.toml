@@ -8,9 +8,9 @@ owner = "trust-runtime"
 last_reviewed = "2026-07-10"
 claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
 proof_level = "S0"
-contract_kind = "ui_journey"
+contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
-tests = []
+tests = ["TEST_UI_CONNECTOR_STATUS_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_UI_STATUS_VOCABULARY_001"]
@@ -23,6 +23,31 @@ source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_GAP_UI_STATUS_VOCABULARY_001"
+
+[[behavior]]
+partition = { equals = "CANONICAL_STATUS_VOCABULARY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#canonical-vocabulary"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Runtime, HMI, CLI, reports, hover, and VS Code preserve the closed connector state, health, confidence, and point-quality identifiers."
+
+[[behavior]]
+partition = { equals = "FRESHNESS_AND_DETAIL_PRESERVATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Missing freshness is distinct from stale, while degraded and faulted projections retain available detail and point quality."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_STATUS_IDENTIFIER" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unknown wire status fails at the closed mapping boundary and cannot silently render as healthy."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"

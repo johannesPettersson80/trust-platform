@@ -8,9 +8,9 @@ owner = "release"
 last_reviewed = "2026-07-10"
 claim = "Release proof must expose dependency vulnerability and license status together with owned, time-bounded exceptions."
 proof_level = "S0"
-contract_kind = "security_policy"
-source_refs = ["Cargo.toml", "Cargo.lock"]
-tests = []
+contract_kind = "protocol_trace"
+source_refs = ["Cargo.toml", "Cargo.lock", "editors/vscode/package.json", "editors/vscode/package-lock.json"]
+tests = ["TEST_DEPENDENCY_EXCEPTION_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"]
@@ -23,6 +23,14 @@ source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+
+[[behavior]]
+partition = { equals = "DEPENDENCY_EXCEPTION_LIFETIME" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#dependency-exceptions"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every ignored advisory carries ownership, rationale, removal, review, and an expiry no more than 90 days later."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"

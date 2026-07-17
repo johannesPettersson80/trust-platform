@@ -8,9 +8,9 @@ owner = "editors-vscode"
 last_reviewed = "2026-07-10"
 claim = "VSIX installation and packaged binary behavior must be smoke-tested on each claimed platform or scoped as unsupported."
 proof_level = "S0"
-contract_kind = "release_matrix"
+contract_kind = "protocol_trace"
 source_refs = ["editors/vscode", ".github/workflows"]
-tests = []
+tests = ["TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"]
@@ -23,6 +23,14 @@ source_refs = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
 [oracle]
 kind = "public_doc"
 ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+
+[[behavior]]
+partition = { equals = "VSIX_TARGET_BINARY_IDENTITY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Each VSIX target contains binaries whose names and target identity match the advertised platform."
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"

@@ -103,44 +103,10 @@ class SeedManifestContractTests(unittest.TestCase):
         self.assertEqual(["VM_SEAM_TYPE_001", "VM_SEAM_TYPE_002"], merged)
         self.assertEqual(5, sum(row.p4_000_risk_id is not None for row in audit.rows))
         self.assertEqual(
-            [
-                "RT_SAFE_PANIC_001",
-                "RT_SAFE_DEADLINE_001",
-                "RT_SAFE_STOP_001",
-                "RT_SAFE_IO_001",
-                "RT_SAFE_RETAIN_001",
-                "RT_SAFE_RESTART_001",
-                "RT_SAFE_FORCE_001",
-                "RT_SAFE_NAN_001",
-                "RT_RELOAD_001",
-                "VM_SEAM_TYPE_001",
-                "VM_SEAM_TYPE_002",
-                "VM_SEAM_REF_001",
-                "VM_SEAM_OWNER_001",
-                "VM_SEAM_VALID_001",
-                "VM_SEAM_ENC_001",
-                "IEC_PARSE_RECOVER_001",
-                "IEC_PREC_001",
-                "IEC_STRING_001",
-                "IEC_SUBRANGE_001",
-                "IEC_TIMER_001",
-                "PLCO_IMPORT_001",
-                "PROTO_DISC_001",
-                "PROTO_MODBUS_001",
-                "PROTO_MQTT_001",
-                "PROTO_ETHERCAT_001",
-                "PROTO_ADS_001",
-                "PROTO_OPCUA_001",
-                "EDIT_RENAME_001",
-                "EDIT_RENAME_002",
-                "EDIT_LSP_POS_001",
-                "EDIT_DIAG_CANCEL_001",
-                "DEBUG_AUTH_001",
-                "DEBUG_PAUSE_001",
-                "SEC_AUTHZ_001",
-            ],
-            [row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY],
+            EXECUTION_READY_SEED_IDS,
+            {row.seed_id for row in audit.rows if row.lifecycle_state == EXECUTION_READY},
         )
+        self.assertEqual([], [row.seed_id for row in audit.rows if row.lifecycle_state == BASELINE])
         self.assertTrue(
             all(row.lifecycle_version == LIFECYCLE_VERSION for row in audit.rows)
         )
@@ -154,8 +120,14 @@ class SeedManifestContractTests(unittest.TestCase):
         )
         unreviewed["lifecycle_state"] = EXECUTION_READY
         _write_manifest(self.root, manifest)
-        with self.assertRaisesRegex(ValueError, "not reviewed for execution_ready"):
-            load_seed_audit(self.root)
+        reviewed = set(EXECUTION_READY_SEED_IDS)
+        EXECUTION_READY_SEED_IDS.remove("DEV_TEST_DISCOVERY_001")
+        try:
+            with self.assertRaisesRegex(ValueError, "not reviewed for execution_ready"):
+                load_seed_audit(self.root)
+        finally:
+            EXECUTION_READY_SEED_IDS.clear()
+            EXECUTION_READY_SEED_IDS.update(reviewed)
 
         _write_fixture(self.root)
         manifest = _load_manifest(self.root)
@@ -214,8 +186,8 @@ class SeedManifestContractTests(unittest.TestCase):
         row = _first_phase4_row(self.root)
         invariant_path = self.root / "verification/invariants" / row["area"] / f"{row['id']}.toml"
         text = invariant_path.read_text()
-        invariant_path.write_text(text.replace('status = "gap_open"', 'status = "validated"'))
-        with self.assertRaisesRegex(ValueError, "status must be gap_open or spec_gap"):
+        invariant_path.write_text(text.replace('status = "gap_open"', 'status = "invented"'))
+        with self.assertRaisesRegex(ValueError, "execution_ready status must be"):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
@@ -227,12 +199,11 @@ class SeedManifestContractTests(unittest.TestCase):
             load_seed_audit(self.root)
 
         _write_fixture(self.root)
-        row = _first_phase4_row(self.root)
-        invariant_path = self.root / "verification/invariants" / row["area"] / f"{row['id']}.toml"
-        invariant_path.write_text(
-            invariant_path.read_text().replace("tests = []", 'tests = ["TEST_PREMATURE"]')
-        )
-        with self.assertRaisesRegex(ValueError, "baseline phase4 seed must retain empty tests"):
+        manifest = _load_manifest(self.root)
+        phase4 = next(item for item in manifest["seeds"] if item["origin"] == "phase4")
+        phase4["lifecycle_state"] = BASELINE
+        _write_manifest(self.root, manifest)
+        with self.assertRaisesRegex(ValueError, "reviewed execution seed must use execution_ready"):
             load_seed_audit(self.root)
 
     def test_gap_open_requires_active_non_claim_oracle_source(self) -> None:
@@ -642,13 +613,7 @@ class SeedAuditReportTests(unittest.TestCase):
         state = build_live_seed_audit_state(self.root)
         payload = _payload_for_state(state)
         timer = next(row for row in payload["rows"] if row["seed_id"] == "IEC_TIMER_001")
-        other = next(
-            row
-            for row in payload["rows"]
-            if row["lifecycle_state"] == BASELINE
-        )
         timer["lifecycle_state"] = BASELINE
-        other["lifecycle_state"] = EXECUTION_READY
         payload["summary"] = build_summary(payload["rows"])
         failures = validate_report_payload(payload)
         self.assertTrue(
@@ -670,8 +635,8 @@ class SeedAuditReportTests(unittest.TestCase):
         report_schema = json.loads(REPORT_SCHEMA_PATH.read_text())
         self.assertEqual([], validate_schema_contract(report_schema, manifest_schema=manifest_schema))
         summary = report_schema["$defs"]["summary"]["properties"]
-        self.assertEqual(10, summary["baseline_lifecycle"]["const"])
-        self.assertEqual(34, summary["execution_ready_lifecycle"]["const"])
+        self.assertEqual(0, summary["baseline_lifecycle"]["const"])
+        self.assertEqual(44, summary["execution_ready_lifecycle"]["const"])
         self.assertFalse(manifest_schema["additionalProperties"])
         self.assertFalse(manifest_schema["$defs"]["seed"]["additionalProperties"])
         self.assertEqual(2, manifest_schema["properties"]["schema_version"]["const"])
@@ -1010,7 +975,7 @@ def _first_phase4_row(root: Path) -> dict[str, str]:
     record = next(
         item
         for item in manifest["seeds"]
-        if item["origin"] == "phase4" and item["lifecycle_state"] == BASELINE
+        if item["origin"] == "phase4"
     )
     source = {row.seed_id: row for row in extract_written_seeds(AREAS_PATH.read_text())}[record["seed_id"]]
     _, area = _row_and_area(record["seed_id"], source.section)

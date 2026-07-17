@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_RELEASE_PLATFORM_MATRIX_001"
+title = "Release platform evidence matrix trace"
+area = "release"
+owner = "release"
+status = "planned"
+invariant = "RELEASE_PLATFORM_MATRIX_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:2ef0228294ca1f203688fd4b4d361aa97a6001b1f6eb4dbe664cde1384cd4902"
+source_digest = "sha256:bf4cec4e922368426a25733dc1b74e90f6c84c49f00cc24dfe477c72807735dc"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "RELEASE_PLATFORM_MATRIX_001_TARGETS"
+family = "platform_or_filesystem_variation"
+input = { scenario = "PLATFORM_SUPPORT_MATRIX" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "ci_and_release_workflows" }, expected = { targets = ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64"], raspberry_pi_tier = "artifact_only", preempt_rt_certified = false }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix" }]

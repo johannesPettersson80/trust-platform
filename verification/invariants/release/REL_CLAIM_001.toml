@@ -8,9 +8,9 @@ owner = "docs"
 last_reviewed = "2026-07-10"
 claim = "Public hardware documentation must distinguish mock, loopback, simulation, interoperability, and real device-in-loop evidence."
 proof_level = "S0"
-contract_kind = "release_matrix"
+contract_kind = "protocol_trace"
 source_refs = ["docs/public", "README.md"]
-tests = []
+tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"]
@@ -23,6 +23,14 @@ source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORM
 [oracle]
 kind = "public_doc"
 ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+
+[[behavior]]
+partition = { equals = "HARDWARE_PROOF_LEVELS" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#hardware-and-conformance-claims"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Public hardware wording distinguishes mock, loopback, simulation, interoperability, and named-topology device-in-loop evidence."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"

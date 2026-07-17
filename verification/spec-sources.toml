@@ -277,7 +277,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/public/start/install-from-source.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-17"
 claim_text = "Normal source builds fetch the OpenOT Rust crates through pinned public Git dependencies."
 surface_ref = "docs/public/start/install-from-source.md#optional-openot-reference-checkout"
 covers = [
@@ -329,15 +329,16 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
-last_reviewed = "2026-07-08"
-claim_text = "Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi"
+last_reviewed = "2026-07-17"
+claim_text = "Platform evidence: native CI and/or release artifacts for the target matrix; hardware qualification is stated separately when available"
 surface_ref = "README.md"
 covers = [
   "platform_support_public_claim",
   "release_assets",
 ]
 known_limitations = [
-  "Needs a release/platform proof matrix and PREEMPT_RT qualification boundary; see SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001.",
+  "Raspberry Pi inherits Linux AArch64 artifact support unless a named model has device-in-loop evidence.",
+  "PREEMPT_RT compatibility is not deterministic-latency certification.",
 ]
 conflicts_with = []
 
@@ -355,15 +356,94 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
-last_reviewed = "2026-07-08"
-claim_text = "Runtime + debugger: pre-1.0, behavior-locked by tests"
+last_reviewed = "2026-07-17"
+claim_text = "Runtime + debugger: pre-1.0; only explicitly mapped invariants are behavior-locked by tests and durable evidence"
 surface_ref = "README.md"
 covers = [
   "behavior_locked_public_claim",
   "test_suite_truth",
 ]
 known_limitations = [
-  "Cannot be closed until verification metadata maps runtime/debugger invariants to suites/evidence; see SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001.",
+  "The claim applies only to listed invariant/test/evidence mappings and does not imply release validation or IEC conformance.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_DEVELOPER_WORKFLOWS_001"
+title = "truST developer workflow contract"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/22-developer-workflows.md"
+version = "current"
+last_reviewed = "2026-07-17"
+covers = [
+  "source_discovery",
+  "supported_source_extensions",
+  "project_scoped_commit",
+  "pre_staged_collision",
+]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_CONNECTOR_STATUS_001"
+title = "truST connector status contract"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/23-connector-status.md"
+version = "current"
+last_reviewed = "2026-07-17"
+covers = [
+  "connector_state_vocabulary",
+  "connector_health_vocabulary",
+  "discovery_confidence",
+  "point_quality",
+  "cross_surface_status_projection",
+]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_RELEASE_EVIDENCE_001"
+title = "truST release evidence contract"
+area = "release"
+owner = "release"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/24-release-evidence.md"
+version = "current"
+last_reviewed = "2026-07-17"
+covers = [
+  "platform_support_matrix",
+  "source_build",
+  "dependency_exceptions",
+  "artifact_provenance",
+  "release_version_chain",
+  "hardware_claim_levels",
+  "conformance_publication",
+  "behavior_lock_claims",
+]
+known_limitations = [
+  "This contract defines evidence requirements; it does not itself establish that a release or hardware campaign ran.",
 ]
 conflicts_with = []
 

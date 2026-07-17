@@ -41,6 +41,7 @@ export function run(): Promise<void> {
   require("./runtime-target.test");
   require("./network-canvas.test");
   require("./ads-status-summary.test");
+  require("./connector-status-contract.test");
   require("./libraries-model.test");
   require("./library-code-actions.test");
   require("./snippets.test");

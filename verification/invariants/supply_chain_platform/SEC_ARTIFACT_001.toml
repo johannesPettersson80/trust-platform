@@ -8,9 +8,9 @@ owner = "release"
 last_reviewed = "2026-07-10"
 claim = "Every release artifact and checksum must map to the commit, tag, and workflow execution that produced and tested it."
 proof_level = "S0"
-contract_kind = "release_matrix"
+contract_kind = "protocol_trace"
 source_refs = [".github/workflows", "Cargo.toml", "editors/vscode/package.json"]
-tests = []
+tests = ["TEST_ARTIFACT_PROVENANCE_TRACE_001"]
 gates = []
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_ARTIFACT_PROVENANCE_001"]
@@ -23,6 +23,14 @@ source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_
 [oracle]
 kind = "release_contract"
 ref = "SPEC_GAP_ARTIFACT_PROVENANCE_001"
+
+[[behavior]]
+partition = { equals = "ARTIFACT_PROVENANCE_CHAIN" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The release provenance record exhaustively binds each artifact digest to the tag, commit, and workflow execution."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"

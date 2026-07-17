@@ -181,7 +181,7 @@ canonical_invariant_id = "DEV_TEST_DISCOVERY_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "DEV_COMMIT_SCOPE_001"
@@ -189,7 +189,7 @@ canonical_invariant_id = "DEV_COMMIT_SCOPE_001"
 board_row = "VERIF-P4-005"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "PROTO_DISC_001"
@@ -278,7 +278,7 @@ canonical_invariant_id = "UI_STATUS_001"
 board_row = "VERIF-P4-006"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "DEBUG_AUTH_001"
@@ -302,7 +302,7 @@ canonical_invariant_id = "SEC_DEP_AUDIT_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "SEC_AUTHZ_001"
@@ -319,7 +319,7 @@ canonical_invariant_id = "SEC_ARTIFACT_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "PLAT_PATH_001"
@@ -327,7 +327,7 @@ canonical_invariant_id = "PLAT_PATH_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "PLAT_VSCODE_001"
@@ -335,7 +335,7 @@ canonical_invariant_id = "PLAT_VSCODE_001"
 board_row = "VERIF-P4-008"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "REL_CLAIM_001"
@@ -343,7 +343,7 @@ canonical_invariant_id = "REL_CLAIM_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "REL_CONF_001"
@@ -351,7 +351,7 @@ canonical_invariant_id = "REL_CONF_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"
 
 [[seeds]]
 seed_id = "REL_VERSION_001"
@@ -359,4 +359,4 @@ canonical_invariant_id = "REL_VERSION_001"
 board_row = "VERIF-P4-007"
 origin = "phase4"
 lifecycle_version = 1
-lifecycle_state = "baseline"
+lifecycle_state = "execution_ready"

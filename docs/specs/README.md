@@ -25,6 +25,9 @@ non-numbered SFC profile note (`sfc-profile`).
 | [14-lsp.md](14-lsp.md) | LSP architecture, IDE behavior, protocol, diagnostics, performance | trust-lsp, trust-ide, trust-hir |
 | [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 | [15-ladder-diagram.md](15-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
+| [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
+| [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
+| [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |

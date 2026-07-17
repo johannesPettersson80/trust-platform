@@ -64,6 +64,9 @@ DISCONNECT immediately after CONNACK.
 The labels below describe the strongest committed evidence, not a blanket
 production-readiness claim. Deployment readiness also depends on the selected
 device, security configuration, topology, and site acceptance testing.
+The proof-level vocabulary is `mock`, `loopback`, `simulation`,
+`interoperability`, and `device-in-loop`; only the last, with a named reviewed
+topology, establishes physical-hardware qualification.
 
 | Surface | Committed software evidence | Physical-hardware evidence | Honest boundary |
 | --- | --- | --- | --- |

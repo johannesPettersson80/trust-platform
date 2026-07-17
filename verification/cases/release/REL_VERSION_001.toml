@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_REL_VERSION_001"
+title = "Release version and Latest chain trace"
+area = "release"
+owner = "release"
+status = "planned"
+invariant = "REL_VERSION_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:93d1accc5cd0de31d69a0219874fe40ad03a4a9b74e8f91088044944b0d34e60"
+source_digest = "sha256:6fa403ebe59d9d0904857996070c88cab08c48b666e4e90ad79cceb94549eff0"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "REL_VERSION_001_CHAIN"
+family = "supply_chain_or_artifact_fault"
+input = { scenario = "RELEASE_VERSION_CHAIN" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { expected_tag = "workspace_version" }, expected = { versions_aligned = true, tag_aligned = true, workflow_success = true, required_assets_present = true, latest_aligned = true }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" }]

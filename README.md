@@ -16,8 +16,11 @@ run by `trust-runtime`, observed through browser HMI, automated through product
 CLI, Agent APIs, and `trust-dev` workbench tools, connected through truST Mesh,
 and assisted by AI tools that can read diagnostics and use typed truST surfaces.
 
-Runs on Linux, including [PREEMPT_RT soft-real-time deployments](docs/public/operate/preempt-rt.md),
-macOS, Windows, and Raspberry Pi.
+Release artifacts target Linux x86-64/AArch64, macOS x86-64/AArch64, and
+Windows x86-64. Raspberry Pi currently inherits Linux AArch64 artifact support;
+named-model qualification requires separate device-in-loop evidence.
+[PREEMPT_RT](docs/public/operate/preempt-rt.md) is a supported Linux deployment
+configuration, not a deterministic-latency certification.
 
 ![One project across VS Code, diagnostics, debug, Browser IDE, and Browser HMI](docs/public/assets/images/one-project-surface-tour.gif)
 
@@ -78,8 +81,10 @@ code --install-extension trust-platform.trust-lsp
 
 - VS Code Marketplace: live
 - GitHub Releases: live
-- Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi
-- Runtime + debugger: pre-1.0, behavior-locked by tests
+- Platform evidence: native CI and/or release artifacts for the target matrix;
+  hardware qualification is stated separately when available
+- Runtime + debugger: pre-1.0; only explicitly mapped invariants are
+  behavior-locked by tests and durable evidence
 - Rust MSRV: 1.95+
 
 ## Help

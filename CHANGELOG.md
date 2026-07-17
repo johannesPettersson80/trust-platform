@@ -6,10 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.52`
+Target release: `v0.24.53`
 
 ### Fixed
 
+- trust-dev: project-scoped commits now abort before mutation when the Git index
+  already contains an in-scope path, while repository-root commits reject any
+  pre-staged path and dry runs leave both the worktree and index unchanged.
+- vscode: connector state and health projections now accept only the shared
+  canonical wire vocabulary, so unknown backend values fail visibly instead of
+  flowing into the Devices & Connections UI as an invented status.
+- vscode: updated build and test dependencies and pinned patched transitive
+  versions so the committed extension lockfile passes `npm audit` with zero
+  known advisories; CI and release packaging now enforce the same audit.
 - trust-lsp: closing an unsaved file-backed document now evicts its cached
   semantic tokens and pull-diagnostic result before restoring the durable disk
   contents, preventing discarded buffer state from surviving `didClose`.
@@ -81,6 +90,9 @@ Target release: `v0.24.52`
 
 ### Added
 
+- release: added digest-bound artifact provenance and result-derived
+  conformance status assets, plus release checks binding the workspace version,
+  tag, successful workflow, required assets, and GitHub Latest pointer.
 - trust-runtime: documented the complete STBC validator-before-apply contract,
   added product-path malformed-bytecode case execution, and promoted the
   existing owner, reference, call, jump, stack, schema, checksum, and version

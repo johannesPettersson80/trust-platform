@@ -15,7 +15,24 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+try:
+    from scripts.release_evidence_contract import (
+        ReleaseEvidenceError,
+        validate_release_publication,
+    )
+except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    from release_evidence_contract import (  # type: ignore[no-redef]
+        ReleaseEvidenceError,
+        validate_release_publication,
+    )
+
 NULL_SHA = "0" * 40
+REQUIRED_EVIDENCE_ASSETS = {
+    "SHA256SUMS",
+    "release-provenance.json",
+    "conformance-status.json",
+    "conformance-status.md",
+}
 
 
 def run_git(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -270,6 +287,26 @@ def main() -> int:
             f"Release for tag {expected_tag} exists but is not published yet. "
             f"Release URL: {release_payload.get('html_url', '<missing>')}"
         )
+
+    latest_status, latest_payload = github_api_get(
+        args.repo,
+        "/releases/latest",
+        token,
+    )
+    if latest_status != 200:
+        return fail(
+            "Could not query GitHub Latest release "
+            f"(status {latest_status}): {latest_payload.get('message', 'unknown error')}"
+        )
+    try:
+        validate_release_publication(
+            expected_tag=expected_tag,
+            release=release_payload,
+            latest_release=latest_payload,
+            required_assets=REQUIRED_EVIDENCE_ASSETS,
+        )
+    except ReleaseEvidenceError as exc:
+        return fail(str(exc))
 
     print(
         "version-release-guard: release evidence verified for "
