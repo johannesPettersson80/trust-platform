@@ -300,7 +300,7 @@ fn block_comment_separated_test() {}
             for fact in rust.facts
             if fact.source_kind == "rust_unit_test" and fact.package == "trust-runtime-core"
         ]
-        self.assertEqual(len(runtime_core), 72)
+        self.assertEqual(len(runtime_core), 74)
 
     def test_report_writes_default_artifact_shape_and_concise_summary(self) -> None:
         with fixture_repo() as root, tempfile.TemporaryDirectory() as temp:
