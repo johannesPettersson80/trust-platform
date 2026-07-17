@@ -1,11 +1,11 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `808f66c12bd20358ed71c0524743f6e8456e3737`
-Generated: `2026-07-17T06:07:00+02:00`
+Source revision: `017187bb74e29ab9fa412521307695e71e9969e7`
+Generated: `2026-07-17T11:01:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `fca5b78e0d55a8f594fa39b9484f25175a09cf704cbf5ee705abb04e9f8fc541`
-Input SHA-256: `sha256:4625d6ce3baf00f577b55e5805c41cb33e86c472d5a9b79d658f0fb7caf7521e`
+Generated JSON SHA-256: `c251d2b1050fa46463806874d4b8dec5f24b9eb3937c4d6fe09b50fc0ca60141`
+Input SHA-256: `sha256:e20274c5e8a6e36344069b7cff93d806eacc4add9c4fdc6c9419c37130bd738f`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
@@ -31,9 +31,9 @@ establish expected behavior, or count as product proof.
 | Surface | Scanned files | Records | Ignored | Conditional | Coverage |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `conformance` | 21 | 0 | 0 | 0 | `limitation` |
-| `node` | 47 | 1 | 0 | 1 | `mechanical` |
+| `node` | 48 | 1 | 0 | 1 | `mechanical` |
 | `playwright` | 7 | 1 | 1 | 0 | `mechanical` |
-| `rust` | 582 | 27 | 26 | 1 | `mechanical` |
+| `rust` | 583 | 27 | 26 | 1 | `mechanical` |
 | `shell` | 29 | 0 | 0 | 0 | `limitation` |
 
 Surface notes:

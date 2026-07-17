@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `808f66c12bd20358ed71c0524743f6e8456e3737`
-Generated: `2026-07-17T06:07:00+02:00`
+Source revision: `017187bb74e29ab9fa412521307695e71e9969e7`
+Generated: `2026-07-17T11:01:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `7ae97b5e402b4f580920623fee9616b333b413730155b119b89397b7688182fe`
-Input SHA-256: `sha256:874df6c368101f90b28d271fb36680f54f80372ffb03aecacb32b465a4a0462e`
+Generated JSON SHA-256: `acc7a0944c07d25efa529d3998252c3541986e789cdd2fd1adbf58e75d92e924`
+Input SHA-256: `sha256:25049396bd2355b6365977715be6d5d8caafc8fd29b14b8f08efc377b1f2cabe`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -13,11 +13,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 ## Summary
 
 - Invariants: 54
-- Invariants without specified specs: 14
-- Tests with expected results: 214
+- Invariants without specified specs: 0
+- Tests with expected results: 228
 - Tests without oracle/spec/gap binding: 7
 - Coverage cells: 69
-- Coverage cells marked spec_gap: 14
+- Coverage cells marked spec_gap: 0
 - Bytecode pilot gaps: 2
 - Registered public-claim sources: 4
 
@@ -25,20 +25,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 | Invariant | Area | Risk | Invariant status | Spec status | Spec gaps |
 | --- | --- | --- | --- | --- | --- |
-| `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `spec_gap` | `missing` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
-| `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `PLAT_PATH_001` | `supply_chain_platform` | `platform` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | `spec_gap` | `missing` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | `spec_gap` | `ambiguous` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | `spec_gap` | `ambiguous` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
-| `REL_CLAIM_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001` |
-| `REL_CONF_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
-| `REL_VERSION_001` | `release` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
-| `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `spec_gap` | `ambiguous` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
-| `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `spec_gap` | `missing` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
-| `UI_STATUS_001` | `hmi_ui` | `false_status` | `spec_gap` | `missing` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
+| none | - | - | - | - | - |
 
 ## Expected-Result Tests Without Oracle Binding
 
@@ -56,20 +43,7 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 | Invariant | Area | Risk | Cell | Dimension | Spec gap |
 | --- | --- | --- | ---: | --- | --- |
-| `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | 0 | `duplicate_or_collision` | `SPEC_GAP_DEV_COMMIT_SCOPE_001` |
-| `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001` |
-| `PLAT_PATH_001` | `supply_chain_platform` | `platform` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `PLAT_VSCODE_001` | `supply_chain_platform` | `compatibility` | 0 | `platform_or_filesystem_variation` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | 0 | `happy_path` | `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001` |
-| `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
-| `REL_CLAIM_001` | `release` | `false_status` | 0 | `hardware_or_network_fault` | `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001` |
-| `REL_CONF_001` | `release` | `false_status` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
-| `REL_VERSION_001` | `release` | `false_status` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
-| `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | 0 | `happy_path` | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001` |
-| `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
-| `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
-| `UI_STATUS_001` | `hmi_ui` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
+| none | - | - | - | - | - |
 
 ## Bytecode/VM Pilot Gap Classification
 
@@ -91,10 +65,10 @@ Basis: `registered_spec_sources_only`. Exhaustive public-doc scan: `no`.
 
 | Source | Area | Status | Surface | Invariants | Oracles | Spec gaps |
 | --- | --- | --- | --- | --- | --- | --- |
-| `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `release` | `active` | `README.md` | `DEBUG_BEHAVIOR_LOCKED_001`, `REL_CONF_001`, `RUNTIME_BEHAVIOR_LOCKED_001` | none | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001`, `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
+| `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | `release` | `active` | `README.md` | `DEBUG_BEHAVIOR_LOCKED_001`, `RUNTIME_BEHAVIOR_LOCKED_001` | none | `SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001`, `SPEC_GAP_CONFORMANCE_PUBLICATION_001` |
 | `PUBLIC_CLAIM_RUNTIME_WIRE_001` | `protocols` | `active` | `README.md` | `REL_CLAIM_001`, `UI_STATUS_001` | none | `SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001`, `SPEC_GAP_PROTOCOL_STATUS_MODEL_001`, `SPEC_GAP_PUBLIC_WIRE_CLAIM_001`, `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
-| `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `release` | `active` | `docs/public/start/install-from-source.md#optional-openot-reference-checkout` | `RELEASE_SOURCE_BUILD_OPENOT_001`, `REL_VERSION_001`, `SEC_ARTIFACT_001`, `SEC_DEP_AUDIT_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001`, `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
-| `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `release` | `active` | `README.md` | `PLAT_PATH_001`, `PLAT_VSCODE_001`, `RELEASE_PLATFORM_MATRIX_001`, `REL_CLAIM_001`, `REL_VERSION_001`, `SEC_ARTIFACT_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
+| `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | `release` | `active` | `docs/public/start/install-from-source.md#optional-openot-reference-checkout` | `RELEASE_SOURCE_BUILD_OPENOT_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001`, `SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001` |
+| `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | `release` | `active` | `README.md` | `PLAT_PATH_001`, `PLAT_VSCODE_001`, `RELEASE_PLATFORM_MATRIX_001`, `REL_CLAIM_001` | none | `SPEC_GAP_ARTIFACT_PROVENANCE_001`, `SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001`, `SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001`, `SPEC_GAP_RELEASE_VERSION_CHAIN_001` |
 
 ## Limitations
 

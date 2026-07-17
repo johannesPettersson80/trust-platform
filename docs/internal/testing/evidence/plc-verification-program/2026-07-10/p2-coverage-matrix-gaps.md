@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `808f66c12bd20358ed71c0524743f6e8456e3737`
-Generated: `2026-07-17T06:07:00+02:00`
+Source revision: `017187bb74e29ab9fa412521307695e71e9969e7`
+Generated: `2026-07-17T11:01:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ba239e522212abdd8c74e2bd1f6a338a729475b65d38cadbcfd2f029519eab32`
-Input SHA-256: `sha256:f7979ce131da6d4125ea38d36a9d29048bab0bf43e7f71b31a820468a4f6db11`
+Generated JSON SHA-256: `a2847ea86cae7c8798f99c865788f266ad8d994420ae9351feb5b4a071a9e8c1`
+Input SHA-256: `sha256:6caa9e21bad8b83db39645c7a38861ed5d5b8b3af6c2d7a7197c356a867f9f2a`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,11 +28,11 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 50 |
+| `covered` | 64 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 14 |
+| `spec_gap` | 0 |
 | `gap_open` | 5 |
 | `deferred` | 0 |
 
@@ -230,7 +230,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+| `happy_path` | `additional_recorded` | `covered` | none | none |
 
 ### `DEBUG_PAUSE_001`
 
@@ -276,7 +276,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `spec_gap` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `plcopen_devtools`
 
@@ -286,13 +286,13 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `duplicate_or_collision` | `additional_recorded` | `spec_gap` | none | none |
+| `duplicate_or_collision` | `additional_recorded` | `covered` | none | none |
 
 ### `DEV_TEST_DISCOVERY_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+| `platform_or_filesystem_variation` | `additional_recorded` | `covered` | none | none |
 
 ### `PLCO_IMPORT_001`
 
@@ -354,37 +354,37 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+| `happy_path` | `additional_recorded` | `covered` | none | none |
 
 ### `RELEASE_SOURCE_BUILD_OPENOT_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `REL_CLAIM_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `hardware_or_network_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `hardware_or_network_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `REL_CONF_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `REL_VERSION_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `RUNTIME_BEHAVIOR_LOCKED_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `happy_path` | `additional_recorded` | `spec_gap` | none | none |
+| `happy_path` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `runtime_safety`
 
@@ -466,25 +466,25 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+| `platform_or_filesystem_variation` | `additional_recorded` | `covered` | none | none |
 
 ### `PLAT_VSCODE_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `platform_or_filesystem_variation` | `additional_recorded` | `spec_gap` | none | none |
+| `platform_or_filesystem_variation` | `additional_recorded` | `covered` | none | none |
 
 ### `SEC_ARTIFACT_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `covered` | none | none |
 
 ### `SEC_DEP_AUDIT_001`
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `supply_chain_or_artifact_fault` | `additional_recorded` | `spec_gap` | none | none |
+| `supply_chain_or_artifact_fault` | `additional_recorded` | `covered` | none | none |
 
 ## Area: `verification`
 

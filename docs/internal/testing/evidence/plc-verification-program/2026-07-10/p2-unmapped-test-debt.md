@@ -1,21 +1,21 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `808f66c12bd20358ed71c0524743f6e8456e3737`
-Generated: `2026-07-17T06:07:00+02:00`
+Source revision: `017187bb74e29ab9fa412521307695e71e9969e7`
+Generated: `2026-07-17T11:01:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `931894db2143ccdf0cc9a8edff64aae768a36c25cbb8bc3687f54a284088ac13`
-Input SHA-256: `sha256:87631c9bf3a79bed4e3485b8c2e31e28934e1da86af3d438ad3a99925618a270`
+Generated JSON SHA-256: `7fd88bd78bc9578e2bef87bad915452ed14e1090f9b19a80e5d8e6585298f610`
+Input SHA-256: `sha256:e948ffdeb7f9e83262e25fc18769d878cd51425b48e52afe49ffdb2a273f957f`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3990
-- Mapped scanner facts: 206
-- Unmapped scanner facts: 3784
-- Generated-test catalog rows: 206
+- Scanner facts: 4009
+- Mapped scanner facts: 220
+- Unmapped scanner facts: 3789
+- Generated-test catalog rows: 220
 - Artifact catalog rows: 8
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
@@ -27,10 +27,10 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1468 | 146 | 1322 |
-| `rust_unit_test` | 1727 | 60 | 1667 |
+| `rust_integration_test` | 1480 | 158 | 1322 |
+| `rust_unit_test` | 1732 | 62 | 1670 |
 | `structured_text_test` | 257 | 0 | 257 |
-| `vscode_test` | 456 | 0 | 456 |
+| `vscode_test` | 458 | 0 | 458 |
 
 ## Unmapped Scanner Facts
 
@@ -1606,9 +1606,12 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_4E668027AD73DFAD5522` | `rust_unit_test` | `crates/trust-dev/src/ci.rs` | `classify_test_failure_code` | `not_ignored` |
 | `DISC_BC0A3822943D6722F48D` | `rust_unit_test` | `crates/trust-dev/src/ci.rs` | `classify_timeout_code` | `not_ignored` |
 | `DISC_FB45A22AC9F9C736ED98` | `rust_unit_test` | `crates/trust-dev/src/ci.rs` | `classify_with_command_falls_back_for_internal` | `not_ignored` |
+| `DISC_DFEEA0B862E8D1A4B44B` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `commit_rejects_pre_staged_path_inside_project_without_mutation` | `not_ignored` |
 | `DISC_DDA759DC285FFED0BB01` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `commit_scopes_commit_to_project_path_without_sweeping_pre_staged_files` | `not_ignored` |
+| `DISC_9921E8E6B44B04E436F6` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `dry_run_with_pre_staged_collision_reports_without_mutation` | `not_ignored` |
 | `DISC_6769CA7C879039E59098` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `git_status_accepts_non_utf8_project_path_without_panic` | `not_ignored` |
 | `DISC_5CAA8F58E6FE55E25F56` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `git_status_decodes_quoted_porcelain_paths_for_summary` | `not_ignored` |
+| `DISC_8ECA38A3365D2E70B739` | `rust_unit_test` | `crates/trust-dev/src/commit.rs` | `repository_root_commit_rejects_any_pre_staged_path` | `not_ignored` |
 | `DISC_AAFDB90C094ED2DF65C1` | `rust_unit_test` | `crates/trust-dev/src/docs/tests.rs` | `broken_tag_diagnostics_are_reported` | `not_ignored` |
 | `DISC_952225E5AAF2BB2865EB` | `rust_unit_test` | `crates/trust-dev/src/docs/tests.rs` | `html_output_snapshot` | `not_ignored` |
 | `DISC_A23C24FDCE070D769396` | `rust_unit_test` | `crates/trust-dev/src/docs/tests.rs` | `markdown_output_snapshot` | `not_ignored` |
@@ -3373,6 +3376,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `DISC_BEE91505AD1496C564EF` | `vscode_test` | `editors/vscode/src/test/suite/check-program.integration.test.ts` | `Compile diagnostics use the truST Problems source` | `not_ignored` |
 | `DISC_9609ACF9F27D90EDB8A8` | `vscode_test` | `editors/vscode/src/test/suite/check-program.integration.test.ts` | `Compile reports an actionable missing runtime binary` | `not_ignored` |
 | `DISC_5E22A3DC9F179CDE7F49` | `vscode_test` | `editors/vscode/src/test/suite/check-program.integration.test.ts` | `Compile reports an actionable runtime report version mismatch` | `not_ignored` |
+| `DISC_BE5DA848938B7233D91D` | `vscode_test` | `editors/vscode/src/test/suite/connector-status-contract.test.ts` | `maps every canonical state and health without changing wire meaning` | `not_ignored` |
+| `DISC_50B6D52320D460D3E7FB` | `vscode_test` | `editors/vscode/src/test/suite/connector-status-contract.test.ts` | `rejects unknown state and health instead of rendering healthy` | `not_ignored` |
 | `DISC_34FD40C88CF9835E09CE` | `vscode_test` | `editors/vscode/src/test/suite/debug-io.integration.test.ts` | `integration: VM debug session returns non-empty stackTrace at stopOnEntry` | `not_ignored` |
 | `DISC_C96EFCC4AFD7E327ABFB` | `vscode_test` | `editors/vscode/src/test/suite/debug-io.integration.test.ts` | `integration: auto default configuration creation` | `not_ignored` |
 | `DISC_84316ED7702672ED0DB7` | `vscode_test` | `editors/vscode/src/test/suite/debug-io.integration.test.ts` | `integration: debug command surface is registered` | `not_ignored` |

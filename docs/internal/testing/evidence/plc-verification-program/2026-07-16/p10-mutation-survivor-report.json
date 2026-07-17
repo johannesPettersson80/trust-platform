@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-17T06:07:00+02:00"
+    "2026-07-17T11:01:00+02:00"
   ],
-  "commit": "808f66c12bd20358ed71c0524743f6e8456e3737",
+  "commit": "017187bb74e29ab9fa412521307695e71e9969e7",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:3824a95e4aff26b718795c11be2f113cea81c4be19853a761491aa37d34def3f",
+  "input_digest": "sha256:279b856cd2aad4819ee61314c313510c806ae924e9ed2db9b6bf9929ee79abdd",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1674,6 +1674,7 @@
     "crates/verification-cases/src/lib.rs",
     "crates/verification-cases/src/model.rs",
     "crates/verification-cases/src/stamp.rs",
+    "crates/verification-cases/tests/release_evidence_trace_cases.rs",
     "docs/internal/testing/checklists/plc-verification-program/README.md",
     "docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md",
     "docs/internal/testing/checklists/plc-verification-program/metadata-model.md",
@@ -1690,6 +1691,7 @@
     "editors/vscode/src/test/suite/ads-status-summary.test.ts",
     "editors/vscode/src/test/suite/blockly-engine.test.ts",
     "editors/vscode/src/test/suite/check-program.integration.test.ts",
+    "editors/vscode/src/test/suite/connector-status-contract.test.ts",
     "editors/vscode/src/test/suite/debug-io.integration.test.ts",
     "editors/vscode/src/test/suite/diagnostics.test.ts",
     "editors/vscode/src/test/suite/hmi.integration.test.ts",
@@ -2773,7 +2775,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-17T06:07:00+02:00",
+  "timestamp": "2026-07-17T11:01:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
