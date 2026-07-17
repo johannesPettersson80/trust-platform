@@ -1,22 +1,22 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
-Generated: `2026-07-16T23:26:00+02:00`
+Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
+Generated: `2026-07-17T02:39:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `a1885ea9adfacfe761960c581346a0b2021594694db2c6b3a8d268cd3df64ff7`
-Input SHA-256: `sha256:70aa810e1a2d0f39e5bc78cdd8c604b79c3fc321963b28fb7da81053efc94513`
+Generated JSON SHA-256: `2afad40234fc8534dc681346961960abdd58db48ded121ff8df9ad230b835822`
+Input SHA-256: `sha256:7f7bcb14827cb2e303a4d2fe4e4e755fdf6d1e48e673fa1429d347f30834014e`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Summary
 
-- Scanner facts: 3978
-- Mapped scanner facts: 194
+- Scanner facts: 3985
+- Mapped scanner facts: 201
 - Unmapped scanner facts: 3784
-- Generated-test catalog rows: 194
-- Artifact catalog rows: 5
+- Generated-test catalog rows: 201
+- Artifact catalog rows: 8
 - Ignored unmapped facts: 26
 - Conditional unmapped facts: 1
 - Debt fails this report: no
@@ -27,8 +27,8 @@ It does not mean that every scanner fact has reviewed catalog intent.
 | `fuzz_target` | 2 | 0 | 2 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1460 | 138 | 1322 |
-| `rust_unit_test` | 1723 | 56 | 1667 |
+| `rust_integration_test` | 1464 | 142 | 1322 |
+| `rust_unit_test` | 1726 | 59 | 1667 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 456 | 0 | 456 |
 

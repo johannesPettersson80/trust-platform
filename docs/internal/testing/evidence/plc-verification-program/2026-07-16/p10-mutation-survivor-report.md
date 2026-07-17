@@ -1,11 +1,11 @@
 # Phase 10 Focused Mutation Program
 
 Generator: `mutation-program-audit v1`
-Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
-Generated: `2026-07-16T23:26:00+02:00`
+Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
+Generated: `2026-07-17T02:39:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `50e7cd0aeef8da996dd50dc816efa794c6257b191fd68fd164de01609d54952f`
-Input SHA-256: `sha256:cdc5ed51707843830bbbe0105f980a84301a23d185e3e3fe34503dca720759e6`
+Generated JSON SHA-256: `595c4efc26950f5bf7d1b39f40bbaa3bfa9e6dff8f78ca862b31c24edc509660`
+Input SHA-256: `sha256:13520d2e2c6e13a111badeedb152f36b35fa40bbec77bb76232b02c62fc34fe6`
 
 This report separates five validated measured shards from one planned connector
 shard. It creates no proof, invariant coverage, spec-gap closure, release
@@ -29,7 +29,7 @@ evidence, product behavior, or CI enforcement change.
 
 | Shard | Area | Status | Defined | Measured | Result artifact |
 | --- | --- | --- | ---: | ---: | --- |
-| `MUTATION_SHARD_BYTECODE_VALIDATOR_001` | `bytecode_vm` | `measured` | 2 | 2 | `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json` (`sha256:88e97c57ed47e698f5c3c8d33611e3d8f0a4cdae0135ee84451bfa10c00713a2`) |
+| `MUTATION_SHARD_BYTECODE_VALIDATOR_001` | `bytecode_vm` | `measured` | 2 | 2 | `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json` (`sha256:ea49674613d05b9272d5bd9eadfe2fdc46bb249607b2ce9e56da86d14326ee11`) |
 | `MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001` | `bytecode_vm` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json` (`sha256:dcfe38dad50f4e2008bec764335ff920c63065731b2015d9f8d4e834ec637940`) |
 | `MUTATION_SHARD_HIR_DIAGNOSTICS_001` | `compiler_iec` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json` (`sha256:d9a2c0af24cf9ec69b5a0c7f3109a0c02ed2152d27fc7e8fd5c69e2e71ee22d8`) |
 | `MUTATION_SHARD_PARSER_RECOVERY_001` | `compiler_iec` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json` (`sha256:3330e2600c1ea938bf57ebf67b4126ae1372d4ad8447032cb46832dab3a55c8e`) |

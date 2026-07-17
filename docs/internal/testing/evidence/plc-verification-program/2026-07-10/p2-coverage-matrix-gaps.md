@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
-Generated: `2026-07-16T23:26:00+02:00`
+Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
+Generated: `2026-07-17T02:39:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `3688f33bb9741a6fefab9884817937f5ce10813545acbd4a0c1623e83b5298fc`
-Input SHA-256: `sha256:564305958e80acf3ca744770e697c06ca8f56bc81813c1d7b0ff602555c19fda`
+Generated JSON SHA-256: `d556f5bd456e33bf706b36ccd5585d735d5dc50ead5845a2198795faff9859e9`
+Input SHA-256: `sha256:921d3f02f2ed9358e0c9ddd19ed71bc13a9ad648004a025feec478399116fc09`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -20,20 +20,20 @@ mean every required coverage slot is assigned or covered.
 - Missing required slots: 63
 - Additional recorded cells: 52
 - Recorded mapped-area cells: 69
-- Catalog-bound case files: 4
-- Case observations: 31
+- Catalog-bound case files: 7
+- Case observations: 38
 - Blocked case observations: 0
 
 ## Declared State Counts
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 35 |
+| `covered` | 43 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
-| `spec_gap` | 18 |
-| `gap_open` | 16 |
+| `spec_gap` | 14 |
+| `gap_open` | 12 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -53,7 +53,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `assigned` | `covered` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | none | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
 
 ### `VM_SEAM_DETERMINISM_LIMITS_001`
 
@@ -80,8 +80,8 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `boundary_high` | `missing_cell` | none | none | none |
 | `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
-| `extra_or_unknown` | `assigned` | `gap_open` | none | none |
-| `happy_path` | `assigned` | `gap_open` | none | none |
+| `extra_or_unknown` | `assigned` | `covered` | none | none |
+| `happy_path` | `assigned` | `covered` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
 | `wrong_type_or_shape` | `missing_cell` | none | none | none |
@@ -99,7 +99,11 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `gap_open` | none | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
+
+Additional case-only families:
+
+- `duplicate_or_collision`: `VM_SEAM_OWNER_001_LOCAL_RANGES_SHARE_FRAME_OWNER_05903843`
 
 ### `VM_SEAM_REF_001`
 
@@ -114,7 +118,11 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `gap_open` | none | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
+
+Additional case-only families:
+
+- `persistence_or_recovery`: `VM_SEAM_REF_001_FRAME_LOCAL_REFERENCE_ESCAPES_B4EE64E0`
 
 ### `VM_SEAM_STRING_BOUND_001`
 
@@ -129,7 +137,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `assigned` | `covered` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | none | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
 
 ### `VM_SEAM_SUBRANGE_001`
 
@@ -144,7 +152,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `happy_path` | `assigned` | `covered` | none | none |
 | `missing_required` | `missing_cell` | none | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |
-| `wrong_type_or_shape` | `assigned` | `spec_gap` | none | none |
+| `wrong_type_or_shape` | `assigned` | `covered` | none | none |
 
 ### `VM_SEAM_VALID_001`
 
@@ -155,7 +163,7 @@ Required families: `above_max`, `below_min`, `boundary_high`, `boundary_low`, `e
 | `boundary_high` | `missing_cell` | none | none | none |
 | `boundary_low` | `missing_cell` | none | none | none |
 | `encoding_or_unicode` | `missing_cell` | none | none | none |
-| `extra_or_unknown` | `assigned` | `spec_gap` | none | none |
+| `extra_or_unknown` | `assigned` | `covered` | none | none |
 | `happy_path` | `missing_cell` | none | none | none |
 | `missing_required` | `assigned` | `covered` | none | none |
 | `resource_limit` | `missing_cell` | none | none | none |

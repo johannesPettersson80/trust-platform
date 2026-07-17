@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `f9f416580a2e7b22a184bb856ab4a0847235d0f8`
-Generated: `2026-07-16T23:26:00+02:00`
+Source revision: `76b7a7fc03e71a8b4b6b19daa9bf8a06c783b3fd`
+Generated: `2026-07-17T02:39:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `2d045ad525e1231f1fdfe2ecab9b2a569a79bc92b053fe35da5944d46243f4f8`
-Input SHA-256: `sha256:19eff5a0ef2666de920c32b6f37eb65305f78dbc39d5165165c287f147c6d42d`
+Generated JSON SHA-256: `0238b7941b32ba4ae641a44d66f7828f1b612b06bc4bd7ef1e6c49dc05a9d6cd`
+Input SHA-256: `sha256:ebc7958f4c5078b1ae1251bc85663fd623dc78194273fc13ed0cea12c2399e24`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -14,11 +14,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 - Invariants: 54
 - Invariants without specified specs: 14
-- Tests with expected results: 199
-- Tests without oracle/spec/gap binding: 3
+- Tests with expected results: 209
+- Tests without oracle/spec/gap binding: 7
 - Coverage cells: 69
-- Coverage cells marked spec_gap: 18
-- Bytecode pilot gaps: 3
+- Coverage cells marked spec_gap: 14
+- Bytecode pilot gaps: 2
 - Registered public-claim sources: 4
 
 ## Invariants Without Specified Specs
@@ -45,8 +45,12 @@ declared scopes. It does not mean the specifications or tests are complete.
 | Test | Area | Class | Status | Missing bindings |
 | --- | --- | --- | --- | --- |
 | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
+| `TEST_CASE_TABLE_VM_SEAM_ENC_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
+| `TEST_CASE_TABLE_VM_SEAM_OWNER_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
+| `TEST_CASE_TABLE_VM_SEAM_REF_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
 | `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
 | `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
+| `TEST_CASE_TABLE_VM_SEAM_VALID_001` | `bytecode_vm` | `metadata_validation` | `planned` | `oracle_ref`, `spec_ref`, `spec_gap_ref` |
 
 ## Spec-Gap Coverage Cells
 
@@ -66,25 +70,20 @@ declared scopes. It does not mean the specifications or tests are complete.
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_ARTIFACT_PROVENANCE_001` |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | 0 | `supply_chain_or_artifact_fault` | `SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001` |
 | `UI_STATUS_001` | `hmi_ui` | `false_status` | 0 | `ordering_or_lifecycle` | `SPEC_GAP_UI_STATUS_VOCABULARY_001` |
-| `VM_SEAM_DECLARED_TYPE_001` | `bytecode_vm` | `wrong_result` | 1 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_STRING_BOUND_001` | `bytecode_vm` | `wrong_result` | 2 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_SUBRANGE_001` | `bytecode_vm` | `wrong_result` | 3 | `wrong_type_or_shape` | `SPEC_GAP_VM_ERROR_MODEL_001` |
-| `VM_SEAM_VALID_001` | `bytecode_vm` | `silent_corruption` | 2 | `extra_or_unknown` | `SPEC_GAP_VM_ERROR_MODEL_001` |
 
 ## Bytecode/VM Pilot Gap Classification
 
 Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 
 - `test_gap`: 2
-- `spec_gap`: 1
+- `spec_gap`: 0
 - `hardware_tool_blocked`: 0
 - `not_applicable`: 0
 
 | Gap | Classification | Source kind | Detail | Related records |
 | --- | --- | --- | --- | --- |
-| `SPEC_GAP_VM_ERROR_MODEL_001` | `spec_gap` | `spec_gap_record` | Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings? | `VM_SEAM_DECLARED_TYPE_001`, `VM_SEAM_STRING_BOUND_001`, `VM_SEAM_SUBRANGE_001`, `VM_SEAM_VALID_001` |
 | `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |
-| `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |
+| `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_ENC_001`, `TEST_CASE_TABLE_VM_SEAM_OWNER_001`, `TEST_CASE_TABLE_VM_SEAM_REF_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |
 
 ## Registered Public-Claim Context
 
