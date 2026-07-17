@@ -3,11 +3,11 @@ id = "IEC_PARSE_RECOVER_001"
 title = "Parser recovery advances and reports malformed structure"
 area = "compiler_iec"
 risk = "silent_corruption"
-status = "gap_open"
+status = "implemented"
 owner = "trust-syntax"
 last_reviewed = "2026-07-14"
 claim = "Parser recovery must not silently accept malformed delimiter or nesting structure."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
 tests = [
@@ -21,9 +21,12 @@ tests = [
   "TEST_IEC_PARSER_UNCLOSED_CALL_001",
 ]
 gates = ["veryquick", "pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_IEC_PARSER_RECOVERY_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_PARSER_RECOVERY_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "source"
@@ -175,15 +178,15 @@ rationale = "Deep parenthesized expressions stop at the parser nesting limit wit
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Mapped delimiter, terminator, unknown-token, and bounded-expression tests cover the written recovery contract; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers malformed delimiters and terminators; a causal broad gate remains open."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "Unknown-token recovery is mapped and visibly failing; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers visible unknown-token rejection and recovery progress; a causal broad gate remains open."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "Mapped deep-expression tests cover the parser nesting limit; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers bounded rejection of deep unary and parenthesized expressions; a causal broad gate remains open."

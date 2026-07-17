@@ -3,11 +3,11 @@ id = "IEC_SUBRANGE_001"
 title = "Subrange writes follow the reviewed product decision"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-hir"
 last_reviewed = "2026-07-15"
 claim = "Subrange write handling must remain aligned with the active reviewed decision and its documented unsupported boundaries."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
 tests = [
@@ -15,8 +15,11 @@ tests = [
   "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
 ]
 gates = ["pr"]
-evidence_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+evidence_refs = [
+  "EVID_TEST_IEC_SUBRANGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_SUBRANGE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -55,5 +58,5 @@ rationale = "A value from the wrong base family is rejected before it can reach 
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "The mapped semantic test covers both initializer bounds and wrong-base-type rejection; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers both initializer bounds and wrong-base-type rejection; a causal broad gate remains open."

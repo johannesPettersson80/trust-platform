@@ -1375,6 +1375,12 @@ same commit, with the closure evidence linked.
   Three new case-table records pin the encoder/owner/reference generators, and
   a standalone product-apply regression pins unknown optional STBC sections.
   The full 54-invariant denominator remains open.
+
+  Five-invariant proof progress (2026-07-17): five cataloged case runners add
+  43 committed cases for parser recovery, STRING binding bounds, ordinary
+  subrange diagnostics, delayed Modbus scan handoff, and restart storage
+  transitions. The runners bind explicit written oracles and current-contract
+  proof pairs. The full 54-invariant denominator remains open.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1452,6 +1458,13 @@ same commit, with the closure evidence linked.
   provenance included mutable proof lifecycle, and `prove.py` could not emit a
   replacement lock pair without colliding with historical evidence IDs. Both
   tooling defects have focused regression tests.
+
+  Five-invariant proof progress (2026-07-17): all 43 new parser, STRING,
+  subrange, delayed-I/O, and restart-storage cases passed at clean baseline and
+  descendant comparison revisions. No product defect reproduced, so this
+  batch records lock pairs rather than manufacturing red evidence. Two case
+  fixture mistakes and three runner integration errors were corrected before
+  evidence generation; none changed product behavior.
 - [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1493,6 +1506,14 @@ same commit, with the closure evidence linked.
   their source-revision history. The registry now contains 19 S0, 26 G1, and
   9 G2 invariants; causal broad and physical/corpus obligations remain open,
   so no G2 or validated status is claimed for this batch.
+
+  Five-invariant proof progress (2026-07-17): `IEC_PARSE_RECOVER_001`,
+  `IEC_STRING_001`, `IEC_SUBRANGE_001`, `RT_SAFE_IO_001`, and
+  `RT_SAFE_RESTART_001` are `implemented` at G1 on producer-authentic
+  current-contract lock comparisons. The registry now contains 14 S0, 31 G1,
+  and 9 G2 invariants. Causal broad proof remains open for four invariants;
+  `RT_SAFE_IO_001` also retains non-Modbus and hardware-lab latency debt, so no
+  G2 or validated status is claimed.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed

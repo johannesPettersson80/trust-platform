@@ -3,11 +3,11 @@ id = "RT_SAFE_RESTART_001"
 title = "Restart labels map to deterministic retain behavior"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
 tests = [
@@ -17,8 +17,11 @@ tests = [
   "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
 ]
 gates = []
-evidence_refs = []
-missing = ["producer_bound_restart_trace", "broad_remote_gate"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -54,5 +57,5 @@ rationale = "Automatic recovery from a non-panic cycle fault uses the warm-resta
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Cold, warm, and automatic-fault warm-storage transitions are cataloged and pass; producer-bound trace proof remains open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers cold, warm, and automatic-fault storage transitions; a causal broad gate remains open."

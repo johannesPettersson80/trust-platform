@@ -3,11 +3,11 @@ id = "IEC_STRING_001"
 title = "STRING bounds remain enforced across binding boundaries"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "gap_open"
+status = "implemented"
 owner = "trust-hir"
 last_reviewed = "2026-07-15"
 claim = "STRING length bounds must not be silently lost across assignment, call, return, or function-block binding."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
 tests = [
@@ -33,9 +33,13 @@ tests = [
   "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
 ]
 gates = ["pr"]
-evidence_refs = ["EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715"]
+evidence_refs = [
+  "EVID_TEST_IEC_STRING_BINDING_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_STRING_BINDING_TRACE_001_LOCK_COMPARE",
+  "EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715",
+]
 spec_gap_refs = []
-missing = ["producer_authentic_red_green_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -213,5 +217,5 @@ rationale = "Imported project-constant-derived capacities reject a genuine VAR_I
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Mapped compiler and runtime integration tests cover capacity, Unicode, copy-back, and VAR_IN_OUT boundaries; producer-authentic proof and a causal broad gate remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers capacity, Unicode, copy-back, and VAR_IN_OUT boundaries; a causal broad gate remains open."

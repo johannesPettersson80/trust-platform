@@ -3,11 +3,11 @@ id = "RT_SAFE_IO_001"
 title = "Device work remains outside the scan-cycle critical path"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Slow device and protocol work must not block the scan-cycle critical path."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
 tests = [
@@ -16,8 +16,11 @@ tests = [
   "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
 ]
 gates = []
-evidence_refs = []
-missing = ["non_modbus_slow_device_matrix", "hardware_lab_latency", "producer_bound_scan_latency_proof"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_COMPARE",
+]
+missing = ["non_modbus_slow_device_matrix", "hardware_lab_latency"]
 
 [spec]
 status = "specified"
@@ -45,5 +48,5 @@ rationale = "A delayed Modbus write remains on the worker while write_outputs re
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "Delayed loopback Modbus read and write cases are cataloged and bounded; non-Modbus, hardware-lab, and producer-bound latency proof remain open."
+state = "covered"
+rationale = "The committed current-contract proof pair covers delayed loopback Modbus read and write handoff bounds; non-Modbus and hardware-lab latency evidence remain open."
