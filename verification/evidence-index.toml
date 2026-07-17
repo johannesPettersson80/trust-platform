@@ -7419,3 +7419,69 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_COMPLETE_MAPPED_TEST_EXECUTION_20260718"
+title = "Complete mapped-test denominator execution"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-test-execution.json"
+command = "jq -e '.summary == {\"failed\":0,\"mapped_tests\":242,\"passed\":242,\"timed_out\":0} and (.results | length) == 242 and all(.results[]; .exit_status == 0 and (.timed_out | not))' docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-test-execution.json"
+commit = "b7e3ab47172ff2e857c22a4173d78a639a6616dd"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "mapped-test-executor v1"
+generated_report_version = "mapped-test-execution-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_EXECUTION_20260718"
+title = "Behavior-lock public claim executable evidence"
+area = "release"
+owner = "release"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-tests-public-claim-evidence.md"
+command = "jq -e '.summary == {\"failed\":0,\"mapped_tests\":242,\"passed\":242,\"timed_out\":0}' docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-test-execution.json && python3 scripts/validate_verification_metadata.py"
+commit = "b7e3ab47172ff2e857c22a4173d78a639a6616dd"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim execution evidence"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RUNTIME_BEHAVIOR_LOCKED_001", "DEBUG_BEHAVIOR_LOCKED_001"]
+linked_tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_SOURCE_BUILD_PUBLIC_CLAIM_EXECUTION_20260718"
+title = "Source-build public claim executable evidence"
+area = "release"
+owner = "release"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-tests-public-claim-evidence.md"
+command = "test ! -e ../open-ot-ref && cargo build --release -p trust-lsp -p trust-runtime -p trust-debug"
+commit = "1be81590c89114f1a0abb76d04a5f4f7fe41fb91"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex isolated source-build execution"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RELEASE_SOURCE_BUILD_OPENOT_001"]
+linked_tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"

@@ -1401,7 +1401,7 @@ same commit, with the closure evidence linked.
   conformance, version, and public-claim boundaries. Every one of the 54
   invariants now names at least one mapped test with an eligible oracle and a
   suite route; the zero-empty-test denominator closes this row.
-- [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
+- [x] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
   `prove.py`. The known backlog is in scope and each item ends fixed-green
@@ -1495,6 +1495,15 @@ same commit, with the closure evidence linked.
   `prove.py`. No historical red row was manufactured after the fixes, so this
   row remains open for the complete mapped-test denominator and any future
   observed failures.
+
+  Complete mapped-test execution (2026-07-18): a clean detached
+  `trust-builder` checkout executed all 242 mapped catalog commands
+  independently. All 242 passed, with zero failures and zero timeouts. Because
+  the complete mapped denominator produced no new red result, this closeout
+  does not manufacture a product fix or red/green pair. Durable per-command
+  exit status, duration, test ID, and retained-log digest are recorded in
+  `p16-mapped-test-execution.json` (SHA-256
+  `c70479523fca5640947d6446f497e3b5bdc67d4d78cb0dc7654a59834d8baee2`).
 - [x] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
@@ -1562,9 +1571,11 @@ same commit, with the closure evidence linked.
   21/21 and `VERIF-P7-002` is closed; ignored-test unknown debt is zero; all
   eight fuzz surfaces have direct cargo-fuzz targets; and all 19 anomaly
   classes have at least one runnable direct test association. This row remains
-  open for the deliberately deferred full test-catalog denominator,
-  crash-to-regression registry, and exhaustive runtime-safety nonmapping
-  review required by `VERIF-P8-002`.
+  open for the deliberately deferred full test-catalog denominator and the
+  exhaustive runtime-safety nonmapping review required by `VERIF-P8-002`.
+  The governed seventeen-target fuzz campaign closed `VERIF-P9-005` on
+  2026-07-18 with zero crash artifacts and a fail-closed crash-to-regression
+  registry; it does not close either remaining denominator.
 - [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
   CI as required gates (report-only posture ends); a red verification
   suite must block merge. Then complete Phase 15 skill sync so the
