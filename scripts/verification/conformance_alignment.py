@@ -13,6 +13,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from .conformance_semantic_oracles import (
+    catalog_semantic_oracle,
+    unresolved_v2_oracle_gaps,
+)
 from .test_catalog_surfaces import scan_conformance
 from .test_catalog_rust import sanitize_rust
 
@@ -165,6 +169,7 @@ def analyze_conformance_alignment(
             fact=fact,
             catalog_record=catalog_by_discovery_id.get(fact.stable_id),
             expected_artifacts=expected_artifacts,
+            spec_sources=spec_sources,
         )
         cases.append(row)
         manifests[row["case_id"]] = manifest
@@ -182,7 +187,7 @@ def analyze_conformance_alignment(
         )
 
     categories = [_category_row(category, cases) for category in ALL_CATEGORIES]
-    gaps = [_coverage_gap(category, cases) for category in V2_CATEGORIES]
+    gaps = unresolved_v2_oracle_gaps(V2_CATEGORIES, cases)
     linked = [row for row in cases if row["invariant_ids"]]
     unlinked = [row["case_id"] for row in cases if not row["invariant_ids"]]
     kind_counts = Counter(row["kind"] for row in cases)
@@ -222,6 +227,7 @@ def _case_row(
     fact: Any,
     catalog_record: Mapping[str, Any] | None,
     expected_artifacts: Mapping[str, tuple[Path, Mapping[str, Any]]],
+    spec_sources: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], Mapping[str, Any]]:
     if fact.source_kind != "conformance_case" or fact.package != "trust-runtime":
         raise ValueError(f"unexpected conformance scanner fact for {fact.name}")
@@ -300,12 +306,20 @@ def _case_row(
             raise ValueError(f"{catalog_test_id} invariants contain duplicates")
         invariant_ids = list(raw_invariants)
 
+    profile = "v1" if category in V1_CATEGORIES else "v2"
+    oracle_ref, expected_result = catalog_semantic_oracle(
+        case_id=case_id,
+        profile=profile,
+        catalog_record=catalog_record,
+        spec_sources=spec_sources,
+    )
+
     return (
         {
             "discovery_id": fact.stable_id,
             "case_id": case_id,
             "category": category,
-            "profile": "v1" if category in V1_CATEGORIES else "v2",
+            "profile": profile,
             "kind": kind,
             "manifest_path": manifest_path,
             "manifest_digest": _digest(manifest_file),
@@ -315,6 +329,8 @@ def _case_row(
             "expected_artifact_digest": _digest(expected_file),
             "catalog_test_id": catalog_test_id,
             "invariant_ids": invariant_ids,
+            "oracle_ref": oracle_ref,
+            "expected_result": expected_result,
         },
         manifest,
     )
@@ -443,17 +459,10 @@ def _category_row(category: str, cases: Sequence[Mapping[str, Any]]) -> dict[str
 
 
 def _coverage_gap(category: str, cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    selected = [row for row in cases if row["category"] == category]
-    mapped = bool(selected) and all(row["invariant_ids"] for row in selected)
-    return {
-        "category": category,
-        "case_ids": [row["case_id"] for row in selected],
-        "case_present": bool(selected),
-        "expected_artifact_present": all(row["expected_artifact_path"] for row in selected),
-        "invariant_mapping_state": "linked" if mapped else "missing",
-        "semantic_oracle_state": "not_assessed",
-        "gap_status": "open",
-    }
+    gaps = unresolved_v2_oracle_gaps((category,), cases)
+    if not gaps:
+        raise ValueError(f"{category} has no semantic-oracle coverage gap")
+    return gaps[0]
 
 
 def _analyze_contract(

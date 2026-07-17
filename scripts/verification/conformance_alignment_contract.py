@@ -99,6 +99,8 @@ CASE_FIELDS = {
     "expected_artifact_digest",
     "catalog_test_id",
     "invariant_ids",
+    "oracle_ref",
+    "expected_result",
 }
 GAP_FIELDS = {
     "category",
@@ -367,6 +369,20 @@ def _validate_cases(cases: list[dict[str, Any]], failures: list[str]) -> None:
             failures.append(f"{case_id}: invariant_ids must be a sorted unique array")
         if invariants and not isinstance(row.get("catalog_test_id"), str):
             failures.append(f"{case_id}: invariant links require an explicit catalog test")
+        oracle_ref = row.get("oracle_ref")
+        expected_result = row.get("expected_result")
+        if (oracle_ref is None) != (expected_result is None):
+            failures.append(f"{case_id}: oracle_ref and expected_result must be paired")
+        if oracle_ref is not None and (
+            not isinstance(oracle_ref, str) or not oracle_ref.startswith("SPEC_")
+        ):
+            failures.append(f"{case_id}: oracle_ref must name an explicit spec source")
+        if expected_result is not None and (
+            not isinstance(expected_result, str) or not expected_result
+        ):
+            failures.append(f"{case_id}: expected_result must be a non-empty string")
+        if row.get("profile") == "v2" and (oracle_ref is None or expected_result is None):
+            failures.append(f"{case_id}: v2 cases require an explicit semantic oracle")
 
 
 def _validate_categories(
@@ -398,8 +414,18 @@ def _validate_gaps(
     cases: list[dict[str, Any]],
     failures: list[str],
 ) -> None:
-    if [row.get("category") for row in gaps] != list(V2_CATEGORIES):
-        failures.append("coverage_gaps must contain exactly the ten v2 categories")
+    expected_gap_categories: list[str] = []
+    for category in V2_CATEGORIES:
+        members = [case for case in cases if case.get("category") == category]
+        if not members or not all(
+            case.get("invariant_ids")
+            and case.get("oracle_ref")
+            and case.get("expected_result")
+            for case in members
+        ):
+            expected_gap_categories.append(category)
+    if [row.get("category") for row in gaps] != expected_gap_categories:
+        failures.append("coverage_gaps must exactly match unresolved v2 semantic oracles")
     for row in gaps:
         category = row.get("category")
         members = [case for case in cases if case.get("category") == category]

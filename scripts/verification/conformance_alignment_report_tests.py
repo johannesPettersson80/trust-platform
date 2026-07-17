@@ -60,7 +60,7 @@ EXPECTED_SUMMARY = {
     "orphan_expected_artifacts": 0,
     "explicitly_linked_cases": 21,
     "unlinked_cases": 0,
-    "coverage_gaps": 10,
+    "coverage_gaps": 0,
 }
 
 
@@ -190,17 +190,13 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
             all(counts[category] == 1 for category in V2_CATEGORIES)
         )
 
-    def test_p7_gap_rows_preserve_semantic_oracle_debt_after_mapping(self) -> None:
-        gaps = self.analysis["coverage_gaps"]
+    def test_v2_cases_bind_explicit_eligible_semantic_oracles(self) -> None:
+        v2_cases = [row for row in self.analysis["cases"] if row["profile"] == "v2"]
 
-        self.assertEqual(list(V2_CATEGORIES), [row["category"] for row in gaps])
-        self.assertTrue(all(row["case_present"] for row in gaps))
-        self.assertTrue(all(row["expected_artifact_present"] for row in gaps))
-        self.assertTrue(all(row["invariant_mapping_state"] == "linked" for row in gaps))
-        self.assertTrue(
-            all(row["semantic_oracle_state"] == "not_assessed" for row in gaps)
-        )
-        self.assertTrue(all(row["gap_status"] == "open" for row in gaps))
+        self.assertEqual(10, len(v2_cases))
+        self.assertEqual([], self.analysis["coverage_gaps"])
+        self.assertTrue(all(row["oracle_ref"] for row in v2_cases))
+        self.assertTrue(all(row["expected_result"] for row in v2_cases))
 
     def test_partial_category_mapping_remains_a_coverage_gap(self) -> None:
         cases = [
@@ -268,6 +264,33 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
 
         self.assertEqual(21, analysis["summary"]["explicitly_linked_cases"])
         self.assertEqual([], analysis["unlinked_case_ids"])
+
+    def test_v2_oracle_assessment_rejects_ineligible_or_incomplete_catalog_claims(self) -> None:
+        catalog = copy.deepcopy(self.validator.tests)
+        v2_id = next(
+            test_id
+            for test_id, row in catalog.items()
+            if row.get("name") == "cfm_strings_slice_concat_001"
+        )
+
+        catalog[v2_id]["oracle_ref"] = "SPEC_CONFORMANCE_CONTRACT_001"
+        with self.assertRaisesRegex(ValueError, "oracle-eligible"):
+            analyze_conformance_alignment(
+                ROOT,
+                tests=catalog,
+                spec_sources=self.validator.spec_sources,
+                tracked_report_paths=("conformance/reports/.gitkeep",),
+            )
+
+        catalog = copy.deepcopy(self.validator.tests)
+        catalog[v2_id]["expected_result"] = ""
+        with self.assertRaisesRegex(ValueError, "expected_result"):
+            analyze_conformance_alignment(
+                ROOT,
+                tests=catalog,
+                spec_sources=self.validator.spec_sources,
+                tracked_report_paths=("conformance/reports/.gitkeep",),
+            )
 
     def test_exact_discovery_join_rejects_source_kind_path_and_name_rebinding(self) -> None:
         with fixture_root() as temp:
@@ -742,7 +765,8 @@ class ConformanceAlignmentReportContractTests(unittest.TestCase):
                 )
 
                 payload = copy.deepcopy(self.report.to_dict())
-                payload["coverage_gaps"][0]["semantic_oracle_state"] = "proved"
+                v2_case = next(row for row in payload["cases"] if row["profile"] == "v2")
+                v2_case["oracle_ref"] = "SPEC_CONFORMANCE_CONTRACT_001"
                 text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
                 json_path.write_text(text)
                 markdown_path.write_text(

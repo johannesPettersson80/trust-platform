@@ -22,7 +22,7 @@ SCOPE = {
 BOUNDARIES = {
     "report_creates_proof": False,
     "report_closes_spec_gaps": False,
-    "semantic_oracles_assessed": False,
+    "semantic_oracles_assessed": True,
     "live_network_or_hardware_used": False,
     "p7_002_invariant_mapping_remains_open": False,
     "generated_reports_remain_ci_artifacts": True,
@@ -33,7 +33,7 @@ BOUNDARIES = {
 LIMITATIONS = (
     "Catalog associations come only from an exact discovery_id join; names, paths, and prose do not create mappings.",
     "All current conformance cases have explicit catalog discovery-id associations; those associations are not passing proof.",
-    "Coverage-gap rows retain semantic-oracle debt after explicit invariant mapping; they do not assess or invent semantic oracles.",
+    "Semantic-oracle assessment uses only explicit catalog oracle_ref and expected_result fields backed by active oracle-eligible sources; names, paths, expected artifacts, and prose do not create an oracle.",
     "The comms-determinism audit checks the committed scripted in-process case shape; it performs no live socket or hardware execution.",
     "The public conformance page and registered contract source are bound as publication context, not as behavior proof or external conformance certification.",
     "Generated conformance results remain CI artifacts; tracked expected artifacts are inputs, not proof that a case passed in this audit.",
@@ -149,8 +149,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             "",
             "## Cases",
             "",
-            "| Case | Profile | Category | Kind | Program | Expected | Catalog test | Invariants |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Case | Profile | Category | Kind | Program | Expected | Catalog test | Invariants | Oracle |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["cases"]:
@@ -158,7 +158,7 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             f"| `{row['case_id']}` | `{row['profile']}` | `{row['category']}` | "
             f"`{row['kind']}` | `{_optional(row['program_path'])}` | "
             f"`{row['expected_artifact_path']}` | `{_optional(row['catalog_test_id'])}` | "
-            f"{_ids(row['invariant_ids'])} |"
+            f"{_ids(row['invariant_ids'])} | `{_optional(row['oracle_ref'])}` |"
         )
     lines.extend(
         [
