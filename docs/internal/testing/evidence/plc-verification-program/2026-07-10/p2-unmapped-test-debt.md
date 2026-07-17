@@ -1,11 +1,11 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v1`
-Source revision: `3a53c0c1b936464ed515300b591b541f2b4c1e01`
-Generated: `2026-07-17T05:25:00+02:00`
+Source revision: `808f66c12bd20358ed71c0524743f6e8456e3737`
+Generated: `2026-07-17T06:07:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `027b703d48b05695976a547a84805d5d4570c16fca9a1083d12c4c3ff15f43a4`
-Input SHA-256: `sha256:5af473a14dff1b81fd80cf0283e1a3b2119978469efc9c6a08217892c8037b4e`
+Generated JSON SHA-256: `931894db2143ccdf0cc9a8edff64aae768a36c25cbb8bc3687f54a284088ac13`
+Input SHA-256: `sha256:87631c9bf3a79bed4e3485b8c2e31e28934e1da86af3d438ad3a99925618a270`
 
 `complete` means the source inventory and exact catalog subtraction succeeded.
 It does not mean that every scanner fact has reviewed catalog intent.
