@@ -5819,6 +5819,28 @@ last_reviewed = "2026-07-17"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_FIVE_INVARIANT_PROOF_BATCH_VALIDATION_20260717"
+title = "Five-invariant case-backed proof batch validation"
+area = "compiler_iec"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-17/five-invariant-proof-batch-validation.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/verification/run_focused_test_suite.py && git diff --check"
+commit = "f68da5f6a0ae98b5fc5a7fb07a8813ee0a8adf70"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-17"
+suite_id = "supporting_local"
+producer = "codex five-invariant case-backed proof batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["IEC_PARSE_RECOVER_001", "IEC_STRING_001", "IEC_SUBRANGE_001", "RT_SAFE_IO_001", "RT_SAFE_RESTART_001"]
+linked_tests = ["TEST_IEC_PARSER_RECOVERY_TRACE_001", "TEST_IEC_STRING_BINDING_TRACE_001", "TEST_IEC_SUBRANGE_TRACE_001", "TEST_RUNTIME_IO_BOUND_TRACE_001", "TEST_RUNTIME_RESTART_STORAGE_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-17"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_TEST_IEC_PARSER_RECOVERY_TRACE_001_LOCK_BASELINE"
 title = "lock_baseline proof for TEST_IEC_PARSER_RECOVERY_TRACE_001"
 area = "compiler_iec"
