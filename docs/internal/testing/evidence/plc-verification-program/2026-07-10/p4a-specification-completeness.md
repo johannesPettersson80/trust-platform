@@ -1,11 +1,11 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `9b746400755d6186acbcef217d78749a388cf7a4`
-Generated: `2026-07-17T12:19:00+02:00`
+Source revision: `0916ffe590363739dfe4e2488fb990cc231b3a7c`
+Generated: `2026-07-17T20:50:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `27c7b64f0ec1d4dcd6c4a4a3905239613e17923fdb6350099a5e926b1f628f43`
-Input SHA-256: `sha256:d21774331eacab9ff24ea437f3e7197463a1dff98ca13d5382bada31be9d6d47`
+Generated JSON SHA-256: `d68eebee64cdbf71329936c64b70a271d314ea3ea07ef80001e2a734e68b5025`
+Input SHA-256: `sha256:8e576639a4707e852f5deb5ce61ea596e5fbdd0557c603134b81bd6f93d2401c`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
@@ -14,11 +14,11 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 - Invariants: 54
 - Invariants without specified specs: 0
-- Tests with expected results: 228
+- Tests with expected results: 249
 - Tests without oracle/spec/gap binding: 7
 - Coverage cells: 69
 - Coverage cells marked spec_gap: 0
-- Bytecode pilot gaps: 2
+- Bytecode pilot gaps: 1
 - Registered public-claim sources: 4
 
 ## Invariants Without Specified Specs
@@ -49,14 +49,13 @@ declared scopes. It does not mean the specifications or tests are complete.
 
 Denominator: `open_spec_gaps_union_missing_required_runnable_test_classes`
 
-- `test_gap`: 2
+- `test_gap`: 1
 - `spec_gap`: 0
 - `hardware_tool_blocked`: 0
 - `not_applicable`: 0
 
 | Gap | Classification | Source kind | Detail | Related records |
 | --- | --- | --- | --- | --- |
-| `TEST_CLASS_GAP:bytecode_vm:iec_conformance` | `test_gap` | `required_test_class_slot` | Required test class iec_conformance has no catalog row. | none |
 | `TEST_CLASS_GAP:bytecode_vm:metadata_validation` | `test_gap` | `required_test_class_slot` | Required test class metadata_validation has catalog rows but none are effectively runnable. | `TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001`, `TEST_CASE_TABLE_VM_SEAM_ENC_001`, `TEST_CASE_TABLE_VM_SEAM_OWNER_001`, `TEST_CASE_TABLE_VM_SEAM_REF_001`, `TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001`, `TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001`, `TEST_CASE_TABLE_VM_SEAM_VALID_001` |
 
 ## Registered Public-Claim Context

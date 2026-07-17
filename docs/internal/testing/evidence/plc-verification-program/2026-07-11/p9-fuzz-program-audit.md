@@ -1,11 +1,11 @@
 # Phase 9 Fuzz Program Audit
 
 Generator: `fuzz-program-audit v1`
-Source revision: `9b746400755d6186acbcef217d78749a388cf7a4`
-Generated: `2026-07-17T12:19:00+02:00`
+Source revision: `0916ffe590363739dfe4e2488fb990cc231b3a7c`
+Generated: `2026-07-17T20:50:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `9aa332167c6fffc2c8ea0cc6e6cd0b8798a25e677a8ebea0be7bcba962997229`
-Input SHA-256: `sha256:1a25db62f000135b68bcbf13cc2a50b903ff710c9dc63bada0cb2caba8db5f6b`
+Generated JSON SHA-256: `c311bd9e072f132c638f6438bc52dea4fe142e29c2b0077eb42ea890e85e626d`
+Input SHA-256: `sha256:77e159c8d3b778efe1dc69461ed4d5a32c3678a0d469af5f865a9e0b42431a96`
 
 This is a report-only inventory of existing fuzz targets, deterministic
 fuzz-like smokes, required surfaces, execution profiles, and target gaps.
@@ -13,24 +13,24 @@ It runs no campaign and creates no proof or invariant coverage.
 
 ## Summary
 
-- Inventory targets: 11
-- Cargo-fuzz targets: 5
+- Inventory targets: 17
+- Cargo-fuzz targets: 11
 - Bounded Rust smokes: 6
 - Required surfaces: 8
-- Gap surfaces: 6
+- Gap surfaces: 0
 
 ## Required Surfaces
 
 | Surface | Area | Association state | Direct targets | Partial targets |
 | --- | --- | --- | --- | --- |
 | `st_lexer_parser` | `compiler_iec` | `cargo_fuzz_target` | `FUZZ_SMOKE_PARSER_INITIALIZER_RECOVERY_PROPERTY`, `FUZZ_TARGET_SYNTAX_PARSE` | none |
-| `hir_lowering_input` | `compiler_iec` | `partial_only` | none | `FUZZ_TARGET_HIR_SEMANTIC` |
-| `plcopen_xml` | `plcopen_devtools` | `unmapped` | none | none |
-| `bytecode_container_instructions` | `bytecode_vm` | `smoke_only` | `FUZZ_SMOKE_VM_MALFORMED_BYTECODE` | none |
+| `hir_lowering_input` | `compiler_iec` | `cargo_fuzz_target` | `FUZZ_TARGET_HIR_LOWERING` | `FUZZ_TARGET_HIR_SEMANTIC` |
+| `plcopen_xml` | `plcopen_devtools` | `cargo_fuzz_target` | `FUZZ_TARGET_PLCOPEN_XML` | none |
+| `bytecode_container_instructions` | `bytecode_vm` | `cargo_fuzz_target` | `FUZZ_SMOKE_VM_MALFORMED_BYTECODE`, `FUZZ_TARGET_BYTECODE_CONTAINER` | none |
 | `protocol_payloads` | `protocols` | `cargo_fuzz_target` | `FUZZ_SMOKE_MESH_PAYLOAD`, `FUZZ_SMOKE_RUNTIME_CLOUD_API`, `FUZZ_SMOKE_SHM_HEADER`, `FUZZ_TARGET_ADS_AMS_FRAME`, `FUZZ_TARGET_ADS_BOUNDARY_NOOP`, `FUZZ_TARGET_ADS_COMMAND_DISPATCH` | `FUZZ_SMOKE_WAN_ALLOWLIST` |
-| `config_files` | `runtime_safety` | `unmapped` | none | none |
-| `lsp_incremental_edits` | `editor_safety` | `partial_only` | none | `FUZZ_TARGET_HIR_SEMANTIC` |
-| `hmi_schema_payloads` | `hmi_ui` | `unmapped` | none | none |
+| `config_files` | `runtime_safety` | `cargo_fuzz_target` | `FUZZ_TARGET_RUNTIME_CONFIG` | none |
+| `lsp_incremental_edits` | `editor_safety` | `cargo_fuzz_target` | `FUZZ_TARGET_LSP_INCREMENTAL` | `FUZZ_TARGET_HIR_SEMANTIC` |
+| `hmi_schema_payloads` | `hmi_ui` | `cargo_fuzz_target` | `FUZZ_TARGET_HMI_PAYLOADS` | none |
 
 ## Target Inventory
 
@@ -38,6 +38,12 @@ It runs no campaign and creates no proof or invariant coverage.
 | --- | --- | --- | --- | --- | --- | --- |
 | `FUZZ_TARGET_SYNTAX_PARSE` | `cargo_fuzz` | `not_applicable` | `pr_smoke` | `nightly` | `wired` | `fuzz/fuzz_targets/syntax_parse.rs` |
 | `FUZZ_TARGET_HIR_SEMANTIC` | `cargo_fuzz` | `not_applicable` | `pr_smoke` | `nightly` | `wired` | `fuzz/fuzz_targets/hir_semantic.rs` |
+| `FUZZ_TARGET_HIR_LOWERING` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/hir_lowering.rs` |
+| `FUZZ_TARGET_PLCOPEN_XML` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/plcopen_xml.rs` |
+| `FUZZ_TARGET_BYTECODE_CONTAINER` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/bytecode_container.rs` |
+| `FUZZ_TARGET_RUNTIME_CONFIG` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/runtime_config.rs` |
+| `FUZZ_TARGET_LSP_INCREMENTAL` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/lsp_incremental.rs` |
+| `FUZZ_TARGET_HMI_PAYLOADS` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `fuzz/fuzz_targets/hmi_payloads.rs` |
 | `FUZZ_TARGET_ADS_AMS_FRAME` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `crates/trust-ads-server/fuzz/fuzz_targets/ams_frame.rs` |
 | `FUZZ_TARGET_ADS_BOUNDARY_NOOP` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `crates/trust-ads-server/fuzz/fuzz_targets/boundary_noop.rs` |
 | `FUZZ_TARGET_ADS_COMMAND_DISPATCH` | `cargo_fuzz` | `not_applicable` | `manual_extended` | none | `manual_only` | `crates/trust-ads-server/fuzz/fuzz_targets/command_dispatch.rs` |
@@ -52,18 +58,12 @@ It runs no campaign and creates no proof or invariant coverage.
 
 | Surface | Current state | Gap reason | Associated targets |
 | --- | --- | --- | --- |
-| `hir_lowering_input` | `partial_only` | `no_direct_surface_target` | `FUZZ_TARGET_HIR_SEMANTIC` |
-| `plcopen_xml` | `unmapped` | `no_associated_target` | none |
-| `bytecode_container_instructions` | `smoke_only` | `no_cargo_fuzz_target` | `FUZZ_SMOKE_VM_MALFORMED_BYTECODE` |
-| `config_files` | `unmapped` | `no_associated_target` | none |
-| `lsp_incremental_edits` | `partial_only` | `no_direct_surface_target` | `FUZZ_TARGET_HIR_SEMANTIC` |
-| `hmi_schema_payloads` | `unmapped` | `no_associated_target` | none |
 
 ## Primary Tier Counts
 
 - `pr_smoke`: 7
 - `nightly`: 1
-- `manual_extended`: 3
+- `manual_extended`: 9
 
 ## Additional Tier Counts
 
@@ -73,10 +73,10 @@ It runs no campaign and creates no proof or invariant coverage.
 
 ## Surface State Counts
 
-- `cargo_fuzz_target`: 2
-- `smoke_only`: 1
-- `partial_only`: 2
-- `unmapped`: 3
+- `cargo_fuzz_target`: 8
+- `smoke_only`: 0
+- `partial_only`: 0
+- `unmapped`: 0
 
 ## Corpus And Crash Handoff
 

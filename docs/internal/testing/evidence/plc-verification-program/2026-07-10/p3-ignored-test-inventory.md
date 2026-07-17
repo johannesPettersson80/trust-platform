@@ -1,39 +1,37 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `9b746400755d6186acbcef217d78749a388cf7a4`
-Generated: `2026-07-17T12:19:00+02:00`
+Source revision: `0916ffe590363739dfe4e2488fb990cc231b3a7c`
+Generated: `2026-07-17T20:50:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `269850f9d341161da6c48100defe9c8ec35d0cbadef40b20d67f111aee14f0f5`
-Input SHA-256: `sha256:cd18fa167ecf8c2be35b3cab8bb48cf37c1833d6acfcd6585b8f9fc7b3e5b44d`
+Generated JSON SHA-256: `a64f21ca30e44fb9dcba367d6b3add8ec0811a8ec0e897ef1b0672c3525a19ef`
+Input SHA-256: `sha256:c1cc2fb065b0474cd95b4e247f4bb14e52d6f5c568e2014e8a63f24b5999b3fe`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
 
 ## Summary
 
-- Records: 29
-- Statically ignored: 27
-- Conditional ignore observations: 2
+- Records: 23
+- Statically ignored: 23
+- Conditional ignore observations: 0
 - Diagnostics: 0
 - Errors: 0
 - Warnings: 0
 
 | Source kind | Records |
 | --- | ---: |
-| `playwright_test` | 1 |
-| `rust_integration_test` | 15 |
-| `rust_unit_test` | 12 |
-| `vscode_test` | 1 |
+| `rust_integration_test` | 13 |
+| `rust_unit_test` | 10 |
 
 ## Surface Coverage
 
 | Surface | Scanned files | Records | Ignored | Conditional | Coverage |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `conformance` | 21 | 0 | 0 | 0 | `limitation` |
-| `node` | 48 | 1 | 0 | 1 | `mechanical` |
-| `playwright` | 7 | 1 | 1 | 0 | `mechanical` |
-| `rust` | 583 | 27 | 26 | 1 | `mechanical` |
+| `node` | 48 | 0 | 0 | 0 | `mechanical` |
+| `playwright` | 6 | 0 | 0 | 0 | `mechanical` |
+| `rust` | 589 | 23 | 23 | 0 | `mechanical` |
 | `shell` | 29 | 0 | 0 | 0 | `limitation` |
 
 Surface notes:
@@ -48,15 +46,12 @@ Surface notes:
 
 | Discovery ID | State | Mechanism | Source | Path | Name | Reason |
 | --- | --- | --- | --- | --- | --- | --- |
-| `DISC_E45EDC8D2860AAECF144` | `ignored` | `playwright_literal_skip` | `playwright_test` | `scripts/captures/vscode/runtime-panel-command.spec.mjs:5` | `capture code-server runtime panel command palette` | literal test.skip declaration |
 | `DISC_FE262D7963202D5AFB9D` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:177` | `ads_lab_twincat_doctor_records_status_json` | requires configured lab TwinCAT/ADS target; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_26934332D29338103AFD` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:16` | `ethercat_lab_hardware_discovery_records_topology` | requires configured lab EtherCAT hardware; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_A007AD886E7ABB17EF37` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:77` | `ethercat_lab_pdu_storage_stress_records_artifact` | requires explicit lab EtherCAT storage stress opt-in; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_EC41FC62FBEF09EFDFE8` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:273` | `modbus_lab_target_confirms_protocol_probe` | requires configured lab Modbus target; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_75F421CF89F3935418D6` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:366` | `mqtt_lab_broker_records_auth_tls_reconnect_and_disconnect` | requires configured lab MQTT broker; see docs/internal/testing/runtime-device-in-the-loop.md |
-| `DISC_B9ACE9B650FE5BFE0DC6` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/ethercat_driver.rs:245` | `ethercat_missing_adapter_post_allocation_failure_is_terminal_until_rebuild` | red test for runtime-safety EtherCAT bounded post-allocation retry policy |
 | `DISC_083918C0A1695BEDB92E` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/ethercat_driver.rs:170` | `ethercat_missing_adapter_records_pdu_storage_retry_baseline` | runtime-safety EtherCAT PduStorage baseline; explicitly run for storage evidence |
-| `DISC_FE38938F6FB54A1B26E7` | `conditional` | `rust_cfg_attr` | `rust_integration_test` | `crates/trust-runtime/tests/io_multidriver_live.rs:410` | `runtime_composes_modbus_and_mqtt_drivers_live` | live MQTT broker handshake is network-timing flaky on non-Linux CI runners; \ run with `--ignored` locally to exercise. Linux runners are the source of truth \ for the driver-composition contract. |
 | `DISC_7F7F305082D2D125BF56` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:98` | `openot_capstone_consumer_process` | spawned by openot_capstone_fenced_cross_process |
 | `DISC_2EEB083ACDA59C7173DC` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:89` | `openot_capstone_producer_process` | spawned by openot_capstone_fenced_cross_process |
 | `DISC_076A01316BE505A43D6C` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:59` | `openot_capstone_unfenced_contrast` | diagnostic unfenced experiment; set OPENOT_CAPSTONE_RUN_UNFENCED=1 |
@@ -74,9 +69,6 @@ Surface notes:
 | `DISC_E0C98D6962CBF3D5E78F` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:614` | `perf_semantic_tokens_scaling_budget` | ignore |
 | `DISC_F4D12F76BE0C9EC8F0EF` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:718` | `perf_workspace_navigation_scaling_budget` | ignore |
 | `DISC_CE3D5672C7ABFFB9A685` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-lsp/src/perf.rs:572` | `perf_workspace_symbol_budget` | ignore |
-| `DISC_5BBB12B235856C1C45CC` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-runtime/src/openot_authoring/tests.rs:212` | `compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode` | red test for runtime-safety Phase 11 SEAM-TEST-015 |
-| `DISC_1466DAFE96EF828CB3AF` | `ignored` | `rust_attribute` | `rust_unit_test` | `crates/trust-runtime/src/openot_authoring/tests.rs:132` | `hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently` | red test for runtime-safety Phase 11 SEAM-TEST-014 |
-| `DISC_78213ECD5BFD1CD1ACE3` | `conditional` | `vscode_runtime_skip` | `vscode_test` | `editors/vscode/src/test/suite/new-project.test.ts:339` | `generated ST parses cleanly and TOML is usable by build` | runtime this.skip() cannot be represented as a declared ignore attribute |
 
 ## Limitations
 

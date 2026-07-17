@@ -1,11 +1,11 @@
 # Phase 7 Conformance Program Alignment
 
 Generator: `conformance-alignment-audit v1`
-Source revision: `9b746400755d6186acbcef217d78749a388cf7a4`
-Generated: `2026-07-17T12:19:00+02:00`
+Source revision: `0916ffe590363739dfe4e2488fb990cc231b3a7c`
+Generated: `2026-07-17T20:50:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ca767c0cc9267ef744e4a568339b5578bc5a10da79415c8cd4166d46971c10d7`
-Input SHA-256: `sha256:5ee67f007c5b73b48f9a092cae29055e3179c35aaa3514b6462e05b40335a029`
+Generated JSON SHA-256: `bb9602f2c3116536ee509600ca6c412efcf7ca4be393a8adfbfb33cd0f7f668f`
+Input SHA-256: `sha256:a059255b3b9286eaf2021cff5d827a13cc4dbb57a1ffd7369d8d86e87e1459de`
 
 This is a report-only audit of committed conformance manifests, expected
 artifacts, explicit catalog links, publication posture, and the scripted
@@ -22,8 +22,8 @@ comms-determinism case. It executes no conformance case and creates no proof.
 - Expected artifacts: 21
 - Missing expected artifacts: 0
 - Orphan expected artifacts: 0
-- Explicitly linked cases: 0
-- Unlinked cases: 21
+- Explicitly linked cases: 21
+- Unlinked cases: 0
 - Coverage gaps: 10
 
 ## Categories
@@ -51,42 +51,42 @@ comms-determinism case. It executes no conformance case and creates no proof.
 
 | Case | Profile | Category | Kind | Program | Expected | Catalog test | Invariants |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `cfm_arithmetic_conversion_compare_001` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_conversion_compare_001/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_conversion_compare_001.json` | `none` | none |
-| `cfm_arithmetic_overflow_error_002` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_overflow_error_002/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_overflow_error_002.json` | `none` | none |
-| `cfm_arrays_matrix_update_001` | `v2` | `arrays` | `runtime` | `conformance/cases/arrays/cfm_arrays_matrix_update_001/program.st` | `conformance/expected/arrays/cfm_arrays_matrix_update_001.json` | `none` | none |
-| `cfm_comms_determinism_connector_projection_001` | `v2` | `comms_determinism` | `connector_status_trace` | `none` | `conformance/expected/comms_determinism/cfm_comms_determinism_connector_projection_001.json` | `none` | none |
-| `cfm_edges_r_f_trig_sequence_001` | `v1` | `edges` | `runtime` | `conformance/cases/edges/cfm_edges_r_f_trig_sequence_001/program.st` | `conformance/expected/edges/cfm_edges_r_f_trig_sequence_001.json` | `none` | none |
-| `cfm_enums_variant_assignment_001` | `v2` | `enums` | `runtime` | `conformance/cases/enums/cfm_enums_variant_assignment_001/program.st` | `conformance/expected/enums/cfm_enums_variant_assignment_001.json` | `none` | none |
-| `cfm_init_reset_retain_warm_cold_002` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_retain_warm_cold_002/program.st` | `conformance/expected/init_reset/cfm_init_reset_retain_warm_cold_002.json` | `none` | none |
-| `cfm_init_reset_var_initialization_001` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_var_initialization_001/program.st` | `conformance/expected/init_reset/cfm_init_reset_var_initialization_001.json` | `none` | none |
-| `cfm_memory_map_var_config_sync_001` | `v1` | `memory_map` | `runtime` | `conformance/cases/memory_map/cfm_memory_map_var_config_sync_001/program.st` | `conformance/expected/memory_map/cfm_memory_map_var_config_sync_001.json` | `none` | none |
-| `cfm_memory_map_wildcard_unresolved_002` | `v1` | `memory_map` | `compile_error` | `conformance/cases/memory_map/cfm_memory_map_wildcard_unresolved_002/program.st` | `conformance/expected/memory_map/cfm_memory_map_wildcard_unresolved_002.json` | `none` | none |
-| `cfm_nested_values_matrix_struct_001` | `v2` | `nested_values` | `runtime` | `conformance/cases/nested_values/cfm_nested_values_matrix_struct_001/program.st` | `conformance/expected/nested_values/cfm_nested_values_matrix_struct_001.json` | `none` | none |
-| `cfm_oop_dispatch_interface_super_001` | `v2` | `oop_dispatch` | `runtime` | `conformance/cases/oop_dispatch/cfm_oop_dispatch_interface_super_001/program.st` | `conformance/expected/oop_dispatch/cfm_oop_dispatch_interface_super_001.json` | `none` | none |
-| `cfm_references_ref_to_deref_write_001` | `v2` | `references` | `runtime` | `conformance/cases/references/cfm_references_ref_to_deref_write_001/program.st` | `conformance/expected/references/cfm_references_ref_to_deref_write_001.json` | `none` | none |
-| `cfm_retain_matrix_restart_aliases_001` | `v2` | `retain_matrix` | `runtime` | `conformance/cases/retain_matrix/cfm_retain_matrix_restart_aliases_001/program.st` | `conformance/expected/retain_matrix/cfm_retain_matrix_restart_aliases_001.json` | `none` | none |
-| `cfm_scan_cycle_ordering_visibility_001` | `v1` | `scan_cycle` | `runtime` | `conformance/cases/scan_cycle/cfm_scan_cycle_ordering_visibility_001/program.st` | `conformance/expected/scan_cycle/cfm_scan_cycle_ordering_visibility_001.json` | `none` | none |
-| `cfm_scheduler_task_interval_001` | `v2` | `scheduler` | `runtime` | `conformance/cases/scheduler/cfm_scheduler_task_interval_001/program.st` | `conformance/expected/scheduler/cfm_scheduler_task_interval_001.json` | `none` | none |
-| `cfm_strings_slice_concat_001` | `v2` | `strings` | `runtime` | `conformance/cases/strings/cfm_strings_slice_concat_001/program.st` | `conformance/expected/strings/cfm_strings_slice_concat_001.json` | `none` | none |
-| `cfm_structs_initializer_field_update_001` | `v2` | `structs` | `runtime` | `conformance/cases/structs/cfm_structs_initializer_field_update_001/program.st` | `conformance/expected/structs/cfm_structs_initializer_field_update_001.json` | `none` | none |
-| `cfm_timers_tof_sequence_002` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tof_sequence_002/program.st` | `conformance/expected/timers/cfm_timers_tof_sequence_002.json` | `none` | none |
-| `cfm_timers_ton_sequence_001` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_ton_sequence_001/program.st` | `conformance/expected/timers/cfm_timers_ton_sequence_001.json` | `none` | none |
-| `cfm_timers_tp_sequence_003` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tp_sequence_003/program.st` | `conformance/expected/timers/cfm_timers_tp_sequence_003.json` | `none` | none |
+| `cfm_arithmetic_conversion_compare_001` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_conversion_compare_001/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_conversion_compare_001.json` | `TEST_CONFORMANCE_ARITHMETIC_CONVERSION_COMPARE_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_arithmetic_overflow_error_002` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_overflow_error_002/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_overflow_error_002.json` | `TEST_CONFORMANCE_ARITHMETIC_OVERFLOW_002` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_arrays_matrix_update_001` | `v2` | `arrays` | `runtime` | `conformance/cases/arrays/cfm_arrays_matrix_update_001/program.st` | `conformance/expected/arrays/cfm_arrays_matrix_update_001.json` | `TEST_CONFORMANCE_ARRAY_MATRIX_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_comms_determinism_connector_projection_001` | `v2` | `comms_determinism` | `connector_status_trace` | `none` | `conformance/expected/comms_determinism/cfm_comms_determinism_connector_projection_001.json` | `TEST_CONFORMANCE_COMMS_PROJECTION_001` | `PROTO_STATUS_TRUTH_001` |
+| `cfm_edges_r_f_trig_sequence_001` | `v1` | `edges` | `runtime` | `conformance/cases/edges/cfm_edges_r_f_trig_sequence_001/program.st` | `conformance/expected/edges/cfm_edges_r_f_trig_sequence_001.json` | `TEST_CONFORMANCE_EDGE_SEQUENCE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
+| `cfm_enums_variant_assignment_001` | `v2` | `enums` | `runtime` | `conformance/cases/enums/cfm_enums_variant_assignment_001/program.st` | `conformance/expected/enums/cfm_enums_variant_assignment_001.json` | `TEST_CONFORMANCE_ENUM_ASSIGNMENT_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_init_reset_retain_warm_cold_002` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_retain_warm_cold_002/program.st` | `conformance/expected/init_reset/cfm_init_reset_retain_warm_cold_002.json` | `TEST_CONFORMANCE_RETAIN_RESTART_002` | `RT_SAFE_RESTART_001` |
+| `cfm_init_reset_var_initialization_001` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_var_initialization_001/program.st` | `conformance/expected/init_reset/cfm_init_reset_var_initialization_001.json` | `TEST_CONFORMANCE_INITIALIZATION_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_memory_map_var_config_sync_001` | `v1` | `memory_map` | `runtime` | `conformance/cases/memory_map/cfm_memory_map_var_config_sync_001/program.st` | `conformance/expected/memory_map/cfm_memory_map_var_config_sync_001.json` | `TEST_CONFORMANCE_MEMORY_MAP_SYNC_001` | `RT_SAFE_IO_001` |
+| `cfm_memory_map_wildcard_unresolved_002` | `v1` | `memory_map` | `compile_error` | `conformance/cases/memory_map/cfm_memory_map_wildcard_unresolved_002/program.st` | `conformance/expected/memory_map/cfm_memory_map_wildcard_unresolved_002.json` | `TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002` | `RT_SAFE_IO_001` |
+| `cfm_nested_values_matrix_struct_001` | `v2` | `nested_values` | `runtime` | `conformance/cases/nested_values/cfm_nested_values_matrix_struct_001/program.st` | `conformance/expected/nested_values/cfm_nested_values_matrix_struct_001.json` | `TEST_CONFORMANCE_NESTED_VALUES_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_oop_dispatch_interface_super_001` | `v2` | `oop_dispatch` | `runtime` | `conformance/cases/oop_dispatch/cfm_oop_dispatch_interface_super_001/program.st` | `conformance/expected/oop_dispatch/cfm_oop_dispatch_interface_super_001.json` | `TEST_CONFORMANCE_OOP_DISPATCH_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_references_ref_to_deref_write_001` | `v2` | `references` | `runtime` | `conformance/cases/references/cfm_references_ref_to_deref_write_001/program.st` | `conformance/expected/references/cfm_references_ref_to_deref_write_001.json` | `TEST_CONFORMANCE_REFERENCE_WRITE_001` | `VM_SEAM_REF_001` |
+| `cfm_retain_matrix_restart_aliases_001` | `v2` | `retain_matrix` | `runtime` | `conformance/cases/retain_matrix/cfm_retain_matrix_restart_aliases_001/program.st` | `conformance/expected/retain_matrix/cfm_retain_matrix_restart_aliases_001.json` | `TEST_CONFORMANCE_RETAIN_MATRIX_001` | `RT_SAFE_RESTART_001` |
+| `cfm_scan_cycle_ordering_visibility_001` | `v1` | `scan_cycle` | `runtime` | `conformance/cases/scan_cycle/cfm_scan_cycle_ordering_visibility_001/program.st` | `conformance/expected/scan_cycle/cfm_scan_cycle_ordering_visibility_001.json` | `TEST_CONFORMANCE_SCAN_CYCLE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
+| `cfm_scheduler_task_interval_001` | `v2` | `scheduler` | `runtime` | `conformance/cases/scheduler/cfm_scheduler_task_interval_001/program.st` | `conformance/expected/scheduler/cfm_scheduler_task_interval_001.json` | `TEST_CONFORMANCE_SCHEDULER_INTERVAL_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
+| `cfm_strings_slice_concat_001` | `v2` | `strings` | `runtime` | `conformance/cases/strings/cfm_strings_slice_concat_001/program.st` | `conformance/expected/strings/cfm_strings_slice_concat_001.json` | `TEST_CONFORMANCE_STRING_SLICE_001` | `IEC_STRING_001` |
+| `cfm_structs_initializer_field_update_001` | `v2` | `structs` | `runtime` | `conformance/cases/structs/cfm_structs_initializer_field_update_001/program.st` | `conformance/expected/structs/cfm_structs_initializer_field_update_001.json` | `TEST_CONFORMANCE_STRUCT_UPDATE_001` | `VM_SEAM_DECLARED_TYPE_001` |
+| `cfm_timers_tof_sequence_002` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tof_sequence_002/program.st` | `conformance/expected/timers/cfm_timers_tof_sequence_002.json` | `TEST_CONFORMANCE_TIMER_TOF_002` | `IEC_TIMER_001` |
+| `cfm_timers_ton_sequence_001` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_ton_sequence_001/program.st` | `conformance/expected/timers/cfm_timers_ton_sequence_001.json` | `TEST_CONFORMANCE_TIMER_TON_001` | `IEC_TIMER_001` |
+| `cfm_timers_tp_sequence_003` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tp_sequence_003/program.st` | `conformance/expected/timers/cfm_timers_tp_sequence_003.json` | `TEST_CONFORMANCE_TIMER_TP_003` | `IEC_TIMER_001` |
 
 ## Coverage Gaps
 
 | Category | Case present | Expected artifact | Invariant mapping | Semantic oracle | Status |
 | --- | --- | --- | --- | --- | --- |
-| `strings` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `arrays` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `structs` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `enums` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `nested_values` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `oop_dispatch` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `references` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `retain_matrix` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `scheduler` | `true` | `true` | `missing` | `not_assessed` | `open` |
-| `comms_determinism` | `true` | `true` | `missing` | `not_assessed` | `open` |
+| `strings` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `arrays` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `structs` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `enums` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `nested_values` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `oop_dispatch` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `references` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `retain_matrix` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `scheduler` | `true` | `true` | `linked` | `not_assessed` | `open` |
+| `comms_determinism` | `true` | `true` | `linked` | `not_assessed` | `open` |
 
 ## Comms
 
@@ -136,7 +136,7 @@ comms-determinism case. It executes no conformance case and creates no proof.
 - `report_closes_spec_gaps`: `false`
 - `semantic_oracles_assessed`: `false`
 - `live_network_or_hardware_used`: `false`
-- `p7_002_invariant_mapping_remains_open`: `true`
+- `p7_002_invariant_mapping_remains_open`: `false`
 - `generated_reports_remain_ci_artifacts`: `true`
 - `public_page_updated`: `false`
 - `runtime_or_product_behavior_changed`: `false`
@@ -145,8 +145,8 @@ comms-determinism case. It executes no conformance case and creates no proof.
 ## Limitations
 
 - Catalog associations come only from an exact discovery_id join; names, paths, and prose do not create mappings.
-- All current conformance cases are explicitly reported as unlinked; VERIF-P7-002 remains open.
-- Coverage-gap rows record missing invariant mappings and do not assess or invent semantic oracles.
+- All current conformance cases have explicit catalog discovery-id associations; those associations are not passing proof.
+- Coverage-gap rows retain semantic-oracle debt after explicit invariant mapping; they do not assess or invent semantic oracles.
 - The comms-determinism audit checks the committed scripted in-process case shape; it performs no live socket or hardware execution.
 - The public conformance page and registered contract source are bound as publication context, not as behavior proof or external conformance certification.
 - Generated conformance results remain CI artifacts; tracked expected artifacts are inputs, not proof that a case passed in this audit.

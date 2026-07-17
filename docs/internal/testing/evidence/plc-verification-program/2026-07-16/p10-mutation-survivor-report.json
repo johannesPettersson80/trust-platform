@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-17T12:19:00+02:00"
+    "2026-07-17T20:50:00+02:00"
   ],
-  "commit": "9b746400755d6186acbcef217d78749a388cf7a4",
+  "commit": "0916ffe590363739dfe4e2488fb990cc231b3a7c",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:79e9b9038fe23aeb8506001ad57dadd3dc9b361426e6b11b22a640344481cc97",
+  "input_digest": "sha256:51ced5b0ff5fb027f9c697a0243e50efac11c467cd942d1f65b098d5bc34e5d9",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -350,6 +350,7 @@
     "crates/trust-lsp/src/config/lockfile.rs",
     "crates/trust-lsp/src/config/model.rs",
     "crates/trust-lsp/src/config/tests.rs",
+    "crates/trust-lsp/src/document_text.rs",
     "crates/trust-lsp/src/external_diagnostics.rs",
     "crates/trust-lsp/src/handlers/commands.rs",
     "crates/trust-lsp/src/handlers/commands/hmi_namespace_and_edits.rs",
@@ -424,6 +425,7 @@
     "crates/trust-lsp/src/handlers/workspace/indexing_and_throttle.rs",
     "crates/trust-lsp/src/handlers/workspace/namespace_and_rename.rs",
     "crates/trust-lsp/src/index_cache.rs",
+    "crates/trust-lsp/src/lib.rs",
     "crates/trust-lsp/src/library_docs.rs",
     "crates/trust-lsp/src/library_graph.rs",
     "crates/trust-lsp/src/main.rs",
@@ -1730,7 +1732,13 @@
     "editors/vscode/src/test/suite/visual-webview-vscode-api.test.ts",
     "fuzz/.gitignore",
     "fuzz/Cargo.toml",
+    "fuzz/fuzz_targets/bytecode_container.rs",
+    "fuzz/fuzz_targets/hir_lowering.rs",
     "fuzz/fuzz_targets/hir_semantic.rs",
+    "fuzz/fuzz_targets/hmi_payloads.rs",
+    "fuzz/fuzz_targets/lsp_incremental.rs",
+    "fuzz/fuzz_targets/plcopen_xml.rs",
+    "fuzz/fuzz_targets/runtime_config.rs",
     "fuzz/fuzz_targets/syntax_parse.rs",
     "scripts/aggregate_st_test_flake_history.py",
     "scripts/architecture_external_safety_ast_grep_gate.sh",
@@ -2775,7 +2783,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-17T12:19:00+02:00",
+  "timestamp": "2026-07-17T20:50:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
