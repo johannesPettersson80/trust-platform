@@ -7397,3 +7397,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-17"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BOUNDED_FUZZ_CAMPAIGN_20260718"
+title = "Complete bounded fuzz campaign with enforced crash handoff"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json"
+command = "python3 scripts/run_fuzz_campaign.py --validate-existing docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json"
+commit = "185806fc536a1fc8bb9bea70a5e544d06b408706"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "bounded-fuzz-campaign v1"
+generated_report_version = "bounded-fuzz-campaign-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-18"

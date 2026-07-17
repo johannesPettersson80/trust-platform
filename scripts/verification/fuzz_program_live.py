@@ -47,7 +47,6 @@ REQUIRED_OPEN_ROWS = (
     "VERIF-P8-002",
     "VERIF-P8-005",
     "VERIF-P8-006",
-    "VERIF-P9-005",
     "VERIF-P14-000",
 )
 REQUIRED_OPEN_POLICY_ROWS = ("VERIF-STOP-012", "VERIF-STOP-014")
@@ -67,6 +66,8 @@ REPORT_CONTRACT_PATHS = {
     "scripts/salsa_fuzz_gate.sh",
     "scripts/validate_fuzz_program_audit_report.py",
     "verification/README.md",
+    "verification/fuzz-crash-regressions.toml",
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json",
     FUZZ_PROGRAM_PATH,
     FUZZ_PROGRAM_SCHEMA_PATH,
     REPORT_SCHEMA_PATH,

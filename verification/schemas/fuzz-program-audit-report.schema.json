@@ -139,10 +139,10 @@
         "report_creates_invariant_coverage": { "const": false },
         "report_closes_spec_gaps": { "const": false },
         "semantic_oracles_assessed": { "const": false },
-        "fuzz_campaign_executed": { "const": false },
+        "fuzz_campaign_executed": { "const": true },
         "corpus_contents_assessed": { "const": false },
         "crash_freedom_claimed": { "const": false },
-        "p9_005_crash_regression_row_remains_open": { "const": true },
+        "p9_005_crash_regression_row_remains_open": { "const": false },
         "phase2_scanner_scope_changed": { "const": false },
         "runtime_or_product_behavior_changed": { "const": false },
         "ci_enforcement_changed": { "const": false }
@@ -176,15 +176,21 @@
       "required": [
         "enforcement_status",
         "required_disposition",
+        "registry_path",
+        "campaign_evidence_path",
+        "campaign_evidence_sha256",
         "p9_005_row_remains_open",
         "rationale"
       ],
       "properties": {
-        "enforcement_status": { "const": "not_enforced" },
+        "enforcement_status": { "const": "enforced" },
         "required_disposition": { "const": "deterministic_regression" },
-        "p9_005_row_remains_open": { "const": true },
+        "registry_path": { "const": "verification/fuzz-crash-regressions.toml" },
+        "campaign_evidence_path": { "const": "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json" },
+        "campaign_evidence_sha256": { "const": "05f6a974c8f4f3e9a3f5d2c8cb80bae0a6057f1a5b33b010d85252b811c7650b" },
+        "p9_005_row_remains_open": { "const": false },
         "rationale": {
-          "const": "The written program requires a minimized crash to become a deterministic regression, but no machine registry or exhaustive crash-to-regression join enforces that handoff yet."
+          "const": "The committed bounded campaign is digest-bound to the crash registry, and every observed artifact must join a mapped deterministic regression; this run does not claim universal crash freedom."
         }
       },
       "additionalProperties": false

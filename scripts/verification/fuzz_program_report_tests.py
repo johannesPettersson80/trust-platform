@@ -72,12 +72,13 @@ class FuzzProgramReportTests(unittest.TestCase):
             )
         )
 
-    def test_report_is_explicitly_non_proof_and_non_execution(self) -> None:
+    def test_report_is_explicitly_non_proof_but_binds_bounded_execution(self) -> None:
         boundaries = self.payload["boundaries"]
         self.assertFalse(boundaries["report_creates_proof"])
         self.assertFalse(boundaries["report_creates_invariant_coverage"])
-        self.assertFalse(boundaries["fuzz_campaign_executed"])
-        self.assertTrue(boundaries["p9_005_crash_regression_row_remains_open"])
+        self.assertTrue(boundaries["fuzz_campaign_executed"])
+        self.assertFalse(boundaries["p9_005_crash_regression_row_remains_open"])
+        self.assertFalse(boundaries["crash_freedom_claimed"])
 
     def test_payload_and_schema_validate(self) -> None:
         schema = json.loads((ROOT / REPORT_SCHEMA_PATH).read_text())
@@ -207,11 +208,11 @@ class FuzzProgramReportTests(unittest.TestCase):
         self.assertEqual(render_markdown(self.payload, json_digest=digest), markdown)
         self.assertIn(f"Generated JSON SHA-256: `{digest}`", markdown)
 
-    def test_p9_005_and_standing_rows_are_live_guarded(self) -> None:
+    def test_p9_005_is_closed_and_other_standing_rows_remain_guarded(self) -> None:
         board = (ROOT / "docs/internal/testing/checklists/plc-verification-program/implementation-board.md").read_text()
-        self.assertIn("VERIF-P9-005", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P9-005", REQUIRED_OPEN_ROWS)
+        self.assertIn("- [x] `VERIF-P9-005`", board)
         self.assertEqual([], validate_open_board_rows(board))
-        self.assertTrue(validate_open_board_rows(board.replace("- [ ] `VERIF-P9-005`", "- [x] `VERIF-P9-005`")))
 
     def test_output_paths_reject_escape_absolute_symlink_and_collision(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT / "target") as directory:

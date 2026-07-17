@@ -312,10 +312,29 @@ class FuzzProgramContractTests(unittest.TestCase):
             row["command"],
         )
 
-    def test_crash_handoff_is_policy_only_and_p9_005_stays_open(self) -> None:
+    def test_crash_handoff_is_enforced_by_registry_and_campaign_evidence(self) -> None:
         handoff = self.program["crash_regression_handoff"]
-        self.assertEqual("not_enforced", handoff["enforcement_status"])
-        self.assertTrue(handoff["p9_005_row_remains_open"])
+        self.assertEqual("enforced", handoff["enforcement_status"])
+        self.assertFalse(handoff["p9_005_row_remains_open"])
+        self.assertEqual(
+            "verification/fuzz-crash-regressions.toml",
+            handoff["registry_path"],
+        )
+        self.assertEqual(
+            "docs/internal/testing/evidence/plc-verification-program/2026-07-18/"
+            "p16-fuzz-campaign.json",
+            handoff["campaign_evidence_path"],
+        )
+        self.assertRegex(handoff["campaign_evidence_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_crash_handoff_rejects_a_stale_campaign_digest(self) -> None:
+        corrupted = copy.deepcopy(self.program)
+        corrupted["crash_regression_handoff"]["campaign_evidence_sha256"] = "f" * 64
+        failures = validate_fuzz_program_contract(ROOT, corrupted)
+        self.assertTrue(
+            any("campaign evidence digest" in item for item in failures),
+            failures,
+        )
 
     def test_unknown_surface_and_target_fields_fail(self) -> None:
         corrupted = copy.deepcopy(self.program)

@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .gate_inventory import GateInventoryError, load_gate_inventory
+from .fuzz_program_campaign_binding import validate_campaign_binding
 from .fuzz_program_source_contract import validate_execution_source_bindings
 from .test_catalog_json_schema import validate_json_schema_instance
 from .test_catalog_validation import check_supported_schema_keywords
@@ -20,7 +21,7 @@ from .test_catalog_validation import check_supported_schema_keywords
 FUZZ_PROGRAM_PATH = "verification/fuzz-program.toml"
 FUZZ_PROGRAM_SCHEMA_PATH = "verification/schemas/fuzz-program.schema.json"
 FUZZ_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "e6ecdb927e27b6617ffeb78b39919b950fcffac5f6decad4e0d0f2bc4d4a9091"
+    "07e3911a9204b06d530b2e94c8af3f72b6c53c226e5a28322c1c2fb271b5c299"
 )
 REVIEWED_PROGRAM_TITLE = "PLC fuzz and malformed-input program inventory"
 REQUIRED_SURFACE_IDS = (
@@ -125,10 +126,13 @@ REVIEWED_CORPUS_POLICY = {
     "rationale": "Generated working corpora and raw crash artifacts are local discovery inputs, not durable verification evidence. Their contents and counts are intentionally excluded from this reproducible inventory.",
 }
 REVIEWED_CRASH_HANDOFF = {
-    "enforcement_status": "not_enforced",
+    "enforcement_status": "enforced",
     "required_disposition": "deterministic_regression",
-    "p9_005_row_remains_open": True,
-    "rationale": "The written program requires a minimized crash to become a deterministic regression, but no machine registry or exhaustive crash-to-regression join enforces that handoff yet.",
+    "registry_path": "verification/fuzz-crash-regressions.toml",
+    "campaign_evidence_path": "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json",
+    "campaign_evidence_sha256": "05f6a974c8f4f3e9a3f5d2c8cb80bae0a6057f1a5b33b010d85252b811c7650b",
+    "p9_005_row_remains_open": False,
+    "rationale": "The committed bounded campaign is digest-bound to the crash registry, and every observed artifact must join a mapped deterministic regression; this run does not claim universal crash freedom.",
 }
 TARGET_ID_ORDER = (
     "FUZZ_TARGET_SYNTAX_PARSE",
@@ -556,6 +560,13 @@ def validate_fuzz_program_contract(root: Path, program: object) -> list[str]:
         failures.append("fuzz program corpus policy drifted from the reviewed contract")
     if program.get("crash_regression_handoff") != REVIEWED_CRASH_HANDOFF:
         failures.append("fuzz program crash-regression handoff drifted from the reviewed contract")
+    failures.extend(
+        validate_campaign_binding(
+            root,
+            program.get("crash_regression_handoff"),
+            program=program,
+        )
+    )
     try:
         _validate_surfaces(program.get("surfaces"), failures)
         _validate_targets(program.get("targets"), failures)

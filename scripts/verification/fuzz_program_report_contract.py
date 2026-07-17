@@ -46,7 +46,7 @@ ROOT_FIELDS = {
     "limitations",
 }
 REPORT_SCHEMA_SEMANTIC_DIGEST = (
-    "8b90ebeca3667aea32136c7dbd62677e82d6e19c5ab8661af065ed1e9154caa9"
+    "1fe95e46ffbb2b1ac803282b258f97352e33dd19950abbb72068b2ee8fc6f181"
 )
 OUTPUT_PATH_FIELDS = {"json", "markdown"}
 TARGET_REQUIRED_FIELDS = {

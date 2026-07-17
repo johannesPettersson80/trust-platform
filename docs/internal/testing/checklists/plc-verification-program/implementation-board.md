@@ -992,11 +992,11 @@ Acceptance:
   ignore behavior is checked and tracked generated corpus/crash paths are
   forbidden. Contents and counts remain deliberately unassessed machine-local
   discovery state, not durable evidence.
-- [ ] `VERIF-P9-005` Every minimized crash becomes deterministic regression.
-  This remains open and live-guarded: no exhaustive machine registry joins
-  every minimized crash artifact to a tracked deterministic regression with a
-  reviewed runnable identity. Ignore rules, an empty artifact directory, or a
-  policy sentence cannot satisfy the universal handoff.
+- [x] `VERIF-P9-005` Every minimized crash becomes deterministic regression.
+  The committed registry and digest-bound 17-target campaign fail closed unless
+  every observed crash artifact joins a mapped deterministic regression. The
+  bounded campaign observed zero artifacts; this closes the handoff mechanism,
+  not a universal crash-freedom claim.
 - [x] `VERIF-P9-006` Add generated fuzz coverage/gap report. The report-only
   audit was generated from clean source commit
   `c25c62f87b6fe4d768c4ce47a416d1d464cff157`; JSON SHA-256 is

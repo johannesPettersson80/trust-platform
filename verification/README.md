@@ -342,9 +342,10 @@ TOML shape convention:
   artifacts remain under ignored workspace-local paths. Named CI uploads are
   still run artifacts unless separately bound as durable evidence. The audit
   checks storage and ignore posture but does not inspect or claim completeness
-  for corpus contents. No enforced crash ledger currently joins every minimized
-  artifact to a tracked deterministic regression, so `VERIF-P9-005` remains
-  open; an empty artifact directory or policy sentence cannot close it.
+  for corpus contents. `verification/fuzz-crash-regressions.toml` is the closed
+  crash ledger. The digest-bound bounded campaign fails unless every observed
+  artifact joins that ledger and a mapped deterministic regression. A clean
+  bounded campaign closes the handoff mechanism, not universal crash freedom.
 - `verification/mutation-program.toml` owns the six Phase 10 shard definitions
   and seven selected mutants. Each mutant binds one tracked source digest, one
   exact cargo-mutants selector, focused build/test commands, invariants, and

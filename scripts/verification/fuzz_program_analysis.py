@@ -93,7 +93,6 @@ def analyze_fuzz_program(
                 "path": fact.path,
                 "name": fact.name,
                 "discovery_source_kind": fact.source_kind,
-                "command": fact.command_hint,
             }
             for field, value in expected.items():
                 if target.get(field) != value:

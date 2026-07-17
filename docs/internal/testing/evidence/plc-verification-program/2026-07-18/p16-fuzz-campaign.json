@@ -1,0 +1,192 @@
+{
+  "finished_at": "2026-07-17T23:24:35+00:00",
+  "generator": "bounded-fuzz-campaign",
+  "generator_version": 1,
+  "max_total_time_seconds": 120,
+  "platform": "linux-x86_64",
+  "regressions": [],
+  "requested_runs": 10000,
+  "results": [
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run syntax_parse -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:a8a26e98f9a020bcb65739c9d1d00d469b356c3af321974a458e2cd598409b16",
+      "target_id": "FUZZ_TARGET_SYNTAX_PARSE",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run hir_semantic -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 4388,
+      "exit_status": 0,
+      "log_sha256": "sha256:7718f9b45f83eef5d94274ce6809fa9c1daba3da9ea52b8724989cd3326a9120",
+      "target_id": "FUZZ_TARGET_HIR_SEMANTIC",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run hir_lowering -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:761aa86aa365ef0ab8c4df2089cadaa63a2e1675fc7bf523a349a2241c523ad5",
+      "target_id": "FUZZ_TARGET_HIR_LOWERING",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run plcopen_xml -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:c566d8263de5918c9104d74af6c2d28b452510147586dd14d0b25da41b763092",
+      "target_id": "FUZZ_TARGET_PLCOPEN_XML",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run bytecode_container -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:9f11675e599f03065ab05d7938c88b0b36490cfec591f2a46a0992b2f61e2edd",
+      "target_id": "FUZZ_TARGET_BYTECODE_CONTAINER",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run runtime_config -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:83bbadab413662793689297c072205948826d80eba5a3ad9b1bec3aa18c93a56",
+      "target_id": "FUZZ_TARGET_RUNTIME_CONFIG",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run lsp_incremental -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:3840c45e2e585749ac9fd1bda9af81167b326127d98a018bfdfc23e612d33b0e",
+      "target_id": "FUZZ_TARGET_LSP_INCREMENTAL",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run hmi_payloads -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:063e91fc6b1f9e3b03d68f263f569b782ed948c01c3be12c9211b68e8293e4c9",
+      "target_id": "FUZZ_TARGET_HMI_PAYLOADS",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run ams_frame -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:4bfb0e1ef874edc09bda9b5ee86f50d316a76393875bd8828f2728b0b4ba6996",
+      "target_id": "FUZZ_TARGET_ADS_AMS_FRAME",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run boundary_noop -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:c874f15551d01db414f7c225df77cb506b6667944306dd15d0e314b9da392cc9",
+      "target_id": "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo +nightly fuzz run command_dispatch -- -runs=10000 -max_total_time=120 -timeout=10 -max_len=65536",
+      "executions": 10000,
+      "exit_status": 0,
+      "log_sha256": "sha256:afb79995b77a98e939962ca419b218d4a3a89e396fe40e6b1370c56ef30d555c",
+      "target_id": "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
+      "target_kind": "cargo_fuzz",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_malformed_bytecode_fuzz_smoke_budget",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:c9edd7542cfb0cc40678a3d61dab240d7ae800f3db08db5a00faea710c27279f",
+      "target_id": "FUZZ_SMOKE_VM_MALFORMED_BYTECODE",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-runtime --lib mesh::tests::mesh_payload_encode_decode_fuzz_smoke_budget",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:bf065de6055b073704e7c384d6a412a640a3278ebb788c4395b5a1f880d5e496",
+      "target_id": "FUZZ_SMOKE_MESH_PAYLOAD",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-runtime --lib realtime::tests::t0_shm_header_fuzz_rejects_corruption_budget",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:4643e4ded2c92ee866d1e974f4e8d4df93bb84c907ff114a8459f5a1cb1b5c68",
+      "target_id": "FUZZ_SMOKE_SHM_HEADER",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-runtime --lib runtime_cloud::routing::tests::runtime_cloud_api_payload_fuzz_smoke_budget",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:5d6be6ef07b9bfc6ebd315aa2e6d82fe604fdc0d14137bd950b652883e4c9ca7",
+      "target_id": "FUZZ_SMOKE_RUNTIME_CLOUD_API",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-runtime --lib runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:8d1c91d6c802bdd71352441430c0d5d67dcb26df29169c865aaba53f77fcca12",
+      "target_id": "FUZZ_SMOKE_WAN_ALLOWLIST",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    },
+    {
+      "artifact_files": [],
+      "command": "cargo test -p trust-syntax --test parser_variables test_initializer_recovery_property_smoke_for_generated_positional_shapes",
+      "executions": 1,
+      "exit_status": 0,
+      "log_sha256": "sha256:34c8753fdf88ffd31e7d39cb3a5474bf67f9dd5c5d49f711b1e57a21c8ffdc30",
+      "target_id": "FUZZ_SMOKE_PARSER_INITIALIZER_RECOVERY_PROPERTY",
+      "target_kind": "bounded_rust_smoke",
+      "timed_out": false
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "185806fc536a1fc8bb9bea70a5e544d06b408706",
+  "started_at": "2026-07-17T23:21:13+00:00",
+  "summary": {
+    "crash_artifacts": 0,
+    "infrastructure_failures": 0,
+    "passed": 17,
+    "regressions": 0,
+    "targets": 17
+  },
+  "timeout_seconds": 10
+}

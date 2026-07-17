@@ -17,10 +17,13 @@ tracked_generated_corpus_allowed = false
 rationale = "Generated working corpora and raw crash artifacts are local discovery inputs, not durable verification evidence. Their contents and counts are intentionally excluded from this reproducible inventory."
 
 [crash_regression_handoff]
-enforcement_status = "not_enforced"
+enforcement_status = "enforced"
 required_disposition = "deterministic_regression"
-p9_005_row_remains_open = true
-rationale = "The written program requires a minimized crash to become a deterministic regression, but no machine registry or exhaustive crash-to-regression join enforces that handoff yet."
+registry_path = "verification/fuzz-crash-regressions.toml"
+campaign_evidence_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-fuzz-campaign.json"
+campaign_evidence_sha256 = "05f6a974c8f4f3e9a3f5d2c8cb80bae0a6057f1a5b33b010d85252b811c7650b"
+p9_005_row_remains_open = false
+rationale = "The committed bounded campaign is digest-bound to the crash registry, and every observed artifact must join a mapped deterministic regression; this run does not claim universal crash freedom."
 
 [[surfaces]]
 id = "st_lexer_parser"
