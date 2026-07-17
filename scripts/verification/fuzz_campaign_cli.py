@@ -31,6 +31,7 @@ GENERATOR_VERSION = 1
 DEFAULT_OUTPUT = Path("target/gate-artifacts/verification/fuzz-campaign.json")
 DEFAULT_LOG_ROOT = Path("target/gate-artifacts/fuzz-campaign/logs")
 EXECUTION_RE = re.compile(rb"#([0-9]+).*\bDONE\b")
+CARGO_TEST_RESULT_RE = re.compile(rb"test result: ok\. ([0-9]+) passed;")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -202,7 +203,10 @@ def _run_target(
         exit_status = 124
     log_bytes = log_path.read_bytes()
     artifacts = _artifacts(root, target.get("artifact_path"))
-    executions = 1
+    executions = max(
+        (int(value) for value in CARGO_TEST_RESULT_RE.findall(log_bytes)),
+        default=0,
+    )
     if target["target_kind"] == "cargo_fuzz":
         matches = [int(value) for value in EXECUTION_RE.findall(log_bytes)]
         executions = max(matches, default=0)

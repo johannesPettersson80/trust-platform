@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from scripts.verification.fuzz_campaign_contract import (
     validate_campaign_json,
@@ -14,6 +18,7 @@ from scripts.verification.fuzz_crash_regressions import (
     campaign_regressions,
     validate_crash_registry,
 )
+from scripts.verification.fuzz_campaign_cli import _run_target
 
 
 def fixture_program() -> dict:
@@ -92,6 +97,27 @@ def fixture_registry() -> dict:
 
 
 class FuzzCampaignContractTests(unittest.TestCase):
+    def test_bounded_smoke_records_zero_when_cargo_runs_no_tests(self) -> None:
+        def fake_run(*args, **kwargs):
+            kwargs["stdout"].write(
+                b"running 0 tests\n\n"
+                b"test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured;\n"
+            )
+            return subprocess.CompletedProcess(args[0], 0)
+
+        with tempfile.TemporaryDirectory() as directory, mock.patch(
+            "scripts.verification.fuzz_campaign_cli.subprocess.run",
+            side_effect=fake_run,
+        ):
+            row = _run_target(
+                Path(directory),
+                fixture_program()["targets"][1],
+                runs=10_000,
+                max_total_time_seconds=120,
+                timeout_seconds=10,
+            )
+        self.assertEqual(0, row["executions"])
+
     def test_complete_zero_crash_campaign_is_accepted(self) -> None:
         self.assertEqual(
             [],
