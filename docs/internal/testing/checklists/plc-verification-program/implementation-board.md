@@ -1316,7 +1316,17 @@ same commit, with the closure evidence linked.
   unknown-optional-section rule, pinned by a product-apply regression. The
   register now contains 11 `open` and 24 `closed` records; this row remains
   open for the eleven unresolved specifications.
-- [ ] `VERIF-P16-003` Map tests to every invariant. For each invariant:
+
+  Final workflow/release specification progress (2026-07-17): seven internal
+  developer-workflow, connector-status, dependency-policy, artifact,
+  conformance, and version gaps are closed against three new normative product
+  sources, mapped case runners, and durable closeout evidence. Four public
+  platform, behavior-lock, source-build, and hardware-claim gaps remain
+  `spec_updated` behind explicit `release_claim` required-spec rows because
+  local G1 proof is not published, native, or device evidence. The register
+  now contains 31 `closed` and 4 `spec_updated` records; this row stays open
+  for those four public-claim obligations.
+- [x] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get
   hand-authored cataloged tests (building the missing harness kinds as
@@ -1381,6 +1391,14 @@ same commit, with the closure evidence linked.
   subrange diagnostics, delayed Modbus scan handoff, and restart storage
   transitions. The runners bind explicit written oracles and current-contract
   proof pairs. The full 54-invariant denominator remains open.
+
+  Final workflow/release mapping progress (2026-07-17): fourteen cataloged
+  runners add 19 committed cases for commit ownership, test discovery,
+  connector status, platform and VSIX identity, behavior-lock wording,
+  source-build policy, dependency exceptions, artifact provenance,
+  conformance, version, and public-claim boundaries. Every one of the 54
+  invariants now names at least one mapped test with an eligible oracle and a
+  suite route; the zero-empty-test denominator closes this row.
 - [ ] `VERIF-P16-004` Red, fix, green. Run every mapped test. Every failure
   gets recorded red proof, a product fix routed through invariant
   discipline (changelog per release hygiene), and paired green proof via
@@ -1465,7 +1483,17 @@ same commit, with the closure evidence linked.
   batch records lock pairs rather than manufacturing red evidence. Two case
   fixture mistakes and three runner integration errors were corrected before
   evidence generation; none changed product behavior.
-- [ ] `VERIF-P16-005` Promote honestly. Every invariant reaches its
+
+  Final workflow/release execution progress (2026-07-17): tests-first focused
+  work exposed and fixed three real defects before the clean proof baseline:
+  `trust-dev commit` could absorb caller-owned staged paths, the VS Code status
+  projection accepted noncanonical state/health strings, and the extension
+  lockfile carried 13 npm advisories. The corrected 19 cases then produced 14
+  clean `lock_baseline` and 14 descendant `lock_compare` records through
+  `prove.py`. No historical red row was manufactured after the fixes, so this
+  row remains open for the complete mapped-test denominator and any future
+  observed failures.
+- [x] `VERIF-P16-005` Promote honestly. Every invariant reaches its
   evidence-supported maximum (`G1`/`G2`, `validated` where all applicable
   cells close). Done when zero invariants remain at `S0`.
 
@@ -1514,6 +1542,13 @@ same commit, with the closure evidence linked.
   and 9 G2 invariants. Causal broad proof remains open for four invariants;
   `RT_SAFE_IO_001` also retains non-Modbus and hardware-lab latency debt, so no
   G2 or validated status is claimed.
+
+  Final S0 promotion (2026-07-17): the remaining fourteen workflow, status,
+  release, and platform invariants are `implemented` at G1 on their exact
+  current-contract lock pairs. The registry now contains 0 S0, 45 G1, and 9
+  G2 invariants. Native platform, extension-host, published-release,
+  device-in-loop, and causal broad evidence remain explicit debt; none of the
+  fourteen is promoted to G2 or `validated`.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; the three unfuzzed

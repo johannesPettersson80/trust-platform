@@ -1,0 +1,34 @@
+@startuml
+title Release Evidence and Public-Claim Boundary
+
+actor "Release maintainer" as maintainer
+component "GitHub Release workflow" as release
+component "Dependency exception check" as dependencyPolicy
+component "VS Code npm audit" as npmAudit
+artifact "Successful CI conformance artifact" as conformanceInput
+component "Conformance status generator" as conformanceGenerator
+component "Release provenance generator" as provenanceGenerator
+component "Release claim contract" as claimContract
+artifact "Release assets\nprovenance.json\nconformance.json/.md\nSHA256SUMS" as assets
+database "Verification metadata\nspecs, gaps, invariants, proof" as verification
+
+maintainer --> release : annotated tag
+release --> dependencyPolicy : validate reviewed exceptions
+release --> npmAudit : require zero lockfile advisories
+release --> conformanceInput : download successful CI evidence
+conformanceInput --> conformanceGenerator : suite result + commit
+verification --> conformanceGenerator : known gaps and contract
+release --> provenanceGenerator : tag, commit, workflow, artifacts
+verification --> provenanceGenerator : platform and identity contract
+conformanceGenerator --> claimContract : result-derived status
+provenanceGenerator --> claimContract : artifact identity
+claimContract --> assets : validate and checksum
+release --> assets : publish only after all checks pass
+
+note bottom of verification
+  Targeted G1 proof supports implementation claims.
+  Native, published, and device evidence remains required
+  before public release claims close.
+end note
+
+@enduml
