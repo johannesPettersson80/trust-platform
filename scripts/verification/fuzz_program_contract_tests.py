@@ -300,6 +300,18 @@ class FuzzProgramContractTests(unittest.TestCase):
                 f"{row['id']} compiles unrelated test binaries: {row['command']}",
             )
 
+    def test_wan_allowlist_smoke_uses_live_module_path(self) -> None:
+        row = next(
+            item
+            for item in self.program["targets"]
+            if item["id"] == "FUZZ_SMOKE_WAN_ALLOWLIST"
+        )
+        self.assertEqual(
+            "cargo test -p trust-runtime --lib "
+            "runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget",
+            row["command"],
+        )
+
     def test_crash_handoff_is_policy_only_and_p9_005_stays_open(self) -> None:
         handoff = self.program["crash_regression_handoff"]
         self.assertEqual("not_enforced", handoff["enforcement_status"])

@@ -43,7 +43,7 @@ run_observed "runtime-comms-fuzz" "runtime-cloud-api" "${GATE_TEST_TIMEOUT_SECON
 echo "[fuzz-gate] runtime-cloud wan allowlist parser fuzz smoke"
 run_observed "runtime-comms-fuzz" "runtime-cloud-acl" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_acl_fuzz.log" \
   env TRUST_COMMS_FUZZ_ITERS="${ITERS}" \
-  cargo test -p trust-runtime --lib web::runtime_cloud_policy::tests::wan_allowlist_parser_fuzz_smoke_budget -- --nocapture
+  cargo test -p trust-runtime --lib runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget -- --nocapture
 
 cat > "${OUT_DIR}/summary.md" <<MD
 # Runtime Comms Fuzz Gate

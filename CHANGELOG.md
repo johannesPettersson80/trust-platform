@@ -10,6 +10,9 @@ Target release: `v0.24.53`
 
 ### Fixed
 
+- verification: the runtime communications fuzz gate now selects the live WAN
+  allowlist smoke module instead of exiting successfully after running zero
+  tests; bounded campaigns also reject any zero-test Cargo filter.
 - trust-ads-server: restored the command-dispatch cargo-fuzz target after the
   symbol snapshot interface moved to shared `Arc` ownership, so all registered
   ADS fuzz targets compile and execute under the bounded campaign.

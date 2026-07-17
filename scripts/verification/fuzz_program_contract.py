@@ -491,7 +491,7 @@ REVIEWED_TARGET_IDENTITIES = {
         "path": "crates/trust-runtime/src/runtime_cloud/profile_policy.rs",
         "discovery_id": "DISC_794F59E9A339F867023D",
         "discovery_source_kind": "rust_unit_test",
-        "command": "cargo test -p trust-runtime --lib web::runtime_cloud_policy::tests::wan_allowlist_parser_fuzz_smoke_budget",
+        "command": "cargo test -p trust-runtime --lib runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget",
         "owner": "trust-runtime",
         "last_reviewed": "2026-07-11",
     },

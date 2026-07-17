@@ -25,7 +25,7 @@ REVIEWED_EXECUTABLE_MODE = {
 }
 REVIEWED_EXECUTION_FILE_DIGESTS = {
     "scripts/salsa_fuzz_gate.sh": "b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29",
-    "scripts/runtime_comms_fuzz_gate.sh": "35e00fbbe36ff7a025b727c9ee020b27b886c9c4051bb31e88eaae68f865da7b",
+    "scripts/runtime_comms_fuzz_gate.sh": "1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d",
     "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": "6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f",
     ".github/workflows/ci.yml": "953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb",
     ".github/workflows/salsa-hardening.yml": "d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f",
@@ -53,7 +53,7 @@ REVIEWED_RUNTIME_COMMS_COMMANDS = {
     'run_observed "runtime-comms-fuzz" "mesh-payload" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/mesh_payload_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib mesh::tests::mesh_payload_encode_decode_fuzz_smoke_budget -- --nocapture',
     'run_observed "runtime-comms-fuzz" "shm-header" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/shm_header_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib realtime::tests::t0_shm_header_fuzz_rejects_corruption_budget -- --nocapture',
     'run_observed "runtime-comms-fuzz" "runtime-cloud-api" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_api_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib runtime_cloud::routing::tests::runtime_cloud_api_payload_fuzz_smoke_budget -- --nocapture',
-    'run_observed "runtime-comms-fuzz" "runtime-cloud-acl" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_acl_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib web::runtime_cloud_policy::tests::wan_allowlist_parser_fuzz_smoke_budget -- --nocapture',
+    'run_observed "runtime-comms-fuzz" "runtime-cloud-acl" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_acl_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget -- --nocapture',
 }
 REVIEWED_VM_FUZZ_COMMANDS = {
     'python3 ./scripts/run_with_progress.py --phase runtime-vm-malformed-bytecode-fuzz --target malformed-bytecode-fuzz-smoke --timeout-seconds "${GATE_TEST_TIMEOUT_SECONDS:-900}" --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" --log "${ARTIFACT_DIR}/malformed-bytecode-fuzz-smoke.log" -- env -u OUT_DIR cargo test -p trust-runtime --test bytecode_vm_core vm_malformed_bytecode_fuzz_smoke_budget -- --nocapture'
