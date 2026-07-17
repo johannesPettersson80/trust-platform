@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .fuzz_campaign_contract import validate_campaign_payload
+from .fuzz_campaign_contract import validate_campaign_json, validate_campaign_payload
 from .fuzz_crash_regressions import (
     campaign_regressions,
     load_crash_registry,
@@ -40,11 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runs", type=int, default=10_000)
     parser.add_argument("--max-total-time-seconds", type=int, default=120)
     parser.add_argument("--timeout-seconds", type=int, default=10)
+    parser.add_argument(
+        "--validate-existing",
+        type=Path,
+        help="validate a committed campaign JSON without executing targets",
+    )
     args = parser.parse_args(argv)
     root = args.root.resolve()
     try:
         output = _output_path(root, args.json_out)
-        source_commit = _clean_head(root)
         program = load_fuzz_program(root)
         failures = validate_fuzz_program_contract(root, program)
         if failures:
@@ -63,6 +67,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         if failures:
             raise ValueError("; ".join(failures))
+        if args.validate_existing is not None:
+            existing = _output_path(root, args.validate_existing)
+            failures = validate_campaign_json(
+                existing.read_text(),
+                program=program,
+                tests=validator.tests,
+                regression_registry=regression_registry,
+            )
+            if failures:
+                raise ValueError("; ".join(failures))
+            print(f"bounded fuzz campaign validates at rest: {existing.relative_to(root)}")
+            return 0
+        source_commit = _clean_head(root)
         for value, label in (
             (args.runs, "runs"),
             (args.max_total_time_seconds, "max-total-time-seconds"),

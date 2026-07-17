@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
 
-from scripts.verification.fuzz_campaign_contract import validate_campaign_payload
+from scripts.verification.fuzz_campaign_contract import (
+    validate_campaign_json,
+    validate_campaign_payload,
+)
 from scripts.verification.fuzz_crash_regressions import (
     campaign_regressions,
     validate_crash_registry,
@@ -290,6 +294,42 @@ class FuzzCampaignContractTests(unittest.TestCase):
         )
         self.assertTrue(
             any("do not match committed registry" in failure for failure in failures)
+        )
+
+    def test_at_rest_json_rejects_format_and_semantic_tamper(self) -> None:
+        canonical = json.dumps(fixture_payload(), indent=2, sort_keys=True) + "\n"
+        self.assertEqual(
+            [],
+            validate_campaign_json(
+                canonical,
+                program=fixture_program(),
+                tests={},
+                regression_registry=fixture_registry(),
+            ),
+        )
+        self.assertTrue(
+            any(
+                "canonical" in failure
+                for failure in validate_campaign_json(
+                    json.dumps(fixture_payload()),
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
+                )
+            )
+        )
+        tampered = fixture_payload()
+        tampered["results"][0]["command"] += " -ignore_crashes=1"
+        self.assertTrue(
+            any(
+                "command does not match" in failure
+                for failure in validate_campaign_json(
+                    json.dumps(tampered, indent=2, sort_keys=True) + "\n",
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
+                )
+            )
         )
 
 

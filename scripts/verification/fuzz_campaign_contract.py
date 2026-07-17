@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from datetime import datetime
@@ -47,6 +48,33 @@ SUMMARY_FIELDS = {
     "crash_artifacts",
     "regressions",
 }
+
+
+def validate_campaign_json(
+    text: str,
+    *,
+    program: Mapping[str, Any],
+    tests: Mapping[str, Mapping[str, Any]],
+    regression_registry: Mapping[str, Any],
+) -> list[str]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return [f"campaign JSON cannot be parsed: {exc}"]
+    if not isinstance(payload, Mapping):
+        return ["campaign JSON root must be an object"]
+    failures = []
+    if text != json.dumps(payload, indent=2, sort_keys=True) + "\n":
+        failures.append("campaign JSON must use canonical sorted-key formatting")
+    failures.extend(
+        validate_campaign_payload(
+            payload,
+            program=program,
+            tests=tests,
+            regression_registry=regression_registry,
+        )
+    )
+    return sorted(set(failures))
 
 
 def validate_campaign_payload(
