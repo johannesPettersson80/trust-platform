@@ -7,7 +7,7 @@ status = "planned"
 invariant = "UI_STATUS_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:73e5270846cefc348e59f7f38ae2ff276a57edc069eb3ac5a00a1f5d1be55fb3"
-source_digest = "sha256:771d7809d3288943d59a4e11af7f21467ba621e56752131c58ac382edd4f4f7b"
+source_digest = "sha256:517a5721a119dd21eb2b33df6cd1282f7d762ce702cd0c71a78aba0809e5389d"
 last_reviewed = "2026-07-17"
 
 [[case]]

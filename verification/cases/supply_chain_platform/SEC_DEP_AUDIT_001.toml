@@ -7,7 +7,7 @@ status = "planned"
 invariant = "SEC_DEP_AUDIT_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:7847f0d034f811e97957c75c7e5dbb55fe97df0f85bfe19bdec6921014a762ef"
-source_digest = "sha256:c90274c8f3e2c6486d4c94c8bfb7829dca09fa295f22a3f339694cf215d53d50"
+source_digest = "sha256:5b1b47e2278451cbdd769ef2de8b6283632d7001dcd56e1d7aab738be5875f89"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "SEC_DEP_AUDIT_001_EXCEPTIONS"

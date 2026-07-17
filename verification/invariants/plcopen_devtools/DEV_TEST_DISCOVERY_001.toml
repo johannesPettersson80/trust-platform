@@ -3,26 +3,26 @@ id = "DEV_TEST_DISCOVERY_001"
 title = "Developer test discovery cannot silently skip supported filename case"
 area = "plcopen_devtools"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-dev"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-17"
 claim = "Developer test discovery must not silently omit a supported source because of extension case."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
 tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
-gates = []
+gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"]
-missing = ["supported_extension_case_contract", "mixed_case_discovery_cases"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = []
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001"
 
 [[behavior]]
 partition = { equals = "SUPPORTED_EXTENSION_CASES" }
@@ -43,6 +43,5 @@ rationale = "Unsupported extensions are excluded and an empty supported-source s
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "spec_gap"
-rationale = "Supported extension and case variants are not specified."
-spec_gap_ref = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"
+state = "gap_open"
+rationale = "Extension-case and literal-path discovery rules are specified and case-backed; current lock proof and a broad gate remain open."

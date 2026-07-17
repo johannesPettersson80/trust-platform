@@ -7,7 +7,7 @@ status = "planned"
 invariant = "REL_CLAIM_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:ff1ee9a0a05b07d79bb16218bd88f00e2db966ba9350cef93daf2cf358991058"
-source_digest = "sha256:7180c1b58f97ebf7f6fece28895f58c4e78d2c63dcd1000687cdcf466e4cc800"
+source_digest = "sha256:15bd7d999fba5d35de9a722de50c5a51415687d4c24d83f1365d61c3ab690b53"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "REL_CLAIM_001_PROOF_LEVELS"

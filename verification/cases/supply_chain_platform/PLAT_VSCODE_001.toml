@@ -7,7 +7,7 @@ status = "planned"
 invariant = "PLAT_VSCODE_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:e321b020fc080b075f62839fdffc46fde79290a5ce0ebcf3d65947e603109be6"
-source_digest = "sha256:0825aa5e8fa33f52a78d81124eaf5108ab51c6267ff378275ddd63a3695e0ede"
+source_digest = "sha256:5570d4652ec21cbf12401d977fefee00131b29f67cfc96f8c46b069b1bd26b60"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "PLAT_VSCODE_001_BINARY_IDENTITY"

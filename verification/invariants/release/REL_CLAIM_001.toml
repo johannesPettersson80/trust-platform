@@ -3,26 +3,26 @@ id = "REL_CLAIM_001"
 title = "Public hardware claims name their proof level"
 area = "release"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "docs"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-17"
 claim = "Public hardware documentation must distinguish mock, loopback, simulation, interoperability, and real device-in-loop evidence."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["docs/public", "README.md"]
 tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
-gates = []
+gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"]
-missing = ["public_hardware_proof_vocabulary", "claim_to_evidence_matrix"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "device_in_loop_claim_evidence", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
 
 [oracle]
-kind = "public_doc"
-ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
 
 [[behavior]]
 partition = { equals = "HARDWARE_PROOF_LEVELS" }
@@ -34,6 +34,5 @@ rationale = "Public hardware wording distinguishes mock, loopback, simulation, i
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "spec_gap"
-rationale = "Public proof-level vocabulary and evidence linkage are not specified."
-spec_gap_ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+state = "gap_open"
+rationale = "The public proof-level vocabulary is specified and audited; current lock proof, named device evidence, and a broad gate remain open."

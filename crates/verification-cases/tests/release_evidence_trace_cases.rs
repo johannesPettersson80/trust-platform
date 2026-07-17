@@ -12,7 +12,7 @@ fn release_platform_matrix_trace_cases() {
     run_release_trace(
         "TEST_RELEASE_PLATFORM_MATRIX_TRACE_001",
         "verification/cases/release/RELEASE_PLATFORM_MATRIX_001.toml",
-        "sha256:fa8499223637516b9eb061a8f37e8dc32fcd12d68000765c72f525fa1fec83ed",
+        "sha256:d30f9c141a13163f11cfd996b1c91f0aac9f1803e902897167773159a37dc7e6",
     );
 }
 
@@ -21,7 +21,7 @@ fn release_source_build_trace_cases() {
     run_release_trace(
         "TEST_RELEASE_SOURCE_BUILD_TRACE_001",
         "verification/cases/release/RELEASE_SOURCE_BUILD_OPENOT_001.toml",
-        "sha256:e2699f838ac7c445caab0a4ce1871903bf57de9f2464620401797c5db38df834",
+        "sha256:a65a72f8c8e3d6530edd8a578b991a4df624e0ff3113c045163d78ac195eeb3d",
     );
 }
 
@@ -30,7 +30,7 @@ fn release_hardware_claim_trace_cases() {
     run_release_trace(
         "TEST_RELEASE_HARDWARE_CLAIM_TRACE_001",
         "verification/cases/release/REL_CLAIM_001.toml",
-        "sha256:6c43e4b61d6d7a28f1a3e862b2cdc3cad3c929cf89d49112222495d3bd11de01",
+        "sha256:3d59e7839f25710ebcf18af490e7a1d42dc08d478c9b20992696a6964751f9af",
     );
 }
 
@@ -39,7 +39,7 @@ fn release_conformance_status_trace_cases() {
     run_release_trace(
         "TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001",
         "verification/cases/release/REL_CONF_001.toml",
-        "sha256:49789ceeda69fc9124a1d6da8620bb6ea4e4170863c74fe5b2d0ca96f678e829",
+        "sha256:62387bc468a5c2fd6b336c2d13b56418f9d338efec1b551c91b1819912cd3361",
     );
 }
 
@@ -48,7 +48,7 @@ fn release_version_chain_trace_cases() {
     run_release_trace(
         "TEST_RELEASE_VERSION_CHAIN_TRACE_001",
         "verification/cases/release/REL_VERSION_001.toml",
-        "sha256:8334f6490750e61a37dc64517cd50c0104bfdda4216c652db89ac8f7703bf8db",
+        "sha256:02f9e52d5aa10ad0cc99f1f6e1e7afdc0ad8d02eabf6d5a10f4462abc0287c80",
     );
 }
 
@@ -57,7 +57,7 @@ fn runtime_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/release/RUNTIME_BEHAVIOR_LOCKED_001.toml",
-        "sha256:8cd784697fd75c26a2d037238aeda0245c77d156b015225dafd1abee01cba3c6",
+        "sha256:8e23fed1b9e4c73d6d957d212a09349fa599504b09b4e7c45b3a3cec70ee49c6",
     );
 }
 
@@ -66,7 +66,7 @@ fn debug_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/editor_safety/DEBUG_BEHAVIOR_LOCKED_001.toml",
-        "sha256:c9f62e785579906ab8efd6891d5b06e972216e122627b6aca035c3545fa76072",
+        "sha256:64266f6e91405f76c745df851468d493e7e1ab06b83e275fe692c3b28163b8a4",
     );
 }
 
@@ -75,7 +75,7 @@ fn platform_path_trace_cases() {
     run_release_trace(
         "TEST_PLATFORM_PATH_TRACE_001",
         "verification/cases/supply_chain_platform/PLAT_PATH_001.toml",
-        "sha256:d25db02f57666e284d1a75cc1f1ec178159dc7b2453ef975be956e92764e77b9",
+        "sha256:ce4e07acfcde20fc7a588ceb83f67092989060072bc6b23f70e91257e3ce7747",
     );
 }
 
@@ -84,7 +84,7 @@ fn vsix_target_identity_trace_cases() {
     run_release_trace(
         "TEST_VSIX_TARGET_IDENTITY_TRACE_001",
         "verification/cases/supply_chain_platform/PLAT_VSCODE_001.toml",
-        "sha256:65aa3faf7937b1574cb95393a593d6e94fba977574001e5c9e8625d656a78cc2",
+        "sha256:ae59d5885d4205ff89f2b959c9d83369abda4ea5e00ee07d7378e84a5854ee0c",
     );
 }
 
@@ -93,7 +93,7 @@ fn artifact_provenance_trace_cases() {
     run_release_trace(
         "TEST_ARTIFACT_PROVENANCE_TRACE_001",
         "verification/cases/supply_chain_platform/SEC_ARTIFACT_001.toml",
-        "sha256:0007ac7f923e0a6f40d3cc47adb956b8eaf72f14d8f353d88db4b1fae00a3b38",
+        "sha256:a4496e67ca1af802f38bbd5dd11939c0ce5d0574aeeda7a0e4fdc264588bdfd6",
     );
 }
 
@@ -102,7 +102,7 @@ fn dependency_exception_trace_cases() {
     run_release_trace(
         "TEST_DEPENDENCY_EXCEPTION_TRACE_001",
         "verification/cases/supply_chain_platform/SEC_DEP_AUDIT_001.toml",
-        "sha256:e2e2a445652fcad7a4c1de6e54390abc491cf3cd3eccad0e23822cd13afc4847",
+        "sha256:686b42082700cefc5da1d5b0a69b90678a77d6d37ff974942151e2cb8d53202b",
     );
 }
 

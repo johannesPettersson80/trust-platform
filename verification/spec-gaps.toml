@@ -282,8 +282,9 @@ affected_invariants = [
 ]
 affected_tests = ["TEST_RELEASE_PLATFORM_MATRIX_TRACE_001", "TEST_PLATFORM_PATH_TRACE_001", "TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_PLATFORM_SUPPORT_MATRIX_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -302,8 +303,9 @@ affected_invariants = [
 ]
 affected_tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -321,8 +323,9 @@ affected_invariants = [
 ]
 affected_tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_SOURCE_BUILD_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -715,8 +718,9 @@ blocking_question = "Which supported source extensions and case variants must te
 affected_invariants = ["DEV_TEST_DISCOVERY_001"]
 affected_tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
 candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_TEST_DISCOVERY_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -732,8 +736,9 @@ blocking_question = "How must commit helpers distinguish their generated changes
 affected_invariants = ["DEV_COMMIT_SCOPE_001"]
 affected_tests = ["TEST_DEV_COMMIT_SCOPE_TRACE_001"]
 candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -749,8 +754,9 @@ blocking_question = "Which canonical connector states, freshness labels, and fau
 affected_invariants = ["UI_STATUS_001"]
 affected_tests = ["TEST_UI_CONNECTOR_STATUS_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_CONNECTOR_STATUS_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_CONNECTOR_STATUS_001"
+closeout_evidence = ["EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -788,8 +794,9 @@ blocking_question = "Which vulnerability, license, advisory, and exception condi
 affected_invariants = ["SEC_DEP_AUDIT_001"]
 affected_tests = ["TEST_DEPENDENCY_EXCEPTION_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_DEPENDENCY_AUDIT_POLICY_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -805,8 +812,9 @@ blocking_question = "How must each release binary, package, VSIX, checksum, tag,
 affected_invariants = ["SEC_ARTIFACT_001"]
 affected_tests = ["TEST_ARTIFACT_PROVENANCE_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_ARTIFACT_PROVENANCE_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -822,8 +830,9 @@ blocking_question = "How must public documentation distinguish mock, loopback, s
 affected_invariants = ["REL_CLAIM_001"]
 affected_tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_HARDWARE_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -839,8 +848,9 @@ blocking_question = "Which suite results, known gaps, timestamps, and toolchain 
 affected_invariants = ["REL_CONF_001"]
 affected_tests = ["TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_CONFORMANCE_PUBLICATION_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
 
 [[spec_gaps]]
@@ -856,6 +866,7 @@ blocking_question = "Which version files, changelog entry, tag, workflow run, re
 affected_invariants = ["REL_VERSION_001"]
 affected_tests = ["TEST_RELEASE_VERSION_CHAIN_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "spec_updated"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_RELEASE_VERSION_CHAIN_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"

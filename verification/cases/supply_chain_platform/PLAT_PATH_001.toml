@@ -7,7 +7,7 @@ status = "planned"
 invariant = "PLAT_PATH_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:6bb3bf5938be68b63798ce6e23a4d0f81e1c4066f72c4360ed96d43c0919e18c"
-source_digest = "sha256:71be9d63dac63f23653f57fdb63ff68f10c3937fc702220afb80c376eb8ece4f"
+source_digest = "sha256:287e96138029736b60968e70a1565130a2729937300f40a56fd848bd3647e697"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "PLAT_PATH_001_MATRIX"

@@ -7,7 +7,7 @@ status = "planned"
 invariant = "DEBUG_BEHAVIOR_LOCKED_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:f407e8058310cbf2fd9c2cd40728b22b1887468272568d1d95aafd9e7769fe4e"
-source_digest = "sha256:1f37c232a76cbc929594cb175206f6f11dc236d817893f97d2b8cf4bc06d5ef7"
+source_digest = "sha256:af8dbae87540b6d429081272a2fb0801d8febba0eb1450ddc8927293d787a9c9"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "DEBUG_BEHAVIOR_LOCKED_001_MAPPING"

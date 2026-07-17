@@ -3,26 +3,26 @@ id = "RUNTIME_BEHAVIOR_LOCKED_001"
 title = "Runtime behavior-locked claim maps to tests and evidence"
 area = "release"
 risk = "false_status"
-status = "spec_gap"
+status = "gap_open"
 owner = "docs"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-17"
 claim = "The public claim that runtime behavior is locked by tests must map to explicit runtime invariants, suites, and durable evidence."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "crates/trust-runtime/tests"]
 tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001"]
-gates = ["release"]
+gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"]
-missing = ["runtime_behavior_traceability_matrix"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "ambiguous"
-source_refs = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
 
 [oracle]
-kind = "public_doc"
-ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
 
 [[behavior]]
 partition = { equals = "RUNTIME_BEHAVIOR_LOCK_MAPPING" }
@@ -34,6 +34,5 @@ rationale = "The runtime behavior-lock claim resolves only explicit runtime inva
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "spec_gap"
-rationale = "Runtime behavior-locked proof mapping must be specified before the public claim can be closed."
-spec_gap_ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+state = "gap_open"
+rationale = "The runtime mapping contract is written and cataloged; current lock proof and a broad gate remain open."

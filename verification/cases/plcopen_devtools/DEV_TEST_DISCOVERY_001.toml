@@ -7,7 +7,7 @@ status = "planned"
 invariant = "DEV_TEST_DISCOVERY_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:86a858613add968e4609e51f91b995ceaea58b9df95dbbc02d8c0d4d43c30106"
-source_digest = "sha256:ed76a9276f2e81f7fab33809656e23495fce7a0ba3a3ae737db6531feee40727"
+source_digest = "sha256:e0fe31c0c1b17414e86b8cbe5ca95e1b6d61cafc1672df906b9f87a42b8880f6"
 last_reviewed = "2026-07-17"
 
 [[case]]

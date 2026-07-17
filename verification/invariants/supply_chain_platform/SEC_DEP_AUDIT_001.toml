@@ -3,26 +3,26 @@ id = "SEC_DEP_AUDIT_001"
 title = "Dependency vulnerability and license status is release-visible"
 area = "supply_chain_platform"
 risk = "supply_chain"
-status = "spec_gap"
+status = "gap_open"
 owner = "release"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-17"
 claim = "Release proof must expose dependency vulnerability and license status together with owned, time-bounded exceptions."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["Cargo.toml", "Cargo.lock", "editors/vscode/package.json", "editors/vscode/package-lock.json"]
 tests = ["TEST_DEPENDENCY_EXCEPTION_TRACE_001"]
-gates = []
+gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"]
-missing = ["dependency_audit_blocking_policy", "owned_exception_contract"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+ref = "SPEC_RELEASE_EVIDENCE_001"
 
 [[behavior]]
 partition = { equals = "DEPENDENCY_EXCEPTION_LIFETIME" }
@@ -34,6 +34,5 @@ rationale = "Every ignored advisory carries ownership, rationale, removal, revie
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "spec_gap"
-rationale = "Release-blocking audit conditions and exception ownership are not specified."
-spec_gap_ref = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+state = "gap_open"
+rationale = "Rust exception ownership and zero-vulnerability VS Code lockfile policy are specified and enforced; current lock proof and a broad gate remain open."

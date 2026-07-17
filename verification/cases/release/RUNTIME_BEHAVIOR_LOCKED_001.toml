@@ -7,7 +7,7 @@ status = "planned"
 invariant = "RUNTIME_BEHAVIOR_LOCKED_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:807cca7bfd3acb58599664dfd9063fd6e8b9d921b700a81c1ea339508412acb8"
-source_digest = "sha256:682a1c11dda8f2e53b40c937c6a00099fb0cb3fd5e7892606082d6010fbd555f"
+source_digest = "sha256:60d6275debb8a0594f24ca5b75f31ceb1d93b45e2f3b7abb4d299d1adb3930f8"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "RUNTIME_BEHAVIOR_LOCKED_001_MAPPING"

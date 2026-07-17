@@ -7,7 +7,7 @@ status = "planned"
 invariant = "DEV_COMMIT_SCOPE_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:fc50e4eec66cbb212ba6917d7dd56a8f0b4ef7a8ce0abb3249038de7a2014f1d"
-source_digest = "sha256:c1af85fdd4bc81e967be26f252beebdb95d1e60dbfcd787222d265a4fc083de2"
+source_digest = "sha256:132aff42a1793be351ef42e9450bfd7bff5d6efe44604cd4821842e829a3f5ce"
 last_reviewed = "2026-07-17"
 
 [[case]]

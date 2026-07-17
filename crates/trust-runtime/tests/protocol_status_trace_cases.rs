@@ -23,7 +23,7 @@ const CASE_FILE_DIGEST: &str =
 const UI_TEST_ID: &str = "TEST_UI_CONNECTOR_STATUS_TRACE_001";
 const UI_CASE_FILE: &str = "verification/cases/hmi_ui/UI_STATUS_001.toml";
 const UI_CASE_FILE_DIGEST: &str =
-    "sha256:48393c928a0283e28c17afcaff736d99f5adec96a343febe7ae019363a19a815";
+    "sha256:c2a73e3b0ab74c82ca3cc0ee27f1f8b79f0c4852e4b2bbf480dbf38d2add09af";
 
 #[test]
 fn connector_status_truth_trace_cases() {

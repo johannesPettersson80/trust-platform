@@ -3,26 +3,26 @@ id = "SEC_ARTIFACT_001"
 title = "Release artifacts bind to the tested commit and tag"
 area = "supply_chain_platform"
 risk = "supply_chain"
-status = "spec_gap"
+status = "gap_open"
 owner = "release"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-17"
 claim = "Every release artifact and checksum must map to the commit, tag, and workflow execution that produced and tested it."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = [".github/workflows", "Cargo.toml", "editors/vscode/package.json"]
 tests = ["TEST_ARTIFACT_PROVENANCE_TRACE_001"]
-gates = []
+gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_ARTIFACT_PROVENANCE_001"]
-missing = ["artifact_provenance_chain", "independent_checksum_verification"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "published_release_provenance_asset", "broad_remote_gate"]
 
 [spec]
-status = "missing"
-source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001"]
 
 [oracle]
 kind = "release_contract"
-ref = "SPEC_GAP_ARTIFACT_PROVENANCE_001"
+ref = "SPEC_RELEASE_EVIDENCE_001"
 
 [[behavior]]
 partition = { equals = "ARTIFACT_PROVENANCE_CHAIN" }
@@ -34,6 +34,5 @@ rationale = "The release provenance record exhaustively binds each artifact dige
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "spec_gap"
-rationale = "The artifact-to-workflow-to-commit provenance chain is not specified."
-spec_gap_ref = "SPEC_GAP_ARTIFACT_PROVENANCE_001"
+state = "gap_open"
+rationale = "Artifact provenance and checksum rules are specified and generated; current lock proof, a published provenance asset, and a broad gate remain open."

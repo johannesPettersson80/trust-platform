@@ -3,26 +3,26 @@ id = "RELEASE_SOURCE_BUILD_OPENOT_001"
 title = "Source-build OpenOT dependency claim maps to proof"
 area = "release"
 risk = "compatibility"
-status = "spec_gap"
+status = "gap_open"
 owner = "docs"
-last_reviewed = "2026-07-09"
+last_reviewed = "2026-07-17"
 claim = "The public source-build claim for OpenOT dependencies must map to a formal invariant, command set, and durable evidence before it can be treated as proven."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "docs/public/start/install-from-source.md"]
 tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
-gates = ["release"]
+gates = ["pr"]
 evidence_refs = ["EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708"]
-spec_gap_refs = ["SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"]
-missing = ["source_build_suite_mapping", "release_traceability"]
+spec_gap_refs = []
+missing = ["current_lock_proof", "broad_remote_gate"]
 
 [spec]
-status = "ambiguous"
-source_refs = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
 
 [oracle]
-kind = "public_doc"
-ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
 
 [[behavior]]
 partition = { equals = "SOURCE_BUILD_WITHOUT_OPENOT_SIBLING" }
@@ -34,6 +34,5 @@ rationale = "The documented shipped-binary source build resolves pinned OpenOT R
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "spec_gap"
-rationale = "Dependency-resolution proof needs a formal release/source-build contract before the public claim can be closed."
-spec_gap_ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+state = "gap_open"
+rationale = "The pinned-public-dependency source-build contract is written and builder-checked; current lock proof and a broad gate remain open."

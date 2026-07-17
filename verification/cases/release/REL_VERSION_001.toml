@@ -7,7 +7,7 @@ status = "planned"
 invariant = "REL_VERSION_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:93d1accc5cd0de31d69a0219874fe40ad03a4a9b74e8f91088044944b0d34e60"
-source_digest = "sha256:6fa403ebe59d9d0904857996070c88cab08c48b666e4e90ad79cceb94549eff0"
+source_digest = "sha256:fe1c4197e6a76066b991eac3e73ed9875b978bb5aba7cf2106fb720f8c62925e"
 last_reviewed = "2026-07-17"
 [[case]]
 id = "REL_VERSION_001_CHAIN"

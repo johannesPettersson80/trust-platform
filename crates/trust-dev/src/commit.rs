@@ -311,7 +311,7 @@ mod tests {
     const TRACE_CASE_FILE: &str =
         "verification/cases/plcopen_devtools/DEV_COMMIT_SCOPE_001.toml";
     const TRACE_CASE_DIGEST: &str =
-    "sha256:f1680ba7d3dfd583020d55f36ae1d8768e2f5d23ade75299beaf161834a8f00d";
+        "sha256:abc30f653558fd4c40ff0f4e325482641a1c6eafb25d584b1b71ca56f433d2ea";
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
         let nanos = SystemTime::now()
