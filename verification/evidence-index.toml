@@ -7353,3 +7353,25 @@ case_file_digest = "sha256:686b42082700cefc5da1d5b0a69b90678a77d6d37ff974942151e
 per_case_summary = ["SEC_DEP_AUDIT_001_EXCEPTIONS:passed"]
 case_result_digest = "sha256:9f200a195fce755bfcf15f5f07f3c8caf073279ee996dffa851c0cf2862c7c9b"
 paired_lock_baseline = "EVID_TEST_DEPENDENCY_EXCEPTION_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_FINAL_FOURTEEN_INVARIANT_PROOF_VALIDATION_20260717"
+title = "Final fourteen-invariant case-backed proof validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-17/final-fourteen-invariant-proof-validation.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && python3 scripts/check_test_catalog_staleness.py && python3 scripts/check_vscode_test_registration.py && python3 scripts/validate_test_refactor_proposals.py && python3 scripts/validate_spec_source_audit_report.py --json target/gate-artifacts/verification/spec-source-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md && git diff --check"
+commit = "2e751ec5ad3381d2e90d728ad22dbef12920ef92"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-17"
+suite_id = "supporting_local"
+producer = "codex final fourteen-invariant proof batch"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["DEBUG_BEHAVIOR_LOCKED_001", "DEV_COMMIT_SCOPE_001", "DEV_TEST_DISCOVERY_001", "PLAT_PATH_001", "PLAT_VSCODE_001", "REL_CLAIM_001", "REL_CONF_001", "REL_VERSION_001", "RELEASE_PLATFORM_MATRIX_001", "RELEASE_SOURCE_BUILD_OPENOT_001", "RUNTIME_BEHAVIOR_LOCKED_001", "SEC_ARTIFACT_001", "SEC_DEP_AUDIT_001", "UI_STATUS_001"]
+linked_tests = ["TEST_ARTIFACT_PROVENANCE_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001", "TEST_DEPENDENCY_EXCEPTION_TRACE_001", "TEST_DEV_COMMIT_SCOPE_TRACE_001", "TEST_DEV_TEST_DISCOVERY_TRACE_001", "TEST_PLATFORM_PATH_TRACE_001", "TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001", "TEST_RELEASE_HARDWARE_CLAIM_TRACE_001", "TEST_RELEASE_PLATFORM_MATRIX_TRACE_001", "TEST_RELEASE_SOURCE_BUILD_TRACE_001", "TEST_RELEASE_VERSION_CHAIN_TRACE_001", "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_UI_CONNECTOR_STATUS_TRACE_001", "TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_ARTIFACT_PROVENANCE_001", "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001", "SPEC_GAP_CONFORMANCE_PUBLICATION_001", "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001", "SPEC_GAP_DEV_COMMIT_SCOPE_001", "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001", "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001", "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001", "SPEC_GAP_RELEASE_VERSION_CHAIN_001", "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001", "SPEC_GAP_UI_STATUS_VOCABULARY_001"]
+last_reviewed = "2026-07-17"
