@@ -4,6 +4,58 @@
 
 [[required_specs]]
 schema_version = 1
+id = "REQ_SPEC_PUBLIC_PLATFORM_RELEASE_PROOF"
+area = "release"
+tag = "public_platform_release_proof"
+title = "Public platform claims require native release evidence"
+owner = "release"
+status = "spec_gap"
+expected_authority = ["public_claim"]
+spec_gap_ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+blocks = "release_claim"
+last_reviewed = "2026-07-17"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_PUBLIC_BEHAVIOR_LOCK_PROOF"
+area = "release"
+tag = "public_behavior_lock_proof"
+title = "Public behavior-lock claims require release evidence"
+owner = "release"
+status = "spec_gap"
+expected_authority = ["public_claim"]
+spec_gap_ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+blocks = "release_claim"
+last_reviewed = "2026-07-17"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_PUBLIC_SOURCE_BUILD_PROOF"
+area = "release"
+tag = "public_source_build_proof"
+title = "Public source-build claims require release evidence"
+owner = "release"
+status = "spec_gap"
+expected_authority = ["public_claim"]
+spec_gap_ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+blocks = "release_claim"
+last_reviewed = "2026-07-17"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_PUBLIC_HARDWARE_CLAIM_PROOF"
+area = "release"
+tag = "public_hardware_claim_proof"
+title = "Public hardware claims require named device evidence"
+owner = "docs"
+status = "spec_gap"
+expected_authority = ["public_claim"]
+spec_gap_ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+blocks = "release_claim"
+last_reviewed = "2026-07-17"
+
+[[required_specs]]
+schema_version = 1
 id = "REQ_SPEC_BYTECODE_CONTAINER"
 area = "bytecode_vm"
 tag = "bytecode_container"

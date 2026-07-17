@@ -3,18 +3,22 @@ id = "REL_CLAIM_001"
 title = "Public hardware claims name their proof level"
 area = "release"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "docs"
 last_reviewed = "2026-07-17"
 claim = "Public hardware documentation must distinguish mock, loopback, simulation, interoperability, and real device-in-loop evidence."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["docs/public", "README.md"]
 tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_RELEASE_HARDWARE_CLAIM_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_HARDWARE_CLAIM_TRACE_001_LOCK_COMPARE",
+  "EVID_HARDWARE_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+]
 spec_gap_refs = []
-missing = ["current_lock_proof", "device_in_loop_claim_evidence", "broad_remote_gate"]
+missing = ["device_in_loop_claim_evidence", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -34,5 +38,5 @@ rationale = "Public hardware wording distinguishes mock, loopback, simulation, i
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The public proof-level vocabulary is specified and audited; current lock proof, named device evidence, and a broad gate remain open."
+state = "covered"
+rationale = "The public proof-level vocabulary is covered by a current-contract lock comparison; named device evidence and a causal broad gate remain open."

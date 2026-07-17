@@ -3,18 +3,22 @@ id = "PLAT_VSCODE_001"
 title = "VSIX package behavior matches the supported platform matrix"
 area = "supply_chain_platform"
 risk = "compatibility"
-status = "gap_open"
+status = "implemented"
 owner = "editors-vscode"
 last_reviewed = "2026-07-17"
 claim = "VSIX installation and packaged binary behavior must be smoke-tested on each claimed platform or scoped as unsupported."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["editors/vscode", ".github/workflows"]
 tests = ["TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_VSIX_TARGET_IDENTITY_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VSIX_TARGET_IDENTITY_TRACE_001_LOCK_COMPARE",
+  "EVID_PLATFORM_SUPPORT_MATRIX_SPEC_REVIEW_20260717",
+]
 spec_gap_refs = []
-missing = ["current_lock_proof", "native_vsix_smoke_matrix", "broad_remote_gate"]
+missing = ["native_vsix_smoke_matrix", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -34,5 +38,5 @@ rationale = "Each VSIX target contains binaries whose names and target identity 
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "gap_open"
-rationale = "VSIX target identity is specified and mapped; current lock proof, native target smokes, and a broad gate remain open."
+state = "covered"
+rationale = "VSIX target identity is covered by a current-contract lock comparison; native target smokes and a causal broad gate remain open."

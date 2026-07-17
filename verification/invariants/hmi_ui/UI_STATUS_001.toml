@@ -3,18 +3,22 @@ id = "UI_STATUS_001"
 title = "Runtime connector status vocabulary is consistent across surfaces"
 area = "hmi_ui"
 risk = "false_status"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-17"
 claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
 tests = ["TEST_UI_CONNECTOR_STATUS_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_COMPARE",
+  "EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717",
+]
 spec_gap_refs = []
-missing = ["current_lock_proof", "cross_surface_extension_host", "broad_remote_gate"]
+missing = ["cross_surface_extension_host", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -51,5 +55,5 @@ rationale = "An unknown wire status fails at the closed mapping boundary and can
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The canonical status contract and runtime/TypeScript checks exist; current lock proof, extension-host coverage, and a broad gate remain open."
+state = "covered"
+rationale = "The canonical status contract and runtime/TypeScript checks are covered by a current-contract lock comparison; extension-host coverage and a causal broad gate remain open."

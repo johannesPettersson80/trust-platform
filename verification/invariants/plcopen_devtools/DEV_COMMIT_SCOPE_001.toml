@@ -3,18 +3,22 @@ id = "DEV_COMMIT_SCOPE_001"
 title = "Developer commit helpers expose unrelated staged scope"
 area = "plcopen_devtools"
 risk = "data_loss"
-status = "gap_open"
+status = "implemented"
 owner = "trust-dev"
 last_reviewed = "2026-07-17"
 claim = "Developer commit helpers must not silently include unrelated pre-staged changes."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
 tests = ["TEST_DEV_COMMIT_SCOPE_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_COMPARE",
+  "EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717",
+]
 spec_gap_refs = []
-missing = ["current_lock_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -51,5 +55,5 @@ rationale = "Dry-run and cancellation report the selected scope without mutating
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Commit-scope ownership and collision behavior are specified and case-backed; current lock proof and a broad gate remain open."
+state = "covered"
+rationale = "Commit-scope ownership and collision behavior are covered by a current-contract lock comparison; a causal broad gate remains open."

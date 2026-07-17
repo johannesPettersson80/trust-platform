@@ -6176,8 +6176,8 @@ paired_lock_baseline = "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_BASELIN
 
 [[evidence]]
 schema_version = 1
-id = "EVID_PLATFORM_SUPPORT_MATRIX_GAP_CLOSEOUT_20260717"
-title = "Platform support matrix specification gap closeout"
+id = "EVID_PLATFORM_SUPPORT_MATRIX_SPEC_REVIEW_20260717"
+title = "Platform support matrix specification review"
 area = "release"
 owner = "release"
 status = "mapped"
@@ -6198,8 +6198,8 @@ last_reviewed = "2026-07-17"
 
 [[evidence]]
 schema_version = 1
-id = "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"
-title = "Behavior-lock public claim specification gap closeout"
+id = "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_SPEC_REVIEW_20260717"
+title = "Behavior-lock public claim specification review"
 area = "release"
 owner = "release"
 status = "mapped"
@@ -6220,8 +6220,8 @@ last_reviewed = "2026-07-17"
 
 [[evidence]]
 schema_version = 1
-id = "EVID_SOURCE_BUILD_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"
-title = "Source-build public claim specification gap closeout"
+id = "EVID_SOURCE_BUILD_PUBLIC_CLAIM_SPEC_REVIEW_20260717"
+title = "Source-build public claim specification review"
 area = "release"
 owner = "release"
 status = "mapped"
@@ -6352,8 +6352,8 @@ last_reviewed = "2026-07-17"
 
 [[evidence]]
 schema_version = 1
-id = "EVID_HARDWARE_PUBLIC_CLAIM_GAP_CLOSEOUT_20260717"
-title = "Hardware public claim specification gap closeout"
+id = "EVID_HARDWARE_PUBLIC_CLAIM_SPEC_REVIEW_20260717"
+title = "Hardware public claim specification review"
 area = "release"
 owner = "docs"
 status = "mapped"

@@ -3,18 +3,23 @@ id = "RELEASE_SOURCE_BUILD_OPENOT_001"
 title = "Source-build OpenOT dependency claim maps to proof"
 area = "release"
 risk = "compatibility"
-status = "gap_open"
+status = "implemented"
 owner = "docs"
 last_reviewed = "2026-07-17"
 claim = "The public source-build claim for OpenOT dependencies must map to a formal invariant, command set, and durable evidence before it can be treated as proven."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "docs/public/start/install-from-source.md"]
 tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
 gates = ["pr"]
-evidence_refs = ["EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708"]
+evidence_refs = [
+  "EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708",
+  "EVID_TEST_RELEASE_SOURCE_BUILD_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_SOURCE_BUILD_TRACE_001_LOCK_COMPARE",
+  "EVID_SOURCE_BUILD_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+]
 spec_gap_refs = []
-missing = ["current_lock_proof", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -34,5 +39,5 @@ rationale = "The documented shipped-binary source build resolves pinned OpenOT R
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "gap_open"
-rationale = "The pinned-public-dependency source-build contract is written and builder-checked; current lock proof and a broad gate remain open."
+state = "covered"
+rationale = "The pinned-public-dependency source-build contract is covered by a current-contract lock comparison; a causal broad gate remains open."
