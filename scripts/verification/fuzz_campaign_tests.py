@@ -6,6 +6,10 @@ import copy
 import unittest
 
 from scripts.verification.fuzz_campaign_contract import validate_campaign_payload
+from scripts.verification.fuzz_crash_regressions import (
+    campaign_regressions,
+    validate_crash_registry,
+)
 
 
 def fixture_program() -> dict:
@@ -73,6 +77,16 @@ def fixture_payload() -> dict:
     }
 
 
+def fixture_registry() -> dict:
+    return {
+        "schema_version": 1,
+        "id": "FUZZ_CRASH_REGRESSIONS_V1",
+        "status": "mapped",
+        "required_disposition": "deterministic_regression",
+        "regressions": [],
+    }
+
+
 class FuzzCampaignContractTests(unittest.TestCase):
     def test_complete_zero_crash_campaign_is_accepted(self) -> None:
         self.assertEqual(
@@ -81,6 +95,7 @@ class FuzzCampaignContractTests(unittest.TestCase):
                 fixture_payload(),
                 program=fixture_program(),
                 tests={},
+                regression_registry=fixture_registry(),
             ),
         )
 
@@ -91,7 +106,10 @@ class FuzzCampaignContractTests(unittest.TestCase):
             any(
                 "exactly match registered targets" in failure
                 for failure in validate_campaign_payload(
-                    missing, program=fixture_program(), tests={}
+                    missing,
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
                 )
             )
         )
@@ -102,7 +120,10 @@ class FuzzCampaignContractTests(unittest.TestCase):
             any(
                 "infrastructure failure" in failure
                 for failure in validate_campaign_payload(
-                    failed, program=fixture_program(), tests={}
+                    failed,
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
                 )
             )
         )
@@ -125,6 +146,7 @@ class FuzzCampaignContractTests(unittest.TestCase):
             payload,
             program=fixture_program(),
             tests={},
+            regression_registry=fixture_registry(),
         )
         self.assertTrue(any("deterministic regression" in failure for failure in failures))
 
@@ -137,6 +159,8 @@ class FuzzCampaignContractTests(unittest.TestCase):
             }
         ]
         payload["summary"]["regressions"] = 1
+        registry = fixture_registry()
+        registry["regressions"] = copy.deepcopy(payload["regressions"])
         tests = {
             "TEST_CRASH_ONE": {
                 "id": "TEST_CRASH_ONE",
@@ -146,7 +170,12 @@ class FuzzCampaignContractTests(unittest.TestCase):
         }
         self.assertEqual(
             [],
-            validate_campaign_payload(payload, program=fixture_program(), tests=tests),
+            validate_campaign_payload(
+                payload,
+                program=fixture_program(),
+                tests=tests,
+                regression_registry=registry,
+            ),
         )
 
     def test_command_and_summary_tampering_fail_closed(self) -> None:
@@ -156,7 +185,10 @@ class FuzzCampaignContractTests(unittest.TestCase):
             any(
                 "command does not match" in failure
                 for failure in validate_campaign_payload(
-                    command, program=fixture_program(), tests={}
+                    command,
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
                 )
             )
         )
@@ -167,9 +199,97 @@ class FuzzCampaignContractTests(unittest.TestCase):
             any(
                 "summary does not match" in failure
                 for failure in validate_campaign_payload(
-                    summary, program=fixture_program(), tests={}
+                    summary,
+                    program=fixture_program(),
+                    tests={},
+                    regression_registry=fixture_registry(),
                 )
             )
+        )
+
+    def test_registry_is_closed_and_requires_live_mapped_regressions(self) -> None:
+        registry = fixture_registry()
+        self.assertEqual(
+            [], validate_crash_registry(registry, program=fixture_program(), tests={})
+        )
+
+        registry["unexpected"] = True
+        self.assertTrue(
+            any(
+                "registry fields" in failure
+                for failure in validate_crash_registry(
+                    registry, program=fixture_program(), tests={}
+                )
+            )
+        )
+        registry.pop("unexpected")
+        registry["regressions"] = [
+            {
+                "target_id": "FUZZ_TARGET_ONE",
+                "artifact_sha256": "sha256:" + "d" * 64,
+                "test_id": "TEST_CRASH_ONE",
+                "rationale": "A minimized input is committed as a deterministic test.",
+            }
+        ]
+        failures = validate_crash_registry(
+            registry, program=fixture_program(), tests={}
+        )
+        self.assertTrue(any("is not a mapped test" in failure for failure in failures))
+
+    def test_campaign_uses_only_committed_registry_rows(self) -> None:
+        payload = fixture_payload()
+        payload["results"][0]["exit_status"] = 77
+        payload["results"][0]["artifact_files"] = [
+            {
+                "path": "fuzz/artifacts/one/crash-deadbeef",
+                "sha256": "sha256:" + "d" * 64,
+                "size": 4,
+            }
+        ]
+        registry = fixture_registry()
+        registry["regressions"] = [
+            {
+                "target_id": "FUZZ_TARGET_ONE",
+                "artifact_sha256": "sha256:" + "d" * 64,
+                "test_id": "TEST_CRASH_ONE",
+                "rationale": "A minimized input is committed as a deterministic test.",
+            },
+            {
+                "target_id": "FUZZ_SMOKE_TWO",
+                "artifact_sha256": "sha256:" + "e" * 64,
+                "test_id": "TEST_OLD_CRASH",
+                "rationale": "A historical minimized input remains a deterministic test.",
+            },
+        ]
+        self.assertEqual(
+            registry["regressions"][:1],
+            campaign_regressions(registry, payload["results"]),
+        )
+
+        payload["regressions"] = [
+            {
+                **registry["regressions"][0],
+                "test_id": "TEST_INVENTED_MAPPING",
+            }
+        ]
+        payload["summary"].update(
+            passed=1,
+            crash_artifacts=1,
+            regressions=1,
+        )
+        failures = validate_campaign_payload(
+            payload,
+            program=fixture_program(),
+            tests={
+                "TEST_INVENTED_MAPPING": {
+                    "status": "mapped",
+                    "command": "cargo test invented",
+                }
+            },
+            regression_registry=registry,
+        )
+        self.assertTrue(
+            any("do not match committed registry" in failure for failure in failures)
         )
 
 

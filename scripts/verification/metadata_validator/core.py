@@ -45,6 +45,11 @@ from ..fuzz_program_contract import (
     load_fuzz_program,
     validate_fuzz_program_contract,
 )
+from ..fuzz_crash_regressions import (
+    REGISTRY_PATH as FUZZ_CRASH_REGISTRY_PATH,
+    load_crash_registry,
+    validate_crash_registry,
+)
 from ..mutation_program_contract import (
     MUTATION_PROGRAM_PATH,
     load_mutation_program,
@@ -100,6 +105,7 @@ class Validator:
         self.seed_manifest: dict[str, Any] = {}
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
         self.fuzz_program: dict[str, Any] = {}
+        self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
@@ -242,6 +248,10 @@ class Validator:
         except Exception as exc:
             self.fail(ROOT / FUZZ_PROGRAM_PATH, f"load failed: {exc}")
         try:
+            self.fuzz_crash_registry = load_crash_registry(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / FUZZ_CRASH_REGISTRY_PATH, f"load failed: {exc}")
+        try:
             self.mutation_program = load_mutation_program(ROOT)
         except Exception as exc:
             self.fail(ROOT / MUTATION_PROGRAM_PATH, f"load failed: {exc}")
@@ -330,6 +340,12 @@ class Validator:
             self.fail(ROOT / RUNTIME_ANOMALY_TAXONOMY_PATH, failure)
         for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
+        for failure in validate_crash_registry(
+            self.fuzz_crash_registry,
+            program=self.fuzz_program,
+            tests=self.tests,
+        ):
+            self.fail(ROOT / FUZZ_CRASH_REGISTRY_PATH, failure)
         for failure in validate_mutation_program_contract(ROOT, self.mutation_program):
             self.fail(ROOT / MUTATION_PROGRAM_PATH, failure)
         for failure in validate_spec_gap_closure(
@@ -857,6 +873,7 @@ class Validator:
             + (1 if self.matrix else 0)
             + (1 if self.runtime_anomaly_taxonomy else 0)
             + (1 if self.fuzz_program else 0)
+            + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)
             + seed_count
         )

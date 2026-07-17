@@ -16,6 +16,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .fuzz_campaign_contract import validate_campaign_payload
+from .fuzz_crash_regressions import (
+    campaign_regressions,
+    load_crash_registry,
+    validate_crash_registry,
+)
 from .fuzz_program_contract import load_fuzz_program, validate_fuzz_program_contract
 from .metadata_validator.constants import ROOT
 from .metadata_validator.core import Validator
@@ -52,6 +57,12 @@ def main(argv: list[str] | None = None) -> int:
                 "metadata validation failed: "
                 + "; ".join(item.message for item in validator.failures)
             )
+        regression_registry = load_crash_registry(root)
+        failures = validate_crash_registry(
+            regression_registry, program=program, tests=validator.tests
+        )
+        if failures:
+            raise ValueError("; ".join(failures))
         for value, label in (
             (args.runs, "runs"),
             (args.max_total_time_seconds, "max-total-time-seconds"),
@@ -86,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         and not row["artifact_files"]
         for row in results
     )
+    regressions = campaign_regressions(regression_registry, results)
     payload = {
         "schema_version": 1,
         "generator": GENERATOR,
@@ -98,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_total_time_seconds": args.max_total_time_seconds,
         "timeout_seconds": args.timeout_seconds,
         "results": results,
-        "regressions": [],
+        "regressions": regressions,
         "summary": {
             "targets": len(results),
             "passed": passed,
@@ -106,12 +118,17 @@ def main(argv: list[str] | None = None) -> int:
                 row["exit_status"] != 0 and not row["artifact_files"] for row in results
             ),
             "crash_artifacts": artifact_count,
-            "regressions": 0,
+            "regressions": len(regressions),
         },
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    failures = validate_campaign_payload(payload, program=program, tests=validator.tests)
+    failures = validate_campaign_payload(
+        payload,
+        program=program,
+        tests=validator.tests,
+        regression_registry=regression_registry,
+    )
     if failures:
         for failure in failures:
             print(f"fuzz campaign incomplete: {failure}", file=sys.stderr)

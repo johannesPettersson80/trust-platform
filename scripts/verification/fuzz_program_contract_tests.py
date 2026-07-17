@@ -507,6 +507,33 @@ class FuzzProgramContractTests(unittest.TestCase):
             [failure.message for failure in validator.failures],
         )
 
+    def test_full_validator_rejects_corrupted_crash_registry(self) -> None:
+        corrupted = {
+            "schema_version": 1,
+            "id": "FUZZ_CRASH_REGRESSIONS_V1",
+            "status": "mapped",
+            "required_disposition": "deterministic_regression",
+            "regressions": [
+                {
+                    "target_id": "FUZZ_TARGET_SYNTAX_PARSE",
+                    "artifact_sha256": "sha256:" + "d" * 64,
+                    "test_id": "TEST_NOT_REGISTERED",
+                    "rationale": "Invented mapping.",
+                }
+            ],
+        }
+        with mock.patch(
+            "scripts.verification.metadata_validator.core.load_crash_registry",
+            return_value=corrupted,
+        ):
+            validator = Validator()
+            validator.load_records()
+            validator.validate()
+        self.assertTrue(
+            any("TEST_NOT_REGISTERED" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

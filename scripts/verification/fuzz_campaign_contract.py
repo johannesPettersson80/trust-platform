@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
 
+from .fuzz_crash_regressions import campaign_regressions
+
 
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -52,6 +54,7 @@ def validate_campaign_payload(
     *,
     program: Mapping[str, Any],
     tests: Mapping[str, Mapping[str, Any]],
+    regression_registry: Mapping[str, Any],
 ) -> list[str]:
     failures: list[str] = []
     _fields(payload, TOP_FIELDS, "campaign", failures)
@@ -146,6 +149,8 @@ def validate_campaign_payload(
     regressions = _rows(
         payload.get("regressions"), REGRESSION_FIELDS, "regressions", failures
     )
+    if regressions != campaign_regressions(regression_registry, results):
+        failures.append("campaign regression rows do not match committed registry")
     regression_keys: set[tuple[str, str]] = set()
     for row in regressions:
         target_id = row.get("target_id")

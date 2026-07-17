@@ -1,0 +1,5 @@
+schema_version = 1
+id = "FUZZ_CRASH_REGRESSIONS_V1"
+status = "mapped"
+required_disposition = "deterministic_regression"
+regressions = []
