@@ -44,19 +44,19 @@ REPORT_MARKDOWN = (
 )
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
-    "mapping_records": 46,
-    "scanner_denominator": 3212,
-    "effectively_runnable_mappings": 37,
+    "mapping_records": 52,
+    "scanner_denominator": 3220,
+    "effectively_runnable_mappings": 43,
     "ignored_or_conditional_mappings": 0,
-    "gap_classes": 6,
+    "gap_classes": 0,
     "by_state": {
-        "mapped_runnable": 13,
-        "mapped_non_runnable_or_partial": 2,
-        "unmapped": 4,
+        "mapped_runnable": 19,
+        "mapped_non_runnable_or_partial": 0,
+        "unmapped": 0,
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 37,
+        "direct": 43,
         "partial": 7,
         "protective_red": 0,
         "context_only": 2,
@@ -149,23 +149,15 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             "partial_web_request",
             "disk_error",
             "timer_duration_overflow",
-        ):
-            self.assertEqual("mapped_runnable", classes[class_id]["state"])
-        for class_id in (
             "queue_full",
-            "clock_step",
-        ):
-            self.assertEqual(
-                "mapped_non_runnable_or_partial",
-                classes[class_id]["state"],
-            )
-        for class_id in (
             "bad_signal",
+            "clock_step",
             "monotonic_wall_clock_divergence",
             "suspend_resume",
             "allocation_failure_oom",
         ):
-            self.assertEqual("unmapped", classes[class_id]["state"])
+            self.assertEqual("mapped_runnable", classes[class_id]["state"])
+        self.assertEqual([], self.analysis["gap_rows"])
 
     def test_live_mapping_set_contains_no_ignored_associations(self) -> None:
         ignored = [
@@ -364,7 +356,6 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             ("classes", "state", {}, "state"),
             ("mappings", "association_kind", [], "association_kind"),
             ("mappings", "ignore_state", {}, "ignore_state"),
-            ("gap_rows", "class_id", [], "class_id"),
         )
         for collection, field, value, signal in mutations:
             with self.subTest(collection=collection, field=field):

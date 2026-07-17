@@ -46,6 +46,7 @@ end note
 package "trust-lsp crate" as trustlsp #LightGreen {
     component "StLanguageServer" as server <<main.rs>>
     component "ServerState" as state <<state.rs>>
+    component "Document text core" as documentText <<document_text.rs>>
 
     package "handlers/" as handlers {
         component "sync.rs" as syncHandler <<did_open, did_change>>
@@ -55,6 +56,7 @@ package "trust-lsp crate" as trustlsp #LightGreen {
 
     server --> state : uses
     server --> handlers : delegates
+    syncHandler --> documentText : apply UTF-16 edits
 }
 
 note right of state

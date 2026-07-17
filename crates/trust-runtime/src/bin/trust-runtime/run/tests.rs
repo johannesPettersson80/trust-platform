@@ -286,6 +286,17 @@ fn unix_signal_mapping_covers_sigint_and_sigterm() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn unix_signal_mapping_rejects_unreviewed_shutdown_signals() {
+    for signal in [
+        signal_hook::consts::signal::SIGHUP,
+        signal_hook::consts::signal::SIGUSR1,
+    ] {
+        assert_eq!(super::map_runtime_shutdown_signal(signal), None);
+    }
+}
+
 #[test]
 fn startup_retain_load_respects_restart_mode() {
     let source = r#"

@@ -241,7 +241,6 @@ slot = 2
 
 #[cfg(all(feature = "ethercat-wire", unix))]
 #[test]
-#[ignore = "red test for runtime-safety EtherCAT bounded post-allocation retry policy"]
 fn ethercat_missing_adapter_post_allocation_failure_is_terminal_until_rebuild() {
     let params: toml::Value = toml::from_str(
         r#"

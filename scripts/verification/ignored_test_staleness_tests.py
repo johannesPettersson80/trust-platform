@@ -14,11 +14,19 @@ from scripts.verification.ignored_test_staleness import (
     IgnoredTestStalenessResult,
     blocking_discovery_failures,
     main,
+    validate_live_ignored_test_registry,
 )
+from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.ignored_test_models import InventoryDiagnostic
 
 
 class IgnoredTestStalenessTests(unittest.TestCase):
+    def test_live_repository_has_no_unknown_ignored_test_debt(self) -> None:
+        result = validate_live_ignored_test_registry(ROOT)
+
+        self.assertEqual((), result.failures)
+        self.assertEqual(0, result.unknown)
+
     def test_unresolved_skip_warning_is_an_incomplete_inventory_failure(self) -> None:
         failures = blocking_discovery_failures(
             [

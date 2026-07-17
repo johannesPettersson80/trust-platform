@@ -56,8 +56,8 @@
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 11,
-      "maxItems": 11
+      "minItems": 17,
+      "maxItems": 17
     },
     "surfaces": {
       "type": "array",
@@ -68,8 +68,8 @@
     "gap_rows": {
       "type": "array",
       "items": { "$ref": "#/$defs/gap" },
-      "minItems": 6,
-      "maxItems": 6
+      "minItems": 0,
+      "maxItems": 0
     },
     "summary": { "$ref": "#/$defs/summary" },
     "limitations": {
@@ -216,6 +216,12 @@
       "enum": [
         "FUZZ_TARGET_SYNTAX_PARSE",
         "FUZZ_TARGET_HIR_SEMANTIC",
+        "FUZZ_TARGET_HIR_LOWERING",
+        "FUZZ_TARGET_PLCOPEN_XML",
+        "FUZZ_TARGET_BYTECODE_CONTAINER",
+        "FUZZ_TARGET_RUNTIME_CONFIG",
+        "FUZZ_TARGET_LSP_INCREMENTAL",
+        "FUZZ_TARGET_HMI_PAYLOADS",
         "FUZZ_TARGET_ADS_AMS_FRAME",
         "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
         "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
@@ -301,7 +307,7 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "last_reviewed": { "const": "2026-07-11" },
+        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17"] },
         "corpus_contents_assessed": { "const": false },
         "manifest_path": { "type": "string", "minLength": 1 },
         "corpus_path": { "type": "string", "minLength": 1 },
@@ -381,11 +387,11 @@
         "by_additional_tier"
       ],
       "properties": {
-        "inventory_targets": { "const": 11 },
-        "cargo_fuzz_targets": { "const": 5 },
+        "inventory_targets": { "const": 17 },
+        "cargo_fuzz_targets": { "const": 11 },
         "bounded_rust_smokes": { "const": 6 },
         "required_surfaces": { "const": 8 },
-        "gap_surfaces": { "const": 6 },
+        "gap_surfaces": { "const": 0 },
         "by_surface_state": { "$ref": "#/$defs/count_map_surface_state" },
         "by_primary_tier": { "$ref": "#/$defs/count_map_tier" },
         "by_additional_tier": { "$ref": "#/$defs/count_map_tier" }

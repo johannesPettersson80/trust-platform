@@ -76,24 +76,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_1466DAFE96EF828CB3AF"
-discovery_id = "DISC_1466DAFE96EF828CB3AF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/openot_authoring/tests.rs"
-name = "hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-014"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "plcopen_devtools"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_26934332D29338103AFD"
 discovery_id = "DISC_26934332D29338103AFD"
 discovery_source_kind = "rust_integration_test"
@@ -130,24 +112,6 @@ status = "mapped"
 ignore_class = "manual"
 reason = "This is an orchestrated child process or explicit diagnostic probe, not a default standalone gate."
 unblock_condition = "Run it through its named parent harness or documented manual command."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_5BBB12B235856C1C45CC"
-discovery_id = "DISC_5BBB12B235856C1C45CC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/openot_authoring/tests.rs"
-name = "compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety Phase 11 SEAM-TEST-015"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "plcopen_devtools"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -189,24 +153,6 @@ required_env_vars = ["TRUST_DIT_MQTT_BROKER"]
 hardware_topology = "Reachable MQTT broker, with configured authentication and TLS when those claims are exercised."
 hardware_topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
 public_claim_impact = "A missing or skipped run cannot prove MQTT interoperability, authentication, TLS, or reconnect claims."
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_78213ECD5BFD1CD1ACE3"
-discovery_id = "DISC_78213ECD5BFD1CD1ACE3"
-discovery_source_kind = "vscode_test"
-path = "editors/vscode/src/test/suite/new-project.test.ts"
-name = "generated ST parses cleanly and TOML is usable by build"
-ignore_state = "conditional"
-ignore_reason = "runtime this.skip() cannot be represented as a declared ignore attribute"
-ignore_mechanism = "vscode_runtime_skip"
-owner = "vscode-extension"
-area = "editor_safety"
-status = "mapped"
-ignore_class = "manual"
-reason = "The runtime build assertion is conditionally skipped when ST_RUNTIME_TEST_BIN is absent."
-unblock_condition = "Set ST_RUNTIME_TEST_BIN and run the full registered VS Code extension test."
-last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
@@ -340,24 +286,6 @@ last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
 schema_version = 2
-id = "IGNORED_B9ACE9B650FE5BFE0DC6"
-discovery_id = "DISC_B9ACE9B650FE5BFE0DC6"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/ethercat_driver.rs"
-name = "ethercat_missing_adapter_post_allocation_failure_is_terminal_until_rebuild"
-ignore_state = "ignored"
-ignore_reason = "red test for runtime-safety EtherCAT bounded post-allocation retry policy"
-ignore_mechanism = "rust_attribute"
-owner = "trust-runtime"
-area = "protocols"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The historical red annotation points to a completed implementation row; current-HEAD failing behavior is not established."
-unblock_condition = "Run the exact ignored test at current HEAD; if green remove the ignore, otherwise open a current reviewed red row and attach durable failure evidence."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
 id = "IGNORED_BDEAFF431FC2B9A44DFD"
 discovery_id = "DISC_BDEAFF431FC2B9A44DFD"
 discovery_source_kind = "rust_integration_test"
@@ -426,24 +354,6 @@ status = "mapped"
 ignore_class = "perf_soak"
 reason = "This is a long or resource-intensive measurement intended for an explicit performance or soak lane."
 unblock_condition = "Run it through a named performance or soak command; do not add it to a fast suite from mechanical metadata."
-last_reviewed = "2026-07-10"
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_E45EDC8D2860AAECF144"
-discovery_id = "DISC_E45EDC8D2860AAECF144"
-discovery_source_kind = "playwright_test"
-path = "scripts/captures/vscode/runtime-panel-command.spec.mjs"
-name = "capture code-server runtime panel command palette"
-ignore_state = "ignored"
-ignore_reason = "literal test.skip declaration"
-ignore_mechanism = "playwright_literal_skip"
-owner = "trust-doc-captures"
-area = "release"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "The literal skip and undated instability prose provide no dated observed-failure evidence."
-unblock_condition = "Capture a dated failure with an owner, or fix the capture and remove test.skip."
 last_reviewed = "2026-07-10"
 
 [[ignored_tests]]
@@ -525,21 +435,3 @@ required_env_vars = ["TRUST_DIT_ADS_TARGET"]
 hardware_topology = "Reachable TwinCAT/ADS target from the lab runner."
 hardware_topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
 public_claim_impact = "A missing or skipped run cannot prove the ADS/TwinCAT hardware claim."
-
-[[ignored_tests]]
-schema_version = 2
-id = "IGNORED_FE38938F6FB54A1B26E7"
-discovery_id = "DISC_FE38938F6FB54A1B26E7"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/io_multidriver_live.rs"
-name = "runtime_composes_modbus_and_mqtt_drivers_live"
-ignore_state = "conditional"
-ignore_reason = "live MQTT broker handshake is network-timing flaky on non-Linux CI runners; \\ run with `--ignored` locally to exercise. Linux runners are the source of truth \\ for the driver-composition contract."
-ignore_mechanism = "rust_cfg_attr"
-owner = "trust-runtime"
-area = "protocols"
-status = "gap_open"
-ignore_class = "unknown"
-reason = "A non-Linux timing flake is described in source and commit prose, but no durable raw artifact records the last observed failure."
-unblock_condition = "Capture a dated macOS or Windows failure artifact with an owner, or prove the test stable and remove the conditional ignore."
-last_reviewed = "2026-07-10"

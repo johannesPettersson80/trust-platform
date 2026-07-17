@@ -46,7 +46,7 @@ ROOT_FIELDS = {
     "limitations",
 }
 REPORT_SCHEMA_SEMANTIC_DIGEST = (
-    "b29cd8c603b2b1aa585a29b9ca5889964c8b636cce250554e90755eb46e34b77"
+    "8b90ebeca3667aea32136c7dbd62677e82d6e19c5ab8661af065ed1e9154caa9"
 )
 OUTPUT_PATH_FIELDS = {"json", "markdown"}
 TARGET_REQUIRED_FIELDS = {
@@ -140,8 +140,8 @@ def validate_schema_contract(schema: object) -> list[str]:
         "targets": {
             "type": "array",
             "items": {"$ref": "#/$defs/target"},
-            "minItems": 11,
-            "maxItems": 11,
+            "minItems": 17,
+            "maxItems": 17,
         },
         "surfaces": {
             "type": "array",
@@ -152,8 +152,8 @@ def validate_schema_contract(schema: object) -> list[str]:
         "gap_rows": {
             "type": "array",
             "items": {"$ref": "#/$defs/gap"},
-            "minItems": 6,
-            "maxItems": 6,
+            "minItems": 0,
+            "maxItems": 0,
         },
     }
     for field, expected in expected_root_arrays.items():
@@ -370,11 +370,11 @@ def validate_schema_contract(schema: object) -> list[str]:
     summary = definitions.get("summary")
     summary_properties = summary.get("properties") if isinstance(summary, Mapping) else None
     expected_summary_consts = {
-        "inventory_targets": 11,
-        "cargo_fuzz_targets": 5,
+        "inventory_targets": 17,
+        "cargo_fuzz_targets": 11,
         "bounded_rust_smokes": 6,
         "required_surfaces": 8,
-        "gap_surfaces": 6,
+        "gap_surfaces": 0,
     }
     if not isinstance(summary_properties, Mapping) or any(
         not isinstance(summary_properties.get(field), Mapping)

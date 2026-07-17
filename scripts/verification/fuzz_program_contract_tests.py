@@ -42,6 +42,12 @@ from .metadata_validator.core import Validator
 EXPECTED_CARGO_TARGETS = {
     ("fuzz/Cargo.toml", "syntax_parse", "fuzz/fuzz_targets/syntax_parse.rs"),
     ("fuzz/Cargo.toml", "hir_semantic", "fuzz/fuzz_targets/hir_semantic.rs"),
+    ("fuzz/Cargo.toml", "hir_lowering", "fuzz/fuzz_targets/hir_lowering.rs"),
+    ("fuzz/Cargo.toml", "plcopen_xml", "fuzz/fuzz_targets/plcopen_xml.rs"),
+    ("fuzz/Cargo.toml", "bytecode_container", "fuzz/fuzz_targets/bytecode_container.rs"),
+    ("fuzz/Cargo.toml", "runtime_config", "fuzz/fuzz_targets/runtime_config.rs"),
+    ("fuzz/Cargo.toml", "lsp_incremental", "fuzz/fuzz_targets/lsp_incremental.rs"),
+    ("fuzz/Cargo.toml", "hmi_payloads", "fuzz/fuzz_targets/hmi_payloads.rs"),
     (
         "crates/trust-ads-server/fuzz/Cargo.toml",
         "ams_frame",
@@ -275,9 +281,9 @@ class FuzzProgramContractTests(unittest.TestCase):
         self.assertTrue(any("semantic digest drifted" in item for item in failures), failures)
 
     def test_every_live_target_has_one_registered_record(self) -> None:
-        self.assertEqual(11, len(self.program["targets"]))
+        self.assertEqual(17, len(self.program["targets"]))
         self.assertEqual(
-            5,
+            11,
             sum(row["target_kind"] == "cargo_fuzz" for row in self.program["targets"]),
         )
         self.assertEqual(
@@ -308,7 +314,7 @@ class FuzzProgramContractTests(unittest.TestCase):
     def test_target_kind_union_fields_fail_closed(self) -> None:
         corrupted = copy.deepcopy(self.program)
         corrupted["targets"][0]["discovery_id"] = "DISC_00000000000000000000"
-        corrupted["targets"][5]["corpus_path"] = "fuzz/corpus/invented"
+        corrupted["targets"][11]["corpus_path"] = "fuzz/corpus/invented"
         failures = validate_fuzz_program_contract(ROOT, corrupted)
         self.assertTrue(any("union contract" in item for item in failures), failures)
 

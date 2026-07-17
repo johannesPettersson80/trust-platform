@@ -239,6 +239,48 @@ fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan(
     );
 }
 
+#[test]
+fn opcua_event_queue_rejects_saturation_and_recovers_after_drain() {
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point]);
+    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let bindings = opcua_bindings(&runtime, &connection.points);
+    let (_bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    let sink = worker
+        .transport()
+        .sink
+        .clone()
+        .expect("connected event sink");
+    let accepted = (0..1024)
+        .take_while(|index| sink.publish_connection_status(true, *index, "saturation probe"))
+        .count();
+
+    assert!(accepted > 0, "bounded queue must accept initial events");
+    assert!(accepted < 1024, "bounded queue must reject saturation");
+    assert!(
+        !sink.publish_connection_status(true, 1024, "queue still saturated"),
+        "saturated queue must fail immediately"
+    );
+
+    worker.tick(2_000).expect("drain queued events");
+    assert!(
+        sink.publish_connection_status(true, 2_001, "accepted after drain"),
+        "draining must restore bounded handoff capacity"
+    );
+}
+
 #[cfg(feature = "opcua-wire")]
 #[test]
 fn opcua_client_rejects_non_finite_subscription_values_before_storage() {

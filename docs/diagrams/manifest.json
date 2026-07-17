@@ -8,7 +8,7 @@
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
   "docs/diagrams/architecture/runtime-execution.puml": "21b5f60aab30463729c7c73d4fd79f6ca3e9f2bb3b4dbf8d27d30f2822353785",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
-  "docs/diagrams/architecture/system-architecture.puml": "1548a8b2828fdc61113d9132417018b3f4c8902506f50147a48d01e44fbe24b4",
+  "docs/diagrams/architecture/system-architecture.puml": "ac19a9d0475db602cbbbcd7a39c91697852b066317a673b013cbd7c380094ae0",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "b7f12a262caf68aa68666e49aedaac03db9deab7c1a2ba50e30233b54f6a83dc",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
@@ -17,6 +17,6 @@
   "docs/diagrams/debug/debug-step-sequence.puml": "c35ff8307a78ce6c2801d353f481e755e1e1408dd530477ff8fede700c9c525d",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
   "docs/diagrams/hir/hir-semantics.puml": "9d4b51b2ecdb6ee674ef8087b57c06fcb96b3733804017261ec562ab6c84f284",
-  "docs/diagrams/lsp/lsp-request-flow.puml": "1617ab85f6569122da404d144f10511ee732b43edd6339f6290f99788ec9d280",
+  "docs/diagrams/lsp/lsp-request-flow.puml": "6e01ac808f17c89bcf23d6bfab99f53b4de892672ff307e25d002435497358cd",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

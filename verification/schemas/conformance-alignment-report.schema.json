@@ -125,7 +125,7 @@
         "report_closes_spec_gaps": { "const": false },
         "semantic_oracles_assessed": { "const": false },
         "live_network_or_hardware_used": { "const": false },
-        "p7_002_invariant_mapping_remains_open": { "const": true },
+        "p7_002_invariant_mapping_remains_open": { "const": false },
         "generated_reports_remain_ci_artifacts": { "const": true },
         "public_page_updated": { "const": false },
         "runtime_or_product_behavior_changed": { "const": false },

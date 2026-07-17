@@ -41,8 +41,8 @@
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 11,
-      "maxItems": 11
+      "minItems": 17,
+      "maxItems": 17
     }
   },
   "additionalProperties": false,
@@ -179,7 +179,7 @@
         "artifact_path": { "type": "string", "pattern": "^(?:fuzz|crates/[A-Za-z0-9_-]+/fuzz)/artifacts/[A-Za-z0-9_-]+$" },
         "corpus_storage": { "const": "machine_local_ignored" },
         "artifact_storage": { "const": "machine_local_ignored" },
-        "last_reviewed": { "const": "2026-07-11" },
+        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17"] },
         "surface_associations": {
           "type": "array",
           "items": { "$ref": "#/$defs/surface_association" },

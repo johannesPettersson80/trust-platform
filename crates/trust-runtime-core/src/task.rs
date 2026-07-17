@@ -170,4 +170,45 @@ mod tests {
         assert_eq!(readiness.missed_intervals, 0);
         assert_eq!(state.last_run, Duration::ZERO);
     }
+
+    #[test]
+    fn task_readiness_ignores_backward_clock_step_until_prior_baseline() {
+        let mut state = TaskState::new(Duration::from_millis(100));
+
+        let backward = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(20),
+        );
+        let baseline = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(100),
+        );
+
+        assert_eq!(backward.due_at, None);
+        assert_eq!(backward.missed_intervals, 0);
+        assert_eq!(baseline.due_at, None);
+        assert_eq!(state.last_run, Duration::from_millis(100));
+        assert_eq!(state.overrun_count, 0);
+    }
+
+    #[test]
+    fn task_readiness_coalesces_forward_jump_after_host_pause() {
+        let mut state = TaskState::new(Duration::ZERO);
+
+        let resumed = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(55),
+        );
+
+        assert_eq!(resumed.due_at, Some(Duration::from_millis(10)));
+        assert_eq!(resumed.missed_intervals, 4);
+        assert_eq!(state.overrun_count, 4);
+        assert_eq!(state.last_run, Duration::from_millis(55));
+    }
 }

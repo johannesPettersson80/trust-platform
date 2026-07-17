@@ -58,8 +58,8 @@ EXPECTED_SUMMARY = {
     "expected_artifacts": 21,
     "missing_expected_artifacts": 0,
     "orphan_expected_artifacts": 0,
-    "explicitly_linked_cases": 0,
-    "unlinked_cases": 21,
+    "explicitly_linked_cases": 21,
+    "unlinked_cases": 0,
     "coverage_gaps": 10,
 }
 
@@ -165,16 +165,16 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
         )
         cls.analysis = cls.state.analysis
 
-    def test_live_census_is_exhaustive_and_explicitly_unmapped(self) -> None:
+    def test_live_census_is_exhaustive_and_explicitly_mapped(self) -> None:
         self.assertEqual(EXPECTED_SUMMARY, self.analysis["summary"])
         self.assertEqual(21, len(self.analysis["cases"]))
         self.assertEqual(16, len(self.analysis["categories"]))
-        self.assertEqual(21, len(self.analysis["unlinked_case_ids"]))
+        self.assertEqual([], self.analysis["unlinked_case_ids"])
         self.assertTrue(
-            all(row["catalog_test_id"] is None for row in self.analysis["cases"])
+            all(row["catalog_test_id"] is not None for row in self.analysis["cases"])
         )
         self.assertTrue(
-            all(row["invariant_ids"] == [] for row in self.analysis["cases"])
+            all(row["invariant_ids"] for row in self.analysis["cases"])
         )
 
     def test_contract_categories_and_case_counts_match_written_profiles(self) -> None:
@@ -190,15 +190,13 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
             all(counts[category] == 1 for category in V2_CATEGORIES)
         )
 
-    def test_p7_gap_rows_are_exactly_the_ten_v2_mapping_gaps(self) -> None:
+    def test_p7_gap_rows_preserve_semantic_oracle_debt_after_mapping(self) -> None:
         gaps = self.analysis["coverage_gaps"]
 
         self.assertEqual(list(V2_CATEGORIES), [row["category"] for row in gaps])
         self.assertTrue(all(row["case_present"] for row in gaps))
         self.assertTrue(all(row["expected_artifact_present"] for row in gaps))
-        self.assertTrue(
-            all(row["invariant_mapping_state"] == "missing" for row in gaps)
-        )
+        self.assertTrue(all(row["invariant_mapping_state"] == "linked" for row in gaps))
         self.assertTrue(
             all(row["semantic_oracle_state"] == "not_assessed" for row in gaps)
         )
@@ -258,6 +256,18 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
             linked = next(row for row in exact["cases"] if row["case_id"] == timer["case_id"])
             self.assertEqual("TEST_DECOY", linked["catalog_test_id"])
             self.assertEqual(["IEC_TIMER_001"], linked["invariant_ids"])
+
+    def test_live_catalog_explicitly_links_every_conformance_case(self) -> None:
+        validator = loaded_validator()
+        analysis = analyze_conformance_alignment(
+            ROOT,
+            tests=validator.tests,
+            spec_sources=validator.spec_sources,
+            tracked_report_paths=("conformance/reports/.gitkeep",),
+        )
+
+        self.assertEqual(21, analysis["summary"]["explicitly_linked_cases"])
+        self.assertEqual([], analysis["unlinked_case_ids"])
 
     def test_exact_discovery_join_rejects_source_kind_path_and_name_rebinding(self) -> None:
         with fixture_root() as temp:
@@ -600,13 +610,13 @@ class ConformanceAlignmentAnalysisTests(unittest.TestCase):
                     ),
                 )
 
-    def test_p7_002_and_standing_mapping_guards_remain_open(self) -> None:
+    def test_standing_mapping_guards_remain_open(self) -> None:
         board = (
             ROOT
             / "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
         ).read_text()
         self.assertEqual([], validate_open_board_rows(board))
-        self.assertIn("VERIF-P7-002", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P7-002", REQUIRED_OPEN_ROWS)
         for row_id in REQUIRED_OPEN_ROWS:
             with self.subTest(row_id=row_id):
                 tampered = board.replace(f"- [ ] `{row_id}`", f"- [x] `{row_id}`", 1)

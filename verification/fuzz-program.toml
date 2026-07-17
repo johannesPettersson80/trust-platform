@@ -122,6 +122,144 @@ strength = "partial"
 rationale = "The target exercises lower-level database edits and re-queries, not LSP ranges, position encoding, or protocol lifecycle."
 
 [[targets]]
+id = "FUZZ_TARGET_HIR_LOWERING"
+target_kind = "cargo_fuzz"
+name = "hir_lowering"
+path = "fuzz/fuzz_targets/hir_lowering.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run hir_lowering"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/hir_lowering"
+artifact_path = "fuzz/artifacts/hir_lowering"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "hir_lowering_input"
+strength = "direct"
+rationale = "The target sends generated Structured Text through the production source-to-bytecode lowering harness."
+
+[[targets]]
+id = "FUZZ_TARGET_PLCOPEN_XML"
+target_kind = "cargo_fuzz"
+name = "plcopen_xml"
+path = "fuzz/fuzz_targets/plcopen_xml.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run plcopen_xml"
+owner = "trust-plcopen"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/plcopen_xml"
+artifact_path = "fuzz/artifacts/plcopen_xml"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "plcopen_xml"
+strength = "direct"
+rationale = "The target sends bounded arbitrary XML bytes through the production PLCopen import path in an isolated temporary project."
+
+[[targets]]
+id = "FUZZ_TARGET_BYTECODE_CONTAINER"
+target_kind = "cargo_fuzz"
+name = "bytecode_container"
+path = "fuzz/fuzz_targets/bytecode_container.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run bytecode_container"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/bytecode_container"
+artifact_path = "fuzz/artifacts/bytecode_container"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "bytecode_container_instructions"
+strength = "direct"
+rationale = "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator."
+
+[[targets]]
+id = "FUZZ_TARGET_RUNTIME_CONFIG"
+target_kind = "cargo_fuzz"
+name = "runtime_config"
+path = "fuzz/fuzz_targets/runtime_config.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run runtime_config"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/runtime_config"
+artifact_path = "fuzz/artifacts/runtime_config"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "config_files"
+strength = "direct"
+rationale = "The target sends bounded valid UTF-8 documents through the production runtime configuration parser."
+
+[[targets]]
+id = "FUZZ_TARGET_LSP_INCREMENTAL"
+target_kind = "cargo_fuzz"
+name = "lsp_incremental"
+path = "fuzz/fuzz_targets/lsp_incremental.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run lsp_incremental"
+owner = "trust-lsp"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/lsp_incremental"
+artifact_path = "fuzz/artifacts/lsp_incremental"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "lsp_incremental_edits"
+strength = "direct"
+rationale = "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation."
+
+[[targets]]
+id = "FUZZ_TARGET_HMI_PAYLOADS"
+target_kind = "cargo_fuzz"
+name = "hmi_payloads"
+path = "fuzz/fuzz_targets/hmi_payloads.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run hmi_payloads"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/hmi_payloads"
+artifact_path = "fuzz/artifacts/hmi_payloads"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-07-17"
+
+[[targets.surface_associations]]
+surface_id = "hmi_schema_payloads"
+strength = "direct"
+rationale = "The target sends generated JSON values through the production HMI schema, values, and alarms event-state parsers."
+
+[[targets]]
 id = "FUZZ_TARGET_ADS_AMS_FRAME"
 target_kind = "cargo_fuzz"
 name = "ams_frame"

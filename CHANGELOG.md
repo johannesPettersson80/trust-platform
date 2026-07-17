@@ -90,6 +90,11 @@ Target release: `v0.24.53`
 
 ### Added
 
+- verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
+  bytecode containers, runtime configuration, LSP incremental edits, and HMI
+  payloads; linked all conformance cases, added direct runtime-anomaly tests,
+  and resolved six obsolete test skips, including retirement of a capture for
+  a runtime command that is intentionally hidden from the command palette.
 - release: added digest-bound artifact provenance and result-derived
   conformance status assets, plus release checks binding the workspace version,
   tag, successful workflow, required assets, and GitHub Latest pointer.

@@ -75,7 +75,7 @@
       "errors": [],
       "globals": {
         "et_tof": {
-          "nanos": 0,
+          "nanos": 10000000,
           "type": "TIME"
         },
         "q_tof": {

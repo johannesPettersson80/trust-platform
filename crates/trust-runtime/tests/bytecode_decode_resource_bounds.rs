@@ -106,6 +106,21 @@ fn string_table_count_must_fit_section_before_allocation() {
 }
 
 #[test]
+fn allocation_pressure_from_declared_counts_fails_before_reservation() {
+    for section_id in [
+        SectionId::StringTable,
+        SectionId::ConstPool,
+        SectionId::ResourceMeta,
+    ] {
+        let error = decode_raw_section(section_id, u32::MAX.to_le_bytes().to_vec());
+        assert!(
+            matches!(error, BytecodeError::InvalidSection(ref message) if message.contains("count exceeds section bounds")),
+            "{section_id:?} must reject impossible allocation count, got {error:?}"
+        );
+    }
+}
+
+#[test]
 fn type_table_count_must_fit_offset_table_before_allocation() {
     let mut module = base_module();
     module.flags = 0;

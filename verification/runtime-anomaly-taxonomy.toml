@@ -158,7 +158,7 @@ stimulus = "A relevant time source moves discontinuously forward or backward."
 primary_suite = "nightly"
 conditional_suites = ["release"]
 injection_boundary = "test_harness"
-rationale = "Manual time inputs can exercise steps, but accepted restart and timer semantics remain specification-blocked."
+rationale = "The reviewed monotonic scheduler contract permits deterministic backward and forward step checks through the manual-clock harness."
 
 [[classes]]
 id = "monotonic_wall_clock_divergence"
@@ -166,8 +166,8 @@ title = "Monotonic and wall-clock divergence"
 stimulus = "Monotonic scheduling time and civil wall-clock time diverge materially."
 primary_suite = "nightly"
 conditional_suites = ["release"]
-injection_boundary = "design_review_required"
-rationale = "The current clock seams do not provide a reviewed combined divergence injection contract."
+injection_boundary = "test_harness"
+rationale = "The reviewed scheduler contract isolates readiness from civil wall time, so a fixed manual clock can exercise the divergence boundary without changing production time sources."
 
 [[classes]]
 id = "suspend_resume"
@@ -175,8 +175,8 @@ title = "Host suspend and resume"
 stimulus = "The host suspends runtime execution and later resumes with elapsed real time."
 primary_suite = "nightly"
 conditional_suites = ["release"]
-injection_boundary = "external_harness"
-rationale = "Suspend/resume is OS lifecycle behavior and has no current deterministic in-process fault interface."
+injection_boundary = "test_harness"
+rationale = "A forward manual-clock discontinuity exercises the scheduler-visible elapsed interval after a host pause; platform sleep delivery remains a separate system test."
 
 [[classes]]
 id = "timer_duration_overflow"
@@ -194,7 +194,7 @@ stimulus = "A required allocation fails or the process reaches an out-of-memory 
 primary_suite = "nightly"
 conditional_suites = ["release"]
 injection_boundary = "design_review_required"
-rationale = "No reviewed allocation-failure interface exists; a production allocation hook is prohibited without design review."
+rationale = "Malformed count fields exercise the reviewed reject-before-reservation boundary; a production allocation-failure hook remains prohibited without design review."
 
 [[mappings]]
 id = "ANOM_MAP_PANIC_001"
@@ -793,3 +793,81 @@ injection_mechanism = "ordinary_input"
 assertion_summary = "TP advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, and ends the pulse."
 limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
 last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_OPCUA_001"
+class_id = "queue_full"
+discovery_id = "DISC_D074D829A8C6B93DAC92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_event_queue_rejects_saturation_and_recovers_after_drain"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The bounded OPC UA event handoff rejects an additional connection event immediately at saturation and accepts a later event after the worker drains the queue."
+limitations = ["The test exercises the in-process OPC UA client event handoff, not protocol-server backpressure or physical safe-state delivery."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_SIGNAL_UNREVIEWED_001"
+class_id = "bad_signal"
+discovery_id = "DISC_57D298DD438F5E6F5975"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "unix_signal_mapping_rejects_unreviewed_shutdown_signals"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The Unix shutdown mapper rejects SIGHUP and SIGUSR1 rather than translating either into an ordinary runtime stop request."
+limitations = ["The test binds the runtime mapping boundary; operating-system default dispositions and delivered process behavior remain outside this assertion."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_SCHEDULER_003"
+class_id = "clock_step"
+discovery_id = "DISC_F6508FDFBB3BD1D4F440"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "backward_clock_step_does_not_replay_or_overrun_periodic_task"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A backward manual-clock step neither reruns a periodic task nor increments its overrun count, and ordinary scheduling resumes from the preserved prior baseline."
+limitations = ["Production StdClock is monotonic; the backward step is a deterministic scheduler harness input rather than an operating-system clock fault."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_MONOTONIC_WALL_DIVERGENCE_001"
+class_id = "monotonic_wall_clock_divergence"
+discovery_id = "DISC_AC89BA6FAA7BC42ACCBC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Elapsed civil wall time does not make a periodic task ready while the injected monotonic clock is fixed; advancing that clock makes the task ready."
+limitations = ["The test isolates scheduler readiness and does not alter the host wall clock or assess timestamp-producing subsystems."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_SUSPEND_RESUME_COALESCE_001"
+class_id = "suspend_resume"
+discovery_id = "DISC_891F1D234DBDE29429A4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "resumed_clock_jump_runs_once_and_records_missed_intervals"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A 55-millisecond scheduler-visible pause on a 10-millisecond task executes the task once and records four missed intervals instead of replaying the backlog."
+limitations = ["The manual-clock discontinuity models the scheduler-visible resume interval; it does not exercise a platform suspend API or hardware clock source."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_BOUNDS_001"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_4BABD0A9C6328EC16A6A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "allocation_pressure_from_declared_counts_fails_before_reservation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Impossible top-level bytecode counts are rejected as invalid sections before the decoder attempts count-sized reservation."
+limitations = ["The test binds hostile-input allocation prevention; allocator exhaustion outside the promised scan path and operating-system OOM termination remain unassessed."]
+last_reviewed = "2026-07-17"

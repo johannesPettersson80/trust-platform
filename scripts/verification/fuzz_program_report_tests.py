@@ -27,13 +27,13 @@ from .test_catalog_json_schema import validate_json_schema_instance
 
 EXPECTED_STATES = {
     "st_lexer_parser": "cargo_fuzz_target",
-    "hir_lowering_input": "partial_only",
-    "plcopen_xml": "unmapped",
-    "bytecode_container_instructions": "smoke_only",
+    "hir_lowering_input": "cargo_fuzz_target",
+    "plcopen_xml": "cargo_fuzz_target",
+    "bytecode_container_instructions": "cargo_fuzz_target",
     "protocol_payloads": "cargo_fuzz_target",
-    "config_files": "unmapped",
-    "lsp_incremental_edits": "partial_only",
-    "hmi_schema_payloads": "unmapped",
+    "config_files": "cargo_fuzz_target",
+    "lsp_incremental_edits": "cargo_fuzz_target",
+    "hmi_schema_payloads": "cargo_fuzz_target",
 }
 
 
@@ -55,11 +55,11 @@ class FuzzProgramReportTests(unittest.TestCase):
 
     def test_live_report_reconciles_inventory_and_surface_gaps(self) -> None:
         summary = self.payload["summary"]
-        self.assertEqual(11, summary["inventory_targets"])
-        self.assertEqual(5, summary["cargo_fuzz_targets"])
+        self.assertEqual(17, summary["inventory_targets"])
+        self.assertEqual(11, summary["cargo_fuzz_targets"])
         self.assertEqual(6, summary["bounded_rust_smokes"])
         self.assertEqual(8, summary["required_surfaces"])
-        self.assertEqual(6, summary["gap_surfaces"])
+        self.assertEqual(0, summary["gap_surfaces"])
         self.assertEqual(
             EXPECTED_STATES,
             {row["surface_id"]: row["state"] for row in self.payload["surfaces"]},

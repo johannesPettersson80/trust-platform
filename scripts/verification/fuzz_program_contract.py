@@ -20,7 +20,7 @@ from .test_catalog_validation import check_supported_schema_keywords
 FUZZ_PROGRAM_PATH = "verification/fuzz-program.toml"
 FUZZ_PROGRAM_SCHEMA_PATH = "verification/schemas/fuzz-program.schema.json"
 FUZZ_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "0cc7ff88a59d0d4fca3e7d6c38f01075c5c6b74bec16184043f63552191f1a72"
+    "e6ecdb927e27b6617ffeb78b39919b950fcffac5f6decad4e0d0f2bc4d4a9091"
 )
 REVIEWED_PROGRAM_TITLE = "PLC fuzz and malformed-input program inventory"
 REQUIRED_SURFACE_IDS = (
@@ -133,6 +133,12 @@ REVIEWED_CRASH_HANDOFF = {
 TARGET_ID_ORDER = (
     "FUZZ_TARGET_SYNTAX_PARSE",
     "FUZZ_TARGET_HIR_SEMANTIC",
+    "FUZZ_TARGET_HIR_LOWERING",
+    "FUZZ_TARGET_PLCOPEN_XML",
+    "FUZZ_TARGET_BYTECODE_CONTAINER",
+    "FUZZ_TARGET_RUNTIME_CONFIG",
+    "FUZZ_TARGET_LSP_INCREMENTAL",
+    "FUZZ_TARGET_HMI_PAYLOADS",
     "FUZZ_TARGET_ADS_AMS_FRAME",
     "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
     "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
@@ -235,6 +241,24 @@ REVIEWED_TARGET_CONTRACTS = {
         ),
         (("hir_lowering_input", "partial"), ("lsp_incremental_edits", "partial")),
     ),
+    "FUZZ_TARGET_HIR_LOWERING": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("hir_lowering_input", "direct"),)
+    ),
+    "FUZZ_TARGET_PLCOPEN_XML": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("plcopen_xml", "direct"),)
+    ),
+    "FUZZ_TARGET_BYTECODE_CONTAINER": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
+    ),
+    "FUZZ_TARGET_RUNTIME_CONFIG": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("config_files", "direct"),)
+    ),
+    "FUZZ_TARGET_LSP_INCREMENTAL": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("lsp_incremental_edits", "direct"),)
+    ),
+    "FUZZ_TARGET_HMI_PAYLOADS": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("hmi_schema_payloads", "direct"),)
+    ),
     "FUZZ_TARGET_ADS_AMS_FRAME": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("protocol_payloads", "direct"),)
     ),
@@ -317,6 +341,78 @@ REVIEWED_TARGET_IDENTITIES = {
         "corpus_storage": "machine_local_ignored",
         "artifact_storage": "machine_local_ignored",
         "last_reviewed": "2026-07-11",
+    },
+    "FUZZ_TARGET_HIR_LOWERING": {
+        "name": "hir_lowering",
+        "path": "fuzz/fuzz_targets/hir_lowering.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run hir_lowering",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/hir_lowering",
+        "artifact_path": "fuzz/artifacts/hir_lowering",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
+    },
+    "FUZZ_TARGET_PLCOPEN_XML": {
+        "name": "plcopen_xml",
+        "path": "fuzz/fuzz_targets/plcopen_xml.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run plcopen_xml",
+        "owner": "trust-plcopen",
+        "corpus_path": "fuzz/corpus/plcopen_xml",
+        "artifact_path": "fuzz/artifacts/plcopen_xml",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
+    },
+    "FUZZ_TARGET_BYTECODE_CONTAINER": {
+        "name": "bytecode_container",
+        "path": "fuzz/fuzz_targets/bytecode_container.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run bytecode_container",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/bytecode_container",
+        "artifact_path": "fuzz/artifacts/bytecode_container",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
+    },
+    "FUZZ_TARGET_RUNTIME_CONFIG": {
+        "name": "runtime_config",
+        "path": "fuzz/fuzz_targets/runtime_config.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run runtime_config",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/runtime_config",
+        "artifact_path": "fuzz/artifacts/runtime_config",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
+    },
+    "FUZZ_TARGET_LSP_INCREMENTAL": {
+        "name": "lsp_incremental",
+        "path": "fuzz/fuzz_targets/lsp_incremental.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run lsp_incremental",
+        "owner": "trust-lsp",
+        "corpus_path": "fuzz/corpus/lsp_incremental",
+        "artifact_path": "fuzz/artifacts/lsp_incremental",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
+    },
+    "FUZZ_TARGET_HMI_PAYLOADS": {
+        "name": "hmi_payloads",
+        "path": "fuzz/fuzz_targets/hmi_payloads.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run hmi_payloads",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/hmi_payloads",
+        "artifact_path": "fuzz/artifacts/hmi_payloads",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-07-17",
     },
     "FUZZ_TARGET_ADS_AMS_FRAME": {
         "name": "ams_frame",
@@ -413,6 +509,12 @@ REVIEWED_ASSOCIATION_RATIONALES = {
     ("FUZZ_TARGET_SYNTAX_PARSE", "st_lexer_parser"): "The target sends every valid UTF-8 string decoded from generated bytes through the production Structured Text parser; invalid UTF-8 byte sequences are skipped.",
     ("FUZZ_TARGET_HIR_SEMANTIC", "hir_lowering_input"): "The target exercises HIR semantic queries and invalidation, but it does not establish a complete source-to-runtime lowering path.",
     ("FUZZ_TARGET_HIR_SEMANTIC", "lsp_incremental_edits"): "The target exercises lower-level database edits and re-queries, not LSP ranges, position encoding, or protocol lifecycle.",
+    ("FUZZ_TARGET_HIR_LOWERING", "hir_lowering_input"): "The target sends generated Structured Text through the production source-to-bytecode lowering harness.",
+    ("FUZZ_TARGET_PLCOPEN_XML", "plcopen_xml"): "The target sends bounded arbitrary XML bytes through the production PLCopen import path in an isolated temporary project.",
+    ("FUZZ_TARGET_BYTECODE_CONTAINER", "bytecode_container_instructions"): "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator.",
+    ("FUZZ_TARGET_RUNTIME_CONFIG", "config_files"): "The target sends bounded valid UTF-8 documents through the production runtime configuration parser.",
+    ("FUZZ_TARGET_LSP_INCREMENTAL", "lsp_incremental_edits"): "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation.",
+    ("FUZZ_TARGET_HMI_PAYLOADS", "hmi_schema_payloads"): "The target sends generated JSON values through the production HMI schema, values, and alarms event-state parsers.",
     ("FUZZ_TARGET_ADS_AMS_FRAME", "protocol_payloads"): "The target feeds arbitrary byte slices into AMS frame decoding.",
     ("FUZZ_TARGET_ADS_BOUNDARY_NOOP", "protocol_payloads"): "The target exercises ADS Net ID text/binary conversion and notification payload construction with generated bytes.",
     ("FUZZ_TARGET_ADS_COMMAND_DISPATCH", "protocol_payloads"): "The target sends generated ADS command frames through command dispatch.",
@@ -504,8 +606,8 @@ def validate_fuzz_program_schema_contract(schema: object) -> list[str]:
         if root_properties.get("targets") != {
             "type": "array",
             "items": {"$ref": "#/$defs/target"},
-            "minItems": 11,
-            "maxItems": 11,
+            "minItems": 17,
+            "maxItems": 17,
         }:
             failures.append("fuzz-program schema targets array contract drifted")
     definitions = schema.get("$defs")

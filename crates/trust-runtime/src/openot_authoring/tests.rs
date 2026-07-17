@@ -128,7 +128,6 @@ fn explicit_sourceid_collision_between_programs_is_rejected() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-014"]
 fn hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently() {
     let source = explicit_sourceid_collision_source();
     let hir_errors = hir_openot_error_messages(&source);
@@ -208,7 +207,6 @@ fn hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths()
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-015"]
 fn compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode()
 {
     let source = explicit_sourceid_collision_source();

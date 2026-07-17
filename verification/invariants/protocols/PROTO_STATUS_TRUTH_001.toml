@@ -10,7 +10,10 @@ claim = "Protocol status surfaces must distinguish confirmed protocol behavior, 
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
-tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
+tests = [
+  "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001",
+  "TEST_CONFORMANCE_COMMS_PROJECTION_001",
+]
 gates = ["pr", "hardware_lab"]
 evidence_refs = [
   "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_BASELINE",

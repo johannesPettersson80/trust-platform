@@ -24,7 +24,7 @@ BOUNDARIES = {
     "report_closes_spec_gaps": False,
     "semantic_oracles_assessed": False,
     "live_network_or_hardware_used": False,
-    "p7_002_invariant_mapping_remains_open": True,
+    "p7_002_invariant_mapping_remains_open": False,
     "generated_reports_remain_ci_artifacts": True,
     "public_page_updated": False,
     "runtime_or_product_behavior_changed": False,
@@ -32,8 +32,8 @@ BOUNDARIES = {
 }
 LIMITATIONS = (
     "Catalog associations come only from an exact discovery_id join; names, paths, and prose do not create mappings.",
-    "All current conformance cases are explicitly reported as unlinked; VERIF-P7-002 remains open.",
-    "Coverage-gap rows record missing invariant mappings and do not assess or invent semantic oracles.",
+    "All current conformance cases have explicit catalog discovery-id associations; those associations are not passing proof.",
+    "Coverage-gap rows retain semantic-oracle debt after explicit invariant mapping; they do not assess or invent semantic oracles.",
     "The comms-determinism audit checks the committed scripted in-process case shape; it performs no live socket or hardware execution.",
     "The public conformance page and registered contract source are bound as publication context, not as behavior proof or external conformance certification.",
     "Generated conformance results remain CI artifacts; tracked expected artifacts are inputs, not proof that a case passed in this audit.",

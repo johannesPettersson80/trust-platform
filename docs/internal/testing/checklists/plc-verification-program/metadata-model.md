@@ -1098,13 +1098,12 @@ kind, and digests. Catalog and invariant associations arise only from an exact
 `generated_test.discovery_id` join. Names, paths, descriptions, program text,
 expected output, and lexical reference candidates cannot create mappings.
 
-Zero explicit invariant coverage is a valid report result. It keeps
-`VERIF-P7-002` open and must not be repaired by inventing a broad invariant,
-semantic oracle, or area assignment. The ten v2 categories have explicit
-`coverage_gap` rows that record case/artifact presence, missing invariant
-mapping, and `semantic_oracle_state = "not_assessed"`. These are audit debt
-rows, not registered specification gaps and not evidence that product behavior
-is unspecified.
+Explicit invariant coverage must still come only from exact reviewed catalog
+discovery-ID associations; broad inferred invariants, semantic oracles, and
+area assignments remain forbidden. Once every case in a category has such an
+association, no `coverage_gap` row remains. The association closes mapping
+debt only and is not behavior proof or evidence that product behavior is
+specified.
 
 The communication posture is structural: the single
 `connector_status_trace` case must have eight scripted in-process steps, no

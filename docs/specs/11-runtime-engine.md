@@ -180,9 +180,22 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 - The SINGLE input is sampled from the current variable state; a transition 0 -> 1 enqueues exactly one activation.
 - On task registration, the runtime initializes the previous SINGLE value to avoid a spurious edge on the first cycle.
 - Periodic scheduling uses `Clock::now()` and the task interval (nanosecond Duration).
+- Task readiness and elapsed-time accounting use only the injected monotonic
+  `Clock`; civil wall-clock changes do not make a task ready. If a test clock
+  moves backward, the scheduler records no overrun and does not run the task
+  again until the prior task baseline is reached. A forward discontinuity,
+  including the monotonic interval observed after a host pause, makes a due
+  periodic task run at most once in the current cycle and records the skipped
+  intervals as overruns instead of replaying them. `StdClock` is monotonic;
+  backward steps are a deterministic test/simulation boundary. (DEV-045)
 - Inputs are latched at the start of each scheduler cycle; outputs are committed after all ready tasks complete.
 - The maximum number of tasks per resource and minimum interval resolution are implementer-specific and are reported by the runtime configuration.
 - The resource loop maintains a `RUNNING/FAULT/STOPPED` state and halts on faults.
+
+On Unix, the runtime's graceful-shutdown signal set is exactly `SIGINT` and
+`SIGTERM`. Signals outside that set are not translated into a runtime stop by
+the installed signal source. Their operating-system disposition is outside
+this runtime contract. (DEV-045)
 
 #### 6.3 Timer System
 
@@ -301,6 +314,12 @@ is an unconfirmed safe state. With an empty safe-state configuration, the
 runtime still performs no physical output write as specified in section 6.6.
 When no I/O driver is configured, applying values changes only the in-memory
 process image and makes no physical-delivery claim.
+
+The OPC UA client transport-to-worker event handoff is bounded. When its
+fixed-capacity queue is full, publishing an additional sample, connection, or
+session event returns failure immediately rather than blocking or allocating
+an unbounded queue. After the worker drains pending events, the same sink can
+accept a later event. A rejected event is not claimed delivered. (DEV-045)
 
 ##### Floating-point boundary admission policy
 

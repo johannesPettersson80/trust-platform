@@ -6,7 +6,6 @@ use tracing::{info, warn};
 
 use crate::state::ServerState;
 
-use super::lsp_utils::position_to_offset;
 use super::refresh::refresh_diagnostics;
 
 pub async fn did_open(client: &Client, state: &ServerState, params: DidOpenTextDocumentParams) {
@@ -66,26 +65,25 @@ fn apply_content_changes(
     content: &str,
     changes: &[TextDocumentContentChangeEvent],
 ) -> Option<String> {
-    let mut updated = content.to_string();
-    for change in changes {
-        if let Some(range) = change.range {
-            let start = position_to_offset(&updated, range.start)? as usize;
-            let end = position_to_offset(&updated, range.end)? as usize;
-            if start > end || end > updated.len() {
-                return None;
-            }
-            let mut next = String::with_capacity(
-                updated.len().saturating_sub(end.saturating_sub(start)) + change.text.len(),
-            );
-            next.push_str(&updated[..start]);
-            next.push_str(&change.text);
-            next.push_str(&updated[end..]);
-            updated = next;
-        } else {
-            updated = change.text.clone();
-        }
-    }
-    Some(updated)
+    let changes = changes
+        .iter()
+        .map(|change| trust_lsp::document_text::ContentChange {
+            range: change
+                .range
+                .map(|range| trust_lsp::document_text::DocumentRange {
+                    start: trust_lsp::document_text::DocumentPosition {
+                        line: range.start.line,
+                        character: range.start.character,
+                    },
+                    end: trust_lsp::document_text::DocumentPosition {
+                        line: range.end.line,
+                        character: range.end.character,
+                    },
+                }),
+            text: change.text.clone(),
+        })
+        .collect::<Vec<_>>();
+    trust_lsp::document_text::apply_content_changes(content, &changes)
 }
 
 pub async fn did_save(client: &Client, state: &ServerState, params: DidSaveTextDocumentParams) {

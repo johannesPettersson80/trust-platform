@@ -506,11 +506,10 @@ public suite contract -> category -> manifest -> expected artifact
                                       +-> exact catalog discovery_id -> invariant
 ```
 
-The right-hand link is absent for all 21 current cases. The report must show
-`0/21` explicit invariant coverage and keep `VERIF-P7-002` open; case names,
-descriptions, source text, expected JSON, and lexical candidates cannot fill
-the link. The ten v2 category rows are alignment debt with semantic oracles
-`not_assessed`, not specification-gap records and not behavior proof.
+All 21 current cases now have a reviewed right-hand link through exact catalog
+discovery IDs. Case names, descriptions, source text, expected JSON, and
+lexical candidates still cannot fill the link. The associations close the
+mapping ledger only; they are not specification-gap records or behavior proof.
 
 `SPEC_CONFORMANCE_CONTRACT_001` owns the public category, result, determinism,
 and generated-report contract. It is deliberately `oracle_eligible = false`

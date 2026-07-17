@@ -65,7 +65,7 @@
     "gap_rows": {
       "type": "array",
       "items": { "$ref": "#/$defs/gap" },
-      "minItems": 1
+      "minItems": 0
     },
     "summary": { "$ref": "#/$defs/summary" },
     "limitations": {

@@ -605,6 +605,11 @@ Acceptance:
   Focused local/remote validation, the clean mutation replay, and remote
   `fmt`/`clippy`/`test-all` closure are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-register-closure-validation.md`.
+
+  Current-ledger progress (2026-07-17): six obsolete skips were removed after
+  focused execution or harness review. The live exhaustive join now contains
+  23 observations, all explicitly classified: 15 `perf_soak`, five
+  `lab_required`, and three `manual`; zero remain `unknown`.
 - [ ] `VERIF-P3-006` Fail metadata validation if any ignored test remains
   `unknown` after the grace period defined per `VERIF-P14-000`. This row stays
   open because that grace period does not yet exist; current unknown debt is
@@ -876,7 +881,10 @@ Acceptance:
 
 - [x] `VERIF-P7-001` Keep `conformance/contract.md` as public conformance
   contract.
-- [ ] `VERIF-P7-002` Link conformance cases to invariants.
+- [x] `VERIF-P7-002` Link conformance cases to invariants. All 21 live cases
+  now resolve through exact catalog discovery IDs to reviewed invariant and
+  oracle associations; names, paths, source text, and expected JSON create no
+  mapping, and the links make no passing-proof claim.
 - [x] `VERIF-P7-003` Report conformance categories, case counts, expected
   artifacts, invariant coverage.
 - [x] `VERIF-P7-004` Add gap rows for strings, arrays, structs, enums, nested
@@ -889,11 +897,11 @@ Acceptance:
   The report-only audit at clean source commit
   `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` inventories 16 categories,
   21 manifests, 21 expected artifacts, 19 runtime cases, one compile-error
-  case, one connector-status trace, and 20 program sources. No case has an
-  explicit catalog/invariant mapping, so all 21 remain unlinked and
-  `VERIF-P7-002` stays open. The ten v2 categories have explicit
-  `missing`/`not_assessed`/`open` alignment rows; they are not specification
-  gaps or proof. The scripted communication case has eight in-process steps,
+  case, one connector-status trace, and 20 program sources. All 21 cases now
+  have explicit catalog/invariant mappings. The ten v2 gap rows now record
+  linked mappings while retaining `not_assessed` semantic-oracle debt; the
+  associations are not specification gaps or proof. The scripted
+  communication case has eight in-process steps,
   no program source, and no live-socket dependency under the reviewed runner
   and connector-projection source closures. Generated reports remain CI
   artifacts under the digest-bound conformance job and public-page contract.
@@ -929,22 +937,18 @@ Acceptance:
 
   The report-only audit at clean source commit
   `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` defines the exact 19-class
-  Phase 8 stimulus taxonomy and 38 explicit reviewed Rust-test associations:
-  27 `direct`, eight `partial`, three `context_only`, and zero
-  `protective_red`. Ten classes have a non-ignored direct association, four
-  have only partial, context, or non-runnable associations, and five are
-  unmapped. These associations are not invariant coverage, assessed oracles,
+  Phase 8 stimulus taxonomy and 52 explicit reviewed Rust-test associations:
+  43 `direct`, seven `partial`, two `context_only`, and zero
+  `protective_red`. All 19 classes have a non-ignored direct association.
+  These associations are not invariant coverage, assessed oracles,
   test-catalog mappings, suite results, or proof. Because the live 3,021-fact
   scanner population is not an exhaustive semantic review, `VERIF-P8-002`
   remains open.
 
-  The nine report gap rows are `queue_full`, `bad_signal`,
-  `partial_web_request`, `disk_error`, `clock_step`,
-  `monotonic_wall_clock_divergence`, `suspend_resume`,
-  `timer_duration_overflow`, and `allocation_failure_oom`: four are
-  `mapped_non_runnable_or_partial` and five are `unmapped`. They are test-gap
-  rows under the explicit association basis, not new specification gaps or a
-  claim that no repository test exists. Primary planned tiers are nine `pr`,
+  The report now contains zero class-level test-gap rows under its explicit
+  association basis. This is not a claim that the repository-wide
+  runtime-safety scanner denominator has been exhaustively reviewed. Primary
+  planned tiers are nine `pr`,
   eight `nightly`, two `release`, and zero `hardware_lab`; conditional tier
   occurrences are eight `nightly`, fourteen `release`, and three
   `hardware_lab`. No suite command was wired or executed by the audit.
@@ -966,21 +970,19 @@ Acceptance:
 ## Phase 9 - Fuzz and Malformed Input Program
 
 - [x] `VERIF-P9-001` Inventory fuzz targets and fuzz-like smoke tests. The
-  exact bidirectional live join contains eleven executable facts: five targets
+  exact bidirectional live join contains seventeen executable facts: eleven targets
   from two tracked cargo-fuzz manifests and six production Rust-scanner
   fuzz/property smokes. The three ADS targets are Phase 9 facts only; the
   historical Phase 2 scanner denominator is unchanged.
 - [x] `VERIF-P9-002` Define required fuzz surfaces: ST lexer/parser,
   HIR/lowering input, PLCopen XML, bytecode container/instructions, protocol
-  payloads, config files, LSP incremental edits, HMI schema payloads. Twelve
-  exact reviewed associations derive two `cargo_fuzz_target`, one `smoke_only`,
-  two `partial_only`, and three `unmapped` surfaces. Six of eight surfaces
-  remain report gaps; associations create no oracle, invariant coverage, or
-  proof.
+  payloads, config files, LSP incremental edits, HMI schema payloads. Eighteen
+  exact reviewed associations give every surface a direct cargo-fuzz target;
+  associations create no oracle, invariant coverage, or proof.
 - [x] `VERIF-P9-003` Classify each fuzz target as PR-smoke, nightly, or manual
-  extended. Primary tiers are seven `pr_smoke`, one `nightly`, and three
+  extended. Primary tiers are seven `pr_smoke`, one `nightly`, and nine
   `manual_extended`; only the two root cargo-fuzz targets also name `nightly`.
-  Enforcement is seven `wired`, one `planned`, and three `manual_only`.
+  Enforcement is seven `wired`, one `planned`, and nine `manual_only`.
   Required execution claims bind raw reviewed script/workflow bytes, script
   modes, unique workflow trigger/job blocks, effective Cargo default members,
   and `not_ignored` Rust facts. This row adds no CI or suite wiring and records
@@ -1001,7 +1003,7 @@ Acceptance:
   `5bde7a684d85e4f660d8445436fa5e5151646210e8d10fc290fe57c9d7211de2`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md`.
-  It records eleven targets, eight surfaces, six gaps, no campaign, no proof or
+  It records seventeen targets, eight surfaces, zero gaps, no campaign, no proof or
   invariant coverage, no spec-gap closure, no product/runtime behavior change,
   and no CI enforcement change.
 
@@ -1551,10 +1553,18 @@ same commit, with the closure evidence linked.
   fourteen is promoted to G2 or `validated`.
 - [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
-  rationale); unmapped test debt mapped or retired; the three unfuzzed
-  surfaces get fuzz targets and the crash-to-regression ledger closes
+  rationale); unmapped test debt mapped or retired; every incomplete fuzz
+  surface gets a cargo-fuzz target and the crash-to-regression ledger closes
   `VERIF-P9-005`; conformance clause links close `VERIF-P7-002`; the
   anomaly denominator closes `VERIF-P8-002`.
+
+  Non-catalog ledger progress (2026-07-17): conformance is explicitly linked
+  21/21 and `VERIF-P7-002` is closed; ignored-test unknown debt is zero; all
+  eight fuzz surfaces have direct cargo-fuzz targets; and all 19 anomaly
+  classes have at least one runnable direct test association. This row remains
+  open for the deliberately deferred full test-catalog denominator,
+  crash-to-regression registry, and exhaustive runtime-safety nonmapping
+  review required by `VERIF-P8-002`.
 - [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
   CI as required gates (report-only posture ends); a red verification
   suite must block merge. Then complete Phase 15 skill sync so the
