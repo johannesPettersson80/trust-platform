@@ -1,24 +1,24 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v2`
-Source revision: `fac00d48c2030553e6d39fc8af231fe24ae8790a`
-Generated: `2026-07-18T12:15:00+02:00`
+Source revision: `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`
+Generated: `2026-07-18T17:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `3dbd561d023fa8862d3f32962c24df378fc87986e8e9d0a01e1e6d3fd0d849dc`
-Input SHA-256: `sha256:22938e7c72cafcad958d467608e5ca511aeee1a3f188987d06dc3a041dfc606c`
+Generated JSON SHA-256: `5aee8882e0f7aeef7b7692ca2a7594dba1a230c0d0d9e7873b2d9455edce84f0`
+Input SHA-256: `sha256:9da1516e25c9ac1ddce9f3403788600393cf71451a3b66c3d0a079267fd1582e`
 
 `complete` means the source inventory, exact catalog subtraction, and
 reviewed mapped/nonmapping denominator partition all succeeded.
 
 ## Summary
 
-- Scanner facts: 4023
-- Mapped scanner facts: 241
-- Unmapped scanner facts: 3782
-- Reviewed nonmapping facts: 3782
+- Scanner facts: 4035
+- Mapped scanner facts: 254
+- Unmapped scanner facts: 3781
+- Reviewed nonmapping facts: 3781
 - Unreviewed scanner facts: 0
-- Denominator review SHA-256: `sha256:42def5a36e54b5ea791c0d268fe2e4f969e32bc52f389c0d0fe88615e77256f3`
-- Generated-test catalog rows: 241
+- Denominator review SHA-256: `sha256:d997c825ed440ccf7981ea82a5f23a9bd3b06dd5fbfd8027bd189bc7288d4ae0`
+- Generated-test catalog rows: 254
 - Artifact catalog rows: 8
 - Ignored unmapped facts: 23
 - Conditional unmapped facts: 0
@@ -30,10 +30,10 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `fuzz_target` | 8 | 0 | 8 |
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
-| `rust_integration_test` | 1484 | 158 | 1326 |
-| `rust_unit_test` | 1736 | 62 | 1674 |
+| `rust_integration_test` | 1488 | 163 | 1325 |
+| `rust_unit_test` | 1741 | 67 | 1674 |
 | `structured_text_test` | 257 | 0 | 257 |
-| `vscode_test` | 458 | 0 | 458 |
+| `vscode_test` | 461 | 3 | 458 |
 
 ## Unmapped Scanner Facts
 
@@ -927,7 +927,6 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_A4A87F179D0CC41E298C` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_client_runtime.rs` | `opcua_client_accepts_vs_code_global_var_names` | `not_ignored` |
 | `DISC_C43441A87579223BDF23` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_client_runtime.rs` | `opcua_client_subscription_api_surface_is_available_for_phase3_worker` | `not_ignored` |
 | `DISC_6847FE4C45F88000E0B4` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_integration.rs` | `opcua_interop_reads_exposed_scalars_with_reference_client` | `not_ignored` |
-| `DISC_0B389C90C64C72480934` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_integration.rs` | `opcua_load_fixture_covers_browse_read_write_cycle` | `not_ignored` |
 | `DISC_B45DE574A2218F802B88` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_integration.rs` | `opcua_security_enforces_user_auth_and_certificate_trust` | `not_ignored` |
 | `DISC_6236F0B25551D48929F7` | `rust_integration_test` | `crates/trust-runtime/tests/opcua_integration.rs` | `opcua_server_cold_starts_before_first_runtime_snapshot` | `not_ignored` |
 | `DISC_7F7F305082D2D125BF56` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs` | `openot_capstone_consumer_process` | `ignored` |

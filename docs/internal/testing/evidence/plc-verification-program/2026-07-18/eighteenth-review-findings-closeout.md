@@ -37,6 +37,10 @@ perform the `VERIF-P16-007` enforcement flip.
   cross-file rename command exited zero while selecting zero tests. The command
   now includes the module-qualified test name and executes exactly one test
   (`f95d004e`).
+- Report regeneration failed closed on a stale OPC UA runtime-anomaly identity
+  and then exposed nine unreviewed Rust facts. The denominator now partitions
+  all 3,229 facts into 135 explicit associations and 3,094 reviewed
+  non-mappings, with zero unreviewed facts (`7f8451df`).
 
 ## Real VS Code evidence
 
@@ -82,6 +86,10 @@ proof of the expanded test sets.
 - Initial capture attempts that failed due to generated-harness escaping and
   nested-webview message isolation were infrastructure-only and produced no
   product-test failure.
+- All fifteen generated report pairs reproduced from clean source revision
+  `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`; all fifteen at-rest validators
+  passed against the canonical copies. Digests and substantive counts are in
+  `eighteenth-review-report-rebind.md`.
 - Final metadata, report reproduction, runtime verticals, `just fmt`,
   `just clippy`, and `just test-all` are recorded in the follow-up evidence commit
   after the final clean implementation checkpoint.

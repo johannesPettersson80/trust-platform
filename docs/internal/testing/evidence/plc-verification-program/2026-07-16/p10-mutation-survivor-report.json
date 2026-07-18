@@ -12,13 +12,13 @@
     "python3",
     "scripts/report_mutation_program.py",
     "--json-out",
-    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json",
+    "target/gate-artifacts/verification/mutation-survivor-report.json",
     "--markdown-out",
-    "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
+    "target/gate-artifacts/verification/mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-18T12:15:00+02:00"
+    "2026-07-18T17:30:00+02:00"
   ],
-  "commit": "fac00d48c2030553e6d39fc8af231fe24ae8790a",
+  "commit": "7f8451df3c6b6ff39df0531c49d778f20ab8d8bb",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:40935aed8c25a703360d33358404e0cb985e29d0b2838c9e25da0f8bb38a9a1d",
+  "input_digest": "sha256:9d849b95611606a9e247f2ec412d29f2ac620c4e2bba1a08ed18932a71193dc5",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -2083,8 +2083,8 @@
     "The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation."
   ],
   "output_paths": {
-    "json": "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json",
-    "markdown": "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md"
+    "json": "target/gate-artifacts/verification/mutation-survivor-report.json",
+    "markdown": "target/gate-artifacts/verification/mutation-survivor-report.md"
   },
   "platform": "linux-x86_64",
   "report_status": "complete",
@@ -2793,7 +2793,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-18T12:15:00+02:00",
+  "timestamp": "2026-07-18T17:30:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",

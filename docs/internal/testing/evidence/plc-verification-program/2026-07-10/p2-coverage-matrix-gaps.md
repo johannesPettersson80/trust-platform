@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `fac00d48c2030553e6d39fc8af231fe24ae8790a`
-Generated: `2026-07-18T12:15:00+02:00`
+Source revision: `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`
+Generated: `2026-07-18T17:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `b534c10829f5314df70cbcc07a24d0c65ce0c6d203866ff98494e05c9173b60d`
-Input SHA-256: `sha256:2485405ac3edd5901013129957ee31d95191b310ae0799774fae67579a4d9384`
+Generated JSON SHA-256: `361e7f02f73ac3e3346187e10ddbffeaa53695279b4bde9d18c399e617f3800c`
+Input SHA-256: `sha256:c0ae2c42398a7d785d5cdad44da6b1cb1e83f2f08d4cf390f8876af8986dc8e9`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -28,12 +28,12 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 64 |
+| `covered` | 63 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
 | `spec_gap` | 0 |
-| `gap_open` | 5 |
+| `gap_open` | 6 |
 | `deferred` | 0 |
 
 ## Area: `bytecode_vm`
@@ -276,7 +276,7 @@ Required families: none
 
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
-| `ordering_or_lifecycle` | `additional_recorded` | `covered` | none | none |
+| `ordering_or_lifecycle` | `additional_recorded` | `gap_open` | none | none |
 
 ## Area: `plcopen_devtools`
 

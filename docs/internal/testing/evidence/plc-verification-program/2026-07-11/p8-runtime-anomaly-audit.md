@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v2`
-Source revision: `fac00d48c2030553e6d39fc8af231fe24ae8790a`
-Generated: `2026-07-18T12:15:00+02:00`
+Source revision: `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`
+Generated: `2026-07-18T17:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `109ea22d2bdbac10dcf6cb7e8c63f832390143fe4a3b56dbf0197829a4ec1f30`
-Input SHA-256: `sha256:6c560e2a5f0d2a1aa2cd0eca366f2ad291abd9a1ab0943b4f2023cefa6aa1994`
+Generated JSON SHA-256: `495c4b9495ff0cb6dfe40e8510da59833652661a4400659e93f083cee32bffc1`
+Input SHA-256: `sha256:00fdd79848afea16070c67ca9a27341f947f17ccbad9d864ca05589d2f0b0f0c`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -14,12 +14,12 @@ It executes no fault and creates no proof or invariant coverage.
 ## Summary
 
 - Taxonomy classes: 19
-- Explicit mapping records: 133
-- Live Rust scanner facts: 3220
-- Denominator mapped facts: 133
-- Denominator reviewed-nonmapping facts: 3087
-- Denominator review SHA-256: `sha256:fb44c8af3c1727e63b99248acfabb8d0b42ffde21059ba25d8d041e241419cb3`
-- Effectively runnable direct mappings: 123
+- Explicit mapping records: 135
+- Live Rust scanner facts: 3229
+- Denominator mapped facts: 135
+- Denominator reviewed-nonmapping facts: 3094
+- Denominator review SHA-256: `sha256:858eea0b83da01498246deb373cfb43011d09010f31c9c4965b5ee7e709dc6fb`
+- Effectively runnable direct mappings: 125
 - Ignored or conditional mappings: 1
 - Gap classes: 0
 
@@ -30,7 +30,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `panic` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_PANIC_001`, `ANOM_MAP_PANIC_002`, `ANOM_MAP_PANIC_003`, `ANOM_MAP_PANIC_004`, `ANOM_MAP_PANIC_REVIEW_38786723`, `ANOM_MAP_PANIC_REVIEW_40F97415`, `ANOM_MAP_PANIC_REVIEW_9E4578A3`, `ANOM_MAP_PANIC_REVIEW_FA45370D` | none |
 | `timeout` | `mapped_runnable` | `pr` | `nightly` | `ANOM_MAP_TIMEOUT_001`, `ANOM_MAP_TIMEOUT_002`, `ANOM_MAP_TIMEOUT_REVIEW_0FF9C29E`, `ANOM_MAP_TIMEOUT_REVIEW_4C97001E`, `ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4` | `ANOM_MAP_TIMEOUT_003` |
 | `deadline` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_DEADLINE_001`, `ANOM_MAP_DEADLINE_002`, `ANOM_MAP_DEADLINE_003`, `ANOM_MAP_DEADLINE_REVIEW_03FF4321`, `ANOM_MAP_DEADLINE_REVIEW_2588D30B`, `ANOM_MAP_DEADLINE_REVIEW_3605DE35`, `ANOM_MAP_DEADLINE_REVIEW_A5CEFA4B`, `ANOM_MAP_DEADLINE_REVIEW_E918297B`, `ANOM_MAP_DEADLINE_REVIEW_F36273CB`, `ANOM_MAP_DEADLINE_REVIEW_F78A6E2D`, `ANOM_MAP_DEADLINE_REVIEW_F9E7F4D4`, `ANOM_MAP_DEADLINE_REVIEW_FFEEE9C4` | none |
-| `watchdog` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_WATCHDOG_001`, `ANOM_MAP_WATCHDOG_002`, `ANOM_MAP_WATCHDOG_003`, `ANOM_MAP_WATCHDOG_REVIEW_08B99942`, `ANOM_MAP_WATCHDOG_REVIEW_9102EFEE`, `ANOM_MAP_WATCHDOG_REVIEW_913C5C99`, `ANOM_MAP_WATCHDOG_REVIEW_C5ABDD0A`, `ANOM_MAP_WATCHDOG_REVIEW_D66DF67B`, `ANOM_MAP_WATCHDOG_REVIEW_DAB2FA44` | none |
+| `watchdog` | `mapped_runnable` | `pr` | `nightly`, `release` | `ANOM_MAP_WATCHDOG_001`, `ANOM_MAP_WATCHDOG_002`, `ANOM_MAP_WATCHDOG_003`, `ANOM_MAP_WATCHDOG_004`, `ANOM_MAP_WATCHDOG_REVIEW_08B99942`, `ANOM_MAP_WATCHDOG_REVIEW_9102EFEE`, `ANOM_MAP_WATCHDOG_REVIEW_913C5C99`, `ANOM_MAP_WATCHDOG_REVIEW_C5ABDD0A`, `ANOM_MAP_WATCHDOG_REVIEW_D66DF67B`, `ANOM_MAP_WATCHDOG_REVIEW_DAB2FA44` | none |
 | `slow_device` | `mapped_runnable` | `nightly` | `release`, `hardware_lab` | `ANOM_MAP_SLOW_DEVICE_001`, `ANOM_MAP_SLOW_DEVICE_002`, `ANOM_MAP_SLOW_DEVICE_REVIEW_9CFB4226`, `ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A` | `ANOM_MAP_SLOW_DEVICE_003` |
 | `disconnect` | `mapped_runnable` | `nightly` | `release`, `hardware_lab` | `ANOM_MAP_DISCONNECT_001`, `ANOM_MAP_DISCONNECT_002`, `ANOM_MAP_DISCONNECT_REVIEW_292EA5BC`, `ANOM_MAP_DISCONNECT_REVIEW_3F7971AD`, `ANOM_MAP_DISCONNECT_REVIEW_60892A74`, `ANOM_MAP_DISCONNECT_REVIEW_682836D2`, `ANOM_MAP_DISCONNECT_REVIEW_6C2E3DC5`, `ANOM_MAP_DISCONNECT_REVIEW_72DDC249`, `ANOM_MAP_DISCONNECT_REVIEW_AB7C9A1D`, `ANOM_MAP_DISCONNECT_REVIEW_AB9EB582` | `ANOM_MAP_DISCONNECT_003`, `ANOM_MAP_DISCONNECT_REVIEW_935418D6` |
 | `queue_full` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_QUEUE_FULL_OPCUA_001` | `ANOM_MAP_QUEUE_FULL_001`, `ANOM_MAP_QUEUE_FULL_002` |
@@ -44,7 +44,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `clock_step` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_CLOCK_STEP_SCHEDULER_003` | `ANOM_MAP_CLOCK_STEP_001`, `ANOM_MAP_CLOCK_STEP_002` |
 | `monotonic_wall_clock_divergence` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_MONOTONIC_WALL_DIVERGENCE_001` | none |
 | `suspend_resume` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_SUSPEND_RESUME_COALESCE_001` | none |
-| `timer_duration_overflow` | `mapped_runnable` | `pr` | `release` | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001` | none |
+| `timer_duration_overflow` | `mapped_runnable` | `pr` | `release` | `ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001`, `ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001` | none |
 | `allocation_failure_oom` | `mapped_runnable` | `nightly` | `release` | `ANOM_MAP_ALLOCATION_FAILURE_BOUNDS_001`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_01A4060E`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_5815D217`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_5BFE0DC6`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_67A48271`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_8051C670`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_A409C1E1`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_B2E06B11`, `ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_B5D2ECF1` | none |
 
 ## Explicit Associations
@@ -172,12 +172,14 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_TIMEOUT_REVIEW_0FF9C29E` | `timeout` | `DISC_5A83D1A380180FF9C29E` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_REVIEW_4C97001E` | `timeout` | `DISC_3FD9DCA298624C97001E` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4` | `timeout` | `DISC_EB106B12C640EB64DFF4` | `direct` | `not_ignored` | `true` | `external_harness` |
+| `ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001` | `timer_duration_overflow` | `DISC_33E5D40504EBC4C32030` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001` | `timer_duration_overflow` | `DISC_DA4DF0247AD9823BF96F` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001` | `timer_duration_overflow` | `DISC_93D5E86E7CF67A1A5AAE` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001` | `timer_duration_overflow` | `DISC_FF77A462527037C6EEA8` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_WATCHDOG_001` | `watchdog` | `DISC_C101BBAEC06311987C74` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_002` | `watchdog` | `DISC_3EFD5D5E736CB0C47DD6` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_003` | `watchdog` | `DISC_8BAF8461F95A94A773A6` | `direct` | `not_ignored` | `true` | `test_harness` |
+| `ANOM_MAP_WATCHDOG_004` | `watchdog` | `DISC_753F27F0D2AE25935D15` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_REVIEW_08B99942` | `watchdog` | `DISC_8B901DEF0D4408B99942` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_REVIEW_9102EFEE` | `watchdog` | `DISC_F6F3665F8B379102EFEE` | `direct` | `not_ignored` | `true` | `test_harness` |
 | `ANOM_MAP_WATCHDOG_REVIEW_913C5C99` | `watchdog` | `DISC_4E0EFE2F6CE2913C5C99` | `direct` | `not_ignored` | `true` | `test_harness` |
