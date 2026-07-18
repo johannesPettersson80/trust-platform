@@ -30,7 +30,6 @@ from .test_catalog_common import input_digest
 INPUT_PATHS = {
     ".github/workflows/protocol-device-in-loop.yml",
     "crates/trust-runtime/tests/device_in_the_loop.rs",
-    "docs/internal/testing/checklists/plc-verification-program/implementation-board.md",
     "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md",
     "docs/specs/24-release-evidence.md",
     "examples/communication/gpio/README.md",
