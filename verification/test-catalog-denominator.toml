@@ -1782,16 +1782,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_0B389C90C64C72480934"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/opcua_integration.rs"
-name = "opcua_load_fixture_covers_browse_read_write_cycle"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_0B4466D1F550FB760DB7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/tests.rs"
@@ -4272,6 +4262,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1A7D8ACCA29EBED677D5"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/connector-status-contract.test.ts"
+name = "keeps peer topology and reports invalid connector vocabulary"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_1A7FBD5D70961E458BE7"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/modbus_driver.rs"
@@ -4489,6 +4489,16 @@ name = "definition_references_and_rename_work_with_plain_demo_uris"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_1B9D15A301C7C51836EE"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/connector-status-contract.test.ts"
+name = "rejects unknown discovery confidence instead of projecting a peer"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -7052,6 +7062,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2B1117F165B0C1537F1C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/sync.rs"
+name = "apply_content_changes_reports_out_of_bounds_line_for_full_resync"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_LSP_INVALID_CHANGE_RANGE_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_2B25F571548B9C0CD445"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion/src/tests.st"
@@ -8659,6 +8679,16 @@ name = "debug_behavior_lock_trace_cases"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_33E5D40504EBC4C32030"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "simulation_time_advance_saturates_at_duration_limit"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -14372,6 +14402,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_5B6112AAFB09A8DF21E2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/opcua_integration.rs"
+name = "opcua_load_fixture_rejects_writes_to_snapshot_backed_variables"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_5B6A847B671D780BCDBF"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
@@ -18572,6 +18612,16 @@ reason_code = "fuzz_program_owned"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_753F27F0D2AE25935D15"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_partial_safe_state_preserves_unconfigured_committed_outputs"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_7562CCA90C067C1A1165"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/23_control_modules/tests.st"
@@ -20342,6 +20392,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8194B9D99740A75BF56A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/commit.rs"
+name = "commit_rechecks_in_scope_staging_after_initial_collision_check"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_COMMIT_SCOPE_RACE_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_8195EB0C9952F58F0A13"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_02.rs"
@@ -21039,6 +21099,16 @@ name = "credential_channel_classification_enforces_secret_boundary"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_866F15B7F36E0FD00D03"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/stdlib_conv_full.rs"
+name = "real_conversions_reject_synthesized_non_finite_results"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -24899,6 +24969,16 @@ name = "test_array_type"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9F8BEB8B094DF535B91A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/state/mod.rs"
+name = "closing_document_cancels_in_flight_semantic_requests"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_DIDCLOSE_CACHE_RACE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -32802,6 +32882,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D17425F1AB882935FEFD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/tests/formatting_and_navigation.rs"
+name = "lsp_range_formatting_uses_shared_bare_cr_line_model"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_LSP_BARE_CR_RANGE_FORMAT_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_D186E0054EA8B270621D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
@@ -34712,6 +34802,16 @@ reason_code = "fuzz_program_owned"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DEDE357A8451BC63D1D2"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "buildCanvasGraph renders peer topology failures without hiding the local view"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_DEFB3533B646090DEA05"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
@@ -34989,6 +35089,16 @@ name = "using_ambiguous_name_reports_cannot_resolve_without_choosing_candidate"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E0978319FCFE9AACEA7C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/commit.rs"
+name = "project_scope_rejects_missing_and_outside_repository_paths"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -37539,6 +37649,16 @@ name = "ads_route_plan_control_request_returns_runtime_identity_artifacts"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EF7733E7E189B8A906F5"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
+name = "test_rename_refuses_cross_file_struct_field_collision_from_use_site"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]

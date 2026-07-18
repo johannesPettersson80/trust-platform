@@ -809,6 +809,16 @@ subnormal underflow, signed zero, explicit conversions, or domain behavior for
 other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
 Table 10 footnote e; DEV-043)
 
+#### 6.7 Non-finite REAL conversion results
+
+Explicit numeric, text, and bit-transfer conversions whose destination is
+`REAL` or `LREAL` accept a result only when it is finite in the destination
+representation. Narrowing overflow, non-finite text, and IEEE bit patterns for
+NaN or either infinity return `RuntimeError::Overflow` before the destination
+is stored. Finite values, including signed zero and subnormal values, remain
+valid. This is the reviewed truST safety policy recorded by `DEV-053`; IEC
+61131-3 does not prescribe this runtime fault surface.
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION
@@ -1210,6 +1220,13 @@ pub enum OverflowBehavior {
 ### 11. Testing API
 
 #### 11.1 Test Harness
+
+##### Simulation clock overflow
+
+Explicit simulation-time advancement saturates at the signed nanosecond bounds.
+It must not panic, wrap, or make the test clock move backward. This policy is a
+deterministic harness contract and does not alter production monotonic-clock
+behavior.
 
 ```rust
 /// Test harness for PLC code unit testing.
