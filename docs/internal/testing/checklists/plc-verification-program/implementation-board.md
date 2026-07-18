@@ -802,12 +802,26 @@ Acceptance:
   `missing_oracle` rule and live governance checker. The current metadata has
   zero high-risk invariants without an eligible oracle; a focused fixture
   proves an overdue missing-oracle record fails closed.
-- [ ] `VERIF-P6-008` Add forward traceability report:
+- [x] `VERIF-P6-008` Add forward traceability report:
   spec source -> invariant -> test -> suite/gate -> evidence -> public claim.
-- [ ] `VERIF-P6-009` Add reverse traceability report:
+- [x] `VERIF-P6-009` Add reverse traceability report:
   public claim -> evidence -> suite/gate -> test -> invariant -> spec source.
-- [ ] `VERIF-P6-010` Add report for orphan specs, orphan tests, orphan
+- [x] `VERIF-P6-010` Add report for orphan specs, orphan tests, orphan
   invariants, orphan public claims, and orphan evidence.
+
+  Closed 2026-07-19 by the Phase 6 v2 report at clean source
+  `7e6fbf20e5a63decfa487afdb27dc83ba868b345`. The forward denominator is all
+  55 invariants and all 55 reach explicit source, test, suite, and evidence
+  identifiers. The reverse denominator is all four registered public claims;
+  all four reach explicitly associated invariants, tests, suites, and evidence.
+  The orphan ledger exhaustively partitions all registered metadata and reports
+  38 spec sources and 73 evidence records without qualifying links, with zero
+  orphan tests, invariants, or registered public claims. These are visible
+  metadata debts, not inferred defects or proof. Names, paths, titles, and prose
+  cannot create trace edges. Generated JSON SHA-256:
+  `b6f6e197c7ab7adc2d59fd1b9847e6050b4b46aa801bff46e15f74c14f797667`.
+  Durable report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-19/p6-requirement-oracle-traceability.md`.
 
   The report-only audit was generated from clean source commit
   `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9`. Generated JSON SHA-256:
