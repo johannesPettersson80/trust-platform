@@ -1,4 +1,4 @@
-"""Report-only guard for Phase 16 product changes and standing rows."""
+"""Phase 16 product-change readiness and standing-row guard."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def is_product_path(path: str) -> bool:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Check the report-only Phase 16 product-change fence."
+        description="Check the Phase 16 product-change readiness fence."
     )
     parser.add_argument("--board", default=str(ROOT / BOARD_PATH))
     parser.add_argument("--changed-file", action="append", default=[])
@@ -117,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(
         "Phase 16 readiness validated: "
-        f"{len(args.changed_file)} changed paths; product fence report-only"
+        f"{len(args.changed_file)} changed paths; product fence ready"
     )
     return 0
 

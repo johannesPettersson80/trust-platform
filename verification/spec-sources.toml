@@ -700,3 +700,28 @@ known_limitations = [
   "This record cannot serve as an oracle until a separate reviewed availability and content-binding mechanism exists.",
 ]
 conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+title = "PLC verification metadata and execution contract"
+area = "verification"
+owner = "verification"
+status = "mapped"
+authority = "reviewed_decision"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/internal/testing/checklists/plc-verification-program/metadata-model.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = [
+  "verification_metadata_contract",
+  "case_proof_contract",
+  "ci_report_gate_contract",
+]
+known_limitations = [
+  "The contract validates verification metadata and evidence integrity; it does not independently prove product behavior.",
+]
+conflicts_with = []

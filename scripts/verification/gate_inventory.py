@@ -228,7 +228,7 @@ def validate_gate_inventory(
     _validate_catalog_command_sources(root, normalized, failures)
     _validate_workflow_artifact_sources(root, normalized, failures)
     _validate_hardware_source_contract(root, normalized, failures)
-    _validate_report_only_source_contract(root, normalized, failures)
+    _validate_verification_workflow_source_contract(root, normalized, failures)
     return _finish(root, sorted(set(failures)), on_failure)
 
 
@@ -539,11 +539,15 @@ def _workflow_job_block(root: Path, record: Mapping[str, Any]) -> str | None:
     path = root / path_value
     if path.is_symlink() or not path.is_file():
         return None
-    job_id = command.rsplit("#", 1)[1]
     try:
-        lines = path.read_text().splitlines()
+        workflow = path.read_text()
     except (OSError, UnicodeError):
         return None
+    return _workflow_job_block_text(workflow, command.rsplit("#", 1)[1])
+
+
+def _workflow_job_block_text(workflow: str, job_id: str) -> str | None:
+    lines = workflow.splitlines()
     start = next(
         (
             index
@@ -622,45 +626,56 @@ def _validate_hardware_source_contract(
             )
 
 
-def _validate_report_only_source_contract(
+def _validate_verification_workflow_source_contract(
     root: Path,
     records: Mapping[str, dict[str, Any]],
     failures: list[str],
+    *,
+    workflow_text: str | None = None,
 ) -> None:
     record = records.get("GATE_JOB_VERIFICATION_REPORT")
     if record is None:
         return
-    block = _workflow_job_block(root, record)
     path_value = record.get("path")
     path = root / path_value if isinstance(path_value, str) else None
-    try:
-        workflow = path.read_text() if path is not None else ""
-    except (OSError, UnicodeError):
-        workflow = ""
+    if workflow_text is None:
+        try:
+            workflow = path.read_text() if path is not None else ""
+        except (OSError, UnicodeError):
+            workflow = ""
+    else:
+        workflow = workflow_text
+    command = record.get("command")
+    block = (
+        _workflow_job_block_text(workflow, command.rsplit("#", 1)[1])
+        if isinstance(command, str) and "#" in command
+        else None
+    )
     if not re.search(r"(?m)^permissions:\n  contents: read\n\njobs:\n", workflow):
         failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: report-only workflow must retain read-only permissions"
+            "GATE_JOB_VERIFICATION_REPORT: verification workflow must retain read-only permissions"
         )
     if block is None:
         failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: report-only workflow source cannot be resolved"
+            "GATE_JOB_VERIFICATION_REPORT: verification workflow source cannot be resolved"
         )
         return
-    if "--strict" in block:
+    if "--strict" not in block:
         failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: report-only workflow must not pass --strict"
+            "GATE_JOB_VERIFICATION_REPORT: enforcing workflow must pass --strict"
         )
     expected = (
         "python3 scripts/verification_report_gate.py \\",
         '--base "${BASE_SHA}" \\',
         '--head "${HEAD_SHA}" \\',
         "--intent bugfix \\",
+        "--strict \\",
         "--out-dir target/gate-artifacts/verification",
     )
     invocation = _continued_command(block, "python3 scripts/verification_report_gate.py")
     if invocation != expected:
         failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: report-only workflow invocation drifts from the reviewed command"
+            "GATE_JOB_VERIFICATION_REPORT: enforcing workflow invocation drifts from the reviewed command"
         )
 
 

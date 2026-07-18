@@ -15,7 +15,7 @@ GENERATOR_VERSION = 1
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/phase5-suite-audit.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/phase5-suite-audit.md")
 BOUNDARIES = {
-    "report_only_enforcement_unchanged": True,
+    "verification_gate_enforcing": True,
     "report_emits_proof": False,
     "report_closes_spec_gaps": False,
     "suite_includes_interpreted": False,
@@ -24,7 +24,7 @@ BOUNDARIES = {
 LIMITATIONS = (
     "This report maps existing verification surfaces; the generator emits no behavior proof and closes no specification gap.",
     "Suite includes and excludes are displayed but not interpreted; VERIF-P14-000B still owns composition semantics.",
-    "Report-only and planned inventory rows remain non-enforcing; this report changes no workflow or CI setting.",
+    "The changed-file verification job is enforcing; other report-only and planned inventory rows remain non-enforcing. This audit itself changes no workflow.",
     "VERIF-P5-000B is live-validated from the board but excluded from the source digest because board/evidence follow-up is mutable.",
 )
 

@@ -54,7 +54,7 @@ class Phase5AuditReportTests(unittest.TestCase):
         )
         self.assertEqual(
             {
-                "report_only_enforcement_unchanged": True,
+                "verification_gate_enforcing": True,
                 "report_emits_proof": False,
                 "report_closes_spec_gaps": False,
                 "suite_includes_interpreted": False,
@@ -72,7 +72,7 @@ class Phase5AuditReportTests(unittest.TestCase):
         self.assertEqual(29, summary["taxonomy_routes"])
         self.assertEqual(11, summary["canonical_areas"])
         self.assertEqual(
-            {"assigned": 50, "excluded": 8, "report_only": 2, "supporting": 2},
+            {"assigned": 51, "excluded": 8, "report_only": 1, "supporting": 2},
             keyed_counts(summary["by_disposition"]),
         )
 
@@ -86,7 +86,7 @@ class Phase5AuditReportTests(unittest.TestCase):
             (
                 "boundary",
                 lambda p: p["boundaries"].update(report_emits_proof=True),
-                "non-enforcement boundary contract",
+                "Phase 5 enforcement boundary contract",
             ),
             ("summary", lambda p: p["summary"].update(inventory_records=60), "summary does not match"),
         )

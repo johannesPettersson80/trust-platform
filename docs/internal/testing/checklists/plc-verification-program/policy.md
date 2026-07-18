@@ -74,10 +74,12 @@ characterization or behavior-lock work, never turned into an artificial red.
   protective test before implementation. Refactor-only work requires
   behavior-lock tests before editing. Uncertain claims require debug/reproduce
   evidence before the test is written.
-- [ ] `VERIF-STOP-012` Do not update Codex skills or repo agent instructions to
+- [x] `VERIF-STOP-012` Do not update Codex skills or repo agent instructions to
   mandate this workflow until the verification program is implemented and
   validated. Before implementation, skills may point to this document set as a
-  draft only.
+  draft only. Closed atomically with `VERIF-P16-007` after the implemented
+  workflow, burn-in ratchets, independent authorization, and enforcing CI gate
+  were all present; the mandate does not predate enforcement.
 - [ ] `VERIF-STOP-013` Do not invent expected behavior inside a test when the
   product/specification contract is missing or ambiguous. Mark the invariant
   `spec_gap`, record the question, update the owning specification or decision

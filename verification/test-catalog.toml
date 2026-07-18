@@ -1,7 +1,7 @@
 # Hand-owned test catalog metadata.
-# Planned P1B case-table rows pin generated planning artifacts only. They are
-# not runnable proof and must not satisfy behavior coverage until P1B-007/008
-# add the case runner and prove.py evidence path.
+# Case-table rows pin generated planning artifacts and their active oracles.
+# They validate metadata deterministically but do not become product proof
+# without producer-authentic run evidence through the cataloged case runner.
 
 [[tests]]
 schema_version = 2
@@ -12,8 +12,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_SUBRANGE_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_SUBRANGE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant with oracle-backed inclusive bounds, both out-of-range edges, and wrong-type rejection."
 expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or a bounded-value case loses its reviewed oracle."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001.json"
@@ -442,8 +443,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_DECLARED_TYPE_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_DECLARED_TYPE_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant with oracle-backed exact widenings and incompatible or precision-losing conversion rejection."
 expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or a declared-type case loses its reviewed oracle."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_DECLARED_TYPE_001.json"
@@ -776,8 +778,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_STRING_BOUND_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_STRING_BOUND_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001"
 expected_result = "The committed case table regenerates exactly from the invariant with oracle-backed in-bound preservation, scalar truncation, FB copy-in, and wrong-family rejection."
 expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or a bounded-string case loses its reviewed oracle."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_STRING_BOUND_001.json"
@@ -798,8 +801,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_VALID_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 expected_result = "The committed bytecode transform case table regenerates exactly from the complete seed artifact with seven runnable oracle-backed rejection cases bound to the stable bytecode error model."
 expected_failure_mode = "The committed case table no longer regenerates exactly, its digest changes without review, or an active case loses its written validator oracle."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_VALID_001.json"
@@ -2082,8 +2086,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_ENC_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_ENC_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 expected_result = "The committed encoder case table regenerates exactly with supported loop control and both fail-closed lowering partitions."
 expected_failure_mode = "The case table drifts, loses a reviewed partition, or stops binding the written source-to-bytecode contract."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_ENC_001.json"
@@ -2104,8 +2109,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_OWNER_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_OWNER_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_OWNER_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 expected_result = "The committed ownership case table regenerates exactly with shared-frame and mixed-instance-owner rejection partitions."
 expected_failure_mode = "The case table drifts or stops binding both reviewed ownership violations."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_OWNER_001.json"
@@ -2126,8 +2132,9 @@ area = "bytecode_vm"
 path = "verification/cases/bytecode_vm/VM_SEAM_REF_001.toml"
 command = "python3 scripts/gen_cases.py --invariant VM_SEAM_REF_001 --check"
 owner = "verification"
-status = "planned"
+status = "mapped"
 invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 expected_result = "The committed reference case table regenerates exactly with local-range and persistent frame-local escape rejection partitions."
 expected_failure_mode = "The case table drifts or stops binding both reviewed reference-lifetime violations."
 evidence_destination = "target/gate-artifacts/cases/TEST_CASE_TABLE_VM_SEAM_REF_001.json"

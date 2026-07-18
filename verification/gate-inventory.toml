@@ -678,7 +678,7 @@ artifact_paths = ["target/gate-artifacts/verification/"]
 artifact_retention = "machine_local"
 enforcement = "report_only"
 required_env = []
-rationale = "The workflow remains report-only until the standing burn-in ratchet explicitly permits enforcement."
+rationale = "The helper renders the changed-file report; the assigned workflow invokes it with --strict and treats its exit status as required."
 
 [[surfaces]]
 schema_version = 1
@@ -1326,9 +1326,9 @@ source_kind = "github_workflow_job"
 path = ".github/workflows/verification-gate.yml"
 name = "Verification Gate / verification-report"
 command = "workflow job .github/workflows/verification-gate.yml#verification-report"
-variant = "PR changed-file report-only gate"
+variant = "PR changed-file enforcing gate"
 command_role = "entrypoint"
-disposition = "report_only"
+disposition = "assigned"
 suite_ids = ["pr"]
 owner = "verification"
 duration_class = "fast"
@@ -1336,9 +1336,9 @@ environment = "github_ubuntu"
 artifact_kind = "ci_artifact"
 artifact_paths = ["verification-gate-report"]
 artifact_retention = "repository_default"
-enforcement = "report_only"
+enforcement = "required"
 required_env = []
-rationale = "The workflow uploads findings but must remain non-strict until the standing burn-in ratchet closes."
+rationale = "The read-only workflow runs the changed-file gate with --strict, uploads its report, and blocks merge when the required verification surface is red."
 
 [[surfaces]]
 schema_version = 1

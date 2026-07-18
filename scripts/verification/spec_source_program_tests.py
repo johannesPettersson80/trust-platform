@@ -6,6 +6,7 @@ import copy
 import unittest
 
 from scripts.verification.metadata_validator.core import Validator
+from scripts.verification.metadata_validator.constants import AREAS
 
 
 class SpecSourceProgramTests(unittest.TestCase):
@@ -34,6 +35,29 @@ class SpecSourceProgramTests(unittest.TestCase):
                     gap = self.validator.spec_gaps[gap_ref]
                     self.assertEqual(gap["status"], "spec_gap")
                     self.assertNotEqual(gap["resolution_status"], "closed")
+
+    def test_every_canonical_area_has_an_active_test_mapping_specification(self) -> None:
+        rows_by_area = {
+            area: [
+                row
+                for row in self.validator.required_specs.values()
+                if row.get("area") == area and row.get("blocks") == "test_mapping"
+            ]
+            for area in AREAS
+        }
+
+        self.assertEqual(
+            {area for area, rows in rows_by_area.items() if not rows},
+            set(),
+        )
+        for area, rows in rows_by_area.items():
+            for row in rows:
+                with self.subTest(area=area, required_spec=row["id"]):
+                    source_ref = row.get("source_ref")
+                    self.assertIsInstance(source_ref, str)
+                    source = self.validator.spec_sources[source_ref]
+                    self.assertEqual(source["source_status"], "active")
+                    self.assertIs(source["oracle_eligible"], True)
 
     def test_mapped_catalog_row_without_source_or_gap_fails_full_validation(self) -> None:
         validator = copy.deepcopy(self.validator)

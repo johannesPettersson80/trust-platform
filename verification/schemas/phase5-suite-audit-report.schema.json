@@ -140,14 +140,14 @@
     "boundary": {
       "type": "object",
       "required": [
-        "report_only_enforcement_unchanged",
+        "verification_gate_enforcing",
         "report_emits_proof",
         "report_closes_spec_gaps",
         "suite_includes_interpreted",
         "p5_000b_remains_open"
       ],
       "properties": {
-        "report_only_enforcement_unchanged": {
+        "verification_gate_enforcing": {
           "const": true
         },
         "report_emits_proof": {

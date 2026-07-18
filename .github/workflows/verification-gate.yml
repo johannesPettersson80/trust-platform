@@ -10,13 +10,13 @@ permissions:
 
 jobs:
   verification-report:
-    name: Verification report-only gate
+    name: Verification enforcing gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Run report-only verification gate
+      - name: Run enforcing verification gate
         shell: bash
         run: |
           set -euo pipefail
@@ -31,6 +31,7 @@ jobs:
             --base "${BASE_SHA}" \
             --head "${HEAD_SHA}" \
             --intent bugfix \
+            --strict \
             --out-dir target/gate-artifacts/verification
       - name: Add verification report summary
         if: ${{ always() }}

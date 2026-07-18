@@ -107,10 +107,12 @@ def build_live_phase5_state(
         for index, record in enumerate(matrix.get("code_areas", []), start=1)
     )
     _require_denominators(inventory_rows, suite_rows, area_rows, route_rows)
-    report_only = [row for row in inventory_rows if row["disposition"] == "report_only"]
+    verification_job = next(
+        row for row in inventory_rows if row["id"] == "GATE_JOB_VERIFICATION_REPORT"
+    )
     boundaries = {
-        "report_only_enforcement_unchanged": bool(report_only)
-        and all(row["enforcement"] == "report_only" for row in report_only),
+        "verification_gate_enforcing": verification_job["disposition"] == "assigned"
+        and verification_job["enforcement"] == "required",
         "report_emits_proof": False,
         "report_closes_spec_gaps": False,
         "suite_includes_interpreted": False,

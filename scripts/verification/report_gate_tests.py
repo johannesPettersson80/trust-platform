@@ -1,4 +1,4 @@
-"""Tests for the report-only verification gate."""
+"""Tests for the changed-file verification gate."""
 
 from __future__ import annotations
 
@@ -144,6 +144,7 @@ path = "crates/trust-runtime/tests/known.rs"
 
     def test_build_report_is_report_only_when_gate_and_planner_fail(self) -> None:
         results = [
+            CommandResult("verification_focused_tests", ["focused"], 1, "tests failed", ""),
             CommandResult("verification_metadata_gate", ["gate"], 1, "metadata failed", ""),
             CommandResult("phase16_readiness", ["readiness"], 1, "product change blocked", ""),
             CommandResult("plan_tests", ["plan"], 3, '{"verdict":"spec_gap"}\n', ""),
@@ -169,8 +170,96 @@ path = "crates/trust-runtime/tests/known.rs"
         self.assertEqual(report_exit_code(report, strict=True), 1)
         self.assertEqual(report.planner_exit_code, 3)
         self.assertEqual(report.uncataloged_tests, ["crates/trust-runtime/tests/new_case.rs"])
-        self.assertEqual(report.commands[1].name, "phase16_readiness")
+        self.assertEqual(report.commands[2].name, "phase16_readiness")
         self.assertIn("report-only", render_markdown(report))
+
+    def test_enforcing_report_is_labeled_and_fails_on_red_commands(self) -> None:
+        results = [
+            CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
+            CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
+            CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult("plan_tests", ["plan"], 2, '{"verdict":"missing_tests"}\n', ""),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            catalog = root / "verification/test-catalog.toml"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text("")
+            report = build_report(
+                root=root,
+                changed_files=["crates/trust-runtime/src/runtime/cycle.rs"],
+                intent="bugfix",
+                baseline="HEAD~1",
+                command_runner=lambda _command: results.pop(0),
+                enforcing=True,
+            )
+
+        self.assertEqual(report.mode, "enforcing")
+        self.assertEqual(report_exit_code(report, strict=True), 1)
+        rendered = render_markdown(report)
+        self.assertIn("Mode: `enforcing`", rendered)
+        self.assertIn("blocks merge", rendered)
+
+    def test_non_bytecode_test_class_debt_is_visible_but_not_a_false_block(self) -> None:
+        results = [
+            CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
+            CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
+            CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult(
+                "plan_tests",
+                ["plan"],
+                2,
+                '{"areas":["runtime_safety"],"verdict":"missing_tests",'
+                '"missing_test_classes":["runtime_vertical"],"spec_gaps":[],'
+                '"unmapped_files":[],"unknown_areas":[],"uninventoried_areas":[]}\n',
+                "",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            catalog = root / "verification/test-catalog.toml"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text("")
+            report = build_report(
+                root=root,
+                changed_files=["crates/trust-runtime/src/runtime/cycle.rs"],
+                intent="bugfix",
+                baseline=None,
+                command_runner=lambda _command: results.pop(0),
+                enforcing=True,
+            )
+
+        self.assertEqual(report_exit_code(report, strict=True), 0)
+        self.assertIn("advisory outside the bytecode/VM test-class ratchet", render_markdown(report))
+
+    def test_bytecode_test_class_debt_and_global_planner_findings_block(self) -> None:
+        base = {
+            "areas": ["bytecode_vm"],
+            "verdict": "missing_tests",
+            "missing_test_classes": ["metadata_validation"],
+            "spec_gaps": [],
+            "unmapped_files": [],
+            "unknown_areas": [],
+            "uninventoried_areas": [],
+        }
+        report = _report_with_planner(base, planner_exit=2)
+        self.assertEqual(report_exit_code(report, strict=True), 1)
+
+        for field, value in (
+            ("spec_gaps", ["SPEC_GAP_X"]),
+            ("unmapped_files", ["unknown/path"]),
+            ("unknown_areas", ["unknown"]),
+            ("uninventoried_areas", ["runtime_safety"]),
+        ):
+            with self.subTest(field=field):
+                payload = {**base, "areas": ["runtime_safety"], "missing_test_classes": []}
+                payload[field] = value
+                self.assertEqual(
+                    report_exit_code(_report_with_planner(payload, planner_exit=3), strict=True),
+                    1,
+                )
 
     def test_build_report_routes_product_paths_through_phase16_readiness(self) -> None:
         commands: list[list[str]] = []
@@ -193,9 +282,9 @@ path = "crates/trust-runtime/tests/known.rs"
                 run_planner=False,
             )
 
-        self.assertEqual(len(report.commands), 2)
+        self.assertEqual(len(report.commands), 3)
         self.assertEqual(
-            commands[1],
+            commands[2],
             [
                 "python3",
                 "-m",
@@ -239,6 +328,26 @@ def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=True,
+    )
+
+
+def _report_with_planner(payload: dict[str, object], *, planner_exit: int):
+    from scripts.verification.report_gate import VerificationReport
+
+    return VerificationReport(
+        mode="enforcing",
+        intent="bugfix",
+        baseline=None,
+        changed_files=["fixture"],
+        commands=[
+            CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
+            CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
+            CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult("plan_tests", ["plan"], planner_exit, json.dumps(payload), ""),
+        ],
+        planner_exit_code=planner_exit,
+        planner_json=payload,
+        uncataloged_tests=[],
     )
 
 

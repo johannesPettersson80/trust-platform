@@ -91,7 +91,7 @@ def validate_report_payload(payload: Mapping[str, Any], *, expected_state=None) 
                 failures.append(f"output_paths.{field} must be normalized and workspace-relative")
     _validate_command(payload, failures)
     if payload.get("boundaries") != BOUNDARIES:
-        failures.append("boundaries do not match the non-enforcement boundary contract")
+        failures.append("boundaries do not match the Phase 5 enforcement boundary contract")
     if payload.get("limitations") != list(LIMITATIONS):
         failures.append("limitations do not match the Phase 5 audit contract")
 
@@ -112,8 +112,16 @@ def validate_report_payload(payload: Mapping[str, Any], *, expected_state=None) 
     if [row.get("id") for row in suites] != sorted(row.get("id") for row in suites):
         failures.append("suite rows must use canonical ID order")
     report_only = [row for row in inventory if row.get("disposition") == "report_only"]
-    if len(report_only) != 2 or any(row.get("enforcement") != "report_only" for row in report_only):
+    if len(report_only) != 1 or any(row.get("enforcement") != "report_only" for row in report_only):
         failures.append("report_only inventory enforcement changed")
+    verification_jobs = [
+        row for row in inventory if row.get("id") == "GATE_JOB_VERIFICATION_REPORT"
+    ]
+    if len(verification_jobs) != 1 or any(
+        row.get("disposition") != "assigned" or row.get("enforcement") != "required"
+        for row in verification_jobs
+    ):
+        failures.append("verification gate must be assigned and required")
     for index, row in enumerate(routes):
         direct = row.get("direct_suite_tiers")
         conditional = row.get("conditional_suite_tiers")

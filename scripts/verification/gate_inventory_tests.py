@@ -11,7 +11,7 @@ from pathlib import Path
 from scripts.verification.gate_inventory import (
     INVENTORY_PATH,
     GateInventoryError,
-    _validate_report_only_source_contract,
+    _validate_verification_workflow_source_contract,
     load_gate_inventory,
     validate_gate_inventory,
 )
@@ -343,19 +343,26 @@ class GateInventoryTests(unittest.TestCase):
             "strict hardware artifact_paths must equal the reviewed script default",
         )
 
-    def test_report_only_workflow_rejects_strict_mode_and_permission_drift(self) -> None:
+    def test_verification_workflow_requires_strict_mode_and_read_only_permissions(self) -> None:
         record = load_gate_inventory(ROOT)["GATE_JOB_VERIFICATION_REPORT"]
         baseline = (ROOT / record["path"]).read_text()
+        enforcing = baseline
+        failures: list[str] = []
+        _validate_verification_workflow_source_contract(
+            ROOT,
+            {"GATE_JOB_VERIFICATION_REPORT": record},
+            failures,
+            workflow_text=enforcing,
+        )
+        self.assertEqual(failures, [])
+
         cases = (
             (
-                baseline.replace(
-                    "--intent bugfix \\\n",
-                    "--intent bugfix \\\n            --strict \\\n",
-                ),
-                "must not pass --strict",
+                enforcing.replace("            --strict \\\n", ""),
+                "must pass --strict",
             ),
             (
-                baseline.replace(
+                enforcing.replace(
                     "permissions:\n  contents: read",
                     "permissions:\n  contents: write",
                 ),
@@ -365,13 +372,13 @@ class GateInventoryTests(unittest.TestCase):
         for text, expected in cases:
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
-                write(root / record["path"], text)
                 failures: list[str] = []
 
-                _validate_report_only_source_contract(
+                _validate_verification_workflow_source_contract(
                     root,
                     {"GATE_JOB_VERIFICATION_REPORT": record},
                     failures,
+                    workflow_text=text,
                 )
 
                 self.assertTrue(any(expected in failure for failure in failures), failures)

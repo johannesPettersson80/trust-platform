@@ -56,6 +56,136 @@ last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1
+id = "REQ_SPEC_COMPILER_IEC_DATA_TYPES"
+area = "compiler_iec"
+tag = "elementary_data_types"
+title = "IEC elementary data-type contract"
+owner = "language"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_RUNTIME_SCAN_CYCLE"
+area = "runtime_safety"
+tag = "scan_cycle_architecture"
+title = "Runtime scan-cycle contract"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RUNTIME_ENGINE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_PROTOCOL_STATUS_TRUTH"
+area = "protocols"
+tag = "connector_status_truth_contract"
+title = "Protocol connector status truth contract"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RUNTIME_ENGINE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_CONTROL_WRITE_AUTHORIZATION"
+area = "control_security"
+tag = "hmi_write_authz"
+title = "Control-plane write authorization contract"
+owner = "trust-runtime"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RUNTIME_ENGINE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_EDITOR_LSP_SYNC"
+area = "editor_safety"
+tag = "lsp_incremental_sync"
+title = "LSP incremental synchronization contract"
+owner = "editor"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_LSP_CONTRACT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_PLCOPEN_ST_IMPORT"
+area = "plcopen_devtools"
+tag = "plcopen_st_import"
+title = "PLCopen Structured Text import contract"
+owner = "trust-plcopen"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_HMI_CONNECTOR_STATE"
+area = "hmi_ui"
+tag = "connector_state_vocabulary"
+title = "HMI connector state vocabulary"
+owner = "hmi"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_CONNECTOR_STATUS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_RELEASE_VERSION_CHAIN"
+area = "release"
+tag = "release_version_chain"
+title = "Release version and publication chain"
+owner = "release"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_SUPPLY_CHAIN_ARTIFACT_PROVENANCE"
+area = "supply_chain_platform"
+tag = "artifact_provenance"
+title = "Supply-chain artifact provenance contract"
+owner = "release"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_VERIFICATION_METADATA_CONTRACT"
+area = "verification"
+tag = "verification_metadata_contract"
+title = "Verification metadata contract"
+owner = "verification"
+status = "mapped"
+expected_authority = ["reviewed_decision"]
+source_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-18"
+
+[[required_specs]]
+schema_version = 1
 id = "REQ_SPEC_BYTECODE_CONTAINER"
 area = "bytecode_vm"
 tag = "bytecode_container"

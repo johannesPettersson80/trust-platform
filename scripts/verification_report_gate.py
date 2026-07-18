@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compatibility entrypoint for the report-only verification gate."""
+"""Compatibility entrypoint for the changed-file verification gate."""
 
 from verification.report_gate import main
 

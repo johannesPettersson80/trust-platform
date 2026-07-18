@@ -1,4 +1,4 @@
-"""Report-only CI gate for the verification pilot."""
+"""Changed-file verification gate and durable report renderer."""
 
 from __future__ import annotations
 
@@ -89,10 +89,12 @@ def build_report(
     baseline: str | None,
     command_runner: CommandRunner | None = None,
     run_planner: bool = True,
+    enforcing: bool = False,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
     commands: list[CommandResult] = [
+        runner(["python3", "scripts/run_verification_focused_tests.py"]),
         runner(["scripts/verification_metadata_gate.sh"]),
     ]
     readiness_command = [
@@ -123,7 +125,7 @@ def build_report(
         planner_json = parse_planner_json(planner_result.stdout)
 
     return VerificationReport(
-        mode="report-only",
+        mode="enforcing" if enforcing else "report-only",
         intent=intent,
         baseline=baseline,
         changed_files=normalized,
@@ -156,6 +158,8 @@ def default_runner(root: Path) -> CommandRunner:
 
 
 def command_name(command: list[str]) -> str:
+    if command[:2] == ["python3", "scripts/run_verification_focused_tests.py"]:
+        return "verification_focused_tests"
     if command[:1] == ["scripts/verification_metadata_gate.sh"]:
         return "verification_metadata_gate"
     if command[:3] == ["python3", "-m", "scripts.verification.phase16_readiness"]:
@@ -254,11 +258,32 @@ def parse_planner_json(stdout: str) -> dict[str, object] | None:
 def report_exit_code(report: VerificationReport, *, strict: bool) -> int:
     if not strict:
         return 0
-    if any(command.exit_code != 0 for command in report.commands):
-        return 1
+    for command in report.commands:
+        if command.exit_code == 0:
+            continue
+        if command.name != "plan_tests" or planner_finding_blocks(report.planner_json):
+            return 1
     if report.uncataloged_tests:
         return 1
     return 0
+
+
+def planner_finding_blocks(payload: dict[str, object] | None) -> bool:
+    """Keep the original bytecode class ratchet while enforcing global integrity."""
+
+    if payload is None:
+        return True
+    for field in ("spec_gaps", "unmapped_files", "unknown_areas", "uninventoried_areas"):
+        value = payload.get(field)
+        if not isinstance(value, list):
+            return True
+        if value:
+            return True
+    missing = payload.get("missing_test_classes")
+    areas = payload.get("areas")
+    if not isinstance(missing, list) or not isinstance(areas, list):
+        return True
+    return bool(missing and "bytecode_vm" in areas)
 
 
 def render_markdown(report: VerificationReport) -> str:
@@ -284,19 +309,34 @@ def render_markdown(report: VerificationReport) -> str:
     if report.planner_json:
         verdict = report.planner_json.get("verdict", "<unknown>")
         lines.append(f"Planner verdict: `{verdict}`")
+        if (
+            report.planner_exit_code not in (None, 0)
+            and not planner_finding_blocks(report.planner_json)
+        ):
+            lines.append(
+                "Planner test-class finding: advisory outside the bytecode/VM test-class ratchet"
+            )
 
     lines.extend(["", "Uncataloged changed tests:"])
     if report.uncataloged_tests:
         lines.extend(f"- `{path}`" for path in report.uncataloged_tests)
     else:
         lines.append("- none")
-    lines.extend(
-        [
-            "",
-            "This gate is report-only during the bytecode/VM pilot burn-in.",
-            "Findings are review inputs and do not enforce outside the pilot yet.",
-        ]
-    )
+    lines.append("")
+    if report.mode == "enforcing":
+        lines.extend(
+            [
+                "This gate is enforcing. A red verification command or an",
+                "uncataloged changed test blocks merge.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "This gate is report-only during the bytecode/VM pilot burn-in.",
+                "Findings are review inputs and do not enforce outside the pilot yet.",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -314,7 +354,7 @@ def normalize_changed_file(value: str) -> str:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the report-only verification gate.")
+    parser = argparse.ArgumentParser(description="Run the changed-file verification gate.")
     parser.add_argument("--intent", default="bugfix", choices=["bugfix", "feature", "refactor", "docs", "test-refactor"])
     parser.add_argument("--base", help="Base revision for PR/diff reports")
     parser.add_argument("--head", default="HEAD", help="Head revision for PR/diff reports")
@@ -335,6 +375,7 @@ def main(argv: list[str] | None = None) -> int:
             changed_files=changed_files,
             intent=args.intent,
             baseline=args.base,
+            enforcing=args.strict,
         )
         write_reports(report, ROOT / args.out_dir)
         print(render_markdown(report), end="")

@@ -345,11 +345,14 @@ not inventoried until their metadata exists.
   tooling: assert-nothing red proof, skipped case, stale digest, missing oracle,
   spec-gap closure, risk downgrade without waiver, manual safety evidence,
   compile-error-as-red, uncataloged test, and unmapped file.
-- [ ] `VERIF-P1B-012` Keep `VERIF-STOP-012` closed for skills/agent mandate
+- [x] `VERIF-P1B-012` Keep `VERIF-STOP-012` closed for skills/agent mandate
   until the pilot has red/green proof, report-only CI has burned in without
   false blocks, and the bytecode-validator mutation shard has reported
   survivors against case IDs. This row stays open across phases until
-  `VERIF-P1B-013` and `VERIF-P1B-014` are complete.
+  `VERIF-P1B-013` and `VERIF-P1B-014` are complete. Closed with P16-007 after
+  producer-authentic bytecode red/green proof, the measured two-mutant shard,
+  three organic zero-false-block implementation slices, the documented
+  fail-closed override procedure, and independent authorization to enforce.
 - [x] `VERIF-P1B-013` Pull the first bytecode-validator mutation shard forward
   from Phase 10 and report survivors against case IDs. This satisfies only the
   bytecode-validator slice of `VERIF-P10-001`. The focused two-mutant shard
@@ -358,10 +361,14 @@ not inventoried until their metadata exists.
   of scope. Machine report and implementation evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json`
   and `p1b-bytecode-validator-mutation-shard.md` in the same evidence root.
-- [ ] `VERIF-P1B-014` Flip the bytecode/VM pilot ratchet from report-only to
+- [x] `VERIF-P1B-014` Flip the bytecode/VM pilot ratchet from report-only to
   enforcing after burn-in: at least three organic PRs or implementation slices
   run with zero false blocks, pilot red/green proof is captured, waiver/risk
-  reports are reviewable, and fallback override procedure is documented.
+  reports are reviewable, and fallback override procedure is documented. The
+  enforcing workflow retains read-only permissions, passes `--strict`, runs the
+  canonical focused suite and metadata gate, blocks uncataloged changed tests,
+  and preserves non-bytecode taxonomy debt as visible advisory output rather
+  than pretending the pilot catalog already covers every area.
 
 Acceptance:
 
@@ -1139,28 +1146,33 @@ Acceptance:
 This phase starts only after the verification control plane, metadata
 validation, and first working reports exist.
 
-- [ ] `VERIF-P15-001` Update `AGENTS.md` with implemented workflow.
-- [ ] `VERIF-P15-002` Create `.codex/skills/trust-test-authoring/SKILL.md`.
-- [ ] `VERIF-P15-003` Keep `trust-test-authoring` concise; route to this
+- [x] `VERIF-P15-001` Update `AGENTS.md` with implemented workflow.
+- [x] `VERIF-P15-002` Create `.codex/skills/trust-test-authoring/SKILL.md`.
+- [x] `VERIF-P15-003` Keep `trust-test-authoring` concise; route to this
   document set for detail.
-- [ ] `VERIF-P15-004` Add `agents/openai.yaml` entry if repo-local skills use UI
-  metadata at that point.
-- [ ] `VERIF-P15-005` Update `.codex/skills/st-lsp-solid/SKILL.md`.
-- [ ] `VERIF-P15-006` Update
+- [x] `VERIF-P15-004` Add `agents/openai.yaml` entry if repo-local skills use UI
+  metadata at that point. Not applicable: the repo-local skills use no agent UI
+  metadata convention, so no unsupported manifest was invented.
+- [x] `VERIF-P15-005` Update `.codex/skills/st-lsp-solid/SKILL.md`.
+- [x] `VERIF-P15-006` Update
   `.codex/skills/trust-architecture-automation/SKILL.md`.
-- [ ] `VERIF-P15-007` Update `.codex/skills/trust-remote-builder/SKILL.md`.
-- [ ] `VERIF-P15-008` Update domain skills:
+- [x] `VERIF-P15-007` Update `.codex/skills/trust-remote-builder/SKILL.md`.
+- [x] `VERIF-P15-008` Update domain skills:
   `.codex/skills/trust-hmi-contracts/SKILL.md`,
   `.codex/skills/trust-vscode-quality/SKILL.md`,
   `.codex/skills/vscode-ui-acceptance/SKILL.md`,
   `.codex/skills/trust-ci-release-gates/SKILL.md`.
-- [ ] `VERIF-P15-009` Move detailed skill text into reference files if any
-  `SKILL.md` would become too large.
-- [ ] `VERIF-P15-010` Validate new skill with dry-run prompts for bug fix,
+- [x] `VERIF-P15-009` Move detailed skill text into reference files if any
+  `SKILL.md` would become too large. No split was needed: the new skill remains
+  a concise route into the existing detailed checklist and domain skills.
+- [x] `VERIF-P15-010` Validate new skill with dry-run prompts for bug fix,
   refactor-only, malformed-input test, VS Code behavior, runtime safety,
   hardware lab claim, docs-only, supply-chain/release claim.
-- [ ] `VERIF-P15-011` Validate updated skills route correctly.
-- [ ] `VERIF-P15-012` Record skill-sync evidence.
+- [x] `VERIF-P15-011` Validate updated skills route correctly.
+- [x] `VERIF-P15-012` Record skill-sync evidence. The focused routing contract
+  checks all eight scenarios, the canonical `AGENTS.md` mandate, each updated
+  domain route, and the concise skill boundary; the P16-007 evidence record
+  carries the exact commands and outcomes.
 
 ## Phase 16 - Execution: Run the Program and Close Every Gap
 
@@ -1607,10 +1619,15 @@ same commit, with the closure evidence linked.
   completes the compound row. Clean-source report digest and independent
   closeout commands are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-test-catalog-denominator-closure.md`.
-- [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
+- [x] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
   CI as required gates (report-only posture ends); a red verification
   suite must block merge. Then complete Phase 15 skill sync so the
-  workflow is mandated (`VERIF-STOP-012` closes here, not before).
+  workflow is mandated (`VERIF-STOP-012` closes here, not before). The PR
+  workflow is read-only and invokes the changed-file gate with `--strict`; the
+  gate runs the recursively discovered focused verification suite, metadata
+  and case checks, Phase 16 product fence, planner, and uncataloged-test ratchet.
+  The board flip, P1B ratchets, STOP-012 closure, live guard removals, and skill
+  mandate land in one reviewed implementation checkpoint.
 - [ ] `VERIF-P16-008` Final closure report: zero open spec gaps, zero `S0`
   invariants, ledgers closed or explicitly scoped, CI enforcing, board
   complete. Byte-reproducible like the Phase 2-10 reports, reviewed like

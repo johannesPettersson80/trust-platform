@@ -23,8 +23,6 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED_OPEN_ROWS = (
     "VERIF-P1A-003",
     "VERIF-P1A-006",
-    "VERIF-P1B-012",
-    "VERIF-P1B-014",
     "VERIF-P3-006",
     "VERIF-P4A-005",
     "VERIF-P5-000B",

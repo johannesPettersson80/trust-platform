@@ -117,13 +117,34 @@ TOML shape convention:
   passing case summaries exactly cover each current committed case file, and
   `R1` also needs an approved release object. These rules do not promote any
   existing record or change report-only CI.
-- `scripts/verification_report_gate.py` is the report-only CI front door during
-  pilot burn-in. It runs the metadata/case-file gate, re-derives planner output
-  for changed files, and reports uncataloged changed tests without enforcing
-  outside the pilot.
+- `scripts/verification_report_gate.py` is the enforcing pull-request front
+  door. It runs the canonical focused verification suite, the metadata/case-file
+  gate, and the Phase 16 product fence; re-derives planner output for changed
+  files; and rejects uncataloged changed tests. The workflow keeps
+  `permissions: contents: read` and invokes the command with `--strict`.
 - `scripts/verification/adversarial_selftest_tests.py` is the pilot's
   bypass-resistance fixture suite. It checks that shortcut attempts become
   failed validation, non-red proof, or report-only findings.
+
+### Enforcing verification gate fallback
+
+An apparent false block remains red until its cause is reviewed. A fallback must not remove `--strict`,
+weaken the required workflow, skip the failing
+command, or recast a failed run as passing. The author attaches the generated
+report, records a tracked override decision or fixes the specification,
+catalog, routing metadata, test, or gate defect, and must rerun the enforcing gate on the
+resulting commit. An emergency administrative merge bypass, when
+repository policy permits one, requires a linked incident and tracked override
+decision naming the exact failure and follow-up owner; it does not count as a
+green verification result.
+
+The report-only burn-in completed without a false block across at least three
+organic implementation slices: the Phase 2 unmapped-test debt closure, the
+Phase 16 execution-readiness implementation, and its independently accepted
+readiness close-out. Their durable validation records are under the dated PLC
+verification evidence roots. The bytecode pilot also has producer-authentic
+red/green proof and a measured mutation shard, so the P1B enforcement ratchet
+is closed rather than inferred from this procedure.
 - `scripts/bytecode_validator_mutation.py` adapts cargo-mutants single-file
   candidates for validator fragments assembled with `include!()`. It runs in an
   isolated Git archive, cleans only `trust-runtime` outputs in a dedicated
