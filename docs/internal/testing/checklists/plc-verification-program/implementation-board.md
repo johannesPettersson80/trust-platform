@@ -1301,7 +1301,7 @@ same commit, with the closure evidence linked.
   no restart outcome and does not declare current retained-instance behavior
   conformant. Acceptance is recorded in
   `EVID_P16_E1_INDEPENDENT_ACCEPTANCE_20260713`.
-- [ ] `VERIF-P16-002` Close every spec gap. For each open record in
+- [x] `VERIF-P16-002` Close every spec gap. For each open record in
   `verification/spec-gaps.toml` (34 at time of writing): write the owning
   spec section, IEC decision, or recorded deviation per STOP-013, then flip
   `resolution_status = "closed"` with closeout evidence. Done when zero
@@ -1314,6 +1314,17 @@ same commit, with the closure evidence linked.
   cache invalidation, simulation-clock overflow, invalid LSP edit ranges, and
   OPC UA server write exposure. These records must be specified, tested, fixed,
   and closed before this row can return to complete.
+
+  Final closeout (2026-07-19): the register contains 44 records, all closed,
+  including the nine gaps opened by the eighteenth independent review. Every
+  record retains its owning active oracle-eligible source, mapped test or
+  reviewed deferral, and durable closeout evidence; the primary validator
+  enforces those obligations and zero live gap references remain. Aggregate
+  evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-19/p16-spec-gap-final-closeout.md`.
+  Hardware execution, release publication, UI acceptance, public-prose review,
+  and orphan metadata remain separate visible debt and are not implied by this
+  row.
 
   Bounded-value progress (2026-07-15):
   `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` and
