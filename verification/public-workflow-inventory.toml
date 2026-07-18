@@ -1,0 +1,363 @@
+schema_version = 1
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_DE089F3C6FC9C0CC2D379F95"
+path = "docs/public/MAINTAINING.md"
+heading_path = ["Maintaining The Public Docs", "Before you add a page"]
+disposition = "reviewed_nonworkflow"
+rationale = "Repository-maintainer publishing instructions are not a shipped product-user workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_75156CC03F315B9579C4C79C"
+path = "docs/public/concepts/architecture.md"
+heading_path = ["Architecture", "One Project, Many Interfaces"]
+disposition = "reviewed_nonworkflow"
+rationale = "The numbered items enumerate product interfaces; they are not ordered user actions."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_3D214144F481BFE56F8DDDC1"
+path = "docs/public/concepts/deterministic-harness.md"
+heading_path = ["Deterministic Harness", "Two Ways To Use It"]
+disposition = "reviewed_nonworkflow"
+rationale = "The numbered items are alternative interfaces, not steps in one task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_CEC76566DE1B285E5CA38320"
+path = "docs/public/concepts/project-model.md"
+heading_path = ["Project Model", "Lifecycle"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list describes the project lifecycle model and does not prescribe one executable user journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_7649437BD4EB84A337E84535"
+path = "docs/public/concepts/runtime-model.md"
+heading_path = ["Runtime Model", "Reload Path"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list describes internal reload stages rather than visible user actions."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_6A9FCE162E075BA0EA8A0671"
+path = "docs/public/concepts/scan-cycle.md"
+heading_path = ["Scan Cycle", "One Cycle, In Order"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list specifies internal scan-cycle ordering rather than a human workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_D334B2CB65DE6B33E415D255"
+path = "docs/public/concepts/scan-cycle.md"
+heading_path = ["Scan Cycle", "%M / memory-marker behavior"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list specifies internal process-image behavior rather than a human workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_ACCF4969E1327DE6B799568F"
+path = "docs/public/connect/devices-and-fieldbus/driver-matrix.md"
+heading_path = ["Driver Matrix", "Selection rule"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_ACCF4969E132_001"
+rationale = "The ordered decision path tells a PLC engineer how to select and stage an I/O driver."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_3C0DDF559EC291A8293B985C"
+path = "docs/public/connect/devices-and-fieldbus/simulated-and-loopback.md"
+heading_path = ["Simulated And Loopback", "Transitioning to real hardware later"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_3C0DDF559EC2_001"
+rationale = "The ordered actions define a simulation-to-hardware transition task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_456FA568AFC2994E73F07160"
+path = "docs/public/connect/enterprise/historian-and-database.md"
+heading_path = ["Historian And Database", "Safest First Test"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_456FA568AFC2_001"
+rationale = "The ordered actions define the first historian/database integration test."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_D7844FFDB0CC66E4A63190BE"
+path = "docs/public/connect/enterprise/mes-and-erp.md"
+heading_path = ["MES And ERP", "Safest First Test"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_D7844FFDB0CC_001"
+rationale = "The ordered actions define the first MES/ERP integration test."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_F16D362FF6234B98DD156CA4"
+path = "docs/public/connect/external-systems/ads.md"
+heading_path = ["Beckhoff ADS", "Quick Start", "truST Connects To TwinCAT"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_F16D362FF623_001"
+rationale = "The quick start is an executable ADS client configuration journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_94D293455A698D5BF1BA8AC3"
+path = "docs/public/connect/external-systems/ads.md"
+heading_path = ["Beckhoff ADS", "Quick Start", "TwinCAT Connects To truST"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_94D293455A69_001"
+rationale = "The quick start is an executable ADS server configuration journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_FD234848695904A9A6A35342"
+path = "docs/public/connect/external-systems/ads.md"
+heading_path = ["Beckhoff ADS", "ADS Server: Expose truST To ADS Clients"]
+disposition = "reviewed_nonworkflow"
+rationale = "The items are acceptance levels for ADS interoperability, not ordered setup steps."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_D24FCC998C80FB91D155C38B"
+path = "docs/public/connect/runtime-to-runtime/transport-matrix.md"
+heading_path = ["Runtime-To-Runtime Transport Matrix", "Recommended decision order"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_D24FCC998C80_001"
+rationale = "The ordered decision path tells an integrator how to select a runtime transport."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_7E9C84093FC5EFDE994DB33F"
+path = "docs/public/develop/package-registry.md"
+heading_path = ["Package Registry", "Worked example"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_7E9C84093FC5_001"
+rationale = "The worked example defines a package publish-and-consume task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_0F343DE358D002D8F09D4694"
+path = "docs/public/develop/vendor-profiles.md"
+heading_path = ["Vendor Profiles", "Safe migration checklist"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_0F343DE358D0_001"
+rationale = "The checklist defines a safe vendor-profile migration task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_15A2F0DD661339E7B7FDD01C"
+path = "docs/public/develop/visual-editors/blockly.md"
+heading_path = ["Blockly", "Five-step quickstart"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_15A2F0DD6613_001"
+rationale = "The quick start defines an end-to-end Blockly editing task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_4C182E3FAB92EC274C3A75B9"
+path = "docs/public/develop/visual-editors/index.md"
+heading_path = ["Visual Editors", "Recommended reading order"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list is documentation navigation, not a product workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_BB46EA910511E52D723B21C1"
+path = "docs/public/develop/visual-editors/ladder.md"
+heading_path = ["Ladder Editor", "Five-step quickstart"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_BB46EA910511_001"
+rationale = "The quick start defines an end-to-end ladder editing task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_812A3212DF07E6617191E075"
+path = "docs/public/develop/visual-editors/sfc.md"
+heading_path = ["SFC", "Five-step quickstart"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_812A3212DF07_001"
+rationale = "The quick start defines an end-to-end SFC editing task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_CDC07CFF8A917C8DBAF6EB02"
+path = "docs/public/develop/visual-editors/statechart.md"
+heading_path = ["Statechart", "Five-step quickstart"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_CDC07CFF8A91_001"
+rationale = "The quick start defines an end-to-end statechart editing task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_7EEF7481947C105881BAC728"
+path = "docs/public/examples/hmi.md"
+heading_path = ["HMI", "Quick start"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_7EEF7481947C_001"
+rationale = "The quick start defines a browser HMI operation task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_7B2D72A09D5208C36EE460B9"
+path = "docs/public/examples/index.md"
+heading_path = ["Examples", "First Examples"]
+disposition = "reviewed_nonworkflow"
+rationale = "The items are alternative documentation destinations, not ordered task steps."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_686AA9E04F9471A5529224E3"
+path = "docs/public/examples/learning-paths.md"
+heading_path = ["Learning Paths", "Default recommendation"]
+disposition = "reviewed_nonworkflow"
+rationale = "The list is a reading path, not a product operation."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_1AB8C986099E14573E3DA30B"
+path = "docs/public/examples/vendor-profiles.md"
+heading_path = ["Vendor Profiles", "Recommended order"]
+disposition = "reviewed_nonworkflow"
+rationale = "The items are alternative example choices, not ordered execution steps."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_A22E00BD1F131DA07539CBDC"
+path = "docs/public/migrate/codesys-twincat.md"
+heading_path = ["CODESYS And TwinCAT", "Day-to-day workflow"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_A22E00BD1F13_001"
+rationale = "The section explicitly defines the recurring vendor-migration workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_D3D2C29082449A6AA6E9ABA4"
+path = "docs/public/migrate/index.md"
+heading_path = ["Migration While Programming", "Migration Workflow"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_D3D2C2908244_001"
+rationale = "The section defines an end-to-end source migration task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_87AF7E445561A27FC77D1FAC"
+path = "docs/public/operate/backup-and-restore.md"
+heading_path = ["Backup And Restore", "Safe Restore Order"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_87AF7E445561_001"
+rationale = "The ordered actions define a safe restore task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_962469ED8F0BF062E6B2C972"
+path = "docs/public/operate/build-validate-test.md"
+heading_path = ["Build, Validate, Test", "Typical Failure Pattern"]
+disposition = "reviewed_nonworkflow"
+rationale = "The numbered items classify failure stages; they are not an ordered task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_81374E35F805D94E472F9B39"
+path = "docs/public/operate/compile-validate-reload.md"
+heading_path = ["Compile, Validate, Reload / Hot Reload", "For automated tools"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_81374E35F805_001"
+rationale = "The ordered calls define the automation compile-and-reload workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_819D4CA4AFE80939AC52D192"
+path = "docs/public/operate/hmi-and-web-ui.md"
+heading_path = ["HMI (Preview & Browser)", "Browser HMI"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_819D4CA4AFE8_001"
+rationale = "The ordered checks define the operator's browser-HMI assessment workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_11CE18940EA5654E4C536EDC"
+path = "docs/public/operate/offline-install.md"
+heading_path = ["Offline Install", "Offline Install Flow"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_11CE18940EA5_001"
+rationale = "The ordered actions define an offline installation task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_0DFBFE040B69305328ECDBC4"
+path = "docs/public/operate/performance-tuning.md"
+heading_path = ["Performance Tuning", "Start With Evidence"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_0DFBFE040B69_001"
+rationale = "The ordered actions define the evidence-first performance investigation task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_E001D7C69B4CFD17AC6B45B5"
+path = "docs/public/operate/supervision.md"
+heading_path = ["Supervision", "What To Verify"]
+disposition = "reviewed_nonworkflow"
+rationale = "The items are acceptance criteria for supervision rather than ordered setup actions."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_92F337788E11BA12E26A1F1F"
+path = "docs/public/operate/upgrade.md"
+heading_path = ["Upgrade", "Safe Upgrade Pattern"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_92F337788E11_001"
+rationale = "The ordered actions define a safe deployment upgrade task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_B856ED5CDDB494B14EF9A53D"
+path = "docs/public/reference/config/vendor-profiles.md"
+heading_path = ["Vendor Profiles Reference", "Switching profiles safely"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_B856ED5CDDB4_001"
+rationale = "The ordered actions define a safe profile switch task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_E15DCFA0D2646305EBCEF808"
+path = "docs/public/start/agent-quickstart.md"
+heading_path = ["Agent Quickstart / agent serve", "What an agent needs first"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_E15DCFA0D264_001"
+rationale = "The ordered actions define the minimum agent-assisted project workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_556BCA7D07FB1286B97928B1"
+path = "docs/public/start/first-project.md"
+heading_path = ["First Project", "Walkthrough"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_556BCA7D07FB_001"
+rationale = "The walkthrough defines the primary first-project user journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_A9AF3F21E41ED6A0597FD1F1"
+path = "docs/public/start/install-from-source.md"
+heading_path = ["Install From Source", "Contributor Path"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_A9AF3F21E41E_001"
+rationale = "The ordered actions define the contributor source-install task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_F08D90359C6BA2DF43D50A47"
+path = "docs/public/start/maintain-an-existing-project.md"
+heading_path = ["Maintain An Existing Project", "First steps"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_F08D90359C6B_001"
+rationale = "The ordered actions define a safe first-change maintenance task."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_F495BAA5B93DC09081231F64"
+path = "docs/public/start/operate-in-browser.md"
+heading_path = ["Operate In Browser HMI", "What Your URL Usually Looks Like"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_F495BAA5B93D_001"
+rationale = "The ordered actions define the visible failure path when the operator lacks a valid HMI URL."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_CC557DA8405666CCB0D1A71F"
+path = "docs/public/start/operate-in-browser.md"
+heading_path = ["Operate In Browser HMI", "Quick start"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_CC557DA84056_001"
+rationale = "The quick start defines the primary browser-HMI operator journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_06F0B50B276C143A8E3394BD"
+path = "docs/public/start/program-in-browser.md"
+heading_path = ["Program In Browser IDE", "For Browser Users"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_06F0B50B276C_001"
+rationale = "The ordered actions define the browser-IDE programming workflow."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D"
+path = "docs/public/start/program-in-vscode.md"
+heading_path = ["Program In VS Code", "Quick Start"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_C8E790E48310_001"
+rationale = "The quick start defines the primary VS Code programming journey."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_027D30E7601F15D962AC2EBC"
+path = "docs/public/start/program-in-vscode.md"
+heading_path = ["Program In VS Code", "Safe Signals In The Tutorial"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_027D30E7601F_001"
+rationale = "The ordered actions define the safe input-to-UI confirmation subjourney."
+
+[[reviews]]
+discovery_id = "WORKFLOW_CANDIDATE_28057E7E1763569B539C8DB3"
+path = "docs/public/troubleshooting.md"
+heading_path = ["Troubleshooting", "First three things to try"]
+disposition = "workflow_spec"
+spec_source_id = "SPEC_PUBLIC_WORKFLOW_28057E7E1763_001"
+rationale = "The ordered actions define the first-line troubleshooting workflow."

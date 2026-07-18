@@ -55,6 +55,10 @@ from ..mutation_program_contract import (
     load_mutation_program,
     validate_mutation_program_contract,
 )
+from ..public_workflow_inventory import (
+    INVENTORY_PATH as PUBLIC_WORKFLOW_INVENTORY_PATH,
+    validate_public_workflow_inventory,
+)
 from .case_files import validate_case_file
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
 from ..runtime_anomaly_contract import (
@@ -120,6 +124,7 @@ class Validator:
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
+        self.public_workflow_inventory: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -276,6 +281,9 @@ class Validator:
             self.mutation_program = load_mutation_program(ROOT)
         except Exception as exc:
             self.fail(ROOT / MUTATION_PROGRAM_PATH, f"load failed: {exc}")
+        self.public_workflow_inventory = self.load_toml(
+            ROOT / PUBLIC_WORKFLOW_INVENTORY_PATH
+        )
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -384,6 +392,12 @@ class Validator:
             self.fail(ROOT / FUZZ_CRASH_REGISTRY_PATH, failure)
         for failure in validate_mutation_program_contract(ROOT, self.mutation_program):
             self.fail(ROOT / MUTATION_PROGRAM_PATH, failure)
+        for failure in validate_public_workflow_inventory(
+            ROOT,
+            self.public_workflow_inventory,
+            spec_sources=self.spec_sources,
+        ):
+            self.fail(ROOT / PUBLIC_WORKFLOW_INVENTORY_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -913,6 +927,7 @@ class Validator:
             + (1 if self.fuzz_program else 0)
             + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)
+            + (1 if self.public_workflow_inventory else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")

@@ -40,6 +40,1258 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_ACCF4969E132_001"
+title = "Public workflow: Selection rule"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/devices-and-fieldbus/driver-matrix.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_ACCF4969E1327DE6B799568F"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Driver Matrix > Selection rule"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Start with loopback or simulated when you are still proving logic.",
+  "Move to gpio or ethercat for local hardware.",
+  "Move to modbus-tcp or mqtt for external-system integration.",
+  "Use multi-driver only after each individual driver validates cleanly by itself.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_3C0DDF559EC2_001"
+title = "Public workflow: Transitioning to real hardware later"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/devices-and-fieldbus/simulated-and-loopback.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_3C0DDF559EC291A8293B985C"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Simulated And Loopback > Transitioning to real hardware later"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "keep the same ST logic and VAR_CONFIG mapping",
+  "replace the driver/backend in io.toml",
+  "preserve safe-state outputs",
+  "re-run validate, then commission against the real transport",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_456FA568AFC2_001"
+title = "Public workflow: Safest First Test"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/enterprise/historian-and-database.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_456FA568AFC2994E73F07160"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Historian And Database > Safest First Test"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "prove the value inside truST first",
+  "expose it through the chosen boundary",
+  "confirm the historian/database receives the same signal",
+  "only then widen the signal set",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_D7844FFDB0CC_001"
+title = "Public workflow: Safest First Test"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/enterprise/mes-and-erp.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_D7844FFDB0CC66E4A63190BE"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: MES And ERP > Safest First Test"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "prove the runtime state locally",
+  "define the small business event or payload you need",
+  "automate one read or write path",
+  "capture the full before/after result",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_F16D362FF623_001"
+title = "Public workflow: truST Connects To TwinCAT"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/external-systems/ads.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_F16D362FF6234B98DD156CA4"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Beckhoff ADS > Quick Start > truST Connects To TwinCAT"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Select the online runtime in the VS Code Runtime pane.",
+  "Open Structured Text: Add Beckhoff ADS Device or open the runtime-host setup page at /setup/ads.",
+  "Discover the TwinCAT target. Broadcast discovery is easiest when UDP 48899 is allowed; otherwise enter the TwinCAT IP and AMS Net ID manually.",
+  "Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host. The wizard can generate the exact PowerShell, XML, or manual route values.",
+  "Run the ADS Doctor from the runtime host.",
+  "Import TwinCAT symbols into ads.toml, a cached symbol snapshot, and the single generated ST file src/generated/ads_generated.st.",
+  "Deploy or reload the project bundle, then verify ads.status and generated value/_quality globals from the runtime.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_94D293455A69_001"
+title = "Public workflow: TwinCAT Connects To truST"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/external-systems/ads.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_94D293455A698D5BF1BA8AC3"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Beckhoff ADS > Quick Start > TwinCAT Connects To truST"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Enable [runtime.ads_server] in runtime.toml.",
+  "Set one concrete listen IP, an AMS Net ID, and logical ads_port = 851.",
+  "Add the globals to expose. Leave writes_enabled = false unless a specific write path is required.",
+  "Allowlist the TwinCAT client with its AMS Net ID and source IP or CIDR.",
+  "Start the truST runtime.",
+  "In TwinCAT, use SYSTEM > Routes or the Target Browser **Broadcast Search** to find the truST runtime and add the route to truST. truST acknowledges the Add Route handshake so TwinCAT can complete local route setup; the client still must be allowlisted in [runtime.ads_server.clients] before browse/read/write requests are accepted.",
+  "Browse the truST target on logical port 851. Exposed globals appear with the global. prefix, for example global.TankLevel and global.Setpoint.",
+  "Read first. Test writes only against a guarded writable variable such as global.Setpoint.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_D24FCC998C80_001"
+title = "Public workflow: Recommended decision order"
+area = "protocols"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/connect/runtime-to-runtime/transport-matrix.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_D24FCC998C80FB91D155C38B"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "integration engineer"
+entry_point = "Open the public section: Runtime-To-Runtime Transport Matrix > Recommended decision order"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Start with discovery if you are still finding peers or bootstrapping trust.",
+  "Use zenoh mesh when the goal is selective runtime-to-runtime data flow.",
+  "Use realtime only when you explicitly need same-host deterministic transport.",
+  "Use runtime-cloud/web when the problem is orchestration, rollout, or fleet visibility rather than raw signal sharing.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_7E9C84093FC5_001"
+title = "Public workflow: Worked example"
+area = "supply_chain_platform"
+owner = "trust-dev"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/package-registry.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_7E9C84093FC5EFDE994DB33F"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "library maintainer"
+entry_point = "Open the public section: Package Registry > Worked example"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Create a reusable package at ./libraries/mymotionlib.",
+  "Give it its own trust-lsp.toml and src/.",
+  "Publish it:",
+  "Consume it from another project by adding a dependency entry or downloading it into a vendor path.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_0F343DE358D0_001"
+title = "Public workflow: Safe migration checklist"
+area = "plcopen_devtools"
+owner = "trust-lsp"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/vendor-profiles.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_0F343DE358D002D8F09D4694"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "migration engineer"
+entry_point = "Open the public section: Vendor Profiles > Safe migration checklist"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Set the profile in trust-lsp.toml.",
+  "Reformat one representative file.",
+  "Review diagnostics and warnings.",
+  "Build and validate the project.",
+  "Commit the formatting/profile change separately from logic edits.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_15A2F0DD6613_001"
+title = "Public workflow: Five-step quickstart"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/visual-editors/blockly.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_15A2F0DD661339E7B7FDD01C"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC programmer"
+entry_point = "Open the public section: Blockly > Five-step quickstart"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open examples/blockly/simple-led-blink.blockly.json.",
+  "Let truST open the Blockly editor automatically.",
+  "Drag or inspect blocks in the workspace.",
+  "Use the generated-code view to understand the ST companion.",
+  "Save, build, and run as a normal truST project.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_BB46EA910511_001"
+title = "Public workflow: Five-step quickstart"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/visual-editors/ladder.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_BB46EA910511E52D723B21C1"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC programmer"
+entry_point = "Open the public section: Ladder Editor > Five-step quickstart"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open examples/ladder/simple-start-stop.ladder.json in VS Code.",
+  "Let truST auto-open the custom editor or use Reopen Editor With....",
+  "Add or inspect contacts/coils in the rung.",
+  "Save the file and inspect the generated companion ST.",
+  "Run the same project through build/validate/runtime as you would for ST.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_812A3212DF07_001"
+title = "Public workflow: Five-step quickstart"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/visual-editors/sfc.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_812A3212DF07E6617191E075"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC programmer"
+entry_point = "Open the public section: SFC > Five-step quickstart"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open examples/sfc/sfcsimpleparallel.sfc.",
+  "Let truST open the SFC editor automatically.",
+  "Inspect the initial step, transition conditions, and any parallel branches.",
+  "Save and inspect the resulting companion ST/runtime behavior.",
+  "Validate the project and run it through the normal runtime loop.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_CDC07CFF8A91_001"
+title = "Public workflow: Five-step quickstart"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/develop/visual-editors/statechart.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_CDC07CFF8A917C8DBAF6EB02"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC programmer"
+entry_point = "Open the public section: Statechart > Five-step quickstart"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open examples/statecharts/traffic-light.statechart.json.",
+  "Let truST open the visual editor automatically.",
+  "Inspect states and transitions first before editing actions.",
+  "Save and review the companion ST/output behavior.",
+  "Run the project and drive events or inputs through the runtime/debug surfaces.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_7EEF7481947C_001"
+title = "Public workflow: Quick start"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/examples/hmi.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_7EEF7481947C105881BAC728"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "control-system operator"
+entry_point = "Open the public section: HMI > Quick start"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Build the project.",
+  "Run the runtime with web/HMI enabled.",
+  "Open /hmi.",
+  "Toggle inputs and verify live updates on process graphics and operator pages.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_A22E00BD1F13_001"
+title = "Public workflow: Day-to-day workflow"
+area = "plcopen_devtools"
+owner = "trust-lsp"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/migrate/codesys-twincat.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_A22E00BD1F131DA07539CBDC"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "migration engineer"
+entry_point = "Open the public section: CODESYS And TwinCAT > Day-to-day workflow"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Set vendor_profile in trust-lsp.toml.",
+  "Keep application code in normal src/ folders.",
+  "Add [[libraries]] stub folders for vendor-only symbols you still need for completion, hover, and navigation.",
+  "Use PLCopen import/export when moving source in or out of vendor tooling.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_D3D2C2908244_001"
+title = "Public workflow: Migration Workflow"
+area = "plcopen_devtools"
+owner = "trust-lsp"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/migrate/index.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_D3D2C29082449A6AA6E9ABA4"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "migration engineer"
+entry_point = "Open the public section: Migration While Programming > Migration Workflow"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Identify the source ecosystem and open the matching compatibility page.",
+  "Import or copy the source into a normal truST project layout.",
+  "Set a vendor_profile when the style or syntax expectation is vendor-led.",
+  "Add library stubs for symbols that must be visible but are not shipped as runtime semantics.",
+  "Run diagnostics, build, validate, and tests.",
+  "Add HMI descriptors or Browser HMI pages only after the code shape is stable.",
+  "Use One Project, Every Surface to choose the right surface for the next validation step.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_87AF7E445561_001"
+title = "Public workflow: Safe Restore Order"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/backup-and-restore.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_87AF7E445561A27FC77D1FAC"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "runtime operator"
+entry_point = "Open the public section: Backup And Restore > Safe Restore Order"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "restore the project or deployment bundle",
+  "restore config files",
+  "restore retain data only if the version/layout is compatible",
+  "start under supervision",
+  "verify with status, HMI, and one safe I/O proof",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_81374E35F805_001"
+title = "Public workflow: For automated tools"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/compile-validate-reload.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_81374E35F805D94E472F9B39"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "runtime operator"
+entry_point = "Open the public section: Compile, Validate, Reload / Hot Reload > For automated tools"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "workspace.write",
+  "lsp.diagnostics",
+  "lsp.format",
+  "runtime.compile_reload",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_819D4CA4AFE8_001"
+title = "Public workflow: Browser HMI"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/hmi-and-web-ui.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_819D4CA4AFE80939AC52D192"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "control-system operator"
+entry_point = "Open the public section: HMI (Preview & Browser) > Browser HMI"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Confirm the connection badge is healthy.",
+  "Confirm freshness is current enough for the task.",
+  "Open the overview page before changing pages.",
+  "Check alarms before forcing or acknowledging anything.",
+  "Compare suspicious values against trends, Live Values, or field state.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_11CE18940EA5_001"
+title = "Public workflow: Offline Install Flow"
+area = "supply_chain_platform"
+owner = "release"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/offline-install.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_11CE18940EA5654E4C536EDC"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "deployment engineer"
+entry_point = "Open the public section: Offline Install > Offline Install Flow"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "build the binaries on a connected machine",
+  "copy the runtime binary and any required service/template files to USB or SD",
+  "copy them onto the target host",
+  "verify the runtime and any system I/O config locally",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_0DFBFE040B69_001"
+title = "Public workflow: Start With Evidence"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/performance-tuning.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_0DFBFE040B69305328ECDBC4"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "runtime operator"
+entry_point = "Open the public section: Performance Tuning > Start With Evidence"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "prove the target cycle time",
+  "capture the actual cycle time or delay",
+  "reduce the problem to one project, task, or backend",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_92F337788E11_001"
+title = "Public workflow: Safe Upgrade Pattern"
+area = "supply_chain_platform"
+owner = "release"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/operate/upgrade.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_92F337788E11BA12E26A1F1F"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "deployment engineer"
+entry_point = "Open the public section: Upgrade > Safe Upgrade Pattern"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "build and validate the new project version first",
+  "keep the current deployment available",
+  "deploy into a versioned root",
+  "restart in the intended mode",
+  "verify with status, HMI, and one safe process proof",
+  "keep rollback ready until the upgrade is accepted",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_B856ED5CDDB4_001"
+title = "Public workflow: Switching profiles safely"
+area = "plcopen_devtools"
+owner = "trust-lsp"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/reference/config/vendor-profiles.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_B856ED5CDDB494B14EF9A53D"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "migration engineer"
+entry_point = "Open the public section: Vendor Profiles Reference > Switching profiles safely"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "change vendor_profile",
+  "reformat representative files",
+  "review diagnostics",
+  "run build and validate",
+  "only then treat the profile change as complete",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_E15DCFA0D264_001"
+title = "Public workflow: What an agent needs first"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/agent-quickstart.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_E15DCFA0D2646305EBCEF808"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "automation agent operator"
+entry_point = "Open the public section: Agent Quickstart / agent serve > What an agent needs first"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "inspect project shape",
+  "read and write files",
+  "run diagnostics",
+  "preview formatting",
+  "build or test",
+  "close the diagnose -> build -> reload loop",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_556BCA7D07FB_001"
+title = "Public workflow: Walkthrough"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/first-project.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_556BCA7D07FB1286B97928B1"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: First Project > Walkthrough"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Install truST from the Marketplace.",
+  "Open the shipped tutorial in VS Code.",
+  "Open src/main.st and src/config.st.",
+  "Run Structured Text: Open Runtime Panel.",
+  "Start the runtime in Local mode.",
+  "Toggle %IX0.0 and confirm PumpRunning changes in the runtime panel.",
+  "Open /hmi from the same running project and confirm the dashboard updates.",
+  "Set one breakpoint and press F5 to verify the debugger path.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_A9AF3F21E41E_001"
+title = "Public workflow: Contributor Path"
+area = "supply_chain_platform"
+owner = "release"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/install-from-source.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_A9AF3F21E41ED6A0597FD1F1"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "deployment engineer"
+entry_point = "Open the public section: Install From Source > Contributor Path"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Install Rust and Cargo from .",
+  "Clone the repository.",
+  "Build the shipped binaries:",
+  "For release-profile binaries:",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_F08D90359C6B_001"
+title = "Public workflow: First steps"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/maintain-an-existing-project.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_F08D90359C6BA2DF43D50A47"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: Maintain An Existing Project > First steps"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open the project without editing anything yet.",
+  "Inspect the tree and identify src/, runtime.toml, io.toml, and hmi/.",
+  "Run build and validate before touching code.",
+  "Inspect the runtime UI or HMI.",
+  "Change one safe line only.",
+  "Rerun or redeploy.",
+  "Verify the effect.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_F495BAA5B93D_001"
+title = "Public workflow: What Your URL Usually Looks Like"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/operate-in-browser.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_F495BAA5B93DC09081231F64"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "control-system operator"
+entry_point = "Open the public section: Operate In Browser HMI > What Your URL Usually Looks Like"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "confirm you have the right URL",
+  "record the time and any error text",
+  "use your local runbook or escalation contact",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_CC557DA84056_001"
+title = "Public workflow: Quick start"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/operate-in-browser.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_CC557DA8405666CCB0D1A71F"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "control-system operator"
+entry_point = "Open the public section: Operate In Browser HMI > Quick start"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Open /hmi.",
+  "Read the overview page first.",
+  "Open the process page.",
+  "Check trends if values look suspicious.",
+  "Open alarms before trying operator actions.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_06F0B50B276C_001"
+title = "Public workflow: For Browser Users"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/program-in-browser.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_06F0B50B276C143A8E3394BD"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: Program In Browser IDE > For Browser Users"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "open src/main.st",
+  "run build",
+  "run validate",
+  "inspect the project tree",
+  "jump to /hmi for operator-side confirmation",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_C8E790E48310_001"
+title = "Public workflow: Quick Start"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/program-in-vscode.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: Program In VS Code > Quick Start"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "Install truST LSP.",
+  "Open the tutorial project in VS Code.",
+  "Open src/main.st and src/config.st.",
+  "Press Start on the Run card to run the program on the simulator (see Run & Check).",
+  "Open Live Values to inspect %I, %Q, and memory while it runs (see Live Values).",
+  "Set a breakpoint in the control logic and step through it (see Debugging In VS Code).",
+  "Rename or jump to the control function block to confirm the LSP flow.",
+  "Open the HMI preview once the editor-side behavior makes sense.",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_027D30E7601F_001"
+title = "Public workflow: Safe Signals In The Tutorial"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/start/program-in-vscode.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_027D30E7601F15D962AC2EBC"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: Program In VS Code > Safe Signals In The Tutorial"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "toggle %IX0.0",
+  "confirm Live Values changes",
+  "open the HMI from the running project for visual confirmation",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PUBLIC_WORKFLOW_28057E7E1763_001"
+title = "Public workflow: First three things to try"
+area = "editor_safety"
+owner = "trust-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/public/troubleshooting.md"
+version = "current"
+last_reviewed = "2026-07-18"
+covers = ["public_workflow:WORKFLOW_CANDIDATE_28057E7E1763569B539C8DB3"]
+known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
+conflicts_with = []
+actor = "PLC engineer"
+entry_point = "Open the public section: Troubleshooting > First three things to try"
+preconditions = ["The prerequisites named by the public page are satisfied."]
+visible_steps = [
+  "run build/validate first",
+  "confirm the config files and transport choice are the ones you think they are",
+  "reduce the system to the smallest local path that still reproduces the issue",
+]
+success_state = "The user completes the ordered public workflow and observes its stated result."
+failure_status_behavior = "A failed or unavailable step remains visible with its status; later success is not implied."
+safety_authz_boundaries = [
+  "Hardware, authorization, and safe-state requirements named by the workflow remain mandatory.",
+  "The workflow does not turn simulated, local, or configured-only behavior into hardware or deployment proof.",
+]
+acceptance_evidence = [
+  "A cataloged journey must execute the ordered steps and capture the visible success state and failure/status behavior.",
+]
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_RUNTIME_ENGINE_001"
 title = "truST runtime engine"
 area = "runtime_safety"
