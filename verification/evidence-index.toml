@@ -7595,3 +7595,91 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_PLATFORM_PUBLIC_CLAIM_CLOSEOUT_20260718"
+title = "Platform support public-claim gap closeout"
+area = "release"
+owner = "release"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-public-claim-gap-closeout.md"
+command = "gh release view v0.24.34 --repo johannesPettersson80/trust-platform --json tagName,publishedAt,url,assets && gh run view 29426801469 --repo johannesPettersson80/trust-platform --json headSha,conclusion,url,jobs && gh run view 29440442398 --repo johannesPettersson80/trust-platform --json headSha,conclusion,url,jobs && python3 scripts/validate_verification_metadata.py"
+commit = "98861a8734763817542ba68fa17b54df729a2e79"
+platform = "github-release-and-actions; local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim gap closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RELEASE_PLATFORM_MATRIX_001", "PLAT_PATH_001", "PLAT_VSCODE_001"]
+linked_tests = ["TEST_RELEASE_PLATFORM_MATRIX_TRACE_001", "TEST_PLATFORM_PATH_TRACE_001", "TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"]
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718"
+title = "Behavior-lock public-claim gap closeout"
+area = "release"
+owner = "release"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-public-claim-gap-closeout.md"
+command = "jq -e '.summary == {\"failed\":0,\"mapped_tests\":242,\"passed\":242,\"timed_out\":0}' docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-mapped-test-execution.json && python3 scripts/validate_verification_metadata.py"
+commit = "98861a8734763817542ba68fa17b54df729a2e79"
+platform = "trust-builder-linux-x86_64; local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim gap closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RUNTIME_BEHAVIOR_LOCKED_001", "DEBUG_BEHAVIOR_LOCKED_001"]
+linked_tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_SOURCE_BUILD_PUBLIC_CLAIM_CLOSEOUT_20260718"
+title = "Source-build public-claim gap closeout"
+area = "release"
+owner = "release"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-public-claim-gap-closeout.md"
+command = "test ! -e ../open-ot-ref && cargo build --release -p trust-lsp -p trust-runtime -p trust-debug"
+commit = "98861a8734763817542ba68fa17b54df729a2e79"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim gap closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RELEASE_SOURCE_BUILD_OPENOT_001"]
+linked_tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_HARDWARE_PUBLIC_CLAIM_CLOSEOUT_20260718"
+title = "Hardware public-claim boundary gap closeout"
+area = "release"
+owner = "docs"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-public-claim-gap-closeout.md"
+command = "python3 -m unittest scripts.verification.metadata_validator.public_claims_tests && python3 scripts/validate_verification_metadata.py"
+commit = "98861a8734763817542ba68fa17b54df729a2e79"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim gap closeout"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["REL_CLAIM_001"]
+linked_tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
+linked_spec_gaps = ["SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"

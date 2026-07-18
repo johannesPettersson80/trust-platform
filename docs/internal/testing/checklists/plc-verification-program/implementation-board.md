@@ -1228,7 +1228,7 @@ same commit, with the closure evidence linked.
   no restart outcome and does not declare current retained-instance behavior
   conformant. Acceptance is recorded in
   `EVID_P16_E1_INDEPENDENT_ACCEPTANCE_20260713`.
-- [ ] `VERIF-P16-002` Close every spec gap. For each open record in
+- [x] `VERIF-P16-002` Close every spec gap. For each open record in
   `verification/spec-gaps.toml` (34 at time of writing): write the owning
   spec section, IEC decision, or recorded deviation per STOP-013, then flip
   `resolution_status = "closed"` with closeout evidence. Done when zero
@@ -1329,6 +1329,18 @@ same commit, with the closure evidence linked.
   local G1 proof is not published, native, or device evidence. The register
   now contains 31 `closed` and 4 `spec_updated` records; this row stays open
   for those four public-claim obligations.
+
+  Public-claim closeout (2026-07-18): the platform, behavior-lock,
+  source-build, and hardware wording boundaries are closed against
+  `SPEC_RELEASE_EVIDENCE_001`, exact mapped tests, published release/CI
+  records, the complete mapped-test execution, and the isolated source build.
+  The platform claim remains tiered: native execution and native VSIX
+  installation are not inferred from artifacts. The hardware closeout proves
+  only the public evidence vocabulary and device-in-loop boundary; it
+  qualifies no physical target. The register contains 35 `closed` records and
+  zero unresolved gaps. Durable scope and URLs are recorded in
+  `EVID_PLATFORM_PUBLIC_CLAIM_CLOSEOUT_20260718` and its three companion
+  closeout rows.
 - [x] `VERIF-P16-003` Map tests to every invariant. For each invariant:
   behavior rows get specified outcomes and resolving oracles; decision
   tables regenerate through gen_cases; other contract kinds get

@@ -7,13 +7,13 @@ schema_version = 1
 id = "REQ_SPEC_PUBLIC_PLATFORM_RELEASE_PROOF"
 area = "release"
 tag = "public_platform_release_proof"
-title = "Public platform claims require native release evidence"
+title = "Public platform claims require explicit tiered release evidence"
 owner = "release"
-status = "spec_gap"
-expected_authority = ["public_claim"]
-spec_gap_ref = "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
 blocks = "release_claim"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1
@@ -22,11 +22,11 @@ area = "release"
 tag = "public_behavior_lock_proof"
 title = "Public behavior-lock claims require release evidence"
 owner = "release"
-status = "spec_gap"
-expected_authority = ["public_claim"]
-spec_gap_ref = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
 blocks = "release_claim"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1
@@ -35,24 +35,24 @@ area = "release"
 tag = "public_source_build_proof"
 title = "Public source-build claims require release evidence"
 owner = "release"
-status = "spec_gap"
-expected_authority = ["public_claim"]
-spec_gap_ref = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
 blocks = "release_claim"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1
 id = "REQ_SPEC_PUBLIC_HARDWARE_CLAIM_PROOF"
 area = "release"
 tag = "public_hardware_claim_proof"
-title = "Public hardware claims require named device evidence"
+title = "Public hardware claims require explicit proof-level boundaries"
 owner = "docs"
-status = "spec_gap"
-expected_authority = ["public_claim"]
-spec_gap_ref = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_RELEASE_EVIDENCE_001"
 blocks = "release_claim"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1

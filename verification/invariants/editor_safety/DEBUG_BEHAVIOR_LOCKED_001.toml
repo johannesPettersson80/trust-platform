@@ -3,9 +3,9 @@ id = "DEBUG_BEHAVIOR_LOCKED_001"
 title = "Debugger behavior-locked claim maps to tests and evidence"
 area = "editor_safety"
 risk = "false_status"
-status = "implemented"
+status = "validated"
 owner = "trust-debug"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 claim = "The public claim that debugger behavior is locked by tests must map to debug invariants, suites, and durable evidence."
 proof_level = "G1"
 contract_kind = "protocol_trace"
@@ -16,9 +16,10 @@ evidence_refs = [
   "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_COMPARE",
   "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+  "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718",
 ]
 spec_gap_refs = []
-missing = ["broad_remote_gate"]
+missing = []
 
 [spec]
 status = "specified"
@@ -39,4 +40,4 @@ rationale = "The debugger behavior-lock claim resolves only explicit debugger in
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "The debugger mapping contract is covered by a current-contract lock comparison; a causal broad gate remains open."
+rationale = "The narrowly scoped debugger mapping contract is covered by a current-contract lock comparison; it does not imply broad release validation."
