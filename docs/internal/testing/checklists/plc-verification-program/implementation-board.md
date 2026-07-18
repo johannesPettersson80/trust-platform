@@ -1140,7 +1140,7 @@ each supported path/package behavior.
 
   Closed 2026-07-19 by the primary-gate-validated
   `verification/release-evidence.toml` contract and the byte-reproducible Phase
-  13 audit rebound at clean source `7baa48646ce85332c72ca9a9fdb6f66a90f6345a`.
+  13 audit rebound at clean source `477025e84b0f9f21a7b9c8637fd0a2280c2c0480`.
   The audit distinguishes local, trust-builder, typed CI, hardware-lab, and
   public-GitHub evidence without treating configured jobs as execution. It
   reports the current `v0.24.54` candidate as incomplete: there is no annotated
