@@ -52,7 +52,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-18"
 covers = [
   "scan_cycle_architecture",
   "clock_abstraction",
@@ -96,7 +96,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-18"
 covers = [
   "process_image_model",
   "scan_cycle_execution",
@@ -382,7 +382,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/22-developer-workflows.md"
 version = "current"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 covers = [
   "source_discovery",
   "supported_source_extensions",
@@ -406,7 +406,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/23-connector-status.md"
 version = "current"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 covers = [
   "connector_state_vocabulary",
   "connector_health_vocabulary",
@@ -575,7 +575,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-18"
 covers = [
   "diagnostic_cancellation",
   "document_close_durable_project_truth",

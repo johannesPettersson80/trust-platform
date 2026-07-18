@@ -27,3 +27,8 @@ Wire identifiers are stable lowercase values. Human-facing surfaces may add
 presentation text, but HMI, CLI, reports, hover, and VS Code must preserve the
 same state and health meaning. An unknown wire identifier fails visibly at a
 closed mapping boundary; it is not silently promoted to a healthy state.
+
+Peer topology is evaluated per peer. An invalid peer state, health,
+confidence, or point-quality value must preserve the peer and the remaining
+valid topology while rendering a visible error for the malformed peer. One
+malformed peer must not make itself or other configured peers silently vanish.
