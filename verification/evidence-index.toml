@@ -8083,3 +8083,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_EIGHTEENTH_REVIEW_FINAL_REPORT_REBIND_20260718"
+title = "Eighteenth-review final generated-report rebind"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/eighteenth-review-final-report-rebind.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && python3 scripts/run_verification_focused_tests.py && git diff --check"
+commit = "c996e8ac791b66d4233033130c9ecb154fd1395d"
+platform = "trust-builder-linux-x86_64; local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex eighteenth-review final report rebind"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-18"
