@@ -136,7 +136,7 @@ class TestCatalogVscodeRegistrationTests(unittest.TestCase):
         self.assertTrue(audit.is_clean)
         self.assertEqual(len(audit.test_files), 39)
         self.assertEqual(len(audit.entries), 39)
-        self.assertEqual(audit.fact_count, 458)
+        self.assertEqual(audit.fact_count, 461)
         self.assertEqual(audit.unregistered_fact_files, ())
 
 
