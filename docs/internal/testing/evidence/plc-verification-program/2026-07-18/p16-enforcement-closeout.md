@@ -102,3 +102,34 @@ This evidence is `proof_kind = "none"`: it proves the enforcement/control-plane
 transition and report provenance, not new product behavior or a higher
 invariant proof level. Broad final gates are recorded separately after this
 evidence commit. P16-008 remains subject to an independent final review.
+
+## Final validation
+
+The final validation checkout was
+`trust-builder:/home/johannes/projects/trust-platform-p16-rebind-8cf3c530` at
+`d50a49f0230cfc2f1b7f9ca08489d9f9c45025f0`; `hostname` reported
+`scena-rust-builder` and the tracked worktree was clean.
+
+- All 15 committed report pairs passed their at-rest validators against the
+  final rebind commit.
+- The enforcing report gate ran over `0c2f82a3..d50a49f0` with `--strict` and
+  exited zero. Its focused suite passed 867/867 tests in 983.004 seconds,
+  metadata validated 794 records, the Phase 16 fence reported zero changed
+  product paths, and the changed-test catalog ratchet reported no uncataloged
+  tests. The planner's non-bytecode test-class debt remained an explicit
+  advisory under the reviewed ratchet boundary.
+- `just fmt` passed without changing the validation checkout.
+- `cargo clippy --all-targets --all-features` passed in 45.26 seconds using the
+  warmed shared target.
+- `just test-all` passed using the warmed shared target with no failed suite.
+- `verification-veryquick` was not repeated after the strict gate because the
+  strict gate had already executed the full focused verification suite and
+  metadata gate; this avoids a duplicate expensive pass under the staged
+  cadence.
+
+The process correction is committed at
+`c9161cb522260d1703ef5ec39f1f4babf52963aa`: evidence-producing builder
+commands must be explicit SSH commands, and implementation must pass a cheap
+full-diff preflight and freeze before one report rebind and the final broad
+gates. The rule change passed 20 targeted routing/closeout tests and metadata
+validation at 794 records. P16-008 remains open for independent acceptance.
