@@ -40,3 +40,5 @@ trust-runtime.workspace = true
 expect-test.workspace = true
 insta.workspace = true
 verification-cases.workspace = true
+futures-util.workspace = true
+tower.workspace = true

@@ -77,6 +77,8 @@ END_PROGRAM
 
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_references_partial_result_token_returns_empty_final_response() {
+    use futures_util::StreamExt;
+
     let source = r#"
 PROGRAM Main
 VAR
@@ -86,7 +88,8 @@ Speed := Speed + 1;
 END_PROGRAM
 "#;
     let state = ServerState::new();
-    let client = test_client();
+    let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+    crate::test_support::initialize_test_client(&mut service).await;
     let uri = tower_lsp::lsp_types::Url::parse("file:///partial-refs.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
 
@@ -114,10 +117,23 @@ END_PROGRAM
         "when partial results are streamed, the final references response must be empty, got {} items",
         final_result.len()
     );
+    let notification = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+        .await
+        .expect("partial references notification timeout")
+        .expect("partial references notification");
+    assert_eq!(notification.method(), "$/progress");
+    let params = notification.params().expect("partial references params");
+    assert_eq!(params["token"], "refs-partial");
+    assert!(
+        params["value"].as_array().is_some_and(|items| !items.is_empty()),
+        "partial references notification must carry the locations omitted from the final response: {params}"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_workspace_symbols_partial_result_token_returns_empty_final_response() {
+    use futures_util::StreamExt;
+
     let source = r#"
 FUNCTION_BLOCK Pump
 END_FUNCTION_BLOCK
@@ -129,7 +145,8 @@ END_VAR
 END_PROGRAM
 "#;
     let state = ServerState::new();
-    let client = test_client();
+    let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+    crate::test_support::initialize_test_client(&mut service).await;
     let uri = tower_lsp::lsp_types::Url::parse("file:///partial-symbols.st").unwrap();
     state.open_document(uri, 1, source.to_string());
 
@@ -150,6 +167,19 @@ END_PROGRAM
         final_result.is_empty(),
         "when partial results are streamed, the final workspace-symbol response must be empty, got {} items",
         final_result.len()
+    );
+    let notification = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+        .await
+        .expect("partial workspace-symbol notification timeout")
+        .expect("partial workspace-symbol notification");
+    assert_eq!(notification.method(), "$/progress");
+    let params = notification
+        .params()
+        .expect("partial workspace-symbol params");
+    assert_eq!(params["token"], "symbols-partial");
+    assert!(
+        params["value"].as_array().is_some_and(|items| !items.is_empty()),
+        "partial workspace-symbol notification must carry the symbols omitted from the final response: {params}"
     );
 }
 

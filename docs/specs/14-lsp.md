@@ -426,6 +426,21 @@ terminator bytes are not addressable as positions. A character value beyond
 the line length clamps to the line end, as required by the
 [LSP 3.17 Position contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#position).
 
+##### 7.1.2 Progressive Results and Interactive Latency
+
+When a references or workspace-symbol request supplies a partial-result token,
+truST sends each non-empty result chunk through `$/progress` using that exact
+token. The final request response is empty after streaming so a client cannot
+count the same locations or symbols twice. Without a partial-result token, the
+complete result remains in the final response.
+
+Runtime-assisted inline values are an optional interactive enhancement, not a
+reason to block the editor. Connect, read, and write operations against the
+configured runtime control endpoint use a 250 ms I/O bound. An unavailable,
+silent, or malformed endpoint produces no runtime-derived inline values and
+returns within that bound; static inline values remain independently
+available. This timeout behavior is tooling policy, not IEC program semantics.
+
 #### 7.2 Document Synchronization
 
 - Incremental sync using `TextDocumentContentChangeEvent` ranges.

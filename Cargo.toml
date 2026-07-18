@@ -42,6 +42,7 @@ salsa = "0.26"
 # LSP
 tower-lsp = "0.20"
 lsp-types = "0.97"
+tower = "0.4"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -67,6 +68,7 @@ anyhow = "1"
 # Testing
 expect-test = "1.5"
 insta = { version = "1", features = ["glob"] }
+futures-util = "0.3"
 
 # Utilities
 smol_str = "0.2.2"

@@ -582,6 +582,8 @@ covers = [
   "lsp_position_encoding",
   "lsp_range_operations",
   "lsp_incremental_sync",
+  "lsp_partial_result_delivery",
+  "lsp_inline_value_latency",
   "rename_conflict_safety",
 ]
 known_limitations = []
