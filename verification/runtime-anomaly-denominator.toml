@@ -1363,15 +1363,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_0B389C90C64C72480934"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/opcua_integration.rs"
-name = "opcua_load_fixture_covers_browse_read_write_cycle"
-disposition = "reviewed_nonmapping"
-reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_0B4466D1F550FB760DB7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/tests.rs"
@@ -5152,6 +5143,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2B1117F165B0C1537F1C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/sync.rs"
+name = "apply_content_changes_reports_out_of_bounds_line_for_full_resync"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_2B4D4E8F343185DE898D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/server/tests.rs"
@@ -6292,6 +6292,15 @@ path = "crates/verification-cases/tests/release_evidence_trace_cases.rs"
 name = "debug_behavior_lock_trace_cases"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_33E5D40504EBC4C32030"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "simulation_time_advance_saturates_at_duration_limit"
+disposition = "mapped"
+mapping_id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -10570,6 +10579,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_5B6112AAFB09A8DF21E2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/opcua_integration.rs"
+name = "opcua_load_fixture_rejects_writes_to_snapshot_backed_variables"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_5B6A847B671D780BCDBF"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/hmi/tests/scaffold_loading.rs"
@@ -13495,6 +13513,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_753F27F0D2AE25935D15"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_partial_safe_state_preserves_unconfigured_committed_outputs"
+disposition = "mapped"
+mapping_id = "ANOM_MAP_WATCHDOG_004"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_75651FE091A83D17F3BA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/core_part_06.rs"
@@ -14782,6 +14809,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8194B9D99740A75BF56A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/commit.rs"
+name = "commit_rechecks_in_scope_staging_after_initial_collision_check"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_8195EB0C9952F58F0A13"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_02.rs"
@@ -15283,6 +15319,15 @@ path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "credential_channel_classification_enforces_secret_boundary"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_866F15B7F36E0FD00D03"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/stdlib_conv_full.rs"
+name = "real_conversions_reject_synthesized_non_finite_results"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -17936,6 +17981,15 @@ discovery_id = "DISC_9F5C3B5A29DEB7FCDA89"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_types.rs"
 name = "test_array_type"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9F8BEB8B094DF535B91A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/state/mod.rs"
+name = "closing_document_cancels_in_flight_semantic_requests"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
@@ -23440,6 +23494,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D17425F1AB882935FEFD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/tests/formatting_and_navigation.rs"
+name = "lsp_range_formatting_uses_shared_bare_cr_line_model"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_D186E0054EA8B270621D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
@@ -25028,6 +25091,15 @@ discovery_id = "DISC_E091D70576BE1F5753AF"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/namespaces.rs"
 name = "using_ambiguous_name_reports_cannot_resolve_without_choosing_candidate"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E0978319FCFE9AACEA7C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/commit.rs"
+name = "project_scope_rejects_missing_and_outside_repository_paths"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
@@ -26938,6 +27010,15 @@ path = "crates/trust-runtime/src/control/tests/core.rs"
 name = "ads_route_plan_control_request_returns_runtime_identity_artifacts"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EF7733E7E189B8A906F5"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
+name = "test_rename_refuses_cross_file_struct_field_collision_from_use_site"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]

@@ -44,9 +44,9 @@ REPORT_MARKDOWN = (
 )
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
-    "mapping_records": 133,
-    "scanner_denominator": 3220,
-    "effectively_runnable_mappings": 123,
+    "mapping_records": 135,
+    "scanner_denominator": 3229,
+    "effectively_runnable_mappings": 125,
     "ignored_or_conditional_mappings": 1,
     "gap_classes": 0,
     "by_state": {
@@ -56,21 +56,21 @@ EXPECTED_SUMMARY = {
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 124,
+        "direct": 126,
         "partial": 7,
         "protective_red": 0,
         "context_only": 2,
     },
 }
 EXPECTED_DENOMINATOR_SUMMARY = {
-    "scanner_denominator": 3220,
-    "mapped_facts": 133,
-    "reviewed_nonmapping_facts": 3087,
+    "scanner_denominator": 3229,
+    "mapped_facts": 135,
+    "reviewed_nonmapping_facts": 3094,
     "unreviewed_facts": 0,
     "exhaustive": True,
     "by_nonmapping_reason": {
-        "outside_runtime_safety_scope": 1298,
-        "no_taxonomy_stimulus_or_response": 719,
+        "outside_runtime_safety_scope": 1304,
+        "no_taxonomy_stimulus_or_response": 720,
         "supporting_internal_contract_only": 919,
         "different_safety_domain": 151,
     },
