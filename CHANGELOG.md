@@ -6,9 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.53`
+Target release: `v0.24.54`
 
 ### Fixed
+
+- trust-runtime: pre-commit watchdog and output-handoff faults now restore the
+  last committed output image before applying a partial safe-state map, so
+  unconfigured points cannot receive pending values from the failed scan.
 
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero

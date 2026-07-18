@@ -410,22 +410,33 @@ impl Runtime {
     }
 
     fn write_cycle_outputs(&mut self) -> Result<(), error::RuntimeError> {
-        self.io.interface_mut().write_outputs(&self.storage)?;
-        if let Some(debug) = self.debug.clone() {
-            self.apply_forced_values(&debug)?;
-        }
-        let now_ms = self.current_time_ms();
-        self.ads.capture_outputs(&mut self.storage, now_ms)?;
-        self.opcua_client
-            .capture_outputs(&mut self.storage, now_ms)?;
-        #[cfg(feature = "debug")]
-        self.emit_io_snapshot();
-        self.check_output_commit_deadline()?;
-        {
-            let (interface, drivers) = self.io.interface_and_drivers_mut();
-            for entry in drivers {
-                entry.driver.write_outputs(interface.outputs())?;
+        let committed_outputs = self.io.interface().outputs().to_vec();
+        let commit_result = (|| {
+            self.io.interface_mut().write_outputs(&self.storage)?;
+            if let Some(debug) = self.debug.clone() {
+                self.apply_forced_values(&debug)?;
             }
+            let now_ms = self.current_time_ms();
+            self.ads.capture_outputs(&mut self.storage, now_ms)?;
+            self.opcua_client
+                .capture_outputs(&mut self.storage, now_ms)?;
+            #[cfg(feature = "debug")]
+            self.emit_io_snapshot();
+            self.check_output_commit_deadline()?;
+            {
+                let (interface, drivers) = self.io.interface_and_drivers_mut();
+                for entry in drivers {
+                    entry.driver.write_outputs(interface.outputs())?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(error) = commit_result {
+            self.io
+                .interface_mut()
+                .outputs_mut()
+                .copy_from_slice(&committed_outputs);
+            return Err(error);
         }
         self.openot_telemetry
             .publish(self.cycle_counter, &self.storage)?;

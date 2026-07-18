@@ -552,6 +552,11 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
   before halting. If no safe-state output values are configured, fault handling performs
   no physical output write; it must not re-send the pending process-image output as a
   substitute safe state.
+- If a pre-commit fault occurs after a pending image has been staged, the
+  runtime restores the last physically committed output image before applying
+  configured safe values. A partial safe-state map overrides only its named
+  addresses; every unconfigured output therefore retains its last committed
+  value and cannot leak the failed scan's pending value.
 
 **Debug and resource pause interaction:**
 - The watchdog measures active cycle execution, not operator dwell time at a
