@@ -127,7 +127,10 @@ Target release: `v0.24.54`
   shared connector status and discovery-confidence contract while presenting it
   with user-facing labels: HMI summarizes connections in one compact header
   chip, and Network Canvas/Discover use Connection, Health, Verification, and
-  Signals wording instead of backend connector/proof terminology.
+  Signals wording instead of backend connector/proof terminology. Devices &
+  Connections now rejects unknown state, health, or confidence values while
+  retaining the affected peer topology and showing the validation error instead
+  of silently dropping all peers.
 - vscode: Generated truST projects and bundled examples now hide VS Code's
   native debug-status selector so the truST sidebar remains the single visible
   run/debug control surface while keeping the native simulator launch

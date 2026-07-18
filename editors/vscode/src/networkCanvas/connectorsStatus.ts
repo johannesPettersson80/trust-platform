@@ -47,6 +47,17 @@ export type CanonicalConnectorState =
 
 export type CanonicalConnectorHealth = "ok" | "degraded" | "faulted" | "unknown";
 
+export type CanonicalConnectorConfidence =
+  | "confirmed"
+  | "likely"
+  | "port_reachable"
+  | "unavailable";
+
+export interface FleetTopologyConnectorMergeResult {
+  topology: FleetTopologyResponse | undefined;
+  errors: string[];
+}
+
 export function canonicalConnectorState(value: unknown): CanonicalConnectorState {
   switch (stringValue(value)) {
     case "disabled":
@@ -76,6 +87,18 @@ export function canonicalConnectorHealth(value: unknown): CanonicalConnectorHeal
   }
 }
 
+export function canonicalConnectorConfidence(value: unknown): CanonicalConnectorConfidence {
+  switch (stringValue(value)) {
+    case "confirmed":
+    case "likely":
+    case "port_reachable":
+    case "unavailable":
+      return stringValue(value) as CanonicalConnectorConfidence;
+    default:
+      throw new Error(`unknown connector confidence: ${String(value)}`);
+  }
+}
+
 export async function fetchConnectorStatus(
   runtime: RuntimeTarget,
   timeoutMs = 2000
@@ -95,21 +118,56 @@ export async function fetchConnectorStatus(
 export async function fetchAndMergeFleetTopologiesWithConnectorStatus(
   runtimes: readonly RuntimeTarget[],
   timeoutMs = 2000
-): Promise<FleetTopologyResponse | undefined> {
+): Promise<FleetTopologyConnectorMergeResult> {
   const responses = await Promise.all(
     runtimes.map(async (runtime) => {
       if (runtime.status !== "online_reachable") {
-        return offlineTopologyForTarget(runtime);
+        return {
+          topology: offlineTopologyForTarget(runtime),
+          errors: [],
+        } satisfies FleetTopologyConnectorMergeResult;
       }
-      const topology = await fetchFleetTopology(runtime, timeoutMs).catch(() => undefined);
-      const connectors = await fetchConnectorStatus(runtime, timeoutMs).catch(() => undefined);
-      return mergeConnectorStatusIntoTopology(topology, connectors);
+      const errors: string[] = [];
+      const topology = await fetchFleetTopology(runtime, timeoutMs).catch((error) => {
+        errors.push(`${runtime.label} topology: ${errorMessage(error)}`);
+        return undefined;
+      });
+      const connectors = await fetchConnectorStatus(runtime, timeoutMs).catch((error) => {
+        errors.push(`${runtime.label} connector status: ${errorMessage(error)}`);
+        return undefined;
+      });
+      const merged = mergeConnectorStatusSafely(topology, connectors, runtime.label);
+      return {
+        topology: merged.topology,
+        errors: [...errors, ...merged.errors],
+      };
     })
   );
-  if (responses.every((response) => response === undefined)) {
-    return undefined;
+  const topologies = responses.map((response) => response.topology);
+  return {
+    topology: topologies.every((topology) => topology === undefined)
+      ? undefined
+      : mergeFleetTopologies(topologies),
+    errors: responses.flatMap((response) => response.errors),
+  };
+}
+
+export function mergeConnectorStatusSafely(
+  topology: FleetTopologyResponse | undefined,
+  status: ConnectorStatusResponse | undefined,
+  sourceLabel: string
+): FleetTopologyConnectorMergeResult {
+  try {
+    return {
+      topology: mergeConnectorStatusIntoTopology(topology, status),
+      errors: [],
+    };
+  } catch (error) {
+    return {
+      topology,
+      errors: [`${sourceLabel} connector status: ${errorMessage(error)}`],
+    };
   }
-  return mergeFleetTopologies(responses);
 }
 
 export function mergeConnectorStatusIntoTopology(
@@ -223,7 +281,7 @@ function projectConnectorStatus(report: ConnectorStatusReport): FleetTopologyCon
     connector_id: stringValue(report.connector_id) || "connector",
     state: canonicalConnectorState(report.state),
     health: canonicalConnectorHealth(report.health),
-    confidence: stringValue(report.confidence) || "unavailable",
+    confidence: canonicalConnectorConfidence(report.confidence),
     point_counts: {
       total: numberValue(counts.total),
       good: numberValue(counts.good),
@@ -239,4 +297,8 @@ function stringValue(value: unknown): string {
 
 function numberValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

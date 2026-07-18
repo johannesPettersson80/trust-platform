@@ -303,10 +303,19 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
       (target) => target.endpoint && target.endpoint !== runtime.endpoint
     );
     if (peers.length > 0) {
-      peerTopology = await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
+      const peerResult = await fetchAndMergeFleetTopologiesWithConnectorStatus(peers);
+      peerTopology = peerResult.topology;
+      if (peerResult.errors.length > 0) {
+        const peerError = `Peer topology degraded: ${peerResult.errors.join("; ")}`;
+        topologyError = topologyError ? `${topologyError}; ${peerError}` : peerError;
+      }
     }
-  } catch {
-    // Peers are best-effort; the local view still renders without them.
+  } catch (error) {
+    const peerError =
+      error instanceof Error
+        ? `Peer topology unavailable: ${error.message}`
+        : `Peer topology unavailable: ${String(error)}`;
+    topologyError = topologyError ? `${topologyError}; ${peerError}` : peerError;
   }
 
   const displayTopology = peerTopology

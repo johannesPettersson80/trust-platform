@@ -34,7 +34,48 @@ in its IEC reference.
     explicit conversion functions.
 - Mitigation:
   - Range-check before narrowing and represent exceptional state with an
-    explicit finite value and status rather than IEEE exceptional payloads.
+  explicit finite value and status rather than IEEE exceptional payloads.
+
+## 2026-07-14 - Connector status and discovery truth vocabulary
+
+- ID: DEV-051
+- Area: Runtime connector supervision and editor discovery presentation
+- IEC reference: IEC 61131-3 does not define truST's protocol connector
+  lifecycle, supervisory health, discovery probes, or editor fleet topology.
+  This entry records a truST product extension outside the IEC language model,
+  not an IEC non-conformance.
+- Deviation/extension:
+  - Connector lifecycle, health, discovery confidence, and point-quality values
+    use the closed vocabularies in the runtime-engine specification.
+  - Unknown values fail visibly. An invalid peer status report cannot be
+    substituted with a healthy value or remove the peer's raw topology.
+- Impact:
+  - Operators can distinguish configured, reachable, protocol-confirmed,
+    degraded, stale, and faulted connectors without treating reachability as
+    protocol health.
+- Mitigation:
+  - Keep producers and consumers on the shared closed vocabulary and preserve
+    topology with an explicit error when a version mismatch is encountered.
+
+## 2026-07-14 - EtherCAT hardware unavailability is terminal per driver
+
+- ID: DEV-052
+- Area: EtherCAT connector initialization and recovery
+- IEC reference: IEC 61131-3 does not define EtherCAT adapter discovery,
+  EtherCrab process-data allocation, or truST's driver recovery lifecycle. This
+  entry records a truST product extension outside the IEC language model, not
+  an IEC non-conformance.
+- Deviation/extension:
+  - Missing hardware does not block project construction or runtime startup;
+    the first wire operation reports the unavailable resource.
+  - A post-allocation initialization failure is terminal for that driver
+    instance and requires rebuilding it before another allocation attempt.
+- Impact:
+  - Missing hardware fails visibly without an unbounded scan-cycle retry or
+    repeated process-data allocation.
+- Mitigation:
+  - Rebuild the driver after correcting adapter or topology configuration and
+    use the mock adapter only as software evidence, never hardware proof.
 
 ## 2026-07-14 - Runtime control and debugger role authorization
 

@@ -115,6 +115,9 @@ function fleetGraph(
       })),
     ],
     faults: mapFaults(model),
+    banner: model.topologyError
+      ? { kind: "error", text: model.topologyError, actions: [] }
+      : undefined,
     searchQuery: model.searchQuery,
   };
 }
@@ -203,6 +206,8 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
             { label: "Open logs", action: "openRuntimeLogs" },
           ],
         }
+      : model.topologyError
+        ? { kind: "error", text: model.topologyError, actions: [] }
       : state === "not_started"
         ? {
             kind: "info",

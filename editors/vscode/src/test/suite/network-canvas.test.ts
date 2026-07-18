@@ -1276,6 +1276,25 @@ suite("Network Canvas", function () {
     assert.strictEqual(peer?.runtimes[0].health, "stopped", "peer stays stopped/grey, never green");
   });
 
+  test("buildCanvasGraph renders peer topology failures without hiding the local view", () => {
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      topologyError:
+        "Peer topology degraded: peer-a connector status: unknown connector confidence",
+    });
+    const graph = buildCanvasGraph(model, undefined);
+
+    assert.ok(
+      graph.hosts.some((host) => host.id === "host:this-computer"),
+      "the local runtime remains visible"
+    );
+    assert.deepStrictEqual(graph.banner, {
+      kind: "error",
+      text: "Peer topology degraded: peer-a connector status: unknown connector confidence",
+      actions: [],
+    });
+  });
+
   test("auth-failed synthetic runtime nodes keep control endpoint for inspector actions", () => {
     const endpoint = "tcp://127.0.0.1:33101";
     const topo = offlineTopologyForTarget({

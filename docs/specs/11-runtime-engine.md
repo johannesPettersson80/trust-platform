@@ -503,6 +503,12 @@ readiness:
   be rendered or consumed as a confirmed Modbus device or MQTT broker.
 - `unavailable` means that no useful discovery evidence was obtained.
 
+Consumers of this contract must reject unknown or missing state, health, and
+discovery-confidence values instead of rendering them as healthy. When one
+fleet peer supplies an invalid connector report, the peer's raw topology
+remains visible and the validation failure is shown to the operator; the bad
+report must not make that peer or the other configured peers silently vanish.
+
 MQTT discovery sets `clean_session = true` and sends DISCONNECT immediately
 after every received CONNACK, including rejected CONNACK responses. It does not
 leave a discovery session active. MQTTS port reachability without a TLS MQTT

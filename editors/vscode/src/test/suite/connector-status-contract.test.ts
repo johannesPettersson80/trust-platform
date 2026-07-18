@@ -1,7 +1,9 @@
 import * as assert from "assert";
 import {
   canonicalConnectorHealth,
+  canonicalConnectorConfidence,
   canonicalConnectorState,
+  mergeConnectorStatusSafely,
   mergeConnectorStatusIntoTopology,
 } from "../../networkCanvas/connectorsStatus";
 import type { FleetTopologyResponse } from "../../networkCanvas/fleetTopology";
@@ -62,8 +64,17 @@ suite("connector status contract", () => {
       "faulted",
     ] as const;
     const health = ["ok", "degraded", "faulted", "unknown"] as const;
+    const confidence = [
+      "confirmed",
+      "likely",
+      "port_reachable",
+      "unavailable",
+    ] as const;
     assert.deepStrictEqual(states.map(canonicalConnectorState), [...states]);
     assert.deepStrictEqual(health.map(canonicalConnectorHealth), [...health]);
+    assert.deepStrictEqual(confidence.map(canonicalConnectorConfidence), [
+      ...confidence,
+    ]);
   });
 
   test("rejects unknown state and health instead of rendering healthy", () => {
@@ -94,5 +105,30 @@ suite("connector status contract", () => {
         }),
       /unknown connector confidence/
     );
+  });
+
+  test("keeps peer topology and reports invalid connector vocabulary", () => {
+    const topology = peerTopology();
+    const result = mergeConnectorStatusSafely(
+      topology,
+      {
+        schema_version: 1,
+        connectors: [
+          {
+            connector_id: "peer-mqtt",
+            protocol: "mqtt",
+            state: "ready",
+            health: "ok",
+            confidence: "certainly_healthy",
+          },
+        ],
+      },
+      "peer-a"
+    );
+
+    assert.strictEqual(result.topology, topology);
+    assert.deepStrictEqual(result.errors, [
+      "peer-a connector status: unknown connector confidence: certainly_healthy",
+    ]);
   });
 });
