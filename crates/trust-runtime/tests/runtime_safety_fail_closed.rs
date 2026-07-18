@@ -727,6 +727,68 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
 }
 
 #[test]
+fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 1, 0);
+    runtime.storage_mut().set_global("safe", Value::Bool(true));
+    runtime.storage_mut().set_global("unconfigured", Value::Bool(false));
+    runtime
+        .io_mut()
+        .bind("safe", IoAddress::parse("%QX0.0").expect("safe output address"));
+    runtime.io_mut().bind(
+        "unconfigured",
+        IoAddress::parse("%QX0.1").expect("unconfigured output address"),
+    );
+    runtime.add_io_driver(
+        "recorder",
+        Box::new(RecordingDriver::new(writes.clone())),
+    );
+
+    runtime
+        .execute_cycle()
+        .expect("baseline output image should commit");
+    assert_eq!(
+        writes.lock().expect("driver writes lock").as_slice(),
+        &[vec![0b0000_0001]],
+        "baseline must prove the last physically committed output image"
+    );
+
+    runtime
+        .storage_mut()
+        .set_global("unconfigured", Value::Bool(true));
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((
+        IoAddress::parse("%QX0.0").expect("safe output address"),
+        Value::Bool(false),
+    ));
+    runtime.set_io_safe_state(safe_state);
+
+    let clock = StepClock::new();
+    let mut runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
+    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_nanos(1),
+        action: WatchdogAction::Halt,
+    });
+    let mut handle = runner
+        .spawn("watchdog-partial-safe-state")
+        .expect("spawn runner");
+    wait_for_fault(&handle);
+    handle.join().expect("runner join");
+
+    assert!(matches!(
+        handle.last_error(),
+        Some(RuntimeError::WatchdogTimeout)
+    ));
+    assert_eq!(
+        writes.lock().expect("driver writes lock").as_slice(),
+        &[vec![0b0000_0001], vec![0b0000_0000]],
+        "safe-state commit must override configured outputs while retaining the last committed value for every unconfigured output"
+    );
+}
+
+#[test]
 fn retain_save_failure_prevents_output_commit_when_due() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let mut runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
