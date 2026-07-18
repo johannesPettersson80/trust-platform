@@ -221,3 +221,23 @@ fn string_to_real_rejects_non_finite_text() {
         "expected finite-value conversion error, got {err}"
     );
 }
+
+#[test]
+fn real_conversions_reject_synthesized_non_finite_results() {
+    let lib = StandardLibrary::new();
+
+    for (function, input) in [
+        ("LREAL_TO_REAL", Value::LReal(f64::MAX)),
+        ("DWORD_TO_REAL", Value::DWord(f32::NAN.to_bits())),
+        ("LWORD_TO_LREAL", Value::LWord(f64::INFINITY.to_bits())),
+        ("STRING_TO_REAL", Value::String("1e300".into())),
+    ] {
+        let error = lib
+            .call(function, &[input])
+            .expect_err("conversion must reject a synthesized non-finite result");
+        assert!(
+            matches!(error, trust_runtime::error::RuntimeError::Overflow),
+            "{function} must report stable overflow, got {error}"
+        );
+    }
+}
