@@ -1,0 +1,416 @@
+schema_version = 1
+batch_runner_path = "docs/internal/testing/evidence/vscode-ui-ux-acceptance/2026-06-25/runners/run-all-journeys-batch.js"
+
+[[journeys]]
+id = "J-01"
+title = "Install First Project"
+surface = "VS Code: install first project"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_556BCA7D07FB1286B97928B1"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-02"
+title = "Find Open Right Example"
+surface = "VS Code: find open right example"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-03"
+title = "Write Compile Fix St"
+surface = "VS Code: write compile fix st"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D"]
+invariant_ids = ["EDIT_RENAME_001", "EDIT_RENAME_002"]
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = true
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-04"
+title = "Run Stop Simulator"
+surface = "VS Code: run stop simulator"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_556BCA7D07FB1286B97928B1", "WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-05"
+title = "Debug Program"
+surface = "VS Code: debug program"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D"]
+invariant_ids = ["DEBUG_PAUSE_001"]
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-06"
+title = "Change Code While Running"
+surface = "VS Code: change code while running"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-07"
+title = "Live Values Safely"
+surface = "VS Code: live values safely"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_C8E790E4831041416EBC315D", "WORKFLOW_CANDIDATE_027D30E7601F15D962AC2EBC"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-08"
+title = "Managed Local Runtime"
+surface = "VS Code: managed local runtime"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-09"
+title = "Remote Runtime"
+surface = "VS Code: remote runtime"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-11"
+title = "Add Manage Remove Connection"
+surface = "VS Code: add manage remove connection"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-12"
+title = "Simulated Loopback Io"
+surface = "VS Code: simulated loopback io"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-13"
+title = "Modbus Program"
+surface = "VS Code: modbus program"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-14"
+title = "Mqtt Program"
+surface = "VS Code: mqtt program"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-15"
+title = "Opcua Client Program"
+surface = "VS Code: opcua client program"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-16"
+title = "Opcua Server Expose"
+surface = "VS Code: opcua server expose"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-17"
+title = "Ads Client Program"
+surface = "VS Code: ads client program"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_F16D362FF6234B98DD156CA4"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-18"
+title = "Ads Server Expose"
+surface = "VS Code: ads server expose"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_94D293455A698D5BF1BA8AC3"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-19"
+title = "Ethercat Channels"
+surface = "VS Code: ethercat channels"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-20"
+title = "Gpio Lines"
+surface = "VS Code: gpio lines"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-23"
+title = "Advanced Integrations"
+surface = "VS Code: advanced integrations"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-24"
+title = "Hmi"
+surface = "VS Code: hmi"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_7EEF7481947C105881BAC728", "WORKFLOW_CANDIDATE_819D4CA4AFE80939AC52D192", "WORKFLOW_CANDIDATE_CC557DA8405666CCB0D1A71F"]
+invariant_ids = ["UI_STATUS_001"]
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-25"
+title = "Native Test Explorer"
+surface = "VS Code: native test explorer"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-26"
+title = "Visual Logic"
+surface = "VS Code: visual logic"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_15A2F0DD661339E7B7FDD01C", "WORKFLOW_CANDIDATE_BB46EA910511E52D723B21C1", "WORKFLOW_CANDIDATE_812A3212DF07E6617191E075", "WORKFLOW_CANDIDATE_CDC07CFF8A917C8DBAF6EB02"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-27C"
+title = "Palette Orphan Audit"
+surface = "VS Code: palette orphan audit"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-28"
+title = "Product Wide Polish"
+surface = "VS Code: product wide polish"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-29"
+title = "Existing Nontrust Project"
+surface = "VS Code: existing nontrust project"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-31"
+title = "Settings Runtime Settings"
+surface = "VS Code: settings runtime settings"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-32"
+title = "Libraries"
+surface = "VS Code: libraries"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = ["WORKFLOW_CANDIDATE_7E9C84093FC5EFDE994DB33F"]
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-Deploy"
+title = "Deploy Device"
+surface = "VS Code: deploy device"
+status = "evidence_missing"
+journey_source = "batch"
+workflow_candidate_ids = []
+invariant_ids = []
+supporting_test_ids = []
+implementation_paths = ["editors/vscode/src"]
+source_transformation = false
+last_reviewed = "2026-07-18"
+
+[[journeys]]
+id = "J-PEER-TOPOLOGY-FAILURE"
+title = "Peer Topology Failure Remains Visible"
+surface = "VS Code: Devices and Connections"
+status = "provisional"
+journey_source = "standalone"
+workflow_candidate_ids = []
+invariant_ids = ["UI_STATUS_001"]
+supporting_test_ids = ["TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001", "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001"]
+implementation_paths = ["editors/vscode/src/networkCanvas/networkCanvasPanel.ts"]
+source_transformation = false
+runner_paths = ["docs/internal/testing/evidence/vscode-ui-ux-acceptance/2026-06-25/runners/cdp_peer_topology_failure.js"]
+source_commit = "399e86a8feb1a61324ebeb7d5c0c0649410debd6"
+implementer = "Codex"
+last_reviewed = "2026-07-18"
+
+[[journeys.evidence]]
+theme = "dark"
+screenshot_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-dark.png"
+screenshot_sha256 = "998209aeffbff2f03999e0bdc5fcbead04c6089abaf6c937d77a411051193e69"
+result_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-dark.png.json"
+result_sha256 = "d8de1dca9ee0d45c946a41692b0b268e72a0a3eacfd4c67e514480331a46c6bd"
+
+[[journeys.evidence]]
+theme = "light"
+screenshot_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-light.png"
+screenshot_sha256 = "86fea0f057d66d2a81803d3899271adff6c1d6832f2a6d68fe901b1619adc266"
+result_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-light.png.json"
+result_sha256 = "dafd2f49a6af027877fb7129b67148d0c8c9ad1deac2285dafd0bd8ac5af8eb7"
+
+[[journeys.evidence]]
+theme = "high_contrast"
+screenshot_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-high_contrast.png"
+screenshot_sha256 = "d01dca4a0d316d146d926aa7ae56a6cdf4c4832b1f3d5891a9ad33c2889f6d2b"
+result_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p12-ui-acceptance/peer-topology-failure-high_contrast.png.json"
+result_sha256 = "0bdb17810b1a923852d6b4ea670167600b2414e7d7d6cf670d7ae09a4fded127"

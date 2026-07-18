@@ -659,6 +659,23 @@ spec-source records must include `actor`, `entry_point`, `preconditions`,
 `safety_authz_boundaries`, and `acceptance_evidence` together unless they are
 tracked as a spec gap. A partial workflow record is invalid.
 
+`verification/public-workflow-inventory.toml` is the exhaustive reviewed join
+over ordered-list sections in tracked `docs/public/**/*.md` files. Stable
+candidate identities survive line movement. Every candidate is either bound to
+an exact workflow spec source or carries an explicit `reviewed_nonworkflow`
+rationale; headings, filenames, and prose resemblance cannot create a binding.
+
+`verification/ui-acceptance.toml` inventories the committed VS Code journey
+batch plus reviewed standalone journeys. Journey state is one of
+`evidence_missing`, `provisional`, `stale`, or `ux_accepted`. Provisional and
+accepted evidence bind the exact light, dark, and high-contrast screenshot and
+result bytes, the capture runner, and a clean source revision. A visible source
+or runner change after that revision invalidates non-stale evidence. Only an
+independently reviewed `ux_accepted` journey backed by a cataloged
+`ui_journey_acceptance` VS Code test may support validation of a linked UI
+invariant; backend or extension-unit proof alone cannot substitute for the
+rendered journey.
+
 ### Spec Gap Record
 
 ```toml

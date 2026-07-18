@@ -59,6 +59,13 @@ from ..public_workflow_inventory import (
     INVENTORY_PATH as PUBLIC_WORKFLOW_INVENTORY_PATH,
     validate_public_workflow_inventory,
 )
+from ..ui_acceptance import (
+    MANIFEST_PATH as UI_ACCEPTANCE_PATH,
+    batch_journey_ids,
+    changed_paths_since_evidence,
+    load_ui_acceptance_document,
+    validate_ui_acceptance_document,
+)
 from .case_files import validate_case_file
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
 from ..runtime_anomaly_contract import (
@@ -125,6 +132,7 @@ class Validator:
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
         self.public_workflow_inventory: dict[str, Any] = {}
+        self.ui_acceptance: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -284,6 +292,10 @@ class Validator:
         self.public_workflow_inventory = self.load_toml(
             ROOT / PUBLIC_WORKFLOW_INVENTORY_PATH
         )
+        try:
+            self.ui_acceptance = load_ui_acceptance_document(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / UI_ACCEPTANCE_PATH, f"load failed: {exc}")
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -398,6 +410,27 @@ class Validator:
             spec_sources=self.spec_sources,
         ):
             self.fail(ROOT / PUBLIC_WORKFLOW_INVENTORY_PATH, failure)
+        try:
+            declared_journeys = batch_journey_ids(ROOT, self.ui_acceptance)
+            changed_journeys, freshness_failures = changed_paths_since_evidence(
+                ROOT, self.ui_acceptance
+            )
+        except Exception as exc:
+            self.fail(ROOT / UI_ACCEPTANCE_PATH, f"live validation failed: {exc}")
+        else:
+            for failure in freshness_failures:
+                self.fail(ROOT / UI_ACCEPTANCE_PATH, failure)
+            for failure in validate_ui_acceptance_document(
+                ROOT,
+                self.ui_acceptance,
+                tests=self.tests,
+                invariants=self.invariants,
+                workflow_reviews=self.public_workflow_inventory.get("reviews", []),
+                batch_journey_ids=declared_journeys,
+                changed_paths_by_journey=changed_journeys,
+                require_tracked_files=True,
+            ):
+                self.fail(ROOT / UI_ACCEPTANCE_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -928,6 +961,7 @@ class Validator:
             + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)
             + (1 if self.public_workflow_inventory else 0)
+            + (1 if self.ui_acceptance else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")
