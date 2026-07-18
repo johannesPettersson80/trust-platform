@@ -5,9 +5,9 @@ area = "editor_safety"
 risk = "silent_corruption"
 status = "implemented"
 owner = "trust-lsp"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-18"
 claim = "Closing a document must discard its unsaved buffer, remove stale semantic state, and recompute project truth from durable sources."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/handlers/sync.rs",
@@ -16,6 +16,7 @@ source_refs = [
 tests = [
   "TEST_LSP_DOCUMENT_CLOSE_TRACE_001",
   "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001",
+  "TEST_REVIEW_DIDCLOSE_CACHE_RACE_001",
 ]
 gates = ["pr"]
 evidence_refs = [
@@ -26,7 +27,7 @@ evidence_refs = [
   "EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716",
 ]
 spec_gap_refs = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"]
-missing = ["in_flight_cache_writer_invalidation", "broad_remote_gate"]
+missing = ["current_contract_proof_refresh", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -80,4 +81,4 @@ rationale = "Push clients clear only the closed URI and pull clients recompute l
 dimension = "persistence_or_recovery"
 state = "spec_gap"
 spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"
-rationale = "Durable-source restoration is covered, but didClose does not yet prevent an in-flight semantic-token or diagnostic computation from repopulating a cache after eviction."
+rationale = "Generation-checked cache writes cover late work after didClose; current-contract proof refresh remains open."

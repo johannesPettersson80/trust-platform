@@ -5,9 +5,9 @@ area = "editor_safety"
 risk = "silent_corruption"
 status = "implemented"
 owner = "trust-ide"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-18"
 claim = "Cross-file rename conflict checks must include imported and merged project symbols."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-ide/src", "crates/trust-hir/src"]
 tests = [
@@ -15,6 +15,7 @@ tests = [
   "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
   "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
   "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001",
 ]
 gates = ["pr"]
 evidence_refs = [
@@ -23,7 +24,7 @@ evidence_refs = [
   "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714",
 ]
 spec_gap_refs = ["SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"]
-missing = ["cross_file_field_collision", "broad_remote_gate"]
+missing = ["current_contract_proof_refresh", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -69,4 +70,4 @@ rationale = "When the complete merged-project edit preserves every reference bin
 dimension = "duplicate_or_collision"
 state = "spec_gap"
 spec_gap_ref = "SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"
-rationale = "Top-level and reference-capture cases are covered, but a field declared in another file can bypass the merged-project collision check; a cross-file field-collision case and causal broad gate remain open."
+rationale = "The cross-file field characterization confirms the reported bypass does not reproduce; current-contract proof refresh remains open."

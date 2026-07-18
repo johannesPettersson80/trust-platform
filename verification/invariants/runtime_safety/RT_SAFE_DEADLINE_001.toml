@@ -5,12 +5,16 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-13"
+last_reviewed = "2026-07-18"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = ["TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
+tests = [
+  "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001",
+  "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001",
+  "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001",
+]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
@@ -23,8 +27,7 @@ spec_gap_refs = [
 ]
 missing = [
   "watchdog_configuration_and_recovery_boundaries",
-  "partial_safe_state_preserves_last_committed_outputs",
-  "simulation_clock_overflow_policy",
+  "current_contract_proof_refresh",
 ]
 
 [spec]
@@ -49,4 +52,4 @@ rationale = "When the watchdog deadline expires before physical output commit an
 dimension = "time_or_clock_fault"
 state = "spec_gap"
 spec_gap_ref = "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001"
-rationale = "The committed empty-safe-state output-commit partition has producer-authentic red and green proof plus a causal broad remote gate; watchdog configuration, configured-safe-state, restart, and recovery boundaries remain unasserted."
+rationale = "The partial-safe-state and simulation-clock regression tests are mapped and passing; current-contract proof refresh and watchdog configuration and recovery boundaries remain open."

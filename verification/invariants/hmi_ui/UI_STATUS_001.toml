@@ -5,12 +5,17 @@ area = "hmi_ui"
 risk = "false_status"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
-tests = ["TEST_UI_CONNECTOR_STATUS_TRACE_001"]
+tests = [
+  "TEST_UI_CONNECTOR_STATUS_TRACE_001",
+  "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
+]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_BASELINE",
@@ -18,7 +23,7 @@ evidence_refs = [
   "EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717",
 ]
 spec_gap_refs = ["SPEC_GAP_UI_PEER_STATUS_FAILURE_001"]
-missing = ["peer_status_validation_and_visible_failure", "cross_surface_extension_host", "broad_remote_gate"]
+missing = ["current_contract_proof_refresh", "cross_surface_extension_host", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -57,4 +62,4 @@ rationale = "An unknown wire status fails at the closed mapping boundary and can
 dimension = "ordering_or_lifecycle"
 state = "spec_gap"
 spec_gap_ref = "SPEC_GAP_UI_PEER_STATUS_FAILURE_001"
-rationale = "The canonical status contract is covered at the runtime and local projection boundaries, but one malformed peer can currently erase the peer topology without a visible per-peer failure; extension-host coverage and a causal broad gate remain open."
+rationale = "Malformed peer status and confidence preserve topology and render a visible error; current-contract proof refresh and real extension-host coverage remain open."

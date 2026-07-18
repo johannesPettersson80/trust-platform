@@ -3,14 +3,17 @@ id = "RT_SAFE_NAN_001"
 title = "Non-finite ingress cannot silently become unsafe REAL state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "spec_gap"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
-claim = "Typed external floating-point boundaries reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
-proof_level = "G2"
+last_reviewed = "2026-07-18"
+claim = "Typed external floating-point boundaries and explicit internal REAL/LREAL conversions reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
-tests = ["TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001"]
+tests = [
+  "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001",
+  "TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001",
+]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_RED",
@@ -19,7 +22,7 @@ evidence_refs = [
   "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
 ]
 spec_gap_refs = ["SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"]
-missing = ["boundary_value_matrix_depth", "internal_conversion_nonfinite_policy"]
+missing = ["boundary_value_matrix_depth", "current_contract_proof_refresh"]
 
 [spec]
 status = "specified"
@@ -27,7 +30,7 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001"
+ref = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
 
 [[behavior]]
 partition = { equals = "MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION" }
@@ -42,7 +45,7 @@ rationale = "After one accepted mapped MQTT snapshot, a batch containing an earl
 dimension = "wrong_type_or_shape"
 state = "spec_gap"
 spec_gap_ref = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
-rationale = "The written policy and 22 mapped tests cover the named shipped boundaries, but an exhaustive value-width, subnormal, signed-zero, aggregate-shape, and future-boundary matrix has not been established."
+rationale = "The internal conversion regression is mapped and passing; current-contract proof refresh and an exhaustive value-width, aggregate-shape, and future-boundary matrix remain open."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

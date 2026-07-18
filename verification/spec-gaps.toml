@@ -11,9 +11,9 @@ status = "spec_gap"
 gap_class = "missing_boundary"
 blocking_question = "On a pre-commit watchdog fault with a partial safe-state map, must every unconfigured output retain its last physically committed value rather than receive the pending scan image?"
 affected_invariants = ["RT_SAFE_DEADLINE_001"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -28,9 +28,9 @@ status = "spec_gap"
 gap_class = "missing_behavior"
 blocking_question = "Must explicit numeric and string-to-REAL/LREAL conversions reject or fault when narrowing, parsing, or bit reinterpretation would synthesize NaN or infinity inside PLC state?"
 affected_invariants = ["RT_SAFE_NAN_001"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -45,9 +45,9 @@ status = "spec_gap"
 gap_class = "missing_boundary"
 blocking_question = "How must a field rename resolve the declaration owner and sibling fields from the merged project so a cross-file request cannot create a case-insensitive collision?"
 affected_invariants = ["EDIT_RENAME_002"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001"]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -62,9 +62,13 @@ status = "spec_gap"
 gap_class = "missing_ui_contract"
 blocking_question = "How must Devices and Connections preserve valid peers and visibly identify each malformed peer status, health, confidence, or point-quality value?"
 affected_invariants = ["UI_STATUS_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
+]
 candidate_spec_sources = ["SPEC_CONNECTOR_STATUS_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -79,9 +83,12 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "How must the commit helper fail on canonical-scope errors and revalidate the Git index after interactive delay so newly staged unrelated paths cannot be absorbed?"
 affected_invariants = ["DEV_COMMIT_SCOPE_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001",
+  "TEST_REVIEW_COMMIT_SCOPE_RACE_001",
+]
 candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -96,9 +103,9 @@ status = "spec_gap"
 gap_class = "missing_lifecycle"
 blocking_question = "How must didClose invalidate request generations so semantic-token and diagnostic work started for discarded content cannot repopulate caches after eviction?"
 affected_invariants = ["EDIT_DOC_CLOSE_001"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_DIDCLOSE_CACHE_RACE_001"]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -113,9 +120,9 @@ status = "spec_gap"
 gap_class = "ambiguous_behavior"
 blocking_question = "When simulation-time advancement exceeds the signed nanosecond range, must the harness reject the command, saturate, or fault without wrapping?"
 affected_invariants = ["RT_SAFE_DEADLINE_001"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_SIM_CLOCK_OVERFLOW_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -130,9 +137,12 @@ status = "spec_gap"
 gap_class = "missing_error_model"
 blocking_question = "How must the LSP react to an incremental change outside the current document and how must range formatting share the negotiated CR, LF, and CRLF line model?"
 affected_invariants = ["EDIT_LSP_POS_001"]
-affected_tests = []
+affected_tests = [
+  "TEST_REVIEW_LSP_INVALID_CHANGE_RANGE_001",
+  "TEST_REVIEW_LSP_BARE_CR_RANGE_FORMAT_001",
+]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
@@ -147,9 +157,9 @@ status = "spec_gap"
 gap_class = "missing_behavior"
 blocking_question = "Until a transactional write-back path is reviewed, must server-published PLC variables expose read-only access rather than CurrentWrite?"
 affected_invariants = ["PROTO_OPCUA_001"]
-affected_tests = []
+affected_tests = ["TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
-resolution_status = "open"
+resolution_status = "test_mapped"
 closeout_evidence = []
 last_reviewed = "2026-07-18"
 
