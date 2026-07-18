@@ -59,6 +59,12 @@ from ..public_workflow_inventory import (
     INVENTORY_PATH as PUBLIC_WORKFLOW_INVENTORY_PATH,
     validate_public_workflow_inventory,
 )
+from ..phase13_release import (
+    MANIFEST_PATH as RELEASE_EVIDENCE_MANIFEST_PATH,
+    MANIFEST_SCHEMA_PATH as RELEASE_EVIDENCE_MANIFEST_SCHEMA_PATH,
+    validate_manifest as validate_release_evidence_manifest,
+)
+from ..test_catalog_json_schema import validate_json_schema_instance
 from ..ui_acceptance import (
     MANIFEST_PATH as UI_ACCEPTANCE_PATH,
     batch_journey_ids,
@@ -133,6 +139,7 @@ class Validator:
         self.mutation_program: dict[str, Any] = {}
         self.public_workflow_inventory: dict[str, Any] = {}
         self.ui_acceptance: dict[str, Any] = {}
+        self.release_evidence_manifest: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -296,6 +303,9 @@ class Validator:
             self.ui_acceptance = load_ui_acceptance_document(ROOT)
         except Exception as exc:
             self.fail(ROOT / UI_ACCEPTANCE_PATH, f"load failed: {exc}")
+        self.release_evidence_manifest = self.load_toml(
+            ROOT / RELEASE_EVIDENCE_MANIFEST_PATH
+        )
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -431,6 +441,24 @@ class Validator:
                 require_tracked_files=True,
             ):
                 self.fail(ROOT / UI_ACCEPTANCE_PATH, failure)
+        for failure in validate_release_evidence_manifest(
+            self.release_evidence_manifest
+        ):
+            self.fail(ROOT / RELEASE_EVIDENCE_MANIFEST_PATH, failure)
+        try:
+            release_manifest_schema = json.loads(
+                (ROOT / RELEASE_EVIDENCE_MANIFEST_SCHEMA_PATH).read_text()
+            )
+        except Exception as exc:
+            self.fail(
+                ROOT / RELEASE_EVIDENCE_MANIFEST_SCHEMA_PATH,
+                f"load failed: {exc}",
+            )
+        else:
+            for failure in validate_json_schema_instance(
+                self.release_evidence_manifest, release_manifest_schema
+            ):
+                self.fail(ROOT / RELEASE_EVIDENCE_MANIFEST_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -962,6 +990,7 @@ class Validator:
             + (1 if self.mutation_program else 0)
             + (1 if self.public_workflow_inventory else 0)
             + (1 if self.ui_acceptance else 0)
+            + (1 if self.release_evidence_manifest else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")
