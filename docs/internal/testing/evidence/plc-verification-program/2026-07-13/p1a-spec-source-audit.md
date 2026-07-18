@@ -1,11 +1,11 @@
 # Specification Source and Public Prose Audit
 
 Generator: `spec-source-audit v1`
-Source revision: `f514021eef1395b1d6aed0f8a8f77eb67cd7b40a`
-Generated: `2026-07-18T19:20:00+02:00`
+Source revision: `82c62abe3d16873c8a65d92cab099843d9dbc5a3`
+Generated: `2026-07-18T22:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `c18e9b85de7e88f1f3508b6480362715a219c4fdfbc9667538ab7435a2336f7f`
-Input SHA-256: `sha256:d56da48e79c2fd55eca869f475283ecde10c5d35dd4d89db17b9aa799c84b402`
+Generated JSON SHA-256: `2242a76257f683637f42402a468a0caf72a1a282f1b7da62ee9bfd86c3e178e5`
+Input SHA-256: `sha256:ca64d1ce8541a672213d097066de139d274c4152acd67151d95ccb04fbdb1e31`
 
 This report is the mechanical denominator for tracked specification documents,
 required-topic metadata, and public rendered prose. Unreviewed prose stays visible
@@ -14,9 +14,9 @@ as debt and creates no semantic claim or proof mapping.
 ## Summary
 
 - Documents: 398
-- Registered sources: 24 (23 tracked-file bound, 1 external, 0 unbound)
-- Unreviewed documents: 378
-- Required topics: 23 (23 mapped, 0 gap-open, 0 broken)
+- Registered sources: 25 (24 tracked-file bound, 1 external, 0 unbound)
+- Unreviewed documents: 377
+- Required topics: 33 (33 mapped, 0 gap-open, 0 broken)
 - Obvious specification topics: 21 (16 source-present, 0 gap, 2 partial, 3 unrepresented, 0 broken refs)
 - Public surfaces: 181
 - Public prose blocks: 14505
@@ -53,6 +53,7 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_RUNTIME_ENGINE_001` | `runtime_safety` | `normative_product` | `tracked_file` | `docs/specs/11-runtime-engine.md` | `SPEC_DOC_2BB2F9190775BBF95827F595` | `bound` | `false` | `not_applicable` |
 | `SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001` | `runtime_safety` | `reviewed_decision` | `tracked_file` | `docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md` | `SPEC_DOC_05A3DB60B6179B0C3700F928` | `bound` | `true` | `not_applicable` |
 | `SPEC_RUNTIME_SEMANTICS_001` | `runtime_safety` | `normative_product` | `tracked_file` | `docs/specs/10-runtime-semantics.md` | `SPEC_DOC_A0F2A12F7C380A8AB065003E` | `bound` | `false` | `not_applicable` |
+| `SPEC_VERIFICATION_PROGRAM_CONTRACT_001` | `verification` | `reviewed_decision` | `tracked_file` | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `bound` | `false` | `not_applicable` |
 | `SPEC_VM_VALUE_SEMANTICS_001` | `bytecode_vm` | `normative_product` | `tracked_file` | `docs/specs/10-runtime-semantics.md` | `SPEC_DOC_A0F2A12F7C380A8AB065003E` | `bound` | `true` | `not_applicable` |
 
 ## Required Topics
@@ -70,10 +71,20 @@ as debt and creates no semantic claim or proof mapping.
 | `REQ_SPEC_BYTECODE_SECTION_TABLE` | `bytecode_vm` | `section_table` | `mapped` | `SPEC_BYTECODE_FORMAT_001` | `None` | `mapped` |
 | `REQ_SPEC_BYTECODE_TYPE_TABLE` | `bytecode_vm` | `type_table` | `mapped` | `SPEC_BYTECODE_FORMAT_001` | `None` | `mapped` |
 | `REQ_SPEC_BYTECODE_VALIDATOR_SEMANTIC_CONTRACT` | `bytecode_vm` | `bytecode_validator_semantic_contract` | `mapped` | `SPEC_BYTECODE_FORMAT_001` | `None` | `mapped` |
+| `REQ_SPEC_COMPILER_IEC_DATA_TYPES` | `compiler_iec` | `elementary_data_types` | `mapped` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001` | `None` | `mapped` |
+| `REQ_SPEC_CONTROL_WRITE_AUTHORIZATION` | `control_security` | `hmi_write_authz` | `mapped` | `SPEC_RUNTIME_ENGINE_001` | `None` | `mapped` |
+| `REQ_SPEC_EDITOR_LSP_SYNC` | `editor_safety` | `lsp_incremental_sync` | `mapped` | `SPEC_LSP_CONTRACT_001` | `None` | `mapped` |
+| `REQ_SPEC_HMI_CONNECTOR_STATE` | `hmi_ui` | `connector_state_vocabulary` | `mapped` | `SPEC_CONNECTOR_STATUS_001` | `None` | `mapped` |
+| `REQ_SPEC_PLCOPEN_ST_IMPORT` | `plcopen_devtools` | `plcopen_st_import` | `mapped` | `SPEC_PLCOPEN_IMPORT_DECISION_001` | `None` | `mapped` |
+| `REQ_SPEC_PROTOCOL_STATUS_TRUTH` | `protocols` | `connector_status_truth_contract` | `mapped` | `SPEC_RUNTIME_ENGINE_001` | `None` | `mapped` |
 | `REQ_SPEC_PUBLIC_BEHAVIOR_LOCK_PROOF` | `release` | `public_behavior_lock_proof` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
 | `REQ_SPEC_PUBLIC_HARDWARE_CLAIM_PROOF` | `release` | `public_hardware_claim_proof` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
 | `REQ_SPEC_PUBLIC_PLATFORM_RELEASE_PROOF` | `release` | `public_platform_release_proof` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
 | `REQ_SPEC_PUBLIC_SOURCE_BUILD_PROOF` | `release` | `public_source_build_proof` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
+| `REQ_SPEC_RELEASE_VERSION_CHAIN` | `release` | `release_version_chain` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
+| `REQ_SPEC_RUNTIME_SCAN_CYCLE` | `runtime_safety` | `scan_cycle_architecture` | `mapped` | `SPEC_RUNTIME_ENGINE_001` | `None` | `mapped` |
+| `REQ_SPEC_SUPPLY_CHAIN_ARTIFACT_PROVENANCE` | `supply_chain_platform` | `artifact_provenance` | `mapped` | `SPEC_RELEASE_EVIDENCE_001` | `None` | `mapped` |
+| `REQ_SPEC_VERIFICATION_METADATA_CONTRACT` | `verification` | `verification_metadata_contract` | `mapped` | `SPEC_VERIFICATION_PROGRAM_CONTRACT_001` | `None` | `mapped` |
 | `REQ_SPEC_VM_DECLARED_TYPE_CONVERSION` | `bytecode_vm` | `declared_type_conversion_semantics` | `mapped` | `SPEC_VM_VALUE_SEMANTICS_001` | `None` | `mapped` |
 | `REQ_SPEC_VM_DETERMINISM_AND_RESOURCE_LIMITS` | `bytecode_vm` | `determinism_and_resource_limits` | `mapped` | `SPEC_BYTECODE_FORMAT_001` | `None` | `mapped` |
 | `REQ_SPEC_VM_LOWERING_FAIL_CLOSED` | `bytecode_vm` | `lowering_fail_closed_contract` | `mapped` | `SPEC_BYTECODE_FORMAT_001` | `None` | `mapped` |
@@ -252,10 +263,10 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_DOC_F13DC4D1070FECCFE0D7A7A8` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/broad-remote-gate-producer.md` | `f694baba80757a824b711e9da617b1229e58f852743171de9bd445c6feb449cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_2036F079B0576D255E5EDEA0` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/execution-slice-001.md` | `2234a6bd362dd6ee3f97042aa333f5d610998958fe91e20f585e633faea994cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_9C926023A12DA35C31614C0A` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/fable-review-brief.md` | `d3d94c4f96c494fa890a0589b79d751f93fa9136afa3f14a5108a3b3a319a529` | none | `unreviewed_candidate` |
-| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `f47c88528005160f649dd9d29005455e3c15a5a7cb817e2f04f42d55c4610d89` | none | `unreviewed_candidate` |
+| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `fc0899d3e4be0953c0673415c7abc38ac23e79c50a836717b45dbceda55afc14` | none | `unreviewed_candidate` |
 | `SPEC_DOC_A9D23F28FE4A07B226088C21` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md` | `232b3478181e99f9de3fd0829493372fe6cd5b959540ff6b9dbed8254330577d` | none | `unreviewed_candidate` |
-| `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `46e2d41b2dd5b653e51242b6b35fde1618f2e3b155ace6bd98996f69e18dbbdd` | none | `unreviewed_candidate` |
-| `SPEC_DOC_44B898C7A9661FD96FE44644` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/policy.md` | `e19cfb0e29c4cc7e829f8783cbbc68fc576d1cea175ea191afac5ba45d6a5628` | none | `unreviewed_candidate` |
+| `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `46e2d41b2dd5b653e51242b6b35fde1618f2e3b155ace6bd98996f69e18dbbdd` | `SPEC_VERIFICATION_PROGRAM_CONTRACT_001` | `registered_metadata` |
+| `SPEC_DOC_44B898C7A9661FD96FE44644` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/policy.md` | `f0cccfda0bd1aa962c85d12ba0a744fecbe6e6b646a42d70ef7d57930536e6af` | none | `unreviewed_candidate` |
 | `SPEC_DOC_8E65FCD0A9BB4F5968452A0E` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/spec-matrix-model.md` | `f595f7af086db9719478facdc77ffdb4b931c4ad2a066838a47c2d3b978791f5` | none | `unreviewed_candidate` |
 | `SPEC_DOC_781C2017B61B7F04FC492C86` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md` | `b5eeeb399eb87cb2ceb086ee33bea53840618f45040cf1448ae1f363643950c8` | none | `unreviewed_candidate` |
 | `SPEC_DOC_7A36D1065559F077813BF59B` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/verification-areas.md` | `bdcd80e8c1b0a9ce3e02d84cddd0aa3ee314f2af91a794822c4381e1e0b370e1` | none | `unreviewed_candidate` |

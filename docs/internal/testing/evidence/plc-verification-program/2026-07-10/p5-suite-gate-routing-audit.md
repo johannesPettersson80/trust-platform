@@ -1,11 +1,11 @@
 # Phase 5 Suite and Gate Audit
 
 Generator: `phase5-suite-audit v1`
-Source revision: `f514021eef1395b1d6aed0f8a8f77eb67cd7b40a`
-Generated: `2026-07-18T19:20:00+02:00`
+Source revision: `82c62abe3d16873c8a65d92cab099843d9dbc5a3`
+Generated: `2026-07-18T22:30:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ef0aa1e2361c2e231c20c2acdf8854b7272fc986cac6706d0b7b74d8281940f6`
-Input SHA-256: `sha256:dad3288011d10c0674ff487b6b9a5eab56a9eff78e2e19ae21c230d60f0d82f3`
+Generated JSON SHA-256: `61afaa008d8f0e9a422f58e6a5bd8130824a39deeeb8000d5bdb54341df85fdc`
+Input SHA-256: `sha256:6056e89ed61061b9746fd04f496669c7687004306bbb48fc8f7cca4606047667`
 
 This report inventories suite ownership and routing without creating proof,
 closing specification gaps, interpreting suite inheritance, or changing enforcement.
@@ -21,7 +21,7 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 
 ## Boundaries
 
-- `report_only_enforcement_unchanged`: `true`
+- `verification_gate_enforcing`: `true`
 - `report_emits_proof`: `false`
 - `report_closes_spec_gaps`: `false`
 - `suite_includes_interpreted`: `false`
@@ -60,7 +60,7 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 | `GATE_JOB_SALSA_FUZZ_SMOKE` | `github_workflow_job` | `assigned` | `pr` | `required` | `ci_artifact/repository_default` |
 | `GATE_JOB_SALSA_MEMORY_REGRESSION` | `github_workflow_job` | `assigned` | `pr` | `required` | `none/none` |
 | `GATE_JOB_SALSA_MIRI_NIGHTLY` | `github_workflow_job` | `assigned` | `nightly` | `required` | `none/none` |
-| `GATE_JOB_VERIFICATION_REPORT` | `github_workflow_job` | `report_only` | `pr` | `report_only` | `ci_artifact/repository_default` |
+| `GATE_JOB_VERIFICATION_REPORT` | `github_workflow_job` | `assigned` | `pr` | `required` | `ci_artifact/repository_default` |
 | `GATE_JUST_VERIFICATION_VERYQUICK` | `just_recipe` | `assigned` | `veryquick` | `planned` | `machine_local/machine_local` |
 | `GATE_MUTATION_BYTECODE_VALIDATOR` | `catalog_test_command` | `assigned` | `nightly` | `planned` | `machine_local/machine_local` |
 | `GATE_SCRIPT_AGGREGATE_ST_TEST_FLAKE_HISTORY` | `gate_script` | `assigned` | `nightly` | `conditional` | `machine_local/machine_local` |
@@ -159,5 +159,5 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 
 - This report maps existing verification surfaces; the generator emits no behavior proof and closes no specification gap.
 - Suite includes and excludes are displayed but not interpreted; VERIF-P14-000B still owns composition semantics.
-- Report-only and planned inventory rows remain non-enforcing; this report changes no workflow or CI setting.
+- The changed-file verification job is enforcing; other report-only and planned inventory rows remain non-enforcing. This audit itself changes no workflow.
 - VERIF-P5-000B is live-validated from the board but excluded from the source digest because board/evidence follow-up is mutable.

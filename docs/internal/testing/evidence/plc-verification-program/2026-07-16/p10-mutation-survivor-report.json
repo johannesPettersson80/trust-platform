@@ -16,9 +16,9 @@
     "--markdown-out",
     "target/gate-artifacts/verification/mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-18T19:20:00+02:00"
+    "2026-07-18T22:30:00+02:00"
   ],
-  "commit": "f514021eef1395b1d6aed0f8a8f77eb67cd7b40a",
+  "commit": "82c62abe3d16873c8a65d92cab099843d9dbc5a3",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:87c325c1f3e2d2cf72280e5e96503a2d8f6d1fde29994d153a554d8c48b32d03",
+  "input_digest": "sha256:46645d51f8870f586fdf938afd0fdf41a6567590ff7273e5941b1237f1a43482",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1802,6 +1802,7 @@
     "scripts/verification/coverage_matrix_gap_tests.py",
     "scripts/verification/coverage_matrix_gap_validation.py",
     "scripts/verification/coverage_matrix_gaps.py",
+    "scripts/verification/enforcement_closeout_tests.py",
     "scripts/verification/execution_contract.py",
     "scripts/verification/focused_mutation_artifact.py",
     "scripts/verification/focused_mutation_runner.py",
@@ -1939,6 +1940,7 @@
     "scripts/verification/runtime_anomaly_report_tests.py",
     "scripts/verification/runtime_anomaly_restart_contract.py",
     "scripts/verification/runtime_anomaly_validation.py",
+    "scripts/verification/skill_routing_tests.py",
     "scripts/verification/spec_completeness_cli.py",
     "scripts/verification/spec_completeness_contract.py",
     "scripts/verification/spec_completeness_live.py",
@@ -2793,7 +2795,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-18T19:20:00+02:00",
+  "timestamp": "2026-07-18T22:30:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
