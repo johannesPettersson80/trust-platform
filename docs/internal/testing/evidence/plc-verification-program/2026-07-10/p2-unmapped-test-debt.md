@@ -1,25 +1,28 @@
 # Unmapped Test Debt Report
 
-Generator: `unmapped-test-debt v1`
-Source revision: `5395f5d969d7f5828dc2e7e3701f6d7bc7f69a56`
-Generated: `2026-07-18T09:53:26+02:00`
-Platform: `linux-x86_64`
-Generated JSON SHA-256: `f73c80128d788be495ea6ee9afd6cef633b6bae55907fcfbcb5e4c67a82a9558`
-Input SHA-256: `sha256:630b005bdbb49169075f732631d92c2fe1449212544fd19b7bb652935ee5481c`
+Generator: `unmapped-test-debt v2`
+Source revision: `275adecd1c3a4308db7af37af1072a580e328e52`
+Generated: `2026-07-18T18:00:00+02:00`
+Platform: `linux-aarch64`
+Generated JSON SHA-256: `74c8515872413f281bb836b00219e3ba6abe4eac6d17d10760b94da049561c25`
+Input SHA-256: `sha256:db98c05d916c8490e6227e89420036fceba618d345554da8dd3b278be491dc53`
 
-`complete` means the source inventory and exact catalog subtraction succeeded.
-It does not mean that every scanner fact has reviewed catalog intent.
+`complete` means the source inventory, exact catalog subtraction, and
+reviewed mapped/nonmapping denominator partition all succeeded.
 
 ## Summary
 
 - Scanner facts: 4023
 - Mapped scanner facts: 241
 - Unmapped scanner facts: 3782
+- Reviewed nonmapping facts: 3782
+- Unreviewed scanner facts: 0
+- Denominator review SHA-256: `sha256:42def5a36e54b5ea791c0d268fe2e4f969e32bc52f389c0d0fe88615e77256f3`
 - Generated-test catalog rows: 241
 - Artifact catalog rows: 8
 - Ignored unmapped facts: 23
 - Conditional unmapped facts: 0
-- Debt fails this report: no
+- Unreviewed debt fails this report: yes
 
 | Source kind | Scanner facts | Mapped | Unmapped |
 | --- | ---: | ---: | ---: |
@@ -3821,11 +3824,12 @@ It does not mean that every scanner fact has reviewed catalog intent.
 
 ## Limitations
 
-- Debt is the exact subtraction of reviewed generated_test discovery IDs from current scanner facts.
+- The raw non-catalog-mapped list is the exact subtraction of reviewed generated_test discovery IDs from current scanner facts.
+- Unresolved debt is zero only when the committed denominator gives every raw non-catalog-mapped fact an exact reviewed-nonmapping disposition.
 - Case-table and mutation-runner artifacts never classify scanner facts.
-- Ignored and conditionally ignored scanner facts remain visible when they are unmapped.
-- An unmapped fact is catalog debt, not evidence about expected behavior or test adequacy.
+- Ignored and conditionally ignored scanner facts remain visible and bind the Phase 3 ignored-test registry.
+- A reviewed nonmapping retires mapping debt without deleting the native test or claiming that its behavior is adequate.
 - No area, class, invariant, oracle, or expected behavior is inferred from a name or path.
 - Scanner exclusions remain those documented by the generated existing-test catalog.
-- Nonzero debt does not fail this report-only command or change CI enforcement.
+- Reviewed nonmapping does not fail this report-only command or change CI enforcement; an unreviewed fact fails generation.
 - Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.

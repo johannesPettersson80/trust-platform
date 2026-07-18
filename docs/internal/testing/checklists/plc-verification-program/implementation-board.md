@@ -1561,7 +1561,7 @@ same commit, with the closure evidence linked.
   G2 invariants. Native platform, extension-host, published-release,
   device-in-loop, and causal broad evidence remain explicit debt; none of the
   fourteen is promoted to G2 or `validated`.
-- [ ] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
+- [x] `VERIF-P16-006` Close the audit ledgers: every ignored-test register
   entry resolved (fixed, quarantined with expiry, or retired with
   rationale); unmapped test debt mapped or retired; every incomplete fuzz
   surface gets a cargo-fuzz target and the crash-to-regression ledger closes
@@ -1584,8 +1584,9 @@ same commit, with the closure evidence linked.
   retained in the raw report and does not claim an invariant, specification,
   oracle, expected result, or assertion adequacy. With the already-closed
   ignored, conformance, fuzz, crash-handoff, and runtime-anomaly ledgers, this
-  leaves only clean-source report regeneration and durable closure evidence
-  before the compound row can close.
+  completes the compound row. Clean-source report digest and independent
+  closeout commands are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-test-catalog-denominator-closure.md`.
 - [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
   CI as required gates (report-only posture ends); a red verification
   suite must block merge. Then complete Phase 15 skill sync so the
