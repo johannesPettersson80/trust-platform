@@ -720,6 +720,29 @@ evict_to_percent = 75
     }
 
     #[test]
+    fn closing_document_cancels_in_flight_semantic_requests() {
+        let root = temp_dir("trustlsp-close-cancels-semantic-request");
+        let path = root.join("Main.st");
+        fs::write(&path, "PROGRAM Main\nEND_PROGRAM\n").expect("write source");
+        let uri = Url::from_file_path(&path).expect("file uri");
+        let state = ServerState::new();
+        state.open_document(
+            uri.clone(),
+            1,
+            "PROGRAM Main\nVAR x : INT; END_VAR\nEND_PROGRAM\n".to_string(),
+        );
+        let request_ticket = state.begin_semantic_request();
+
+        state.close_document(&uri);
+
+        assert!(
+            state.semantic_request_cancelled(request_ticket),
+            "didClose must invalidate work started from the discarded buffer"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn library_docs_cache_reuses_entries_until_workspace_config_changes() {
         let root = temp_dir("trustlsp-library-doc-cache");
         let config_path = root.join("trust-lsp.toml");
