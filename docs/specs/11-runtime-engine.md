@@ -113,6 +113,10 @@ impl Clock for StdClock {
 #### 5.2 ManualClock (Tests)
 
 Deterministic clock for unit tests and simulation. Time advances explicitly; no real sleeping occurs. Used by scheduler tests and trace reproducibility checks.
+Advancement uses saturating signed-nanosecond arithmetic: a delta beyond the
+representable `Duration` range clamps to the corresponding bound and never
+wraps or panics. Explicit `set_current_time` remains the separate mechanism for
+placing a test clock at an earlier instant.
 
 #### 5.3 Embedded Clock (Planned)
 

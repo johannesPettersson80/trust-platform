@@ -1244,7 +1244,7 @@ impl TestHarness {
     where
         F: Fn(&Runtime) -> bool;
 
-    /// Advances simulation time.
+    /// Advances simulation time, saturating at the signed Duration bounds.
     pub fn advance_time(&mut self, duration: Duration);
 
     /// Gets the current simulation time.

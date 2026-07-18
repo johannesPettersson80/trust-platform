@@ -16,6 +16,8 @@ Target release: `v0.24.54`
 - trust-runtime: explicit conversions to `REAL` or `LREAL` now return the
   stable overflow fault when narrowing, parsing, or IEC bit transfer would
   synthesize NaN or infinity inside PLC state.
+- trust-runtime: deterministic simulation-time advancement now saturates at the
+  signed nanosecond bounds instead of panicking or wrapping on overflow.
 
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero
