@@ -732,18 +732,18 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
     let mut runtime = Runtime::new();
     runtime.io_mut().resize(0, 1, 0);
     runtime.storage_mut().set_global("safe", Value::Bool(true));
-    runtime.storage_mut().set_global("unconfigured", Value::Bool(false));
     runtime
-        .io_mut()
-        .bind("safe", IoAddress::parse("%QX0.0").expect("safe output address"));
+        .storage_mut()
+        .set_global("unconfigured", Value::Bool(false));
+    runtime.io_mut().bind(
+        "safe",
+        IoAddress::parse("%QX0.0").expect("safe output address"),
+    );
     runtime.io_mut().bind(
         "unconfigured",
         IoAddress::parse("%QX0.1").expect("unconfigured output address"),
     );
-    runtime.add_io_driver(
-        "recorder",
-        Box::new(RecordingDriver::new(writes.clone())),
-    );
+    runtime.add_io_driver("recorder", Box::new(RecordingDriver::new(writes.clone())));
 
     runtime
         .execute_cycle()
