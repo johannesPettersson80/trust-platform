@@ -47,6 +47,13 @@ from ..governance import (
     load_retirements,
     validate_governance_document,
 )
+from ..hardware_lab import (
+    HARDWARE_LAB_PATH,
+    MANIFEST_SCHEMA_PATH as HARDWARE_LAB_SCHEMA_PATH,
+    load_hardware_lab_document,
+    validate_hardware_lab_document,
+    validate_hardware_lab_schema,
+)
 from ..fuzz_program_contract import (
     FUZZ_PROGRAM_PATH,
     load_fuzz_program,
@@ -138,6 +145,7 @@ class Validator:
         self.required_specs: dict[str, dict[str, Any]] = {}
         self.matrix: dict[str, Any] = {}
         self.seed_manifest: dict[str, Any] = {}
+        self.hardware_lab: dict[str, Any] = {}
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
         self.runtime_anomaly_denominator: dict[str, Any] = {}
         self.test_catalog_denominator: dict[str, Any] = {}
@@ -316,6 +324,10 @@ class Validator:
             ROOT / RELEASE_EVIDENCE_MANIFEST_PATH
         )
         try:
+            self.hardware_lab = load_hardware_lab_document(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / HARDWARE_LAB_PATH, f"load failed: {exc}")
+        try:
             self.governance = load_governance(ROOT)
         except Exception as exc:
             self.fail(ROOT / GOVERNANCE_PATH, f"load failed: {exc}")
@@ -476,6 +488,28 @@ class Validator:
                 self.release_evidence_manifest, release_manifest_schema
             ):
                 self.fail(ROOT / RELEASE_EVIDENCE_MANIFEST_PATH, failure)
+        for failure in validate_hardware_lab_document(
+            ROOT,
+            self.hardware_lab,
+            ignored_tests=self.ignored_tests,
+            spec_sources=self.spec_sources,
+            suites=self.suites,
+            gate_inventory=self.gate_inventory,
+        ):
+            self.fail(ROOT / HARDWARE_LAB_PATH, failure)
+        try:
+            hardware_lab_schema = json.loads(
+                (ROOT / HARDWARE_LAB_SCHEMA_PATH).read_text()
+            )
+        except Exception as exc:
+            self.fail(ROOT / HARDWARE_LAB_SCHEMA_PATH, f"load failed: {exc}")
+        else:
+            for failure in validate_hardware_lab_schema(hardware_lab_schema):
+                self.fail(ROOT / HARDWARE_LAB_SCHEMA_PATH, failure)
+            for failure in validate_json_schema_instance(
+                self.hardware_lab, hardware_lab_schema
+            ):
+                self.fail(ROOT / HARDWARE_LAB_PATH, failure)
         for failure in validate_governance_document(
             self.governance,
             invariants=self.invariants,
@@ -1017,6 +1051,7 @@ class Validator:
             + (1 if self.public_workflow_inventory else 0)
             + (1 if self.ui_acceptance else 0)
             + (1 if self.release_evidence_manifest else 0)
+            + (1 if self.hardware_lab else 0)
             + (1 if self.governance else 0)
             + (1 if self.retirements.get("retirements") else 0)
             + seed_count

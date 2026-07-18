@@ -425,6 +425,27 @@ is closed rather than inferred from this procedure.
   harness, and JSON artifact contract. Suite `includes`/`excludes` are
   ordered display dependencies and reviewed constraint labels only. They never
   inherit commands, execution, success, or proof.
+- `verification/hardware-lab.toml` is the closed Phase 11 case matrix. It maps
+  every registered `lab_required` ignored test exactly once to the existing
+  strict harness and binds the existing GPIO manual script separately. All
+  cases remain `skipped_unproven` with empty evidence until a named-topology
+  hardware run produces reviewed durable lab evidence. Generate and validate
+  the report with:
+
+  ```text
+  python3 scripts/report_hardware_lab.py \
+    --json-out target/gate-artifacts/verification/hardware-lab.json \
+    --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md \
+    --branch plc-verification-program \
+    --timestamp <fixed-iso-8601-time>
+  python3 scripts/validate_hardware_lab_report.py \
+    --json target/gate-artifacts/verification/hardware-lab.json \
+    --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md
+  ```
+
+  The report is a definition and debt ledger, not hardware execution or proof.
+  It leaves public hardware documentation preview/unverified and qualifies no
+  physical target.
 
 `verification/governance.toml` is the closed Phase 14 maintenance contract. It
 defines owner aliases and allowed owners per area, 90-day metadata staleness,
