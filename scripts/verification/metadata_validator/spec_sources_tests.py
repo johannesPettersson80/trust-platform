@@ -110,6 +110,37 @@ class SpecSourceMetadataTests(unittest.TestCase):
         self.assertIn("actor must be a non-empty string", failures)
         self.assertIn("preconditions must be a string array", failures)
 
+    def test_workflow_fields_are_complete_or_absent(self) -> None:
+        record = copy.deepcopy(self.records["SPEC_BYTECODE_FORMAT_001"])
+        record["actor"] = "PLC engineer"
+
+        failures = self._validate_one(record)
+
+        self.assertIn(
+            "workflow fields must be complete when any workflow field is present",
+            failures,
+        )
+
+    def test_workflow_steps_and_safety_boundaries_are_nonempty_string_arrays(self) -> None:
+        record = copy.deepcopy(self.records["SPEC_BYTECODE_FORMAT_001"])
+        record.update(
+            {
+                "actor": "PLC engineer",
+                "entry_point": "Open the project in VS Code",
+                "preconditions": ["The project is trusted"],
+                "visible_steps": [],
+                "success_state": "The project is running",
+                "failure_status_behavior": "The failing step remains visible",
+                "safety_authz_boundaries": "not an array",
+                "acceptance_evidence": ["Rendered journey evidence"],
+            }
+        )
+
+        failures = self._validate_one(record)
+
+        self.assertIn("visible_steps must be a non-empty string array", failures)
+        self.assertIn("safety_authz_boundaries must be a string array", failures)
+
     def test_closed_contract_rejects_unknown_fields_and_locator_mixing(self) -> None:
         tracked = copy.deepcopy(self.records["SPEC_BYTECODE_FORMAT_001"])
         tracked["invented_classification"] = "normative"

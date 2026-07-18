@@ -655,8 +655,9 @@ define expected behavior. They may use `authority = "normative_product"` when
 they are truST-owned workflow contracts, or `authority = "public_claim"` when
 they are claims from shipped/public docs that need proof or narrowing. Workflow
 spec-source records must include `actor`, `entry_point`, `preconditions`,
-`success_state`, `failure_status_behavior`, and `acceptance_evidence` fields
-unless they are tracked as a spec gap.
+`visible_steps`, `success_state`, `failure_status_behavior`,
+`safety_authz_boundaries`, and `acceptance_evidence` together unless they are
+tracked as a spec gap. A partial workflow record is invalid.
 
 ### Spec Gap Record
 

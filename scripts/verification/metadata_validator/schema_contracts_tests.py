@@ -92,6 +92,12 @@ class SchemaContractsTests(unittest.TestCase):
         missing_property["properties"].pop("acceptance_evidence")
         mutations.append((missing_property, "spec-source schema root property fields drift"))
 
+        missing_visible_steps = load_spec_source_schema()
+        missing_visible_steps["properties"].pop("visible_steps")
+        mutations.append(
+            (missing_visible_steps, "spec-source schema root property fields drift")
+        )
+
         open_root = load_spec_source_schema()
         open_root["additionalProperties"] = True
         mutations.append((open_root, "spec-source schema root must be closed"))

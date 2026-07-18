@@ -110,11 +110,23 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
+    "visible_steps": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
     "success_state": { "type": "string", "minLength": 1 },
     "failure_status_behavior": { "type": "string", "minLength": 1 },
+    "safety_authz_boundaries": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
     "acceptance_evidence": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
       "uniqueItems": true
     }
   },

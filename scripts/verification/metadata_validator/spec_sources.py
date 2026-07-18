@@ -57,8 +57,10 @@ WORKFLOW_FIELDS = {
     "actor",
     "entry_point",
     "preconditions",
+    "visible_steps",
     "success_state",
     "failure_status_behavior",
+    "safety_authz_boundaries",
     "acceptance_evidence",
 }
 SPEC_SOURCE_FIELDS = (
@@ -120,6 +122,12 @@ def validate_spec_source_records(
         _string_list(record, "conflicts_with", source_id, path, fail)
         if "context_refs" in record:
             _string_list(record, "context_refs", source_id, path, fail)
+        present_workflow_fields = WORKFLOW_FIELDS & fields
+        if present_workflow_fields and present_workflow_fields != WORKFLOW_FIELDS:
+            fail(
+                path,
+                f"{source_id} workflow fields must be complete when any workflow field is present",
+            )
         for field in (
             "actor",
             "entry_point",
@@ -128,9 +136,21 @@ def validate_spec_source_records(
         ):
             if field in record:
                 _optional_nonempty_string(record, field, source_id, path, fail)
-        for field in ("preconditions", "acceptance_evidence"):
+        for field in (
+            "preconditions",
+            "visible_steps",
+            "safety_authz_boundaries",
+            "acceptance_evidence",
+        ):
             if field in record:
-                _string_list(record, field, source_id, path, fail)
+                _string_list(
+                    record,
+                    field,
+                    source_id,
+                    path,
+                    fail,
+                    require_nonempty=field in {"visible_steps", "acceptance_evidence"},
+                )
 
         locator_kind = record.get("locator_kind")
         if locator_kind not in LOCATOR_KINDS:
@@ -358,7 +378,7 @@ def _string_list(
     if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
         fail(path, f"{source_id} {field} must be a string array")
     elif require_nonempty and not value:
-        fail(path, f"{source_id} must cover at least one tag")
+        fail(path, f"{source_id} {field} must be a non-empty string array")
     elif len(value) != len(set(value)):
         fail(path, f"{source_id} {field} must not contain duplicates")
 
