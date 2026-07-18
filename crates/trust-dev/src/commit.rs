@@ -699,6 +699,60 @@ mod tests {
     }
 
     #[test]
+    fn project_scope_rejects_missing_and_outside_repository_paths() {
+        let repo = unique_temp_dir("commit-project-containment");
+        init_repo(&repo);
+        let outside = unique_temp_dir("commit-project-outside");
+
+        let missing = project_rel_path(&repo.join("missing-project"), &repo);
+        let escaping = project_rel_path(&outside, &repo);
+
+        assert!(missing.is_err(), "missing project scope must fail closed");
+        assert!(escaping.is_err(), "outside project scope must fail closed");
+
+        let _ = std::fs::remove_dir_all(repo);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
+    #[test]
+    fn commit_rechecks_in_scope_staging_after_initial_collision_check() {
+        if !git_available() {
+            return;
+        }
+        let repo = unique_temp_dir("commit-late-staged-collision");
+        init_repo(&repo);
+        seed_repo(&repo);
+        let project = repo.join("project");
+        std::fs::create_dir_all(&project).expect("create project");
+        std::fs::write(project.join("Main.st"), "PROGRAM Main\nEND_PROGRAM\n")
+            .expect("write source");
+
+        let hook_repo = repo.clone();
+        let result = run_commit_impl(
+            Some(project),
+            Some("Must reject late staging".to_string()),
+            false,
+            move || {
+                run_git(&hook_repo, &["add", "project/Main.st"]);
+            },
+        );
+
+        assert!(result.is_err(), "late in-scope staging must abort");
+        let message = format!("{:#}", result.expect_err("late collision error"));
+        assert!(
+            message.contains("project/Main.st") && message.contains("pre-staged"),
+            "late collision diagnostic must name the path: {message}"
+        );
+        assert_eq!(
+            run_git(&repo, &["rev-list", "--count", "HEAD"]).trim(),
+            "1",
+            "late collision must not create a commit"
+        );
+
+        let _ = std::fs::remove_dir_all(repo);
+    }
+
+    #[test]
     fn git_status_decodes_quoted_porcelain_paths_for_summary() {
         if !git_available() {
             return;
