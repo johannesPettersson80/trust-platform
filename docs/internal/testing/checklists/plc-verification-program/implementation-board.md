@@ -1228,11 +1228,19 @@ same commit, with the closure evidence linked.
   no restart outcome and does not declare current retained-instance behavior
   conformant. Acceptance is recorded in
   `EVID_P16_E1_INDEPENDENT_ACCEPTANCE_20260713`.
-- [x] `VERIF-P16-002` Close every spec gap. For each open record in
+- [ ] `VERIF-P16-002` Close every spec gap. For each open record in
   `verification/spec-gaps.toml` (34 at time of writing): write the owning
   spec section, IEC decision, or recorded deviation per STOP-013, then flip
   `resolution_status = "closed"` with closeout evidence. Done when zero
   gaps are open.
+
+  Reopened on 2026-07-18 after the eighteenth independent review found new
+  product-contract gaps in watchdog partial-safe-state output handling,
+  internally synthesized non-finite values, cross-file field rename,
+  peer-topology status projection, commit-helper atomic scope, document-close
+  cache invalidation, simulation-clock overflow, invalid LSP edit ranges, and
+  OPC UA server write exposure. These records must be specified, tested, fixed,
+  and closed before this row can return to complete.
 
   Bounded-value progress (2026-07-15):
   `SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001` and

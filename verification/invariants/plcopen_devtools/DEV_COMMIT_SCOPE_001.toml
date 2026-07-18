@@ -17,8 +17,8 @@ evidence_refs = [
   "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_COMPARE",
   "EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717",
 ]
-spec_gap_refs = []
-missing = ["broad_remote_gate"]
+spec_gap_refs = ["SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"]
+missing = ["canonical_scope_failure", "check_to_commit_index_race", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -55,5 +55,6 @@ rationale = "Dry-run and cancellation report the selected scope without mutating
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "covered"
-rationale = "Commit-scope ownership and collision behavior are covered by a current-contract lock comparison; a causal broad gate remains open."
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"
+rationale = "Static pre-staged collision behavior is covered, but canonical-path failure and index changes between the scope check and commit can bypass the reviewed ownership boundary."

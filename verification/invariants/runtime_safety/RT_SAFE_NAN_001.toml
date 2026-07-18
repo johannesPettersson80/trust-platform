@@ -18,8 +18,8 @@ evidence_refs = [
   "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714",
   "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
 ]
-spec_gap_refs = []
-missing = ["boundary_value_matrix_depth"]
+spec_gap_refs = ["SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"]
+missing = ["boundary_value_matrix_depth", "internal_conversion_nonfinite_policy"]
 
 [spec]
 status = "specified"
@@ -40,7 +40,8 @@ rationale = "After one accepted mapped MQTT snapshot, a batch containing an earl
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
 rationale = "The written policy and 22 mapped tests cover the named shipped boundaries, but an exhaustive value-width, subnormal, signed-zero, aggregate-shape, and future-boundary matrix has not been established."
 
 [[coverage.cells]]

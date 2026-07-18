@@ -2,6 +2,159 @@
 
 [[spec_gaps]]
 schema_version = 1
+id = "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001"
+title = "Watchdog partial safe-state output commit is not fail-closed"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "On a pre-commit watchdog fault with a partial safe-state map, must every unconfigured output retain its last physically committed value rather than receive the pending scan image?"
+affected_invariants = ["RT_SAFE_DEADLINE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
+title = "Internal numeric conversions can synthesize non-finite PLC values"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Must explicit numeric and string-to-REAL/LREAL conversions reject or fault when narrowing, parsing, or bit reinterpretation would synthesize NaN or infinity inside PLC state?"
+affected_invariants = ["RT_SAFE_NAN_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"
+title = "Cross-file field rename can bypass collision detection"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-ide"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "How must a field rename resolve the declaration owner and sibling fields from the merged project so a cross-file request cannot create a case-insensitive collision?"
+affected_invariants = ["EDIT_RENAME_002"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_UI_PEER_STATUS_FAILURE_001"
+title = "Malformed peer connector status can vanish without a visible failure"
+area = "hmi_ui"
+risk = "false_status"
+owner = "vscode"
+status = "spec_gap"
+gap_class = "missing_ui_contract"
+blocking_question = "How must Devices and Connections preserve valid peers and visibly identify each malformed peer status, health, confidence, or point-quality value?"
+affected_invariants = ["UI_STATUS_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_CONNECTOR_STATUS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"
+title = "Commit-helper scope validation is not atomic with index mutation"
+area = "plcopen_devtools"
+risk = "data_loss"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must the commit helper fail on canonical-scope errors and revalidate the Git index after interactive delay so newly staged unrelated paths cannot be absorbed?"
+affected_invariants = ["DEV_COMMIT_SCOPE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"
+title = "Document close can race in-flight cache publication"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must didClose invalidate request generations so semantic-token and diagnostic work started for discarded content cannot repopulate caches after eviction?"
+affected_invariants = ["EDIT_DOC_CLOSE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_SIM_CLOCK_OVERFLOW_001"
+title = "Simulation clock overflow behavior is unspecified"
+area = "runtime_safety"
+risk = "wrong_result"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "ambiguous_behavior"
+blocking_question = "When simulation-time advancement exceeds the signed nanosecond range, must the harness reject the command, saturate, or fault without wrapping?"
+affected_invariants = ["RT_SAFE_DEADLINE_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_LSP_INVALID_CHANGE_RANGE_001"
+title = "Invalid incremental edit ranges and line boundaries need a recovery contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "How must the LSP react to an incremental change outside the current document and how must range formatting share the negotiated CR, LF, and CRLF line model?"
+affected_invariants = ["EDIT_LSP_POS_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"
+title = "OPC UA server variables advertise writes without a write-back contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Until a transactional write-back path is reviewed, must server-published PLC variables expose read-only access rather than CurrentWrite?"
+affected_invariants = ["PROTO_OPCUA_001"]
+affected_tests = []
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
 id = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 title = "Bytecode validator semantic contract is incomplete"
 area = "bytecode_vm"

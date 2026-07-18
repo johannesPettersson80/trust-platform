@@ -22,8 +22,8 @@ evidence_refs = [
   "EVID_TEST_EDITOR_RENAME_PROJECT_TRACE_001_LOCK_COMPARE",
   "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714",
 ]
-spec_gap_refs = []
-missing = ["broad_remote_gate"]
+spec_gap_refs = ["SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"]
+missing = ["cross_file_field_collision", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -67,5 +67,6 @@ rationale = "When the complete merged-project edit preserves every reference bin
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "covered"
-rationale = "Focused imported-origin, project-level, and cross-file capture tests cover the written conflict contract with a current-contract lock comparison; a causal broad gate remains open."
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"
+rationale = "Top-level and reference-capture cases are covered, but a field declared in another file can bypass the merged-project collision check; a cross-file field-collision case and causal broad gate remain open."

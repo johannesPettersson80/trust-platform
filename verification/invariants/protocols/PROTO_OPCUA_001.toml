@@ -16,7 +16,8 @@ evidence_refs = [
   "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_COMPARE",
 ]
-missing = ["broad_remote_gate"]
+spec_gap_refs = ["SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"]
+missing = ["server_write_exposure_contract", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -76,5 +77,6 @@ rationale = "A server-rejected point write faults that point visibly without tea
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "covered"
-rationale = "The mapped protocol-trace runner covers persistent session reuse, stale-value hold and recovery, reconnect backoff, subscription recreation and transfer, and point-level write rejection with a current-contract lock comparison; a causal broad gate remains open."
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"
+rationale = "The client lifecycle is covered, but server-published variables advertise CurrentWrite without a reviewed write-back path; server access truth and a causal broad gate remain open."

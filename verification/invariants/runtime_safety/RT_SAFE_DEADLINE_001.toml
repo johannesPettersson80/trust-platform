@@ -17,7 +17,15 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_GREEN",
   "EVID_BROAD_REMOTE_PR_20260713_47F0E2B3C66A",
 ]
-missing = ["watchdog_configuration_and_recovery_boundaries"]
+spec_gap_refs = [
+  "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001",
+  "SPEC_GAP_SIM_CLOCK_OVERFLOW_001",
+]
+missing = [
+  "watchdog_configuration_and_recovery_boundaries",
+  "partial_safe_state_preserves_last_committed_outputs",
+  "simulation_clock_overflow_policy",
+]
 
 [spec]
 status = "specified"
@@ -39,5 +47,6 @@ rationale = "When the watchdog deadline expires before physical output commit an
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001"
 rationale = "The committed empty-safe-state output-commit partition has producer-authentic red and green proof plus a causal broad remote gate; watchdog configuration, configured-safe-state, restart, and recovery boundaries remain unasserted."

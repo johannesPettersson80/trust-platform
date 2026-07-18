@@ -25,8 +25,8 @@ evidence_refs = [
   "EVID_TEST_LSP_DOCUMENT_CLOSE_TRACE_001_LOCK_COMPARE",
   "EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716",
 ]
-spec_gap_refs = []
-missing = ["broad_remote_gate"]
+spec_gap_refs = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"]
+missing = ["in_flight_cache_writer_invalidation", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -78,5 +78,6 @@ rationale = "Push clients clear only the closed URI and pull clients recompute l
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "covered"
-rationale = "The written lifecycle is bound to a current-contract lock comparison, while the discarded-cache defect retains historical red/green proof; a causal broad gate remains open."
+state = "spec_gap"
+spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"
+rationale = "Durable-source restoration is covered, but didClose does not yet prevent an in-flight semantic-token or diagnostic computation from repopulating a cache after eviction."
