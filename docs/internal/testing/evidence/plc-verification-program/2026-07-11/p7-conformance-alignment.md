@@ -1,11 +1,11 @@
 # Phase 7 Conformance Program Alignment
 
 Generator: `conformance-alignment-audit v1`
-Source revision: `82c62abe3d16873c8a65d92cab099843d9dbc5a3`
-Generated: `2026-07-18T22:30:00+02:00`
+Source revision: `a4b6887e3f912df0d8dfeb9f082e5de87e0b4ffd`
+Generated: `2026-07-18T22:45:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `824d7dfa386791802ded09b17ceed7bb9ead207f7b7b55d96a4794acd70ed29e`
-Input SHA-256: `sha256:8e7bc642cbbadd9ebc4d6eb35f032fe06377a3bf209c0be7eb892d796c1236e5`
+Generated JSON SHA-256: `e2edadd0f2a6b89a2a5199dd793ab60cf2a872f681af38802a9730fb6126acf7`
+Input SHA-256: `sha256:4c8197f5a774988e6965ee059e3150a171dad8c55987bb0c06257a84d27af054`
 
 This is a report-only audit of committed conformance manifests, expected
 artifacts, explicit catalog links, publication posture, and the scripted
