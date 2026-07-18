@@ -530,15 +530,11 @@ runtime anomaly class -> explicit mapping record -> exact live discovery_id
                       -> planned suite tier
 ```
 
-The report exhausts the 19 taxonomy classes and the committed mapping
-registry. It does not claim an exhaustive semantic review of all Rust tests.
-The live Rust scanner denominator is bound provenance context; source names,
-paths, comments, lexical references, and area fallbacks never add a mapping.
-
-Because the report has no exhaustive reviewed runtime-safety test denominator,
-`VERIF-P8-002` remains open. Known unmapped tests cannot be hidden by the
-class-level summary; a later slice must give every fact in that reviewed
-denominator a mapped or reviewed-nonmapping disposition.
+The report exhausts the 19 taxonomy classes and the 3,220-fact live Rust
+scanner denominator. Every fact has exactly one disposition in
+`verification/runtime-anomaly-denominator.toml`: an exact mapping ID or a
+closed reviewed-nonmapping reason. Source names, paths, comments, lexical
+references, and area fallbacks never add a mapping.
 
 A non-ignored direct association is reported as `mapped_runnable`. That is not
 invariant coverage, an assessed oracle, a passing gate, or proof. Partial,
@@ -560,8 +556,7 @@ to avoid a self-referential evidence cycle; standing rows are checked live.
 
 The audit executes no fault and creates no product test, fault interface,
 production hook, proof, invariant mapping, specification-gap closure, suite
-execution, or CI enforcement. `VERIF-P8-002`, `VERIF-P8-005`, and
-`VERIF-P8-006` stay open.
+execution, or CI enforcement. `VERIF-P8-005` and `VERIF-P8-006` stay open.
 
 The program must generate both directions:
 

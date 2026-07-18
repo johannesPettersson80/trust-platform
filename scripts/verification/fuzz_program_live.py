@@ -44,7 +44,6 @@ REQUIRED_OPEN_ROWS = (
     "VERIF-P6-008",
     "VERIF-P6-009",
     "VERIF-P6-010",
-    "VERIF-P8-002",
     "VERIF-P8-005",
     "VERIF-P8-006",
     "VERIF-P14-000",

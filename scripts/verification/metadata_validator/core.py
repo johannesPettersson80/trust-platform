@@ -62,6 +62,11 @@ from ..runtime_anomaly_contract import (
     load_runtime_anomaly_taxonomy,
     validate_runtime_anomaly_contract,
 )
+from ..runtime_anomaly_denominator import (
+    REVIEW_PATH as RUNTIME_ANOMALY_DENOMINATOR_PATH,
+    load_runtime_anomaly_denominator_review,
+    validate_runtime_anomaly_denominator_document,
+)
 from ..test_catalog_intent import validate_catalog_intent
 from .evidence_records import validate_evidence_records
 from .integrity import (
@@ -104,6 +109,7 @@ class Validator:
         self.matrix: dict[str, Any] = {}
         self.seed_manifest: dict[str, Any] = {}
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
+        self.runtime_anomaly_denominator: dict[str, Any] = {}
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
@@ -244,6 +250,10 @@ class Validator:
         except Exception as exc:
             self.fail(VERIFICATION / "runtime-anomaly-taxonomy.toml", f"load failed: {exc}")
         try:
+            self.runtime_anomaly_denominator = load_runtime_anomaly_denominator_review(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / RUNTIME_ANOMALY_DENOMINATOR_PATH, f"load failed: {exc}")
+        try:
             self.fuzz_program = load_fuzz_program(ROOT)
         except Exception as exc:
             self.fail(ROOT / FUZZ_PROGRAM_PATH, f"load failed: {exc}")
@@ -338,6 +348,10 @@ class Validator:
             spec_gaps=self.spec_gaps,
         ):
             self.fail(ROOT / RUNTIME_ANOMALY_TAXONOMY_PATH, failure)
+        for failure in validate_runtime_anomaly_denominator_document(
+            ROOT, self.runtime_anomaly_denominator
+        ):
+            self.fail(ROOT / RUNTIME_ANOMALY_DENOMINATOR_PATH, failure)
         for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_crash_registry(
@@ -872,6 +886,7 @@ class Validator:
             + len(self.required_specs)
             + (1 if self.matrix else 0)
             + (1 if self.runtime_anomaly_taxonomy else 0)
+            + (1 if self.runtime_anomaly_denominator else 0)
             + (1 if self.fuzz_program else 0)
             + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)

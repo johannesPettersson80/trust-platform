@@ -24,6 +24,7 @@ from .runtime_anomaly_restart_contract import (
     validate_restart_union_schema,
 )
 from .runtime_anomaly_mapping import MAPPING_STATES
+from .runtime_anomaly_denominator import NONMAPPING_REASON_CODES
 from .runtime_anomaly_report import (
     BOUNDARIES,
     GENERATOR,
@@ -50,6 +51,7 @@ ROOT_FIELDS = {
     "scope",
     "boundaries",
     "spec_gap_reviews",
+    "denominator_review",
     "classes",
     "mappings",
     "gap_rows",
@@ -95,6 +97,15 @@ SUMMARY_FIELDS = {
     "by_primary_suite",
     "by_association_kind",
 }
+DENOMINATOR_FIELDS = {"review_digest", "summary"}
+DENOMINATOR_SUMMARY_FIELDS = {
+    "scanner_denominator",
+    "mapped_facts",
+    "reviewed_nonmapping_facts",
+    "unreviewed_facts",
+    "exhaustive",
+    "by_nonmapping_reason",
+}
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 REPORT_DISCOVERY_ID_PATTERN = r"^DISC_[0-9A-F]{20}$"
@@ -127,6 +138,8 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         ("mapping", MAPPING_FIELDS),
         ("gap", GAP_FIELDS),
         ("summary", SUMMARY_FIELDS),
+        ("denominator_review", DENOMINATOR_FIELDS),
+        ("denominator_summary", DENOMINATOR_SUMMARY_FIELDS),
     ):
         _closed_schema(
             _definition(definitions, name),
@@ -146,6 +159,7 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         ("count_map_state", set(MAPPING_STATES)),
         ("count_map_suite", set(SUITE_IDS)),
         ("count_map_association", set(ASSOCIATION_KINDS)),
+        ("count_map_nonmapping_reason", set(NONMAPPING_REASON_CODES)),
     ):
         _closed_schema(
             _definition(definitions, name),
@@ -261,6 +275,28 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
     ):
         failures.append("runtime-anomaly report restart review binding drifts")
     allocation_properties = _properties(_definition(definitions, "allocation_review"))
+    denominator_properties = _properties(_definition(definitions, "denominator_review"))
+    if properties.get("denominator_review", {}).get("$ref") != (
+        "#/$defs/denominator_review"
+    ):
+        failures.append("runtime-anomaly report denominator review binding drifts")
+    if denominator_properties.get("review_digest", {}).get("$ref") != "#/$defs/digest":
+        failures.append("runtime-anomaly denominator review digest binding drifts")
+    if denominator_properties.get("summary", {}).get("$ref") != (
+        "#/$defs/denominator_summary"
+    ):
+        failures.append("runtime-anomaly denominator summary binding drifts")
+    denominator_summary_properties = _properties(
+        _definition(definitions, "denominator_summary")
+    )
+    if denominator_summary_properties.get("unreviewed_facts", {}).get("const") != 0:
+        failures.append("runtime-anomaly denominator unreviewed const drifts")
+    if denominator_summary_properties.get("exhaustive", {}).get("const") is not True:
+        failures.append("runtime-anomaly denominator exhaustive const drifts")
+    if denominator_summary_properties.get("by_nonmapping_reason", {}).get("$ref") != (
+        "#/$defs/count_map_nonmapping_reason"
+    ):
+        failures.append("runtime-anomaly denominator reason-count binding drifts")
     for field, expected in {
         "outcome": "written_contract_present",
         "source_ref": "SPEC_RUNTIME_ENGINE_001",
@@ -296,6 +332,7 @@ def validate_report_payload(
             failures.append(f"runtime-anomaly report {field} drifts from contract")
     _validate_provenance(payload, failures)
     reviews = _validate_spec_gap_reviews(payload.get("spec_gap_reviews"), failures)
+    denominator = _validate_denominator_review(payload.get("denominator_review"), failures)
     mappings = _validate_mappings(payload.get("mappings"), failures)
     classes = _validate_classes(payload.get("classes"), mappings, failures)
     gaps = _validate_gaps(payload.get("gap_rows"), classes, failures)
@@ -304,6 +341,7 @@ def validate_report_payload(
         expected_analysis = expected_state.analysis
         if (
             reviews != expected_state.spec_gap_reviews
+            or denominator != expected_analysis["denominator_review"]
             or classes != expected_analysis["classes"]
             or mappings != expected_analysis["mappings"]
             or gaps != expected_analysis["gap_rows"]
@@ -311,6 +349,60 @@ def validate_report_payload(
         ):
             failures.append("report rows do not match current runtime-anomaly analysis")
     return sorted(set(failures))
+
+
+def _validate_denominator_review(value: Any, failures: list[str]) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        failures.append("runtime-anomaly denominator_review must be an object")
+        return {}
+    if set(value) != DENOMINATOR_FIELDS:
+        failures.append("runtime-anomaly denominator_review fields drift")
+    digest = value.get("review_digest")
+    if not isinstance(digest, str) or not DIGEST_RE.fullmatch(digest):
+        failures.append("runtime-anomaly denominator review_digest must be sha256:<64 hex>")
+    summary = value.get("summary")
+    if not isinstance(summary, Mapping):
+        failures.append("runtime-anomaly denominator summary must be an object")
+        return dict(value)
+    if set(summary) != DENOMINATOR_SUMMARY_FIELDS:
+        failures.append("runtime-anomaly denominator summary fields drift")
+    for field in (
+        "scanner_denominator",
+        "mapped_facts",
+        "reviewed_nonmapping_facts",
+        "unreviewed_facts",
+    ):
+        item = summary.get(field)
+        if not isinstance(item, int) or isinstance(item, bool) or item < 0:
+            failures.append(f"runtime-anomaly denominator {field} must be non-negative")
+    if summary.get("unreviewed_facts") != 0:
+        failures.append("runtime-anomaly denominator must contain zero unreviewed facts")
+    if summary.get("exhaustive") is not True:
+        failures.append("runtime-anomaly denominator exhaustive must be true")
+    if (
+        isinstance(summary.get("scanner_denominator"), int)
+        and isinstance(summary.get("mapped_facts"), int)
+        and isinstance(summary.get("reviewed_nonmapping_facts"), int)
+        and summary["scanner_denominator"]
+        != summary["mapped_facts"] + summary["reviewed_nonmapping_facts"]
+    ):
+        failures.append("runtime-anomaly denominator partition arithmetic is inconsistent")
+    reasons = summary.get("by_nonmapping_reason")
+    if not isinstance(reasons, Mapping) or set(reasons) != set(NONMAPPING_REASON_CODES):
+        failures.append("runtime-anomaly denominator reason counts drift")
+    elif any(
+        not isinstance(item, int) or isinstance(item, bool) or item < 0
+        for item in reasons.values()
+    ):
+        failures.append("runtime-anomaly denominator reason counts must be non-negative")
+    elif isinstance(summary.get("reviewed_nonmapping_facts"), int) and sum(
+        reasons.values()
+    ) != summary.get("reviewed_nonmapping_facts"):
+        failures.append("runtime-anomaly denominator reason-count arithmetic is inconsistent")
+    return {
+        "review_digest": digest,
+        "summary": dict(summary),
+    }
 
 
 def validate_markdown_binding(

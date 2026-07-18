@@ -921,10 +921,11 @@ Acceptance:
   overflow, and allocation failure/OOM.
 - [x] `VERIF-P8-001A` Open spec-gap candidates for scan-cycle allocation policy
   and time base across restart kinds if no written contract exists.
-- [ ] `VERIF-P8-002` Map existing runtime-safety tests to taxonomy. The Phase 8
-  audit binds 38 reviewed associations, but this row stays open until an
-  exhaustive semantic runtime-safety test denominator exists; the 3,021-fact
-  Rust scanner population is provenance context only.
+- [x] `VERIF-P8-002` Map existing runtime-safety tests to taxonomy. The
+  reviewed denominator partitions all 3,220 live Rust test facts into 133
+  explicit taxonomy mappings and 3,087 explicit reviewed nonmappings. The
+  partition is disjoint, exhaustive, identity-bound, and contains zero
+  unreviewed facts.
 - [x] `VERIF-P8-003` Add gap report for untested runtime anomaly classes.
 - [x] `VERIF-P8-004` Classify anomaly classes as PR, nightly, release, or
   hardware_lab.
@@ -937,18 +938,19 @@ Acceptance:
 
   The report-only audit at clean source commit
   `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` defines the exact 19-class
-  Phase 8 stimulus taxonomy and 52 explicit reviewed Rust-test associations:
-  43 `direct`, seven `partial`, two `context_only`, and zero
-  `protective_red`. All 19 classes have a non-ignored direct association.
-  These associations are not invariant coverage, assessed oracles,
-  test-catalog mappings, suite results, or proof. Because the live 3,021-fact
-  scanner population is not an exhaustive semantic review, `VERIF-P8-002`
-  remains open.
+  Phase 8 stimulus taxonomy and 133 explicit reviewed Rust-test associations:
+  124 `direct`, seven `partial`, two `context_only`, and zero
+  `protective_red`. Of those mappings, 123 are effectively runnable and one
+  is ignored or conditional. The exhaustive 3,220-fact review records 3,087
+  reviewed nonmappings: 1,298 outside runtime-safety scope, 719 with no
+  taxonomy stimulus or response, 919 supporting internal contracts only, and
+  151 in another safety domain. These associations are not invariant
+  coverage, assessed oracles, test-catalog mappings, suite results, or proof.
 
-  The report now contains zero class-level test-gap rows under its explicit
-  association basis. This is not a claim that the repository-wide
-  runtime-safety scanner denominator has been exhaustively reviewed. Primary
-  planned tiers are nine `pr`,
+  The report contains zero class-level test-gap rows under its explicit
+  association basis. The exhaustive review establishes only the disposition
+  of each Rust test fact; it does not establish semantic adequacy or proof.
+  Primary planned tiers are nine `pr`,
   eight `nightly`, two `release`, and zero `hardware_lab`; conditional tier
   occurrences are eight `nightly`, fourteen `release`, and three
   `hardware_lab`. No suite command was wired or executed by the audit.
@@ -964,8 +966,7 @@ Acceptance:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md`.
   The audit executes no fault, adds no fault interface or production hook,
   changes no runtime, product, workflow, or CI behavior, creates no proof or
-  coverage, and leaves `VERIF-P8-002`, `VERIF-P8-005`, and `VERIF-P8-006`
-  open.
+  coverage, and leaves `VERIF-P8-005` and `VERIF-P8-006` open.
 
 ## Phase 9 - Fuzz and Malformed Input Program
 
@@ -1565,14 +1566,15 @@ same commit, with the closure evidence linked.
   rationale); unmapped test debt mapped or retired; every incomplete fuzz
   surface gets a cargo-fuzz target and the crash-to-regression ledger closes
   `VERIF-P9-005`; conformance clause links close `VERIF-P7-002`; the
-  anomaly denominator closes `VERIF-P8-002`.
+  anomaly denominator is exhaustively partitioned under `VERIF-P8-002`.
 
   Non-catalog ledger progress (2026-07-17): conformance is explicitly linked
   21/21 and `VERIF-P7-002` is closed; ignored-test unknown debt is zero; all
   eight fuzz surfaces have direct cargo-fuzz targets; and all 19 anomaly
   classes have at least one runnable direct test association. This row remains
-  open for the deliberately deferred full test-catalog denominator and the
-  exhaustive runtime-safety nonmapping review required by `VERIF-P8-002`.
+  open for the deliberately deferred full test-catalog denominator. The
+  runtime-safety review is complete at 133 mapped plus 3,087 reviewed
+  nonmapping facts, exactly covering the 3,220-fact denominator.
   The governed seventeen-target fuzz campaign closed `VERIF-P9-005` on
   2026-07-18 with zero crash artifacts and a fail-closed crash-to-regression
   registry; it does not close either remaining denominator.

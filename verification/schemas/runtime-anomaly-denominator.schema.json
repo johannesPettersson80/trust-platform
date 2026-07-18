@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/runtime-anomaly-denominator.schema.json",
+  "title": "Runtime anomaly denominator review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "denominator_basis",
+    "review_basis",
+    "reason_definitions",
+    "last_reviewed",
+    "reviews"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "const": "RUNTIME_ANOMALY_DENOMINATOR_REVIEW_V1" },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "const": "runtime_safety" },
+    "denominator_basis": { "const": "all_live_production_rust_test_facts" },
+    "review_basis": { "const": "explicit_per_discovery_id_no_lexical_inference" },
+    "reason_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outside_runtime_safety_scope",
+        "no_taxonomy_stimulus_or_response",
+        "supporting_internal_contract_only",
+        "different_safety_domain"
+      ],
+      "properties": {
+        "outside_runtime_safety_scope": {
+          "const": "The reviewed test belongs to a compiler, language-service, developer-tool, or verification-helper boundary and does not exercise a shipped runtime response to one of the nineteen Phase 8 stimuli."
+        },
+        "no_taxonomy_stimulus_or_response": {
+          "const": "The reviewed test exercises ordinary behavior or a non-anomaly input and does not both create a Phase 8 stimulus and assert its runtime response."
+        },
+        "supporting_internal_contract_only": {
+          "const": "The reviewed test checks an internal helper, representation, parser, or component contract without independently exercising the observable runtime response required for a Phase 8 association."
+        },
+        "different_safety_domain": {
+          "const": "The reviewed test exercises a security, authorization, compatibility, release, or product contract outside the closed Phase 8 anomaly taxonomy."
+        }
+      }
+    },
+    "last_reviewed": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "reviews": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/mapped_review" },
+          { "$ref": "#/$defs/nonmapping_review" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "properties": {
+        "discovery_id": {
+          "type": "string",
+          "pattern": "^DISC_[A-F0-9]{20}$"
+        },
+        "discovery_source_kind": {
+          "enum": ["rust_integration_test", "rust_unit_test"]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^crates/[^\\\\]+\\.rs$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "last_reviewed": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        }
+      }
+    },
+    "mapped_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "disposition",
+        "mapping_id",
+        "last_reviewed"
+      ],
+      "properties": {
+        "discovery_id": { "$ref": "#/$defs/identity/properties/discovery_id" },
+        "discovery_source_kind": { "$ref": "#/$defs/identity/properties/discovery_source_kind" },
+        "path": { "$ref": "#/$defs/identity/properties/path" },
+        "name": { "$ref": "#/$defs/identity/properties/name" },
+        "disposition": { "const": "mapped" },
+        "mapping_id": {
+          "type": "string",
+          "pattern": "^ANOM_MAP_[A-Z0-9_]+$"
+        },
+        "last_reviewed": { "$ref": "#/$defs/identity/properties/last_reviewed" }
+      }
+    },
+    "nonmapping_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "disposition",
+        "reason_code",
+        "last_reviewed"
+      ],
+      "properties": {
+        "discovery_id": { "$ref": "#/$defs/identity/properties/discovery_id" },
+        "discovery_source_kind": { "$ref": "#/$defs/identity/properties/discovery_source_kind" },
+        "path": { "$ref": "#/$defs/identity/properties/path" },
+        "name": { "$ref": "#/$defs/identity/properties/name" },
+        "disposition": { "const": "reviewed_nonmapping" },
+        "reason_code": {
+          "enum": [
+            "outside_runtime_safety_scope",
+            "no_taxonomy_stimulus_or_response",
+            "supporting_internal_contract_only",
+            "different_safety_domain"
+          ]
+        },
+        "last_reviewed": { "$ref": "#/$defs/identity/properties/last_reviewed" }
+      }
+    }
+  }
+}

@@ -18,6 +18,7 @@
     "scope",
     "boundaries",
     "spec_gap_reviews",
+    "denominator_review",
     "classes",
     "mappings",
     "gap_rows",
@@ -27,7 +28,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "generator": { "const": "runtime-anomaly-audit" },
-    "generator_version": { "const": 1 },
+    "generator_version": { "const": 2 },
     "report_status": { "const": "complete" },
     "input_digest": { "$ref": "#/$defs/digest" },
     "command": {
@@ -51,6 +52,7 @@
     "scope": { "$ref": "#/$defs/scope" },
     "boundaries": { "$ref": "#/$defs/boundaries" },
     "spec_gap_reviews": { "$ref": "#/$defs/spec_gap_reviews" },
+    "denominator_review": { "$ref": "#/$defs/denominator_review" },
     "classes": {
       "type": "array",
       "items": { "$ref": "#/$defs/class" },
@@ -97,6 +99,7 @@
         "taxonomy_basis",
         "mapping_basis",
         "scanner_population",
+        "denominator_basis",
         "gap_basis",
         "tier_basis",
         "debt_is_report_failure"
@@ -105,9 +108,10 @@
         "taxonomy_basis": { "const": "exact_phase8_19_class_order" },
         "mapping_basis": { "const": "explicit_reviewed_discovery_id_only" },
         "scanner_population": { "const": "production_rust_test_facts" },
+        "denominator_basis": { "const": "explicit_per_discovery_id_review" },
         "gap_basis": { "const": "no_effectively_runnable_direct_mapping" },
         "tier_basis": { "const": "planned_primary_and_conditional" },
-        "debt_is_report_failure": { "const": false }
+        "debt_is_report_failure": { "const": true }
       },
       "additionalProperties": false
     },
@@ -121,7 +125,7 @@
         "faults_executed",
         "fault_interfaces_implemented",
         "production_fault_hooks_added",
-        "p8_002_exhaustive_mapping_row_remains_open",
+        "p8_002_exhaustive_review_complete",
         "p8_005_fault_toggle_row_remains_open",
         "p8_006_production_hook_guard_remains_open",
         "runtime_or_product_behavior_changed",
@@ -135,7 +139,7 @@
         "faults_executed": { "const": false },
         "fault_interfaces_implemented": { "const": false },
         "production_fault_hooks_added": { "const": false },
-        "p8_002_exhaustive_mapping_row_remains_open": { "const": true },
+        "p8_002_exhaustive_review_complete": { "const": true },
         "p8_005_fault_toggle_row_remains_open": { "const": true },
         "p8_006_production_hook_guard_remains_open": { "const": true },
         "runtime_or_product_behavior_changed": { "const": false },
@@ -149,6 +153,51 @@
       "properties": {
         "scan_cycle_allocation_policy": { "$ref": "#/$defs/allocation_review" },
         "restart_timebase": { "$ref": "#/$defs/restart_review" }
+      },
+      "additionalProperties": false
+    },
+    "denominator_review": {
+      "type": "object",
+      "required": ["review_digest", "summary"],
+      "properties": {
+        "review_digest": { "$ref": "#/$defs/digest" },
+        "summary": { "$ref": "#/$defs/denominator_summary" }
+      },
+      "additionalProperties": false
+    },
+    "denominator_summary": {
+      "type": "object",
+      "required": [
+        "scanner_denominator",
+        "mapped_facts",
+        "reviewed_nonmapping_facts",
+        "unreviewed_facts",
+        "exhaustive",
+        "by_nonmapping_reason"
+      ],
+      "properties": {
+        "scanner_denominator": { "type": "integer", "minimum": 1 },
+        "mapped_facts": { "type": "integer", "minimum": 1 },
+        "reviewed_nonmapping_facts": { "type": "integer", "minimum": 0 },
+        "unreviewed_facts": { "const": 0 },
+        "exhaustive": { "const": true },
+        "by_nonmapping_reason": { "$ref": "#/$defs/count_map_nonmapping_reason" }
+      },
+      "additionalProperties": false
+    },
+    "count_map_nonmapping_reason": {
+      "type": "object",
+      "required": [
+        "outside_runtime_safety_scope",
+        "no_taxonomy_stimulus_or_response",
+        "supporting_internal_contract_only",
+        "different_safety_domain"
+      ],
+      "properties": {
+        "outside_runtime_safety_scope": { "type": "integer", "minimum": 0 },
+        "no_taxonomy_stimulus_or_response": { "type": "integer", "minimum": 0 },
+        "supporting_internal_contract_only": { "type": "integer", "minimum": 0 },
+        "different_safety_domain": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

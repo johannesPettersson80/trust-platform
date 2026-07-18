@@ -236,11 +236,12 @@ Phase 8 adds no fault toggle or production hook. `VERIF-P8-005` and
 `VERIF-P8-006` remain open until a general governed harness and an enforceable
 design-review boundary exist.
 
-The initial registry does not exhaust every semantically relevant Rust test.
-`VERIF-P8-002` therefore remains open until a reviewed runtime-safety test
-denominator gives every fact an explicit mapped or reviewed-nonmapping
-disposition. The current registry must not use its 3,021-fact scanner context
-as a substitute for that review.
+The runtime anomaly denominator gives every one of the 3,220 live Rust test
+facts an explicit mapped or reviewed-nonmapping disposition. Mapped rows bind
+an exact reviewed mapping ID; nonmapping rows use a closed rationale vocabulary.
+The validator rejects overlap, omission, stale identity, or a new unreviewed
+fact. This closes `VERIF-P8-002` without converting associations into coverage
+or proof.
 
 ## Malformed Input Taxonomy
 

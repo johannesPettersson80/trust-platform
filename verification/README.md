@@ -294,13 +294,12 @@ TOML shape convention:
 - Run `python3 scripts/report_runtime_anomaly_audit.py` with
   `python3 scripts/validate_runtime_anomaly_audit_report.py` for the Phase 8
   report-only anomaly audit. The closed taxonomy contains 19 stimulus classes
-  and exact reviewed Rust scanner associations. Only non-ignored `direct`
-  associations count as effectively runnable; partial, context-only, ignored,
-  conditional, and unmapped classes remain gap rows. The 3,021-fact Rust scan
-  is provenance context, not an exhaustive semantic mapping claim. Suite tiers
-  are planned routes only. The audit executes no fault, creates no proof or
-  invariant coverage, and leaves `VERIF-P8-002`, `VERIF-P8-005`, and
-  `VERIF-P8-006` open.
+  and exact reviewed Rust scanner associations. The companion denominator
+  ledger partitions all 3,220 live Rust facts into exact mappings or closed
+  reviewed-nonmapping rationales. Only non-ignored `direct` associations count
+  as effectively runnable. Suite tiers are planned routes only. The audit
+  executes no fault, creates no proof or invariant coverage, and leaves
+  `VERIF-P8-005` and `VERIF-P8-006` open.
 - `verification/fuzz-program.toml` owns the Phase 9 hand-reviewed fuzz
   association plane. It binds five parsed cargo-fuzz targets and six exact Rust
   fuzz/property smokes to the ordered required surfaces

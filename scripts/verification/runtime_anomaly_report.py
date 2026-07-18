@@ -12,7 +12,7 @@ from .runtime_anomaly_restart_contract import restart_reference_text
 
 
 GENERATOR = "runtime-anomaly-audit"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/runtime-anomaly-audit.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/runtime-anomaly-audit.md")
 PRIMARY_SUITE_ORDER = ("pr", "nightly", "release", "hardware_lab")
@@ -20,9 +20,10 @@ SCOPE = {
     "taxonomy_basis": "exact_phase8_19_class_order",
     "mapping_basis": "explicit_reviewed_discovery_id_only",
     "scanner_population": "production_rust_test_facts",
+    "denominator_basis": "explicit_per_discovery_id_review",
     "gap_basis": "no_effectively_runnable_direct_mapping",
     "tier_basis": "planned_primary_and_conditional",
-    "debt_is_report_failure": False,
+    "debt_is_report_failure": True,
 }
 BOUNDARIES = {
     "report_creates_proof": False,
@@ -32,7 +33,7 @@ BOUNDARIES = {
     "faults_executed": False,
     "fault_interfaces_implemented": False,
     "production_fault_hooks_added": False,
-    "p8_002_exhaustive_mapping_row_remains_open": True,
+    "p8_002_exhaustive_review_complete": True,
     "p8_005_fault_toggle_row_remains_open": True,
     "p8_006_production_hook_guard_remains_open": True,
     "runtime_or_product_behavior_changed": False,
@@ -42,8 +43,8 @@ LIMITATIONS = (
     "Mappings are hand-reviewed associations joined only by live discovery_id; names, paths, comments, and lexical candidates never create an association.",
     "A runnable direct association means an existing non-ignored test asserts part of the named anomaly stimulus; it is not invariant coverage or behavioral proof.",
     "Partial, context-only, ignored, and conditional associations remain test-gap rows and cannot satisfy the class.",
-    "The Rust scanner denominator is provenance context, not a claim that every semantically relevant repository test was reviewed for Phase 8.",
-    "VERIF-P8-002 remains open until a reviewed runtime-safety test denominator has an explicit mapped or reviewed-nonmapping disposition for every fact.",
+    "The committed denominator ledger binds every live Rust fact by discovery ID, source kind, path, and name to either an existing explicit association or an explicit reviewed-nonmapping rationale.",
+    "Exhaustive denominator review does not turn nonmapping facts into anomaly coverage, proof, or an assertion that their ordinary behavior is adequate.",
     "Suite tiers are planned routing metadata. This report does not wire commands, change suite enforcement, or claim that a tier ran.",
     "The allocation-policy review reuses an active written contract; allocation-failure and OOM testing remains visible debt outside that claimed scan path.",
     "The restart-timebase review uses one closed schema-v1 state: existing_open_gap requires an actionable gap, while resolved_source binds an active reviewed source and any later closed gap must name that same resolution source; neither state creates test coverage, proof, or gap closure.",
@@ -96,6 +97,7 @@ class RuntimeAnomalyReport:
             "spec_gap_reviews": {
                 key: dict(value) for key, value in self.spec_gap_reviews.items()
             },
+            "denominator_review": dict(self.analysis["denominator_review"]),
             "classes": list(self.analysis["classes"]),
             "mappings": list(self.analysis["mappings"]),
             "gap_rows": list(self.analysis["gap_rows"]),
@@ -133,6 +135,9 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"- Taxonomy classes: {summary['taxonomy_classes']}",
         f"- Explicit mapping records: {summary['mapping_records']}",
         f"- Live Rust scanner facts: {summary['scanner_denominator']}",
+        f"- Denominator mapped facts: {payload['denominator_review']['summary']['mapped_facts']}",
+        f"- Denominator reviewed-nonmapping facts: {payload['denominator_review']['summary']['reviewed_nonmapping_facts']}",
+        f"- Denominator review SHA-256: `{payload['denominator_review']['review_digest']}`",
         f"- Effectively runnable direct mappings: {summary['effectively_runnable_mappings']}",
         f"- Ignored or conditional mappings: {summary['ignored_or_conditional_mappings']}",
         f"- Gap classes: {summary['gap_classes']}",

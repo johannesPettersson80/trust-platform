@@ -44,10 +44,10 @@ REPORT_MARKDOWN = (
 )
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
-    "mapping_records": 52,
+    "mapping_records": 133,
     "scanner_denominator": 3220,
-    "effectively_runnable_mappings": 43,
-    "ignored_or_conditional_mappings": 0,
+    "effectively_runnable_mappings": 123,
+    "ignored_or_conditional_mappings": 1,
     "gap_classes": 0,
     "by_state": {
         "mapped_runnable": 19,
@@ -56,10 +56,23 @@ EXPECTED_SUMMARY = {
     },
     "by_primary_suite": {"pr": 9, "nightly": 8, "release": 2, "hardware_lab": 0},
     "by_association_kind": {
-        "direct": 43,
+        "direct": 124,
         "partial": 7,
         "protective_red": 0,
         "context_only": 2,
+    },
+}
+EXPECTED_DENOMINATOR_SUMMARY = {
+    "scanner_denominator": 3220,
+    "mapped_facts": 133,
+    "reviewed_nonmapping_facts": 3087,
+    "unreviewed_facts": 0,
+    "exhaustive": True,
+    "by_nonmapping_reason": {
+        "outside_runtime_safety_scope": 1298,
+        "no_taxonomy_stimulus_or_response": 719,
+        "supporting_internal_contract_only": 919,
+        "different_safety_domain": 151,
     },
 }
 
@@ -132,6 +145,19 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             ],
         )
 
+    def test_live_denominator_is_disjoint_exhaustive_and_reported(self) -> None:
+        denominator = self.analysis["denominator_review"]
+        payload = self.report.to_dict()
+
+        self.assertEqual(EXPECTED_DENOMINATOR_SUMMARY, denominator["summary"])
+        self.assertEqual(denominator, payload["denominator_review"])
+        self.assertEqual(
+            denominator["summary"]["scanner_denominator"],
+            denominator["summary"]["mapped_facts"]
+            + denominator["summary"]["reviewed_nonmapping_facts"],
+        )
+        self.assertTrue(denominator["summary"]["exhaustive"])
+
     def test_expected_direct_partial_and_unmapped_posture(self) -> None:
         classes = {row["class_id"]: row for row in self.analysis["classes"]}
 
@@ -159,14 +185,16 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             self.assertEqual("mapped_runnable", classes[class_id]["state"])
         self.assertEqual([], self.analysis["gap_rows"])
 
-    def test_live_mapping_set_contains_no_ignored_associations(self) -> None:
+    def test_live_mapping_set_keeps_ignored_associations_non_runnable(self) -> None:
         ignored = [
             row
             for row in self.analysis["mappings"]
             if row["ignore_state"] != "not_ignored"
         ]
 
-        self.assertEqual([], ignored)
+        self.assertEqual(1, len(ignored))
+        self.assertEqual("ignored", ignored[0]["ignore_state"])
+        self.assertFalse(ignored[0]["effectively_runnable"])
 
     def test_p8_001a_reuses_written_sources_and_resolved_gap(self) -> None:
         reviews = self.state.spec_gap_reviews
@@ -478,13 +506,15 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             failures,
         )
 
-    def test_standing_fault_hook_rows_remain_open(self) -> None:
+    def test_exhaustive_mapping_row_is_closed_and_fault_hook_rows_remain_open(self) -> None:
         board = (
             ROOT
             / "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
         ).read_text()
         self.assertEqual([], validate_open_board_rows(board))
-        for row_id in ("VERIF-P8-002", "VERIF-P8-005", "VERIF-P8-006"):
+        self.assertNotIn("VERIF-P8-002", REQUIRED_OPEN_ROWS)
+        self.assertIn("- [x] `VERIF-P8-002`", board)
+        for row_id in ("VERIF-P8-005", "VERIF-P8-006"):
             self.assertIn(row_id, REQUIRED_OPEN_ROWS)
             changed = board.replace(f"- [ ] `{row_id}`", f"- [x] `{row_id}`", 1)
             self.assertTrue(

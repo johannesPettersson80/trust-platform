@@ -19,6 +19,13 @@ from .runtime_anomaly_contract import (
     load_runtime_anomaly_taxonomy,
     validate_runtime_anomaly_contract,
 )
+from .runtime_anomaly_denominator import (
+    REVIEW_PATH,
+    REVIEW_SCHEMA_PATH,
+    analyze_runtime_anomaly_denominator,
+    load_runtime_anomaly_denominator_review,
+    validate_runtime_anomaly_denominator_document,
+)
 from .runtime_anomaly_mapping import analyze_runtime_anomaly_mapping
 from .test_catalog_common import input_digest
 from .test_catalog_rust import scan_rust_tests
@@ -40,7 +47,6 @@ REQUIRED_OPEN_ROWS = (
     "VERIF-P6-008",
     "VERIF-P6-009",
     "VERIF-P6-010",
-    "VERIF-P8-002",
     "VERIF-P8-005",
     "VERIF-P8-006",
     "VERIF-P14-000",
@@ -58,6 +64,7 @@ REPORT_CONTRACT_PATHS = {
     "scripts/validate_runtime_anomaly_audit_report.py",
     "scripts/verification/runtime_anomaly_cli.py",
     "scripts/verification/runtime_anomaly_contract.py",
+    "scripts/verification/runtime_anomaly_denominator.py",
     "scripts/verification/runtime_anomaly_live.py",
     "scripts/verification/runtime_anomaly_mapping.py",
     "scripts/verification/runtime_anomaly_report.py",
@@ -66,6 +73,8 @@ REPORT_CONTRACT_PATHS = {
     "verification/README.md",
     TAXONOMY_PATH,
     TAXONOMY_SCHEMA_PATH,
+    REVIEW_PATH,
+    REVIEW_SCHEMA_PATH,
     REPORT_SCHEMA_PATH,
     "verification/ignored-tests.toml",
     "verification/schemas/ignored-test.schema.json",
@@ -137,6 +146,17 @@ def build_live_runtime_anomaly_state(
         facts=scan.facts,
         ignored_tests=validator.ignored_tests,
         scanner_denominator=len(scan.facts),
+    )
+    denominator = load_runtime_anomaly_denominator_review(root)
+    denominator_failures = validate_runtime_anomaly_denominator_document(
+        root, denominator
+    )
+    if denominator_failures:
+        raise ValueError("; ".join(denominator_failures))
+    analysis["denominator_review"] = analyze_runtime_anomaly_denominator(
+        facts=scan.facts,
+        mappings=taxonomy["mappings"],
+        reviews=denominator["reviews"],
     )
 
     paths = set(REPORT_CONTRACT_PATHS) | validator_code_input_paths(root)

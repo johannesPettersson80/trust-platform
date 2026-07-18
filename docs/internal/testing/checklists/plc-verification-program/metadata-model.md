@@ -1152,16 +1152,14 @@ derive `mapped_non_runnable_or_partial`, and classes with no association derive
 `unmapped`. The non-runnable and unmapped partition is reproduced as explicit
 gap rows.
 
-The report binds the taxonomy, both schemas, scanner inputs, mapped sources,
-ignored registry, specification review inputs, suite records, validator code,
-and exact Markdown. It does not claim that every semantically relevant test in
-the scanner denominator was reviewed. Debt exits successfully; malformed or
-stale identities, registry mismatch, schema drift, provenance drift, or report
-tampering fail.
-
-The first registry is intentionally non-exhaustive. It reports useful exact
-associations and class-level gaps, but `VERIF-P8-002` stays open until a
-reviewed runtime-safety denominator records a disposition for every fact.
+The report binds the taxonomy, both report and denominator schemas, scanner
+inputs, mapped sources, ignored registry, specification review inputs, suite
+records, validator code, and exact Markdown. The denominator ledger records
+exactly one mapped or reviewed-nonmapping disposition for each of the 3,220
+live Rust facts. Malformed, duplicate, stale, invented, or identity-rebound
+facts, registry mismatch, schema drift, provenance drift, or report tampering
+fail. This exhaustive partition closes `VERIF-P8-002`; it does not establish
+test adequacy, invariant coverage, or proof.
 
 ### Case File
 
