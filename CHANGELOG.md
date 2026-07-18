@@ -13,6 +13,9 @@ Target release: `v0.24.54`
 - trust-runtime: pre-commit watchdog and output-handoff faults now restore the
   last committed output image before applying a partial safe-state map, so
   unconfigured points cannot receive pending values from the failed scan.
+- trust-runtime: explicit conversions to `REAL` or `LREAL` now return the
+  stable overflow fault when narrowing, parsing, or IEC bit transfer would
+  synthesize NaN or infinity inside PLC state.
 
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero

@@ -12,6 +12,30 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-18 - Reject non-finite explicit conversion results
+
+- ID: DEV-053
+- Area: Standard numeric and bit-to-numeric conversion functions
+- IEC reference: IEC 61131-3 Ed.3 section 6.6.2.5.2 makes conversion accuracy
+  effects and execution errors implementer-specific; section 6.6.2.5.3 Table 23
+  specifically makes `LREAL_TO_REAL` value-range errors implementer-specific.
+  Section 6.6.2.5.5 Table 25 defines `DWORD_TO_REAL` and `LWORD_TO_LREAL` as
+  binary transfers. This entry records the product's implementer-specific
+  exceptional-value policy, not a contradiction of a required finite result.
+- Deviation/extension:
+  - Every explicit conversion targeting `REAL` or `LREAL` returns
+    `RuntimeError::Overflow` when parsing, narrowing, or binary transfer would
+    produce NaN, positive infinity, or negative infinity.
+  - Finite `DWORD_TO_REAL` and `LWORD_TO_LREAL` values preserve the IEC binary
+    transfer. No non-finite value is clamped or replaced.
+  - The error occurs before assignment storage, leaving the target unchanged.
+- Impact:
+  - PLC logic cannot synthesize a stored non-finite value through standard
+    explicit conversion functions.
+- Mitigation:
+  - Range-check before narrowing and represent exceptional state with an
+    explicit finite value and status rather than IEEE exceptional payloads.
+
 ## 2026-07-14 - Runtime control and debugger role authorization
 
 - ID: DEV-050

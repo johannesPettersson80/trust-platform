@@ -80,7 +80,14 @@ When STRING/WSTRING is an input or output, the string shall conform to the exter
 | Function | Notes |
 |----------|-------|
 | `REAL_TO_LREAL` | Widening |
-| `LREAL_TO_REAL` | Narrowing, precision loss |
+| `LREAL_TO_REAL` | Narrowing and precision loss; a finite source that overflows basic-single range returns `RuntimeError::Overflow` |
+
+For every explicit conversion whose target is `REAL` or `LREAL`, truST returns
+`RuntimeError::Overflow` if the result would be NaN or either infinity. This
+includes string parsing, `LREAL_TO_REAL` narrowing, and the IEC Table 25 binary
+transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary transfers retain
+their exact bit-defined value. The rejection policy is implementer-specific
+under IEC 61131-3 section 6.6.2.5.2 and Table 23; see DEV-053.
 
 ### 2.2 Bit Data Type Conversions (Table 24)
 
