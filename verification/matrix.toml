@@ -363,12 +363,12 @@ notes = "Release is conditional on public conformance output."
 id = "verification_tooling"
 match_kind = "path"
 area_ids = ["verification"]
-path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", ".github/workflows/**"]
+path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", ".github/workflows/**", ".codex/skills/**", "AGENTS.md", "docs/internal/testing/checklists/plc-verification-program/**", "docs/internal/testing/evidence/plc-verification-program/**"]
 intents = []
 required_test_classes = ["metadata_validation", "unit"]
 suite_tiers = ["veryquick", "pr"]
 conditional_suite_tiers = []
-notes = "This route changes no CI enforcement by itself."
+notes = "Verification control, evidence, shared agent instructions, and repo-local skill changes must traverse the enforcing verification suites."
 
 [[code_areas]]
 id = "architecture_diagrams"

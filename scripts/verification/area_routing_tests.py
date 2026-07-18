@@ -124,6 +124,20 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertIn("security_supply_chain", cargo_manifest.route_ids)
         self.assertIn("hmi_runtime_web_ui", webview.route_ids)
 
+    def test_verification_program_control_and_evidence_paths_are_routed(self) -> None:
+        paths = (
+            "AGENTS.md",
+            ".codex/skills/trust-test-authoring/SKILL.md",
+            "docs/internal/testing/checklists/plc-verification-program/implementation-board.md",
+            "docs/internal/testing/evidence/plc-verification-program/2026-07-18/evidence.md",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
+                self.assertFalse(result.unmapped)
+                self.assertIn("verification_tooling", result.route_ids)
+                self.assertIn("verification", result.area_ids)
+
     def test_unmatched_path_is_default_denied(self) -> None:
         result = classify_changed_path(self.matrix, "unmodeled/new_surface.xyz")
 
