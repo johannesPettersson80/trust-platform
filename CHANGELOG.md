@@ -18,6 +18,9 @@ Target release: `v0.24.54`
   synthesize NaN or infinity inside PLC state.
 - trust-runtime: deterministic simulation-time advancement now saturates at the
   signed nanosecond bounds instead of panicking or wrapping on overflow.
+- trust-runtime: OPC UA server variables backed by periodic PLC snapshots now
+  advertise read-only access and reject client writes instead of acknowledging
+  values that the runtime never applies to PLC storage.
 
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero

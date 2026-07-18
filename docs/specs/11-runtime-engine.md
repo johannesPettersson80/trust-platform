@@ -325,6 +325,13 @@ session event returns failure immediately rather than blocking or allocating
 an unbounded queue. After the worker drains pending events, the same sink can
 accept a later event. A rejected event is not claimed delivered. (DEV-045)
 
+The runtime's OPC UA server publishes PLC snapshot variables with CurrentRead
+access only. The periodic publisher refreshes those values from runtime
+snapshots; client writes are rejected because no transactional write-back path
+to PLC storage is defined. A future writable server surface requires an
+explicit allowlist, authorization, type validation, scan-boundary application,
+and visible write result before it may advertise CurrentWrite.
+
 ##### Floating-point boundary admission policy
 
 IEC 61131-3 Ed.3, Section 6.4.2.1, Table 10 defines `REAL` and `LREAL`
