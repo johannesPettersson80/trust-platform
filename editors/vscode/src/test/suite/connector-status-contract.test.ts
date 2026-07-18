@@ -2,7 +2,51 @@ import * as assert from "assert";
 import {
   canonicalConnectorHealth,
   canonicalConnectorState,
+  mergeConnectorStatusIntoTopology,
 } from "../../networkCanvas/connectorsStatus";
+import type { FleetTopologyResponse } from "../../networkCanvas/fleetTopology";
+
+function peerTopology(): FleetTopologyResponse {
+  return {
+    schema_version: 3,
+    hosts: [
+      {
+        host_id: "peer-host",
+        hostname: "peer-host",
+        arch: "x86_64",
+        os: "linux",
+        ips: ["10.0.0.2"],
+        containers: [],
+        runtimes: [
+          {
+            runtime_id: "peer-runtime",
+            name: "peer-runtime",
+            mode: "production",
+            cycle_ms: 10,
+            health: "connected",
+            detail: "reachable",
+            endpoints: [
+              {
+                id: "mqtt",
+                kind: "service",
+                protocol: "mqtt",
+                name: "mqtt",
+                address: "mqtt://10.0.0.2",
+                health: "connected",
+                detail: "reachable",
+                owned: true,
+                supports_test: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    links: [],
+    shared: [],
+    external: [],
+  };
+}
 
 suite("connector status contract", () => {
   test("maps every canonical state and health without changing wire meaning", () => {
@@ -30,6 +74,25 @@ suite("connector status contract", () => {
     assert.throws(
       () => canonicalConnectorHealth("excellent"),
       /unknown connector health/
+    );
+  });
+
+  test("rejects unknown discovery confidence instead of projecting a peer", () => {
+    assert.throws(
+      () =>
+        mergeConnectorStatusIntoTopology(peerTopology(), {
+          schema_version: 1,
+          connectors: [
+            {
+              connector_id: "peer-mqtt",
+              protocol: "mqtt",
+              state: "ready",
+              health: "ok",
+              confidence: "certainly_healthy",
+            },
+          ],
+        }),
+      /unknown connector confidence/
     );
   });
 });
