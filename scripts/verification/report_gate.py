@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from .focused_test_suite import NON_TEST_SUFFIX_COLLISIONS, TEST_ROOT
+
 from .metadata_validator.constants import ROOT
 
 
@@ -217,6 +219,13 @@ def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]
     missing: list[str] = []
     for path in changed_files:
         normalized = normalize_changed_file(path)
+        relative = Path(normalized)
+        if (
+            relative not in NON_TEST_SUFFIX_COLLISIONS
+            and relative.parent.is_relative_to(TEST_ROOT)
+            and relative.name.endswith("_tests.py")
+        ):
+            continue
         if is_test_like(normalized) and normalized not in catalog_paths:
             missing.append(normalized)
     return sorted(set(missing))

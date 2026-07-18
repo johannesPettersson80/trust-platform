@@ -137,6 +137,7 @@ path = "crates/trust-runtime/tests/known.rs"
                     "crates/trust-runtime/tests/known.rs",
                     "crates/trust-runtime/tests/new_case.rs",
                     "crates/trust-runtime/src/lib.rs",
+                    "scripts/verification/new_contract_tests.py",
                 ],
             )
 
