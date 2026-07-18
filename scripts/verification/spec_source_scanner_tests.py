@@ -184,7 +184,7 @@ class SpecSourceScannerTests(unittest.TestCase):
                 self.assertEqual(topic.eligible_source_ids, sources)
                 self.assertEqual(topic.open_spec_gap_ids, ())
 
-    def test_release_topics_drop_closed_gaps_but_keep_public_claim_debt(self) -> None:
+    def test_release_topics_drop_closed_public_claim_gaps(self) -> None:
         topics = {item.topic_id: item for item in OBVIOUS_SPEC_TOPICS}
 
         supply_chain = topics["P1A004_SUPPLY_CHAIN"]
@@ -196,28 +196,14 @@ class SpecSourceScannerTests(unittest.TestCase):
         self.assertEqual(supply_chain.open_spec_gap_ids, ())
 
         platform = topics["P1A004_PLATFORM_PACKAGE_BEHAVIOR"]
-        self.assertEqual(platform.reviewed_posture, "gap_open_partial")
+        self.assertEqual(platform.reviewed_posture, "source_present")
         self.assertEqual(platform.eligible_source_ids, ("SPEC_RELEASE_EVIDENCE_001",))
-        self.assertEqual(
-            platform.open_spec_gap_ids,
-            (
-                "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001",
-                "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001",
-            ),
-        )
+        self.assertEqual(platform.open_spec_gap_ids, ())
 
         release = topics["P1A004_RELEASE_PROOF"]
-        self.assertEqual(release.reviewed_posture, "gap_open_partial")
+        self.assertEqual(release.reviewed_posture, "source_present")
         self.assertEqual(release.eligible_source_ids, ("SPEC_RELEASE_EVIDENCE_001",))
-        self.assertEqual(
-            release.open_spec_gap_ids,
-            (
-                "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001",
-                "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001",
-                "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001",
-                "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001",
-            ),
-        )
+        self.assertEqual(release.open_spec_gap_ids, ())
 
     def test_discovery_uses_only_tracked_reviewed_text_surfaces(self) -> None:
         with tracked_repository(

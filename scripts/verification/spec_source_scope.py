@@ -81,8 +81,8 @@ OBVIOUS_SPEC_TOPICS = (
     ObviousSpecTopic("P1A004_GPIO", "GPIO", "unrepresented", areas=("runtime_safety",)),
     ObviousSpecTopic("P1A004_RUNTIME_PERFORMANCE_BUDGETS", "runtime performance budgets", "unrepresented", areas=("runtime_safety",)),
     ObviousSpecTopic("P1A004_SUPPLY_CHAIN", "supply chain", "source_present", ("SPEC_RELEASE_EVIDENCE_001",), public_claim_context_ids=("PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"), areas=("supply_chain_platform",)),
-    ObviousSpecTopic("P1A004_PLATFORM_PACKAGE_BEHAVIOR", "platform/package behavior", "gap_open_partial", ("SPEC_RELEASE_EVIDENCE_001",), open_spec_gap_ids=("SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001", "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"), public_claim_context_ids=("PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"), areas=("release", "supply_chain_platform")),
-    ObviousSpecTopic("P1A004_RELEASE_PROOF", "release proof", "gap_open_partial", ("SPEC_RELEASE_EVIDENCE_001",), nonoracle_source_ids=("SPEC_CONFORMANCE_CONTRACT_001",), open_spec_gap_ids=("SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001", "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001", "SPEC_GAP_PLATFORM_SUPPORT_MATRIX_001", "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"), public_claim_context_ids=("PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"), areas=("release",)),
+    ObviousSpecTopic("P1A004_PLATFORM_PACKAGE_BEHAVIOR", "platform/package behavior", "source_present", ("SPEC_RELEASE_EVIDENCE_001",), public_claim_context_ids=("PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"), areas=("release", "supply_chain_platform")),
+    ObviousSpecTopic("P1A004_RELEASE_PROOF", "release proof", "source_present", ("SPEC_RELEASE_EVIDENCE_001",), nonoracle_source_ids=("SPEC_CONFORMANCE_CONTRACT_001",), public_claim_context_ids=("PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"), areas=("release",)),
 )
 
 
