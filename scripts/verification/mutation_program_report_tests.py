@@ -162,6 +162,16 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertEqual(render_markdown(self.payload, json_digest=digest), markdown)
         self.assertIn(digest, markdown)
 
+    def test_staging_paths_do_not_change_report_bytes(self) -> None:
+        canonical = MutationProgramReport.from_state(self.state)
+        staged = MutationProgramReport.from_state(
+            self.state,
+            output_json="target/reproduction/mutation.json",
+            output_markdown="target/reproduction/mutation.md",
+        )
+
+        self.assertEqual(canonical.to_json(), staged.to_json())
+
     def test_report_schema_can_represent_future_survivor_counts(self) -> None:
         schema = json.loads((ROOT / REPORT_SCHEMA_PATH).read_text())
         summary = schema["$defs"]["summary"]["properties"]

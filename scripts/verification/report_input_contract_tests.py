@@ -14,6 +14,24 @@ from scripts.verification.report_input_contract import (
 
 
 class ReportInputContractTests(unittest.TestCase):
+    REPORT_GENERATOR_CLIS = (
+        "conformance_alignment_cli.py",
+        "coverage_matrix_gap_cli.py",
+        "fuzz_program_cli.py",
+        "ignored_test_cli.py",
+        "invariant_seed_cli.py",
+        "malformed_input_coverage_cli.py",
+        "mutation_program_cli.py",
+        "phase5_audit_cli.py",
+        "requirement_oracle_cli.py",
+        "runtime_anomaly_cli.py",
+        "spec_completeness_cli.py",
+        "spec_source_cli.py",
+        "test_catalog_debt_cli.py",
+        "test_class_completeness_cli.py",
+        "test_refactor_cli.py",
+    )
+
     def test_regular_workspace_input_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -88,6 +106,13 @@ class ReportInputContractTests(unittest.TestCase):
             self.assertIn(expected, paths)
         self.assertNotIn("verification/evidence-index.toml", paths)
         self.assertFalse(any("__pycache__" in path or path.endswith(".pyc") for path in paths))
+
+    def test_all_paired_report_generators_share_the_output_path_contract(self) -> None:
+        verification = ROOT / "scripts/verification"
+        for name in self.REPORT_GENERATOR_CLIS:
+            with self.subTest(name=name):
+                source = (verification / name).read_text()
+                self.assertIn("resolve_report_output_path", source)
 
 
 if __name__ == "__main__":
