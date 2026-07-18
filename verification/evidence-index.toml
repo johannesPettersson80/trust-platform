@@ -8238,3 +8238,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-19"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P13_RELEASE_EVIDENCE_AUDIT_20260719"
+title = "Phase 13 release evidence manifest and audit"
+area = "release"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase13-release-evidence.md"
+command = "python3 scripts/report_phase13_release_evidence.py --json-out target/gate-artifacts/verification/phase13-release-evidence.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase13-release-evidence.md --branch plc-verification-program --timestamp 2026-07-19T00:50:00+02:00 && python3 scripts/validate_phase13_release_evidence_report.py --json target/gate-artifacts/verification/phase13-release-evidence.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase13-release-evidence.md"
+commit = "bb8849518aef716a2a89cfc4cdab77fd11891ce1"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-19"
+suite_id = "supporting_local"
+producer = "phase13-release-evidence-audit v1"
+generated_report_version = "phase13-release-evidence-audit-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-19"

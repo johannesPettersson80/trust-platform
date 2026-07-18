@@ -1115,24 +1115,39 @@ Acceptance:
 
 ## Phase 13 - Security, Supply Chain, Platform, and Release Evidence
 
-- [ ] `VERIF-P13-001` Define release evidence manifest: commit, branch, version,
+- [x] `VERIF-P13-001` Define release evidence manifest: commit, branch, version,
   changelog, platform matrix, test gates, conformance summary, hardware lab
   status, UI acceptance status, security/dependency status, release workflow,
   tag, latest release.
-- [ ] `VERIF-P13-002` Add release summary renderer from CI artifacts and checked
+- [x] `VERIF-P13-002` Add release summary renderer from CI artifacts and checked
   metadata.
-- [ ] `VERIF-P13-003` Release evidence distinguishes local, remote-builder, CI,
+- [x] `VERIF-P13-003` Release evidence distinguishes local, remote-builder, CI,
   hardware-lab, and public GitHub proof.
-- [ ] `VERIF-P13-004` Release summary includes known gaps and skipped lab rows.
-- [ ] `VERIF-P13-005` Version bump is not complete until annotated tag, Release
+- [x] `VERIF-P13-004` Release summary includes known gaps and skipped lab rows.
+- [x] `VERIF-P13-005` Version bump is not complete until annotated tag, Release
   workflow, and Latest-release proof exist.
-- [ ] `VERIF-P13-006` Define dependency/security gate policy: cargo/npm audit or
+- [x] `VERIF-P13-006` Define dependency/security gate policy: cargo/npm audit or
   deny-style checks where configured, license/provenance rules, exception owner
   and expiry.
-- [ ] `VERIF-P13-007` Define release artifact identity checks: checksum,
+- [x] `VERIF-P13-007` Define release artifact identity checks: checksum,
   artifact-to-commit mapping, tested tag, package/VSIX version sync.
-- [ ] `VERIF-P13-008` Define supported platform matrix and required proof for
-  each supported path/package behavior.
+- [x] `VERIF-P13-008` Define supported platform matrix and required proof for
+each supported path/package behavior.
+
+  Closed 2026-07-19 by the primary-gate-validated
+  `verification/release-evidence.toml` contract and the byte-reproducible Phase
+  13 audit at clean source `bb8849518aef716a2a89cfc4cdab77fd11891ce1`.
+  The audit distinguishes local, trust-builder, typed CI, hardware-lab, and
+  public-GitHub evidence without treating configured jobs as execution. It
+  reports the current `v0.24.54` candidate as incomplete: there is no annotated
+  candidate tag, the reviewed public Latest snapshot remains `v0.24.34`, and
+  that snapshot lacks the required provenance and conformance result assets.
+  All seven dependency exceptions are owned and unexpired; cargo-deny,
+  cargo-audit, npm-audit, version, provenance, checksum, and platform policies
+  are checked as configuration only. Five hardware rows remain explicitly
+  skipped/unproven and zero of thirty UI journeys are accepted. These visible
+  debts do not prevent closing the definition rows and create no release or
+  product proof.
 
 ## Phase 14 - Governance and Maintenance
 
