@@ -3,11 +3,11 @@ id = "EDIT_LSP_DELIVERY_001"
 title = "Progressive and runtime-backed LSP results remain bounded and nonduplicating"
 area = "editor_safety"
 risk = "false_status"
-status = "mapped"
+status = "implemented"
 owner = "trust-lsp"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-19"
 claim = "Partial-result requests must stream their payload once under the supplied token, and a silent runtime control endpoint must not indefinitely block runtime-backed inline values."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/handlers/features/core_impl/navigation_requests.rs",
@@ -21,9 +21,12 @@ tests = [
   "TEST_LSP_INLINE_VALUE_LATENCY_001",
 ]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_LSP_DELIVERY_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_LSP_DELIVERY_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
-missing = ["case_bound_behavior_lock", "broad_remote_gate", "full_extension_host_latency_journey"]
+missing = ["broad_remote_gate", "full_extension_host_latency_journey"]
 
 [spec]
 status = "specified"
@@ -65,4 +68,4 @@ rationale = "Focused wire-level tests observe the progress token and nonempty pa
 [[coverage.cells]]
 dimension = "resource_limit"
 state = "covered"
-rationale = "The focused silent-endpoint test observes completion at the 250 ms control-I/O bound; durable case-bound proof remains open."
+rationale = "The case-bound lock pair observes completion at the 250 ms control-I/O bound; full extension-host latency evidence remains open."
