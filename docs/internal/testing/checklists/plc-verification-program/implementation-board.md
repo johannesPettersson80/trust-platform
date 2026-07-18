@@ -617,10 +617,11 @@ Acceptance:
   focused execution or harness review. The live exhaustive join now contains
   23 observations, all explicitly classified: 15 `perf_soak`, five
   `lab_required`, and three `manual`; zero remain `unknown`.
-- [ ] `VERIF-P3-006` Fail metadata validation if any ignored test remains
+- [x] `VERIF-P3-006` Fail metadata validation if any ignored test remains
   `unknown` after the grace period defined per `VERIF-P14-000`. This row stays
-  open because that grace period does not yet exist; current unknown debt is
-  visible and report-only.
+  closed by the committed 30-day `ignored_unknown` grace rule and the live
+  governance checker. The current exhaustive register has zero `unknown`
+  records; a focused fixture proves an overdue unknown record fails closed.
 
 ## Phase 4 - Invariant Registry
 
@@ -795,9 +796,12 @@ Acceptance:
   scopes: eight have eligible explicit oracles and 44 are blocked by open
   specification gaps. It lists 34 future high-risk enforcement candidates but
   does not fail on them.
-- [ ] `VERIF-P6-007` Fail only on missing oracles for `safety_critical`,
+- [x] `VERIF-P6-007` Fail only on missing oracles for `safety_critical`,
   `wrong_result`, `silent_corruption`, and `false_status` risks after the grace
-  period defined per `VERIF-P14-000`.
+  period defined per `VERIF-P14-000`. Closed by the committed 30-day
+  `missing_oracle` rule and live governance checker. The current metadata has
+  zero high-risk invariants without an eligible oracle; a focused fixture
+  proves an overdue missing-oracle record fails closed.
 - [ ] `VERIF-P6-008` Add forward traceability report:
   spec source -> invariant -> test -> suite/gate -> evidence -> public claim.
 - [ ] `VERIF-P6-009` Add reverse traceability report:
@@ -1136,7 +1140,7 @@ each supported path/package behavior.
 
   Closed 2026-07-19 by the primary-gate-validated
   `verification/release-evidence.toml` contract and the byte-reproducible Phase
-  13 audit at clean source `bb8849518aef716a2a89cfc4cdab77fd11891ce1`.
+  13 audit rebound at clean source `7baa48646ce85332c72ca9a9fdb6f66a90f6345a`.
   The audit distinguishes local, trust-builder, typed CI, hardware-lab, and
   public-GitHub evidence without treating configured jobs as execution. It
   reports the current `v0.24.54` candidate as incomplete: there is no annotated
@@ -1151,26 +1155,38 @@ each supported path/package behavior.
 
 ## Phase 14 - Governance and Maintenance
 
-- [ ] `VERIF-P14-001` Add owner rules for invariants and suites.
-- [ ] `VERIF-P14-000` Define grace periods in committed validator config. Any
+- [x] `VERIF-P14-001` Add owner rules for invariants and suites.
+- [x] `VERIF-P14-000` Define grace periods in committed validator config. Any
   "after grace period" rule must name duration or milestone, for example 30 days
   or next release.
-- [ ] `VERIF-P14-000A` Define owner alias resolution for crate names, teams, and
+- [x] `VERIF-P14-000A` Define owner alias resolution for crate names, teams, and
   domain owners.
-- [ ] `VERIF-P14-000B` Define suite composition semantics for `includes` and
+- [x] `VERIF-P14-000B` Define suite composition semantics for `includes` and
   `excludes`.
-- [ ] `VERIF-P14-000C` Add area-level coverage-dimension templates so
+- [x] `VERIF-P14-000C` Add area-level coverage-dimension templates so
   non-applicable dimensions are reviewed once per area rather than filled by
   rote per invariant.
-- [ ] `VERIF-P14-002` Add stale metadata check.
-- [ ] `VERIF-P14-003` Every safety bug fix adds or updates invariant mapping.
-- [ ] `VERIF-P14-004` Every new protocol, lifecycle feature, bytecode feature,
+- [x] `VERIF-P14-002` Add stale metadata check.
+- [x] `VERIF-P14-003` Every safety bug fix adds or updates invariant mapping.
+- [x] `VERIF-P14-004` Every new protocol, lifecycle feature, bytecode feature,
   source transformation, public hardware claim, security/release claim, or
   platform claim adds metadata before close.
-- [ ] `VERIF-P14-005` Add periodic review cadence: monthly ignored-test audit,
+- [x] `VERIF-P14-005` Add periodic review cadence: monthly ignored-test audit,
   release-time hardware/security gap audit, quarterly mutation/fuzz review.
-- [ ] `VERIF-P14-006` Add archive policy for obsolete evidence and retired
+- [x] `VERIF-P14-006` Add archive policy for obsolete evidence and retired
   invariants.
+
+  Closed 2026-07-19 by `verification/governance.toml`, the append-only
+  `verification/retirements.toml` registry, primary metadata validation, and
+  the live report-gate checker. Owner aliases and area ownership, suite
+  composition without execution or proof inheritance, 90-day metadata
+  staleness, explicit grace periods, coverage templates, same-diff metadata
+  requirements, review cadences, and retirement tombstones are closed and
+  adversarially tested. Durable evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase14-governance-closeout.md`.
+  This governance closure creates no product proof; forward, reverse, and
+  orphan traceability remain open under `VERIF-P6-008` through
+  `VERIF-P6-010`.
 
 ## Phase 15 - Codex Skill and Agent Instruction Sync
 
