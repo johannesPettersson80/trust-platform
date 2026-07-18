@@ -2432,6 +2432,32 @@ last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2
+id = "TEST_LSP_DELIVERY_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C9E7F084EF3BF8A3418B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs"
+name = "lsp_delivery_trace_cases"
+command = "cargo test -p trust-lsp handlers::tests::lsp_trace_cases::lsp_delivery_trace_cases -- --exact"
+owner = "trust-lsp"
+status = "mapped"
+invariants = ["EDIT_LSP_DELIVERY_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+expected_result = "References and workspace-symbol partial results are delivered once under the supplied token, and a silent runtime endpoint cannot block inline values beyond the reviewed bound."
+expected_failure_mode = "A partial payload is omitted or duplicated in the final response, a progress token drifts, the silent endpoint blocks inline values, or the same-run trace artifact drifts."
+evidence_destination = "target/gate-artifacts/cases/TEST_LSP_DELIVERY_TRACE_001.json"
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/editor_safety/EDIT_LSP_DELIVERY_001.toml"
+case_file_digest = "sha256:2b1134a279b8614b2cd14daa383991c74c314964eefc3dcbe783cfcbc7d8ad85"
+last_reviewed = "2026-07-19"
+
+[[tests]]
+schema_version = 2
 id = "TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_8F2DBAEEFDD35FE74605"
@@ -4284,7 +4310,7 @@ test_class = "lsp_protocol"
 area = "editor_safety"
 path = "crates/trust-lsp/src/handlers/tests/core_part_01.rs"
 name = "lsp_rename_shadow_capture_returns_response_error"
-command = "cargo test -p trust-lsp lsp_rename_shadow_capture_returns_response_error -- --exact"
+command = "cargo test -p trust-lsp handlers::tests::core::core_part_01::lsp_rename_shadow_capture_returns_response_error -- --exact"
 owner = "trust-lsp"
 status = "mapped"
 invariants = ["EDIT_RENAME_001"]
@@ -6164,6 +6190,78 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001.json"
+last_reviewed = "2026-07-18"
+
+[[tests]]
+schema_version = 2
+id = "TEST_LSP_REFERENCES_PARTIAL_RESULT_DELIVERY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_75651FE091A83D17F3BA"
+discovery_source_kind = "rust_unit_test"
+test_class = "lsp_protocol"
+area = "editor_safety"
+path = "crates/trust-lsp/src/handlers/tests/core_part_06.rs"
+name = "lsp_references_partial_result_token_returns_empty_final_response"
+command = "cargo test -p trust-lsp handlers::tests::core::core_part_06::lsp_references_partial_result_token_returns_empty_final_response -- --exact"
+owner = "trust-lsp"
+status = "mapped"
+invariants = ["EDIT_LSP_DELIVERY_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+expected_result = "A references request with a partial-result token sends a nonempty $/progress payload under that token and returns an empty final result."
+expected_failure_mode = "The server omits the progress payload, uses the wrong token, or duplicates streamed locations in the final response."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_LSP_REFERENCES_PARTIAL_RESULT_DELIVERY_001.json"
+last_reviewed = "2026-07-18"
+
+[[tests]]
+schema_version = 2
+id = "TEST_LSP_WORKSPACE_SYMBOL_PARTIAL_RESULT_DELIVERY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6BABF1F5BCB555CD8662"
+discovery_source_kind = "rust_unit_test"
+test_class = "lsp_protocol"
+area = "editor_safety"
+path = "crates/trust-lsp/src/handlers/tests/core_part_06.rs"
+name = "lsp_workspace_symbols_partial_result_token_returns_empty_final_response"
+command = "cargo test -p trust-lsp handlers::tests::core::core_part_06::lsp_workspace_symbols_partial_result_token_returns_empty_final_response -- --exact"
+owner = "trust-lsp"
+status = "mapped"
+invariants = ["EDIT_LSP_DELIVERY_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+expected_result = "A workspace-symbol request with a partial-result token sends a nonempty $/progress payload under that token and returns an empty final result."
+expected_failure_mode = "The server omits the progress payload, uses the wrong token, or duplicates streamed symbols in the final response."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_LSP_WORKSPACE_SYMBOL_PARTIAL_RESULT_DELIVERY_001.json"
+last_reviewed = "2026-07-18"
+
+[[tests]]
+schema_version = 2
+id = "TEST_LSP_INLINE_VALUE_LATENCY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BD0392DD8ECDFB73D297"
+discovery_source_kind = "rust_unit_test"
+test_class = "lsp_protocol"
+area = "editor_safety"
+path = "crates/trust-lsp/src/handlers/tests/core_part_08.rs"
+name = "lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result"
+command = "cargo test -p trust-lsp handlers::tests::core::core_part_08::lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result -- --exact"
+owner = "trust-lsp"
+status = "mapped"
+invariants = ["EDIT_LSP_DELIVERY_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+expected_result = "A silent runtime control endpoint cannot block inline values beyond the 250 ms control-I/O bound and contributes no invented runtime values."
+expected_failure_mode = "The inline-value request blocks indefinitely or reports a runtime-derived value without a completed control response."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_LSP_INLINE_VALUE_LATENCY_001.json"
 last_reviewed = "2026-07-18"
 
 [[tests]]

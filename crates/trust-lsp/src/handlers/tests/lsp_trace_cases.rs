@@ -28,6 +28,10 @@ const CLOSE_TEST_ID: &str = "TEST_LSP_DOCUMENT_CLOSE_TRACE_001";
 const CLOSE_CASE_FILE: &str = "verification/cases/editor_safety/EDIT_DOC_CLOSE_001.toml";
 const CLOSE_CASE_FILE_DIGEST: &str =
     "sha256:9ab5679c9ed203ba3cd56f60f2862d9aa38a28620b98497bbe69f9f31c0b2ff9";
+const DELIVERY_TEST_ID: &str = "TEST_LSP_DELIVERY_TRACE_001";
+const DELIVERY_CASE_FILE: &str = "verification/cases/editor_safety/EDIT_LSP_DELIVERY_001.toml";
+const DELIVERY_CASE_FILE_DIGEST: &str =
+    "sha256:2b1134a279b8614b2cd14daa383991c74c314964eefc3dcbe783cfcbc7d8ad85";
 
 #[test]
 fn lsp_position_encoding_trace_cases() {
@@ -57,6 +61,31 @@ fn lsp_document_close_trace_cases() {
         CLOSE_CASE_FILE_DIGEST,
         execute_close_case,
     );
+}
+
+#[test]
+fn lsp_delivery_trace_cases() {
+    run_trace_cases(
+        DELIVERY_TEST_ID,
+        DELIVERY_CASE_FILE,
+        DELIVERY_CASE_FILE_DIGEST,
+        execute_delivery_case,
+    );
+}
+
+fn execute_delivery_case(case: &CaseRecord, _step: &TraceStep) -> Result<JsonValue, String> {
+    match scenario(case)? {
+        "REFERENCES_PARTIAL_RESULT_TOKEN" => {
+            test_runtime().block_on(super::core::references_partial_result_observation())
+        }
+        "WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN" => {
+            test_runtime().block_on(super::core::workspace_symbols_partial_result_observation())
+        }
+        "SILENT_RUNTIME_INLINE_VALUE_ENDPOINT" => {
+            super::core::silent_runtime_inline_value_observation()
+        }
+        other => Err(format!("unreviewed LSP delivery scenario {other}")),
+    }
 }
 
 fn execute_position_case(case: &CaseRecord, _step: &TraceStep) -> Result<JsonValue, String> {

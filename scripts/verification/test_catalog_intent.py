@@ -146,6 +146,16 @@ def _validate_generated_subject(
     source_kind = record.get("discovery_source_kind")
     if source_kind not in GENERATED_SOURCE_KINDS:
         failures.append(f"{record_id} has unknown discovery_source_kind {source_kind!r}")
+    if source_kind == "rust_unit_test":
+        command = record.get("command")
+        if (
+            isinstance(command, str)
+            and command.endswith(" -- --exact")
+            and "::" not in command.removesuffix(" -- --exact")
+        ):
+            failures.append(
+                f"{record_id} rust_unit_test --exact command requires a fully qualified test path"
+            )
 
 
 def _validate_case_table_subject(

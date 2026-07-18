@@ -94,6 +94,38 @@ class TestCatalogIntentTests(unittest.TestCase):
         self.assertTrue(any("case_table_artifact path must equal case_file" in item for item in failures))
         self.assertTrue(any("mutation_shard_runner forbids discovery_id" in item for item in failures))
 
+    def test_rust_unit_exact_command_requires_fully_qualified_test_path(self) -> None:
+        record = generated_record()
+        record.update(
+            discovery_source_kind="rust_unit_test",
+            command="cargo test -p trust-lsp bare_test_name -- --exact",
+        )
+        failures = validate_catalog_intent(
+            tests={record["id"]: record},
+            matrix=mapped_matrix(),
+            invariants={"VM_SEAM_VALID_001": {"area": "bytecode_vm"}},
+            spec_sources={"SPEC_BYTECODE_FORMAT_001": {"area": "bytecode_vm"}},
+            spec_gaps={"SPEC_GAP_VM_ERROR_MODEL_001": {"area": "bytecode_vm"}},
+        )
+
+        self.assertTrue(
+            any("requires a fully qualified test path" in item for item in failures)
+        )
+
+        record["command"] = (
+            "cargo test -p trust-lsp handlers::tests::module::bare_test_name -- --exact"
+        )
+        self.assertEqual(
+            validate_catalog_intent(
+                tests={record["id"]: record},
+                matrix=mapped_matrix(),
+                invariants={"VM_SEAM_VALID_001": {"area": "bytecode_vm"}},
+                spec_sources={"SPEC_BYTECODE_FORMAT_001": {"area": "bytecode_vm"}},
+                spec_gaps={"SPEC_GAP_VM_ERROR_MODEL_001": {"area": "bytecode_vm"}},
+            ),
+            [],
+        )
+
 
 def generated_record() -> dict:
     record = common_record("TEST_INVALID_MAGIC", "generated_test")
