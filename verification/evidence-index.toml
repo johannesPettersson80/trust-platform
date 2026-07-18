@@ -7705,3 +7705,25 @@ linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
 last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_PUBLIC_CLAIM_FINAL_VALIDATION_20260718"
+title = "Phase 16 public-claim closeout final validation"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-public-claim-final-validation.md"
+command = "python3 scripts/run_verification_focused_tests.py && scripts/verification_metadata_gate.sh && python3 scripts/check_verification_tooling_selftests.py && ssh trust-builder 'cd \"$HOME/.cache/trust-platform-public-claim-66963779\" && just fmt && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" CARGO_INCREMENTAL=0 just clippy && CARGO_TARGET_DIR=\"$HOME/.cache/codex-targets/trust-platform-gate\" CARGO_INCREMENTAL=0 just test-all'"
+commit = "3975e89346ed2526831102fd627e41996a50a974"
+platform = "local-linux-aarch64-raspberrypi; trust-builder-linux-x86_64"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex public-claim final validation"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-18"
