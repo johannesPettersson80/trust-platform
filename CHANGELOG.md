@@ -26,6 +26,9 @@ Target release: `v0.24.54`
 - trust-dev: project-scoped commits now abort before mutation when the Git index
   already contains an in-scope path, while repository-root commits reject any
   pre-staged path and dry runs leave both the worktree and index unchanged.
+  Project paths must resolve canonically inside the repository, and the index is
+  checked again after interactive prompts so concurrently staged in-scope paths
+  are not absorbed.
 - vscode: connector state and health projections now accept only the shared
   canonical wire vocabulary, so unknown backend values fail visibly instead of
   flowing into the Devices & Connections UI as an invented status.

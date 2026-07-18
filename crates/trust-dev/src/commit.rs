@@ -5,6 +5,8 @@ use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use anyhow::Context;
+
 use crate::git::{git_available, git_repo_root};
 use crate::prompt::{prompt_string, prompt_yes_no};
 
@@ -35,13 +37,7 @@ fn run_commit_impl(
     })?;
 
     let project_rel = project_rel_path(&project_root, &repo_root)?;
-    let collisions = pre_staged_collisions(&repo_root, &project_rel)?;
-    if !collisions.is_empty() {
-        anyhow::bail!(
-            "pre-staged path intersects the selected commit scope: {}",
-            collisions.join(", ")
-        );
-    }
+    reject_pre_staged_collisions(&repo_root, &project_rel)?;
     after_initial_collision_check();
     let status = git_status(&repo_root, &project_rel)?;
     if status.is_empty() {
@@ -75,6 +71,7 @@ fn run_commit_impl(
     };
 
     if confirm {
+        reject_pre_staged_collisions(&repo_root, &project_rel)?;
         let project_pathspec = project_pathspec(&project_rel);
         git_output_os(
             &repo_root,
@@ -157,6 +154,17 @@ fn pre_staged_collisions(repo_root: &Path, project_rel: &Path) -> anyhow::Result
     Ok(collisions)
 }
 
+fn reject_pre_staged_collisions(repo_root: &Path, project_rel: &Path) -> anyhow::Result<()> {
+    let collisions = pre_staged_collisions(repo_root, project_rel)?;
+    if !collisions.is_empty() {
+        anyhow::bail!(
+            "pre-staged path intersects the selected commit scope: {}",
+            collisions.join(", ")
+        );
+    }
+    Ok(())
+}
+
 fn git_output_os(repo_root: &Path, args: &[&OsStr]) -> anyhow::Result<Vec<u8>> {
     let output = Command::new("git")
         .arg("-C")
@@ -216,14 +224,23 @@ fn display_git_path(path: &[u8]) -> String {
 fn project_rel_path(project: &Path, repo_root: &Path) -> anyhow::Result<PathBuf> {
     let project = project
         .canonicalize()
-        .unwrap_or_else(|_| project.to_path_buf());
+        .with_context(|| format!("cannot resolve project scope {}", project.display()))?;
     let repo_root = repo_root
         .canonicalize()
-        .unwrap_or_else(|_| repo_root.to_path_buf());
+        .with_context(|| format!("cannot resolve repository root {}", repo_root.display()))?;
+    if !project.is_dir() {
+        anyhow::bail!("project scope is not a directory: {}", project.display());
+    }
     let rel = project
         .strip_prefix(&repo_root)
         .map(|path| path.to_path_buf())
-        .unwrap_or_else(|_| project.clone());
+        .with_context(|| {
+            format!(
+                "project scope {} is outside repository {}",
+                project.display(),
+                repo_root.display()
+            )
+        })?;
     Ok(rel)
 }
 

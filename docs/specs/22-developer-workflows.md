@@ -21,7 +21,10 @@ result.
 ## Project-Scoped Commit
 
 `trust-dev commit --project <path>` owns only the selected project path. Before
-staging or committing, it must inspect the existing Git index:
+staging or committing, it must resolve that path canonically as an existing
+directory contained by the repository; an unresolved or escaping scope fails
+closed. It must inspect the existing Git index both before presenting the
+summary and again after interactive prompts, immediately before mutation:
 
 - a pre-staged path intersecting the selected project scope is a collision and
   aborts the operation before index or worktree mutation;
@@ -34,4 +37,5 @@ staging or committing, it must inspect the existing Git index:
 - cancellation and `--dry-run` do not mutate the index, worktree, or history.
 
 The collision diagnostic must name the intersecting path. The helper never
-silently absorbs an existing staged change into the commit it creates.
+silently absorbs an existing staged change into the commit it creates,
+including one staged while the prompt is open.
