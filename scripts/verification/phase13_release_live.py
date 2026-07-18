@@ -13,12 +13,20 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from scripts.check_dependency_exceptions import validate_file
-from scripts.check_release_version_alignment import (
-    package_json_version,
-    package_lock_versions,
-    workspace_version_from_cargo,
-)
+try:
+    from scripts.check_dependency_exceptions import validate_file
+    from scripts.check_release_version_alignment import (
+        package_json_version,
+        package_lock_versions,
+        workspace_version_from_cargo,
+    )
+except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    from check_dependency_exceptions import validate_file  # type: ignore[no-redef]
+    from check_release_version_alignment import (  # type: ignore[no-redef]
+        package_json_version,
+        package_lock_versions,
+        workspace_version_from_cargo,
+    )
 
 from .metadata_validator.core import Validator
 from .phase13_release import (

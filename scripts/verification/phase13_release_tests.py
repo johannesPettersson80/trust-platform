@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -142,6 +144,19 @@ class Phase13ReleaseTests(unittest.TestCase):
         self.assertEqual(self.payload["boundaries"], BOUNDARIES)
         self.assertEqual(self.payload["limitations"], list(LIMITATIONS))
         self.assertEqual([row["id"] for row in self.payload["platforms"]], list(PLATFORM_IDS))
+
+    def test_root_cli_entrypoints_import_in_direct_script_mode(self) -> None:
+        for path in (
+            "scripts/report_phase13_release_evidence.py",
+            "scripts/validate_phase13_release_evidence_report.py",
+        ):
+            result = subprocess.run(
+                [sys.executable, path, "--help"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
