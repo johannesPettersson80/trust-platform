@@ -201,6 +201,10 @@ applicable, and lexer/parser tests or snapshots.
   run.
 - SSH alias: `trust-builder`
 - Remote repo path: `/home/johannes/projects/trust-platform`
+- Every evidence-producing builder command must be visibly wrapped in
+  `ssh trust-builder '...'`; a local `workdir` that resembles a remote path is
+  not remote execution. Before a new evidence batch, confirm `hostname` and
+  `pwd` inside that SSH command and record the remote checkout revision.
 - Before running broad remote gates, check disk and clean stale generated artifacts first:
   - Run `ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/dev/null | sort -h | tail -20 && du -xhd1 "$HOME/.cache" 2>/dev/null | sort -h | tail -20'`.
   - All paths in these commands are on the remote `trust-builder` machine, not on the local workstation.
@@ -326,6 +330,11 @@ applicable, and lexer/parser tests or snapshots.
 ### Staged Test Cadence Exception (for large implementation checklists)
 
 - If a dedicated checklist defines staged gates (targeted tests between steps, full tests at milestones/end), follow that cadence instead of running `ssh trust-builder 'cd "$HOME/projects/trust-platform" && just test'` after every micro-change.
+- Before the first report regeneration or broad gate, run targeted tests and a
+  cheap full-diff preflight, then declare the implementation frozen. Regenerate
+  bound reports once from that frozen commit. If a later code or validator fix
+  is required, return to targeted tests and preflight; do not immediately repeat
+  report regeneration or broad gates until the implementation is frozen again.
 - Minimum requirement in staged mode:
   - run targeted tests continuously while implementing,
   - run full gates at defined big milestones,
