@@ -387,6 +387,45 @@ END_PROGRAM
 }
 
 #[test]
+fn test_rename_refuses_cross_file_struct_field_collision_from_use_site() {
+    let types_source = r#"
+NAMESPACE Motors
+TYPE MotorState : STRUCT
+    Speed : DINT;
+    Limit : DINT;
+END_STRUCT
+END_TYPE
+END_NAMESPACE
+"#;
+    let usage_source = r#"
+USING Motors;
+PROGRAM Main
+VAR
+    State : MotorState;
+END_VAR
+State.Speed := 1;
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let types_file = FileId(0);
+    let usage_file = FileId(1);
+    db.set_source_text(types_file, types_source.to_string());
+    db.set_source_text(usage_file, usage_source.to_string());
+    let pos = TextSize::from(usage_source.find("Speed :=").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, usage_file, pos, "lImIt")
+        .expect_err("a cross-file field rename must check the declaration's sibling fields");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected cross-file field DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
 fn test_rename_refuses_project_wide_pou_collision() {
     let primary_source = r#"
 FUNCTION_BLOCK LevelController
