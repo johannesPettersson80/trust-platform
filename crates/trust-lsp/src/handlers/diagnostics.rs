@@ -76,7 +76,7 @@ fn publish_diagnostics_items_with_ticket(
 
     let content_hash = hash_content(content);
     let diagnostic_hash = hash_diagnostics(&diagnostics);
-    let _ = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
+    state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash, request_ticket)?;
     Some(diagnostics)
 }
 
@@ -134,7 +134,9 @@ fn document_diagnostic_result_with_ticket(
 
     let content_hash = hash_content(&doc.content);
     let diagnostic_hash = hash_diagnostics(&diagnostics);
-    let result_id = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
+    let result_id = state
+        .store_diagnostics(uri.clone(), content_hash, diagnostic_hash, request_ticket)
+        .ok_or_else(content_modified_error)?;
 
     if params
         .previous_result_id
@@ -228,7 +230,14 @@ fn workspace_diagnostic_with_ticket(
         }
         let content_hash = hash_content(&doc.content);
         let diagnostic_hash = hash_diagnostics(&diagnostics);
-        let result_id = state.store_diagnostics(doc.uri.clone(), content_hash, diagnostic_hash);
+        let result_id = state
+            .store_diagnostics(
+                doc.uri.clone(),
+                content_hash,
+                diagnostic_hash,
+                request_ticket,
+            )
+            .ok_or_else(content_modified_error)?;
 
         if previous
             .get(&doc.uri)
@@ -279,7 +288,9 @@ fn workspace_diagnostic_with_ticket(
         }
         let content_hash = hash_content(&content);
         let diagnostic_hash = hash_diagnostics(&diagnostics);
-        let result_id = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
+        let result_id = state
+            .store_diagnostics(uri.clone(), content_hash, diagnostic_hash, request_ticket)
+            .ok_or_else(content_modified_error)?;
         if previous.get(&uri).is_some_and(|prev| prev == &result_id) {
             items.push(WorkspaceDocumentDiagnosticReport::Unchanged(
                 WorkspaceUnchangedDocumentDiagnosticReport {

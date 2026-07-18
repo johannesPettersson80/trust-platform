@@ -35,9 +35,10 @@ Target release: `v0.24.54`
 - vscode: updated build and test dependencies and pinned patched transitive
   versions so the committed extension lockfile passes `npm audit` with zero
   known advisories; CI and release packaging now enforce the same audit.
-- trust-lsp: closing an unsaved file-backed document now evicts its cached
-  semantic tokens and pull-diagnostic result before restoring the durable disk
-  contents, preventing discarded buffer state from surviving `didClose`.
+- trust-lsp: closing an unsaved file-backed document now cancels in-flight
+  semantic work, restores durable disk contents, and evicts semantic-token and
+  pull-diagnostic caches; late results are generation-checked under the cache
+  lock so discarded buffer state cannot survive `didClose`.
 - trust-runtime: MQTT discovery now reports authentication and authorization
   CONNACK rejections as `likely` protocol evidence instead of overclaiming an
   accepted, confirmed broker session; clean-session DISCONNECT behavior is

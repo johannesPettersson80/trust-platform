@@ -4,6 +4,7 @@ pub fn semantic_tokens_full(
     state: &ServerState,
     params: SemanticTokensParams,
 ) -> Option<SemanticTokensResult> {
+    let request_ticket = state.begin_semantic_request();
     let uri = &params.text_document.uri;
     let doc = state.get_document(uri)?;
 
@@ -11,7 +12,7 @@ pub fn semantic_tokens_full(
     let tokens = state.with_database(|db| trust_ide::semantic_tokens(db, doc.file_id));
 
     let data = semantic_tokens_to_lsp(&doc.content, tokens, 0, 0);
-    let result_id = state.store_semantic_tokens(uri.clone(), data.clone());
+    let result_id = state.store_semantic_tokens(uri.clone(), data.clone(), request_ticket)?;
 
     Some(SemanticTokensResult::Tokens(SemanticTokens {
         result_id: Some(result_id),
@@ -23,6 +24,7 @@ pub fn semantic_tokens_full_delta(
     state: &ServerState,
     params: SemanticTokensDeltaParams,
 ) -> Option<SemanticTokensFullDeltaResult> {
+    let request_ticket = state.begin_semantic_request();
     let uri = &params.text_document.uri;
     let doc = state.get_document(uri)?;
 
@@ -30,7 +32,7 @@ pub fn semantic_tokens_full_delta(
     let data = semantic_tokens_to_lsp(&doc.content, tokens, 0, 0);
 
     let previous = state.semantic_tokens_cache(uri);
-    let result_id = state.store_semantic_tokens(uri.clone(), data.clone());
+    let result_id = state.store_semantic_tokens(uri.clone(), data.clone(), request_ticket)?;
 
     if let Some(previous) = previous {
         if previous.result_id == params.previous_result_id {

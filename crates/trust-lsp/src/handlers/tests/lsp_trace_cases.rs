@@ -271,8 +271,12 @@ fn tracked_reload_observation(check_caches: bool) -> Result<JsonValue, String> {
     let state = ServerState::new();
     state.open_document(uri.clone(), 1, unsaved.to_string());
     if check_caches {
-        state.store_semantic_tokens(uri.clone(), Vec::new());
-        state.store_diagnostics(uri.clone(), 1, 1);
+        state
+            .store_semantic_tokens(uri.clone(), Vec::new(), state.begin_semantic_request())
+            .ok_or_else(|| "semantic token cache write was cancelled".to_string())?;
+        state
+            .store_diagnostics(uri.clone(), 1, 1, state.begin_semantic_request())
+            .ok_or_else(|| "diagnostic cache write was cancelled".to_string())?;
     }
     state.close_document(&uri);
     let doc = state.get_document(&uri);

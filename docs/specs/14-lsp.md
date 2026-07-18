@@ -443,7 +443,9 @@ contents as durable project state.
   the document from the project index.
 - Closing invalidates semantic, semantic-token, and diagnostic caches that
   could retain the discarded contents. Dependent files are recomputed against
-  the reloaded or removed durable source.
+  the reloaded or removed durable source. It also cancels semantic work started
+  from the discarded buffer; cache writers verify that request generation while
+  holding the cache lock, so a late result cannot repopulate an evicted cache.
 - For push diagnostics, the server publishes an empty diagnostic list only for
   the closed URI. It does not publish an empty-success result for dependent
   files. Pull-diagnostic clients receive results recomputed from durable project
