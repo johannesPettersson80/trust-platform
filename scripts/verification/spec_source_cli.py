@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+from .report_input_contract import resolve_report_output_path
+
 from .spec_source_contract import validate_report_payload, validate_schema_contract
 from .spec_source_live import (
     REPORT_SCHEMA_PATH,
@@ -137,16 +139,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _relative_output(root: Path, path: Path) -> str:
-    candidate = path if path.is_absolute() else root / path
-    try:
-        relative = candidate.absolute().relative_to(root).as_posix()
-    except (OSError, ValueError) as exc:
-        raise ValueError(f"report output escapes workspace: {path}") from exc
-    if not relative or "\\" in relative or ".." in Path(relative).parts:
-        raise ValueError(f"report output is not normalized: {path}")
-    probe = root
-    for part in Path(relative).parts:
-        probe /= part
-        if probe.is_symlink():
-            raise ValueError(f"report output contains a symlink component: {path}")
-    return relative
+    return resolve_report_output_path(root, path, "report")[0]

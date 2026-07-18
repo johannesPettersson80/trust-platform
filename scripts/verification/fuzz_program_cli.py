@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from .fuzz_program_live import REPORT_SCHEMA_PATH, build_live_fuzz_program_state
 from .fuzz_program_report import (
@@ -17,6 +17,7 @@ from .fuzz_program_report import (
 from .fuzz_program_report_contract import validate_report_payload, validate_schema_contract
 from .fuzz_program_validation import validate_report_files
 from .metadata_validator.constants import ROOT
+from .report_input_contract import resolve_report_output_path
 from .test_catalog_json_schema import validate_json_schema_instance
 
 
@@ -84,23 +85,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _validated_output_path(root: Path, value: Path, label: str) -> Path:
-    raw = value.as_posix()
-    relative = PurePosixPath(raw)
-    if (
-        not relative.parts
-        or value.is_absolute()
-        or "\\" in raw
-        or ".." in relative.parts
-        or "." in relative.parts
-    ):
-        raise ValueError(f"{label} output path must be normalized and workspace-relative")
-    candidate = root
-    for part in relative.parts:
-        candidate /= part
-        if candidate.is_symlink():
-            raise ValueError(f"{label} output path must not contain a symlink")
-    try:
-        candidate.resolve(strict=False).relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"{label} output path escapes the workspace") from exc
-    return candidate
+    return resolve_report_output_path(root, value, label)[1]

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.report_input_contract import (
+    resolve_report_output_path,
     validate_bound_input_paths,
     validator_code_input_paths,
 )
@@ -113,6 +114,22 @@ class ReportInputContractTests(unittest.TestCase):
             with self.subTest(name=name):
                 source = (verification / name).read_text()
                 self.assertIn("resolve_report_output_path", source)
+
+    def test_report_output_rejects_absolute_escape_and_symlink_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "target").mkdir()
+            (root / "linked").symlink_to(root / "target", target_is_directory=True)
+            relative, absolute = resolve_report_output_path(
+                root, Path("target/report.json"), "JSON"
+            )
+            self.assertEqual("target/report.json", relative)
+            self.assertEqual(root / "target/report.json", absolute)
+            for unsafe in (Path("/tmp/report.json"), Path("../report.json")):
+                with self.assertRaisesRegex(ValueError, "workspace-relative"):
+                    resolve_report_output_path(root, unsafe, "JSON")
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                resolve_report_output_path(root, Path("linked/report.json"), "JSON")
 
 
 if __name__ == "__main__":

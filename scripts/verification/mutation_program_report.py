@@ -79,10 +79,9 @@ class MutationProgramReport:
     def from_state(
         cls,
         state: LiveMutationProgramState,
-        *,
-        output_json: str = DEFAULT_JSON_PATH.as_posix(),
-        output_markdown: str = DEFAULT_MARKDOWN_PATH.as_posix(),
     ) -> "MutationProgramReport":
+        output_json = DEFAULT_JSON_PATH.as_posix()
+        output_markdown = DEFAULT_MARKDOWN_PATH.as_posix()
         command = [
             "python3",
             "scripts/report_mutation_program.py",

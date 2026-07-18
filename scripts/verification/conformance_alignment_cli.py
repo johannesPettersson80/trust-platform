@@ -14,6 +14,7 @@ from .conformance_alignment_report import (
     write_reports,
 )
 from .metadata_validator.constants import ROOT
+from .report_input_contract import resolve_report_output_path
 
 
 def main() -> int:
@@ -24,6 +25,10 @@ def main() -> int:
     parser.add_argument("--timestamp")
     args = parser.parse_args()
     root = args.root.resolve()
+    _, json_output = resolve_report_output_path(root, args.json_out, "JSON")
+    _, markdown_output = resolve_report_output_path(root, args.markdown_out, "Markdown")
+    if json_output == markdown_output:
+        raise ValueError("JSON and Markdown output paths must be distinct")
     state = build_live_conformance_alignment_state(
         root,
         timestamp=args.timestamp,
@@ -54,8 +59,8 @@ def main() -> int:
     )
     write_reports(
         report,
-        json_path=root / args.json_out,
-        markdown_path=root / args.markdown_out,
+        json_path=json_output,
+        markdown_path=markdown_output,
     )
     print(
         "conformance alignment report generated: "

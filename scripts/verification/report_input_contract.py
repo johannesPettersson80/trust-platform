@@ -70,6 +70,38 @@ def validate_bound_input_paths(root: Path, input_paths: Iterable[str]) -> list[s
     return sorted(set(failures))
 
 
+def resolve_report_output_path(
+    root: Path,
+    value: Path,
+    label: str,
+) -> tuple[str, Path]:
+    """Return a canonical relative path and contained destination for a report."""
+
+    root = root.resolve()
+    raw = value.as_posix()
+    relative = PurePosixPath(raw)
+    if (
+        not relative.parts
+        or value.is_absolute()
+        or "\\" in raw
+        or ".." in relative.parts
+        or "." in relative.parts
+    ):
+        raise ValueError(
+            f"{label} output path must be normalized and workspace-relative"
+        )
+    candidate = root
+    for part in relative.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            raise ValueError(f"{label} output path must not contain a symlink")
+    try:
+        candidate.resolve(strict=False).relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"{label} output path escapes the workspace") from exc
+    return raw, candidate
+
+
 def _files_under(root: Path, directory: Path) -> set[str]:
     if not directory.is_dir():
         return set()

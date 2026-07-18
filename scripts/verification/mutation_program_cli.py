@@ -5,9 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from .metadata_validator.constants import ROOT
+from .report_input_contract import resolve_report_output_path
 from .mutation_program_live import REPORT_SCHEMA_PATH, build_live_mutation_program_state
 from .mutation_program_report import (
     DEFAULT_JSON_PATH,
@@ -46,11 +47,7 @@ def report_main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 "report outputs cannot overwrite bound inputs: " + ", ".join(collisions)
             )
-        report = MutationProgramReport.from_state(
-            state,
-            output_json=args.json_out.as_posix(),
-            output_markdown=args.markdown_out.as_posix(),
-        )
+        report = MutationProgramReport.from_state(state)
         schema = json.loads((root / REPORT_SCHEMA_PATH).read_text())
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"mutation-program report generation failed: {exc}", file=sys.stderr)
@@ -103,23 +100,4 @@ def validate_main(argv: list[str] | None = None) -> int:
 
 
 def _validated_output_path(root: Path, value: Path, label: str) -> Path:
-    raw = value.as_posix()
-    relative = PurePosixPath(raw)
-    if (
-        not relative.parts
-        or value.is_absolute()
-        or "\\" in raw
-        or ".." in relative.parts
-        or "." in relative.parts
-    ):
-        raise ValueError(f"{label} output path must be normalized and workspace-relative")
-    candidate = root
-    for part in relative.parts:
-        candidate /= part
-        if candidate.is_symlink():
-            raise ValueError(f"{label} output path must not contain a symlink")
-    try:
-        candidate.resolve(strict=False).relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"{label} output path escapes the workspace") from exc
-    return candidate
+    return resolve_report_output_path(root, value, label)[1]

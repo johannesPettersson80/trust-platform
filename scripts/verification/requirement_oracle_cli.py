@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+from .report_input_contract import resolve_report_output_path
+
 from .requirement_oracle_contract import validate_report_payload, validate_schema_contract
 from .requirement_oracle_live import REPORT_SCHEMA_PATH, build_live_requirement_oracle_state
 from .requirement_oracle_report import (
@@ -131,8 +133,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _relative(root: Path, path: Path) -> str:
-    candidate = path if path.is_absolute() else root / path
-    try:
-        return candidate.resolve().relative_to(root).as_posix()
-    except (OSError, ValueError) as exc:
-        raise ValueError(f"report output escapes workspace: {path}") from exc
+    return resolve_report_output_path(root, path, "report")[0]

@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: pending debug writes and active forces are now cleared at
+  runtime fault, stop, and restart boundaries so stale debugger mutations
+  cannot cross a lifecycle transition.
 - trust-runtime: pre-commit watchdog and output-handoff faults now restore the
   last committed output image before applying a partial safe-state map, so
   unconfigured points cannot receive pending values from the failed scan.

@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+from .report_input_contract import resolve_report_output_path
+
 from .invariant_seed_live import REPORT_SCHEMA_PATH, build_live_seed_audit_state
 from .invariant_seed_report import (
     DEFAULT_JSON_PATH,
@@ -119,11 +121,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _workspace_relative(root: Path, path: Path) -> str:
-    candidate = path if path.is_absolute() else root / path
-    try:
-        return candidate.resolve().relative_to(root).as_posix()
-    except (OSError, ValueError) as exc:
-        raise ValueError(f"report output escapes workspace: {path}") from exc
+    return resolve_report_output_path(root, path, "report")[0]
 
 
 def _absolute(root: Path, path: Path) -> Path:

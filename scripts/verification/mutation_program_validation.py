@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 from .mutation_program_live import build_live_mutation_program_state, validate_source_revision
-from .mutation_program_report import render_markdown
+from .mutation_program_report import DEFAULT_JSON_PATH, DEFAULT_MARKDOWN_PATH, render_markdown
 from .mutation_program_report_contract import validate_report_payload, validate_schema_contract
 from .report_input_contract import validate_bound_input_paths
 from .test_catalog_common import input_digest
@@ -65,10 +65,10 @@ def validate_report_files(
         failures.extend(validate_source_revision(root, payload.get("commit"), paths))
     output_paths = payload.get("output_paths") if isinstance(payload, Mapping) else None
     if isinstance(output_paths, Mapping):
-        if output_paths.get("json") != json_path.as_posix():
-            failures.append("JSON path does not match report output_paths")
-        if output_paths.get("markdown") != markdown_path.as_posix():
-            failures.append("Markdown path does not match report output_paths")
+        if output_paths.get("json") != DEFAULT_JSON_PATH.as_posix():
+            failures.append("JSON path does not match the canonical report output path")
+        if output_paths.get("markdown") != DEFAULT_MARKDOWN_PATH.as_posix():
+            failures.append("Markdown path does not match the canonical report output path")
     if isinstance(payload, Mapping):
         failures.extend(_validate_artifacts_and_resolutions(root, payload))
     try:

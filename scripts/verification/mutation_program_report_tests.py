@@ -164,13 +164,12 @@ class MutationProgramReportTests(unittest.TestCase):
 
     def test_staging_paths_do_not_change_report_bytes(self) -> None:
         canonical = MutationProgramReport.from_state(self.state)
-        staged = MutationProgramReport.from_state(
-            self.state,
-            output_json="target/reproduction/mutation.json",
-            output_markdown="target/reproduction/mutation.md",
-        )
-
-        self.assertEqual(canonical.to_json(), staged.to_json())
+        with tempfile.TemporaryDirectory() as temporary:
+            first = Path(temporary) / "first.json"
+            second = Path(temporary) / "second.json"
+            first.write_text(canonical.to_json())
+            second.write_text(MutationProgramReport.from_state(self.state).to_json())
+            self.assertEqual(first.read_bytes(), second.read_bytes())
 
     def test_report_schema_can_represent_future_survivor_counts(self) -> None:
         schema = json.loads((ROOT / REPORT_SCHEMA_PATH).read_text())
