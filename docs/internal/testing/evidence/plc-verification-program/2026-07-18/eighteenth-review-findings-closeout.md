@@ -90,6 +90,9 @@ proof of the expanded test sets.
   `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`; all fifteen at-rest validators
   passed against the canonical copies. Digests and substantive counts are in
   `eighteenth-review-report-rebind.md`.
-- Final metadata, report reproduction, runtime verticals, `just fmt`,
-  `just clippy`, and `just test-all` are recorded in the follow-up evidence commit
-  after the final clean implementation checkpoint.
+- Final builder validation passed: `just fmt`, `just clippy`, all four mandatory
+  runtime verticals, `just test-all`, 856/856 focused verification tests, the
+  781-record metadata gate, and 33/33 tooling self-tests. The isolated builder
+  checkout and local checkout were clean. Exact durations and the reviewed
+  census-tripwire refresh are recorded in
+  `eighteenth-review-final-validation.md`.
