@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-18"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
 tests = [
@@ -20,14 +20,13 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_GREEN",
   "EVID_BROAD_REMOTE_PR_20260713_47F0E2B3C66A",
+  "EVID_WATCHDOG_PARTIAL_SAFE_STATE_GAP_CLOSEOUT_20260718",
+  "EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = [
-  "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001",
-  "SPEC_GAP_SIM_CLOCK_OVERFLOW_001",
-]
+spec_gap_refs = []
 missing = [
   "watchdog_configuration_and_recovery_boundaries",
-  "current_contract_proof_refresh",
+  "broad_remote_gate",
 ]
 
 [spec]
@@ -50,6 +49,5 @@ rationale = "When the watchdog deadline expires before physical output commit an
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001"
-rationale = "The partial-safe-state and simulation-clock regression tests are mapped and passing; current-contract proof refresh and watchdog configuration and recovery boundaries remain open."
+state = "gap_open"
+rationale = "The partial-safe-state and simulation-clock regressions pass; watchdog configuration and recovery boundaries remain open and the expanded contract has no causal broad-remote proof."

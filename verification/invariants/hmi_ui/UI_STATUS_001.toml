@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-18"
 claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
 tests = [
@@ -21,9 +21,10 @@ evidence_refs = [
   "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_COMPARE",
   "EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717",
+  "EVID_UI_PEER_STATUS_FAILURE_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_UI_PEER_STATUS_FAILURE_001"]
-missing = ["current_contract_proof_refresh", "cross_surface_extension_host", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["cross_surface_extension_host", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -60,6 +61,5 @@ rationale = "An unknown wire status fails at the closed mapping boundary and can
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_UI_PEER_STATUS_FAILURE_001"
-rationale = "Malformed peer status and confidence preserve topology and render a visible error; current-contract proof refresh and real extension-host coverage remain open."
+state = "gap_open"
+rationale = "Malformed peer status and confidence preserve topology and render a visible error in the real extension; full cross-surface extension-host coverage remains open."

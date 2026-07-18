@@ -3,7 +3,7 @@ id = "RT_SAFE_NAN_001"
 title = "Non-finite ingress cannot silently become unsafe REAL state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "spec_gap"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-18"
 claim = "Typed external floating-point boundaries and explicit internal REAL/LREAL conversions reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
@@ -20,9 +20,10 @@ evidence_refs = [
   "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_GREEN",
   "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714",
   "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
+  "EVID_RUNTIME_INTERNAL_NONFINITE_CONVERSION_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"]
-missing = ["boundary_value_matrix_depth", "current_contract_proof_refresh"]
+spec_gap_refs = []
+missing = ["boundary_value_matrix_depth", "current_contract_proof_refresh", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -30,7 +31,7 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
+ref = "SPEC_RUNTIME_SEMANTICS_001"
 
 [[behavior]]
 partition = { equals = "MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION" }
@@ -43,9 +44,8 @@ rationale = "After one accepted mapped MQTT snapshot, a batch containing an earl
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
-rationale = "The internal conversion regression is mapped and passing; current-contract proof refresh and an exhaustive value-width, aggregate-shape, and future-boundary matrix remain open."
+state = "gap_open"
+rationale = "The internal conversion regression passes; current-contract proof refresh and an exhaustive value-width, aggregate-shape, and future-boundary matrix remain open."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

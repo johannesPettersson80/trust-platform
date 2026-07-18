@@ -3822,7 +3822,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_NAN_001.toml"
-case_file_digest = "sha256:7a0ac9c0b863dcb70a0fdf873659eb1e7be74cbf36b684e01dd4bd9b1fbcfade"
+case_file_digest = "sha256:d6bd8d524b98a29f813f04bd0156a09ec8c241b873362b269fde937b1ed7e01a"
 last_reviewed = "2026-07-14"
 
 [[tests]]

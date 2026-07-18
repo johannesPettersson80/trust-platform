@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_SAFE_NAN_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:80c4e15f9a562692bfea6ac6602f11afd38c017e663a77d15781b30c21475bf5"
-source_digest = "sha256:86c018150beb64291021d17e8d5ed92958509a63cb4b0891b20c6b96b4556f70"
+source_digest = "sha256:fd1a544ea0d1601521e957479002d61fe25a3f16c442b3c80421913766b15169"
 last_reviewed = "2026-07-18"
 
 [[case]]

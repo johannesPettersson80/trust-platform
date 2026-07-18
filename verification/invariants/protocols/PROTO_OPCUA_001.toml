@@ -21,9 +21,10 @@ evidence_refs = [
   "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_COMPARE",
   "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_COMPARE",
+  "EVID_OPCUA_SERVER_WRITE_EXPOSURE_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"]
-missing = ["current_contract_proof_refresh", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -83,6 +84,5 @@ rationale = "A server-rejected point write faults that point visibly without tea
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"
-rationale = "The server wire integration test confirms read-only snapshot-backed access; current-contract proof refresh remains open."
+state = "covered"
+rationale = "The server wire integration test confirms read-only snapshot-backed access until transactional write-back is specified."

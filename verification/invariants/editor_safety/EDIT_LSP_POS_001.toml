@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-lsp"
 last_reviewed = "2026-07-18"
 claim = "LSP wire positions and lengths must follow the negotiated encoding, including supplementary-plane characters."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/main.rs",
@@ -29,9 +29,10 @@ evidence_refs = [
   "EVID_TEST_LSP_POSITION_ENCODING_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_LSP_POSITION_ENCODING_TRACE_001_LOCK_COMPARE",
   "EVID_LSP_POSITION_ENCODING_FIX_20260714",
+  "EVID_LSP_INVALID_CHANGE_RANGE_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_LSP_INVALID_CHANGE_RANGE_001"]
-missing = ["current_contract_proof_refresh", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -67,6 +68,5 @@ rationale = "LF, CRLF, and bare CR each advance exactly one line and their termi
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_LSP_INVALID_CHANGE_RANGE_001"
-rationale = "Invalid incremental-range recovery and the shared LF/CRLF/bare-CR line model are mapped and passing; current-contract proof refresh remains open."
+state = "covered"
+rationale = "Invalid incremental-range recovery and the shared LF/CRLF/bare-CR line model are mapped and passing."

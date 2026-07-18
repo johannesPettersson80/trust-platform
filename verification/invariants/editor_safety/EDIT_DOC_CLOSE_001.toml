@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-lsp"
 last_reviewed = "2026-07-18"
 claim = "Closing a document must discard its unsaved buffer, remove stale semantic state, and recompute project truth from durable sources."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-lsp/src/handlers/sync.rs",
@@ -25,9 +25,10 @@ evidence_refs = [
   "EVID_TEST_LSP_DOCUMENT_CLOSE_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_LSP_DOCUMENT_CLOSE_TRACE_001_LOCK_COMPARE",
   "EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716",
+  "EVID_EDITOR_DOCUMENT_CLOSE_RACE_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"]
-missing = ["current_contract_proof_refresh", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -79,6 +80,5 @@ rationale = "Push clients clear only the closed URI and pull clients recompute l
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"
-rationale = "Generation-checked cache writes cover late work after didClose; current-contract proof refresh remains open."
+state = "covered"
+rationale = "Generation-checked cache writes reject late semantic-token and diagnostic work after didClose."

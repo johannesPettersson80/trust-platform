@@ -7,7 +7,7 @@ status = "implemented"
 owner = "trust-dev"
 last_reviewed = "2026-07-18"
 claim = "Developer commit helpers must not silently include unrelated pre-staged changes."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
 tests = [
@@ -20,9 +20,10 @@ evidence_refs = [
   "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_COMPARE",
   "EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717",
+  "EVID_DEV_COMMIT_ATOMIC_SCOPE_GAP_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"]
-missing = ["current_contract_proof_refresh", "broad_remote_gate"]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -59,6 +60,5 @@ rationale = "Dry-run and cancellation report the selected scope without mutating
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "spec_gap"
-spec_gap_ref = "SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"
-rationale = "Static and concurrent staging collisions and invalid canonical scopes are rejected; current-contract proof refresh remains open."
+state = "covered"
+rationale = "Static and concurrent staging collisions and invalid canonical scopes are rejected before commit mutation."

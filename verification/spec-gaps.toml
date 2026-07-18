@@ -13,8 +13,9 @@ blocking_question = "On a pre-commit watchdog fault with a partial safe-state ma
 affected_invariants = ["RT_SAFE_DEADLINE_001"]
 affected_tests = ["TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_WATCHDOG_PARTIAL_SAFE_STATE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -30,8 +31,9 @@ blocking_question = "Must explicit numeric and string-to-REAL/LREAL conversions 
 affected_invariants = ["RT_SAFE_NAN_001"]
 affected_tests = ["TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_SEMANTICS_001"
+closeout_evidence = ["EVID_RUNTIME_INTERNAL_NONFINITE_CONVERSION_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -47,8 +49,9 @@ blocking_question = "How must a field rename resolve the declaration owner and s
 affected_invariants = ["EDIT_RENAME_002"]
 affected_tests = ["TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001"]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_FIELD_RENAME_CROSS_FILE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -68,8 +71,9 @@ affected_tests = [
   "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
 ]
 candidate_spec_sources = ["SPEC_CONNECTOR_STATUS_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_CONNECTOR_STATUS_001"
+closeout_evidence = ["EVID_UI_PEER_STATUS_FAILURE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -88,8 +92,9 @@ affected_tests = [
   "TEST_REVIEW_COMMIT_SCOPE_RACE_001",
 ]
 candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_COMMIT_ATOMIC_SCOPE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -105,8 +110,9 @@ blocking_question = "How must didClose invalidate request generations so semanti
 affected_invariants = ["EDIT_DOC_CLOSE_001"]
 affected_tests = ["TEST_REVIEW_DIDCLOSE_CACHE_RACE_001"]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_DOCUMENT_CLOSE_RACE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -122,8 +128,9 @@ blocking_question = "When simulation-time advancement exceeds the signed nanosec
 affected_invariants = ["RT_SAFE_DEADLINE_001"]
 affected_tests = ["TEST_REVIEW_SIM_CLOCK_OVERFLOW_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_SEMANTICS_001"
+closeout_evidence = ["EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -142,8 +149,9 @@ affected_tests = [
   "TEST_REVIEW_LSP_BARE_CR_RANGE_FORMAT_001",
 ]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_INVALID_CHANGE_RANGE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
@@ -159,8 +167,9 @@ blocking_question = "Until a transactional write-back path is reviewed, must ser
 affected_invariants = ["PROTO_OPCUA_001"]
 affected_tests = ["TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001"]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_OPCUA_SERVER_WRITE_EXPOSURE_GAP_CLOSEOUT_20260718"]
 last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
