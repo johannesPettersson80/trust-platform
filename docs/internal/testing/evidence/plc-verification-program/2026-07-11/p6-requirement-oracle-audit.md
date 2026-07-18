@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `5395f5d969d7f5828dc2e7e3701f6d7bc7f69a56`
-Generated: `2026-07-18T09:53:26+02:00`
+Source revision: `fac00d48c2030553e6d39fc8af231fe24ae8790a`
+Generated: `2026-07-18T12:15:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e9edecd290367bc703a25043e95d25e932fe9d262905159622b5f421dc7bcda2`
-Input SHA-256: `sha256:e9e9e6243519fb23fa89d5b682d9063119805a7e8fc7c70733139001bde6fea7`
+Generated JSON SHA-256: `7cc3611f4b4137888fe5ef0101438b08e58d95d119adb9fc0c38a2edba5fdd91`
+Input SHA-256: `sha256:6e3a7e86fa1267602068de6fa509f23cbe3830b6b1f03d5d2f58549e8307ad80`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
@@ -36,7 +36,7 @@ context is limited to the non-exhaustive registered source inventory.
 | Invariant | Area | Risk | Status | Oracle state | Oracle ref | Sources | Gaps |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `DEBUG_AUTH_001` | `control_security` | `security` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_DEBUG_ADAPTER_001`, `SPEC_RUNTIME_ENGINE_001` | none |
-| `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001`, `SPEC_DEBUG_ADAPTER_001` | none |
+| `DEBUG_BEHAVIOR_LOCKED_001` | `editor_safety` | `false_status` | `validated/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001`, `SPEC_DEBUG_ADAPTER_001` | none |
 | `DEBUG_PAUSE_001` | `editor_safety` | `safety_critical` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_DEBUG_ADAPTER_001`, `SPEC_RUNTIME_ENGINE_001` | none |
 | `DEV_COMMIT_SCOPE_001` | `plcopen_devtools` | `data_loss` | `implemented/G1` | `eligible_oracle` | `SPEC_DEVELOPER_WORKFLOWS_001` | `SPEC_DEVELOPER_WORKFLOWS_001` | none |
 | `DEV_TEST_DISCOVERY_001` | `plcopen_devtools` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_DEVELOPER_WORKFLOWS_001` | `SPEC_DEVELOPER_WORKFLOWS_001` | none |
@@ -60,9 +60,9 @@ context is limited to the non-exhaustive registered source inventory.
 | `PROTO_MQTT_001` | `protocols` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
 | `PROTO_OPCUA_001` | `protocols` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | `SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001` | none |
 | `PROTO_STATUS_TRUTH_001` | `protocols` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
-| `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | none |
-| `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | none |
-| `REL_CLAIM_001` | `release` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_RUNTIME_WIRE_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | none |
+| `RELEASE_PLATFORM_MATRIX_001` | `release` | `compatibility` | `validated/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | none |
+| `RELEASE_SOURCE_BUILD_OPENOT_001` | `release` | `compatibility` | `validated/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001` | none |
+| `REL_CLAIM_001` | `release` | `false_status` | `validated/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_RUNTIME_WIRE_001`, `PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001` | none |
 | `REL_CONF_001` | `release` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001` | none |
 | `REL_VERSION_001` | `release` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001` | none |
 | `RT_RELOAD_001` | `runtime_safety` | `silent_corruption` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | none |
@@ -76,7 +76,7 @@ context is limited to the non-exhaustive registered source inventory.
 | `RT_SAFE_RESTART_TIME_002` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001`, `SPEC_IEC_DECISIONS_001` | none |
 | `RT_SAFE_RETAIN_001` | `runtime_safety` | `data_loss` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_RUNTIME_SEMANTICS_001` | none |
 | `RT_SAFE_STOP_001` | `runtime_safety` | `safety_critical` | `implemented/G2` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001` | none |
-| `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | none |
+| `RUNTIME_BEHAVIOR_LOCKED_001` | `release` | `false_status` | `validated/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001`, `PUBLIC_CLAIM_BEHAVIOR_LOCKED_001` | none |
 | `SEC_ARTIFACT_001` | `supply_chain_platform` | `supply_chain` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001` | none |
 | `SEC_AUTHZ_001` | `control_security` | `security` | `implemented/G1` | `eligible_oracle` | `SPEC_RUNTIME_ENGINE_001` | `SPEC_RUNTIME_ENGINE_001`, `SPEC_DEBUG_ADAPTER_001` | none |
 | `SEC_DEP_AUDIT_001` | `supply_chain_platform` | `supply_chain` | `implemented/G1` | `eligible_oracle` | `SPEC_RELEASE_EVIDENCE_001` | `SPEC_RELEASE_EVIDENCE_001` | none |

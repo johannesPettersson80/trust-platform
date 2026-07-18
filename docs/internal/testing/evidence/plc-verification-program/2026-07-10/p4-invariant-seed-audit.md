@@ -1,11 +1,11 @@
 # Phase 4 Invariant-Seed Audit
 
 Generator: `invariant-seed-audit v2`
-Source revision: `5395f5d969d7f5828dc2e7e3701f6d7bc7f69a56`
-Generated: `2026-07-18T09:53:26+02:00`
+Source revision: `fac00d48c2030553e6d39fc8af231fe24ae8790a`
+Generated: `2026-07-18T12:15:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `94da647478628e5397ffaae3e3ebff697a18413ff894f81328d5c83812090895`
-Input SHA-256: `sha256:b27d8bbe3d5d41a2e27f1f48d2c80491800873220354f556a9fe238b2ed0f34e`
+Generated JSON SHA-256: `a997657d7751cc54bbbe6295e7e38bdabfd0d37f67346c383ddc55cf2745519a`
+Input SHA-256: `sha256:dab386189d8bdc80ade465d7b1158bc02a62c31e7dc071c652f318d2b7387102`
 
 This is a registry-completeness report. It creates no behavior proof,
 closes no specification gap, and changes no runtime behavior.
@@ -22,8 +22,8 @@ closes no specification gap, and changes no runtime behavior.
 - Gap-open records: 0
 - Spec-gap records: 0
 - Test-written records: 0
-- Implemented records: 44
-- Validated records: 0
+- Implemented records: 43
+- Validated records: 1
 - Imported P4-000 review risks: 5
 
 | Board row | Seeds |
@@ -82,7 +82,7 @@ closes no specification gap, and changes no runtime behavior.
 | `SEC_ARTIFACT_001` | `SEC_ARTIFACT_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
 | `PLAT_PATH_001` | `PLAT_PATH_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
 | `PLAT_VSCODE_001` | `PLAT_VSCODE_001` | `supply_chain_platform` | `VERIF-P4-008` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
-| `REL_CLAIM_001` | `REL_CLAIM_001` | `release` | `VERIF-P4-007` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
+| `REL_CLAIM_001` | `REL_CLAIM_001` | `release` | `VERIF-P4-007` | `phase4` | `v1:execution_ready` | `validated/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
 | `REL_CONF_001` | `REL_CONF_001` | `release` | `VERIF-P4-007` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
 | `REL_VERSION_001` | `REL_VERSION_001` | `release` | `VERIF-P4-007` | `phase4` | `v1:execution_ready` | `implemented/G1` | `SPEC_RELEASE_EVIDENCE_001` | `none` |
 
