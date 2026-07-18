@@ -10,21 +10,22 @@ from typing import Any, Mapping
 
 
 GENERATOR = "requirement-oracle-audit"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/requirement-oracle-audit.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/requirement-oracle-audit.md")
 BOUNDARIES = {
     "audit_creates_proof": False,
     "audit_closes_spec_gaps": False,
-    "missing_oracle_enforcement_enabled": False,
+    "missing_oracle_enforcement_enabled": True,
     "public_claims_are_oracles": False,
     "public_docs_inventory_exhaustive": False,
-    "forward_traceability_complete": False,
-    "reverse_traceability_complete": False,
+    "forward_traceability_complete": True,
+    "reverse_traceability_complete": True,
+    "orphan_traceability_complete": True,
     "p4a_005_public_claim_inventory_remains_open": True,
-    "p6_007_enforcement_remains_open": True,
-    "p6_008_to_p6_010_remain_open": True,
-    "p14_000_grace_rule_remains_open": True,
+    "p6_007_enforcement_remains_open": False,
+    "p6_008_to_p6_010_remain_open": False,
+    "p14_000_grace_rule_remains_open": False,
 }
 SCOPE = {
     "invariant_basis": "all_committed_invariant_records",
@@ -38,6 +39,8 @@ SCOPE = {
     ],
     "public_claim_basis": "registered_spec_sources_only",
     "public_docs_exhaustive": False,
+    "traceability_basis": "explicit_metadata_identifiers_only",
+    "orphan_basis": "complete_registered_metadata_denominators",
     "debt_is_report_failure": False,
 }
 LIMITATIONS = (
@@ -47,10 +50,10 @@ LIMITATIONS = (
     "Product contracts and reviewed IEC decisions or deviations are not external IEC conformance proof; the registered external IEC source remains non-oracle and its ignored local bytes are not provenance inputs.",
     "The separate specification-source audit completes mechanical document discovery; semantic classification and conflict review remain incomplete under VERIF-P1A-003 and VERIF-P1A-006.",
     "This report's public-claim view is registered-spec-sources-only; the separate audit has an exhaustive prose-block denominator, but semantic claim review remains incomplete while VERIF-P4A-005 is open.",
-    "Invariant test, gate, and evidence IDs are copied explicit associations, not a completed forward trace; referenced metadata is live-validated at rest.",
+    "Forward and reverse paths use only explicit source, invariant, test, suite, evidence, gap, and public-claim identifiers; names, paths, and prose create no edges.",
     "verification/evidence-index.toml is excluded from the input digest to avoid a report-evidence digest cycle.",
-    "Missing-oracle debt is report-only until VERIF-P14-000 defines the grace period required by VERIF-P6-007.",
-    "Forward, reverse, and orphan traceability remain outside this slice under VERIF-P6-008 through VERIF-P6-010.",
+    "The committed governance contract enforces overdue high-risk missing-oracle debt after its reviewed grace period; this report itself remains non-proof.",
+    "An orphan is a registered record without the explicit links named by the report contract; an orphan finding does not infer that the underlying document, test, or evidence is useless.",
     "The blocked-row posture is checked live from the implementation board, which is excluded from the digest because board and evidence closure follow report generation.",
     "The report creates no proof, closes no specification gap, and changes no runtime or product behavior.",
 )
@@ -88,7 +91,7 @@ class RequirementOracleReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "generator": GENERATOR,
             "generator_version": GENERATOR_VERSION,
             "report_status": "complete",
@@ -99,6 +102,13 @@ class RequirementOracleReport:
             "mapping_groups": list(self.analysis["mapping_groups"]),
             "invariants": list(self.analysis["invariants"]),
             "missing_oracles": list(self.analysis["missing_oracles"]),
+            "forward_traceability": list(self.analysis["forward_traceability"]),
+            "reverse_public_claim_traceability": list(
+                self.analysis["reverse_public_claim_traceability"]
+            ),
+            "orphans": dict(self.analysis["orphans"]),
+            "incomplete_chains": list(self.analysis["incomplete_chains"]),
+            "traceability_summary": dict(self.analysis["traceability_summary"]),
             "summary": dict(self.analysis["summary"]),
             "limitations": list(LIMITATIONS),
         }
@@ -122,10 +132,10 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"Generated JSON SHA-256: `{json_digest}`",
         f"Input SHA-256: `{payload['input_digest']}`",
         "",
-        "This is a report-only requirement/oracle association audit. It creates no",
-        "behavior proof, closes no specification gap, and enables no enforcement.",
-        "Its invariant denominator is all committed invariant records; public-claim",
-        "context is limited to the non-exhaustive registered source inventory.",
+        "This is a requirement/oracle and explicit traceability audit. It creates no",
+        "behavior proof and closes no specification gap. Its invariant denominator is",
+        "all committed invariant records; its public-claim denominator is the complete",
+        "registered claim inventory, not all public prose.",
         "",
         "## Summary",
         "",
@@ -135,6 +145,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"- Eligible oracles: {summary['eligible_oracles']}",
         f"- Missing oracles: {summary['missing_oracles']}",
         f"- Future enforcement candidates: {summary['future_enforcement_candidates']}",
+        f"- Complete forward chains to evidence: {payload['traceability_summary']['complete_to_evidence']}/{payload['traceability_summary']['forward_invariants']}",
+        f"- Linked registered public claims: {payload['traceability_summary']['linked_public_claims']}/{payload['traceability_summary']['reverse_public_claims']}",
         "",
         "## Mapping Groups",
         "",
@@ -177,6 +189,46 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             f"| `{row['invariant_id']}` | `{row['risk']}` | `{row['oracle_ref']}` | "
             f"`{str(row['future_enforcement_candidate']).lower()}` |"
         )
+    lines.extend(
+        [
+            "",
+            "## Forward Traceability",
+            "",
+            "| Invariant | Sources | Tests | Suites | Evidence | Public claims | Missing links |",
+            "| --- | --- | ---: | --- | ---: | --- | --- |",
+        ]
+    )
+    for row in payload["forward_traceability"]:
+        lines.append(
+            f"| `{row['invariant_id']}` | {_ids(row['spec_source_ids'])} | "
+            f"{len(row['test_ids'])} | {_ids(row['suite_ids'])} | "
+            f"{len(row['evidence_ids'])} | {_ids(row['public_claim_ids'])} | "
+            f"{_ids(row['missing_links'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Reverse Public-Claim Traceability",
+            "",
+            "| Public claim | State | Invariants | Tests | Suites | Evidence |",
+            "| --- | --- | ---: | ---: | --- | ---: |",
+        ]
+    )
+    for row in payload["reverse_public_claim_traceability"]:
+        lines.append(
+            f"| `{row['public_claim_id']}` | `{row['binding_state']}` | "
+            f"{len(row['invariant_ids'])} | {len(row['test_ids'])} | "
+            f"{_ids(row['suite_ids'])} | {len(row['evidence_ids'])} |"
+        )
+    lines.extend(["", "## Orphans", ""])
+    for label, field in (
+        ("Spec sources", "spec_source_ids"),
+        ("Tests", "test_ids"),
+        ("Invariants", "invariant_ids"),
+        ("Public claims", "public_claim_ids"),
+        ("Evidence", "evidence_ids"),
+    ):
+        lines.append(f"- {label}: {_ids(payload['orphans'][field])}")
     lines.extend(["", "## Boundaries", ""])
     for name in BOUNDARIES:
         value = payload["boundaries"][name]

@@ -284,10 +284,12 @@ is closed rather than inferred from this procedure.
 - Run `scripts/report_requirement_oracle_audit.py` with
   `scripts/validate_requirement_oracle_audit_report.py` for the Phase 6 audit.
   The report covers all committed invariants, distinguishes active eligible
-  oracle sources from open-gap placeholders, and lists future high-risk
-  enforcement candidates without enforcing them. Public claims remain
-  non-oracle context. The report does not close `VERIF-P6-007` through
-  `VERIF-P6-010`.
+  oracle sources from open-gap placeholders, and records the enforced
+  high-risk missing-oracle grace boundary. Its v2 traceability section maps
+  every invariant forward through explicit source, test, suite, and evidence
+  IDs; maps every registered public claim in reverse; and reports orphan spec
+  sources, tests, invariants, registered claims, and evidence. Public claims
+  remain non-oracle context, and trace completeness creates no behavior proof.
 - Run `python3 scripts/report_spec_source_audit.py` with
   `python3 scripts/validate_spec_source_audit_report.py` for the Phase 1A
   tracked-document and rendered-public-prose census. The audit follows tracked

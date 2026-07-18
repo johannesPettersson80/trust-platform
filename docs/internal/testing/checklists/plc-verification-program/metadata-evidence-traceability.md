@@ -488,13 +488,17 @@ verification metadata, not the separate mechanical source/public-prose audit.
 That audit now supplies the tracked document and rendered-prose denominator and
 records the non-oracle external IEC locator without binding ignored local
 bytes. Semantic source classification, conflict/checklist review, and
-public-claim disposition remain open under `VERIF-P1A-003`, `VERIF-P1A-006`,
-and `VERIF-P4A-005`. Forward, reverse, and orphan
-traceability rows `VERIF-P6-008` through `VERIF-P6-010` stay open until their
-public-claim and live-test denominators can be exhaustive. Test, gate, and
-evidence IDs shown in the Phase 6 ledger are copied explicit associations, not
-a completed trace. Their registries are live-validated; the evidence index is
-excluded from the report input digest to avoid a report/evidence digest cycle.
+exhaustive public-prose claim disposition remain open under `VERIF-P1A-003`,
+`VERIF-P1A-006`, and `VERIF-P4A-005`. The Phase 6 v2 report nevertheless has
+complete registered-metadata denominators: all invariants for the forward
+trace, every registered public-claim source for the reverse trace, and all
+registered spec sources, tests, invariants, claims, and evidence for the orphan
+ledger. Edges come only from explicit identifiers in those records. Names,
+paths, titles, and prose cannot manufacture a link. Missing edges and orphan
+records remain visible debt; neither a complete chain nor an orphan-free
+partition is behavior proof. The evidence index is excluded from the input
+digest to avoid a report/evidence digest cycle, but it is reloaded and
+recomputed live by the at-rest validator.
 
 ## Conformance Alignment Boundary
 

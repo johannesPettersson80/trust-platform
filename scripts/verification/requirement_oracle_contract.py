@@ -42,6 +42,11 @@ TOP_FIELDS = {
     "mapping_groups",
     "invariants",
     "missing_oracles",
+    "forward_traceability",
+    "reverse_public_claim_traceability",
+    "orphans",
+    "incomplete_chains",
+    "traceability_summary",
     "summary",
     "limitations",
 }
@@ -84,6 +89,23 @@ SUMMARY_FIELDS = {
     "missing_oracles",
     "future_enforcement_candidates",
 }
+FORWARD_FIELDS = {
+    "invariant_id", "spec_source_ids", "test_ids", "suite_ids", "evidence_ids",
+    "public_claim_ids", "missing_links", "chain_complete_to_evidence",
+}
+REVERSE_FIELDS = {
+    "public_claim_id", "invariant_ids", "test_ids", "suite_ids", "evidence_ids",
+    "binding_state",
+}
+ORPHAN_FIELDS = {
+    "spec_source_ids", "test_ids", "invariant_ids", "public_claim_ids", "evidence_ids",
+}
+TRACE_SUMMARY_FIELDS = {
+    "forward_invariants", "complete_to_evidence", "incomplete_to_evidence",
+    "reverse_public_claims", "linked_public_claims", "orphan_spec_sources",
+    "orphan_tests", "orphan_invariants", "orphan_public_claims", "orphan_evidence",
+    "referenced_suites", "trace_linked_tests", "trace_linked_evidence",
+}
 
 
 def validate_report_payload(
@@ -94,7 +116,7 @@ def validate_report_payload(
     failures: list[str] = []
     _fields(payload, TOP_FIELDS, "report", failures)
     for field, expected in (
-        ("schema_version", 1),
+        ("schema_version", 2),
         ("generator", GENERATOR),
         ("generator_version", GENERATOR_VERSION),
         ("report_status", "complete"),
@@ -141,6 +163,9 @@ def validate_report_payload(
     groups = _rows(payload, "mapping_groups", GROUP_FIELDS, failures)
     invariants = _rows(payload, "invariants", INVARIANT_FIELDS, failures)
     missing = _rows(payload, "missing_oracles", INVARIANT_FIELDS, failures)
+    forward = _rows(payload, "forward_traceability", FORWARD_FIELDS, failures)
+    reverse = _rows(payload, "reverse_public_claim_traceability", REVERSE_FIELDS, failures)
+    incomplete = _rows(payload, "incomplete_chains", FORWARD_FIELDS, failures)
     _validate_invariants(invariants, failures)
     _validate_groups(groups, invariants, failures)
     expected_missing = [
@@ -148,6 +173,24 @@ def validate_report_payload(
     ]
     if missing != expected_missing:
         failures.append("missing_oracles must exactly match spec-gap-blocked invariant rows")
+    _validate_traceability(forward, reverse, incomplete, failures)
+    orphans = payload.get("orphans")
+    if not isinstance(orphans, Mapping):
+        failures.append("orphans must be an object")
+        orphans = {}
+    else:
+        _fields(orphans, ORPHAN_FIELDS, "orphans", failures)
+        for field in ORPHAN_FIELDS:
+            if not _canonical_string_array(orphans.get(field)):
+                failures.append(f"orphans.{field} must be a canonical string array")
+    trace_summary = payload.get("traceability_summary")
+    if not isinstance(trace_summary, Mapping):
+        failures.append("traceability_summary must be an object")
+        trace_summary = {}
+    else:
+        _fields(trace_summary, TRACE_SUMMARY_FIELDS, "traceability_summary", failures)
+        if any(not isinstance(trace_summary.get(field), int) or trace_summary.get(field) < 0 for field in TRACE_SUMMARY_FIELDS):
+            failures.append("traceability_summary values must be non-negative integers")
     summary = payload.get("summary")
     if not isinstance(summary, Mapping):
         failures.append("summary must be an object")
@@ -162,6 +205,11 @@ def validate_report_payload(
             "invariants": invariants,
             "missing_oracles": missing,
             "summary": dict(summary) if isinstance(summary, Mapping) else summary,
+            "forward_traceability": forward,
+            "reverse_public_claim_traceability": reverse,
+            "orphans": dict(orphans),
+            "incomplete_chains": incomplete,
+            "traceability_summary": dict(trace_summary),
         }
         if actual_analysis != dict(expected_analysis):
             failures.append("report rows do not match current requirement/oracle analysis")
@@ -180,7 +228,7 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         failures.append("requirement/oracle schema root properties drift")
         properties = {}
     for field, expected in (
-        ("schema_version", 1),
+        ("schema_version", 2),
         ("generator", GENERATOR),
         ("generator_version", GENERATOR_VERSION),
         ("report_status", "complete"),
@@ -200,6 +248,10 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         "mapping_group": GROUP_FIELDS,
         "invariant": INVARIANT_FIELDS,
         "summary": SUMMARY_FIELDS,
+        "forward_trace": FORWARD_FIELDS,
+        "reverse_trace": REVERSE_FIELDS,
+        "orphans": ORPHAN_FIELDS,
+        "traceability_summary": TRACE_SUMMARY_FIELDS,
     }
     for name, fields in expected_defs.items():
         definition = definitions.get(name, {})
@@ -242,6 +294,9 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         None,
     ]:
         failures.append("requirement/oracle schema oracle-authority enum drifts")
+    reverse_properties = _schema_properties(definitions, "reverse_trace")
+    if _schema_property(reverse_properties, "binding_state").get("enum") != ["linked", "orphan"]:
+        failures.append("requirement/oracle schema public-claim binding-state enum drifts")
     _closed_objects(schema, "$", failures)
     return sorted(set(failures))
 
@@ -355,6 +410,39 @@ def _validate_groups(
             failures.append(f"mapping group {board_row} does not match invariant rows")
 
 
+def _validate_traceability(
+    forward: list[dict[str, Any]],
+    reverse: list[dict[str, Any]],
+    incomplete: list[dict[str, Any]],
+    failures: list[str],
+) -> None:
+    forward_ids = [row.get("invariant_id") for row in forward]
+    if forward_ids != sorted(forward_ids) or len(forward_ids) != len(set(forward_ids)):
+        failures.append("forward traceability rows must use unique canonical invariant order")
+    for index, row in enumerate(forward):
+        for field in ("spec_source_ids", "test_ids", "suite_ids", "evidence_ids", "public_claim_ids"):
+            if not _string_array_allow_empty(row.get(field)):
+                failures.append(f"forward_traceability[{index}].{field} must be a string array")
+        if not _canonical_string_array(row.get("missing_links")):
+            failures.append(f"forward_traceability[{index}].missing_links must be canonical")
+        expected_complete = not row.get("missing_links")
+        if row.get("chain_complete_to_evidence") is not expected_complete:
+            failures.append(f"forward_traceability[{index}] completion state drifts")
+    expected_incomplete = [row for row in forward if not row.get("chain_complete_to_evidence")]
+    if incomplete != expected_incomplete:
+        failures.append("incomplete_chains must exactly match incomplete forward rows")
+    claim_ids = [row.get("public_claim_id") for row in reverse]
+    if claim_ids != sorted(claim_ids) or len(claim_ids) != len(set(claim_ids)):
+        failures.append("reverse public-claim rows must use unique canonical claim order")
+    for index, row in enumerate(reverse):
+        for field in ("invariant_ids", "test_ids", "suite_ids", "evidence_ids"):
+            if not _canonical_string_array(row.get(field)):
+                failures.append(f"reverse_public_claim_traceability[{index}].{field} must be canonical")
+        expected_state = "linked" if row.get("invariant_ids") else "orphan"
+        if row.get("binding_state") != expected_state:
+            failures.append(f"reverse_public_claim_traceability[{index}] binding state drifts")
+
+
 def _summary(rows: list[dict[str, Any]]) -> dict[str, int]:
     mapped = sum(row.get("mapping_board_row") is not None for row in rows)
     return {
@@ -434,6 +522,10 @@ def _string_array(value: Any) -> bool:
 
 def _string_array_allow_empty(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, str) and item for item in value)
+
+
+def _canonical_string_array(value: Any) -> bool:
+    return _string_array_allow_empty(value) and value == sorted(set(value))
 
 
 def _timestamp(value: Any) -> bool:

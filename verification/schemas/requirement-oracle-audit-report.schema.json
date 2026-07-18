@@ -20,13 +20,18 @@
     "mapping_groups",
     "invariants",
     "missing_oracles",
+    "forward_traceability",
+    "reverse_public_claim_traceability",
+    "orphans",
+    "incomplete_chains",
+    "traceability_summary",
     "summary",
     "limitations"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "generator": { "const": "requirement-oracle-audit" },
-    "generator_version": { "const": 1 },
+    "generator_version": { "const": 2 },
     "report_status": { "const": "complete" },
     "input_digest": {
       "type": "string",
@@ -66,6 +71,21 @@
       "type": "array",
       "items": { "$ref": "#/$defs/invariant" }
     },
+    "forward_traceability": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/forward_trace" },
+      "minItems": 1
+    },
+    "reverse_public_claim_traceability": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reverse_trace" }
+    },
+    "orphans": { "$ref": "#/$defs/orphans" },
+    "incomplete_chains": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/forward_trace" }
+    },
+    "traceability_summary": { "$ref": "#/$defs/traceability_summary" },
     "summary": { "$ref": "#/$defs/summary" },
     "limitations": {
       "type": "array",
@@ -91,6 +111,8 @@
         "mapping_rows",
         "public_claim_basis",
         "public_docs_exhaustive",
+        "traceability_basis",
+        "orphan_basis",
         "debt_is_report_failure"
       ],
       "properties": {
@@ -112,6 +134,8 @@
         },
         "public_claim_basis": { "const": "registered_spec_sources_only" },
         "public_docs_exhaustive": { "const": false },
+        "traceability_basis": { "const": "explicit_metadata_identifiers_only" },
+        "orphan_basis": { "const": "complete_registered_metadata_denominators" },
         "debt_is_report_failure": { "const": false }
       },
       "additionalProperties": false
@@ -126,6 +150,7 @@
         "public_docs_inventory_exhaustive",
         "forward_traceability_complete",
         "reverse_traceability_complete",
+        "orphan_traceability_complete",
         "p4a_005_public_claim_inventory_remains_open",
         "p6_007_enforcement_remains_open",
         "p6_008_to_p6_010_remain_open",
@@ -134,15 +159,16 @@
       "properties": {
         "audit_creates_proof": { "const": false },
         "audit_closes_spec_gaps": { "const": false },
-        "missing_oracle_enforcement_enabled": { "const": false },
+        "missing_oracle_enforcement_enabled": { "const": true },
         "public_claims_are_oracles": { "const": false },
         "public_docs_inventory_exhaustive": { "const": false },
-        "forward_traceability_complete": { "const": false },
-        "reverse_traceability_complete": { "const": false },
+        "forward_traceability_complete": { "const": true },
+        "reverse_traceability_complete": { "const": true },
+        "orphan_traceability_complete": { "const": true },
         "p4a_005_public_claim_inventory_remains_open": { "const": true },
-        "p6_007_enforcement_remains_open": { "const": true },
-        "p6_008_to_p6_010_remain_open": { "const": true },
-        "p14_000_grace_rule_remains_open": { "const": true }
+        "p6_007_enforcement_remains_open": { "const": false },
+        "p6_008_to_p6_010_remain_open": { "const": false },
+        "p14_000_grace_rule_remains_open": { "const": false }
       },
       "additionalProperties": false
     },
@@ -265,6 +291,82 @@
         "eligible_oracles": { "type": "integer", "minimum": 0 },
         "missing_oracles": { "type": "integer", "minimum": 0 },
         "future_enforcement_candidates": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "forward_trace": {
+      "type": "object",
+      "required": [
+        "invariant_id", "spec_source_ids", "test_ids", "suite_ids",
+        "evidence_ids", "public_claim_ids", "missing_links",
+        "chain_complete_to_evidence"
+      ],
+      "properties": {
+        "invariant_id": { "type": "string", "minLength": 1 },
+        "spec_source_ids": { "$ref": "#/$defs/string_array" },
+        "test_ids": { "$ref": "#/$defs/string_array" },
+        "suite_ids": { "$ref": "#/$defs/string_array" },
+        "evidence_ids": { "$ref": "#/$defs/string_array" },
+        "public_claim_ids": { "$ref": "#/$defs/string_array" },
+        "missing_links": { "$ref": "#/$defs/string_array" },
+        "chain_complete_to_evidence": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "reverse_trace": {
+      "type": "object",
+      "required": [
+        "public_claim_id", "invariant_ids", "test_ids", "suite_ids",
+        "evidence_ids", "binding_state"
+      ],
+      "properties": {
+        "public_claim_id": { "type": "string", "minLength": 1 },
+        "invariant_ids": { "$ref": "#/$defs/string_array" },
+        "test_ids": { "$ref": "#/$defs/string_array" },
+        "suite_ids": { "$ref": "#/$defs/string_array" },
+        "evidence_ids": { "$ref": "#/$defs/string_array" },
+        "binding_state": { "enum": ["linked", "orphan"] }
+      },
+      "additionalProperties": false
+    },
+    "orphans": {
+      "type": "object",
+      "required": [
+        "spec_source_ids", "test_ids", "invariant_ids", "public_claim_ids",
+        "evidence_ids"
+      ],
+      "properties": {
+        "spec_source_ids": { "$ref": "#/$defs/string_array" },
+        "test_ids": { "$ref": "#/$defs/string_array" },
+        "invariant_ids": { "$ref": "#/$defs/string_array" },
+        "public_claim_ids": { "$ref": "#/$defs/string_array" },
+        "evidence_ids": { "$ref": "#/$defs/string_array" }
+      },
+      "additionalProperties": false
+    },
+    "traceability_summary": {
+      "type": "object",
+      "required": [
+        "forward_invariants", "complete_to_evidence", "incomplete_to_evidence",
+        "reverse_public_claims", "linked_public_claims", "orphan_spec_sources",
+        "orphan_tests", "orphan_invariants", "orphan_public_claims",
+        "orphan_evidence", "referenced_suites", "trace_linked_tests",
+        "trace_linked_evidence"
+      ],
+      "properties": {
+        "forward_invariants": { "type": "integer", "minimum": 0 },
+        "complete_to_evidence": { "type": "integer", "minimum": 0 },
+        "incomplete_to_evidence": { "type": "integer", "minimum": 0 },
+        "reverse_public_claims": { "type": "integer", "minimum": 0 },
+        "linked_public_claims": { "type": "integer", "minimum": 0 },
+        "orphan_spec_sources": { "type": "integer", "minimum": 0 },
+        "orphan_tests": { "type": "integer", "minimum": 0 },
+        "orphan_invariants": { "type": "integer", "minimum": 0 },
+        "orphan_public_claims": { "type": "integer", "minimum": 0 },
+        "orphan_evidence": { "type": "integer", "minimum": 0 },
+        "referenced_suites": { "type": "integer", "minimum": 0 },
+        "trace_linked_tests": { "type": "integer", "minimum": 0 },
+        "trace_linked_evidence": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

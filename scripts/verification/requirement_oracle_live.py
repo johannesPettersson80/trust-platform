@@ -14,6 +14,7 @@ from .metadata_validator.constants import ROOT as METADATA_ROOT
 from .metadata_validator.core import Validator
 from .report_input_contract import validate_bound_input_paths, validator_code_input_paths
 from .requirement_oracle_mapping import analyze_requirement_oracles
+from .requirement_traceability import analyze_requirement_traceability
 from .test_catalog_common import input_digest
 
 
@@ -23,14 +24,11 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED_OPEN_ROWS = (
     "VERIF-P1A-003",
     "VERIF-P1A-006",
-    "VERIF-P3-006",
     "VERIF-P4A-005",
     "VERIF-P5-000B",
-    "VERIF-P6-007",
     "VERIF-P6-008",
     "VERIF-P6-009",
     "VERIF-P6-010",
-    "VERIF-P14-000",
 )
 REPORT_CONTRACT_PATHS = {
     "docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md",
@@ -42,6 +40,7 @@ REPORT_CONTRACT_PATHS = {
     "scripts/verification/requirement_oracle_mapping.py",
     "scripts/verification/requirement_oracle_report.py",
     "scripts/verification/requirement_oracle_validation.py",
+    "scripts/verification/requirement_traceability.py",
     "verification/README.md",
     REPORT_SCHEMA_PATH,
     "verification/schemas/invariant.schema.json",
@@ -90,6 +89,15 @@ def build_live_requirement_oracle_state(
         invariants=validator.invariants,
         spec_sources=validator.spec_sources,
         spec_gaps=validator.spec_gaps,
+    )
+    analysis.update(
+        analyze_requirement_traceability(
+            invariants=validator.invariants,
+            tests=validator.tests,
+            suites=validator.suites,
+            evidence=validator.evidence,
+            spec_sources=validator.spec_sources,
+        )
     )
     paths = set(REPORT_CONTRACT_PATHS) | validator_code_input_paths(root)
     for invariant in validator.invariants.values():

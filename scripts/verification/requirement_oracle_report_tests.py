@@ -25,6 +25,7 @@ from scripts.verification.requirement_oracle_live import (
     validate_source_revision,
 )
 from scripts.verification.requirement_oracle_mapping import analyze_requirement_oracles
+from scripts.verification.requirement_traceability import analyze_requirement_traceability
 from scripts.verification.requirement_oracle_report import (
     RequirementOracleProvenance,
     RequirementOracleReport,
@@ -56,8 +57,8 @@ GROUP_EXPECTATIONS = {
     },
     "VERIF-P6-004": {
         "area_ids": ["editor_safety"],
-        "invariant_count": 7,
-        "eligible_oracle_count": 7,
+        "invariant_count": 8,
+        "eligible_oracle_count": 8,
         "spec_gap_blocked_count": 0,
     },
     "VERIF-P6-005": {
@@ -79,11 +80,21 @@ def loaded_validator() -> Validator:
 
 
 def analysis_for(validator: Validator) -> dict:
-    return analyze_requirement_oracles(
+    analysis = analyze_requirement_oracles(
         invariants=validator.invariants,
         spec_sources=validator.spec_sources,
         spec_gaps=validator.spec_gaps,
     )
+    analysis.update(
+        analyze_requirement_traceability(
+            invariants=validator.invariants,
+            tests=validator.tests,
+            suites=validator.suites,
+            evidence=validator.evidence,
+            spec_sources=validator.spec_sources,
+        )
+    )
+    return analysis
 
 
 def test_report(analysis: dict) -> RequirementOracleReport:
@@ -124,15 +135,15 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
         self.assertEqual(
             self.analysis["summary"],
             {
-                "invariants_total": 54,
-                "mapped_phase6_invariants": 36,
+                "invariants_total": 55,
+                "mapped_phase6_invariants": 37,
                 "other_area_invariants": 18,
-                "eligible_oracles": 54,
+                "eligible_oracles": 55,
                 "missing_oracles": 0,
                 "future_enforcement_candidates": 0,
             },
         )
-        self.assertEqual(54, len(self.analysis["invariants"]))
+        self.assertEqual(55, len(self.analysis["invariants"]))
         self.assertEqual(0, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
@@ -248,7 +259,7 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 self.assertEqual(invariant["gates"], row["gates"])
                 self.assertEqual(invariant["evidence_refs"], row["evidence_refs"])
 
-    def test_blocked_enforcement_and_traceability_rows_must_remain_open(self) -> None:
+    def test_incomplete_source_and_traceability_rows_must_remain_open(self) -> None:
         board = (ROOT / BOARD_PATH).read_text()
         self.assertEqual([], validate_open_board_rows(board))
         self.assertTrue(
@@ -256,6 +267,9 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "VERIF-P1A-003",
                 "VERIF-P1A-006",
                 "VERIF-P5-000B",
+                "VERIF-P6-008",
+                "VERIF-P6-009",
+                "VERIF-P6-010",
             }.issubset(REQUIRED_OPEN_ROWS)
         )
         self.assertNotIn("VERIF-P1B-012", REQUIRED_OPEN_ROWS)
