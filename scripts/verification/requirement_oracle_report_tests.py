@@ -267,13 +267,13 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 "VERIF-P1A-003",
                 "VERIF-P1A-006",
                 "VERIF-P5-000B",
-                "VERIF-P6-008",
-                "VERIF-P6-009",
-                "VERIF-P6-010",
             }.issubset(REQUIRED_OPEN_ROWS)
         )
         self.assertNotIn("VERIF-P1B-012", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P1B-014", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P6-008", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P6-009", REQUIRED_OPEN_ROWS)
+        self.assertNotIn("VERIF-P6-010", REQUIRED_OPEN_ROWS)
 
         for row_id in REQUIRED_OPEN_ROWS:
             with self.subTest(row_id=row_id):

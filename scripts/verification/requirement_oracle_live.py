@@ -26,9 +26,6 @@ REQUIRED_OPEN_ROWS = (
     "VERIF-P1A-006",
     "VERIF-P4A-005",
     "VERIF-P5-000B",
-    "VERIF-P6-008",
-    "VERIF-P6-009",
-    "VERIF-P6-010",
 )
 REPORT_CONTRACT_PATHS = {
     "docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md",
