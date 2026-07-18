@@ -683,7 +683,10 @@ fn lsp_range_formatting_uses_shared_bare_cr_line_model() {
 
     let edits = range_formatting(&state, params).expect("range formatting");
     assert_eq!(edits.len(), 1);
-    assert_eq!(edits[0].range.start.line, 4);
+    assert_eq!(
+        edits[0].range.start.line, 0,
+        "the selection expands to its containing PROGRAM block"
+    );
     assert!(edits[0].new_text.contains("x := 1 + 2;"));
     assert!(edits[0].new_text.ends_with('\r'));
 }

@@ -44,6 +44,9 @@ Target release: `v0.24.54`
   semantic work, restores durable disk contents, and evicts semantic-token and
   pull-diagnostic caches; late results are generation-checked under the cache
   lock so discarded buffer state cannot survive `didClose`.
+- trust-lsp: invalid incremental edit lines now preserve the last valid buffer
+  and show a full-resynchronization error, while range/on-type formatting uses
+  the shared LF, CRLF, and bare-CR line model instead of an LF-only splitter.
 - trust-runtime: MQTT discovery now reports authentication and authorization
   CONNACK rejections as `likely` protocol evidence instead of overclaiming an
   accepted, confirmed broker session; clean-session DISCONNECT behavior is

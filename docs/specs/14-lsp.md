@@ -430,6 +430,14 @@ the line length clamps to the line end, as required by the
 
 - Incremental sync using `TextDocumentContentChangeEvent` ranges.
 - Full-document replacement is supported when the change range is omitted.
+- An incremental range whose start or end line is outside the current document,
+  or whose start follows its end, is rejected without changing the last valid
+  buffer. Because `didChange` is a notification, the server logs the reason and
+  sends `window/showMessage` with a full-resynchronization recovery action
+  instead of returning a request error.
+- Range and on-type formatting use the same LF, CRLF, bare-CR, and UTF-16 line
+  model as synchronization and navigation, and preserve the document's line
+  ending in emitted edits.
 
 ##### 7.2.1 Document Close and Durable Project Truth
 

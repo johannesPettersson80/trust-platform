@@ -6,6 +6,7 @@ use tower_lsp::lsp_types::{
 };
 
 use serde_json::Value;
+use trust_lsp::document_text::LineIndex;
 use trust_syntax::{lex, Token, TokenKind};
 
 use crate::state::ServerState;
@@ -427,13 +428,9 @@ fn format_document(source: &str, config: &FormatConfig) -> String {
         output_lines
     };
 
-    let newline = if source.contains("\r\n") {
-        "\r\n"
-    } else {
-        "\n"
-    };
+    let newline = preferred_line_ending(source);
     let mut result = output_lines.join(newline);
-    if source.ends_with('\n') && !result.ends_with('\n') {
+    if ends_with_line_ending(source) && !ends_with_line_ending(&result) {
         result.push_str(newline);
     }
     result

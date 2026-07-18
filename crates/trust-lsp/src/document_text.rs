@@ -18,6 +18,34 @@ pub struct ContentChange {
     pub text: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContentChangeError {
+    LineOutOfBounds {
+        endpoint: &'static str,
+        line: u32,
+        line_count: usize,
+    },
+    ReversedRange,
+}
+
+impl std::fmt::Display for ContentChangeError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LineOutOfBounds {
+                endpoint,
+                line,
+                line_count,
+            } => write!(
+                formatter,
+                "change {endpoint} line {line} is outside the {line_count}-line document"
+            ),
+            Self::ReversedRange => formatter.write_str("change range start is after its end"),
+        }
+    }
+}
+
+impl std::error::Error for ContentChangeError {}
+
 #[derive(Debug)]
 pub struct LineIndex<'a> {
     content: &'a str,
@@ -95,6 +123,22 @@ impl<'a> LineIndex<'a> {
         self.content[start..end].encode_utf16().count() as u32
     }
 
+    #[must_use]
+    pub fn line_count(&self) -> usize {
+        self.line_starts.len()
+    }
+
+    #[must_use]
+    pub fn line_start(&self, line: usize) -> Option<usize> {
+        self.line_starts.get(line).copied()
+    }
+
+    #[must_use]
+    pub fn line_text(&self, line: usize) -> Option<&'a str> {
+        let start = self.line_start(line)?;
+        Some(&self.content[start..self.line_end_without_newline(line)])
+    }
+
     fn line_end_without_newline(&self, line_idx: usize) -> usize {
         let line_start = self
             .line_starts
@@ -124,16 +168,36 @@ impl<'a> LineIndex<'a> {
     }
 }
 
-#[must_use]
-pub fn apply_content_changes(content: &str, changes: &[ContentChange]) -> Option<String> {
+pub fn apply_content_changes(
+    content: &str,
+    changes: &[ContentChange],
+) -> Result<String, ContentChangeError> {
     let mut updated = content.to_string();
     for change in changes {
         if let Some(range) = change.range {
             let index = LineIndex::new(&updated);
-            let start = index.position_to_offset(range.start)?;
-            let end = index.position_to_offset(range.end)?;
+            if range.start.line as usize >= index.line_count() {
+                return Err(ContentChangeError::LineOutOfBounds {
+                    endpoint: "start",
+                    line: range.start.line,
+                    line_count: index.line_count(),
+                });
+            }
+            if range.end.line as usize >= index.line_count() {
+                return Err(ContentChangeError::LineOutOfBounds {
+                    endpoint: "end",
+                    line: range.end.line,
+                    line_count: index.line_count(),
+                });
+            }
+            let start = index
+                .position_to_offset(range.start)
+                .expect("validated start line");
+            let end = index
+                .position_to_offset(range.end)
+                .expect("validated end line");
             if start > end || end > updated.len() {
-                return None;
+                return Err(ContentChangeError::ReversedRange);
             }
             let mut next = String::with_capacity(
                 updated.len().saturating_sub(end.saturating_sub(start)) + change.text.len(),
@@ -146,5 +210,5 @@ pub fn apply_content_changes(content: &str, changes: &[ContentChange]) -> Option
             updated = change.text.clone();
         }
     }
-    Some(updated)
+    Ok(updated)
 }

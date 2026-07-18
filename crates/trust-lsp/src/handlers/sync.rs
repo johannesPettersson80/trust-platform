@@ -47,9 +47,20 @@ pub async fn did_change(client: &Client, state: &ServerState, params: DidChangeT
         }
     };
 
-    let Some(updated) = apply_content_changes(&doc.content, &params.content_changes) else {
-        warn!("Failed to apply incremental changes for {}", uri);
-        return;
+    let updated = match apply_content_changes(&doc.content, &params.content_changes) {
+        Ok(updated) => updated,
+        Err(error) => {
+            warn!("Failed to apply incremental changes for {}: {}", uri, error);
+            client
+                .show_message(
+                    MessageType::ERROR,
+                    format!(
+                        "Could not apply editor changes for {uri}: {error}. Reopen the file to resynchronize its full contents."
+                    ),
+                )
+                .await;
+            return;
+        }
     };
 
     state.update_document(&uri, version, updated);
@@ -64,7 +75,7 @@ pub async fn did_change(client: &Client, state: &ServerState, params: DidChangeT
 fn apply_content_changes(
     content: &str,
     changes: &[TextDocumentContentChangeEvent],
-) -> Option<String> {
+) -> Result<String, trust_lsp::document_text::ContentChangeError> {
     let changes = changes
         .iter()
         .map(|change| trust_lsp::document_text::ContentChange {
@@ -172,5 +183,24 @@ mod tests {
         };
         let updated = apply_content_changes(original, &[change]).expect("apply change");
         assert_eq!(updated, "y := 2;\n");
+    }
+
+    #[test]
+    fn apply_content_changes_reports_out_of_bounds_line_for_full_resync() {
+        let original = "x := 1;\n";
+        let change = TextDocumentContentChangeEvent {
+            range: Some(Range {
+                start: Position::new(99, 0),
+                end: Position::new(99, 0),
+            }),
+            range_length: None,
+            text: "y := 2;".to_string(),
+        };
+
+        let error = apply_content_changes(original, &[change]).expect_err("invalid range");
+        assert_eq!(
+            error.to_string(),
+            "change start line 99 is outside the 2-line document"
+        );
     }
 }
