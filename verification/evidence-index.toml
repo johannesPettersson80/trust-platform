@@ -8216,3 +8216,25 @@ case_file_digest = "sha256:2b1134a279b8614b2cd14daa383991c74c314964eefc3dcbe783c
 per_case_summary = ["EDIT_LSP_DELIVERY_001_REFERENCES_PARTIAL_RESULT_TOKEN:passed", "EDIT_LSP_DELIVERY_001_WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN:passed", "EDIT_LSP_DELIVERY_001_SILENT_RUNTIME_INLINE_VALUE_ENDPOINT:passed"]
 case_result_digest = "sha256:d0f2e62d4e04bab238259adb5aaf81648d817546544bdcdf6b707b247f676777"
 paired_lock_baseline = "EVID_TEST_LSP_DELIVERY_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P12_WORKFLOW_UI_AUDIT_20260719"
+title = "Phase 12 public workflow and UI journey audit"
+area = "editor_safety"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase12-workflow-ui-audit.md"
+command = "python3 scripts/report_phase12_workflow_ui_audit.py --json-out target/gate-artifacts/verification/phase12-workflow-ui-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase12-workflow-ui-audit.md --timestamp 2026-07-19T00:50:00+02:00 && python3 scripts/validate_phase12_workflow_ui_audit_report.py --json target/gate-artifacts/verification/phase12-workflow-ui-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase12-workflow-ui-audit.md"
+commit = "cec61f998a71c2fcedcfa654a004d4a347cf653f"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-19"
+suite_id = "supporting_local"
+producer = "phase12-workflow-ui-audit v1"
+generated_report_version = "phase12-workflow-ui-audit-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-19"

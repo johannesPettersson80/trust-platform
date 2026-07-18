@@ -1071,31 +1071,47 @@ Acceptance:
 
 ## Phase 12 - Editor, UI, and Human Workflow Verification
 
-- [ ] `VERIF-P12-000` Inventory user stories and public workflows that imply a
+- [x] `VERIF-P12-000` Inventory user stories and public workflows that imply a
   user can accomplish a task. Each workflow must have a spec source with actor,
   entry point, preconditions, visible steps, success state, failure/status
   behavior, safety/authz boundaries, and acceptance evidence, or a spec gap
   before related implementation starts.
-- [ ] `VERIF-P12-001` Map accepted VS Code UI journeys to invariants.
-- [ ] `VERIF-P12-002` Backend/runtime proof can support UI acceptance but cannot
+- [x] `VERIF-P12-001` Map accepted VS Code UI journeys to invariants.
+- [x] `VERIF-P12-002` Backend/runtime proof can support UI acceptance but cannot
   replace journey evidence.
-- [ ] `VERIF-P12-003` Source transformations such as rename/import are
+- [x] `VERIF-P12-003` Source transformations such as rename/import are
   `silent_corruption` risk unless proven otherwise.
-- [ ] `VERIF-P12-004` Add LSP/editor negative tests: Unicode positions,
+- [x] `VERIF-P12-004` Add LSP/editor negative tests: Unicode positions,
   cancellation, stale dirty close, eviction, partial results, blocking inline
   values.
-- [ ] `VERIF-P12-005` Changed visible protocol/status/HMI surfaces invalidate
+- [x] `VERIF-P12-005` Changed visible protocol/status/HMI surfaces invalidate
   affected journey screenshots until recaptured.
-- [ ] `VERIF-P12-006` Report UI journeys with backend changes but no fresh
+- [x] `VERIF-P12-006` Report UI journeys with backend changes but no fresh
   visual evidence.
-- [ ] `VERIF-P12-006A` Report user stories or public workflows with
+- [x] `VERIF-P12-006A` Report user stories or public workflows with
   implementation changes but no workflow spec source, linked invariant, or
   acceptance evidence.
-- [ ] `VERIF-P12-007` Add VS Code extension gate mapping and evidence rules.
-- [ ] `VERIF-P12-008` UI-area invariants can reach `validated` only when linked
+- [x] `VERIF-P12-007` Add VS Code extension gate mapping and evidence rules.
+- [x] `VERIF-P12-008` UI-area invariants can reach `validated` only when linked
   journey rows are `ux_accepted`; provisional journey evidence may support but
   cannot close UI acceptance. The validator consumes acceptance-board audit
   output as evidence.
+
+  Closed 2026-07-19 by the fail-closed public-workflow inventory,
+  `verification/ui-acceptance.toml`, the primary metadata validator, and the
+  generated Phase 12 workflow/UI audit at clean source commit
+  `cec61f998a71c2fcedcfa654a004d4a347cf653f`. The audit binds 47 public
+  candidates (33 workflow specifications and 14 reviewed nonworkflows) and 30
+  declared UI journeys. It reports the remaining debt without promotion: 29
+  workflow specifications have no invariant link, all 33 lack accepted journey
+  evidence, 29 journeys are `evidence_missing`, one is `provisional`, and zero
+  are `ux_accepted`. Backend tests cannot replace visual evidence, source
+  transformations require a `silent_corruption` invariant, changed visible
+  paths stale captured evidence, and `validated` UI invariants require an
+  independently reviewed `ux_accepted` journey. The LSP negative surface now
+  includes executable case-bound traces for partial references, partial
+  workspace symbols, and bounded inline values; the catalog validator also
+  rejects Rust unit-test `--exact` commands that would execute zero tests.
 
 ## Phase 13 - Security, Supply Chain, Platform, and Release Evidence
 
