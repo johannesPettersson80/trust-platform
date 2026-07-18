@@ -13,6 +13,15 @@ pub fn run_commit(
     message: Option<String>,
     dry_run: bool,
 ) -> anyhow::Result<()> {
+    run_commit_impl(project, message, dry_run, || {})
+}
+
+fn run_commit_impl(
+    project: Option<PathBuf>,
+    message: Option<String>,
+    dry_run: bool,
+    after_initial_collision_check: impl FnOnce(),
+) -> anyhow::Result<()> {
     if !git_available() {
         anyhow::bail!("git not found; install git to use `trust-dev commit`");
     }
@@ -33,6 +42,7 @@ pub fn run_commit(
             collisions.join(", ")
         );
     }
+    after_initial_collision_check();
     let status = git_status(&repo_root, &project_rel)?;
     if status.is_empty() {
         println!("No changes to commit.");
