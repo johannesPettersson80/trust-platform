@@ -8061,3 +8061,25 @@ case_file_digest = "sha256:d6bd8d524b98a29f813f04bd0156a09ec8c241b873362b269fde9
 per_case_summary = ["RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION:passed"]
 case_result_digest = "sha256:4c393b5ee2d811dd1b5614a0c27f159d8fc25ee77afa84b6e5576e4231a12661"
 paired_lock_baseline = "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_LOCK_BASELINE_REVIEW18_FINAL"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_EIGHTEENTH_REVIEW_REPORT_REBIND_20260718"
+title = "Eighteenth-review generated-report rebind"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/eighteenth-review-report-rebind.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && git diff --check"
+commit = "f83f09a8b742d85d2a060e5e2ce12c3781dadffd"
+platform = "trust-builder-linux-x86_64; local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex eighteenth-review report rebind"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
+last_reviewed = "2026-07-18"
