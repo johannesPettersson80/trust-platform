@@ -4,120 +4,56 @@
   "title": "truST unmapped-test debt report",
   "type": "object",
   "required": [
-    "schema_version",
-    "generator",
-    "generator_version",
-    "report_status",
-    "input_digest",
-    "command",
-    "commit",
-    "timestamp",
-    "platform",
-    "input_paths",
-    "output_paths",
-    "scope",
-    "summary",
-    "unmapped_tests",
-    "limitations"
+    "schema_version", "generator", "generator_version", "report_status",
+    "input_digest", "command", "commit", "timestamp", "platform",
+    "input_paths", "output_paths", "scope", "summary",
+    "denominator_review", "unmapped_tests", "limitations"
   ],
   "properties": {
     "schema_version": { "const": 1 },
     "generator": { "const": "unmapped-test-debt" },
-    "generator_version": { "const": 1 },
+    "generator_version": { "const": 2 },
     "report_status": { "const": "complete" },
-    "input_digest": {
-      "type": "string",
-      "pattern": "^sha256:[0-9a-f]{64}$"
-    },
-    "command": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "type": "string", "minLength": 1 }
-    },
-    "commit": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{40}$"
-    },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "timestamp": { "type": "string", "minLength": 1 },
     "platform": { "type": "string", "minLength": 1 },
-    "input_paths": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
-    },
+    "input_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
     "output_paths": {
       "type": "object",
       "required": ["json", "markdown"],
       "properties": {
-        "json": {
-          "type": "string",
-          "pattern": "^target/gate-artifacts/verification/.+\\.json$"
-        },
-        "markdown": {
-          "type": "string",
-          "pattern": "^(?:target/gate-artifacts/verification/[^/]+|docs/internal/testing/evidence/plc-verification-program/[0-9]{4}-[0-9]{2}-[0-9]{2}/[^/]+)\\.md$"
-        }
+        "json": { "type": "string", "pattern": "^target/gate-artifacts/verification/.+\\.json$" },
+        "markdown": { "type": "string", "pattern": "^(?:target/gate-artifacts/verification/[^/]+|docs/internal/testing/evidence/plc-verification-program/[0-9]{4}-[0-9]{2}-[0-9]{2}/[^/]+)\\.md$" }
       },
       "additionalProperties": false
     },
     "scope": { "$ref": "#/$defs/scope" },
     "summary": { "$ref": "#/$defs/summary" },
-    "unmapped_tests": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/unmapped_test" }
-    },
-    "limitations": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
-    }
+    "denominator_review": { "$ref": "#/$defs/denominator_review" },
+    "unmapped_tests": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/unmapped_test" } },
+    "limitations": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
   },
   "additionalProperties": false,
   "$defs": {
     "scope": {
       "type": "object",
-      "required": [
-        "classification_basis",
-        "artifact_rows_classify_facts",
-        "debt_is_report_failure",
-        "inference_prohibited"
-      ],
+      "required": ["classification_basis", "artifact_rows_classify_facts", "debt_is_report_failure", "inference_prohibited"],
       "properties": {
-        "classification_basis": {
-          "const": "exact_generated_test_discovery_id_subtraction"
-        },
+        "classification_basis": { "const": "exact_catalog_subtraction_plus_reviewed_denominator" },
         "artifact_rows_classify_facts": { "const": false },
-        "debt_is_report_failure": { "const": false },
+        "debt_is_report_failure": { "const": true },
         "inference_prohibited": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "enum": [
-              "area",
-              "expected_result",
-              "invariant",
-              "oracle",
-              "test_class"
-            ]
-          }
+          "type": "array", "uniqueItems": true,
+          "items": { "enum": ["area", "expected_result", "invariant", "oracle", "test_class"] }
         }
       },
       "additionalProperties": false
     },
     "summary": {
       "type": "object",
-      "required": [
-        "scanner_facts",
-        "mapped_scanner_facts",
-        "unmapped_scanner_facts",
-        "generated_test_catalog_rows",
-        "artifact_catalog_rows",
-        "ignored_unmapped_scanner_facts",
-        "conditional_unmapped_scanner_facts",
-        "by_source_kind"
-      ],
+      "required": ["scanner_facts", "mapped_scanner_facts", "unmapped_scanner_facts", "generated_test_catalog_rows", "artifact_catalog_rows", "ignored_unmapped_scanner_facts", "conditional_unmapped_scanner_facts", "by_source_kind"],
       "properties": {
         "scanner_facts": { "type": "integer", "minimum": 0 },
         "mapped_scanner_facts": { "type": "integer", "minimum": 0 },
@@ -125,14 +61,8 @@
         "generated_test_catalog_rows": { "type": "integer", "minimum": 0 },
         "artifact_catalog_rows": { "type": "integer", "minimum": 0 },
         "ignored_unmapped_scanner_facts": { "type": "integer", "minimum": 0 },
-        "conditional_unmapped_scanner_facts": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "by_source_kind": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/source_count" }
-        }
+        "conditional_unmapped_scanner_facts": { "type": "integer", "minimum": 0 },
+        "by_source_kind": { "type": "array", "items": { "$ref": "#/$defs/source_count" } }
       },
       "additionalProperties": false
     },
@@ -140,21 +70,55 @@
       "type": "object",
       "required": ["source_kind", "scanner_facts", "mapped", "unmapped"],
       "properties": {
-        "source_kind": {
-          "enum": [
-            "rust_integration_test",
-            "rust_unit_test",
-            "structured_text_test",
-            "vscode_test",
-            "conformance_case",
-            "fuzz_target",
-            "gate_script",
-            "github_workflow_job"
-          ]
-        },
+        "source_kind": { "enum": ["rust_integration_test", "rust_unit_test", "structured_text_test", "vscode_test", "conformance_case", "fuzz_target", "gate_script", "github_workflow_job"] },
         "scanner_facts": { "type": "integer", "minimum": 0 },
         "mapped": { "type": "integer", "minimum": 0 },
         "unmapped": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "denominator_review": {
+      "type": "object",
+      "required": ["review_digest", "summary"],
+      "properties": {
+        "review_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "summary": { "$ref": "#/$defs/denominator_summary" }
+      },
+      "additionalProperties": false
+    },
+    "denominator_summary": {
+      "type": "object",
+      "required": ["scanner_facts", "catalog_mapped_facts", "reviewed_nonmapping_facts", "unreviewed_facts", "exhaustive", "ignored_registry_owned_facts", "by_nonmapping_reason", "by_source_kind"],
+      "properties": {
+        "scanner_facts": { "type": "integer", "minimum": 0 },
+        "catalog_mapped_facts": { "type": "integer", "minimum": 0 },
+        "reviewed_nonmapping_facts": { "type": "integer", "minimum": 0 },
+        "unreviewed_facts": { "const": 0 },
+        "exhaustive": { "const": true },
+        "ignored_registry_owned_facts": { "type": "integer", "minimum": 0 },
+        "by_nonmapping_reason": {
+          "type": "object",
+          "required": ["fuzz_program_owned", "gate_inventory_owned", "ignored_test_registry_owned", "no_reviewed_spec_or_invariant_binding"],
+          "properties": {
+            "fuzz_program_owned": { "type": "integer", "minimum": 0 },
+            "gate_inventory_owned": { "type": "integer", "minimum": 0 },
+            "ignored_test_registry_owned": { "type": "integer", "minimum": 0 },
+            "no_reviewed_spec_or_invariant_binding": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "by_source_kind": { "type": "array", "items": { "$ref": "#/$defs/denominator_source_count" } }
+      },
+      "additionalProperties": false
+    },
+    "denominator_source_count": {
+      "type": "object",
+      "required": ["source_kind", "scanner_facts", "catalog_mapped", "reviewed_nonmapping"],
+      "properties": {
+        "source_kind": { "enum": ["rust_integration_test", "rust_unit_test", "structured_text_test", "vscode_test", "conformance_case", "fuzz_target", "gate_script", "github_workflow_job"] },
+        "scanner_facts": { "type": "integer", "minimum": 0 },
+        "catalog_mapped": { "type": "integer", "minimum": 0 },
+        "reviewed_nonmapping": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },
@@ -162,27 +126,11 @@
       "type": "object",
       "required": ["discovery_id", "source_kind", "path", "name", "ignore_state"],
       "properties": {
-        "discovery_id": {
-          "type": "string",
-          "pattern": "^DISC_[A-F0-9]{20}$"
-        },
-        "source_kind": {
-          "enum": [
-            "rust_integration_test",
-            "rust_unit_test",
-            "structured_text_test",
-            "vscode_test",
-            "conformance_case",
-            "fuzz_target",
-            "gate_script",
-            "github_workflow_job"
-          ]
-        },
+        "discovery_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+        "source_kind": { "enum": ["rust_integration_test", "rust_unit_test", "structured_text_test", "vscode_test", "conformance_case", "fuzz_target", "gate_script", "github_workflow_job"] },
         "path": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
-        "ignore_state": {
-          "enum": ["not_ignored", "ignored", "conditional"]
-        }
+        "ignore_state": { "enum": ["not_ignored", "ignored", "conditional"] }
       },
       "additionalProperties": false
     }

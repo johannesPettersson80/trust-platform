@@ -27,6 +27,14 @@ from .test_catalog_debt import (
     analyze_unmapped_test_debt,
 )
 from .test_catalog_json_schema import validate_json_schema_instance
+from .test_catalog_denominator import (
+    DENOMINATOR_PATH,
+    DENOMINATOR_SCHEMA_PATH,
+    NONMAPPING_REASON_CODES,
+    analyze_test_catalog_denominator,
+    load_test_catalog_denominator,
+    validate_test_catalog_denominator_document,
+)
 from .test_catalog_scanner import scan_repository
 from .test_catalog_staleness import validate_catalog_staleness
 from .test_catalog_validation import (
@@ -52,10 +60,17 @@ ROOT_FIELDS = {
     "output_paths",
     "scope",
     "summary",
+    "denominator_review",
     "unmapped_tests",
     "limitations",
 }
-ANALYSIS_FIELDS = {"scope", "summary", "unmapped_tests", "limitations"}
+ANALYSIS_FIELDS = {
+    "scope",
+    "summary",
+    "denominator_review",
+    "unmapped_tests",
+    "limitations",
+}
 SCOPE_FIELDS = {
     "classification_basis",
     "artifact_rows_classify_facts",
@@ -74,6 +89,23 @@ SUMMARY_FIELDS = {
 }
 SOURCE_COUNT_FIELDS = {"source_kind", "scanner_facts", "mapped", "unmapped"}
 UNMAPPED_FIELDS = {"discovery_id", "source_kind", "path", "name", "ignore_state"}
+DENOMINATOR_FIELDS = {"review_digest", "summary"}
+DENOMINATOR_SUMMARY_FIELDS = {
+    "scanner_facts",
+    "catalog_mapped_facts",
+    "reviewed_nonmapping_facts",
+    "unreviewed_facts",
+    "exhaustive",
+    "ignored_registry_owned_facts",
+    "by_nonmapping_reason",
+    "by_source_kind",
+}
+DENOMINATOR_SOURCE_FIELDS = {
+    "source_kind",
+    "scanner_facts",
+    "catalog_mapped",
+    "reviewed_nonmapping",
+}
 COMMIT_PATTERN = r"^[0-9a-f]{40}$"
 COMMIT_RE = re.compile(COMMIT_PATTERN)
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -150,7 +182,8 @@ def validate_markdown_binding(
         f"Source revision: `{payload.get('commit')}`",
         f"- Scanner facts: {summary.get('scanner_facts')}",
         f"- Unmapped scanner facts: {summary.get('unmapped_scanner_facts')}",
-        "- Debt fails this report: no",
+        f"- Unreviewed scanner facts: {payload.get('denominator_review', {}).get('summary', {}).get('unreviewed_facts')}",
+        "- Unreviewed debt fails this report: yes",
     ]
     failures = [
         f"unmapped-test debt Markdown is missing bound marker: {marker}"
@@ -176,6 +209,7 @@ def validate_report_files(
 
     root = root.resolve()
     failures: list[str] = []
+    validator: Validator | None = None
     if root != METADATA_ROOT.resolve():
         failures.append("root does not identify the repository that loaded the verification modules")
     else:
@@ -229,7 +263,7 @@ def validate_report_files(
 
     tests, tests_by_id, load_failures = _load_catalog(root)
     failures.extend(load_failures)
-    if tests is not None and tests_by_id is not None:
+    if tests is not None and tests_by_id is not None and validator is not None:
         failures.extend(
             validate_catalog_staleness(
                 root=root,
@@ -238,9 +272,28 @@ def validate_report_files(
             )
         )
         try:
-            expected_analysis = analyze_unmapped_test_debt(tests=tests, facts=scan.inferred_facts)
+            denominator = load_test_catalog_denominator(root)
+            denominator_schema = json.loads((root / DENOMINATOR_SCHEMA_PATH).read_text())
+            failures.extend(
+                validate_test_catalog_denominator_document(
+                    denominator, schema=denominator_schema
+                )
+            )
+            denominator_review = analyze_test_catalog_denominator(
+                facts=scan.inferred_facts,
+                tests=tests,
+                reviews=denominator.get("reviews", []),
+                ignored_tests=validator.ignored_tests,
+            )
+            expected_analysis = analyze_unmapped_test_debt(
+                tests=tests,
+                facts=scan.inferred_facts,
+                denominator_review=denominator_review,
+            )
         except ValueError as exc:
             failures.append(f"unmapped-test debt analysis failed: {exc}")
+        except (OSError, json.JSONDecodeError) as exc:
+            failures.append(f"test-catalog denominator cannot be read: {exc}")
         else:
             failures.extend(validate_report_payload(payload, expected_analysis=expected_analysis))
 
@@ -248,7 +301,7 @@ def validate_report_files(
         set(scan.provenance.input_paths)
         | set(REPORT_CONTRACT_PATHS)
         | validator_code_input_paths(root)
-        | {"verification/test-catalog.toml"}
+        | {"verification/test-catalog.toml", DENOMINATOR_PATH, DENOMINATOR_SCHEMA_PATH}
     )
     failures.extend(_validate_input_binding(root, payload, expected_inputs))
     failures.extend(_validate_source_commit(root, payload.get("commit"), expected_inputs))
@@ -287,6 +340,9 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
         ("scope", SCOPE_FIELDS),
         ("summary", SUMMARY_FIELDS),
         ("source_count", SOURCE_COUNT_FIELDS),
+        ("denominator_review", DENOMINATOR_FIELDS),
+        ("denominator_summary", DENOMINATOR_SUMMARY_FIELDS),
+        ("denominator_source_count", DENOMINATOR_SOURCE_FIELDS),
         ("unmapped_test", UNMAPPED_FIELDS),
     ):
         definition = definitions.get(name, {}) if isinstance(definitions, dict) else {}
@@ -298,9 +354,9 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
     scope = definitions.get("scope", {}) if isinstance(definitions, dict) else {}
     scope_properties = scope.get("properties", {}) if isinstance(scope, dict) else {}
     for field, expected in (
-        ("classification_basis", "exact_generated_test_discovery_id_subtraction"),
+        ("classification_basis", "exact_catalog_subtraction_plus_reviewed_denominator"),
         ("artifact_rows_classify_facts", False),
-        ("debt_is_report_failure", False),
+        ("debt_is_report_failure", True),
     ):
         if scope_properties.get(field, {}).get("const") != expected:
             failures.append(f"unmapped-test debt schema const for scope.{field} drifts")
@@ -322,15 +378,32 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
     )
     if set(source_count_properties.get("source_kind", {}).get("enum", [])) != SOURCE_KINDS:
         failures.append("unmapped-test debt schema source-count source_kind enum drifts")
+    denominator_summary = (
+        definitions.get("denominator_summary", {}) if isinstance(definitions, dict) else {}
+    )
+    denominator_properties = (
+        denominator_summary.get("properties", {})
+        if isinstance(denominator_summary, dict)
+        else {}
+    )
+    reason_properties = denominator_properties.get("by_nonmapping_reason", {}).get(
+        "properties", {}
+    )
+    if set(reason_properties) != set(NONMAPPING_REASON_CODES):
+        failures.append("unmapped-test debt schema nonmapping reason fields drift")
+    if denominator_properties.get("unreviewed_facts", {}).get("const") != 0:
+        failures.append("unmapped-test debt schema must pin zero unreviewed facts")
+    if denominator_properties.get("exhaustive", {}).get("const") is not True:
+        failures.append("unmapped-test debt schema must pin exhaustive denominator review")
     return failures
 
 
 def _validate_analysis_shape(payload: Mapping[str, Any], failures: list[str]) -> None:
     scope = payload.get("scope")
     expected_scope = {
-        "classification_basis": "exact_generated_test_discovery_id_subtraction",
+        "classification_basis": "exact_catalog_subtraction_plus_reviewed_denominator",
         "artifact_rows_classify_facts": False,
-        "debt_is_report_failure": False,
+        "debt_is_report_failure": True,
         "inference_prohibited": list(INFERENCE_PROHIBITED),
     }
     if not isinstance(scope, dict):
@@ -379,6 +452,19 @@ def _validate_analysis_shape(payload: Mapping[str, Any], failures: list[str]) ->
             keys = [row.get("source_kind") for row in rows if isinstance(row, dict)]
             if keys != sorted(set(keys)):
                 failures.append("summary.by_source_kind must use canonical unique source order")
+
+    denominator = payload.get("denominator_review")
+    if not isinstance(denominator, dict):
+        failures.append("denominator_review must be an object")
+    else:
+        _check_exact_fields(denominator, DENOMINATOR_FIELDS, "denominator_review", failures)
+        if not DIGEST_RE.fullmatch(str(denominator.get("review_digest", ""))):
+            failures.append("denominator_review.review_digest must be sha256:<64 lowercase hex>")
+        denominator_summary = denominator.get("summary")
+        if not isinstance(denominator_summary, dict):
+            failures.append("denominator_review.summary must be an object")
+        else:
+            _validate_denominator_summary(denominator_summary, failures)
 
     unmapped_tests = payload.get("unmapped_tests")
     if not isinstance(unmapped_tests, list):
@@ -431,6 +517,22 @@ def _validate_internal_counts(payload: Mapping[str, Any], failures: list[str]) -
             failures.append("scanner fact totals are inconsistent")
     if summary.get("generated_test_catalog_rows") != mapped:
         failures.append("generated-test row count must equal mapped scanner facts")
+    denominator = payload.get("denominator_review")
+    denominator_summary = denominator.get("summary") if isinstance(denominator, dict) else None
+    if isinstance(denominator_summary, dict):
+        reviewed = denominator_summary.get("reviewed_nonmapping_facts")
+        unreviewed = denominator_summary.get("unreviewed_facts")
+        if all(
+            isinstance(value, int) and not isinstance(value, bool)
+            for value in (scanner, mapped, reviewed, unreviewed)
+        ) and scanner != mapped + reviewed + unreviewed:
+            failures.append("denominator scanner fact totals are inconsistent")
+        if reviewed != unmapped:
+            failures.append("reviewed nonmapping count must equal raw unmapped scanner facts")
+        if denominator_summary.get("scanner_facts") != scanner:
+            failures.append("denominator scanner count does not match report summary")
+        if denominator_summary.get("catalog_mapped_facts") != mapped:
+            failures.append("denominator mapped count does not match report summary")
     ignored = sum(
         isinstance(row, dict) and row.get("ignore_state") == "ignored" for row in rows
     )
@@ -464,6 +566,69 @@ def _validate_internal_counts(payload: Mapping[str, Any], failures: list[str]) -
     ):
         if totals[field] != summary.get(summary_field):
             failures.append(f"source totals do not match summary.{summary_field}")
+
+
+def _validate_denominator_summary(value: Mapping[str, Any], failures: list[str]) -> None:
+    _check_exact_fields(value, DENOMINATOR_SUMMARY_FIELDS, "denominator_review.summary", failures)
+    for field in {
+        "scanner_facts",
+        "catalog_mapped_facts",
+        "reviewed_nonmapping_facts",
+        "unreviewed_facts",
+        "ignored_registry_owned_facts",
+    }:
+        count = value.get(field)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            failures.append(f"denominator_review.summary.{field} must be nonnegative")
+    if value.get("unreviewed_facts") != 0:
+        failures.append("denominator_review.summary.unreviewed_facts must be zero")
+    if value.get("exhaustive") is not True:
+        failures.append("denominator_review.summary.exhaustive must be true")
+    reasons = value.get("by_nonmapping_reason")
+    if not isinstance(reasons, dict) or set(reasons) != set(NONMAPPING_REASON_CODES):
+        failures.append("denominator nonmapping reason counts drift from closed vocabulary")
+    elif any(
+        not isinstance(count, int) or isinstance(count, bool) or count < 0
+        for count in reasons.values()
+    ):
+        failures.append("denominator nonmapping reason counts must be nonnegative")
+    elif sum(reasons.values()) != value.get("reviewed_nonmapping_facts"):
+        failures.append("denominator nonmapping reason counts do not reconcile")
+    source_rows = value.get("by_source_kind")
+    if not isinstance(source_rows, list):
+        failures.append("denominator_review.summary.by_source_kind must be an array")
+        return
+    keys: list[str] = []
+    totals = {"scanner_facts": 0, "catalog_mapped": 0, "reviewed_nonmapping": 0}
+    expected_fields = {"source_kind", *totals}
+    for index, row in enumerate(source_rows):
+        if not isinstance(row, dict):
+            failures.append(f"denominator source row {index} must be an object")
+            continue
+        _check_exact_fields(row, expected_fields, f"denominator source row {index}", failures)
+        source_kind = row.get("source_kind")
+        keys.append(str(source_kind))
+        if source_kind not in SOURCE_KINDS:
+            failures.append(f"denominator source row {index} source_kind is unsupported")
+        for field in totals:
+            count = row.get(field)
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                failures.append(f"denominator source row {index}.{field} must be nonnegative")
+            else:
+                totals[field] += count
+        if all(isinstance(row.get(field), int) for field in totals) and row.get(
+            "scanner_facts"
+        ) != row.get("catalog_mapped") + row.get("reviewed_nonmapping"):
+            failures.append(f"denominator source row {index} counts are inconsistent")
+    if keys != sorted(set(keys)):
+        failures.append("denominator source rows must use canonical unique source order")
+    for field, summary_field in (
+        ("scanner_facts", "scanner_facts"),
+        ("catalog_mapped", "catalog_mapped_facts"),
+        ("reviewed_nonmapping", "reviewed_nonmapping_facts"),
+    ):
+        if totals[field] != value.get(summary_field):
+            failures.append(f"denominator source totals do not match {summary_field}")
 
 
 def _validate_output_paths(value: Any, failures: list[str]) -> None:

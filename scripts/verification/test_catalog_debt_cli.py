@@ -22,6 +22,13 @@ from .test_catalog_debt import (
     write_reports,
 )
 from .test_catalog_json_schema import validate_json_schema_instance
+from .test_catalog_denominator import (
+    DENOMINATOR_PATH,
+    DENOMINATOR_SCHEMA_PATH,
+    analyze_test_catalog_denominator,
+    load_test_catalog_denominator,
+    validate_test_catalog_denominator_document,
+)
 from .test_catalog_scanner import scan_repository
 from .test_catalog_staleness import validate_catalog_staleness
 from .test_catalog_validation import validate_report_payload as validate_generated_catalog_payload
@@ -108,11 +115,25 @@ def generate_report(
     if stale_failures:
         raise ValueError("; ".join(stale_failures))
 
+    denominator = load_test_catalog_denominator(root)
+    denominator_schema = json.loads((root / DENOMINATOR_SCHEMA_PATH).read_text())
+    denominator_failures = validate_test_catalog_denominator_document(
+        denominator, schema=denominator_schema
+    )
+    if denominator_failures:
+        raise ValueError("; ".join(denominator_failures))
+    denominator_review = analyze_test_catalog_denominator(
+        facts=scan.inferred_facts,
+        tests=tests,
+        reviews=denominator["reviews"],
+        ignored_tests=validator.ignored_tests,
+    )
+
     input_paths = sorted(
         set(scan.provenance.input_paths)
         | set(REPORT_CONTRACT_PATHS)
         | validator_code_input_paths(root)
-        | {"verification/test-catalog.toml"}
+        | {"verification/test-catalog.toml", DENOMINATOR_PATH, DENOMINATOR_SCHEMA_PATH}
     )
     input_failures = validate_bound_input_paths(root, input_paths)
     if input_failures:
@@ -131,7 +152,11 @@ def generate_report(
             output_markdown=output_markdown,
         ),
         input_digest=input_digest(root, input_paths),
-        analysis=analyze_unmapped_test_debt(tests=tests, facts=scan.inferred_facts),
+        analysis=analyze_unmapped_test_debt(
+            tests=tests,
+            facts=scan.inferred_facts,
+            denominator_review=denominator_review,
+        ),
     )
     schema = json.loads((root / SCHEMA_PATH).read_text())
     failures = validate_report_payload(report.to_dict(), expected_analysis=report.analysis)
@@ -182,8 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     summary = report.analysis["summary"]
     print(
         "unmapped-test debt reported: "
-        f"{summary['unmapped_scanner_facts']}/{summary['scanner_facts']} scanner facts unmapped; "
-        "report-only exit 0"
+        f"{summary['unmapped_scanner_facts']}/{summary['scanner_facts']} scanner facts "
+        "reviewed as non-catalog-mapped; 0 unreviewed debt; report-only exit 0"
     )
     return 0
 

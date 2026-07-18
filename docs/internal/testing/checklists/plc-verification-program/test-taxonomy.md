@@ -243,6 +243,18 @@ The validator rejects overlap, omission, stale identity, or a new unreviewed
 fact. This closes `VERIF-P8-002` without converting associations into coverage
 or proof.
 
+## Existing-Test Denominator Review
+
+The full scanner denominator is partitioned only by stable discovery identity.
+An exact `generated_test.discovery_id` yields `catalog_mapped`; every other
+fact requires one explicit `reviewed_nonmapping` row. The closed nonmapping
+reasons distinguish ignored-registry, fuzz-program, and gate-inventory
+ownership from the general absence of a reviewed specification or invariant
+binding. They do not classify behavior from names, paths, packages, or lexical
+references. Adding, deleting, rebinding, or duplicating a scanner fact makes
+the denominator and the v2 unmapped-test report fail until the new identity is
+reviewed.
+
 ## Malformed Input Taxonomy
 
 Malformed-input tests must pick from a surface-specific taxonomy. The first

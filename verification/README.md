@@ -26,6 +26,8 @@ Current seed scope:
   Code test registration auditing for `VERIF-P2-004` through `VERIF-P2-006`.
 - report-only scanner-mapping and required-test-class completeness for
   `VERIF-P2-007`.
+- an exhaustive reviewed mapped/nonmapping partition of every live scanner
+  identity for `VERIF-P16-006`, without inferred semantic mappings.
 - report-only coverage-cell gaps, reviewed bytecode malformed-input classes,
   and exact unmapped-test identities for `VERIF-P2-008` through
   `VERIF-P2-010`.
@@ -168,9 +170,11 @@ TOML shape convention:
   `scripts/report_malformed_input_coverage.py` with
   `scripts/validate_malformed_input_coverage_report.py` for the reviewed
   bytecode/VM taxonomy, and `scripts/report_unmapped_test_debt.py` with
-  `scripts/validate_unmapped_test_debt_report.py` for every unmapped scanner
-  identity. These reports reject dirty or symlinked provenance and require
-  canonical JSON plus exact Markdown, while nonzero debt still exits zero.
+  `scripts/validate_unmapped_test_debt_report.py` for every non-catalog scanner
+  identity. `verification/test-catalog-denominator.toml` must simultaneously
+  partition every live fact into an exact catalog mapping or a reviewed
+  nonmapping; omission is unresolved debt and fails. These reports reject dirty
+  or symlinked provenance and require canonical JSON plus exact Markdown.
   Each generator requires a pristine source tree before it writes output.
   Reproduce multiple committed reports in separate clean worktrees, or restore
   the previous report's tracked and untracked outputs before starting the next

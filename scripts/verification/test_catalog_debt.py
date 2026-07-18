@@ -14,7 +14,7 @@ from .test_catalog_models import InferredTestFact
 
 
 GENERATOR = "unmapped-test-debt"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/unmapped-test-debt.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/unmapped-test-debt.md")
 SUPPORTED_ARTIFACT_KINDS = {"case_table_artifact", "mutation_shard_runner"}
@@ -26,13 +26,14 @@ INFERENCE_PROHIBITED = (
     "test_class",
 )
 LIMITATIONS = (
-    "Debt is the exact subtraction of reviewed generated_test discovery IDs from current scanner facts.",
+    "The raw non-catalog-mapped list is the exact subtraction of reviewed generated_test discovery IDs from current scanner facts.",
+    "Unresolved debt is zero only when the committed denominator gives every raw non-catalog-mapped fact an exact reviewed-nonmapping disposition.",
     "Case-table and mutation-runner artifacts never classify scanner facts.",
-    "Ignored and conditionally ignored scanner facts remain visible when they are unmapped.",
-    "An unmapped fact is catalog debt, not evidence about expected behavior or test adequacy.",
+    "Ignored and conditionally ignored scanner facts remain visible and bind the Phase 3 ignored-test registry.",
+    "A reviewed nonmapping retires mapping debt without deleting the native test or claiming that its behavior is adequate.",
     "No area, class, invariant, oracle, or expected behavior is inferred from a name or path.",
     "Scanner exclusions remain those documented by the generated existing-test catalog.",
-    "Nonzero debt does not fail this report-only command or change CI enforcement.",
+    "Reviewed nonmapping does not fail this report-only command or change CI enforcement; an unreviewed fact fails generation.",
     "Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.",
 )
 REPORT_CONTRACT_PATHS = (
@@ -47,6 +48,7 @@ REPORT_CONTRACT_PATHS = (
     "scripts/verification/test_catalog_debt.py",
     "scripts/verification/test_catalog_debt_cli.py",
     "scripts/verification/test_catalog_debt_validation.py",
+    "scripts/verification/test_catalog_denominator.py",
     "scripts/verification/test_catalog_intent.py",
     "scripts/verification/test_catalog_json_schema.py",
     "scripts/verification/test_catalog_models.py",
@@ -60,6 +62,8 @@ REPORT_CONTRACT_PATHS = (
     "verification/schemas/catalog.schema.json",
     "verification/schemas/generated-test-catalog.schema.json",
     "verification/schemas/unmapped-test-debt-report.schema.json",
+    "verification/schemas/test-catalog-denominator.schema.json",
+    "verification/test-catalog-denominator.toml",
 )
 
 
@@ -119,19 +123,22 @@ class UnmappedTestDebtReport:
             f"Generated JSON SHA-256: `{json_digest}`",
             f"Input SHA-256: `{self.input_digest}`",
             "",
-            "`complete` means the source inventory and exact catalog subtraction succeeded.",
-            "It does not mean that every scanner fact has reviewed catalog intent.",
+            "`complete` means the source inventory, exact catalog subtraction, and",
+            "reviewed mapped/nonmapping denominator partition all succeeded.",
             "",
             "## Summary",
             "",
             f"- Scanner facts: {summary['scanner_facts']}",
             f"- Mapped scanner facts: {summary['mapped_scanner_facts']}",
             f"- Unmapped scanner facts: {summary['unmapped_scanner_facts']}",
+            f"- Reviewed nonmapping facts: {self.analysis['denominator_review']['summary']['reviewed_nonmapping_facts']}",
+            f"- Unreviewed scanner facts: {self.analysis['denominator_review']['summary']['unreviewed_facts']}",
+            f"- Denominator review SHA-256: `{self.analysis['denominator_review']['review_digest']}`",
             f"- Generated-test catalog rows: {summary['generated_test_catalog_rows']}",
             f"- Artifact catalog rows: {summary['artifact_catalog_rows']}",
             f"- Ignored unmapped facts: {summary['ignored_unmapped_scanner_facts']}",
             f"- Conditional unmapped facts: {summary['conditional_unmapped_scanner_facts']}",
-            "- Debt fails this report: no",
+            "- Unreviewed debt fails this report: yes",
             "",
             "| Source kind | Scanner facts | Mapped | Unmapped |",
             "| --- | ---: | ---: | ---: |",
@@ -169,6 +176,7 @@ def analyze_unmapped_test_debt(
     *,
     tests: Sequence[Mapping[str, Any]],
     facts: Sequence[InferredTestFact],
+    denominator_review: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Subtract exact reviewed generated-test discovery identities from scanner facts."""
 
@@ -249,14 +257,30 @@ def analyze_unmapped_test_debt(
             for source_kind in source_kinds
         ],
     }
+    denominator_summary = denominator_review.get("summary")
+    if not isinstance(denominator_summary, Mapping):
+        raise ValueError("catalog denominator review lacks summary")
+    for field, expected in (
+        ("scanner_facts", len(facts_by_id)),
+        ("catalog_mapped_facts", len(mapped_by_discovery_id)),
+        ("reviewed_nonmapping_facts", len(unmapped_rows)),
+        ("unreviewed_facts", 0),
+        ("exhaustive", True),
+    ):
+        if denominator_summary.get(field) != expected:
+            raise ValueError(
+                f"catalog denominator {field} does not match debt subtraction: "
+                f"expected {expected!r}"
+            )
     return {
         "scope": {
-            "classification_basis": "exact_generated_test_discovery_id_subtraction",
+            "classification_basis": "exact_catalog_subtraction_plus_reviewed_denominator",
             "artifact_rows_classify_facts": False,
-            "debt_is_report_failure": False,
+            "debt_is_report_failure": True,
             "inference_prohibited": list(INFERENCE_PROHIBITED),
         },
         "summary": summary,
+        "denominator_review": dict(denominator_review),
         "unmapped_tests": unmapped_rows,
         "limitations": list(LIMITATIONS),
     }

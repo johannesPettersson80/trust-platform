@@ -1076,7 +1076,19 @@ is the exact subtraction of current scanner facts by reviewed
 not classify scanner facts. Each debt row contains only inferred identity:
 discovery ID, source kind, path, name, and ignore state.
 
-All three Phase 2 reports are report-only. Debt returns success; corrupt
+`verification/test-catalog-denominator.toml` is the exhaustive reviewed plane
+over the same live scanner population. Every discovery ID must occur exactly
+once as either `catalog_mapped`, bound to the exact current catalog test ID, or
+`reviewed_nonmapping`, bound to a closed rationale. Ignored, fuzz, gate, and
+workflow facts must join their owning dedicated plane; all other nonmappings
+state only that no reviewed specification or invariant binding exists. The
+denominator cannot infer such a binding from source names or paths. Report v2
+retains all raw non-catalog identities while treating only an omitted fact as
+unresolved mapping debt; a complete report therefore requires zero unreviewed
+facts.
+
+All three Phase 2 reports are report-only. A complete, exhaustively reviewed
+denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
 noncanonical JSON, or Markdown that differs from the JSON-derived rendering
 fail. Source provenance binds report code and semantic inputs without binding

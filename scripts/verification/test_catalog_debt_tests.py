@@ -27,6 +27,7 @@ from scripts.verification.test_catalog_debt_validation import (
     validate_report_payload,
     validate_schema_contract,
 )
+from scripts.verification.test_catalog_denominator import analyze_test_catalog_denominator
 from scripts.verification.test_catalog_json_schema import validate_json_schema_instance
 from scripts.verification.test_catalog_scanner import scan_repository
 
@@ -52,7 +53,7 @@ class UnmappedTestDebtTests(unittest.TestCase):
             },
         ]
 
-        analysis = analyze_unmapped_test_debt(tests=tests, facts=[unmapped, mapped])
+        analysis = _analyze(tests=tests, facts=[unmapped, mapped])
 
         self.assertEqual(analysis["summary"]["scanner_facts"], 2)
         self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 1)
@@ -73,8 +74,8 @@ class UnmappedTestDebtTests(unittest.TestCase):
     def test_output_is_canonical_when_scanner_and_catalog_inputs_are_reordered(self) -> None:
         facts, tests = _fixture_inputs()
 
-        forward = analyze_unmapped_test_debt(tests=tests, facts=facts)
-        reverse = analyze_unmapped_test_debt(tests=list(reversed(tests)), facts=list(reversed(facts)))
+        forward = _analyze(tests=tests, facts=facts)
+        reverse = _analyze(tests=list(reversed(tests)), facts=list(reversed(facts)))
 
         self.assertEqual(forward, reverse)
         identities = [
@@ -93,7 +94,7 @@ class UnmappedTestDebtTests(unittest.TestCase):
         stale = copy.deepcopy(tests)
         stale[0]["discovery_id"] = "DISC_00000000000000000000"
         with self.assertRaisesRegex(ValueError, "absent from current scanner facts"):
-            analyze_unmapped_test_debt(tests=stale, facts=facts)
+            _analyze(tests=stale, facts=facts)
 
         duplicate_binding = copy.deepcopy(tests)
         duplicate_binding.append(
@@ -104,10 +105,10 @@ class UnmappedTestDebtTests(unittest.TestCase):
             }
         )
         with self.assertRaisesRegex(ValueError, "classified by both"):
-            analyze_unmapped_test_debt(tests=duplicate_binding, facts=facts)
+            _analyze(tests=duplicate_binding, facts=facts)
 
         with self.assertRaisesRegex(ValueError, "scanner duplicates discovery id"):
-            analyze_unmapped_test_debt(tests=tests, facts=[facts[0], facts[0]])
+            _analyze(tests=tests, facts=[facts[0], facts[0]])
 
     def test_debt_report_is_complete_and_lists_every_unmapped_identity(self) -> None:
         report = _fixture_report()
@@ -115,7 +116,8 @@ class UnmappedTestDebtTests(unittest.TestCase):
         markdown = report.to_markdown(json_digest=hashlib.sha256(rendered_json).hexdigest())
 
         self.assertEqual(report.to_dict()["report_status"], "complete")
-        self.assertFalse(report.to_dict()["scope"]["debt_is_report_failure"])
+        self.assertTrue(report.to_dict()["scope"]["debt_is_report_failure"])
+        self.assertEqual(report.to_dict()["denominator_review"]["summary"]["unreviewed_facts"], 0)
         for row in report.analysis["unmapped_tests"]:
             self.assertIn(row["discovery_id"], markdown)
             self.assertIn(row["path"], markdown)
@@ -197,7 +199,7 @@ class UnmappedTestDebtTests(unittest.TestCase):
             validate_json_schema_instance(payload, schema),
         )
 
-    def test_report_only_cli_returns_zero_when_debt_is_nonzero(self) -> None:
+    def test_report_only_cli_returns_zero_when_raw_nonmapping_is_fully_reviewed(self) -> None:
         report = _fixture_report()
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -276,10 +278,15 @@ class UnmappedTestDebtTests(unittest.TestCase):
         report = _fixture_report()
         json_bytes = report.to_json().encode()
         markdown = report.to_markdown(json_digest=hashlib.sha256(json_bytes).hexdigest())
-        tampered = markdown.replace("- Debt fails this report: no", "- Debt fails this report: yes")
+        tampered = markdown.replace(
+            "- Unreviewed debt fails this report: yes",
+            "- Unreviewed debt fails this report: no",
+        )
 
         failures = validate_markdown_binding(report.to_dict(), json_bytes, tampered)
-        self.assertTrue(any("Debt fails this report: no" in failure for failure in failures))
+        self.assertTrue(
+            any("Unreviewed debt fails this report: yes" in failure for failure in failures)
+        )
         self.assertIn(
             "unmapped-test debt Markdown does not exactly match JSON",
             failures,
@@ -289,15 +296,29 @@ class UnmappedTestDebtTests(unittest.TestCase):
         scan = scan_repository(ROOT, timestamp="2026-07-10T12:00:00Z")
         catalog = tomllib.loads((ROOT / "verification/test-catalog.toml").read_text())
 
-        analysis = analyze_unmapped_test_debt(
+        denominator = tomllib.loads(
+            (ROOT / "verification/test-catalog-denominator.toml").read_text()
+        )
+        from scripts.verification.metadata_validator.core import Validator
+
+        validator = Validator()
+        validator.load_records()
+        denominator_review = analyze_test_catalog_denominator(
             tests=catalog["tests"],
             facts=scan.inferred_facts,
+            reviews=denominator["reviews"],
+            ignored_tests=validator.ignored_tests,
+        )
+        analysis = analyze_unmapped_test_debt(
+            tests=catalog["tests"], facts=scan.inferred_facts,
+            denominator_review=denominator_review,
         )
 
         self.assertEqual(analysis["summary"]["scanner_facts"], 4023)
         self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 241)
         self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3782)
         self.assertEqual(len(analysis["unmapped_tests"]), 3782)
+        self.assertEqual(analysis["denominator_review"]["summary"]["unreviewed_facts"], 0)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
             3782,
@@ -340,7 +361,7 @@ def _fixture_inputs():
 
 def _fixture_report() -> UnmappedTestDebtReport:
     facts, tests = _fixture_inputs()
-    analysis = analyze_unmapped_test_debt(tests=tests, facts=facts)
+    analysis = _analyze(tests=tests, facts=facts)
     return UnmappedTestDebtReport(
         provenance=UnmappedDebtProvenance(
             command=(
@@ -362,6 +383,49 @@ def _fixture_report() -> UnmappedTestDebtReport:
         ),
         input_digest="sha256:" + "1" * 64,
         analysis=analysis,
+    )
+
+
+def _analyze(*, tests, facts):
+    mapped = {
+        record["discovery_id"]: record["id"]
+        for record in tests
+        if record.get("subject_kind") == "generated_test"
+    }
+    reviews = []
+    ignored_tests = []
+    for fact in facts:
+        common = {
+            "discovery_id": fact.stable_id,
+            "discovery_source_kind": fact.source_kind,
+            "path": fact.path,
+            "name": fact.name,
+            "ignore_state": fact.ignore_state,
+            "last_reviewed": "2026-07-18",
+        }
+        if fact.stable_id in mapped:
+            reviews.append(
+                {**common, "disposition": "catalog_mapped", "catalog_test_id": mapped[fact.stable_id]}
+            )
+        else:
+            reason = (
+                "ignored_test_registry_owned"
+                if fact.ignore_state != "not_ignored"
+                else "no_reviewed_spec_or_invariant_binding"
+            )
+            reviews.append({**common, "disposition": "reviewed_nonmapping", "reason_code": reason})
+            if fact.ignore_state != "not_ignored":
+                ignored_tests.append(
+                    {"discovery_id": fact.stable_id, "ignore_state": fact.ignore_state}
+                )
+    denominator = analyze_test_catalog_denominator(
+        tests=tests,
+        facts=facts,
+        reviews=sorted(reviews, key=lambda row: row["discovery_id"]),
+        ignored_tests=ignored_tests,
+    )
+    return analyze_unmapped_test_debt(
+        tests=tests, facts=facts, denominator_review=denominator
     )
 
 

@@ -1577,7 +1577,15 @@ same commit, with the closure evidence linked.
   nonmapping facts, exactly covering the 3,220-fact denominator.
   The governed seventeen-target fuzz campaign closed `VERIF-P9-005` on
   2026-07-18 with zero crash artifacts and a fail-closed crash-to-regression
-  registry; it does not close either remaining denominator.
+  registry. The final test-catalog denominator review on 2026-07-18 partitions
+  all 4,023 live scanner facts into 241 exact `generated_test` catalog mappings
+  and 3,782 exact reviewed-nonmapping dispositions, with zero overlap,
+  omission, stale identity, or unreviewed fact. The nonmapping population is
+  retained in the raw report and does not claim an invariant, specification,
+  oracle, expected result, or assertion adequacy. With the already-closed
+  ignored, conformance, fuzz, crash-handoff, and runtime-anomaly ledgers, this
+  leaves only clean-source report regeneration and durable closure evidence
+  before the compound row can close.
 - [ ] `VERIF-P16-007` Flip enforcement. Wire the verification suites into
   CI as required gates (report-only posture ends); a red verification
   suite must block merge. Then complete Phase 15 skill sync so the

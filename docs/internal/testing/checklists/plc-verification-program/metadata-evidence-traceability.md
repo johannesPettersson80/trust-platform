@@ -558,6 +558,15 @@ The audit executes no fault and creates no product test, fault interface,
 production hook, proof, invariant mapping, specification-gap closure, suite
 execution, or CI enforcement. `VERIF-P8-005` and `VERIF-P8-006` stay open.
 
+The full existing-test denominator uses the same identity-only discipline at a
+larger boundary. `verification/test-catalog-denominator.toml` covers every live
+scanner discovery ID, binds cataloged facts to their exact hand-owned test row,
+and records a closed reviewed-nonmapping rationale for every other fact. The
+unmapped-test report binds the denominator digest and independently recomputes
+the one-to-one join. Reviewed nonmapping is traceability evidence for the audit
+decision only; it is not forward traceability to a specification or invariant
+and cannot create proof, close a gap, or establish assertion strength.
+
 The program must generate both directions:
 
 Forward trace:

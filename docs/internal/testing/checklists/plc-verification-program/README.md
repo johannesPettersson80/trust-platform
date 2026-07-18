@@ -257,10 +257,15 @@ structural absence. A missing invariant/family slot has no implied state, and
 cataloged cases remain planning observations rather than proof. The malformed
 input report uses only reviewed `malformed_input_class_ids` from the
 bytecode/VM pilot taxonomy; it never infers a class from test text or location.
-The unmapped-test debt report emits every remaining scanner identity rather
-than only aggregate counts. All three artifacts bind clean source inputs,
+The unmapped-test debt report emits every non-catalog scanner identity rather
+than only aggregate counts. Its committed denominator ledger assigns every
+live scanner fact exactly one `catalog_mapped` or `reviewed_nonmapping`
+disposition. A reviewed nonmapping retires mapping debt without deleting the
+native test or inferring an invariant, specification, oracle, expected result,
+or adequacy claim. A missing, stale, duplicate, or rebound fact fails the live
+join. All three artifacts bind clean source inputs,
 reject symlinks and noncanonical/tampered output, and return success for honest
-debt without enabling CI enforcement.
+fully reviewed state without enabling CI enforcement.
 
 The P2-001 board surface is deliberately narrower than the whole workspace:
 Rust tests under `xtask/**` and fuzz targets in crate-local fuzz workspaces such

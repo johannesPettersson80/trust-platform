@@ -67,6 +67,12 @@ from ..runtime_anomaly_denominator import (
     load_runtime_anomaly_denominator_review,
     validate_runtime_anomaly_denominator_document,
 )
+from ..test_catalog_denominator import (
+    DENOMINATOR_PATH as TEST_CATALOG_DENOMINATOR_PATH,
+    DENOMINATOR_SCHEMA_PATH as TEST_CATALOG_DENOMINATOR_SCHEMA_PATH,
+    load_test_catalog_denominator,
+    validate_test_catalog_denominator_document,
+)
 from ..test_catalog_intent import validate_catalog_intent
 from .evidence_records import validate_evidence_records
 from .integrity import (
@@ -110,6 +116,7 @@ class Validator:
         self.seed_manifest: dict[str, Any] = {}
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
         self.runtime_anomaly_denominator: dict[str, Any] = {}
+        self.test_catalog_denominator: dict[str, Any] = {}
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
@@ -254,6 +261,10 @@ class Validator:
         except Exception as exc:
             self.fail(ROOT / RUNTIME_ANOMALY_DENOMINATOR_PATH, f"load failed: {exc}")
         try:
+            self.test_catalog_denominator = load_test_catalog_denominator(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, f"load failed: {exc}")
+        try:
             self.fuzz_program = load_fuzz_program(ROOT)
         except Exception as exc:
             self.fail(ROOT / FUZZ_PROGRAM_PATH, f"load failed: {exc}")
@@ -352,6 +363,17 @@ class Validator:
             ROOT, self.runtime_anomaly_denominator
         ):
             self.fail(ROOT / RUNTIME_ANOMALY_DENOMINATOR_PATH, failure)
+        try:
+            denominator_schema = json.loads(
+                (ROOT / TEST_CATALOG_DENOMINATOR_SCHEMA_PATH).read_text()
+            )
+        except Exception as exc:
+            self.fail(ROOT / TEST_CATALOG_DENOMINATOR_SCHEMA_PATH, f"load failed: {exc}")
+            denominator_schema = None
+        for failure in validate_test_catalog_denominator_document(
+            self.test_catalog_denominator, schema=denominator_schema
+        ):
+            self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, failure)
         for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_crash_registry(
@@ -887,6 +909,7 @@ class Validator:
             + (1 if self.matrix else 0)
             + (1 if self.runtime_anomaly_taxonomy else 0)
             + (1 if self.runtime_anomaly_denominator else 0)
+            + (1 if self.test_catalog_denominator else 0)
             + (1 if self.fuzz_program else 0)
             + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)
