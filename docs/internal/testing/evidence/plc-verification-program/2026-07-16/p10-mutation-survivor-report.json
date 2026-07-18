@@ -16,9 +16,9 @@
     "--markdown-out",
     "target/gate-artifacts/verification/mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-18T17:30:00+02:00"
+    "2026-07-18T19:20:00+02:00"
   ],
-  "commit": "7f8451df3c6b6ff39df0531c49d778f20ab8d8bb",
+  "commit": "f514021eef1395b1d6aed0f8a8f77eb67cd7b40a",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:9d849b95611606a9e247f2ec412d29f2ac620c4e2bba1a08ed18932a71193dc5",
+  "input_digest": "sha256:87c325c1f3e2d2cf72280e5e96503a2d8f6d1fde29994d153a554d8c48b32d03",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -2793,7 +2793,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-18T17:30:00+02:00",
+  "timestamp": "2026-07-18T19:20:00+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",

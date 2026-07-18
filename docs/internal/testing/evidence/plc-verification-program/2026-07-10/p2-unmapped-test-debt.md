@@ -1,11 +1,11 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v2`
-Source revision: `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`
-Generated: `2026-07-18T17:30:00+02:00`
+Source revision: `f514021eef1395b1d6aed0f8a8f77eb67cd7b40a`
+Generated: `2026-07-18T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `5aee8882e0f7aeef7b7692ca2a7594dba1a230c0d0d9e7873b2d9455edce84f0`
-Input SHA-256: `sha256:9da1516e25c9ac1ddce9f3403788600393cf71451a3b66c3d0a079267fd1582e`
+Generated JSON SHA-256: `8af1ef51756563649ca2e3cb95c4434d1d72cbfd09cf7feeb390cfcc8db5fb59`
+Input SHA-256: `sha256:9b0c7b6dd93e4a7197bb9100a8db7c53433d1f8e61c2b08c2ba8b9e4331dc2b2`
 
 `complete` means the source inventory, exact catalog subtraction, and
 reviewed mapped/nonmapping denominator partition all succeeded.

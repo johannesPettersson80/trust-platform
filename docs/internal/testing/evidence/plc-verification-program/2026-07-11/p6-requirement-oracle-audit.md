@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v1`
-Source revision: `7f8451df3c6b6ff39df0531c49d778f20ab8d8bb`
-Generated: `2026-07-18T17:30:00+02:00`
+Source revision: `f514021eef1395b1d6aed0f8a8f77eb67cd7b40a`
+Generated: `2026-07-18T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `e7f4fb7b24330e51a9d3b0819a60a3ce4bd18c3c2a53d28535892cc7bcd8ea20`
-Input SHA-256: `sha256:d7637b935d831c36fbc898f6962db4e57163b4282e7d13571bb5a635c87d419a`
+Generated JSON SHA-256: `8150532be1d1575486e23e3f028e27f1a5c497bd34991dea6f518fce5789c487`
+Input SHA-256: `sha256:9e8fba80ada404e565821e68a25923481c31b8d357e7b909aa42180ffcd94b14`
 
 This is a report-only requirement/oracle association audit. It creates no
 behavior proof, closes no specification gap, and enables no enforcement.
