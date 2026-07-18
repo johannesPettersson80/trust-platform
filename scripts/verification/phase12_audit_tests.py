@@ -13,6 +13,8 @@ from scripts.verification.phase12_audit import (
     build_payload,
     build_rows,
     build_summary,
+    canonical_json,
+    render_markdown,
 )
 from scripts.verification.phase12_audit_live import SCHEMA_PATH
 from scripts.verification.phase12_audit_validation import validate_payload, validate_schema
@@ -117,6 +119,14 @@ class Phase12AuditTests(unittest.TestCase):
 
         payload = self._expanded_payload()
         self.assertEqual(validate_json_schema_instance(payload, schema), [])
+
+    def test_markdown_is_stable_after_canonical_json_round_trip(self) -> None:
+        payload = self._expanded_payload()
+        round_tripped = json.loads(canonical_json(payload))
+        self.assertEqual(
+            render_markdown(payload, json_digest="a" * 64),
+            render_markdown(round_tripped, json_digest="a" * 64),
+        )
 
     def _expanded_payload(self) -> dict:
         payload = copy.deepcopy(self.payload)
