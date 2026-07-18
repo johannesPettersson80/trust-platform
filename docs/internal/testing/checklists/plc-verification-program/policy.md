@@ -461,10 +461,22 @@ Preferred organization:
 
 Phase 5 suite records bind direct entrypoints to the reviewed gate inventory.
 `includes` and `excludes` do not imply command inheritance, transitive success,
-or evidence reuse until `VERIF-P14-000B` defines composition semantics. A
+or evidence reuse. `verification/governance.toml` defines `includes` as ordered
+display dependencies and `excludes` as reviewed constraint labels; command,
+execution, and proof inheritance are all false. A
 conditional suite tier is reported to the planner but is never promoted into a
 direct required suite without the condition being established by the owning
 workflow or review.
+
+The same governance record owns 30-day grace periods for unknown ignored tests,
+missing oracles, and undispositioned public claims; safety-relevant mutation
+survivors have a before-merge milestone and no elapsed grace. Active metadata
+is stale after 90 days without review. Monthly ignored-test, release-time
+hardware/security, and quarterly mutation/fuzz reviews are enforced by the
+changed-file governance check. Product changes update an invariant and catalog
+mapping in the same diff; public-claim changes update a spec source and
+invariant. Evidence and invariant retirement is append-only through
+`verification/retirements.toml`.
 
 ## Test Adequacy Metrics
 

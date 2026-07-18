@@ -239,8 +239,8 @@ is closed rather than inferred from this procedure.
   both schemas.
 - `verification/ignored-tests.toml` is the hand-reviewed classification plane.
   Run `scripts/check_ignored_test_staleness.py` for the exhaustive one-to-one
-  live join. Unknown classifications are reported with exit zero until
-  `VERIF-P14-000` defines a grace rule; malformed, duplicate, missing, stale,
+  live join. Unknown classifications are report-only for 30 days from their
+  last review, then fail the enforcing governance check; malformed, duplicate, missing, stale,
   escaping, or class-incomplete records fail immediately. The primary metadata
   validator checks the static schema and class obligations but does not perform
   the source scan. These Phase 3 commands are not wired into CI enforcement.
@@ -421,7 +421,16 @@ is closed rather than inferred from this procedure.
   durable evidence.
   Phase 11 remains bound to the existing device-in-loop workflow, script, Rust
   harness, and JSON artifact contract. Suite `includes`/`excludes` are
-  identifiers only until `VERIF-P14-000B` defines composition semantics.
+  ordered display dependencies and reviewed constraint labels only. They never
+  inherit commands, execution, success, or proof.
+
+`verification/governance.toml` is the closed Phase 14 maintenance contract. It
+defines owner aliases and allowed owners per area, 90-day metadata staleness,
+named grace periods, suite-composition semantics, area coverage templates,
+same-diff product/public-claim metadata requirements, review cadences, and the
+append-only retirement policy. The enforcing changed-file gate runs
+`python3 -m scripts.verification.governance`; `verification/retirements.toml`
+keeps obsolete evidence and invariant tombstones rather than deleting history.
 
 Committed report source revisions need not equal the current repository HEAD
 when their at-rest validators prove that the complete bound input closure is

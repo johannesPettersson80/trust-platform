@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Callable
 
@@ -106,6 +107,15 @@ def build_report(
         *(f"--changed-file={path}" for path in normalized),
     ]
     commands.append(runner(readiness_command))
+    governance_command = [
+        "python3",
+        "-m",
+        "scripts.verification.governance",
+        "--today",
+        date.today().isoformat(),
+        *(f"--changed-file={path}" for path in normalized),
+    ]
+    commands.append(runner(governance_command))
     planner_exit_code: int | None = None
     planner_json: dict[str, object] | None = None
     if run_planner and normalized:
@@ -166,6 +176,8 @@ def command_name(command: list[str]) -> str:
         return "verification_metadata_gate"
     if command[:3] == ["python3", "-m", "scripts.verification.phase16_readiness"]:
         return "phase16_readiness"
+    if command[:3] == ["python3", "-m", "scripts.verification.governance"]:
+        return "verification_governance"
     if len(command) >= 2 and command[1] == "scripts/plan_tests.py":
         return "plan_tests"
     return Path(command[0]).name if command else "unknown"

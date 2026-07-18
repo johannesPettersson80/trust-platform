@@ -36,7 +36,7 @@ from .phase13_release import (
     REPORT_SCHEMA_PATH,
     validate_manifest,
 )
-from .report_input_contract import validate_bound_input_paths
+from .report_input_contract import validate_bound_input_paths, validator_code_input_paths
 from .test_catalog_common import input_digest
 from .test_catalog_json_schema import validate_json_schema_instance
 
@@ -242,7 +242,7 @@ def build_live_phase13_state(
         )
     )
 
-    input_paths = tuple(sorted(STATIC_INPUTS))
+    input_paths = tuple(sorted(STATIC_INPUTS | validator_code_input_paths(root)))
     path_failures = validate_bound_input_paths(root, input_paths)
     if path_failures:
         raise ValueError("; ".join(path_failures))

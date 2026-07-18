@@ -12,7 +12,7 @@ from typing import Any
 
 from .metadata_validator.core import Validator
 from .phase12_audit import build_rows
-from .report_input_contract import validate_bound_input_paths
+from .report_input_contract import validate_bound_input_paths, validator_code_input_paths
 from .test_catalog_common import input_digest
 
 
@@ -127,7 +127,7 @@ def validate_source_revision(
 
 
 def _input_paths(root: Path, validator: Validator) -> tuple[str, ...]:
-    paths = set(STATIC_INPUTS)
+    paths = set(STATIC_INPUTS) | validator_code_input_paths(root)
     paths.update(
         path.relative_to(root).as_posix()
         for path in (root / "docs/public").rglob("*.md")

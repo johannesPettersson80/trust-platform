@@ -148,6 +148,7 @@ path = "crates/trust-runtime/tests/known.rs"
             CommandResult("verification_focused_tests", ["focused"], 1, "tests failed", ""),
             CommandResult("verification_metadata_gate", ["gate"], 1, "metadata failed", ""),
             CommandResult("phase16_readiness", ["readiness"], 1, "product change blocked", ""),
+            CommandResult("verification_governance", ["governance"], 1, "governance failed", ""),
             CommandResult("plan_tests", ["plan"], 3, '{"verdict":"spec_gap"}\n', ""),
         ]
 
@@ -179,6 +180,7 @@ path = "crates/trust-runtime/tests/known.rs"
             CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
             CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
             CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult("verification_governance", ["governance"], 0, "ok", ""),
             CommandResult("plan_tests", ["plan"], 2, '{"verdict":"missing_tests"}\n', ""),
         ]
 
@@ -207,6 +209,7 @@ path = "crates/trust-runtime/tests/known.rs"
             CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
             CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
             CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult("verification_governance", ["governance"], 0, "ok", ""),
             CommandResult(
                 "plan_tests",
                 ["plan"],
@@ -283,7 +286,7 @@ path = "crates/trust-runtime/tests/known.rs"
                 run_planner=False,
             )
 
-        self.assertEqual(len(report.commands), 3)
+        self.assertEqual(len(report.commands), 4)
         self.assertEqual(
             commands[2],
             [
@@ -292,6 +295,11 @@ path = "crates/trust-runtime/tests/known.rs"
                 "scripts.verification.phase16_readiness",
                 "--changed-file=crates/trust-runtime/src/stdlib/timers.rs",
             ],
+        )
+        self.assertEqual(commands[3][:3], ["python3", "-m", "scripts.verification.governance"])
+        self.assertIn(
+            "--changed-file=crates/trust-runtime/src/stdlib/timers.rs",
+            commands[3],
         )
         self.assertEqual(report_exit_code(report, strict=False), 0)
 
@@ -344,6 +352,7 @@ def _report_with_planner(payload: dict[str, object], *, planner_exit: int):
             CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
             CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
             CommandResult("phase16_readiness", ["readiness"], 0, "ok", ""),
+            CommandResult("verification_governance", ["governance"], 0, "ok", ""),
             CommandResult("plan_tests", ["plan"], planner_exit, json.dumps(payload), ""),
         ],
         planner_exit_code=planner_exit,

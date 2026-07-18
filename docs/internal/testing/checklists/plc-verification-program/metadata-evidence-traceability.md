@@ -481,8 +481,9 @@ blocker, even when the invariant also lists an active candidate source. Public
 claims may create obligations or context but can never be counted as oracles.
 
 The report lists missing-oracle invariants in the four risk classes named by
-`VERIF-P6-007`, but does not fail on them. That enforcement row remains blocked
-until `VERIF-P14-000` defines its grace rule. The report scope is committed
+`VERIF-P6-007`. `verification/governance.toml` now defines a 30-day grace rule;
+the governance check fails an overdue live record rather than changing the
+historical report payload. The report scope is committed
 verification metadata, not the separate mechanical source/public-prose audit.
 That audit now supplies the tracked document and rendered-prose denominator and
 records the non-oracle external IEC locator without binding ignored local

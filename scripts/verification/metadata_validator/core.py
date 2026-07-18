@@ -40,6 +40,13 @@ from ..gate_inventory import (
     load_gate_inventory,
     validate_gate_inventory,
 )
+from ..governance import (
+    GOVERNANCE_PATH,
+    RETIREMENTS_PATH,
+    load_governance,
+    load_retirements,
+    validate_governance_document,
+)
 from ..fuzz_program_contract import (
     FUZZ_PROGRAM_PATH,
     load_fuzz_program,
@@ -140,6 +147,8 @@ class Validator:
         self.public_workflow_inventory: dict[str, Any] = {}
         self.ui_acceptance: dict[str, Any] = {}
         self.release_evidence_manifest: dict[str, Any] = {}
+        self.governance: dict[str, Any] = {}
+        self.retirements: dict[str, Any] = {}
 
     def fail(self, path: Path, message: str) -> None:
         self.failures.append(Failure(path.relative_to(ROOT), message))
@@ -306,6 +315,14 @@ class Validator:
         self.release_evidence_manifest = self.load_toml(
             ROOT / RELEASE_EVIDENCE_MANIFEST_PATH
         )
+        try:
+            self.governance = load_governance(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / GOVERNANCE_PATH, f"load failed: {exc}")
+        try:
+            self.retirements = load_retirements(ROOT)
+        except Exception as exc:
+            self.fail(ROOT / RETIREMENTS_PATH, f"load failed: {exc}")
         self.load_optional_wrapped_records(VERIFICATION / "test-catalog.toml", "tests", self.tests, "test")
         self.load_optional_wrapped_records(
             VERIFICATION / "ignored-tests.toml",
@@ -459,6 +476,15 @@ class Validator:
                 self.release_evidence_manifest, release_manifest_schema
             ):
                 self.fail(ROOT / RELEASE_EVIDENCE_MANIFEST_PATH, failure)
+        for failure in validate_governance_document(
+            self.governance,
+            invariants=self.invariants,
+            suites=self.suites,
+            matrix=self.matrix,
+            retirements=self.retirements,
+            evidence=self.evidence,
+        ):
+            self.fail(ROOT / GOVERNANCE_PATH, failure)
         for failure in validate_spec_gap_closure(
             root=ROOT,
             spec_gaps=self.spec_gaps,
@@ -991,6 +1017,8 @@ class Validator:
             + (1 if self.public_workflow_inventory else 0)
             + (1 if self.ui_acceptance else 0)
             + (1 if self.release_evidence_manifest else 0)
+            + (1 if self.governance else 0)
+            + (1 if self.retirements.get("retirements") else 0)
             + seed_count
         )
         print(f"verification metadata validated: {total} records")

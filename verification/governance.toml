@@ -1,0 +1,193 @@
+schema_version = 1
+id = "VERIFICATION_GOVERNANCE_001"
+owner = "verification"
+status = "mapped"
+last_reviewed = "2026-07-19"
+coverage_dimensions = [
+  "happy_path", "boundary_low", "boundary_high", "below_min", "above_max",
+  "wrong_type_or_shape", "missing_required", "extra_or_unknown",
+  "duplicate_or_collision", "ordering_or_lifecycle", "encoding_or_unicode",
+  "resource_limit", "auth_or_permission", "persistence_or_recovery",
+  "concurrency_or_cancellation", "time_or_clock_fault",
+  "hardware_or_network_fault", "supply_chain_or_artifact_fault",
+  "platform_or_filesystem_variation",
+]
+
+[staleness]
+maximum_active_age_days = 90
+date_field = "last_reviewed"
+future_dates_forbidden = true
+
+[suite_composition]
+includes_semantics = "ordered_display_dependency_only"
+excludes_semantics = "reviewed_constraint_labels_only"
+command_inheritance = false
+execution_inheritance = false
+proof_inheritance = false
+allowed_excludes = [
+  "hardware_lab", "hardware_lab_unless_configured", "long_soak",
+  "milestone_enforcement", "network_timing", "skip_capable_default_as_proof",
+  "visual_capture",
+]
+
+[change_policy]
+product_change_requires = ["invariant_update", "catalog_update"]
+public_claim_change_requires = ["spec_source_update", "invariant_update"]
+public_claim_paths = ["README.md", "docs/public/**"]
+safety_risks = ["safety_critical", "silent_corruption", "wrong_result", "false_status"]
+
+[archive_policy]
+registry_path = "verification/retirements.toml"
+delete_evidence_records = false
+delete_invariant_records = false
+retirement_requires = ["owner", "rationale", "replacement", "retired_at", "evidence_refs"]
+
+[[grace_periods]]
+id = "ignored_unknown"
+trigger = "ignored test classified unknown"
+duration_days = 30
+milestone = ""
+
+[[grace_periods]]
+id = "missing_oracle"
+trigger = "registered invariant lacks eligible oracle"
+duration_days = 30
+milestone = ""
+
+[[grace_periods]]
+id = "public_claim_disposition"
+trigger = "public claim lacks proof, gap, or reviewed nonclaim disposition"
+duration_days = 30
+milestone = ""
+
+[[grace_periods]]
+id = "mutation_survivor"
+trigger = "safety-relevant mutant survives"
+duration_days = 0
+milestone = "before_merge"
+
+[[owner_aliases]]
+alias = "runtime"
+canonical = "trust-runtime"
+[[owner_aliases]]
+alias = "runtime-core"
+canonical = "trust-runtime-core"
+[[owner_aliases]]
+alias = "syntax"
+canonical = "trust-syntax"
+[[owner_aliases]]
+alias = "hir"
+canonical = "trust-hir"
+[[owner_aliases]]
+alias = "ide"
+canonical = "trust-ide"
+[[owner_aliases]]
+alias = "lsp"
+canonical = "trust-lsp"
+[[owner_aliases]]
+alias = "debug"
+canonical = "trust-debug"
+[[owner_aliases]]
+alias = "devtools"
+canonical = "trust-dev"
+[[owner_aliases]]
+alias = "plcopen"
+canonical = "trust-plcopen"
+[[owner_aliases]]
+alias = "vscode"
+canonical = "editors-vscode"
+
+[[area_owner_rules]]
+area = "compiler_iec"
+owners = ["language", "trust-hir", "trust-syntax"]
+[[area_owner_rules]]
+area = "bytecode_vm"
+owners = ["trust-runtime", "trust-runtime-core"]
+[[area_owner_rules]]
+area = "runtime_safety"
+owners = ["trust-runtime"]
+[[area_owner_rules]]
+area = "protocols"
+owners = ["trust-runtime"]
+[[area_owner_rules]]
+area = "control_security"
+owners = ["trust-debug", "trust-runtime"]
+[[area_owner_rules]]
+area = "editor_safety"
+owners = ["trust-debug", "trust-ide", "trust-lsp"]
+[[area_owner_rules]]
+area = "plcopen_devtools"
+owners = ["trust-dev", "trust-plcopen"]
+[[area_owner_rules]]
+area = "hmi_ui"
+owners = ["trust-runtime"]
+[[area_owner_rules]]
+area = "release"
+owners = ["docs", "release"]
+[[area_owner_rules]]
+area = "supply_chain_platform"
+owners = ["editors-vscode", "release"]
+[[area_owner_rules]]
+area = "verification"
+owners = ["verification"]
+
+[[coverage_templates]]
+area = "compiler_iec"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "bytecode_vm"
+required_dimensions = ["happy_path", "boundary_low", "boundary_high", "below_min", "above_max", "wrong_type_or_shape", "missing_required", "extra_or_unknown", "encoding_or_unicode", "resource_limit"]
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "runtime_safety"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "protocols"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "control_security"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "editor_safety"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "plcopen_devtools"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "hmi_ui"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "release"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "supply_chain_platform"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+[[coverage_templates]]
+area = "verification"
+required_dimensions = []
+non_universal_disposition = "per_invariant_required"
+
+[[review_cadences]]
+id = "ignored_test_audit"
+interval_days = 31
+milestone = ""
+last_completed = "2026-07-18"
+[[review_cadences]]
+id = "hardware_security_release_audit"
+interval_days = 0
+milestone = "each_release"
+last_completed = "2026-07-18"
+[[review_cadences]]
+id = "mutation_fuzz_review"
+interval_days = 92
+milestone = ""
+last_completed = "2026-07-18"
