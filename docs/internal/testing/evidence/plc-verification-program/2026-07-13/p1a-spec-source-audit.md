@@ -1,11 +1,11 @@
 # Specification Source and Public Prose Audit
 
 Generator: `spec-source-audit v1`
-Source revision: `c529a4060e951856048a3ec6ed056e0c4b070e2f`
-Generated: `2026-07-18T01:56:32+02:00`
+Source revision: `5395f5d969d7f5828dc2e7e3701f6d7bc7f69a56`
+Generated: `2026-07-18T09:53:26+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `b9a65e48bda0cc182daa86061186f45fb4e1d1b66e6c7e00854bdf62996e2314`
-Input SHA-256: `sha256:9a47b55622ca9a5263a1e0b10b3009dc5b7734ec2d6a25dc859452a9a1da2f80`
+Generated JSON SHA-256: `287e66ba51a655d18daf2a8758f7bd69ee7584acda74c0d2a9535b630fab6cf0`
+Input SHA-256: `sha256:20ec2cd7746b6bcfdc946abf1fef84f2fd3d10189c58dbbb2b31d9f0ebc1762b`
 
 This report is the mechanical denominator for tracked specification documents,
 required-topic metadata, and public rendered prose. Unreviewed prose stays visible
@@ -252,12 +252,12 @@ as debt and creates no semantic claim or proof mapping.
 | `SPEC_DOC_F13DC4D1070FECCFE0D7A7A8` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/broad-remote-gate-producer.md` | `f694baba80757a824b711e9da617b1229e58f852743171de9bd445c6feb449cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_2036F079B0576D255E5EDEA0` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/execution-slice-001.md` | `2234a6bd362dd6ee3f97042aa333f5d610998958fe91e20f585e633faea994cb` | none | `unreviewed_candidate` |
 | `SPEC_DOC_9C926023A12DA35C31614C0A` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/fable-review-brief.md` | `d3d94c4f96c494fa890a0589b79d751f93fa9136afa3f14a5108a3b3a319a529` | none | `unreviewed_candidate` |
-| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `3c74ee9ca08ad4d252aab847d3427b1e0180540b4f4497a28c376b0fa234ae1e` | none | `unreviewed_candidate` |
-| `SPEC_DOC_A9D23F28FE4A07B226088C21` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md` | `cc91d99128372aa51f0b745c438930e3d6a910bc7ae57d82f9ecb0a019d7abb1` | none | `unreviewed_candidate` |
-| `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `7902e404d373aeb410ed4acca1ef428d0a2a32a103867047e5ec449a2e1c946d` | none | `unreviewed_candidate` |
+| `SPEC_DOC_D8C332A0C034D51034D39B6D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/implementation-board.md` | `ba14bb9a024b2a0ea1f3d25dfee23ad41947998d5c594586d43fae7f6a05cd47` | none | `unreviewed_candidate` |
+| `SPEC_DOC_A9D23F28FE4A07B226088C21` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md` | `f02f0561fcd4d05d805671ed4bbef1acebdcbf7fdf53bdcef3ad8959b95bbad8` | none | `unreviewed_candidate` |
+| `SPEC_DOC_1F76EB22F5A58612D93A01D2` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/metadata-model.md` | `e610175fcd456065d898bfd6782f99d3b8c43823f5a4dcc5f76acafba3101c7d` | none | `unreviewed_candidate` |
 | `SPEC_DOC_44B898C7A9661FD96FE44644` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/policy.md` | `e19cfb0e29c4cc7e829f8783cbbc68fc576d1cea175ea191afac5ba45d6a5628` | none | `unreviewed_candidate` |
 | `SPEC_DOC_8E65FCD0A9BB4F5968452A0E` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/spec-matrix-model.md` | `f595f7af086db9719478facdc77ffdb4b931c4ad2a066838a47c2d3b978791f5` | none | `unreviewed_candidate` |
-| `SPEC_DOC_781C2017B61B7F04FC492C86` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md` | `b0d35be651f54afa50f41fe8d8c270c071b1de7e11a1e8b8204bb9eb7c59b7bd` | none | `unreviewed_candidate` |
+| `SPEC_DOC_781C2017B61B7F04FC492C86` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md` | `c65bf78708b30a997c95b22f7adef8d3c596a637f56921de40c30211ecd71dc2` | none | `unreviewed_candidate` |
 | `SPEC_DOC_7A36D1065559F077813BF59B` | `markdown` | `true` | none | `docs/internal/testing/checklists/plc-verification-program/verification-areas.md` | `bdcd80e8c1b0a9ce3e02d84cddd0aa3ee314f2af91a794822c4381e1e0b370e1` | none | `unreviewed_candidate` |
 | `SPEC_DOC_525BE54BF430160491A5BE27` | `markdown` | `true` | none | `docs/internal/testing/checklists/plcopen-motion-library-implementation-checklist.md` | `35a0c8753d68ec60ccb03e2f31c210683238a145e6654aae1469baa36eeff8c6` | none | `unreviewed_candidate` |
 | `SPEC_DOC_A40A78C4FE58EF31A52F320D` | `markdown` | `true` | none | `docs/internal/testing/checklists/plcopen-motion-vm-register-ir-hotpath-checklist.md` | `1bdcdad9e57ca11ac9a50cd0630fa6d787662b615aba4456be191fe2b62ca2e2` | none | `unreviewed_candidate` |

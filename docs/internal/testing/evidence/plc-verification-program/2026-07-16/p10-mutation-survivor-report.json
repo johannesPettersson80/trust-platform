@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-18T01:56:32+02:00"
+    "2026-07-18T09:53:26+02:00"
   ],
-  "commit": "c529a4060e951856048a3ec6ed056e0c4b070e2f",
+  "commit": "5395f5d969d7f5828dc2e7e3701f6d7bc7f69a56",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:49fc4ffa19ad8f12c2a90b14a475930362cc18ec9202c1ffa39720432b622e09",
+  "input_digest": "sha256:a0a3d71f0697d587b4b49bc1b21fe39b9db309917265158e053cc34971fc0c89",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1929,6 +1929,8 @@
     "scripts/verification/runtime_anomaly_cli.py",
     "scripts/verification/runtime_anomaly_contract.py",
     "scripts/verification/runtime_anomaly_contract_tests.py",
+    "scripts/verification/runtime_anomaly_denominator.py",
+    "scripts/verification/runtime_anomaly_denominator_tests.py",
     "scripts/verification/runtime_anomaly_live.py",
     "scripts/verification/runtime_anomaly_mapping.py",
     "scripts/verification/runtime_anomaly_mapping_tests.py",
@@ -2789,7 +2791,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-18T01:56:32+02:00",
+  "timestamp": "2026-07-18T09:53:26+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",
