@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from scripts.verification.hardware_lab import REPORT_SCHEMA_PATH
-from scripts.verification.hardware_lab_validation import validate_files
+from verification.hardware_lab import REPORT_SCHEMA_PATH
+from verification.hardware_lab_validation import validate_files
 
 
 def main() -> int:

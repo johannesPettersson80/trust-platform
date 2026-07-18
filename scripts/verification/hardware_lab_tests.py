@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -136,6 +137,17 @@ class HardwareLabContractTests(unittest.TestCase):
         payload["output_paths"]["json"] = "../outside.json"
         failures = validate_payload(payload)
         self.assertTrue(any("output paths" in item for item in failures), failures)
+
+    def test_root_clis_load_when_invoked_directly(self) -> None:
+        for relative in ("scripts/report_hardware_lab.py", "scripts/validate_hardware_lab_report.py"):
+            result = subprocess.run(
+                ["python3", relative, "--help"],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
 
 
 if __name__ == "__main__":
