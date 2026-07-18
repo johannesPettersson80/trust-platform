@@ -1,11 +1,11 @@
 # Phase 7 Conformance Program Alignment
 
 Generator: `conformance-alignment-audit v1`
-Source revision: `af4cb3cd7130aac9ba9ee7ee146fd162996f99d5`
-Generated: `2026-07-17T23:15:00+02:00`
+Source revision: `c529a4060e951856048a3ec6ed056e0c4b070e2f`
+Generated: `2026-07-18T01:56:32+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `5127a14e5f28e52f318e672c28b528b6dba86f2620bfa983388ef807f7990a2d`
-Input SHA-256: `sha256:f2f6999e882eaed073a2333facb1f04169f6219b16c2a1a18f9689c28e5b9537`
+Generated JSON SHA-256: `74f2d16af9b9b5f99bd70a49d60c49b044714d1ade998d974c9b8290b7eaf6e1`
+Input SHA-256: `sha256:6d5a7a07d1d25633609db8d30139c097bf4ba96c53e87b2197621367ff86dfeb`
 
 This is a report-only audit of committed conformance manifests, expected
 artifacts, explicit catalog links, publication posture, and the scripted
@@ -24,7 +24,7 @@ comms-determinism case. It executes no conformance case and creates no proof.
 - Orphan expected artifacts: 0
 - Explicitly linked cases: 21
 - Unlinked cases: 0
-- Coverage gaps: 10
+- Coverage gaps: 0
 
 ## Categories
 
@@ -49,44 +49,34 @@ comms-determinism case. It executes no conformance case and creates no proof.
 
 ## Cases
 
-| Case | Profile | Category | Kind | Program | Expected | Catalog test | Invariants |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `cfm_arithmetic_conversion_compare_001` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_conversion_compare_001/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_conversion_compare_001.json` | `TEST_CONFORMANCE_ARITHMETIC_CONVERSION_COMPARE_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_arithmetic_overflow_error_002` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_overflow_error_002/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_overflow_error_002.json` | `TEST_CONFORMANCE_ARITHMETIC_OVERFLOW_002` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_arrays_matrix_update_001` | `v2` | `arrays` | `runtime` | `conformance/cases/arrays/cfm_arrays_matrix_update_001/program.st` | `conformance/expected/arrays/cfm_arrays_matrix_update_001.json` | `TEST_CONFORMANCE_ARRAY_MATRIX_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_comms_determinism_connector_projection_001` | `v2` | `comms_determinism` | `connector_status_trace` | `none` | `conformance/expected/comms_determinism/cfm_comms_determinism_connector_projection_001.json` | `TEST_CONFORMANCE_COMMS_PROJECTION_001` | `PROTO_STATUS_TRUTH_001` |
-| `cfm_edges_r_f_trig_sequence_001` | `v1` | `edges` | `runtime` | `conformance/cases/edges/cfm_edges_r_f_trig_sequence_001/program.st` | `conformance/expected/edges/cfm_edges_r_f_trig_sequence_001.json` | `TEST_CONFORMANCE_EDGE_SEQUENCE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
-| `cfm_enums_variant_assignment_001` | `v2` | `enums` | `runtime` | `conformance/cases/enums/cfm_enums_variant_assignment_001/program.st` | `conformance/expected/enums/cfm_enums_variant_assignment_001.json` | `TEST_CONFORMANCE_ENUM_ASSIGNMENT_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_init_reset_retain_warm_cold_002` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_retain_warm_cold_002/program.st` | `conformance/expected/init_reset/cfm_init_reset_retain_warm_cold_002.json` | `TEST_CONFORMANCE_RETAIN_RESTART_002` | `RT_SAFE_RESTART_001` |
-| `cfm_init_reset_var_initialization_001` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_var_initialization_001/program.st` | `conformance/expected/init_reset/cfm_init_reset_var_initialization_001.json` | `TEST_CONFORMANCE_INITIALIZATION_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_memory_map_var_config_sync_001` | `v1` | `memory_map` | `runtime` | `conformance/cases/memory_map/cfm_memory_map_var_config_sync_001/program.st` | `conformance/expected/memory_map/cfm_memory_map_var_config_sync_001.json` | `TEST_CONFORMANCE_MEMORY_MAP_SYNC_001` | `RT_SAFE_IO_001` |
-| `cfm_memory_map_wildcard_unresolved_002` | `v1` | `memory_map` | `compile_error` | `conformance/cases/memory_map/cfm_memory_map_wildcard_unresolved_002/program.st` | `conformance/expected/memory_map/cfm_memory_map_wildcard_unresolved_002.json` | `TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002` | `RT_SAFE_IO_001` |
-| `cfm_nested_values_matrix_struct_001` | `v2` | `nested_values` | `runtime` | `conformance/cases/nested_values/cfm_nested_values_matrix_struct_001/program.st` | `conformance/expected/nested_values/cfm_nested_values_matrix_struct_001.json` | `TEST_CONFORMANCE_NESTED_VALUES_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_oop_dispatch_interface_super_001` | `v2` | `oop_dispatch` | `runtime` | `conformance/cases/oop_dispatch/cfm_oop_dispatch_interface_super_001/program.st` | `conformance/expected/oop_dispatch/cfm_oop_dispatch_interface_super_001.json` | `TEST_CONFORMANCE_OOP_DISPATCH_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_references_ref_to_deref_write_001` | `v2` | `references` | `runtime` | `conformance/cases/references/cfm_references_ref_to_deref_write_001/program.st` | `conformance/expected/references/cfm_references_ref_to_deref_write_001.json` | `TEST_CONFORMANCE_REFERENCE_WRITE_001` | `VM_SEAM_REF_001` |
-| `cfm_retain_matrix_restart_aliases_001` | `v2` | `retain_matrix` | `runtime` | `conformance/cases/retain_matrix/cfm_retain_matrix_restart_aliases_001/program.st` | `conformance/expected/retain_matrix/cfm_retain_matrix_restart_aliases_001.json` | `TEST_CONFORMANCE_RETAIN_MATRIX_001` | `RT_SAFE_RESTART_001` |
-| `cfm_scan_cycle_ordering_visibility_001` | `v1` | `scan_cycle` | `runtime` | `conformance/cases/scan_cycle/cfm_scan_cycle_ordering_visibility_001/program.st` | `conformance/expected/scan_cycle/cfm_scan_cycle_ordering_visibility_001.json` | `TEST_CONFORMANCE_SCAN_CYCLE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
-| `cfm_scheduler_task_interval_001` | `v2` | `scheduler` | `runtime` | `conformance/cases/scheduler/cfm_scheduler_task_interval_001/program.st` | `conformance/expected/scheduler/cfm_scheduler_task_interval_001.json` | `TEST_CONFORMANCE_SCHEDULER_INTERVAL_001` | `VM_SEAM_DETERMINISM_LIMITS_001` |
-| `cfm_strings_slice_concat_001` | `v2` | `strings` | `runtime` | `conformance/cases/strings/cfm_strings_slice_concat_001/program.st` | `conformance/expected/strings/cfm_strings_slice_concat_001.json` | `TEST_CONFORMANCE_STRING_SLICE_001` | `IEC_STRING_001` |
-| `cfm_structs_initializer_field_update_001` | `v2` | `structs` | `runtime` | `conformance/cases/structs/cfm_structs_initializer_field_update_001/program.st` | `conformance/expected/structs/cfm_structs_initializer_field_update_001.json` | `TEST_CONFORMANCE_STRUCT_UPDATE_001` | `VM_SEAM_DECLARED_TYPE_001` |
-| `cfm_timers_tof_sequence_002` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tof_sequence_002/program.st` | `conformance/expected/timers/cfm_timers_tof_sequence_002.json` | `TEST_CONFORMANCE_TIMER_TOF_002` | `IEC_TIMER_001` |
-| `cfm_timers_ton_sequence_001` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_ton_sequence_001/program.st` | `conformance/expected/timers/cfm_timers_ton_sequence_001.json` | `TEST_CONFORMANCE_TIMER_TON_001` | `IEC_TIMER_001` |
-| `cfm_timers_tp_sequence_003` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tp_sequence_003/program.st` | `conformance/expected/timers/cfm_timers_tp_sequence_003.json` | `TEST_CONFORMANCE_TIMER_TP_003` | `IEC_TIMER_001` |
+| Case | Profile | Category | Kind | Program | Expected | Catalog test | Invariants | Oracle |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `cfm_arithmetic_conversion_compare_001` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_conversion_compare_001/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_conversion_compare_001.json` | `TEST_CONFORMANCE_ARITHMETIC_CONVERSION_COMPARE_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization` |
+| `cfm_arithmetic_overflow_error_002` | `v1` | `arithmetic` | `runtime` | `conformance/cases/arithmetic/cfm_arithmetic_overflow_error_002/program.st` | `conformance/expected/arithmetic/cfm_arithmetic_overflow_error_002.json` | `TEST_CONFORMANCE_ARITHMETIC_OVERFLOW_002` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#real-binary-arithmetic-overflow` |
+| `cfm_arrays_matrix_update_001` | `v2` | `arrays` | `runtime` | `conformance/cases/arrays/cfm_arrays_matrix_update_001/program.st` | `conformance/expected/arrays/cfm_arrays_matrix_update_001.json` | `TEST_CONFORMANCE_ARRAY_MATRIX_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#compound-type-values` |
+| `cfm_comms_determinism_connector_projection_001` | `v2` | `comms_determinism` | `connector_status_trace` | `none` | `conformance/expected/comms_determinism/cfm_comms_determinism_connector_projection_001.json` | `TEST_CONFORMANCE_COMMS_PROJECTION_001` | `PROTO_STATUS_TRUTH_001` | `SPEC_CONNECTOR_STATUS_001#projection-rules` |
+| `cfm_edges_r_f_trig_sequence_001` | `v1` | `edges` | `runtime` | `conformance/cases/edges/cfm_edges_r_f_trig_sequence_001/program.st` | `conformance/expected/edges/cfm_edges_r_f_trig_sequence_001.json` | `TEST_CONFORMANCE_EDGE_SEQUENCE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` | `SPEC_VM_VALUE_SEMANTICS_001#standard-function-block-execution` |
+| `cfm_enums_variant_assignment_001` | `v2` | `enums` | `runtime` | `conformance/cases/enums/cfm_enums_variant_assignment_001/program.st` | `conformance/expected/enums/cfm_enums_variant_assignment_001.json` | `TEST_CONFORMANCE_ENUM_ASSIGNMENT_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#compound-type-values` |
+| `cfm_init_reset_retain_warm_cold_002` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_retain_warm_cold_002/program.st` | `conformance/expected/init_reset/cfm_init_reset_retain_warm_cold_002.json` | `TEST_CONFORMANCE_RETAIN_RESTART_002` | `RT_SAFE_RESTART_001` | `SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656` |
+| `cfm_init_reset_var_initialization_001` | `v1` | `init_reset` | `runtime` | `conformance/cases/init_reset/cfm_init_reset_var_initialization_001/program.st` | `conformance/expected/init_reset/cfm_init_reset_var_initialization_001.json` | `TEST_CONFORMANCE_INITIALIZATION_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#default-values` |
+| `cfm_memory_map_var_config_sync_001` | `v1` | `memory_map` | `runtime` | `conformance/cases/memory_map/cfm_memory_map_var_config_sync_001/program.st` | `conformance/expected/memory_map/cfm_memory_map_var_config_sync_001.json` | `TEST_CONFORMANCE_MEMORY_MAP_SYNC_001` | `RT_SAFE_IO_001` | `SPEC_RUNTIME_ENGINE_001#io-drivers` |
+| `cfm_memory_map_wildcard_unresolved_002` | `v1` | `memory_map` | `compile_error` | `conformance/cases/memory_map/cfm_memory_map_wildcard_unresolved_002/program.st` | `conformance/expected/memory_map/cfm_memory_map_wildcard_unresolved_002.json` | `TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002` | `RT_SAFE_IO_001` | `SPEC_RUNTIME_ENGINE_001#io-drivers` |
+| `cfm_nested_values_matrix_struct_001` | `v2` | `nested_values` | `runtime` | `conformance/cases/nested_values/cfm_nested_values_matrix_struct_001/program.st` | `conformance/expected/nested_values/cfm_nested_values_matrix_struct_001.json` | `TEST_CONFORMANCE_NESTED_VALUES_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#compound-type-values` |
+| `cfm_oop_dispatch_interface_super_001` | `v2` | `oop_dispatch` | `runtime` | `conformance/cases/oop_dispatch/cfm_oop_dispatch_interface_super_001/program.st` | `conformance/expected/oop_dispatch/cfm_oop_dispatch_interface_super_001.json` | `TEST_CONFORMANCE_OOP_DISPATCH_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#pou-execution` |
+| `cfm_references_ref_to_deref_write_001` | `v2` | `references` | `runtime` | `conformance/cases/references/cfm_references_ref_to_deref_write_001/program.st` | `conformance/expected/references/cfm_references_ref_to_deref_write_001.json` | `TEST_CONFORMANCE_REFERENCE_WRITE_001` | `VM_SEAM_REF_001` | `SPEC_VM_VALUE_SEMANTICS_001#reference-lifetime-and-dereference` |
+| `cfm_retain_matrix_restart_aliases_001` | `v2` | `retain_matrix` | `runtime` | `conformance/cases/retain_matrix/cfm_retain_matrix_restart_aliases_001/program.st` | `conformance/expected/retain_matrix/cfm_retain_matrix_restart_aliases_001.json` | `TEST_CONFORMANCE_RETAIN_MATRIX_001` | `RT_SAFE_RESTART_001` | `SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656` |
+| `cfm_scan_cycle_ordering_visibility_001` | `v1` | `scan_cycle` | `runtime` | `conformance/cases/scan_cycle/cfm_scan_cycle_ordering_visibility_001/program.st` | `conformance/expected/scan_cycle/cfm_scan_cycle_ordering_visibility_001.json` | `TEST_CONFORMANCE_SCAN_CYCLE_001` | `VM_SEAM_DETERMINISM_LIMITS_001` | `SPEC_VM_VALUE_SEMANTICS_001#cycle-execution` |
+| `cfm_scheduler_task_interval_001` | `v2` | `scheduler` | `runtime` | `conformance/cases/scheduler/cfm_scheduler_task_interval_001/program.st` | `conformance/expected/scheduler/cfm_scheduler_task_interval_001.json` | `TEST_CONFORMANCE_SCHEDULER_INTERVAL_001` | `VM_SEAM_DETERMINISM_LIMITS_001` | `SPEC_VM_VALUE_SEMANTICS_001#task-scheduling-periodic--event` |
+| `cfm_strings_slice_concat_001` | `v2` | `strings` | `runtime` | `conformance/cases/strings/cfm_strings_slice_concat_001/program.st` | `conformance/expected/strings/cfm_strings_slice_concat_001.json` | `TEST_CONFORMANCE_STRING_SLICE_001` | `IEC_STRING_001` | `SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds` |
+| `cfm_structs_initializer_field_update_001` | `v2` | `structs` | `runtime` | `conformance/cases/structs/cfm_structs_initializer_field_update_001/program.st` | `conformance/expected/structs/cfm_structs_initializer_field_update_001.json` | `TEST_CONFORMANCE_STRUCT_UPDATE_001` | `VM_SEAM_DECLARED_TYPE_001` | `SPEC_VM_VALUE_SEMANTICS_001#compound-type-values` |
+| `cfm_timers_tof_sequence_002` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tof_sequence_002/program.st` | `conformance/expected/timers/cfm_timers_tof_sequence_002.json` | `TEST_CONFORMANCE_TIMER_TOF_002` | `IEC_TIMER_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine` |
+| `cfm_timers_ton_sequence_001` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_ton_sequence_001/program.st` | `conformance/expected/timers/cfm_timers_ton_sequence_001.json` | `TEST_CONFORMANCE_TIMER_TON_001` | `IEC_TIMER_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer` |
+| `cfm_timers_tp_sequence_003` | `v1` | `timers` | `runtime` | `conformance/cases/timers/cfm_timers_tp_sequence_003/program.st` | `conformance/expected/timers/cfm_timers_tp_sequence_003.json` | `TEST_CONFORMANCE_TIMER_TP_003` | `IEC_TIMER_001` | `SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer` |
 
 ## Coverage Gaps
 
 | Category | Case present | Expected artifact | Invariant mapping | Semantic oracle | Status |
 | --- | --- | --- | --- | --- | --- |
-| `strings` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `arrays` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `structs` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `enums` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `nested_values` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `oop_dispatch` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `references` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `retain_matrix` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `scheduler` | `true` | `true` | `linked` | `not_assessed` | `open` |
-| `comms_determinism` | `true` | `true` | `linked` | `not_assessed` | `open` |
 
 ## Comms
 
@@ -134,7 +124,7 @@ comms-determinism case. It executes no conformance case and creates no proof.
 
 - `report_creates_proof`: `false`
 - `report_closes_spec_gaps`: `false`
-- `semantic_oracles_assessed`: `false`
+- `semantic_oracles_assessed`: `true`
 - `live_network_or_hardware_used`: `false`
 - `p7_002_invariant_mapping_remains_open`: `false`
 - `generated_reports_remain_ci_artifacts`: `true`
@@ -146,7 +136,7 @@ comms-determinism case. It executes no conformance case and creates no proof.
 
 - Catalog associations come only from an exact discovery_id join; names, paths, and prose do not create mappings.
 - All current conformance cases have explicit catalog discovery-id associations; those associations are not passing proof.
-- Coverage-gap rows retain semantic-oracle debt after explicit invariant mapping; they do not assess or invent semantic oracles.
+- Semantic-oracle assessment uses only explicit catalog oracle_ref and expected_result fields backed by active oracle-eligible sources; names, paths, expected artifacts, and prose do not create an oracle.
 - The comms-determinism audit checks the committed scripted in-process case shape; it performs no live socket or hardware execution.
 - The public conformance page and registered contract source are bound as publication context, not as behavior proof or external conformance certification.
 - Generated conformance results remain CI artifacts; tracked expected artifacts are inputs, not proof that a case passed in this audit.

@@ -16,9 +16,9 @@
     "--markdown-out",
     "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md",
     "--timestamp",
-    "2026-07-17T23:15:00+02:00"
+    "2026-07-18T01:56:32+02:00"
   ],
-  "commit": "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5",
+  "commit": "c529a4060e951856048a3ec6ed056e0c4b070e2f",
   "coverage": {
     "branch_percent": null,
     "line_percent": null,
@@ -27,7 +27,7 @@
   },
   "generator": "mutation-program-audit",
   "generator_version": 1,
-  "input_digest": "sha256:e60b973267a5f369bb0740e60704f42d31d017761ce17972bbf7d442e1672615",
+  "input_digest": "sha256:49fc4ffa19ad8f12c2a90b14a475930362cc18ec9202c1ffa39720432b622e09",
   "input_paths": [
     ".cargo/config.toml",
     ".github/workflows/ci.yml",
@@ -1796,6 +1796,7 @@
     "scripts/verification/conformance_alignment_report.py",
     "scripts/verification/conformance_alignment_report_tests.py",
     "scripts/verification/conformance_alignment_validation.py",
+    "scripts/verification/conformance_semantic_oracles.py",
     "scripts/verification/coverage_matrix_gap_cli.py",
     "scripts/verification/coverage_matrix_gap_contract.py",
     "scripts/verification/coverage_matrix_gap_tests.py",
@@ -1807,7 +1808,12 @@
     "scripts/verification/focused_mutation_runner_tests.py",
     "scripts/verification/focused_test_suite.py",
     "scripts/verification/focused_test_suite_tests.py",
+    "scripts/verification/fuzz_campaign_cli.py",
+    "scripts/verification/fuzz_campaign_contract.py",
+    "scripts/verification/fuzz_campaign_tests.py",
+    "scripts/verification/fuzz_crash_regressions.py",
     "scripts/verification/fuzz_program_analysis.py",
+    "scripts/verification/fuzz_program_campaign_binding.py",
     "scripts/verification/fuzz_program_cli.py",
     "scripts/verification/fuzz_program_contract.py",
     "scripts/verification/fuzz_program_contract_tests.py",
@@ -2783,7 +2789,7 @@
     "unviable": 0
   },
   "survivors": [],
-  "timestamp": "2026-07-17T23:15:00+02:00",
+  "timestamp": "2026-07-18T01:56:32+02:00",
   "tool": {
     "name": "cargo-mutants",
     "selection_mode": "single_file_list_and_bound_source_execution_artifacts",

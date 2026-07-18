@@ -1,11 +1,11 @@
 # Phase 9 Fuzz Program Audit
 
 Generator: `fuzz-program-audit v1`
-Source revision: `af4cb3cd7130aac9ba9ee7ee146fd162996f99d5`
-Generated: `2026-07-17T23:15:00+02:00`
+Source revision: `c529a4060e951856048a3ec6ed056e0c4b070e2f`
+Generated: `2026-07-18T01:56:32+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `fd49daa9c6eaf99ed43b7ef0c59bc019e7704b8dcc224188d623a385e5e0b8e5`
-Input SHA-256: `sha256:ea09e56596c1f8b0f3185a8b578d4349c67f476a0343fda052d04d0b55e76600`
+Generated JSON SHA-256: `866cc31dc0c55891adabc144055bd6c568f0e1a9ebcacd816f0be08831655d85`
+Input SHA-256: `sha256:27fbd3efb541d328e3d65c54a9c233da0018611e6c0c38dcc33ebbee31e72833`
 
 This is a report-only inventory of existing fuzz targets, deterministic
 fuzz-like smokes, required surfaces, execution profiles, and target gaps.
@@ -83,7 +83,7 @@ It runs no campaign and creates no proof or invariant coverage.
 - Working corpus storage: `machine_local_ignored`
 - Raw crash storage: `machine_local_ignored`
 - Corpus contents assessed: `false`
-- Crash-to-regression enforcement: `not_enforced`
+- Crash-to-regression enforcement: `enforced`
 
 ## Boundaries
 
@@ -91,10 +91,10 @@ It runs no campaign and creates no proof or invariant coverage.
 - `report_creates_invariant_coverage`: `false`
 - `report_closes_spec_gaps`: `false`
 - `semantic_oracles_assessed`: `false`
-- `fuzz_campaign_executed`: `false`
+- `fuzz_campaign_executed`: `true`
 - `corpus_contents_assessed`: `false`
 - `crash_freedom_claimed`: `false`
-- `p9_005_crash_regression_row_remains_open`: `true`
+- `p9_005_crash_regression_row_remains_open`: `false`
 - `phase2_scanner_scope_changed`: `false`
 - `runtime_or_product_behavior_changed`: `false`
 - `ci_enforcement_changed`: `false`
@@ -107,8 +107,8 @@ It runs no campaign and creates no proof or invariant coverage.
 - Direct and partial surface associations are reviewed planning metadata. They are not invariant coverage, an assessed oracle, or passing proof.
 - A smoke_only surface has deterministic generated breadth but still appears as a gap because it has no cargo-fuzz target.
 - Working corpus and raw crash contents are ignored machine-local or transient CI state and are deliberately not read, counted, digested, or treated as durable evidence.
-- The inventory records existing and planned execution paths but executes no fuzz campaign and changes no suite or CI wiring.
+- The inventory is bound to one complete bounded campaign and changes no suite or CI wiring; the campaign result is not proof of universal crash freedom.
 - Every bounded Rust smoke is live-joined as not_ignored; ignored or conditional facts cannot retain a runnable tier claim.
 - The Rust candidate census is lexical and does not prove ordinary cfg evaluation or parent-module reachability; wired means a reviewed required command path, not observed test execution.
-- VERIF-P9-005 remains open because no exhaustive machine registry joins every minimized crash to a committed deterministic regression.
+- VERIF-P9-005 closes only because the digest-bound campaign and committed registry exhaustively join every observed artifact to a mapped deterministic regression.
 - The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation.

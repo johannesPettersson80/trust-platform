@@ -771,8 +771,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
-command = "python3 scripts/report_test_class_completeness.py --json-out target/gate-artifacts/verification/test-class-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_test_class_completeness.py --json-out target/gate-artifacts/verification/test-class-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_test_class_completeness_report.py --json target/gate-artifacts/verification/test-class-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-test-class-completeness.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -781,7 +781,7 @@ generated_report_version = "test-class-completeness-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -822,8 +822,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
-command = "python3 scripts/report_coverage_matrix_gaps.py --json-out target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_coverage_matrix_gaps.py --json-out target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_coverage_matrix_gap_report.py --json target/gate-artifacts/verification/coverage-matrix-gaps.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-coverage-matrix-gaps.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -832,7 +832,7 @@ generated_report_version = "coverage-matrix-gap-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -843,8 +843,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
-command = "python3 scripts/report_malformed_input_coverage.py --json-out target/gate-artifacts/verification/malformed-input-coverage.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_malformed_input_coverage.py --json-out target/gate-artifacts/verification/malformed-input-coverage.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_malformed_input_coverage_report.py --json target/gate-artifacts/verification/malformed-input-coverage.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-malformed-input-coverage.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -853,7 +853,7 @@ generated_report_version = "malformed-input-coverage-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -864,8 +864,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
-command = "python3 scripts/report_unmapped_test_debt.py --json-out target/gate-artifacts/verification/unmapped-test-debt.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_unmapped_test_debt.py --json-out target/gate-artifacts/verification/unmapped-test-debt.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_unmapped_test_debt_report.py --json target/gate-artifacts/verification/unmapped-test-debt.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2-unmapped-test-debt.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -874,7 +874,7 @@ generated_report_version = "unmapped-test-debt-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -885,8 +885,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
-command = "python3 scripts/report_test_refactor_assessment.py --json-out target/gate-artifacts/verification/test-refactor-assessment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_test_refactor_assessment.py --json-out target/gate-artifacts/verification/test-refactor-assessment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_test_refactor_assessment_report.py --json target/gate-artifacts/verification/test-refactor-assessment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p2a-test-refactor-assessment.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -895,7 +895,7 @@ generated_report_version = "test-refactor-assessment-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -990,8 +990,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md"
-command = "python3 scripts/report_ignored_test_inventory.py --json-out target/gate-artifacts/verification/ignored-test-inventory.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md --timestamp 2026-07-17T20:50:00+02:00 && python3 scripts/validate_ignored_test_inventory_report.py --json target/gate-artifacts/verification/ignored-test-inventory.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md"
-commit = "0916ffe590363739dfe4e2488fb990cc231b3a7c"
+command = "python3 scripts/report_ignored_test_inventory.py --json-out target/gate-artifacts/verification/ignored-test-inventory.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_ignored_test_inventory_report.py --json target/gate-artifacts/verification/ignored-test-inventory.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p3-ignored-test-inventory.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -1000,7 +1000,7 @@ generated_report_version = "ignored-test-inventory-report-v1"
 proof_kind = "none"
 linked_invariants = []
 linked_tests = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1054,8 +1054,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
-command = "python3 scripts/report_phase5_suite_audit.py --json-out target/gate-artifacts/verification/phase5-suite-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md --timestamp 2026-07-17T20:50:00+02:00 && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
-commit = "0916ffe590363739dfe4e2488fb990cc231b3a7c"
+command = "python3 scripts/report_phase5_suite_audit.py --json-out target/gate-artifacts/verification/phase5-suite-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_phase5_suite_audit_report.py --json target/gate-artifacts/verification/phase5-suite-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p5-suite-gate-routing-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -1065,7 +1065,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1076,8 +1076,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md"
-command = "python3 scripts/report_invariant_seed_audit.py --json-out target/gate-artifacts/verification/invariant-seed-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_invariant_seed_audit_report.py --json target/gate-artifacts/verification/invariant-seed-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_invariant_seed_audit.py --json-out target/gate-artifacts/verification/invariant-seed-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_invariant_seed_audit_report.py --json target/gate-artifacts/verification/invariant-seed-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4-invariant-seed-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -1087,7 +1087,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1098,8 +1098,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
-command = "python3 scripts/report_spec_completeness.py --json-out target/gate-artifacts/verification/spec-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_spec_completeness.py --json-out target/gate-artifacts/verification/spec-completeness.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_spec_completeness_report.py --json target/gate-artifacts/verification/spec-completeness.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-10/p4a-specification-completeness.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-10"
 suite_id = "supporting_local"
@@ -1109,7 +1109,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1164,8 +1164,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md"
-command = "python3 scripts/report_requirement_oracle_audit.py --json-out target/gate-artifacts/verification/requirement-oracle-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_requirement_oracle_audit_report.py --json target/gate-artifacts/verification/requirement-oracle-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_requirement_oracle_audit.py --json-out target/gate-artifacts/verification/requirement-oracle-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_requirement_oracle_audit_report.py --json target/gate-artifacts/verification/requirement-oracle-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-11"
 suite_id = "supporting_local"
@@ -1175,7 +1175,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1252,8 +1252,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md"
-command = "python3 scripts/report_conformance_alignment.py --json-out target/gate-artifacts/verification/conformance-alignment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_conformance_alignment_report.py --json target/gate-artifacts/verification/conformance-alignment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_conformance_alignment.py --json-out target/gate-artifacts/verification/conformance-alignment.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_conformance_alignment_report.py --json target/gate-artifacts/verification/conformance-alignment.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p7-conformance-alignment.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-11"
 suite_id = "supporting_local"
@@ -1263,7 +1263,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1296,8 +1296,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md"
-command = "python3 scripts/report_runtime_anomaly_audit.py --json-out target/gate-artifacts/verification/runtime-anomaly-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_runtime_anomaly_audit_report.py --json target/gate-artifacts/verification/runtime-anomaly-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_runtime_anomaly_audit.py --json-out target/gate-artifacts/verification/runtime-anomaly-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_runtime_anomaly_audit_report.py --json target/gate-artifacts/verification/runtime-anomaly-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-11"
 suite_id = "supporting_local"
@@ -1307,7 +1307,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1340,8 +1340,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md"
-command = "python3 scripts/report_fuzz_program_audit.py --json-out target/gate-artifacts/verification/fuzz-program-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_fuzz_program_audit_report.py --json target/gate-artifacts/verification/fuzz-program-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_fuzz_program_audit.py --json-out target/gate-artifacts/verification/fuzz-program-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_fuzz_program_audit_report.py --json target/gate-artifacts/verification/fuzz-program-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-11/p9-fuzz-program-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-11"
 suite_id = "supporting_local"
@@ -1351,7 +1351,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1384,8 +1384,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md"
-command = "python3 scripts/report_mutation_program.py --json-out docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_mutation_program.py --json-out docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_mutation_program_report.py --json docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-mutation-survivor-report.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-16"
 suite_id = "supporting_local"
@@ -1395,7 +1395,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -1705,8 +1705,8 @@ owner = "verification"
 status = "mapped"
 kind = "committed_file"
 path = "docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md"
-command = "python3 scripts/report_spec_source_audit.py --json-out target/gate-artifacts/verification/spec-source-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md --timestamp 2026-07-17T23:15:00+02:00 && python3 scripts/validate_spec_source_audit_report.py --json target/gate-artifacts/verification/spec-source-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md"
-commit = "af4cb3cd7130aac9ba9ee7ee146fd162996f99d5"
+command = "python3 scripts/report_spec_source_audit.py --json-out target/gate-artifacts/verification/spec-source-audit.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md --timestamp 2026-07-18T01:56:32+02:00 && python3 scripts/validate_spec_source_audit_report.py --json target/gate-artifacts/verification/spec-source-audit.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-13/p1a-spec-source-audit.md"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
 platform = "trust-builder-linux-x86_64"
 date = "2026-07-13"
 suite_id = "supporting_local"
@@ -1716,7 +1716,7 @@ proof_kind = "none"
 linked_invariants = []
 linked_tests = []
 linked_spec_gaps = []
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-18"
 
 [[evidence]]
 schema_version = 1
@@ -7484,4 +7484,26 @@ proof_kind = "none"
 linked_invariants = ["RELEASE_SOURCE_BUILD_OPENOT_001"]
 linked_tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
 linked_spec_gaps = ["SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-18"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P16_EXECUTABLE_CLOSURE_REPORT_REBIND_20260718"
+title = "Phase 16 executable-closure report rebind"
+area = "verification"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-18/p16-executable-closure-report-rebind.md"
+command = "python3 scripts/validate_verification_metadata.py && scripts/verification_metadata_gate.sh && git diff --check"
+commit = "c529a4060e951856048a3ec6ed056e0c4b070e2f"
+platform = "trust-builder-linux-x86_64; local-linux-aarch64-raspberrypi"
+date = "2026-07-18"
+suite_id = "supporting_local"
+producer = "codex executable-closure report rebind"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = []
 last_reviewed = "2026-07-18"
