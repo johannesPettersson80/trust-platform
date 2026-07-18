@@ -3,11 +3,11 @@ id = "RT_SAFE_NAN_001"
 title = "Non-finite ingress cannot silently become unsafe REAL state"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "gap_open"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-18"
 claim = "Typed external floating-point boundaries and explicit internal REAL/LREAL conversions reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
-proof_level = "S0"
+proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
 tests = [
@@ -21,9 +21,11 @@ evidence_refs = [
   "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714",
   "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
   "EVID_RUNTIME_INTERNAL_NONFINITE_CONVERSION_GAP_CLOSEOUT_20260718",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_LOCK_BASELINE_REVIEW18_FINAL",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_LOCK_COMPARE_REVIEW18_FINAL",
 ]
 spec_gap_refs = []
-missing = ["boundary_value_matrix_depth", "current_contract_proof_refresh", "broad_remote_gate"]
+missing = ["boundary_value_matrix_depth", "broad_remote_gate"]
 
 [spec]
 status = "specified"
