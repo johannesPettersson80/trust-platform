@@ -10,6 +10,8 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- verification: case-table hashing now canonicalizes Windows CRLF checkout
+  line endings, keeping committed case-file digests stable across runners.
 - ci/trust-runtime: the live Modbus+MQTT composition test now retries the
   transient MQTT snapshot-startup race on non-Linux runners instead of treating
   the expected freshness delay as a product failure.

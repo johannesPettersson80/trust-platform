@@ -4,6 +4,7 @@
 //! `verification/cases/**` files, records what a harness observed for each
 //! case, and writes a machine-readable artifact for later `prove.py` checks.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fs;
@@ -238,8 +239,27 @@ pub fn case_file_digest(path: impl AsRef<Path>) -> Result<String, CaseRunError> 
 }
 
 fn digest_bytes(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
+    let digest = Sha256::digest(canonical_case_file_bytes(bytes));
     format!("sha256:{digest:x}")
+}
+
+fn canonical_case_file_bytes(bytes: &[u8]) -> Cow<'_, [u8]> {
+    if !bytes.windows(2).any(|pair| pair == b"\r\n") {
+        return Cow::Borrowed(bytes);
+    }
+
+    let mut canonical = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes.get(index..index + 2) == Some(b"\r\n") {
+            canonical.push(b'\n');
+            index += 2;
+        } else {
+            canonical.push(bytes[index]);
+            index += 1;
+        }
+    }
+    Cow::Owned(canonical)
 }
 
 fn run_one_case<P, E, F>(
@@ -491,6 +511,33 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 "#,
         )
         .unwrap();
+
+        let windows_case_file = dir.join("digest-windows.toml");
+        let lf_contents = fs::read(&case_file).unwrap();
+        let crlf_contents = String::from_utf8(lf_contents.clone())
+            .unwrap()
+            .replace('\n', "\r\n");
+        fs::write(&windows_case_file, crlf_contents).unwrap();
+        let canonical_digest = crate::case_file_digest(&case_file).unwrap();
+        assert_eq!(
+            canonical_digest,
+            crate::case_file_digest(&windows_case_file).unwrap(),
+            "case-file digests must be stable across Git checkout line endings"
+        );
+
+        let mut windows_probe = Probe::default();
+        let windows_config =
+            RunConfig::new("TEST_DIGEST_WINDOWS", &windows_case_file, canonical_digest)
+                .with_artifact_dir(dir.join("windows-artifacts"));
+        let windows_artifact = run_case_file(
+            &windows_config,
+            &mut windows_probe,
+            |_, _| -> Result<_, String> {
+                panic!("the fixture contains only a blocked case");
+            },
+        )
+        .unwrap();
+        assert_eq!(windows_artifact.cases[0].result, CaseResult::Blocked);
 
         let mut probe = Probe::default();
         let config = RunConfig::new("TEST_DIGEST", &case_file, "sha256:not-the-file")
