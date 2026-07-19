@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_RT_SAFE_IO_001"
+title = "Scan-bounded worker I/O fault scenarios"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_IO_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:7ae0f23657970bb91439a89672f4497164b18f6e0714e6d1709bf7e5024b8730"
+source_digest = "sha256:33199953ae615167367858dffc6a13f9be3d9cc643fc3f194f5f1884fe5558a0"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "RT_SAFE_IO_001_DELAYED_MODBUS_READ"
+family = "hardware_or_network_fault"
+input = { scenario = "DELAYED_MODBUS_READ" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { bound_ms = 150, delay_ms = 120, operation = "read_inputs" }, expected = { within_bound = true }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers" },
+]
+
+[[case]]
+id = "RT_SAFE_IO_001_DELAYED_MODBUS_WRITE"
+family = "hardware_or_network_fault"
+input = { scenario = "DELAYED_MODBUS_WRITE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { bound_ms = 150, delay_ms = 120, operation = "write_outputs" }, expected = { within_bound = true }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers" },
+]

@@ -311,7 +311,8 @@ path = "vendor"
         partial_result_params: Default::default(),
         identifier: None,
     };
-    let workspace_diag_result = workspace_diagnostic(&state, workspace_diag_params);
+    let workspace_diag_result =
+        workspace_diagnostic(&state, workspace_diag_params).expect("workspace diagnostics");
 
     let diagnostic_items = match &diagnostic_result {
         tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(

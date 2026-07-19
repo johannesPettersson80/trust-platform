@@ -19,6 +19,24 @@ pub(in crate::runtime::vm::register_ir) fn verify_register_program(
     }
 
     for block in &program.blocks {
+        if block.instructions.len() != block.instruction_costs.len() {
+            return Err(invalid_bytecode(
+                "register-ir instruction-cost table length mismatch",
+            ));
+        }
+        let charged = block
+            .instruction_costs
+            .iter()
+            .try_fold(0usize, |total, cost| {
+                total
+                    .checked_add(*cost)
+                    .ok_or_else(|| invalid_bytecode("register-ir instruction-cost table overflow"))
+            })?;
+        if charged != block.bytecode_instruction_count {
+            return Err(invalid_bytecode(
+                "register-ir original instruction count mismatch",
+            ));
+        }
         let mut defined = (0..block.entry_stack_depth)
             .map(RegisterId)
             .collect::<BTreeSet<_>>();

@@ -1,0 +1,47 @@
+schema_version = 1
+id = "CASES_RT_SAFE_PANIC_001"
+title = "Runtime panic containment state-machine cases"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_SAFE_PANIC_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:47a163e104d95823344b36c915677a4532cce06b06e210ee2bf7fa164d9ef9c3"
+source_digest = "sha256:7db7911c67b41cbd4617d9eddc347b70ddb5c835df35e7f4e0427a576e16995f"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "RT_SAFE_PANIC_001_INPUT_DRIVER_VISIBLE"
+family = "concurrency_or_cancellation"
+input = { scenario = "INPUT_DRIVER_PANIC" }
+expect = { outcome = "fault_visible", oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "input_driver_panic" }, expected = { state = "faulted", resource_panic = true, join_ok = true }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling" },
+]
+
+[[case]]
+id = "RT_SAFE_PANIC_001_SAFE_OUTPUT"
+family = "ordering_or_lifecycle"
+input = { scenario = "PANIC_SAFE_OUTPUT" }
+expect = { outcome = "fault_visible", oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "stable_error", status = "fault_visible" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "panic_safe_output" }, expected = { state = "faulted", resource_panic = true, safe_output = false }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling" },
+]
+
+[[case]]
+id = "RT_SAFE_PANIC_001_OUTER_THREAD_VISIBLE"
+family = "concurrency_or_cancellation"
+input = { scenario = "OUTER_RESOURCE_THREAD_PANIC" }
+expect = { outcome = "fault_visible", oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "outer_resource_thread_panic" }, expected = { state = "faulted", resource_panic = true, join_ok = true }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling" },
+]
+
+[[case]]
+id = "RT_SAFE_PANIC_001_RESTART_POLICY_DOES_NOT_RETRY"
+family = "persistence_or_recovery"
+input = { scenario = "PANIC_WITH_RESTART_POLICY" }
+expect = { outcome = "fault_visible", oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" } }
+trace = [
+  { sequence = 0, stimulus = { scenario = "panic_with_restart_policy" }, expected = { state = "faulted", resource_panic = true, join_ok = true }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling" },
+]

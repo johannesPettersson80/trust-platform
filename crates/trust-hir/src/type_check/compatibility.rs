@@ -1,6 +1,6 @@
 use super::*;
 use crate::semantic::SemanticOutcome;
-use crate::types::ArrayDimensionExt;
+use crate::types::{is_accuracy_preserving_implicit_conversion, ArrayDimensionExt};
 
 impl<'a> TypeChecker<'a> {
     pub(super) fn resolve_alias_type(&self, type_id: TypeId) -> TypeId {
@@ -173,20 +173,8 @@ impl<'a> TypeChecker<'a> {
                 self.is_interface_assignable(target_id, source_id)
             }
 
-            // Numeric widening (safe conversions)
-            (Type::Int, Type::SInt) => true,
-            (Type::DInt, Type::SInt | Type::Int) => true,
-            (Type::LInt, Type::SInt | Type::Int | Type::DInt) => true,
-            (Type::UInt, Type::USInt) => true,
-            (Type::UDInt, Type::USInt | Type::UInt) => true,
-            (Type::ULInt, Type::USInt | Type::UInt | Type::UDInt) => true,
-            (Type::Real, Type::SInt | Type::Int | Type::DInt) => true,
-            (Type::LReal, Type::SInt | Type::Int | Type::DInt | Type::LInt | Type::Real) => true,
-
-            // Bit string widening
-            (Type::Word, Type::Byte) => true,
-            (Type::DWord, Type::Byte | Type::Word) => true,
-            (Type::LWord, Type::Byte | Type::Word | Type::DWord) => true,
+            // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.
+            (target, source) if is_accuracy_preserving_implicit_conversion(target, source) => true,
 
             // String types are compatible regardless of declared length.
             (Type::String { .. }, Type::String { .. }) => true,

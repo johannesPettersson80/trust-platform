@@ -14,9 +14,9 @@ the public docs.
 - Native desktop VS Code: use the existing Wayland/X11 scripts only when the
   capture genuinely depends on native desktop debugger chrome or OS dialogs.
 
-The code-server lane currently captures command-palette proof. The first
-runtime-panel capture remains checked in as a skipped test until that path is
-stable under code-server's chat-focused shell.
+The code-server lane captures command-palette proof for the current public
+`truST` commands. Runtime lifecycle, Live Values, and test execution remain on
+their dedicated product surfaces rather than leaking into the palette.
 
 ## Current entry points
 

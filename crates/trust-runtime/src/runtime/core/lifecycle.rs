@@ -40,6 +40,8 @@ impl Runtime {
             openot_telemetry: OpenOtTelemetrySubsystem::default(),
             execution_deadline: None,
             output_commit_deadline: None,
+            execution_deadline_pause_baseline: std::time::Duration::ZERO,
+            output_commit_deadline_pause_baseline: std::time::Duration::ZERO,
             vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState::default(),
             vm_register_lowering_cache: super::vm::RegisterLoweringCacheState::from_env(),
             vm_register_profile: super::vm::RegisterProfileState::default(),
@@ -147,6 +149,7 @@ impl Runtime {
     /// Set an optional execution deadline enforced by the evaluator.
     pub fn set_execution_deadline(&mut self, deadline: Option<std::time::Instant>) {
         self.execution_deadline = deadline;
+        self.execution_deadline_pause_baseline = self.debug_watchdog_pause_elapsed();
     }
 
     /// Get the current execution deadline.
@@ -155,13 +158,45 @@ impl Runtime {
         self.execution_deadline
     }
 
-    pub(crate) fn set_output_commit_deadline(&mut self, deadline: Option<std::time::Instant>) {
-        self.output_commit_deadline = deadline;
+    pub(crate) fn effective_execution_deadline(&self) -> Option<std::time::Instant> {
+        self.deadline_with_debug_pause(
+            self.execution_deadline,
+            self.execution_deadline_pause_baseline,
+        )
     }
 
+    pub(crate) fn set_output_commit_deadline(&mut self, deadline: Option<std::time::Instant>) {
+        self.output_commit_deadline = deadline;
+        self.output_commit_deadline_pause_baseline = self.debug_watchdog_pause_elapsed();
+    }
+
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn output_commit_deadline(&self) -> Option<std::time::Instant> {
         self.output_commit_deadline
+    }
+
+    pub(crate) fn effective_output_commit_deadline(&self) -> Option<std::time::Instant> {
+        self.deadline_with_debug_pause(
+            self.output_commit_deadline,
+            self.output_commit_deadline_pause_baseline,
+        )
+    }
+
+    pub(crate) fn debug_watchdog_pause_elapsed(&self) -> std::time::Duration {
+        self.debug
+            .as_ref()
+            .map(crate::debug::DebugControl::watchdog_pause_elapsed)
+            .unwrap_or_default()
+    }
+
+    fn deadline_with_debug_pause(
+        &self,
+        deadline: Option<std::time::Instant>,
+        baseline: std::time::Duration,
+    ) -> Option<std::time::Instant> {
+        let pause_delta = self.debug_watchdog_pause_elapsed().saturating_sub(baseline);
+        deadline.map(|value| value.checked_add(pause_delta).unwrap_or(value))
     }
 
     /// Update configured safe-state outputs.
@@ -171,6 +206,9 @@ impl Runtime {
 
     /// Apply configured safe-state outputs without recording a runtime fault.
     pub fn apply_io_safe_state(&mut self) -> Result<(), error::RuntimeError> {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         self.io.apply_safe_state()
     }
 
@@ -225,6 +263,9 @@ impl Runtime {
         err: error::RuntimeError,
         decision: FaultDecision,
     ) -> error::RuntimeError {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         let mut reported = err.clone();
         if decision.apply_safe_state {
             if let Err(safe_state_err) = self.io.apply_safe_state() {

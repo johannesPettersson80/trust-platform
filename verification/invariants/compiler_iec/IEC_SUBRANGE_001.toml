@@ -1,0 +1,62 @@
+schema_version = 1
+id = "IEC_SUBRANGE_001"
+title = "Subrange writes follow the reviewed product decision"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-hir"
+last_reviewed = "2026-07-15"
+claim = "Subrange write handling must remain aligned with the active reviewed decision and its documented unsupported boundaries."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
+tests = [
+  "TEST_IEC_SUBRANGE_TRACE_001",
+  "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_IEC_SUBRANGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_SUBRANGE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DECISIONS_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_IEC_DECISIONS_001"
+
+[[behavior]]
+partition = { equals = "BELOW_LOWER_BOUND_INITIALIZER" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A constant initializer below the inclusive lower bound is rejected during semantic analysis."
+
+[[behavior]]
+partition = { equals = "ABOVE_UPPER_BOUND_INITIALIZER" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A constant initializer above the inclusive upper bound is rejected during semantic analysis."
+
+[[behavior]]
+partition = { equals = "REAL_TO_INT_SUBRANGE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DECISIONS_001#subrange-runtime-write-policy"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A value from the wrong base family is rejected before it can reach subrange storage."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "The committed current-contract proof pair covers both initializer bounds and wrong-base-type rejection; a causal broad gate remains open."

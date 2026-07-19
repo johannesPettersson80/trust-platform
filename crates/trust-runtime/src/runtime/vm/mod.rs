@@ -13,6 +13,7 @@ use crate::value::{
     ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value, ValueRef,
 };
 
+mod budget;
 mod call;
 mod const_pool;
 mod debug_map;
@@ -22,6 +23,7 @@ mod dispatch_refs;
 mod dispatch_sizeof;
 mod errors;
 mod frames;
+mod limits;
 mod local_init;
 mod register_ir;
 mod stack;
@@ -48,7 +50,8 @@ pub(super) use register_ir::{
 };
 pub(super) use trust_runtime_core::vm::{materialize_borrowed_value, opcode_operand_len};
 
-pub(super) const DEFAULT_INSTRUCTION_BUDGET: usize = 1_000_000;
+pub(super) const DEFAULT_INSTRUCTION_BUDGET: usize =
+    trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS;
 
 pub(super) fn execute_program(
     runtime: &mut Runtime,
@@ -137,6 +140,7 @@ impl VmModule {
             _ => return Err(invalid_bytecode("missing POU_BODIES")),
         };
 
+        limits::validate_materialization_limits(ref_table, pou_index)?;
         let refs = decode_ref_table(ref_table, strings)?;
         let consts = const_pool::decode_const_pool_entries(const_pool, types, strings)?;
         let mut native_symbol_specs = strings
@@ -149,7 +153,7 @@ impl VmModule {
             Some(SectionData::VarMeta(meta)) => Some(meta),
             _ => None,
         };
-        let ref_types = build_ref_type_map(var_meta);
+        let ref_types = build_ref_type_map(var_meta)?;
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
             var_meta,
@@ -332,15 +336,17 @@ impl VmModule {
     }
 }
 
-fn build_ref_type_map(var_meta: Option<&VarMeta>) -> HashMap<u32, u32> {
+fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32>, RuntimeError> {
     let Some(var_meta) = var_meta else {
-        return HashMap::new();
+        return Ok(HashMap::new());
     };
-    var_meta
-        .entries
-        .iter()
-        .map(|entry| (entry.ref_idx, entry.type_id))
-        .collect()
+    let mut ref_types = HashMap::new();
+    for entry in &var_meta.entries {
+        if ref_types.insert(entry.ref_idx, entry.type_id).is_some() {
+            return Err(invalid_bytecode("duplicate VAR_META ref index"));
+        }
+    }
+    Ok(ref_types)
 }
 
 #[derive(Debug, Clone)]
@@ -389,7 +395,7 @@ pub(super) enum VmRef {
 }
 
 pub(super) fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
-    RuntimeError::InvalidBytecode(message.into())
+    RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
 }
 
 fn decode_ref_table(

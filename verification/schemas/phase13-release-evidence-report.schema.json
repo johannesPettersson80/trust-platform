@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/phase13-release-evidence-report.schema.json",
+  "title": "Phase 13 release evidence audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generator", "generator_version", "report_status", "commit", "branch",
+    "timestamp", "platform", "input_paths", "input_digest", "output_paths", "command",
+    "boundaries", "candidate", "public_release", "proof_origins", "security", "platforms",
+    "conformance", "hardware_labs", "ui_acceptance", "known_gaps", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "phase13-release-evidence-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "branch": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "public_release": { "$ref": "#/$defs/public_release" },
+    "proof_origins": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "$ref": "#/$defs/proof_origin" } },
+    "security": { "$ref": "#/$defs/security" },
+    "platforms": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "$ref": "#/$defs/platform" } },
+    "conformance": { "$ref": "#/$defs/conformance" },
+    "hardware_labs": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "$ref": "#/$defs/hardware_lab" } },
+    "ui_acceptance": { "$ref": "#/$defs/ui_acceptance" },
+    "known_gaps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/known_gap" } },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "output_paths": {
+      "type": "object", "additionalProperties": false,
+      "required": ["json", "markdown"],
+      "properties": { "json": { "type": "string", "minLength": 1 }, "markdown": { "type": "string", "minLength": 1 } }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["configured_gate_is_execution_proof", "artifact_only_is_native_execution_proof", "skipped_hardware_is_hardware_proof", "provisional_ui_is_acceptance", "version_bump_is_release_completion", "report_emits_product_proof"],
+      "properties": {
+        "configured_gate_is_execution_proof": { "const": false },
+        "artifact_only_is_native_execution_proof": { "const": false },
+        "skipped_hardware_is_hardware_proof": { "const": false },
+        "provisional_ui_is_acceptance": { "const": false },
+        "version_bump_is_release_completion": { "const": false },
+        "report_emits_product_proof": { "const": false }
+      }
+    },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "expected_tag", "version_sources", "versions_synchronized", "changelog_mentions_version", "annotated_tag_present", "release_complete"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "expected_tag": { "type": "string", "pattern": "^v\\d+\\.\\d+\\.\\d+$" },
+        "version_sources": { "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "versions_synchronized": { "type": "boolean" },
+        "changelog_mentions_version": { "type": "boolean" },
+        "annotated_tag_present": { "type": "boolean" },
+        "release_complete": { "type": "boolean" }
+      }
+    },
+    "public_release": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "checked_at", "tag", "commit", "published_at", "release_url", "workflow_run_id", "workflow_run_url", "workflow_conclusion", "assets", "required_assets", "missing_required_assets", "matches_candidate"],
+      "properties": {
+        "status": { "const": "published_latest" },
+        "checked_at": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "pattern": "^v\\d+\\.\\d+\\.\\d+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "published_at": { "type": "string", "minLength": 1 },
+        "release_url": { "type": "string", "pattern": "^https://github.com/" },
+        "workflow_run_id": { "type": "string", "pattern": "^\\d+$" },
+        "workflow_run_url": { "type": "string", "pattern": "^https://github.com/" },
+        "workflow_conclusion": { "const": "success" },
+        "assets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "required_assets": { "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "missing_required_assets": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "matches_candidate": { "type": "boolean" }
+      }
+    },
+    "proof_origin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["origin", "evidence_count", "status", "limitation"],
+      "properties": {
+        "origin": { "enum": ["local", "remote_builder", "ci", "hardware_lab", "public_github"] },
+        "evidence_count": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["recorded", "snapshot_only", "missing"] },
+        "limitation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "security": {
+      "type": "object", "additionalProperties": false,
+      "required": ["owned_exceptions", "expired_exceptions", "maximum_exception_days", "cargo_policy_configured", "npm_audit_configured", "rust_commands", "node_commands", "gate_execution_claimed"],
+      "properties": {
+        "owned_exceptions": { "type": "integer", "minimum": 0 },
+        "expired_exceptions": { "type": "integer", "minimum": 0 },
+        "maximum_exception_days": { "const": 90 },
+        "cargo_policy_configured": { "type": "boolean" },
+        "npm_audit_configured": { "type": "boolean" },
+        "rust_commands": { "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "node_commands": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "gate_execution_claimed": { "const": false }
+      }
+    },
+    "platform": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "target", "support_tier", "required_proof", "runtime_asset", "lsp_asset", "vsix_asset_template", "snapshot_tag", "expected_public_assets", "public_assets_present"],
+      "properties": {
+        "id": { "enum": ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64"] },
+        "target": { "type": "string", "minLength": 1 },
+        "support_tier": { "enum": ["native_ci", "artifact_only", "hardware_qualified", "unsupported"] },
+        "required_proof": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "runtime_asset": { "type": "string", "minLength": 1 },
+        "lsp_asset": { "type": "string", "minLength": 1 },
+        "vsix_asset_template": { "type": "string", "minLength": 1 },
+        "snapshot_tag": { "type": "string", "pattern": "^v\\d+\\.\\d+\\.\\d+$" },
+        "expected_public_assets": { "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "public_assets_present": { "type": "boolean" }
+      }
+    },
+    "conformance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["catalog_cases", "linked_cases", "missing_links", "public_asset_present", "execution_claimed"],
+      "properties": {
+        "catalog_cases": { "type": "integer", "minimum": 0 },
+        "linked_cases": { "type": "integer", "minimum": 0 },
+        "missing_links": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "public_asset_present": { "type": "boolean" },
+        "execution_claimed": { "const": false }
+      }
+    },
+    "hardware_lab": {
+      "type": "object", "additionalProperties": false,
+      "required": ["board_row", "status", "evidence_count"],
+      "properties": {
+        "board_row": { "type": "string", "pattern": "^VERIF-P11-00[2-6]$" },
+        "status": { "const": "skipped_unproven" },
+        "evidence_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ui_acceptance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["journeys", "accepted_journeys", "provisional_journeys", "missing_journeys", "stale_journeys"],
+      "properties": {
+        "journeys": { "type": "integer", "minimum": 0 },
+        "accepted_journeys": { "type": "integer", "minimum": 0 },
+        "provisional_journeys": { "type": "integer", "minimum": 0 },
+        "missing_journeys": { "type": "integer", "minimum": 0 },
+        "stale_journeys": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "known_gap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "detail"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["open", "closed"] },
+        "detail": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

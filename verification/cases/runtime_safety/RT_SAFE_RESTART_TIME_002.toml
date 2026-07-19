@@ -1,0 +1,35 @@
+schema_version = 1
+id = "CASES_RT_SAFE_RESTART_TIME_002"
+title = "Runtime restart time-base and state traces"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_RESTART_TIME_002"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:70802270df921a88ddf4a3f36b1ed5c55c2e375b088191d11263ac1a70c609fd"
+source_digest = "sha256:a6466baa7ef12b8b11b19632810583ef4e98db6e5165fdb5a78147f2c8bddca3"
+last_reviewed = "2026-07-13"
+
+[[case]]
+id = "RT_SAFE_RESTART_TIME_002_WARM_PRESERVES_TIME_AND_REINITIALIZES_STATE"
+family = "persistence_or_recovery"
+input = { scenario = "WARM_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { advance_ms = 0, input = true, ordinary = 43, non_retain = 42, retain = 41 }, expected = { current_time_ms = 0, et_ms = 0, non_retain = 42, ordinary = 43, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 1, stimulus = { advance_ms = 5, input = true }, expected = { current_time_ms = 5, et_ms = 5, non_retain = 42, ordinary = 43, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 2, stimulus = { advance_ms = 0, input = true, restart = "warm" }, expected = { current_time_ms = 5, et_ms = 0, non_retain = 2, ordinary = 3, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 3, stimulus = { advance_ms = 5, input = true }, expected = { current_time_ms = 10, et_ms = 5, non_retain = 2, ordinary = 3, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+]
+
+[[case]]
+id = "RT_SAFE_RESTART_TIME_002_COLD_PRESERVES_TIME_AND_REINITIALIZES_STATE"
+family = "persistence_or_recovery"
+input = { scenario = "COLD_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { advance_ms = 0, input = true, ordinary = 43, non_retain = 42, retain = 41 }, expected = { current_time_ms = 0, et_ms = 0, non_retain = 42, ordinary = 43, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 1, stimulus = { advance_ms = 5, input = true }, expected = { current_time_ms = 5, et_ms = 5, non_retain = 42, ordinary = 43, q = false, retain = 41 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 2, stimulus = { advance_ms = 0, input = true, restart = "cold" }, expected = { current_time_ms = 5, et_ms = 0, non_retain = 2, ordinary = 3, q = false, retain = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+  { sequence = 3, stimulus = { advance_ms = 5, input = true }, expected = { current_time_ms = 10, et_ms = 5, non_retain = 2, ordinary = 3, q = false, retain = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#timer-restart-and-time-base-contract" },
+]

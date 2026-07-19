@@ -240,6 +240,143 @@ fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan(
 }
 
 #[test]
+fn opcua_event_queue_rejects_saturation_and_recovers_after_drain() {
+    let point = opcua_point(
+        "line1_temp",
+        "ns=2;i=2",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::Read,
+    );
+    let connection = opcua_connection(vec![point]);
+    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let bindings = opcua_bindings(&runtime, &connection.points);
+    let (_bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    let sink = worker
+        .transport()
+        .sink
+        .clone()
+        .expect("connected event sink");
+    let accepted = (0..1024)
+        .take_while(|index| sink.publish_connection_status(true, *index, "saturation probe"))
+        .count();
+
+    assert!(accepted > 0, "bounded queue must accept initial events");
+    assert!(accepted < 1024, "bounded queue must reject saturation");
+    assert!(
+        !sink.publish_connection_status(true, 1024, "queue still saturated"),
+        "saturated queue must fail immediately"
+    );
+
+    worker.tick(2_000).expect("drain queued events");
+    assert!(
+        sink.publish_connection_status(true, 2_001, "accepted after drain"),
+        "draining must restore bounded handoff capacity"
+    );
+}
+
+#[cfg(feature = "opcua-wire")]
+#[test]
+fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
+    let cases = [
+        (
+            "float_nan",
+            OpcUaDataType::Float,
+            ::opcua::client::prelude::Variant::Float(f32::NAN),
+            Value::Real(7.25),
+        ),
+        (
+            "float_positive_infinity",
+            OpcUaDataType::Float,
+            ::opcua::client::prelude::Variant::Float(f32::INFINITY),
+            Value::Real(7.25),
+        ),
+        (
+            "float_negative_infinity",
+            OpcUaDataType::Float,
+            ::opcua::client::prelude::Variant::Float(f32::NEG_INFINITY),
+            Value::Real(7.25),
+        ),
+        (
+            "double_nan",
+            OpcUaDataType::Double,
+            ::opcua::client::prelude::Variant::Double(f64::NAN),
+            Value::LReal(7.25),
+        ),
+        (
+            "double_positive_infinity",
+            OpcUaDataType::Double,
+            ::opcua::client::prelude::Variant::Double(f64::INFINITY),
+            Value::LReal(7.25),
+        ),
+        (
+            "double_negative_infinity",
+            OpcUaDataType::Double,
+            ::opcua::client::prelude::Variant::Double(f64::NEG_INFINITY),
+            Value::LReal(7.25),
+        ),
+    ];
+
+    for (case_name, data_type, variant, initial_value) in cases {
+        let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", initial_value.clone())]);
+        let point = opcua_point(
+            "line1_temp",
+            "ns=2;i=2",
+            data_type,
+            OpcUaClientPointAccess::Read,
+        );
+        let connection = opcua_connection(vec![point.clone()]);
+        let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+        let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+            connection,
+            MockOpcUaClientTransport::default(),
+            bindings,
+        )
+        .expect("bridge");
+
+        worker.tick(0).expect("connect");
+        worker.transport_mut().emit_wire_sample(&point, variant);
+        worker.tick(10).expect("drain rejected update");
+        bridge
+            .apply_inputs(runtime.storage_mut(), 11)
+            .expect("faulted point is skipped");
+
+        assert_eq!(
+            runtime.storage().get_global("line1_temp"),
+            Some(&initial_value),
+            "{case_name}: rejected input must leave PLC storage unchanged"
+        );
+        let snapshot = bridge.snapshot();
+        assert!(
+            !snapshot.values.contains_key("line1_temp"),
+            "{case_name}: rejected input must not enter the accepted-value cache"
+        );
+        let status = snapshot
+            .point_statuses
+            .into_iter()
+            .find(|status| status.var == "line1_temp")
+            .expect("point status");
+        assert_eq!(
+            status.state,
+            OpcUaClientConnectionState::Faulted,
+            "{case_name}"
+        );
+        assert_eq!(status.value, None, "{case_name}");
+        assert!(
+            status.detail.contains("non-finite"),
+            "{case_name}: unexpected detail: {}",
+            status.detail
+        );
+    }
+}
+
+#[test]
 fn persistent_worker_batches_writes_without_reconnecting_per_write() {
     let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
     let point = opcua_point(
@@ -592,6 +729,24 @@ impl MockOpcUaClientTransport {
             last_seen_ms: Some(now_ms),
             detail: "mock subscription update".to_string(),
         }));
+    }
+
+    #[cfg(feature = "opcua-wire")]
+    fn emit_wire_sample(
+        &mut self,
+        point: &OpcUaClientPointConfig,
+        value: ::opcua::client::prelude::Variant,
+    ) {
+        let sink = self.sink.as_ref().expect("event sink");
+        let sample = sample_from_data_value(
+            point,
+            &::opcua::client::prelude::DataValue {
+                value: Some(value),
+                status: Some(::opcua::client::prelude::StatusCode::Good),
+                ..Default::default()
+            },
+        );
+        assert!(sink.publish_sample(sample));
     }
 
     fn emit_connection_status(&mut self, connected: bool, now_ms: u64, detail: &str) {

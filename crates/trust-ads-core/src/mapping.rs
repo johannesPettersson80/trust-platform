@@ -188,6 +188,11 @@ pub enum AdsMappingError {
     },
     /// ADS bytes for `STRING` were not UTF-8.
     InvalidUtf8,
+    /// ADS `REAL` or `LREAL` bytes decoded to NaN or infinity.
+    NonFiniteValue {
+        /// Floating-point IEC type that contained the non-finite value.
+        iec_type: IecDataType,
+    },
     /// A runtime value did not match the ADS descriptor.
     ValueTypeMismatch {
         /// Expected IEC type.
@@ -227,6 +232,9 @@ impl core::fmt::Display for AdsMappingError {
                 write!(f, "ADS STRING too long: max {max} bytes, got {actual}")
             }
             Self::InvalidUtf8 => write!(f, "ADS STRING bytes are not valid UTF-8"),
+            Self::NonFiniteValue { iec_type } => {
+                write!(f, "ADS {iec_type:?} value is non-finite")
+            }
             Self::ValueTypeMismatch { expected, actual } => {
                 write!(
                     f,
@@ -372,11 +380,25 @@ fn decode_scalar(
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ])),
         IecDataType::Real => {
-            Value::Real(f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+            let value = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+            if !value.is_finite() {
+                return Err(AdsMappingError::NonFiniteValue {
+                    iec_type: IecDataType::Real,
+                });
+            }
+            Value::Real(value)
         }
-        IecDataType::Lreal => Value::LReal(f64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ])),
+        IecDataType::Lreal => {
+            let value = f64::from_le_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ]);
+            if !value.is_finite() {
+                return Err(AdsMappingError::NonFiniteValue {
+                    iec_type: IecDataType::Lreal,
+                });
+            }
+            Value::LReal(value)
+        }
         IecDataType::Byte => Value::Byte(bytes[0]),
         IecDataType::Word => Value::Word(u16::from_le_bytes([bytes[0], bytes[1]])),
         IecDataType::Dword => {
@@ -559,6 +581,63 @@ mod tests {
             assert_eq!(value_from_ads_bytes(&descriptor, &bytes), Ok(value.clone()));
             assert_eq!(ads_bytes_from_value(&descriptor, &value), Ok(bytes));
         }
+    }
+
+    #[test]
+    fn rejects_non_finite_real_and_lreal_scalars() {
+        let cases = [
+            (
+                "REAL NaN",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::NAN.to_le_bytes().to_vec(),
+            ),
+            (
+                "REAL positive infinity",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "REAL negative infinity",
+                AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+                f32::NEG_INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL NaN",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::NAN.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL positive infinity",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::INFINITY.to_le_bytes().to_vec(),
+            ),
+            (
+                "LREAL negative infinity",
+                AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
+                f64::NEG_INFINITY.to_le_bytes().to_vec(),
+            ),
+        ];
+
+        for (case, descriptor, bytes) in cases {
+            let result = value_from_ads_bytes(&descriptor, &bytes);
+            assert!(result.is_err(), "{case} decoded successfully as {result:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_real_array_with_non_finite_element() {
+        let descriptor = AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real)
+            .with_dimensions(vec![ArrayDimension { lower: 1, upper: 3 }]);
+        let bytes = [1.0f32, f32::NAN, 3.0]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+
+        let result = value_from_ads_bytes(&descriptor, &bytes);
+        assert!(
+            result.is_err(),
+            "REAL array containing NaN decoded successfully as {result:?}"
+        );
     }
 
     #[test]

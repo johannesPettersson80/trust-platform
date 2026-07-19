@@ -203,6 +203,104 @@ END_PROGRAM
     assert_eq!(primitive_id(types, flag.type_id), Some(1));
 }
 
+#[test]
+fn encoder_emits_scoped_function_local_var_meta() {
+    let source = r#"
+TYPE
+    NarrowText : STRING[5];
+    WideText : STRING[20];
+END_TYPE
+
+FUNCTION CopyBounded : NarrowText
+VAR_INPUT
+    source : WideText;
+END_VAR
+VAR_OUTPUT
+    echoed : NarrowText;
+END_VAR
+VAR
+    scratch : NarrowText;
+END_VAR
+scratch := 'ABCDE';
+echoed := scratch;
+CopyBounded := scratch;
+END_FUNCTION
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+    let module = bytecode_module_from_source(source).unwrap();
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(table)) => table,
+        other => panic!("expected STRING_TABLE, got {other:?}"),
+    };
+    let types = match module.section(SectionId::TypeTable) {
+        Some(SectionData::TypeTable(table)) => table,
+        other => panic!("expected TYPE_TABLE, got {other:?}"),
+    };
+    let refs = match module.section(SectionId::RefTable) {
+        Some(SectionData::RefTable(table)) => table,
+        other => panic!("expected REF_TABLE, got {other:?}"),
+    };
+    let pou_index = match module.section(SectionId::PouIndex) {
+        Some(SectionData::PouIndex(index)) => index,
+        other => panic!("expected POU_INDEX, got {other:?}"),
+    };
+    let var_meta = match module.section(SectionId::VarMeta) {
+        Some(SectionData::VarMeta(meta)) => meta,
+        other => panic!("expected VAR_META, got {other:?}"),
+    };
+    let function = pou_index
+        .entries
+        .iter()
+        .find(|entry| {
+            entry.kind == PouKind::Function
+                && lookup_string(strings, entry.name_idx) == "CopyBounded"
+        })
+        .expect("CopyBounded function");
+
+    assert_eq!(function.local_ref_count, 4);
+    let expected = [
+        ("CopyBounded", function.return_type_id.expect("return type")),
+        ("source", function.params[0].type_id),
+        ("echoed", function.params[1].type_id),
+        (
+            "scratch",
+            types
+                .entries
+                .iter()
+                .position(|entry| {
+                    entry
+                        .name_idx
+                        .is_some_and(|idx| lookup_string(strings, idx) == "NarrowText")
+                })
+                .expect("NarrowText type") as u32,
+        ),
+    ];
+
+    for (slot, (declared_name, expected_type)) in expected.iter().enumerate() {
+        let ref_idx = function.local_ref_start + slot as u32;
+        let entry = var_meta
+            .entries
+            .iter()
+            .find(|entry| entry.ref_idx == ref_idx)
+            .unwrap_or_else(|| panic!("missing VAR_META for local ref {ref_idx}"));
+        assert_eq!(
+            lookup_string(strings, entry.name_idx),
+            format!("@local/{}/{slot}/{declared_name}", function.id)
+        );
+        assert_eq!(entry.type_id, *expected_type);
+        assert_eq!(entry.retain, 0);
+        assert_eq!(entry.init_const_idx, None);
+
+        let reference = &refs.entries[ref_idx as usize];
+        assert_eq!(reference.location, RefLocation::Local);
+        assert_eq!(reference.offset, slot as u32);
+        assert!(reference.segments.is_empty());
+    }
+}
+
 fn primitive_id(types: &trust_runtime::bytecode::TypeTable, type_id: u32) -> Option<u16> {
     match &types.entries.get(type_id as usize)?.data {
         TypeData::Primitive { prim_id, .. } => Some(*prim_id),

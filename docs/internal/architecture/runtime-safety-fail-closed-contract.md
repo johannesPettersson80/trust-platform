@@ -10,6 +10,11 @@ Runtime-internal safety paths must fail closed by default. A runtime path that c
 
 `Value::Null`, empty maps, default structs, degraded health, missing events, or ignored send/write results are not valid failure representations for safety-critical runtime paths unless the behavior is an explicit, named compatibility mode with tests and an allowlist entry.
 
+The IEC-defined initial `NULL` value of an interface-typed variable is a valid
+reference default, not a materialization failure or an error fallback. Runtime
+initialization must still report genuine unsupported or invalid defaults as
+typed failures.
+
 ## Enforced Doctor
 
 The source-derived gate is `scripts/runtime_safety_fail_closed_ast_grep_gate.sh`. It is surfaced by `cargo run -p xtask -- architecture-doctor --full-map` as `FULLMAP-RUNTIMESAFE`.

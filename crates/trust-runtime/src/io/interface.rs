@@ -212,6 +212,7 @@ impl IoInterface {
 
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
         let bindings = self.bindings.clone();
+        let mut pending = Vec::new();
         for binding in bindings {
             if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
                 continue;
@@ -229,8 +230,22 @@ impl IoInterface {
             } else {
                 value.clone()
             };
-            self.write(&binding.address, value)?;
+            pending.push((binding.address, value));
         }
+
+        let mut staged = Self {
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            memory: self.memory.clone(),
+            bindings: Vec::new(),
+            hierarchical: self.hierarchical.clone(),
+        };
+        for (address, value) in pending {
+            staged.write(&address, value)?;
+        }
+        self.outputs = staged.outputs;
+        self.memory = staged.memory;
+        self.hierarchical = staged.hierarchical;
         Ok(())
     }
 
@@ -561,6 +576,70 @@ mod tests {
             ),
             other => panic!("expected non-finite REAL bits to be rejected, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn typed_real_output_rejects_nonfinite_and_narrowing_overflow_without_write() {
+        for value in [
+            Value::Real(f32::NAN),
+            Value::Real(f32::INFINITY),
+            Value::Real(f32::NEG_INFINITY),
+            Value::LReal(f64::MAX),
+        ] {
+            let mut interface = IoInterface::new();
+            interface.resize(0, 4, 0);
+            interface.outputs_mut().fill(0xA5);
+            interface.bind_typed(
+                "Output",
+                IoAddress::parse("%QD0").expect("REAL output address"),
+                TypeId::REAL,
+            );
+            let mut storage = VariableStorage::new();
+            storage.set_global("Output", value.clone());
+
+            let err = interface
+                .write_outputs(&storage)
+                .expect_err("non-finite typed REAL output must fail");
+
+            assert_eq!(
+                err,
+                RuntimeError::IoDriver(
+                    "typed REAL process-image value must be finite".into()
+                ),
+                "{value:?}"
+            );
+            assert_eq!(interface.outputs(), &[0xA5; 4], "{value:?}");
+        }
+    }
+
+    #[test]
+    fn typed_lreal_output_rejection_is_transactional() {
+        let mut interface = IoInterface::new();
+        interface.resize(0, 12, 0);
+        interface.outputs_mut().fill(0x5A);
+        interface.bind_typed(
+            "Finite",
+            IoAddress::parse("%QD0").expect("REAL output address"),
+            TypeId::REAL,
+        );
+        interface.bind_typed(
+            "Invalid",
+            IoAddress::parse("%QL4").expect("LREAL output address"),
+            TypeId::LREAL,
+        );
+        let mut storage = VariableStorage::new();
+        storage.set_global("Finite", Value::Real(1.25));
+        storage.set_global("Invalid", Value::LReal(f64::INFINITY));
+
+        let err = interface
+            .write_outputs(&storage)
+            .expect_err("non-finite typed LREAL output must fail");
+
+        assert_eq!(
+            err,
+            RuntimeError::IoDriver("typed LREAL process-image value must be finite".into())
+        );
+        assert_eq!(interface.outputs(), &[0x5A; 12]);
     }
 
     #[test]

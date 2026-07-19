@@ -104,3 +104,115 @@ fn test_deep_parenthesized_expression_is_bounded() {
         .message
         .contains("expression nesting exceeds parser limit")));
 }
+
+#[test]
+fn malformed_control_flow_delimiters_are_diagnosed() {
+    let cases = [
+        (
+            "CASE without OF",
+            "CASE x\n1: x := 2;\nEND_CASE",
+            "expected OF",
+        ),
+        (
+            "CASE branch without colon",
+            "CASE x OF\n1 x := 2;\nEND_CASE",
+            "expected ':' after CASE label",
+        ),
+        (
+            "ELSIF without THEN",
+            "IF x = 0 THEN\nx := 1;\nELSIF x = 1\nx := 2;\nEND_IF",
+            "expected THEN",
+        ),
+        (
+            "FOR without control variable",
+            "FOR := 0 TO 2 DO\nx := x + 1;\nEND_FOR",
+            "expected FOR control variable",
+        ),
+        (
+            "FOR without assignment",
+            "FOR i TO 2 DO\nx := x + 1;\nEND_FOR",
+            "expected ':=' after FOR control variable",
+        ),
+        (
+            "FOR without TO",
+            "FOR i := 0 DO\nx := x + 1;\nEND_FOR",
+            "expected TO",
+        ),
+        (
+            "FOR without DO",
+            "FOR i := 0 TO 2\nx := x + 1;\nEND_FOR",
+            "expected DO",
+        ),
+        (
+            "WHILE without DO",
+            "WHILE x < 2\nx := x + 1;\nEND_WHILE",
+            "expected DO",
+        ),
+        (
+            "REPEAT without UNTIL",
+            "REPEAT\nx := x + 1;\nEND_REPEAT",
+            "expected UNTIL",
+        ),
+    ];
+
+    let mut failures = Vec::new();
+    for (label, body, expected) in cases {
+        let source = format!("PROGRAM Test\nVAR x, i : INT; END_VAR\n{body}\nEND_PROGRAM");
+        let parsed = parse(&source);
+        if parsed.ok() {
+            failures.push(format!(
+                "{label} was accepted as a valid partial construct:\n{}",
+                parsed.syntax()
+            ));
+        } else if !parsed
+            .errors()
+            .iter()
+            .any(|error| error.message.contains(expected))
+        {
+            failures.push(format!(
+                "{label} did not report {expected:?}; got {:?}",
+                parsed.errors()
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+#[test]
+fn mismatched_nested_terminator_preserves_outer_boundary_and_following_statement() {
+    let source = r#"PROGRAM Test
+VAR x : INT; END_VAR
+IF x = 0 THEN
+    WHILE x < 2 DO
+        x := x + 1;
+END_IF
+x := 7;
+END_PROGRAM"#;
+
+    let parsed = parse(source);
+    assert!(!parsed.ok(), "missing inner END_WHILE must be diagnosed");
+    assert!(
+        parsed
+            .errors()
+            .iter()
+            .any(|error| error.message == "expected END_WHILE"),
+        "expected the inner terminator diagnostic, got {:?}",
+        parsed.errors()
+    );
+    assert!(
+        parsed.errors().iter().all(|error| {
+            error.message != "expected END_IF" && error.message != "expected END_PROGRAM"
+        }),
+        "recovery consumed an outer boundary: {:?}",
+        parsed.errors()
+    );
+    assert_eq!(
+        2,
+        parsed
+            .syntax()
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::AssignStmt)
+            .count(),
+        "the statement following the recovered IF must remain in the syntax tree"
+    );
+}

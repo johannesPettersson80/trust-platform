@@ -6,6 +6,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use trust_ads_core::{PointQuality, QualityState, UpdateMode};
 
+use crate::value::Value;
+
 use super::super::descriptors::{point_reads, point_writes};
 use super::super::transport::{
     AdsHandleRequest, AdsResolvedHandle, AdsSubscribeRequest, AdsSubscription, AdsTransport,
@@ -196,19 +198,15 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             return Ok(());
         }
         for read in self.transport.sumup_read(&handles)? {
-            let quality = if read.quality.state == QualityState::Good && read.value.is_none() {
-                PointQuality::error(
-                    now_ms,
-                    format!(
-                        "ADS read '{}' returned good quality without a value",
-                        read.point_name
-                    ),
-                )
-            } else {
-                read.quality
-            };
+            let (value, quality) = validate_ingress_sample(
+                read.point_name.as_str(),
+                read.value,
+                read.quality,
+                now_ms,
+                "read",
+            );
             if quality.state == QualityState::Good {
-                if let Some(value) = read.value {
+                if let Some(value) = value {
                     self.shared.set_value(read.point_name.as_str(), value);
                 }
             }
@@ -219,19 +217,15 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
 
     fn drain_notifications(&mut self, now_ms: u64) -> Result<(), AdsBridgeError> {
         for sample in self.transport.drain_notifications()? {
-            let quality = if sample.quality.state == QualityState::Good && sample.value.is_none() {
-                PointQuality::error(
-                    now_ms,
-                    format!(
-                        "ADS notification '{}' returned good quality without a value",
-                        sample.point_name
-                    ),
-                )
-            } else {
-                sample.quality
-            };
+            let (value, quality) = validate_ingress_sample(
+                sample.point_name.as_str(),
+                sample.value,
+                sample.quality,
+                now_ms,
+                "notification",
+            );
             if quality.state == QualityState::Good {
-                if let Some(value) = sample.value {
+                if let Some(value) = value {
                     self.shared.set_value(sample.point_name.as_str(), value);
                 }
             }
@@ -383,6 +377,46 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         } else {
             self.shared.mark_faulted(now_ms, error.to_string());
         }
+    }
+}
+
+fn validate_ingress_sample(
+    point_name: &str,
+    value: Option<Value>,
+    quality: PointQuality,
+    now_ms: u64,
+    source: &str,
+) -> (Option<Value>, PointQuality) {
+    if quality.state != QualityState::Good {
+        return (value, quality);
+    }
+    let Some(value) = value else {
+        return (
+            None,
+            PointQuality::error(
+                now_ms,
+                format!("ADS {source} '{point_name}' returned good quality without a value"),
+            ),
+        );
+    };
+    if contains_non_finite_float(&value) {
+        return (
+            None,
+            PointQuality::error(
+                now_ms,
+                format!("ADS {source} '{point_name}' contains a non-finite REAL/LREAL value"),
+            ),
+        );
+    }
+    (Some(value), quality)
+}
+
+fn contains_non_finite_float(value: &Value) -> bool {
+    match value {
+        Value::Real(value) => !value.is_finite(),
+        Value::LReal(value) => !value.is_finite(),
+        Value::Array(array) => array.elements().iter().any(contains_non_finite_float),
+        _ => false,
     }
 }
 

@@ -3,7 +3,7 @@
   "displayName": "truST",
   "description": "truST — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.34",
+  "version": "0.24.54",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -2621,10 +2621,14 @@
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
     "@vscode/test-electron": "^2.5.2",
-    "concurrently": "^9.2.1",
-    "esbuild": "^0.27.3",
+    "concurrently": "^10.0.3",
+    "esbuild": "^0.28.1",
     "eslint": "^10.0.0",
-    "mocha": "^11.7.5",
+    "mocha": "^11.7.6",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "diff": "8.0.3",
+    "serialize-javascript": "7.0.5"
   }
 }

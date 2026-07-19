@@ -472,7 +472,6 @@ END_FUNCTION
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-005"]
 fn test_ref_rejects_function_return_variable() {
     check_has_error_message(
         r#"
@@ -494,7 +493,6 @@ END_FUNCTION
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-005"]
 fn test_ref_rejects_method_return_variable() {
     check_has_error_message(
         r#"

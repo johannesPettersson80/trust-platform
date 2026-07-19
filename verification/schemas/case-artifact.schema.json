@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/case-artifact.schema.json",
+  "title": "truST verification generated case artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "test_id",
+    "case_file",
+    "case_file_digest",
+    "helper_version",
+    "case_provenance_kind",
+    "trace_definition_digest",
+    "trust_verify_test_id",
+    "trust_verify_run_id",
+    "trust_verify_case_file_digest",
+    "trust_verify_artifact_dir",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "test_id": { "type": "string", "minLength": 1 },
+    "case_file": { "type": "string", "minLength": 1 },
+    "case_file_digest": { "$ref": "#/$defs/digest" },
+    "helper_version": { "const": "verification-cases v1" },
+    "case_provenance_kind": {
+      "enum": [
+        "generated_decision_table_v1",
+        "hand_authored_state_machine_v1"
+      ]
+    },
+    "trace_definition_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "trust_verify_test_id": { "type": ["string", "null"] },
+    "trust_verify_run_id": { "type": ["string", "null"] },
+    "trust_verify_case_file_digest": { "type": ["string", "null"] },
+    "trust_verify_artifact_dir": { "type": ["string", "null"] },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/caseResult" }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "stateSnapshot": {
+      "type": "object",
+      "required": [
+        "process_image_hash",
+        "retain_hash",
+        "target",
+        "siblings",
+        "diagnostics"
+      ],
+      "properties": {
+        "process_image_hash": { "type": ["string", "null"] },
+        "retain_hash": { "type": ["string", "null"] },
+        "target": {},
+        "siblings": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "caseResult": {
+      "type": "object",
+      "required": [
+        "id",
+        "family",
+        "result",
+        "spec_gap_ref",
+        "observed_error",
+        "observed_status",
+        "state_delta",
+        "before",
+        "after"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "result": { "enum": ["passed", "failed", "skipped", "blocked"] },
+        "spec_gap_ref": { "type": ["string", "null"] },
+        "observed_error": { "type": ["string", "null"] },
+        "observed_status": { "type": ["string", "null"] },
+        "state_delta": {
+          "type": ["string", "null"],
+          "enum": ["changed", "unchanged", "not_applicable", null]
+        },
+        "before": {
+          "oneOf": [
+            { "$ref": "#/$defs/stateSnapshot" },
+            { "type": "null" }
+          ]
+        },
+        "after": {
+          "oneOf": [
+            { "$ref": "#/$defs/stateSnapshot" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

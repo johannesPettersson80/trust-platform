@@ -1,0 +1,44 @@
+schema_version = 1
+id = "RT_RELOAD_001"
+title = "Runtime reload is transactionally consistent"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-14"
+claim = "Online change and hot reload must not leave live runtime state partially applied or inconsistent with status."
+proof_level = "G2"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED",
+  "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_GREEN",
+  "EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47",
+]
+spec_gap_refs = []
+missing = ["bytecode_resource_commit_failure_cases", "retain_migration_failure"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Retained-state preparation completes before the live bytecode, storage, scan counter, or debug mutation state can be replaced."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Producer-authentic red/green proof plus the reviewed PR broad gate cover retain-store read failure before live mutation; bytecode/resource commit and retained-migration failure cases remain pending."

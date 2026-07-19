@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/evidence.schema.json",
+  "title": "truST verification evidence record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "kind",
+    "commit",
+    "platform",
+    "date",
+    "producer",
+    "generated_report_version",
+    "linked_invariants",
+    "linked_tests",
+    "last_reviewed"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "enum": ["committed_file", "ci_artifact", "release_object", "lab_report"] },
+    "linked_invariants": { "type": "array", "items": { "type": "string" } },
+    "linked_tests": { "type": "array", "items": { "type": "string" } },
+    "linked_spec_gaps": { "type": "array", "items": { "type": "string" } },
+    "proof_kind": { "enum": ["red", "green", "lock_baseline", "lock_compare", "protective_red", "none"] },
+    "proof_scope": { "enum": ["targeted", "broad_remote_gate", "release_public"] },
+    "failure_kind": { "type": "string" },
+    "case_artifact_path": { "type": "string" },
+    "case_artifact_digest": { "type": "string" },
+    "case_file_digest": { "type": "string" },
+    "proof_contract_version": { "enum": ["execution_contract_v2"] },
+    "proof_contract_binding": { "enum": ["current", "source_revision"] },
+    "proof_contract_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "case_result_digest": { "type": "string" },
+    "trust_verify_run_id": { "type": "string" },
+    "command_exit_status": { "type": "integer" },
+    "remote_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "gate_started_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$" },
+    "gate_finished_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$" },
+    "gate_duration_milliseconds": { "type": "integer", "minimum": 0 },
+    "disk_preflight_passed": { "const": true },
+    "home_available_kib": { "type": "integer", "minimum": 62914560 },
+    "tmp_available_kib": { "type": "integer", "minimum": 3145728 },
+    "executed_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "test_id",
+          "discovery_id",
+          "discovery_source_kind",
+          "command",
+          "run_id",
+          "case_file_digest",
+          "case_artifact_digest",
+          "per_case_summary",
+          "exit_status"
+        ],
+        "properties": {
+          "test_id": { "type": "string", "minLength": 1 },
+          "discovery_id": { "type": "string", "minLength": 1 },
+          "discovery_source_kind": {
+            "enum": ["rust_integration_test", "rust_unit_test"]
+          },
+          "command": { "type": "string", "minLength": 1 },
+          "run_id": { "type": "string", "minLength": 1 },
+          "case_file_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "case_artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "per_case_summary": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^.+:passed$" }
+          },
+          "exit_status": { "const": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "local_source_clean_before": { "const": true },
+    "local_source_clean_after": { "const": true },
+    "remote_source_clean_before": { "const": true },
+    "remote_source_clean_after": { "const": true },
+    "red_case_ids": { "type": "array", "items": { "type": "string" } },
+    "per_case_summary": { "type": "array", "items": { "type": "string" } },
+    "paired_red_evidence": { "type": "string" },
+    "paired_lock_baseline": { "type": "string" },
+    "formerly_red_case_ids": { "type": "array", "items": { "type": "string" } },
+    "decision_ref": { "type": "string" },
+    "mutation_test_id": { "type": "string" },
+    "mutation_report_path": { "type": "string" },
+    "mutation_report_digest": { "type": "string" }
+  },
+  "additionalProperties": true
+}

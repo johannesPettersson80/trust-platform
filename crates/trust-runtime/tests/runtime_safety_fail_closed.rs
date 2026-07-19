@@ -2,9 +2,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
 
+use trust_hir::TypeId;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
-use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
+use trust_runtime::io::{IoAddress, IoDriver, IoDriverHealth, IoSafeState, ModbusTcpDriver};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState, SharedGlobals};
 use trust_runtime::value::{Duration, Value};
@@ -67,6 +68,31 @@ impl Clock for PanicOnFirstSleepClock {
 struct RecordingDriver {
     writes: Arc<Mutex<Vec<Vec<u8>>>>,
     fail_writes: bool,
+}
+
+#[derive(Debug)]
+struct DegradedWriteDriver {
+    writes: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+impl IoDriver for DegradedWriteDriver {
+    fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+        self.writes
+            .lock()
+            .expect("degraded driver writes lock")
+            .push(outputs.to_vec());
+        Ok(())
+    }
+
+    fn health(&self) -> IoDriverHealth {
+        IoDriverHealth::Degraded {
+            error: "safe-state handoff pending".into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -340,6 +366,46 @@ fn requested_stop_applies_safe_outputs_before_thread_exits() {
         writes.last(),
         Some(&vec![0]),
         "last physical output write must be the configured safe state"
+    );
+}
+
+#[test]
+fn requested_stop_faults_when_safe_state_handoff_is_unconfirmed() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 1, 0);
+    let address = IoAddress::parse("%QX0.0").expect("safe-state output address");
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((address, Value::Bool(false)));
+    runtime.set_io_safe_state(safe_state);
+    runtime.add_io_driver(
+        "degraded-safe-state",
+        Box::new(DegradedWriteDriver {
+            writes: Arc::clone(&writes),
+        }),
+    );
+
+    let runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
+    let mut handle = runner
+        .spawn("unconfirmed-stop-safe-state")
+        .expect("spawn runner");
+    std::thread::sleep(StdDuration::from_millis(20));
+    handle.stop();
+    handle.join().expect("runner join");
+
+    assert_eq!(handle.state(), ResourceState::Faulted);
+    let error = handle
+        .last_error()
+        .expect("unconfirmed safe-state handoff must set last_error");
+    assert!(
+        error.to_string().contains("degraded-safe-state")
+            && error.to_string().contains("unconfirmed"),
+        "expected named unconfirmed safe-state error, got {error}"
+    );
+    assert_eq!(
+        writes.lock().expect("degraded driver writes lock").last(),
+        Some(&vec![0]),
+        "the driver must still receive the configured safe output attempt"
     );
 }
 
@@ -625,7 +691,6 @@ fn unexpected_thread_unwind_after_running_faults_control_surface() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn watchdog_deadline_breach_before_commit_prevents_output_write() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
@@ -662,7 +727,68 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 1, 0);
+    runtime.storage_mut().set_global("safe", Value::Bool(true));
+    runtime
+        .storage_mut()
+        .set_global("unconfigured", Value::Bool(false));
+    runtime.io_mut().bind(
+        "safe",
+        IoAddress::parse("%QX0.0").expect("safe output address"),
+    );
+    runtime.io_mut().bind(
+        "unconfigured",
+        IoAddress::parse("%QX0.1").expect("unconfigured output address"),
+    );
+    runtime.add_io_driver("recorder", Box::new(RecordingDriver::new(writes.clone())));
+
+    runtime
+        .execute_cycle()
+        .expect("baseline output image should commit");
+    assert_eq!(
+        writes.lock().expect("driver writes lock").as_slice(),
+        &[vec![0b0000_0001]],
+        "baseline must prove the last physically committed output image"
+    );
+
+    runtime
+        .storage_mut()
+        .set_global("unconfigured", Value::Bool(true));
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((
+        IoAddress::parse("%QX0.0").expect("safe output address"),
+        Value::Bool(false),
+    ));
+    runtime.set_io_safe_state(safe_state);
+
+    let clock = StepClock::new();
+    let mut runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
+    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_nanos(1),
+        action: WatchdogAction::Halt,
+    });
+    let mut handle = runner
+        .spawn("watchdog-partial-safe-state")
+        .expect("spawn runner");
+    wait_for_fault(&handle);
+    handle.join().expect("runner join");
+
+    assert!(matches!(
+        handle.last_error(),
+        Some(RuntimeError::WatchdogTimeout)
+    ));
+    assert_eq!(
+        writes.lock().expect("driver writes lock").as_slice(),
+        &[vec![0b0000_0001], vec![0b0000_0000]],
+        "safe-state commit must override configured outputs while retaining the last committed value for every unconfigured output"
+    );
+}
+
+#[test]
 fn retain_save_failure_prevents_output_commit_when_due() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let mut runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
@@ -686,7 +812,38 @@ fn retain_save_failure_prevents_output_commit_when_due() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn nonfinite_typed_output_faults_before_driver_commit() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 4, 0);
+    runtime
+        .storage_mut()
+        .set_global("out", Value::Real(f32::NAN));
+    runtime.io_mut().bind_typed(
+        "out",
+        IoAddress::parse("%QD0").expect("REAL output address"),
+        TypeId::REAL,
+    );
+    runtime.add_io_driver(
+        "recorder",
+        Box::new(RecordingDriver::new(Arc::clone(&writes))),
+    );
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("non-finite typed output must fail the cycle");
+
+    assert_eq!(
+        err,
+        RuntimeError::IoDriver("typed REAL process-image value must be finite".into())
+    );
+    assert!(
+        writes.lock().expect("driver writes lock").is_empty(),
+        "rejected output must not reach the physical driver"
+    );
+}
+
+#[test]
 fn safe_state_write_failure_is_reported_without_losing_root_fault() {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let mut runtime = output_runtime(writes.clone(), RecordingDriver::failing(writes.clone()));

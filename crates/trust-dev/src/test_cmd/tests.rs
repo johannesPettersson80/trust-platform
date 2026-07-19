@@ -1,6 +1,16 @@
 use super::*;
+use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use trust_runtime::harness::SourceFile as HarnessSourceFile;
+use verification_cases::{
+    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+};
+
+const DISCOVERY_TRACE_TEST_ID: &str = "TEST_DEV_TEST_DISCOVERY_TRACE_001";
+const DISCOVERY_TRACE_CASE_FILE: &str =
+    "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml";
+const DISCOVERY_TRACE_CASE_DIGEST: &str =
+    "sha256:ab57d417aa4b2db9507224a87b91bfb40606936cc23125ea72a7323a9187f0b2";
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()
@@ -132,6 +142,138 @@ fn load_sources_finds_mixed_case_extensions_under_literal_glob_chars() {
     assert_eq!(names, vec!["Library.Pou", "Motor.St"]);
 
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn developer_test_discovery_trace_cases() {
+    let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("trust-dev must be inside workspace/crates")
+        .to_path_buf();
+    let mut probe = DiscoveryTraceProbe::default();
+    let config = RunConfig::new(
+        DISCOVERY_TRACE_TEST_ID,
+        workspace.join(DISCOVERY_TRACE_CASE_FILE),
+        DISCOVERY_TRACE_CASE_DIGEST,
+    );
+    let artifact = run_case_file(&config, &mut probe, run_discovery_trace_case)
+        .expect("discovery artifact must be written");
+    let failures = artifact
+        .cases
+        .iter()
+        .filter(|case| case.result != CaseResult::Passed)
+        .map(|case| {
+            case.observed_error
+                .clone()
+                .unwrap_or_else(|| case.id.clone())
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        failures.is_empty(),
+        "discovery failures: {}",
+        failures.join("; ")
+    );
+}
+
+fn run_discovery_trace_case(
+    case: &CaseRecord,
+    probe: &mut DiscoveryTraceProbe,
+) -> Result<CaseExecution, String> {
+    let scenario = case
+        .input
+        .get("scenario")
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
+    let root = unique_temp_dir("trace-discovery-[Ω]");
+    std::fs::create_dir_all(root.join("deep")).map_err(|error| error.to_string())?;
+    let failure = match scenario {
+        "SUPPORTED_EXTENSION_CASES" => {
+            for (path, name) in [
+                ("A.st", "A"),
+                ("B.St", "B"),
+                ("deep/C.sT", "C"),
+                ("deep/D.ST", "D"),
+                ("E.pou", "E"),
+                ("F.PoU", "F"),
+                ("G.POU", "G"),
+            ] {
+                std::fs::write(
+                    root.join(path),
+                    format!("TEST_PROGRAM {name}\nEND_TEST_PROGRAM\n"),
+                )
+                .map_err(|error| error.to_string())?;
+            }
+            let sources = load_sources(&root).map_err(|error| error.to_string())?;
+            let discovered = discover_tests(&sources);
+            probe.target = Some(json!({"sources": sources.len(), "tests": discovered.len()}));
+            (sources.len() != 7 || discovered.len() != 7)
+                .then(|| format!("sources={}, tests={}", sources.len(), discovered.len()))
+        }
+        "UNSUPPORTED_OR_EMPTY_DISCOVERY" => {
+            let sources_root = root.join("src");
+            std::fs::create_dir_all(&sources_root).map_err(|error| error.to_string())?;
+            std::fs::write(
+                sources_root.join("Main.txt"),
+                "TEST_PROGRAM Main\nEND_TEST_PROGRAM\n",
+            )
+            .map_err(|error| error.to_string())?;
+            std::fs::write(sources_root.join("Generated.stbc"), "not a source")
+                .map_err(|error| error.to_string())?;
+            let sources = load_sources(&root).map_err(|error| error.to_string())?;
+            let result = run_test_json(Some(root.clone()), None, false, 1);
+            probe.target = Some(json!({
+                "sources": sources.len(),
+                "diagnostic": result.as_ref().err().map(|error| format!("{error:#}")),
+            }));
+            if !sources.is_empty() {
+                Some(format!("unsupported sources discovered: {sources:?}"))
+            } else if !result
+                .as_ref()
+                .err()
+                .is_some_and(|error| format!("{error:#}").contains("no ST sources"))
+            {
+                Some(format!("empty discovery was not visible: {result:?}"))
+            } else {
+                None
+            }
+        }
+        other => return Err(format!("unreviewed discovery scenario {other}")),
+    };
+    let _ = std::fs::remove_dir_all(root);
+    Ok(CaseExecution {
+        result: if failure.is_none() {
+            CaseResult::Passed
+        } else {
+            CaseResult::Failed
+        },
+        observed_error: failure,
+        observed_status: Some("source_discovery_checked".to_string()),
+    })
+}
+
+#[derive(Default)]
+struct DiscoveryTraceProbe {
+    target: Option<JsonValue>,
+    after: bool,
+}
+
+impl StateProbe for DiscoveryTraceProbe {
+    type Error = String;
+
+    fn snapshot(&mut self) -> Result<StateSnapshot, Self::Error> {
+        if !self.after {
+            self.target = None;
+        }
+        self.after = !self.after;
+        Ok(StateSnapshot {
+            process_image_hash: None,
+            retain_hash: None,
+            target: self.target.clone(),
+            siblings: BTreeMap::new(),
+            diagnostics: Vec::new(),
+        })
+    }
 }
 
 #[test]

@@ -54,6 +54,31 @@ confirmed device or broker. For Modbus targets that do not support FC43/14
 device identification, pass an explicit safe read address and unit id when
 probing so truST can confirm the protocol without writing to the device.
 
+An MQTT authentication or authorization rejection is reported as `likely`
+with `auth_required = true`: it is protocol-shaped evidence, but it did not
+establish an accepted broker session. Discovery uses a clean session and sends
+DISCONNECT immediately after CONNACK.
+
+## Evidence status
+
+The labels below describe the strongest committed evidence, not a blanket
+production-readiness claim. Deployment readiness also depends on the selected
+device, security configuration, topology, and site acceptance testing.
+The proof-level vocabulary is `mock`, `loopback`, `simulation`,
+`interoperability`, and `device-in-loop`; only the last, with a named reviewed
+topology, establishes physical-hardware qualification.
+
+| Surface | Committed software evidence | Physical-hardware evidence | Honest boundary |
+| --- | --- | --- | --- |
+| Beckhoff ADS | protocol/server loopback, status projection, route and symbol-path tests | optional device-in-loop gate only | loopback success does not prove a TwinCAT route or target is production-ready |
+| Modbus TCP | protocol-response probes, safe-read fallback, TCP-only negative tests, and mock integration | optional device-in-loop gate only | TCP reachability is never Modbus confirmation |
+| MQTT | CONNECT/CONNACK probes, clean-session DISCONNECT, typed mapping, and mock broker tests | optional broker interop gate only | loopback/mock success does not prove a production broker, credentials, or TLS policy |
+| OPC UA | server/client loopback and persistent-client lifecycle traces | no general physical-device claim | endpoint configuration or a mock transport is not a live plant session |
+| EtherCAT | deterministic mock process image and unavailable-adapter lifecycle tests | optional device-in-loop topology gate only | mock operation is not physical bus proof; missing hardware must remain visibly faulted |
+
+The optional device-in-loop gates skip visibly when their reviewed environment
+variables are absent. A skipped gate supplies no hardware proof.
+
 ## Device and fieldbus drivers
 
 | Driver | Best for | Go to |

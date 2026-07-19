@@ -1,0 +1,79 @@
+schema_version = 1
+id = "EDIT_DIAG_CANCEL_001"
+title = "Cancelled diagnostics cannot publish false empty success"
+area = "editor_safety"
+risk = "false_status"
+status = "implemented"
+owner = "trust-lsp"
+last_reviewed = "2026-07-14"
+claim = "Diagnostic cancellation must not be represented as a successful empty result that hides real diagnostics."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-lsp/src/handlers/diagnostics.rs"]
+tests = [
+  "TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001",
+  "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001_LOCK_COMPARE",
+  "EVID_WORKSPACE_DIAGNOSTIC_CANCELLATION_FIX_20260714",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "PULL_REQUEST_CANCELLED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A cancelled textDocument diagnostic request returns ContentModified instead of a successful empty result."
+
+[[behavior]]
+partition = { equals = "WORKSPACE_REQUEST_CANCELLED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A cancelled workspace diagnostic request returns ContentModified for the complete request and cannot expose a partial report as success."
+
+[[behavior]]
+partition = { equals = "PUSH_COLLECTION_CANCELLED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A cancelled push diagnostic collection publishes nothing, including no false empty-success publication."
+
+[[behavior]]
+partition = { equals = "PUSH_COLLECTION_COMPLETED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-cancelled push collection publishes the diagnostics actually produced by the analyzed snapshot."
+
+[[behavior]]
+partition = { equals = "WORKSPACE_COLLECTION_COMPLETED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-cancelled workspace request returns complete reports rather than cancellation or partial-success output."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Focused push, pull, and workspace tests cover the written cancellation contract with a current-contract lock comparison; a causal broad gate remains open."

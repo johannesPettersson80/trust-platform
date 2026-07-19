@@ -615,6 +615,10 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/run'")
     );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_type_mismatch")
+    );
     assert!(state.debug.drain_var_writes().is_empty());
     fs::remove_dir_all(root).ok();
 }
@@ -658,13 +662,16 @@ allow = ["resource/RESOURCE/program/Main/field/label"]
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/label'")
     );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_string_capacity_exceeded")
+    );
     assert!(state.debug.drain_var_writes().is_empty());
 
     fs::remove_dir_all(root).ok();
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn hmi_write_rejects_out_of_range_subrange_value() {
     let source = r#"
 PROGRAM Main
@@ -706,9 +713,36 @@ allow = ["resource/RESOURCE/program/Main/field/limited"]
         response.error.as_deref(),
         Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/limited'")
     );
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("runtime_subrange_violation")
+    );
     assert!(
         state.debug.drain_var_writes().is_empty(),
         "rejected subrange hmi.write must not queue a debug write"
+    );
+    let values = handle_request_value(
+        json!({
+            "id": 77,
+            "type": "hmi.values.get",
+            "params": {
+                "ids": ["resource/RESOURCE/program/Main/field/limited"]
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(values.ok, "subrange value read must succeed: {:?}", values.error);
+    assert_eq!(
+        values
+            .result
+            .as_ref()
+            .and_then(|result| result.get("values"))
+            .and_then(|values| values.get("resource/RESOURCE/program/Main/field/limited"))
+            .and_then(|value| value.get("v"))
+            .and_then(serde_json::Value::as_i64),
+        Some(0),
+        "rejected subrange hmi.write must leave the prior value unchanged"
     );
 
     fs::remove_dir_all(root).ok();
@@ -719,7 +753,8 @@ fn hmi_write_rejects_non_finite_real_text() {
     let source = r#"
 PROGRAM Main
 VAR
-    setpoint : REAL := 1.0;
+    real_setpoint : REAL := 1.0;
+    lreal_setpoint : LREAL := 2.0;
 END_VAR
 END_PROGRAM
 "#;
@@ -729,31 +764,56 @@ END_PROGRAM
         r#"
 [write]
 enabled = true
-allow = ["resource/RESOURCE/program/Main/field/setpoint"]
+allow = [
+    "resource/RESOURCE/program/Main/field/real_setpoint",
+    "resource/RESOURCE/program/Main/field/lreal_setpoint",
+]
 "#,
     );
 
     let mut state = hmi_test_state(source);
     set_hmi_project_root(&mut state, &root);
 
-    let response = handle_request_value(
-        json!({
-            "id": 75,
-            "type": "hmi.write",
-            "params": {
-                "id": "resource/RESOURCE/program/Main/field/setpoint",
-                "value": "NaN"
-            }
-        }),
-        &state,
-        None,
-    );
-    assert!(!response.ok, "non-finite hmi.write must be rejected");
-    assert_eq!(
-        response.error.as_deref(),
-        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/setpoint'")
-    );
-    assert!(state.debug.drain_var_writes().is_empty());
+    let rejected = [
+        ("real_setpoint", "NaN"),
+        ("real_setpoint", "inf"),
+        ("real_setpoint", "-inf"),
+        ("real_setpoint", "3.5e38"),
+        ("lreal_setpoint", "NaN"),
+        ("lreal_setpoint", "inf"),
+        ("lreal_setpoint", "-inf"),
+    ];
+    for (index, (field, value)) in rejected.into_iter().enumerate() {
+        let target = format!("resource/RESOURCE/program/Main/field/{field}");
+        let response = handle_request_value(
+            json!({
+                "id": 75 + index,
+                "type": "hmi.write",
+                "params": {
+                    "id": target,
+                    "value": value,
+                }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            !response.ok,
+            "non-finite or width-overflowing hmi.write {field}={value} must be rejected"
+        );
+        assert_eq!(
+            response.error.as_deref(),
+            Some(format!("invalid hmi.write value for target '{target}'").as_str())
+        );
+        assert_eq!(
+            response.error_code.as_deref(),
+            Some("runtime_non_finite_value")
+        );
+        assert!(
+            state.debug.drain_var_writes().is_empty(),
+            "rejected hmi.write {field}={value} must not queue a debug write"
+        );
+    }
 
     fs::remove_dir_all(root).ok();
 }

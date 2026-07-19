@@ -6,8 +6,10 @@ stay stable and readable. Machine-readable schema details live in
 
 ## Scope
 
-This program designs a verification control plane. It does not itself fix a
-runtime, compiler, IDE, protocol, or UI bug.
+Phases 0 through 15 of this program design and validate a verification control
+plane. They do not themselves fix a runtime, compiler, IDE, protocol, or UI
+bug. Phase 16 applies that control plane to product work, but only through the
+spec-first, red-before-fix, producer-authentic evidence discipline below.
 
 In scope:
 
@@ -18,13 +20,21 @@ In scope:
 - generated reports that expose proof gaps,
 - rules for test authoring, refactoring, evidence, and release truth.
 
-Out of scope for the planning board:
+Out of scope for control-plane Phases 0 through 15:
 
 - moving existing tests into a new tree,
 - rewriting `just test-all`,
 - adding runtime/compiler/LSP behavior,
 - expanding public conformance claims before release/docs gates exist,
 - treating line count, coverage percentage, or test count as safety proof.
+
+Phase 16 product changes are in scope only after its execution-readiness rows
+are complete. Each product change must start from a reviewed written oracle,
+use a cataloged test and durable producer-authentic red evidence where behavior
+must change, keep the product fix in a separate descendant commit, and record
+paired green plus required gate evidence before promotion. A current-HEAD
+reproduction that passes invalidates the alleged defect; it must be recorded as
+characterization or behavior-lock work, never turned into an artificial red.
 
 ## Stop Gates
 
@@ -64,10 +74,12 @@ Out of scope for the planning board:
   protective test before implementation. Refactor-only work requires
   behavior-lock tests before editing. Uncertain claims require debug/reproduce
   evidence before the test is written.
-- [ ] `VERIF-STOP-012` Do not update Codex skills or repo agent instructions to
+- [x] `VERIF-STOP-012` Do not update Codex skills or repo agent instructions to
   mandate this workflow until the verification program is implemented and
   validated. Before implementation, skills may point to this document set as a
-  draft only.
+  draft only. Closed atomically with `VERIF-P16-007` after the implemented
+  workflow, burn-in ratchets, independent authorization, and enforcing CI gate
+  were all present; the mandate does not predate enforcement.
 - [ ] `VERIF-STOP-013` Do not invent expected behavior inside a test when the
   product/specification contract is missing or ambiguous. Mark the invariant
   `spec_gap`, record the question, update the owning specification or decision
@@ -152,15 +164,117 @@ routed through invariant/test discipline before production code changes land.
 
 Default order:
 
-1. Define or update the invariant/claim.
+1. Define or update the invariant/claim, including `contract_kind` and any
+   structured behavior rows needed for the touched area.
 2. If the claim is uncertain, debug or reproduce first.
 3. Choose the oracle.
-4. Add the failing, protective, or behavior-lock test.
-5. Capture the red/protective result when behavior should change.
-6. Implement the smallest production change.
-7. Run targeted green proof.
-8. Run the required suite tier.
-9. Update verification metadata, checklist row, and evidence.
+4. Let the planner derive required test classes and case families from the
+   committed metadata. If the planner reports a spec gap, stop and update the
+   owning spec/decision before writing a test.
+5. Add the failing, protective, or behavior-lock test.
+6. When a case file is required, generate or author committed cases from the
+   behavior rows, never from product code.
+7. Capture the red/protective result when behavior should change.
+8. Implement the smallest production change.
+9. Run targeted green proof.
+10. Run the required suite tier.
+11. Update verification metadata, checklist row, and evidence.
+
+The older shorthand "tests before code" means this full chain: spec or spec gap
+first, planner/case requirements second, failing or protective proof third,
+implementation fourth.
+
+## Spec-First Test Planning
+
+After the verification tooling exists, bug fixes and features must begin by
+updating the structured invariant, not by writing ad hoc tests. The invariant is
+the machine-readable behavior contract. It names the prose oracle, risk,
+coverage dimensions, `contract_kind`, and for `decision_table` contracts the
+input partitions and typed outcomes.
+
+Tool boundaries:
+
+- `plan_tests.py` reads committed metadata and reports required test classes,
+  required case families, existing tests, missing tests, spec gaps, waivers, and
+  risk changes. It never emits expected behavior text.
+- `gen_cases.py` derives case files only from behavior rows or deterministic
+  transforms of committed seed artifacts. It never reads product code to decide
+  what should happen.
+- `prove.py red|green|lock` runs cataloged commands itself and writes evidence
+  records. Agents do not hand-author high-risk red/green evidence.
+- `prove.py` binds proof by catalog `test_id`, case-file digest, and generated
+  case-artifact digest. It never trusts path text alone and it never treats
+  compile, harness, metadata, timeout, or infrastructure failures as behavioral
+  red proof unless a written oracle explicitly says that failure class is the
+  expected behavior.
+- `prove.py` must bind a case artifact to the command it just ran by clearing
+  stale artifacts before execution and verifying `TRUST_VERIFY_*` run stamps
+  emitted by the test helper. A digest-correct artifact from an earlier run is
+  not proof.
+- The `verification-cases` helper makes tests consume every committed case and
+  write a per-case artifact for `prove.py` to check.
+
+Default-deny rules:
+
+- A changed file mapped to no area blocks the planner.
+- An uninventoried area blocks the planner.
+- Unknown risk is treated as the highest applicable risk until classified.
+- A missing behavior row for a required decision-table family is a spec gap, not
+  a missing test that the agent may fill by guessing.
+- A spec gap can only close by updating the owning specification, decision,
+  deviation, design contract, or public claim record.
+- A risk downgrade, `not_applicable` coverage cell, or waived matrix row needs
+  `decision_ref` to an active reviewed decision/deviation. Free-text rationale
+  is not enough.
+- Risk-change reports compare against `plan_tests.py --baseline <rev>` locally
+  or the pull-request merge base in CI.
+
+Intent-specific workflow:
+
+- Bug fix: update behavior rows or spec gap first, run planner, create failing
+  regression/case proof, run `prove.py red`, implement, run `prove.py green`.
+- New feature: update spec/invariant first, create acceptance/contract cases
+  that fail because behavior is missing, then implement.
+- Refactor-only: cite covering invariants and use `prove.py lock` or equivalent
+  behavior-lock proof before and after. Do not invent fake red tests.
+- Docs/test-refactor: run metadata, link, catalog, and registration checks; no
+  runtime red proof is required unless behavior changes.
+
+Typed outcome contracts:
+
+- Accept outcomes prove the exact expected delta: target changed as specified,
+  unrelated siblings unchanged, retain/output/process-image state handled as the
+  oracle states, and diagnostics/status match the contract.
+- Reject outcomes prove zero delta unless the oracle explicitly permits a
+  change: state unchanged, no partial apply, stable error code, and visible
+  diagnostic/status/fault surface.
+- "Rejected" alone is not enough for PLC safety. The test must prove what did
+  and did not change.
+
+Bypass resistance:
+
+- A test that asserts nothing cannot produce red evidence for a bug fix because
+  it is green at the base commit.
+- A skipped case is caught by the per-case artifact cross-check.
+- A weakened case table changes a committed file and digest, which is a loud
+  metadata diff.
+- A green run that does not correspond to the earlier red run is caught by
+  `prove.py green`: same test, same case-file digest, formerly-red cases now
+  green, no previously-green case regressed, no unwaived skip.
+- A green proof must pair to a red/protective-red proof for the same test ID,
+  same case-file digest, and same formerly-red case IDs unless a reviewed
+  case-table/spec decision explicitly permits the change.
+- Any exception for changed case digests, accepted lock deltas, risk downgrades,
+  or waivers requires `decision_ref` to an active reviewed decision/deviation.
+  A CLI flag or prose note is not enough.
+- A hand-authored or agent-authored high-risk proof is rejected by producer
+  allowlist; only `prove.py vN` or an approved gate can close red/green proof
+  for `safety_critical`, `wrong_result`, `silent_corruption`, or `false_status`.
+- A compile error or harness panic cannot count as red evidence unless the
+  oracle specifically says compile/load failure is the expected outcome.
+- Weak refactor assertions are addressed by mutation shards where available; the
+  planner and validator must not pretend static metadata can prove assertion
+  strength.
 
 Allowed variants:
 
@@ -185,6 +299,8 @@ Disallowed shortcuts:
 - No parity-only proof where both paths can share the same bug.
 - No UI-visible behavior change without extension/browser/journey proof or an
   explicit non-UI classification.
+- No new user-facing workflow, public workflow, or operator/developer journey
+  without a written user-story/workflow specification or an explicit spec gap.
 
 ## Specification Completeness
 
@@ -203,6 +319,22 @@ Every safety-relevant invariant must answer:
 - What visible status or diagnostic is emitted when behavior cannot complete
   safely?
 
+User-story and public-workflow specifications:
+
+- Any feature that adds or changes a user-facing workflow must have a spec
+  source before implementation starts. This includes VS Code journeys, HMI
+  operator flows, CLI workflows, device/protocol setup flows, debug/force/write
+  workflows, install/release workflows, and public docs promises that imply a
+  user can accomplish a task.
+- The workflow spec must name the actor, entry point, preconditions, ordered
+  user-visible steps, expected success state, expected failure/status behavior,
+  safety or authz boundaries, and required acceptance evidence.
+- If the workflow behavior is not yet decided, create a spec gap with class
+  `missing_user_workflow` or `missing_ui_contract` and do not write tests or
+  implementation that invent the workflow.
+- Backend/runtime proof can support a workflow, but cannot replace journey,
+  extension, browser, CLI, or public-doc evidence for the user-visible claim.
+
 Spec gap classes:
 
 - `missing_behavior`
@@ -215,7 +347,9 @@ Spec gap classes:
 - `missing_security`
 - `missing_hardware_contract`
 - `missing_ui_contract`
+- `missing_user_workflow`
 - `external_source_unavailable`
+- `public_claim_unproven`
 
 Spec gap workflow:
 
@@ -324,6 +458,25 @@ Preferred organization:
 - proof that mocks cannot provide,
 - named devices, firmware/software versions, topology, env vars, safety
   precautions, skipped/unproven rows visible.
+
+Phase 5 suite records bind direct entrypoints to the reviewed gate inventory.
+`includes` and `excludes` do not imply command inheritance, transitive success,
+or evidence reuse. `verification/governance.toml` defines `includes` as ordered
+display dependencies and `excludes` as reviewed constraint labels; command,
+execution, and proof inheritance are all false. A
+conditional suite tier is reported to the planner but is never promoted into a
+direct required suite without the condition being established by the owning
+workflow or review.
+
+The same governance record owns 30-day grace periods for unknown ignored tests,
+missing oracles, and undispositioned public claims; safety-relevant mutation
+survivors have a before-merge milestone and no elapsed grace. Active metadata
+is stale after 90 days without review. Monthly ignored-test, release-time
+hardware/security, and quarterly mutation/fuzz reviews are enforced by the
+changed-file governance check. Product changes update an invariant and catalog
+mapping in the same diff; public-claim changes update a spec source and
+invariant. Evidence and invariant retirement is append-only through
+`verification/retirements.toml`.
 
 ## Test Adequacy Metrics
 

@@ -70,6 +70,17 @@ impl DebugControl {
         std::mem::take(&mut state.pending_lvalue_writes)
     }
 
+    /// Clear queued writes and active forces at a terminating runtime boundary.
+    pub(crate) fn clear_runtime_mutations(&self) {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.io_writes.clear();
+        state.pending_var_writes.clear();
+        state.pending_lvalue_writes.clear();
+        state.forced_vars.clear();
+        state.forced_io.clear();
+    }
+
     fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");

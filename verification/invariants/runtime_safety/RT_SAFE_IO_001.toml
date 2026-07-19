@@ -1,0 +1,54 @@
+schema_version = 1
+id = "RT_SAFE_IO_001"
+title = "Device work remains outside the scan-cycle critical path"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-14"
+claim = "Slow device and protocol work must not block the scan-cycle critical path."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/io", "crates/trust-runtime/src/runtime"]
+tests = [
+  "TEST_RUNTIME_IO_BOUND_TRACE_001",
+  "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001",
+  "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
+  "TEST_CONFORMANCE_MEMORY_MAP_SYNC_001",
+  "TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002",
+]
+gates = []
+evidence_refs = [
+  "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_IO_BOUND_TRACE_001_LOCK_COMPARE",
+]
+missing = ["non_modbus_slow_device_matrix", "hardware_lab_latency"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "DELAYED_MODBUS_READ" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A delayed Modbus read remains on the worker while read_inputs returns through the bounded scan-facing handoff."
+
+[[behavior]]
+partition = { equals = "DELAYED_MODBUS_WRITE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A delayed Modbus write remains on the worker while write_outputs returns through the bounded scan-facing handoff."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "The committed current-contract proof pair covers delayed loopback Modbus read and write handoff bounds; non-Modbus and hardware-lab latency evidence remain open."

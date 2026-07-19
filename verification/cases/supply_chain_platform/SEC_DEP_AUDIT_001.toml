@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_SEC_DEP_AUDIT_001"
+title = "Dependency exception lifetime trace"
+area = "supply_chain_platform"
+owner = "release"
+status = "planned"
+invariant = "SEC_DEP_AUDIT_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:7847f0d034f811e97957c75c7e5dbb55fe97df0f85bfe19bdec6921014a762ef"
+source_digest = "sha256:5b1b47e2278451cbdd769ef2de8b6283632d7001dcd56e1d7aab738be5875f89"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "SEC_DEP_AUDIT_001_EXCEPTIONS"
+family = "supply_chain_or_artifact_fault"
+input = { scenario = "DEPENDENCY_EXCEPTION_LIFETIME" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#dependency-exceptions", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "deny.toml" }, expected = { stable_id = true, owner = true, rationale = true, removal = true, review = true, expires = true, max_days = 90 }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#dependency-exceptions" }]

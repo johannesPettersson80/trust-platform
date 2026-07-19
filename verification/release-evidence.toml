@@ -1,0 +1,115 @@
+schema_version = 1
+id = "RELEASE_EVIDENCE_MANIFEST_001"
+owner = "release"
+status = "mapped"
+last_reviewed = "2026-07-19"
+spec_source_id = "SPEC_RELEASE_EVIDENCE_001"
+release_branches = ["main", "master"]
+version_sources = [
+  "Cargo.toml",
+  "editors/vscode/package.json",
+  "editors/vscode/package-lock.json",
+]
+changelog_path = "CHANGELOG.md"
+release_workflow_path = ".github/workflows/release.yml"
+ci_workflow_path = ".github/workflows/ci.yml"
+security_policy_path = "deny.toml"
+required_release_assets = [
+  "SHA256SUMS",
+  "release-provenance.json",
+  "conformance-status.json",
+  "conformance-status.md",
+]
+proof_origins = ["local", "remote_builder", "ci", "hardware_lab", "public_github"]
+hardware_lab_rows = [
+  "VERIF-P11-002",
+  "VERIF-P11-003",
+  "VERIF-P11-004",
+  "VERIF-P11-005",
+  "VERIF-P11-006",
+]
+
+[security_policy]
+exception_owner_required = true
+exception_expiry_required = true
+maximum_exception_days = 90
+rust_commands = [
+  "python3 scripts/check_dependency_exceptions.py",
+  "cargo deny check advisories licenses bans sources",
+  "cargo audit --deny warnings <tracked-exceptions>",
+]
+node_commands = ["npm audit --audit-level=low"]
+
+[latest_public_snapshot]
+status = "published_latest"
+checked_at = "2026-07-19T03:00:00+02:00"
+tag = "v0.24.34"
+commit = "ff34244ae2bb1c2c093c57b541462eae2ce9f887"
+published_at = "2026-07-15T16:03:03Z"
+release_url = "https://github.com/johannesPettersson80/trust-platform/releases/tag/v0.24.34"
+workflow_run_id = "29426801469"
+workflow_run_url = "https://github.com/johannesPettersson80/trust-platform/actions/runs/29426801469"
+workflow_conclusion = "success"
+assets = [
+  "SHA256SUMS",
+  "trust-lsp-darwin-arm64-0.24.34.vsix",
+  "trust-lsp-darwin-arm64.tar.gz",
+  "trust-lsp-darwin-x64-0.24.34.vsix",
+  "trust-lsp-darwin-x64.tar.gz",
+  "trust-lsp-linux-arm64-0.24.34.vsix",
+  "trust-lsp-linux-arm64.tar.gz",
+  "trust-lsp-linux-x64-0.24.34.vsix",
+  "trust-lsp-linux-x64.tar.gz",
+  "trust-lsp-win32-x64-0.24.34.vsix",
+  "trust-lsp-win32-x64.zip",
+  "trust-runtime-darwin-arm64.tar.gz",
+  "trust-runtime-darwin-x64.tar.gz",
+  "trust-runtime-linux-arm64.tar.gz",
+  "trust-runtime-linux-x64.tar.gz",
+  "trust-runtime-win32-x64.zip",
+]
+
+[[platforms]]
+id = "linux-x64"
+target = "x86_64-unknown-linux-gnu"
+support_tier = "native_ci"
+required_proof = ["native_ci_test", "release_artifact", "sha256"]
+runtime_asset = "trust-runtime-linux-x64.tar.gz"
+lsp_asset = "trust-lsp-linux-x64.tar.gz"
+vsix_asset_template = "trust-lsp-linux-x64-{version}.vsix"
+
+[[platforms]]
+id = "linux-arm64"
+target = "aarch64-unknown-linux-gnu"
+support_tier = "artifact_only"
+required_proof = ["release_artifact", "sha256"]
+runtime_asset = "trust-runtime-linux-arm64.tar.gz"
+lsp_asset = "trust-lsp-linux-arm64.tar.gz"
+vsix_asset_template = "trust-lsp-linux-arm64-{version}.vsix"
+
+[[platforms]]
+id = "darwin-x64"
+target = "x86_64-apple-darwin"
+support_tier = "artifact_only"
+required_proof = ["release_artifact", "sha256"]
+runtime_asset = "trust-runtime-darwin-x64.tar.gz"
+lsp_asset = "trust-lsp-darwin-x64.tar.gz"
+vsix_asset_template = "trust-lsp-darwin-x64-{version}.vsix"
+
+[[platforms]]
+id = "darwin-arm64"
+target = "aarch64-apple-darwin"
+support_tier = "artifact_only"
+required_proof = ["release_artifact", "sha256"]
+runtime_asset = "trust-runtime-darwin-arm64.tar.gz"
+lsp_asset = "trust-lsp-darwin-arm64.tar.gz"
+vsix_asset_template = "trust-lsp-darwin-arm64-{version}.vsix"
+
+[[platforms]]
+id = "win32-x64"
+target = "x86_64-pc-windows-msvc"
+support_tier = "native_ci"
+required_proof = ["native_ci_test", "release_artifact", "sha256"]
+runtime_asset = "trust-runtime-win32-x64.zip"
+lsp_asset = "trust-lsp-win32-x64.zip"
+vsix_asset_template = "trust-lsp-win32-x64-{version}.vsix"

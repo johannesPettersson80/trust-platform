@@ -662,6 +662,36 @@ fn lsp_range_formatting_formats_selection() {
 }
 
 #[test]
+fn lsp_range_formatting_uses_shared_bare_cr_line_model() {
+    let source = "PROGRAM Test\rVAR\rx:INT;\rEND_VAR\rx:=1+2;\rEND_PROGRAM\r";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///range-bare-cr.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let params = tower_lsp::lsp_types::DocumentRangeFormattingParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+        range: tower_lsp::lsp_types::Range {
+            start: tower_lsp::lsp_types::Position::new(4, 0),
+            end: tower_lsp::lsp_types::Position::new(4, 7),
+        },
+        options: tower_lsp::lsp_types::FormattingOptions {
+            tab_size: 4,
+            insert_spaces: true,
+            ..Default::default()
+        },
+        work_done_progress_params: Default::default(),
+    };
+
+    let edits = range_formatting(&state, params).expect("range formatting");
+    assert_eq!(edits.len(), 1);
+    assert_eq!(
+        edits[0].range.start.line, 0,
+        "the selection expands to its containing PROGRAM block"
+    );
+    assert!(edits[0].new_text.contains("x := 1 + 2;"));
+    assert!(edits[0].new_text.ends_with('\r'));
+}
+
+#[test]
 fn lsp_range_formatting_expands_to_syntax_block() {
     let source = "PROGRAM Test\nVAR\nx:INT;\nEND_VAR\nIF x=1 THEN\ny:=1;\nEND_IF\nEND_PROGRAM\n";
     let state = ServerState::new();

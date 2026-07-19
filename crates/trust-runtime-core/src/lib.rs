@@ -24,6 +24,8 @@ pub mod cycle;
 pub mod datetime;
 /// Portable runtime errors.
 pub mod error;
+/// Stable machine-readable runtime error identifiers.
+pub mod error_code;
 /// Portable runtime memory identity types.
 pub mod memory;
 /// Portable numeric conversion helpers.

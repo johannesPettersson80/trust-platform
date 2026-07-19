@@ -21,6 +21,9 @@ instead of sending readers to GitHub.
 | “What files make up a truST project?” | [19 Project Model](19-project-model.md) |
 | “What is the machine-facing runtime contract?” | [20 Agent API v1](20-agent-api-v1.md) |
 | “What is the deterministic harness wire protocol?” | [21 Harness Protocol](21-harness-protocol.md) |
+| “How do source discovery and project-scoped commits behave?” | [22 Developer Workflows](22-developer-workflows.md) |
+| “Which connector status values are canonical?” | [23 Connector Status](23-connector-status.md) |
+| “What evidence is required for release claims?” | [24 Release Evidence](24-release-evidence.md) |
 
 Use specification pages for exact behavior and contracts. Use [Program](../../develop/index.md)
 for task-oriented programming docs.
@@ -63,6 +66,9 @@ for task-oriented programming docs.
 - [19 Project Model](19-project-model.md)
 - [20 Agent API v1](20-agent-api-v1.md)
 - [21 Harness Protocol](21-harness-protocol.md)
+- [22 Developer Workflows](22-developer-workflows.md)
+- [23 Connector Status](23-connector-status.md)
+- [24 Release Evidence](24-release-evidence.md)
 
 ## Full Source Index
 

@@ -10,6 +10,7 @@ import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import {
   fetchConnectorStatus,
   mergeConnectorStatusIntoTopology,
+  type FleetTopologyConnectorMergeResult,
 } from "./connectorsStatus";
 import {
   fetchFleetTopology,
@@ -40,16 +41,19 @@ export async function loadNetworkCanvasRefreshData(options: {
   readonly context?: vscode.ExtensionContext;
   readonly projectDir?: string;
   readonly runtime: RuntimeTarget;
-  readonly loadPeerTopology: () => Promise<FleetTopologyResponse | undefined>;
+  readonly loadPeerTopology: () => Promise<FleetTopologyConnectorMergeResult>;
 }): Promise<NetworkCanvasRefreshData> {
   const offlinePromise = loadOfflineData(options.context, options.projectDir);
   const livePromise = loadLiveData(options.runtime);
   const managedPromise = options.context
     ? listManagedRuntimes(options.context)
     : Promise.resolve([]);
-  const peerPromise = options.loadPeerTopology().catch(() => undefined);
+  const peerPromise = options.loadPeerTopology().catch((error) => ({
+    topology: undefined,
+    errors: [`Peer topology unavailable: ${errorMessage(error)}`],
+  }));
 
-  const [offline, live, managed, peerTopology] = await Promise.all([
+  const [offline, live, managed, peer] = await Promise.all([
     offlinePromise,
     livePromise,
     managedPromise,
@@ -62,16 +66,19 @@ export async function loadNetworkCanvasRefreshData(options: {
       ? mergeFleetTopologies([live.topology, offline.topology])
       : live.topology
     : offline.topology;
-  const displayTopology = peerTopology
-    ? mergeFleetTopologies([localTopology, peerTopology])
+  const displayTopology = peer.topology
+    ? mergeFleetTopologies([localTopology, peer.topology])
     : localTopology;
+  const peerError = peer.errors.length > 0
+    ? `Peer topology degraded: ${peer.errors.join("; ")}`
+    : undefined;
 
   return {
     schema,
     capabilities: live.capabilities,
     localTopology,
     displayTopology,
-    topologyError: live.topologyError,
+    topologyError: [live.topologyError, peerError].filter(Boolean).join("; ") || undefined,
     runtimeSetupMessage: schema ? undefined : live.schemaError,
     managed,
   };

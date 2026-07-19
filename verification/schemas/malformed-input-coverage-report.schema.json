@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/malformed-input-coverage-report.schema.json",
+  "title": "truST malformed-input coverage report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "summary",
+    "classes",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "malformed-input-coverage" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": { "$ref": "#/$defs/scope" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "classes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/class" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "required": [
+        "area",
+        "surface_id",
+        "mapping_basis",
+        "debt_is_report_failure",
+        "coverage_states"
+      ],
+      "properties": {
+        "area": { "const": "bytecode_vm" },
+        "surface_id": { "const": "bytecode_container_instruction_stream" },
+        "mapping_basis": {
+          "const": "explicit_generated_test_malformed_input_class_ids"
+        },
+        "debt_is_report_failure": { "const": false },
+        "coverage_states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "covered",
+              "covered_by_fuzz",
+              "not_applicable",
+              "blocked",
+              "spec_gap",
+              "gap_open",
+              "deferred"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_counts": {
+      "type": "object",
+      "required": [
+        "covered",
+        "covered_by_fuzz",
+        "not_applicable",
+        "blocked",
+        "spec_gap",
+        "gap_open",
+        "deferred"
+      ],
+      "properties": {
+        "covered": { "type": "integer", "minimum": 0 },
+        "covered_by_fuzz": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "spec_gap": { "type": "integer", "minimum": 0 },
+        "gap_open": { "type": "integer", "minimum": 0 },
+        "deferred": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["taxonomy_classes", "mapped_classes", "test_mappings", "by_state"],
+      "properties": {
+        "taxonomy_classes": { "type": "integer", "minimum": 0 },
+        "mapped_classes": { "type": "integer", "minimum": 0 },
+        "test_mappings": { "type": "integer", "minimum": 0 },
+        "by_state": { "$ref": "#/$defs/state_counts" }
+      },
+      "additionalProperties": false
+    },
+    "class": {
+      "type": "object",
+      "required": [
+        "class_id",
+        "title",
+        "disposition",
+        "state",
+        "mapped_test_ids",
+        "runnable_test_ids",
+        "fuzz_test_ids",
+        "non_runnable_test_ids",
+        "open_spec_gap_refs",
+        "rationale"
+      ],
+      "properties": {
+        "class_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "disposition": {
+          "enum": ["required", "spec_gap", "blocked", "deferred", "not_applicable"]
+        },
+        "state": {
+          "enum": [
+            "covered",
+            "covered_by_fuzz",
+            "not_applicable",
+            "blocked",
+            "spec_gap",
+            "gap_open",
+            "deferred"
+          ]
+        },
+        "mapped_test_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "runnable_test_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "fuzz_test_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "non_runnable_test_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "open_spec_gap_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -13,8 +13,10 @@ use super::super::core::Runtime;
 use super::call::VM_LOCAL_SENTINEL_FRAME_ID;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
-use super::type_policy::{normalize_vm_value_for_ref, normalize_vm_value_for_type};
-use super::{materialize_borrowed_value, VmModule, VmRef};
+use super::type_policy::{
+    normalize_vm_value_for_ref, normalize_vm_value_for_type, vm_type_for_path,
+};
+use super::{invalid_bytecode, materialize_borrowed_value, VmModule, VmRef};
 
 pub(super) fn load_ref(
     runtime: &Runtime,
@@ -398,26 +400,61 @@ fn normalize_dynamic_store_value(
     reference: &ValueRef,
     value: Value,
 ) -> Result<Value, VmTrap> {
-    let Some(type_idx) = dynamic_ref_type(module, frame, reference) else {
+    let Some(type_idx) = dynamic_ref_type(module, frame, reference)? else {
         return Ok(value);
     };
     normalize_vm_value_for_type(module, type_idx, value).map_err(VmTrap::Runtime)
 }
 
-fn dynamic_ref_type(module: &VmModule, frame: &VmFrame, reference: &ValueRef) -> Option<u32> {
+pub(super) fn dynamic_ref_type(
+    module: &VmModule,
+    frame: &VmFrame,
+    reference: &ValueRef,
+) -> Result<Option<u32>, VmTrap> {
+    if matches!(
+        reference.location,
+        MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
+    ) {
+        if !reference.path.is_empty() || reference.offset >= frame.local_ref_count as usize {
+            return Ok(None);
+        }
+        let Some(offset) = u32::try_from(reference.offset).ok() else {
+            return Ok(None);
+        };
+        let Some(base_type) = frame
+            .local_ref_start
+            .checked_add(offset)
+            .and_then(|ref_idx| module.ref_type(ref_idx))
+        else {
+            return Ok(None);
+        };
+        return Ok(vm_type_for_path(module, base_type, &reference.path));
+    }
+
+    let mut resolved = None;
     for (ref_idx, candidate) in module.refs.iter().enumerate() {
-        let Some(type_idx) = module.ref_type(ref_idx as u32) else {
+        let Some(base_type_idx) = module.ref_type(ref_idx as u32) else {
             continue;
         };
-        let (location, offset, path) = runtime_access_target(candidate, frame).ok()?;
-        if location == reference.location
-            && offset == reference.offset
-            && path == reference.path.as_slice()
-        {
-            return Some(type_idx);
+        let Ok((location, offset, path)) = runtime_access_target(candidate, frame) else {
+            continue;
+        };
+        if location == reference.location && offset == reference.offset {
+            let Some(suffix) = reference.path.as_slice().strip_prefix(path) else {
+                continue;
+            };
+            let Some(type_idx) = vm_type_for_path(module, base_type_idx, suffix) else {
+                continue;
+            };
+            if resolved.is_some_and(|existing| existing != type_idx) {
+                return Err(VmTrap::Runtime(invalid_bytecode(
+                    "conflicting type metadata for runtime reference",
+                )));
+            }
+            resolved = Some(type_idx);
         }
     }
-    None
+    Ok(resolved)
 }
 
 pub(super) fn index_to_i64(value: Value) -> Result<i64, VmTrap> {

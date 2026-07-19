@@ -312,9 +312,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             .check_loop_restriction(resolved.id, arg.range);
                     }
 
-                    let to_param = self.checker.is_assignable(param.type_id, arg_type);
-                    let from_param = self.checker.is_assignable(arg_type, param.type_id);
-                    if to_param && from_param {
+                    if self.in_out_argument_types_compatible(param.type_id, arg_type) {
                         self.checker
                             .warn_implicit_conversion(param.type_id, arg_type, arg.range);
                         self.checker
@@ -384,9 +382,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     }
                 }
                 ParamDirection::InOut => {
-                    let to_param = self.checker.is_assignable(param.type_id, arg_type);
-                    let from_param = self.checker.is_assignable(arg_type, param.type_id);
-                    if to_param && from_param {
+                    if self.in_out_argument_types_compatible(param.type_id, arg_type) {
                         self.checker
                             .warn_implicit_conversion(param.type_id, arg_type, arg.range);
                         self.checker
@@ -412,6 +408,36 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     param.name
                 )
             })
+    }
+
+    fn in_out_argument_types_compatible(&self, formal: TypeId, actual: TypeId) -> bool {
+        let formal_resolved = self.checker.resolve_alias_type(formal);
+        let actual_resolved = self.checker.resolve_alias_type(actual);
+        match (
+            self.checker.symbols.type_by_id(formal_resolved),
+            self.checker.symbols.type_by_id(actual_resolved),
+        ) {
+            (
+                Some(Type::String {
+                    max_len: formal_len,
+                }),
+                Some(Type::String {
+                    max_len: actual_len,
+                }),
+            )
+            | (
+                Some(Type::WString {
+                    max_len: formal_len,
+                }),
+                Some(Type::WString {
+                    max_len: actual_len,
+                }),
+            ) => formal_len == actual_len,
+            _ => {
+                self.checker.is_assignable(formal, actual)
+                    && self.checker.is_assignable(actual, formal)
+            }
+        }
     }
 
     fn invalid_output_argument_type_message(&self, param: &ParamInfo, arg_type: TypeId) -> String {

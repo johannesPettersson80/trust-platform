@@ -12,6 +12,12 @@ use super::{
     NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK,
 };
 
+mod resource_limits;
+
+use resource_limits::{
+    charge_decoded_instruction, validate_declared_resource_limits, validate_operand_stack_depth,
+};
+
 include!("validate/module_validate.rs");
 include!("validate/tables_consts.rs");
 include!("validate/pou_and_instr.rs");

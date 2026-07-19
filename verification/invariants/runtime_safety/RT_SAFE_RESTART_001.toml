@@ -1,0 +1,63 @@
+schema_version = 1
+id = "RT_SAFE_RESTART_001"
+title = "Restart labels map to deterministic retain behavior"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-14"
+claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
+tests = [
+  "TEST_RUNTIME_RESTART_STORAGE_TRACE_001",
+  "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
+  "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
+  "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
+  "TEST_CONFORMANCE_RETAIN_RESTART_002",
+  "TEST_CONFORMANCE_RETAIN_MATRIX_001",
+]
+gates = []
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "COLD_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cold restart initializes retained, NON_RETAIN, and ordinary storage from declared values."
+
+[[behavior]]
+partition = { equals = "WARM_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Warm restart preserves RETAIN storage and initializes NON_RETAIN and ordinary storage."
+
+[[behavior]]
+partition = { equals = "AUTOMATIC_FAULT_RESTART_STORAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Automatic recovery from a non-panic cycle fault uses the warm-restart storage transition and clears the handled error."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "The committed current-contract proof pair covers cold, warm, and automatic-fault storage transitions; a causal broad gate remains open."

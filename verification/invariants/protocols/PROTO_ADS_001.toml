@@ -1,0 +1,33 @@
+schema_version = 1
+id = "PROTO_ADS_001"
+title = "ADS status and tooling surfaces report honest connection state"
+area = "protocols"
+risk = "false_status"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "ADS status, route, browse, and import surfaces must not collapse configured, reachable, connected, and live into one state."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src"]
+tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
+gates = []
+evidence_refs = [
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The current-contract lock comparison covers ADS lifecycle projection; a causal broad remote gate remains open."

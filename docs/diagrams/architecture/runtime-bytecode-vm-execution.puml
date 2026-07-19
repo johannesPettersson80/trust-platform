@@ -20,11 +20,13 @@ package "Production Cycle Entry" as entryPkg #LightBlue {
 
 package "Lazy VM Module Materialization" as modulePkg #LightYellow {
     artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
+    component "BytecodeModule::decode() + validate()\n(fixed container/table/instruction/stack limits)" as bytecodeGuard
     component "VmModule::from_bytecode()\n(runtime/vm/mod.rs)" as vmModule
     component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
 
     ensureVm --> bytecodeBuild : when vm_module missing
-    ensureVm --> vmModule
+    bytecodeBuild --> bytecodeGuard
+    bytecodeGuard --> vmModule : validated complete candidate
     vmModule --> vmModuleState
 }
 
@@ -46,12 +48,15 @@ package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
     component "try_execute_pou_with_register_ir_with_locals()\n(register path + lowering cache)" as regTry
     component "execute_register_program()\n(register executor + tier1)" as regExec
     component "execute_pou_stack_with_locals()\n(stack-bytecode execution path)" as stackExec
+    component "instruction budget\n(original bytecode costs, shared by nested calls)" as instructionBudget
     component "debug_map.rs\n(pc -> source / symbol lookup)" as debugMap
 
     vmModuleState --> vmEntry
     vmEntry --> regTry
     regTry --> regExec : eligible + not stepping
     regTry --> stackExec : debug mode / lowering error / unsupported shape / fallback
+    regExec --> instructionBudget : fused instruction cost
+    stackExec --> instructionBudget : one original instruction
     regExec --> debugMap
     stackExec --> debugMap
 }
@@ -63,6 +68,14 @@ note right of regTry
     Debug stepping intentionally keeps
     stack-bytecode execution as the
     single source of truth.
+end note
+
+note right of instructionBudget
+    Stack, register, and tier-1 execution
+    charge the same original bytecode count.
+    Nested POU/native calls receive the caller's
+    remaining budget; exhaustion maps to the
+    existing execution-timeout category.
 end note
 
 package "Hot Runtime Bridges" as bridgePkg #Lavender {
@@ -95,6 +108,32 @@ note bottom of refBridge
     - dynamic field/index traversal
     - instance-field resolution
     - storage read/write cloning pressure
+end note
+
+package "Stable Machine Error Boundary" as errorPkg #HoneyDew {
+    component "StableErrorCode\n(trust-runtime-core/error_code.rs)" as stableCode
+    component "BytecodeError::stable_code()\n(decoder + validator category)" as bytecodeCode
+    component "VmTrap::stable_code() +\nRuntimeError::stable_code()" as runtimeCode
+    component "typed HMI write admission failure\n(type / string / subrange / non-finite)" as hmiWriteCode
+    artifact "ControlResponse.error_code\n(stable lower-snake-case identifier)" as controlErrorCode
+
+    bytecodeGuard --> bytecodeCode : rejected candidate
+    bytecodeCode --> stableCode
+    vmEntry --> runtimeCode : execution trap
+    runtimeCode --> stableCode
+    hmiWriteCode --> stableCode
+    hmiWriteCode --> controlErrorCode : rejected before queueing
+}
+
+note right of errorPkg
+    Stable identifiers are selected by
+    exhaustive enum matches. Diagnostic
+    text remains separate and is never
+    parsed to recover a machine code.
+
+    BytecodeError -> RuntimeError and
+    VmTrap -> RuntimeError preserve the
+    selected bytecode_* / vm_* code.
 end note
 
 package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRose {
@@ -143,7 +182,9 @@ legend right
        - dispatch_refs.rs
        - memory.rs
     4. `helper_eval` handles const/debug/config/init helpers only.
-    5. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
+    5. Bytecode resource limits are checked before executable materialization.
+    6. Stable bytecode, VM, runtime, and HMI error identifiers do not depend on diagnostic text.
+    7. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
 end legend
 
 @enduml

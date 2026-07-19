@@ -1,0 +1,122 @@
+schema_version = 1
+id = "HARDWARE_LAB_PROGRAM_001"
+owner = "verification"
+status = "mapped"
+last_reviewed = "2026-07-19"
+suite_id = "hardware_lab"
+entrypoint_script = "scripts/runtime_device_in_loop_gate.sh"
+workflow_path = ".github/workflows/protocol-device-in-loop.yml"
+rust_harness_path = "crates/trust-runtime/tests/device_in_the_loop.rs"
+gpio_script_path = "scripts/gpio_hardware_test.sh"
+hardware_claim_spec_source_id = "SPEC_RELEASE_EVIDENCE_001"
+public_claim_status = "preview_unverified"
+strict_opt_in = "TRUST_DIT_REQUIRE_HARDWARE=1"
+artifact_contract = "target/gate-artifacts/device-in-the-loop/*.json"
+
+[[cases]]
+id = "LAB_MODBUS_TCP_001"
+board_row = "VERIF-P11-002"
+protocol = "modbus_tcp"
+title = "Modbus TCP target discovery and bounded safe-read probe"
+owner = "trust-runtime"
+binding_kind = "strict_harness"
+ignored_test_ids = ["IGNORED_EC41FC62FBEF09EFDFE8"]
+command = "scripts/runtime_device_in_loop_gate.sh"
+required_env_vars = ["TRUST_DIT_MODBUS_HOST"]
+topology = "A named reachable Modbus TCP target connected to the reviewed lab runner."
+topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
+artifact_paths = ["modbus-discovery.json"]
+assertions = ["The configured target responds to discovery.", "An explicitly configured safe-read probe remains bounded and visible in the JSON artifact."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No Modbus hardware or interoperability claim is established until a strict named-topology run passes."
+
+[[cases]]
+id = "LAB_MQTT_BROKER_001"
+board_row = "VERIF-P11-003"
+protocol = "mqtt"
+title = "MQTT broker authentication, TLS, reconnect, and disconnect exercise"
+owner = "trust-runtime"
+binding_kind = "strict_harness"
+ignored_test_ids = ["IGNORED_75F421CF89F3935418D6"]
+command = "scripts/runtime_device_in_loop_gate.sh"
+required_env_vars = ["TRUST_DIT_MQTT_BROKER"]
+topology = "A named reachable MQTT broker, with reviewed authentication and TLS settings when those claims are exercised."
+topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
+artifact_paths = ["mqtt-interop.json"]
+assertions = ["The broker connection and publish/subscribe exchange are visible.", "Configured authentication, TLS, reconnect, and disconnect outcomes are recorded rather than inferred."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No MQTT broker interoperability, authentication, TLS, or reconnect claim is established until a strict named-topology run passes."
+
+[[cases]]
+id = "LAB_ADS_TWINCAT_001"
+board_row = "VERIF-P11-004"
+protocol = "ads_twincat"
+title = "ADS/TwinCAT doctor and optional guarded write probe"
+owner = "trust-runtime"
+binding_kind = "strict_harness"
+ignored_test_ids = ["IGNORED_FE262D7963202D5AFB9D"]
+command = "scripts/runtime_device_in_loop_gate.sh"
+required_env_vars = ["TRUST_DIT_ADS_TARGET"]
+topology = "A named reachable TwinCAT/ADS target connected to the reviewed lab runner."
+topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
+artifact_paths = ["ads-doctor.json"]
+assertions = ["The ADS doctor result is machine-readable and fail-visible.", "Any configured write probe is complete, guarded, and recorded in the artifact."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No ADS/TwinCAT hardware-readiness claim is established until a strict named-topology run passes."
+
+[[cases]]
+id = "LAB_ETHERCAT_DISCOVERY_001"
+board_row = "VERIF-P11-005"
+protocol = "ethercat"
+title = "EtherCAT adapter and module-topology discovery"
+owner = "trust-runtime"
+binding_kind = "strict_harness"
+ignored_test_ids = ["IGNORED_26934332D29338103AFD"]
+command = "scripts/runtime_device_in_loop_gate.sh"
+required_env_vars = ["TRUST_DIT_ETHERCAT_ADAPTER"]
+topology = "A named EtherCAT adapter with a reviewed discoverable bus and module profile."
+topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
+artifact_paths = ["ethercat-discovery.json"]
+assertions = ["The adapter opens and the discovered module topology is recorded.", "Input/output byte counts and modules are explicit in the artifact."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No EtherCAT topology or field-hardware claim is established until a strict named-topology run passes."
+
+[[cases]]
+id = "LAB_ETHERCAT_STORAGE_001"
+board_row = "VERIF-P11-005"
+protocol = "ethercat"
+title = "EtherCAT repeated PDU storage stress"
+owner = "trust-runtime"
+binding_kind = "strict_harness"
+ignored_test_ids = ["IGNORED_A007AD886E7ABB17EF37"]
+command = "scripts/runtime_device_in_loop_gate.sh"
+required_env_vars = ["TRUST_DIT_ETHERCAT_ADAPTER", "TRUST_DIT_ETHERCAT_STORAGE_STRESS"]
+topology = "The reviewed EtherCAT topology with explicit bounded storage-stress opt-in."
+topology_ref = "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-05-phase-07/device-in-loop-gates.md"
+artifact_paths = ["ethercat-storage-stress.json"]
+assertions = ["Every requested discovery cycle is recorded.", "Process RSS observations and any failing cycle remain visible in the artifact."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No EtherCAT storage-stability claim is established until a strict named-topology stress run passes."
+
+[[cases]]
+id = "LAB_GPIO_OUTPUT_001"
+board_row = "VERIF-P11-006"
+protocol = "gpio"
+title = "GPIO output transition and optional looped-back input"
+owner = "trust-runtime"
+binding_kind = "manual_script"
+ignored_test_ids = []
+command = "scripts/gpio_hardware_test.sh examples/communication/gpio"
+required_env_vars = []
+topology = "A reviewed Linux GPIO host using BCM input line 17 and output line 27, with an optional physical loopback between them."
+topology_ref = "examples/communication/gpio/README.md"
+artifact_paths = ["gpio-hardware-<timestamp>.log", "gpio-hardware-<timestamp>.log.runtime.log"]
+assertions = ["The configured output reads TRUE after the commanded transition and FALSE after reset.", "When physical loopback checking is enabled, the input follows both transitions."]
+proof_status = "skipped_unproven"
+evidence_ids = []
+public_claim_impact = "No Raspberry Pi, GPIO board, numbering, permission, wiring, or safe-state claim is established until a named-topology run is reviewed."

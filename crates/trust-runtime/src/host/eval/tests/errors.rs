@@ -89,7 +89,6 @@ fn index_and_null_ref() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn evaluator_unknown_assignment_fails_without_creating_global() {
     let mut storage = VariableStorage::new();
     let registry = TypeRegistry::new();

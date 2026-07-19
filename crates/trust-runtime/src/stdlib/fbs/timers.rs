@@ -33,8 +33,7 @@ impl Ton {
             self.et = Duration::ZERO;
             self.q = false;
         } else {
-            let next = self.et.as_nanos() + delta.as_nanos();
-            self.et = Duration::from_nanos(next);
+            self.et = accumulate_elapsed(self.et, delta, pt);
             self.q = self.et.as_nanos() >= pt.as_nanos();
         }
         let et = if self.et.as_nanos() >= pt.as_nanos() {
@@ -83,26 +82,23 @@ impl Tof {
                 self.et = Duration::ZERO;
             }
             if self.timing {
-                let next = self.et.as_nanos() + delta.as_nanos();
-                self.et = Duration::from_nanos(next);
+                self.et = accumulate_elapsed(self.et, delta, pt);
                 if self.et.as_nanos() >= pt.as_nanos() {
                     self.q = false;
+                    self.et = pt;
                     self.timing = false;
                 } else {
                     self.q = true;
                 }
             } else {
                 self.q = false;
-                self.et = Duration::ZERO;
             }
         }
         self.prev_in = input;
-        let et = if self.et.as_nanos() >= pt.as_nanos() {
-            pt
-        } else {
-            self.et
-        };
-        TimerOutput { q: self.q, et }
+        TimerOutput {
+            q: self.q,
+            et: self.et,
+        }
     }
 }
 
@@ -139,8 +135,7 @@ impl Tp {
             self.et = Duration::ZERO;
         }
         if self.active {
-            let next = self.et.as_nanos() + delta.as_nanos();
-            self.et = Duration::from_nanos(next);
+            self.et = accumulate_elapsed(self.et, delta, pt);
             if self.et.as_nanos() >= pt.as_nanos() {
                 self.active = false;
                 self.et = pt;
@@ -238,6 +233,11 @@ fn normalize_duration(value: Duration) -> Duration {
     } else {
         value
     }
+}
+
+fn accumulate_elapsed(elapsed: Duration, delta: Duration, pt: Duration) -> Duration {
+    let next = elapsed.as_nanos().saturating_add(delta.as_nanos());
+    Duration::from_nanos(next.min(pt.as_nanos()))
 }
 
 fn read_time_input(

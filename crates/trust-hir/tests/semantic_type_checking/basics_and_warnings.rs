@@ -270,7 +270,7 @@ fn test_implicit_conversion_warning() {
         r#"
 PROGRAM Test
     VAR x : REAL; END_VAR
-    x := 1;
+    x := INT#1;
 END_PROGRAM
 "#,
     );

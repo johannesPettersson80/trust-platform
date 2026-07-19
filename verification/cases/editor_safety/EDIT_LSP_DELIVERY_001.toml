@@ -1,0 +1,32 @@
+schema_version = 1
+id = "CASES_EDIT_LSP_DELIVERY_001"
+title = "LSP progressive-result and runtime-latency traces"
+area = "editor_safety"
+owner = "trust-lsp"
+status = "planned"
+invariant = "EDIT_LSP_DELIVERY_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:76ce758c25002d5e50ad6b77604c783f03bcfd58c3f56ec0e48210aff5aa006e"
+source_digest = "sha256:880438cfe36a2d8303096675445fdc70577ee38f9add505c253b83e04fe77e02"
+last_reviewed = "2026-07-19"
+
+[[case]]
+id = "EDIT_LSP_DELIVERY_001_REFERENCES_PARTIAL_RESULT_TOKEN"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "REFERENCES_PARTIAL_RESULT_TOKEN" }, scenario = "REFERENCES_PARTIAL_RESULT_TOKEN" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "request_references_with_partial_result_token" }, expected = { final_count = 0, notification_method = "$/progress", token = "refs-partial", partial_nonempty = true }, oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency" }]
+
+[[case]]
+id = "EDIT_LSP_DELIVERY_001_WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN" }, scenario = "WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "request_workspace_symbols_with_partial_result_token" }, expected = { final_count = 0, notification_method = "$/progress", token = "symbols-partial", partial_nonempty = true }, oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency" }]
+
+[[case]]
+id = "EDIT_LSP_DELIVERY_001_SILENT_RUNTIME_INLINE_VALUE_ENDPOINT"
+family = "resource_limit"
+input = { source_partition = { equals = "SILENT_RUNTIME_INLINE_VALUE_ENDPOINT" }, scenario = "SILENT_RUNTIME_INLINE_VALUE_ENDPOINT" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { action = "request_inline_values_from_silent_endpoint", timeout_ms = 500 }, expected = { completed_within_bound = true, value_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency" }]

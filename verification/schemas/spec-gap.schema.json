@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/spec-gap.schema.json",
+  "title": "truST verification spec-gap record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "risk",
+    "owner",
+    "status",
+    "gap_class",
+    "blocking_question",
+    "affected_invariants",
+    "affected_tests",
+    "candidate_spec_sources",
+    "resolution_status",
+    "closeout_evidence",
+    "last_reviewed"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "gap_class": {
+      "enum": [
+        "missing_behavior",
+        "ambiguous_behavior",
+        "conflicting_sources",
+        "missing_boundary",
+        "missing_error_model",
+        "missing_lifecycle",
+        "missing_persistence",
+        "missing_security",
+        "missing_hardware_contract",
+        "missing_ui_contract",
+        "missing_user_workflow",
+        "external_source_unavailable",
+        "public_claim_unproven"
+      ]
+    },
+    "affected_invariants": { "type": "array", "items": { "type": "string" } },
+    "affected_tests": { "type": "array", "items": { "type": "string" } },
+    "candidate_spec_sources": { "type": "array", "items": { "type": "string" } },
+    "resolution_source_ref": { "type": "string", "minLength": 1 },
+    "test_deferral_ref": { "type": "string", "minLength": 1 },
+    "closeout_evidence": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

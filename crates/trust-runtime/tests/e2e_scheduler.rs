@@ -164,6 +164,98 @@ END_PROGRAM
 }
 
 #[test]
+fn backward_clock_step_does_not_replay_or_overrun_periodic_task() {
+    let source = r#"
+CONFIGURATION C
+TASK Fast (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM P WITH Fast : Main;
+END_CONFIGURATION
+
+PROGRAM Main
+VAR
+    count : INT := 0;
+END_VAR
+count := count + 1;
+END_PROGRAM
+"#;
+    let runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let clock = ManualClock::new();
+    let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
+    let program = match runner.runtime().storage().get_global("P") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected P instance, got {other:?}"),
+    };
+
+    clock.set_time(Duration::from_millis(10));
+    runner.tick().unwrap();
+    assert_counter(
+        runner
+            .runtime()
+            .storage()
+            .get_instance_var(program, "count"),
+        1,
+    );
+
+    clock.set_time(Duration::from_millis(2));
+    runner.tick().unwrap();
+    assert_counter(
+        runner
+            .runtime()
+            .storage()
+            .get_instance_var(program, "count"),
+        1,
+    );
+    assert_eq!(runner.runtime().task_overrun_count("Fast"), Some(0));
+
+    clock.set_time(Duration::from_millis(20));
+    runner.tick().unwrap();
+    assert_counter(
+        runner
+            .runtime()
+            .storage()
+            .get_instance_var(program, "count"),
+        2,
+    );
+    assert_eq!(runner.runtime().task_overrun_count("Fast"), Some(0));
+}
+
+#[test]
+fn resumed_clock_jump_runs_once_and_records_missed_intervals() {
+    let source = r#"
+CONFIGURATION C
+TASK Fast (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM P WITH Fast : Main;
+END_CONFIGURATION
+
+PROGRAM Main
+VAR
+    count : INT := 0;
+END_VAR
+count := count + 1;
+END_PROGRAM
+"#;
+    let runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let clock = ManualClock::new();
+    let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
+    let program = match runner.runtime().storage().get_global("P") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected P instance, got {other:?}"),
+    };
+
+    clock.set_time(Duration::from_millis(55));
+    runner.tick().unwrap();
+
+    assert_counter(
+        runner
+            .runtime()
+            .storage()
+            .get_instance_var(program, "count"),
+        1,
+    );
+    assert_eq!(runner.runtime().task_overrun_count("Fast"), Some(4));
+}
+
+#[test]
 fn trace_determinism() {
     fn run_trace() -> Vec<RuntimeEvent> {
         let source = r#"

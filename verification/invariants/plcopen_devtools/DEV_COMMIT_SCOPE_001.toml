@@ -1,0 +1,64 @@
+schema_version = 1
+id = "DEV_COMMIT_SCOPE_001"
+title = "Developer commit helpers expose unrelated staged scope"
+area = "plcopen_devtools"
+risk = "data_loss"
+status = "implemented"
+owner = "trust-dev"
+last_reviewed = "2026-07-18"
+claim = "Developer commit helpers must not silently include unrelated pre-staged changes."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-dev/src"]
+tests = [
+  "TEST_DEV_COMMIT_SCOPE_TRACE_001",
+  "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001",
+  "TEST_REVIEW_COMMIT_SCOPE_RACE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_COMPARE",
+  "EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717",
+  "EVID_DEV_COMMIT_ATOMIC_SCOPE_GAP_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+
+[[behavior]]
+partition = { equals = "PRESTAGED_SCOPE_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A pre-staged path inside the selected project, or any staged path for a repository-root commit, aborts before the index or history changes."
+
+[[behavior]]
+partition = { equals = "PRESTAGED_OUTSIDE_SCOPE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "A staged path outside the project remains staged and is excluded from the scoped commit."
+
+[[behavior]]
+partition = { equals = "DRY_RUN_OR_CANCEL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Dry-run and cancellation report the selected scope without mutating index, worktree, or history."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Static and concurrent staging collisions and invalid canonical scopes are rejected before commit mutation."

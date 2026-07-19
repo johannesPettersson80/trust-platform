@@ -21,3 +21,6 @@ toml.workspace = true
 trust-runtime.workspace = true
 trust-syntax.workspace = true
 trust-wasm-analysis.workspace = true
+
+[dev-dependencies]
+verification-cases.workspace = true

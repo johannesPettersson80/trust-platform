@@ -198,8 +198,14 @@ package "trust-runtime crate" as struntime #LightCoral {
 ' ============================================================
 package "ControlServer (IPC)" as controlServer #LightCoral {
     component "control/transport.rs" as controlCore
+    component "control auth gate" as controlAuth
+    component "operation_registry.rs" as operationRegistry
+    component "policy.rs\nparameter-sensitive roles" as rolePolicy
     component "debug.* endpoints" as debugEndpoints
-    controlCore --> debugEndpoints
+    controlCore --> controlAuth
+    controlAuth --> operationRegistry : classify operation + debug surface
+    controlAuth --> rolePolicy : resolve parameter-sensitive minimum role
+    controlAuth --> debugEndpoints : authorized dispatch only
 }
 
 remoteSession -down-> controlServer : JSON IPC (debug.*)

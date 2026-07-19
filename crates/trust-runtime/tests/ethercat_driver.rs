@@ -10,6 +10,8 @@ fn ethercat_mock_profile_maps_ek1100_elx008_process_image() {
     let params: toml::Value = toml::from_str(
         r#"
 adapter = "mock"
+timeout_ms = 250
+cycle_warn_ms = 250
 mock_inputs = ["01"]
 [[modules]]
 model = "EK1100"
@@ -32,9 +34,10 @@ channels = 8
     assert_eq!(inputs, [0x01], "input image should map from mock frame");
 
     driver.write_outputs(&[0xAA]).expect("write outputs");
+    let health = driver.health();
     assert!(
-        matches!(driver.health(), IoDriverHealth::Ok),
-        "healthy cycle should keep status ok"
+        matches!(health, IoDriverHealth::Ok),
+        "healthy cycle should keep status ok, found {health:?}"
     );
 }
 
@@ -129,7 +132,6 @@ slot = 2
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn ethercat_image_size_mismatch_faults_under_warn_policy() {
     let params: toml::Value = toml::from_str(
         r#"
@@ -239,7 +241,6 @@ slot = 2
 
 #[cfg(all(feature = "ethercat-wire", unix))]
 #[test]
-#[ignore = "red test for runtime-safety EtherCAT bounded post-allocation retry policy"]
 fn ethercat_missing_adapter_post_allocation_failure_is_terminal_until_rebuild() {
     let params: toml::Value = toml::from_str(
         r#"

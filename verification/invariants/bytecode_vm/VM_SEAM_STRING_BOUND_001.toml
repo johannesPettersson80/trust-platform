@@ -1,0 +1,79 @@
+schema_version = 1
+id = "VM_SEAM_STRING_BOUND_001"
+title = "STRING[n] bounds are enforced on every runtime write path"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-17"
+claim = "Writes into bounded STRING and WSTRING storage apply the receiving scalar-value capacity, while cross-family runtime tags reject before storage."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
+tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_STRING_BOUND_TRACE_001"]
+gates = ["veryquick", "pr"]
+evidence_refs = [
+  "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
+  "EVID_TEST_VM_STRING_BOUND_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_STRING_BOUND_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[input]
+name = "string_value"
+type = "STRING"
+declared = "STRING[5]"
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001"
+
+[[behavior]]
+partition = { min = 0, max = 5 }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
+outcome = "accept_value"
+delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A STRING value within the receiving capacity is stored unchanged."
+
+[[behavior]]
+partition = { above = 5 }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A value longer than STRING[5] stores its first five Unicode scalar values and discards only the excess suffix."
+
+[[behavior]]
+partition = { equals = "FB_INPUT_COPY_IN_LENGTH_6" }
+case_family = "above_max"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function-block input copy-in applies the formal's declared capacity before the function block observes the value."
+
+[[behavior]]
+partition = { wrong_type = "WSTRING" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A WSTRING runtime tag cannot be stored implicitly in STRING storage and is rejected before target mutation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The mapped VM primitive-policy test covers in-bound scalar preservation."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "covered"
+rationale = "The mapped VM primitive-policy test covers Unicode-scalar truncation at the declared capacity."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Wrong-family tag rejection is case-backed against runtime_type_mismatch with a current producer-authentic lock comparison."

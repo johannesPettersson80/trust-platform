@@ -46,6 +46,7 @@ end note
 package "trust-lsp crate" as trustlsp #LightGreen {
     component "StLanguageServer" as server <<main.rs>>
     component "ServerState" as state <<state.rs>>
+    component "Document text core" as documentText <<document_text.rs>>
 
     package "handlers/" as handlers {
         component "sync.rs" as syncHandler <<did_open, did_change>>
@@ -55,6 +56,7 @@ package "trust-lsp crate" as trustlsp #LightGreen {
 
     server --> state : uses
     server --> handlers : delegates
+    syncHandler --> documentText : apply UTF-16 edits
 }
 
 note right of state
@@ -208,6 +210,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
+    component "Bounded Web Request Dispatcher\n(read lane + body lane + 503 overload)" as webDispatcher
     component "ADS Setup Routes\n/api/ads/* + /setup/ads" as adsWebRoutes
     component "Web UI Bundles\n(/modules/*.js by concern)" as webUiBundles
     component "Web IDE State\n(Session + Versioning)" as webIde
@@ -313,14 +316,15 @@ package "trust-runtime crate" as struntime #LightYellow {
     controlServer --> historianSvc : historian.query/alerts
     controlServer --> hmiPersistence : persist HMI\ntrends/alarms
     runtime --> retainMgr : retain lifecycle
-    webServer --> controlServer : status/control
-    webServer --> adsWebRoutes : /api/ads/* and /setup/ads
+    webServer --> webDispatcher : bounded admission
+    webDispatcher --> controlServer : status/control
+    webDispatcher --> adsWebRoutes : /api/ads/* and /setup/ads
     adsWebRoutes --> adsControlHandlers : reuse control semantics
-    webServer --> webUiBundles : serves
-    webServer --> promScrape : GET /metrics
+    webDispatcher --> webUiBundles : serves
+    webDispatcher --> promScrape : GET /metrics
     promScrape --> historianSvc : scrape data
     promScrape --> runtime : metrics snapshot
-    webServer --> webIde : /api/ide/*
+    webDispatcher --> webIde : /api/ide/*
     meshSync --> runtime : publish/subscribe
     opcuaGateway --> runtime : snapshot poll / node updates
 }

@@ -1,0 +1,185 @@
+schema_version = 1
+id = "CASES_PROTO_OPCUA_001"
+title = "OPC UA persistent client lifecycle traces"
+area = "protocols"
+owner = "trust-runtime"
+status = "planned"
+invariant = "PROTO_OPCUA_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:8ba7ec84c6fc8a5ce0bbacc836d5b30e86a94d53c2d0fe54d4f8df8ed2ff79f5"
+source_digest = "sha256:b761c0846dc75a5d06c63338248fa30f991b47f935e24148f2160811260bf117"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "PROTO_OPCUA_001_PERSISTENT_SESSION"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "PERSISTENT_SESSION" }, scenario = "PERSISTENT_SESSION" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", connect_count = 1, subscribe_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "sample", now_ms = 10, value_milli = 22500 }
+expected = { state = "connected", connect_count = 1, storage_milli = 22500 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "write", now_ms = 12, value_milli = 31000 }
+expected = { state = "connected", connect_count = 1, write_batches = 1, pending = false }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "write", now_ms = 13, value_milli = 44000 }
+expected = { state = "connected", connect_count = 1, write_batches = 2, pending = false }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+
+[[case]]
+id = "PROTO_OPCUA_001_STALE_VALUE_HOLD_AND_RECOVERY"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "STALE_VALUE_HOLD_AND_RECOVERY" }, scenario = "STALE_VALUE_HOLD_AND_RECOVERY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "status_degraded" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "sample", now_ms = 10, value_milli = 12000 }
+expected = { state = "connected", storage_milli = 12000 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "tick", now_ms = 70 }
+expected = { state = "stale", storage_milli = 12000 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "sample", now_ms = 71, value_milli = 13000 }
+expected = { state = "connected", storage_milli = 13000, connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+
+[[case]]
+id = "PROTO_OPCUA_001_SESSION_LOSS_BACKOFF"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "SESSION_LOSS_BACKOFF" }, scenario = "SESSION_LOSS_BACKOFF" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "disconnect", now_ms = 100 }
+expected = { state = "reconnecting", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "tick", now_ms = 1000 }
+expected = { state = "reconnecting", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "tick", now_ms = 2101 }
+expected = { state = "connected", connect_count = 2, subscribe_count = 2, disconnect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case]]
+id = "PROTO_OPCUA_001_SUBSCRIPTION_RECREATED_AFTER_RECONNECT"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "SUBSCRIPTION_RECREATED_AFTER_RECONNECT" }, scenario = "SUBSCRIPTION_RECREATED_AFTER_RECONNECT" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", subscribe_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "sample", now_ms = 10, value_milli = 18000 }
+expected = { state = "connected", storage_milli = 18000 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "disconnect", now_ms = 100 }
+expected = { state = "reconnecting", subscribe_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "tick", now_ms = 2101 }
+expected = { state = "connected", connect_count = 2, subscribe_count = 2 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 4
+stimulus = { action = "sample", now_ms = 2110, value_milli = 19000 }
+expected = { state = "connected", storage_milli = 19000, subscribe_count = 2 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case]]
+id = "PROTO_OPCUA_001_SUBSCRIPTION_TRANSFER_RECOVERY"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "SUBSCRIPTION_TRANSFER_RECOVERY" }, scenario = "SUBSCRIPTION_TRANSFER_RECOVERY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", connect_count = 1, subscribe_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "disconnect", now_ms = 100 }
+expected = { state = "reconnecting", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "tick", now_ms = 2101 }
+expected = { state = "connected", connect_count = 1, subscribe_count = 1, recover_count = 1, connection_detail_contains = "transferred subscriptions" }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case.trace]]
+sequence = 3
+stimulus = { action = "sample", now_ms = 2110, value_milli = 21000 }
+expected = { state = "connected", storage_milli = 21000, connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#subscription-recovery"
+
+[[case]]
+id = "PROTO_OPCUA_001_REJECTED_WRITE_POINT_FAULT_ISOLATION"
+family = "auth_or_permission"
+input = { source_partition = { equals = "REJECTED_WRITE_POINT_FAULT_ISOLATION" }, scenario = "REJECTED_WRITE_POINT_FAULT_ISOLATION" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }, oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "tick", now_ms = 0 }
+expected = { state = "connected", connect_count = 1 }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "write", now_ms = 12, value_milli = 31000 }
+expected = { state = "connected", point_state = "faulted", pending = false, connect_count = 1, disconnect_count = 0, point_detail_contains = "BadUserAccessDenied" }
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#freshness-status"

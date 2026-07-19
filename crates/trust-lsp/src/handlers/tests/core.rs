@@ -63,3 +63,8 @@ use core_part_10::*;
 use core_part_11::*;
 #[allow(unused_imports)]
 use core_part_12::*;
+
+pub(super) use core_part_06::{
+    references_partial_result_observation, workspace_symbols_partial_result_observation,
+};
+pub(super) use core_part_08::silent_runtime_inline_value_observation;

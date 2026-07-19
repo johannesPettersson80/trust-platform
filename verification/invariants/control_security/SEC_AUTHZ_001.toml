@@ -1,0 +1,75 @@
+schema_version = 1
+id = "SEC_AUTHZ_001"
+title = "Runtime control authorization is explicit and default deny"
+area = "control_security"
+risk = "security"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-16"
+claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
+tests = [
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_GREEN",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_COMPARE",
+  "EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716",
+  "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
+]
+spec_gap_refs = []
+missing = [
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "UNCLASSIFIED_CONTROL_OPERATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A control operation omitted from the explicit policy requires Admin rather than inheriting Viewer authority."
+
+[[behavior]]
+partition = { equals = "SECURITY_CONFIGURATION_BY_NON_ADMIN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Security and exposure configuration, including debug activation, is denied below Admin before configuration changes."
+
+[[behavior]]
+partition = { equals = "DEBUG_MUTATION_BY_VIEWER_OR_OPERATOR" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Viewer and Operator force and release requests return insufficient_role before queued writes or force state changes."
+
+[[behavior]]
+partition = { equals = "AUTHORIZED_DEBUG_MUTATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Engineer may force and release I/O only after the debug surface is enabled, while Admin may enable that surface."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "The committed authorization trace covers the reviewed default-deny, debug activation, force, and release role boundaries with a current-contract lock comparison; a causal broad gate remains open."

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/hardware-lab-report.schema.json",
+  "title": "Phase 11 hardware-lab report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generator", "generator_version", "report_status", "commit", "branch",
+    "timestamp", "platform", "input_paths", "input_digest", "output_paths", "command",
+    "boundaries", "summary", "public_claim", "cases", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "hardware-lab-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "branch": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "public_claim": { "$ref": "#/$defs/public_claim" },
+    "cases": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/case" } },
+    "limitations": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "output_paths": {
+      "type": "object", "additionalProperties": false,
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["hardware_executed", "skipped_case_is_hardware_proof", "manual_script_is_hardware_proof", "public_hardware_claim_qualified", "report_emits_product_proof"],
+      "properties": {
+        "hardware_executed": { "const": false },
+        "skipped_case_is_hardware_proof": { "const": false },
+        "manual_script_is_hardware_proof": { "const": false },
+        "public_hardware_claim_qualified": { "const": false },
+        "report_emits_product_proof": { "const": false }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cases", "protocols", "strict_harness_cases", "manual_script_cases", "skipped_unproven", "evidence_records"],
+      "properties": {
+        "cases": { "const": 6 },
+        "protocols": { "const": 5 },
+        "strict_harness_cases": { "const": 5 },
+        "manual_script_cases": { "const": 1 },
+        "skipped_unproven": { "const": 6 },
+        "evidence_records": { "const": 0 }
+      }
+    },
+    "public_claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "spec_source_id", "hardware_qualified", "limitation"],
+      "properties": {
+        "status": { "const": "preview_unverified" },
+        "spec_source_id": { "const": "SPEC_RELEASE_EVIDENCE_001" },
+        "hardware_qualified": { "const": false },
+        "limitation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "board_row", "protocol", "title", "owner", "binding_kind", "ignored_test_ids", "command", "required_env_vars", "topology", "topology_ref", "artifact_paths", "assertions", "proof_status", "evidence_ids", "public_claim_impact"],
+      "properties": {
+        "id": { "enum": ["LAB_MODBUS_TCP_001", "LAB_MQTT_BROKER_001", "LAB_ADS_TWINCAT_001", "LAB_ETHERCAT_DISCOVERY_001", "LAB_ETHERCAT_STORAGE_001", "LAB_GPIO_OUTPUT_001"] },
+        "board_row": { "pattern": "^VERIF-P11-00[2-6]$" },
+        "protocol": { "enum": ["modbus_tcp", "mqtt", "ads_twincat", "ethercat", "gpio"] },
+        "title": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "binding_kind": { "enum": ["strict_harness", "manual_script"] },
+        "ignored_test_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^IGNORED_[A-Z0-9_]+$" } },
+        "command": { "type": "string", "minLength": 1 },
+        "required_env_vars": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" } },
+        "topology": { "type": "string", "minLength": 1 },
+        "topology_ref": { "type": "string", "minLength": 1 },
+        "artifact_paths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "assertions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "proof_status": { "const": "skipped_unproven" },
+        "evidence_ids": { "type": "array", "maxItems": 0 },
+        "public_claim_impact": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

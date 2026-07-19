@@ -1,0 +1,53 @@
+schema_version = 1
+id = "RT_SAFE_DEADLINE_001"
+title = "Execution deadline expiry is visible"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-18"
+claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = [
+  "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001",
+  "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001",
+  "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
+  "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_GREEN",
+  "EVID_BROAD_REMOTE_PR_20260713_47F0E2B3C66A",
+  "EVID_WATCHDOG_PARTIAL_SAFE_STATE_GAP_CLOSEOUT_20260718",
+  "EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = [
+  "watchdog_configuration_and_recovery_boundaries",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "WATCHDOG_BEFORE_OUTPUT_COMMIT_WITH_EMPTY_SAFE_STATE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-production"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "When the watchdog deadline expires before physical output commit and no safe outputs are configured, the resource faults visibly and the pending process-image output is not written."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "The partial-safe-state and simulation-clock regressions pass; watchdog configuration and recovery boundaries remain open and the expanded contract has no causal broad-remote proof."

@@ -50,6 +50,19 @@ test-hir-fast:
 editor-smoke:
 	./scripts/check_editor_integration_smoke.sh
 
+# Bounded Phase 5 verification feedback. This recipe is owned by the
+# trust-builder suite contract; it is not a broad local Raspberry Pi gate.
+verification-veryquick:
+	mkdir -p target/gate-artifacts/veryquick
+	python3 scripts/run_verification_focused_tests.py
+	scripts/verification_metadata_gate.sh
+	just test-hir-fast
+	just test-fast
+	./scripts/cargo_test_fast_link.sh test -p trust-syntax --lib
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime-core --lib
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime --test bytecode_validation
+	cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_arithmetic_conversion_compare_001 --output target/gate-artifacts/veryquick/conformance.json
+
 lint: fmt clippy
 
 readme-media:

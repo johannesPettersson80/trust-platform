@@ -269,10 +269,11 @@ pub(super) fn execute_pou_stack_with_locals(
         }
 
         if should_check_stack_deadline(instruction_count)
-            && deadline_exceeded(runtime.execution_deadline)
+            && deadline_exceeded(runtime.effective_execution_deadline())
         {
             return Err(VmTrap::DeadlineExceeded.into_runtime_error());
         }
+        super::budget::consume_instruction_budget(budget, 1)?;
 
         if let Some(location) = vm_statement_location(runtime, module, frame_pou_id, pc) {
             let storage = &runtime.storage;
@@ -298,18 +299,13 @@ pub(super) fn execute_pou_stack_with_locals(
             0x01 => return Err(VmTrap::ForStepZero.into_runtime_error()),
             0x02 => {
                 let offset = read_i32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
-                let jump_origin = pc;
                 let frame = frames
                     .current()
                     .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
                 apply_jump(&mut pc, offset, frame).map_err(VmTrap::into_runtime_error)?;
-                if pc < jump_origin {
-                    consume_loop_budget(budget)?;
-                }
             }
             0x03 | 0x04 => {
                 let offset = read_i32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
-                let jump_origin = pc;
                 let condition = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 let condition = match condition {
                     Value::Bool(value) => value,
@@ -321,9 +317,6 @@ pub(super) fn execute_pou_stack_with_locals(
                         .current()
                         .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
                     apply_jump(&mut pc, offset, frame).map_err(VmTrap::into_runtime_error)?;
-                    if pc < jump_origin {
-                        consume_loop_budget(budget)?;
-                    }
                 }
             }
             0x05 => {
@@ -630,14 +623,6 @@ fn build_stack_result(frame: super::frames::VmFrame, capture_return: bool) -> Vm
         return_value,
         locals: frame.locals,
     }
-}
-
-fn consume_loop_budget(budget: &mut usize) -> Result<(), RuntimeError> {
-    if *budget == 0 {
-        return Err(VmTrap::BudgetExceeded.into_runtime_error());
-    }
-    *budget = budget.saturating_sub(1);
-    Ok(())
 }
 
 fn deadline_exceeded(deadline: Option<Instant>) -> bool {

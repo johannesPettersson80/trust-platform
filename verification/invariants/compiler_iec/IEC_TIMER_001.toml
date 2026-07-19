@@ -1,0 +1,72 @@
+schema_version = 1
+id = "IEC_TIMER_001"
+title = "Timer scan-step and lifecycle semantics are explicit"
+area = "compiler_iec"
+risk = "safety_critical"
+status = "implemented"
+owner = "language"
+last_reviewed = "2026-07-12"
+claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan state machines, including the TOF ET-equals-PT post-expiry hold until rearm."
+proof_level = "G2"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
+tests = ["TEST_IEC_TIMER_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_IEC_TIMER_TRACE_001_RED",
+  "EVID_TEST_IEC_TIMER_TRACE_001_GREEN",
+  "EVID_IEC_TIMER_GAP_CLOSEOUT_20260712",
+  "EVID_BROAD_REMOTE_PR_20260712_7108E6781D88",
+]
+spec_gap_refs = []
+missing = ["unasserted_timer_boundary_cases"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "TOF_TIME_POST_EXPIRY_HOLD" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "After TOF reaches PT on an executed low-input scan, Q is false and ET remains PT on later low-input scans until the next executed true-input scan rearms the instance."
+
+[[behavior]]
+partition = { equals = "TOF_LTIME_POST_EXPIRY_HOLD" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TOF_LTIME follows the same post-expiry hold state machine as TOF while retaining LTIME for PT and ET."
+
+[[behavior]]
+partition = { equals = "TON_TIME_BASIC_DELAY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A basic TON trace holds IN true through PT, observes Q at the executed threshold scan, and resets on an executed false-input scan."
+
+[[behavior]]
+partition = { equals = "TP_TIME_BASIC_PULSE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A protective TP trace holds IN true through PT and observes the pulse ending on the executed threshold scan without asserting short-input or retrigger behavior."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The cataloged real-ST timer trace has paired producer-authentic red and green evidence for the committed scan-step cases."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Restart, PT-change, skipped-call, and nonmonotonic-clock decisions are written but intentionally unasserted by the first trace vertical."

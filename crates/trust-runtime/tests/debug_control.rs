@@ -567,7 +567,6 @@ fn logpoint_emits_output_without_pausing() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 8"]
 fn runtime_event_sender_drop_buffers_event_in_debug_control() {
     let control = DebugControl::new();
     let (tx, rx) = channel();
@@ -589,7 +588,6 @@ fn runtime_event_sender_drop_buffers_event_in_debug_control() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 8"]
 fn logpoint_sender_drop_buffers_log_in_debug_control() {
     let control = DebugControl::new();
     let (log_tx, log_rx) = channel();

@@ -6,6 +6,446 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+Classification note: an entry in this log is not automatically a claim of IEC
+non-conformance. Per the repository IEC-first rules, this file also records
+behavior that IEC explicitly leaves implementer-specific and truST product
+extensions outside IEC's scope. Each entry must state which category applies
+in its IEC reference.
+
+## 2026-07-18 - Reject non-finite explicit conversion results
+
+- ID: DEV-053
+- Area: Standard numeric and bit-to-numeric conversion functions
+- IEC reference: IEC 61131-3 Ed.3 section 6.6.2.5.2 makes conversion accuracy
+  effects and execution errors implementer-specific; section 6.6.2.5.3 Table 23
+  specifically makes `LREAL_TO_REAL` value-range errors implementer-specific.
+  Section 6.6.2.5.5 Table 25 defines `DWORD_TO_REAL` and `LWORD_TO_LREAL` as
+  binary transfers. This entry records the product's implementer-specific
+  exceptional-value policy, not a contradiction of a required finite result.
+- Deviation/extension:
+  - Every explicit conversion targeting `REAL` or `LREAL` returns
+    `RuntimeError::Overflow` when parsing, narrowing, or binary transfer would
+    produce NaN, positive infinity, or negative infinity.
+  - Finite `DWORD_TO_REAL` and `LWORD_TO_LREAL` values preserve the IEC binary
+    transfer. No non-finite value is clamped or replaced.
+  - The error occurs before assignment storage, leaving the target unchanged.
+- Impact:
+  - PLC logic cannot synthesize a stored non-finite value through standard
+    explicit conversion functions.
+- Mitigation:
+  - Range-check before narrowing and represent exceptional state with an
+  explicit finite value and status rather than IEEE exceptional payloads.
+
+## 2026-07-14 - Connector status and discovery truth vocabulary
+
+- ID: DEV-051
+- Area: Runtime connector supervision and editor discovery presentation
+- IEC reference: IEC 61131-3 does not define truST's protocol connector
+  lifecycle, supervisory health, discovery probes, or editor fleet topology.
+  This entry records a truST product extension outside the IEC language model,
+  not an IEC non-conformance.
+- Deviation/extension:
+  - Connector lifecycle, health, discovery confidence, and point-quality values
+    use the closed vocabularies in the runtime-engine specification.
+  - Unknown values fail visibly. An invalid peer status report cannot be
+    substituted with a healthy value or remove the peer's raw topology.
+- Impact:
+  - Operators can distinguish configured, reachable, protocol-confirmed,
+    degraded, stale, and faulted connectors without treating reachability as
+    protocol health.
+- Mitigation:
+  - Keep producers and consumers on the shared closed vocabulary and preserve
+    topology with an explicit error when a version mismatch is encountered.
+
+## 2026-07-14 - EtherCAT hardware unavailability is terminal per driver
+
+- ID: DEV-052
+- Area: EtherCAT connector initialization and recovery
+- IEC reference: IEC 61131-3 does not define EtherCAT adapter discovery,
+  EtherCrab process-data allocation, or truST's driver recovery lifecycle. This
+  entry records a truST product extension outside the IEC language model, not
+  an IEC non-conformance.
+- Deviation/extension:
+  - Missing hardware does not block project construction or runtime startup;
+    the first wire operation reports the unavailable resource.
+  - A post-allocation initialization failure is terminal for that driver
+    instance and requires rebuilding it before another allocation attempt.
+- Impact:
+  - Missing hardware fails visibly without an unbounded scan-cycle retry or
+    repeated process-data allocation.
+- Mitigation:
+  - Rebuild the driver after correcting adapter or topology configuration and
+    use the mock adapter only as software evidence, never hardware proof.
+
+## 2026-07-14 - Runtime control and debugger role authorization
+
+- ID: DEV-050
+- Area: Runtime control, debugger, I/O, HMI, configuration, and pairing access
+- IEC reference: IEC 61131-3 does not define truST's host control protocol,
+  pairing tokens, debugger transport, or product role hierarchy. This entry
+  records a truST security extension outside the IEC language model, not an IEC
+  non-conformance.
+- Deviation/extension:
+  - Control roles are ordered Viewer, Operator, Engineer, and Admin, with every
+    supported request assigned an explicit minimum role.
+  - Debug writes, forces, and releases require Engineer; enabling debug or
+    changing control mode requires Admin.
+  - Unclassified future request types use an Admin fail-safe rather than
+    inheriting Viewer authority.
+- Impact:
+  - Lower-role clients cannot activate the debug surface or mutate PLC state;
+    adding a new request without updating the matrix cannot silently expose it
+    to a read-only client.
+- Mitigation:
+  - Commission tokens and pairing roles explicitly, keep production debug
+    disabled, and review the role matrix whenever a control operation is added.
+
+## 2026-07-14 - Exclude debugger pause dwell from watchdog execution time
+
+- ID: DEV-049
+- Area: Runtime debugger pause and watchdog accounting
+- IEC reference: IEC 61131-3 does not define truST's debugger protocol,
+  statement-boundary pause mechanism, or host watchdog accounting while an
+  operator inspects a stopped program. This entry records a truST product
+  extension outside the IEC language model, not a contradiction of an IEC
+  requirement.
+- Deviation/extension:
+  - A watchdog measures active cycle execution. Time spent waiting at a
+    debugger statement-boundary pause is excluded from the current cycle's
+    execution and output-commit deadlines.
+  - Resume continues the suspended cycle with the remaining active-execution
+    budget rather than resetting the watchdog to a new full interval.
+  - A resource pause between cycles starts no new scan or watchdog interval.
+- Impact:
+  - An operator may inspect a paused program longer than the configured
+    watchdog timeout without manufacturing a watchdog fault, while genuine
+    active-execution overruns remain bounded.
+- Mitigation:
+  - Production deployments should keep debug attach disabled unless explicitly
+    commissioned. Stop or fault the resource when safe-state handling is
+    required instead of relying on a debugger pause.
+
+## 2026-07-14 - Automatic runtime fault restart uses warm storage semantics
+
+- ID: DEV-048
+- Area: Runtime fault recovery and retain lifecycle
+- IEC reference: IEC 61131-3 Ed.3 section 6.5.6 defines retentive-variable
+  storage, but it does not define truST's host `FaultPolicy`, watchdog retry
+  action, or automatic recovery loop.
+- Deviation/extension:
+  - A non-panic cycle fault or watchdog timeout configured for automatic
+    restart uses the runtime's warm-restart transition.
+  - `RETAIN` values are preserved; `NON_RETAIN` and ordinary initialized
+    storage are reinitialized.
+  - A contained resource panic is not retried automatically, and automatic
+    non-panic retries are limited to three consecutive attempts.
+- Impact:
+  - Recovery preserves declared retained process state, but ordinary working
+    state is reinitialized before execution resumes.
+- Mitigation:
+  - Declare state `RETAIN` only when it must survive automatic recovery, and
+    treat restart-limit exhaustion or a resource panic as an operator-visible
+    fault requiring intervention.
+
+## 2026-07-14 - Bound debug writes and forces to a runtime lifecycle
+
+- ID: DEV-047
+- Area: Runtime and debug-adapter write/force lifecycle
+- IEC reference: IEC 61131-3 does not define truST's DAP or runtime-control
+  write, force, release, detach, authorization, or process-lifecycle protocol.
+  This entry records a truST product extension outside the IEC language model,
+  not a contradiction of an IEC requirement.
+- Deviation/extension:
+  - Debug writes are one-shot requests consumed at the next scan boundary.
+  - Forces persist across ordinary scans, pause/resume, and non-terminating
+    debugger disconnect until explicit release.
+  - Deliberate stop, fault handling, and warm or cold restart clear pending
+    writes and active forces before safe-state handling or execution resumes.
+  - Safe-state output has precedence over forcing at stop and fault boundaries.
+  - Authorization changes govern later commands and do not silently alter an
+    existing force.
+- Impact:
+  - A pre-restart or pre-fault debug mutation cannot be replayed into a new
+    runtime lifecycle. Detaching a client does not unexpectedly change the
+    running PLC state.
+- Mitigation:
+  - Operators must explicitly release forces during an ordinary attached
+    session and must reapply any intended force after a restart.
+
+## 2026-07-14 - Require confirmed safe-state driver handoff
+
+- ID: DEV-046
+- Area: Runtime safe-state output handoff
+- IEC reference: IEC 61131-3 does not define truST's host I/O worker queues,
+  protocol reconnect policy, driver-health model, or physical safe-state
+  acknowledgement boundary. This entry records an implementer-specific host
+  runtime policy, not a contradiction of an IEC requirement.
+- Deviation/extension:
+  - A configured safe-state attempt succeeds only when every configured driver
+    accepts the output image and immediately reports `Ok` health.
+  - `Degraded` or `Faulted` health is an unconfirmed physical handoff even when
+    a driver's ordinary `warn` or `ignore` policy suppresses its transport
+    error.
+  - The runtime attempts all configured drivers, reports the first failure, and
+    does not let a deliberate stop enter `Stopped` when safe-state delivery is
+    unconfirmed.
+  - Worker handoff remains bounded. Queued, reconnecting, and timed-out writes
+    fail the confirmation attempt instead of blocking indefinitely or being
+    reported as physically safe.
+- Impact:
+  - A runtime may report a safe-state failure even if a queued worker write
+    reaches the device later. This is the conservative outcome because delivery
+    was not confirmed at the stop/fault boundary.
+- Mitigation:
+  - Keep protocol workers healthy, configure explicit safe outputs, and treat a
+    safe-state failure or `Faulted` stop as requiring operator or supervisory
+    recovery before assuming outputs are safe.
+
+## 2026-07-14 - Reject non-finite values at typed runtime admission boundaries
+
+- ID: DEV-045
+- Area: Runtime typed I/O, protocol, API, configuration, and retain boundaries
+- IEC reference: IEC 61131-3 Ed.3 Section 6.4.2.1, Table 10 defines
+  `REAL`/`LREAL` using IEC 60559 and makes results involving infinity or
+  not-a-number implementer-specific; Section 6.6.2.5.15, Table 39 defines
+  `IS_VALID` but does not define external admission policy. This entry records
+  an implementer-specific product policy, not a contradiction of an IEC
+  requirement.
+- Deviation/extension:
+  - truST rejects NaN, positive infinity, negative infinity, and declared-width
+    overflow at every typed runtime admission boundary enumerated in
+    `docs/specs/11-runtime-engine.md#floating-point-boundary-admission-policy`.
+  - Rejection occurs before the external value changes PLC storage or an
+    accepted driver snapshot. Multi-point Modbus reads and MQTT payload batches
+    are transactional: a rejected point cannot leak an earlier point from the
+    same rejected batch into a later scan.
+  - Untyped raw-byte/register transport remains possible, but a declared
+    `REAL`/`LREAL` binding validates the representation before exposing it as a
+    typed value. Rejection never clamps, normalizes, or substitutes a default.
+- Impact:
+  - External systems cannot use non-finite IEEE values as ordinary PLC process
+    inputs through a typed truST boundary.
+- Mitigation:
+  - Validate values at the producing system and represent exceptional state as
+    an explicit finite value/status pair. PLC programs may use `IS_VALID` for
+    in-process values where the applicable operation permits them.
+
+## 2026-07-13 - Reject non-finite typed process-image outputs
+
+- ID: DEV-044
+- Area: Runtime typed `%Q`/`%M` process-image egress
+- IEC reference: IEC 61131-3 Ed.3 defines directly represented variables and
+  `REAL`/`LREAL`, but does not define truST's process-image serialization and
+  driver-commit transaction.
+- Deviation/extension:
+  - Typed `%Q` and `%M` `REAL`/`LREAL` bindings reject values that are not
+    finite at their declared width. Conversion to `REAL` also rejects a finite
+    wider value when basic-single narrowing becomes non-finite.
+  - Every eligible binding is validated before any output or marker image
+    mutation. Rejection leaves the pending image unchanged and prevents the
+    normal driver-output commit.
+  - The runtime does not clamp, normalize, substitute, or emit non-finite IEEE
+    output bits. Configured safe-state fault handling remains separate.
+- Impact:
+  - Non-finite floating state cannot silently cross the typed process-image
+    boundary or partially update a physical-output transaction.
+- Mitigation:
+  - Validate and range-check process values before the scan reaches its output
+    phase, and model exceptional state with an explicit status value.
+
+## 2026-07-13 - Fault on non-finite REAL named-function results
+
+- ID: DEV-043
+- Area: Runtime `REAL` numerical functions
+- IEC reference: IEC 61131-3 Ed.3 Tables 28-29 define `EXP` and `EXPT`, while
+  §6.4.2.1 Table 10 footnote e defines exceptional basic-single
+  floating-point results as implementer-specific.
+- Deviation/extension:
+  - For finite `REAL` operands, `EXP` and `EXPT` return
+    `RuntimeError::Overflow` when the result is not finite at basic-single
+    width.
+  - The error occurs before assignment storage, so the target retains its
+    previous value. The runtime does not clamp or store infinity or NaN.
+  - This decision does not define `LREAL`, non-finite operands, subnormal
+    underflow, signed zero, explicit conversions, or domain behavior for other
+    numerical functions.
+- Impact:
+  - Programs cannot use infinity or NaN produced by these `REAL` functions as
+    ordinary stored process state.
+- Mitigation:
+  - Scale or range-check operands before the call and represent exceptional
+    state with an explicit status value.
+
+## 2026-07-13 - Fault on non-finite REAL binary results
+
+- ID: DEV-042
+- Area: Runtime `REAL` binary arithmetic
+- IEC reference: IEC 61131-3 Ed.3 §6.4.2.1, Table 10 footnote e defines
+  exceptional results for basic-single floating-point arithmetic as
+  implementer-specific.
+- Deviation/extension:
+  - For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` return
+    `RuntimeError::Overflow` when the result is not finite at basic-single
+    width.
+  - The error occurs before assignment storage, so the target retains its
+    previous value. The runtime does not clamp or store infinity or NaN.
+  - This decision does not define `LREAL`, subnormal underflow, signed zero,
+    non-finite operands, explicit conversions, or named numerical functions.
+- Impact:
+  - Programs cannot use infinity or NaN produced by these `REAL` binary
+    operators as ordinary stored process state.
+- Mitigation:
+  - Scale or range-check operands before the operation and represent exceptional
+    state with an explicit status value.
+
+## 2026-07-13 - Reject non-finite simulation coupling thresholds
+
+- ID: DEV-041
+- Area: File-backed simulation configuration
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
+  does not define truST's implementer-specific `simulation.toml` coupling
+  policy.
+- Deviation/extension:
+  - The `simulation.toml` loader rejects a `[[couplings]].threshold` containing
+    `NaN`, positive infinity, or negative infinity before activating the
+    configuration.
+  - Rejection does not normalize, clamp, or substitute a threshold. Finite
+    threshold comparison behavior is unchanged.
+- Impact:
+  - Simulation files cannot use a non-finite value as an ordinary coupling
+    decision threshold.
+- Mitigation:
+  - Model exceptional simulation state explicitly with finite values and
+    scripted disturbances.
+
+## 2026-07-13 - Reject non-finite managed-debug I/O values
+
+- ID: DEV-040
+- Area: Debug adapter Live Values floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
+  does not define truST's implementer-specific DAP `stIoWrite` and `stIoForce`
+  requests.
+- Deviation/extension:
+  - In managed local debug sessions, values submitted for declared `REAL` and
+    `LREAL` addresses are interpreted as semantic decimal floating-point
+    values, not as raw `DWORD`/`LWORD` bit patterns.
+  - The adapter rejects `NaN`, positive infinity, negative infinity, and
+    values that overflow the declared floating-point width before queuing,
+    forcing, or mutating the process image.
+  - Rejection preserves the previous process-image value and force state and
+    returns a failed DAP response. Attach-mode requests remain governed by the
+    separate runtime control endpoint contract.
+- Impact:
+  - A managed debugger cannot use non-finite values or their integer bit
+    encodings as ordinary `REAL`/`LREAL` Live Values inputs.
+- Mitigation:
+  - Use an explicit finite value/status pair when non-finite state must be
+    represented to a PLC program.
+
+## 2026-07-13 - Reject non-finite file-backed retained values
+
+- ID: DEV-039
+- Area: Runtime retain persistence
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and defines
+  retentive-variable restart behavior, but it does not define truST's
+  implementer-specific file-backed retain image format or admission policy.
+- Deviation/extension:
+  - truST rejects retained `REAL`/`LREAL` values containing `NaN`, positive
+    infinity, or negative infinity when saving or loading a file-backed retain
+    snapshot. The rule applies recursively to arrays and structures.
+  - A rejected save leaves the last durable snapshot unchanged. A rejected
+    load applies no entries from the snapshot and leaves the runtime's retained
+    values unchanged.
+  - The runtime does not clamp, normalize, or replace a non-finite retained
+    value with a default.
+- Impact:
+  - Projects cannot persist non-finite values through truST's file-backed retain
+    store as ordinary process state.
+- Mitigation:
+  - Use `IS_VALID` and project logic to convert intentional non-finite internal
+    state into an explicit finite status/value pair before persistence.
+
+## 2026-07-13 - Reject out-of-range runtime mesh numeric inputs
+
+- ID: DEV-038
+- Area: Runtime mesh numeric ingress
+- IEC reference: IEC 61131-3 defines the ranges of elementary integer types and
+  defines `REAL`/`LREAL` using IEC 60559, but it does not define truST's
+  implementer-specific runtime mesh transport.
+- Deviation/extension:
+  - truST decodes an inbound mesh number against the configured local target
+    type and rejects integers outside that type's range.
+  - A mesh number targeting `REAL` or `LREAL` is rejected when conversion would
+    produce `NaN`, positive infinity, or negative infinity.
+  - Rejection queues no mesh update and leaves the local PLC value unchanged;
+    the runtime does not clamp, wrap, normalize, or substitute a default.
+- Impact:
+  - Mesh peers cannot rely on Rust-style narrowing casts or non-finite values as
+    ordinary process-data inputs.
+- Mitigation:
+  - Validate and scale values at the publishing peer so they fit the subscribed
+    IEC target type.
+
+## 2026-07-13 - Reject non-finite ADS input values
+
+- ID: DEV-037
+- Area: Runtime ADS floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
+  `IS_VALID` for detecting `NaN` and infinity, but it does not define how an
+  ADS client or server must admit those values into PLC storage.
+- Deviation/extension:
+  - truST rejects ADS `REAL`/`LREAL` client reads, notifications, and server
+    writes containing `NaN`, positive infinity, or negative infinity.
+  - Rejection occurs before client cache acceptance, server write queuing, or
+    PLC storage mutation and also applies to non-finite array elements.
+- Impact:
+  - ADS peers cannot use non-finite values as ordinary floating-point process
+    inputs in truST.
+- Mitigation:
+  - Validate or normalize the value at the ADS peer when a project intentionally
+    uses non-finite values for out-of-band signaling.
+
+## 2026-07-13 - Reject non-finite OPC UA client input samples
+
+- ID: DEV-036
+- Area: Runtime OPC UA client floating-point ingress
+- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
+  `IS_VALID` for detecting `NaN` and infinity, but it does not define how a
+  host OPC UA client must admit those values into PLC storage.
+- Deviation/extension:
+  - truST rejects OPC UA client `Float`/`Double` input samples containing
+    `NaN`, positive infinity, or negative infinity before cache acceptance or
+    PLC storage mutation.
+  - The affected point becomes faulted and the previous PLC value is retained.
+  - The value is not normalized, clamped, or replaced with a default.
+- Impact:
+  - An OPC UA server cannot use non-finite scalar values as ordinary
+    `REAL`/`LREAL` process inputs in truST.
+- Mitigation:
+  - Validate or normalize the source value at the OPC UA server when a project
+    intentionally uses non-finite values for out-of-band signaling.
+
+## 2026-07-13 - Watchdog output-commit and empty safe-state policy
+
+- ID: DEV-035
+- Area: Runtime watchdog and physical output commit
+- IEC reference: IEC 61131-3 does not standardize truST's host-runtime watchdog
+  thresholds, fault action, or physical driver commit boundary.
+- Deviation/extension:
+  - truST checks the watchdog deadline before the physical output-driver write.
+  - An expired deadline prevents the pending process-image output from being
+    written.
+  - Fault handling writes configured safe-state values when at least one value
+    is configured. With an empty safe-state configuration, it performs no
+    physical output write.
+- Impact:
+  - Without configured safe outputs, the device remains at its last physically
+    committed state after the watchdog fault; the uncommitted current-cycle
+    image is never used as an implicit safe state.
+- Mitigation:
+  - Configure explicit safe-state outputs for installations that require a
+    physical transition on watchdog fault.
+
 ## 2026-04-27 - `UNION` aggregate initialization as truST extension
 
 - Area: Structured Text data types and initializers
@@ -381,11 +821,14 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - truST hot reload operates per resource rather than as a single-file-only
     mechanism.
   - Retained globals are preserved across the warm-restart style reload path.
+  - Reload preparation is transactional: a fallible bytecode, resource, or
+    retained-state preparation step cannot replace the live program or state.
 - Impact:
   - The reload scope is broader and more runtime-oriented than earlier
     single-file wording suggested.
 - Mitigation:
-  - The engine/LSP/debug docs now describe the real per-resource behavior.
+  - The engine/LSP/debug docs define the per-resource transaction boundary and
+    require failed preparation to leave the old program executable.
 
 ## 2026-04-20 - Debug forcing includes outputs as well as inputs
 

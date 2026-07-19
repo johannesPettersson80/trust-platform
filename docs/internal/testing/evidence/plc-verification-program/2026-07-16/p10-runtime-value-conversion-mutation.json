@@ -1,0 +1,91 @@
+{
+  "baseline_commands": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "conversion_functions",
+        "--",
+        "--exact"
+      ],
+      "duration_seconds": 42.615,
+      "exit_status": 0,
+      "timed_out": false
+    }
+  ],
+  "boundaries": {
+    "artifact_closes_spec_gaps": false,
+    "artifact_creates_proof": false,
+    "artifact_promotes_invariants": false,
+    "association_ids_are_execution_claims": false
+  },
+  "contract_digest": "sha256:0bd1ce0d02ab868f299a12bfd7cc754cde14d4ab3ee759a40a7c0300414a02e9",
+  "finished_at": "2026-07-16T09:57:30Z",
+  "id": "MUTATION_EXECUTION_RUNTIME_VALUE_CONVERSION_001",
+  "mutations": [
+    {
+      "association_ids": [
+        "DISC_11144C19050BB255758E"
+      ],
+      "build_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "--no-run"
+      ],
+      "build_duration_seconds": 36.824,
+      "build_exit_status": 0,
+      "build_stderr": "   Compiling trust-runtime v0.24.50 (/tmp/trust-focused-mutation-grooc_b0/crates/trust-runtime)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.51s\n  Executable tests/stdlib_conv.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/stdlib_conv-052cb825c1e23cc8)\n",
+      "build_stdout": "",
+      "build_timed_out": false,
+      "duration_seconds": 37.797,
+      "function": "convert_value",
+      "generated_mutant_name": "dispatch.rs:78:16: replace == with != in convert_value",
+      "genre": "BinaryOperator",
+      "id": "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON",
+      "replacement": "!=",
+      "result": "caught",
+      "source_file": "crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+      "test_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "conversion_functions",
+        "--",
+        "--exact"
+      ],
+      "test_duration_seconds": 0.973,
+      "test_exit_status": 101,
+      "test_stderr": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.86s\n     Running tests/stdlib_conv.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/stdlib_conv-052cb825c1e23cc8)\nerror: test failed, to rerun pass `-p trust-runtime --test stdlib_conv`\n",
+      "test_stdout": "\nrunning 1 test\ntest conversion_functions ... FAILED\n\nfailures:\n\n---- conversion_functions stdout ----\n\nthread 'conversion_functions' (3071187) panicked at crates/trust-runtime/tests/stdlib_conv.rs:8:5:\nassertion `left == right` failed\n  left: Bool(true)\n right: Int(1)\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    conversion_functions\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "test_timed_out": false
+    }
+  ],
+  "platform": "linux-x86_64",
+  "runner": "focused-mutation-shard.py v1",
+  "schema_version": 1,
+  "shard_id": "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
+  "source_commit": "56f68f2bbdb12c655f681668c5a5fddda4f4d659",
+  "started_at": "2026-07-16T09:56:08Z",
+  "status": "complete",
+  "summary": {
+    "caught": 1,
+    "error": 0,
+    "survived": 0,
+    "timeout": 0,
+    "total": 1,
+    "unviable": 0
+  },
+  "tool": "cargo-mutants-single-file-adapter",
+  "tool_version": "cargo-mutants 27.0.0"
+}

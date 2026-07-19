@@ -7,11 +7,14 @@ use crate::value::{
     write_value_path, Value, ValueRef,
 };
 
+use super::super::dispatch_refs::dynamic_ref_type;
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::super::register_ir::{RegisterCallOpKind, RegisterValueOpKind};
 use super::super::stack::OperandStack;
-use super::super::type_policy::normalize_vm_value_for_type;
+use super::super::type_policy::{
+    normalize_vm_value_for_type, vm_string_primitive_for_type, vm_string_shape_for_type,
+};
 use super::super::{materialize_borrowed_value, VmModule, VmNativeArgSpec};
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
 
@@ -31,12 +34,14 @@ pub(super) enum VmNativeArgValue {
 pub(super) struct VmOutBinding {
     pub(super) slot: usize,
     pub(super) target: VmWriteTarget,
+    pub(super) target_type_idx: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct VmFbOutBinding {
     pub(super) source: VmFbOutSource,
     pub(super) target: VmWriteTarget,
+    pub(super) target_type_idx: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -430,6 +435,7 @@ pub(super) fn bind_builtin_function_block_arguments(
                     out_bindings.push(VmFbOutBinding {
                         source: field_binding.out_source(),
                         target: require_output_target(arg)?,
+                        target_type_idx: None,
                     });
                 }
             }
@@ -445,6 +451,7 @@ pub(super) fn bind_builtin_function_block_arguments(
                 out_bindings.push(VmFbOutBinding {
                     source: field_binding.out_source(),
                     target,
+                    target_type_idx: None,
                 });
             }
         }
@@ -490,28 +497,32 @@ pub(super) fn bind_vm_function_block_arguments(
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
-    let positional = args.iter().all(|arg| arg.name.is_none());
-    let mut positional_index = 0usize;
-    let mut ordered_named_index = 0usize;
-    let mut consumed = vec![false; args.len()];
+    let arg_indices = resolve_vm_arg_indices(params, args)?;
+    let mut prepared_targets = Vec::with_capacity(params.len());
+    for (param, arg_index) in params.iter().zip(arg_indices.iter().copied()) {
+        let arg = arg_index.and_then(|index| args.get(index));
+        let prepared = if matches!(param.direction, 1 | 2) {
+            match arg {
+                Some(arg) => {
+                    let binding = bind_output_target(runtime, module, caller_frame, arg)?;
+                    if param.direction == 2 {
+                        require_in_out_type_compatibility(module, param.type_id, binding.1)?;
+                    }
+                    Some(binding)
+                }
+                None => None,
+            }
+        } else {
+            None
+        };
+        prepared_targets.push(prepared);
+    }
     let mut out_bindings = Vec::new();
 
-    for param in params {
+    for (param_index, (param, arg_index)) in params.iter().zip(arg_indices).enumerate() {
         runtime
             .vm_register_profile
             .record_call_op(RegisterCallOpKind::ParameterBinding);
-        let arg_index = if positional {
-            let next = (positional_index < args.len()).then_some(positional_index);
-            if next.is_some() {
-                positional_index = positional_index.saturating_add(1);
-            }
-            next
-        } else {
-            resolve_named_arg_index(args, &consumed, &param.name, &mut ordered_named_index)
-        };
-        if let Some(index) = arg_index {
-            consumed[index] = true;
-        }
         let arg = arg_index.and_then(|index| args.get(index));
         if matches!(param.direction, 1 | 2) && arg.is_none() {
             continue;
@@ -555,18 +566,24 @@ pub(super) fn bind_vm_function_block_arguments(
                 }
             }
             1 => {
-                if let Some(arg) = arg {
+                if arg.is_some() {
+                    let (target, target_type_idx) = prepared_targets[param_index]
+                        .clone()
+                        .expect("output target preflight must produce a binding");
                     out_bindings.push(VmFbOutBinding {
                         source: field_binding.out_source(),
-                        target: require_output_target(arg)?,
+                        target,
+                        target_type_idx,
                     });
                 }
             }
             2 => {
-                let Some(arg) = arg else {
+                if arg.is_none() {
                     continue;
-                };
-                let target = require_output_target(arg)?;
+                }
+                let (target, target_type_idx) = prepared_targets[param_index]
+                    .clone()
+                    .expect("IN_OUT target preflight must produce a binding");
                 let value = target.read(runtime, caller_frame)?;
                 let value = normalize_vm_value_for_type(module, param.type_id, value)
                     .map_err(VmTrap::Runtime)?;
@@ -576,37 +593,12 @@ pub(super) fn bind_vm_function_block_arguments(
                 out_bindings.push(VmFbOutBinding {
                     source: field_binding.out_source(),
                     target,
+                    target_type_idx,
                 });
             }
             other => {
                 return Err(VmTrap::InvalidNativeCall(
                     format!("invalid parameter direction {other}").into(),
-                ));
-            }
-        }
-    }
-
-    if positional {
-        if positional_index < args.len() {
-            return Err(VmTrap::InvalidNativeCall(
-                format!(
-                    "too many positional arguments: expected at most {}, got {}",
-                    params.len(),
-                    args.len()
-                )
-                .into(),
-            ));
-        }
-    } else {
-        for (index, consumed) in consumed.iter().enumerate() {
-            if !consumed {
-                let name = args[index]
-                    .name
-                    .as_deref()
-                    .unwrap_or("<positional>")
-                    .to_owned();
-                return Err(VmTrap::InvalidNativeCall(
-                    format!("unexpected named argument '{name}'").into(),
                 ));
             }
         }
@@ -629,10 +621,7 @@ pub(super) fn bind_vm_call_arguments(
     let mut locals = vec![Value::Null; pou.local_ref_count as usize];
     let mut out_bindings = Vec::new();
     let return_slots = usize::from(module.pou_has_return_slot(pou_id));
-    let positional = args.iter().all(|arg| arg.name.is_none());
-    let mut positional_index = 0usize;
-    let mut ordered_named_index = 0usize;
-    let mut consumed = vec![false; args.len()];
+    let arg_indices = resolve_vm_arg_indices(params, args)?;
 
     for (index, param) in params.iter().enumerate() {
         let slot = return_slots + index;
@@ -645,18 +634,7 @@ pub(super) fn bind_vm_call_arguments(
                 .into(),
             ));
         }
-        let arg_index = if positional {
-            let next = (positional_index < args.len()).then_some(positional_index);
-            if next.is_some() {
-                positional_index = positional_index.saturating_add(1);
-            }
-            next
-        } else {
-            resolve_named_arg_index(args, &consumed, &param.name, &mut ordered_named_index)
-        };
-        if let Some(arg_index) = arg_index {
-            consumed[arg_index] = true;
-        }
+        let arg_index = arg_indices[index];
         let arg = arg_index.and_then(|arg_index| args.get(arg_index));
 
         match param.direction {
@@ -698,12 +676,12 @@ pub(super) fn bind_vm_call_arguments(
             1 => {
                 locals[slot] = Value::Null;
                 if let Some(arg) = arg {
-                    let VmNativeArgValue::Target(reference) = &arg.value else {
-                        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
-                    };
+                    let (target, target_type_idx) =
+                        bind_output_target(runtime, module, caller_frame, arg)?;
                     out_bindings.push(VmOutBinding {
                         slot,
-                        target: VmWriteTarget::from_reference(reference),
+                        target,
+                        target_type_idx,
                     });
                 }
             }
@@ -713,14 +691,17 @@ pub(super) fn bind_vm_call_arguments(
                         format!("missing IN_OUT argument '{}'", param.name).into(),
                     ));
                 };
-                let VmNativeArgValue::Target(reference) = &arg.value else {
-                    return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
-                };
-                let target = VmWriteTarget::from_reference(reference);
+                let (target, target_type_idx) =
+                    bind_output_target(runtime, module, caller_frame, arg)?;
+                require_in_out_type_compatibility(module, param.type_id, target_type_idx)?;
                 let value = target.read(runtime, caller_frame)?;
                 locals[slot] = normalize_vm_value_for_type(module, param.type_id, value)
                     .map_err(VmTrap::Runtime)?;
-                out_bindings.push(VmOutBinding { slot, target });
+                out_bindings.push(VmOutBinding {
+                    slot,
+                    target,
+                    target_type_idx,
+                });
             }
             other => {
                 return Err(VmTrap::InvalidNativeCall(
@@ -730,8 +711,16 @@ pub(super) fn bind_vm_call_arguments(
         }
     }
 
+    Ok((locals, out_bindings))
+}
+
+fn resolve_vm_arg_indices(
+    params: &[super::super::VmParamMeta],
+    args: &[VmNativeArg],
+) -> Result<Vec<Option<usize>>, VmTrap> {
+    let positional = args.iter().all(|arg| arg.name.is_none());
     if positional {
-        if positional_index < args.len() {
+        if args.len() > params.len() {
             return Err(VmTrap::InvalidNativeCall(
                 format!(
                     "too many positional arguments: expected at most {}, got {}",
@@ -741,28 +730,118 @@ pub(super) fn bind_vm_call_arguments(
                 .into(),
             ));
         }
-    } else {
-        for (index, consumed) in consumed.iter().enumerate() {
-            if !consumed {
-                let name = args[index]
-                    .name
-                    .as_deref()
-                    .unwrap_or("<positional>")
-                    .to_owned();
-                return Err(VmTrap::InvalidNativeCall(
-                    format!("unexpected named argument '{name}'").into(),
-                ));
-            }
-        }
+        return Ok((0..params.len())
+            .map(|index| (index < args.len()).then_some(index))
+            .collect());
     }
 
-    Ok((locals, out_bindings))
+    let mut consumed = vec![false; args.len()];
+    let mut ordered_named_index = 0usize;
+    let mut indices = Vec::with_capacity(params.len());
+    for param in params {
+        let arg_index =
+            resolve_named_arg_index(args, &consumed, &param.name, &mut ordered_named_index);
+        if let Some(index) = arg_index {
+            consumed[index] = true;
+        }
+        indices.push(arg_index);
+    }
+    if let Some((index, _)) = consumed
+        .iter()
+        .enumerate()
+        .find(|(_, consumed)| !**consumed)
+    {
+        let name = args[index]
+            .name
+            .as_deref()
+            .unwrap_or("<positional>")
+            .to_owned();
+        return Err(VmTrap::InvalidNativeCall(
+            format!("unexpected named argument '{name}'").into(),
+        ));
+    }
+    Ok(indices)
 }
 
 pub(super) fn require_output_target(arg: &VmNativeArg) -> Result<VmWriteTarget, VmTrap> {
     match &arg.value {
         VmNativeArgValue::Target(reference) => Ok(VmWriteTarget::from_reference(reference)),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+    }
+}
+
+fn bind_output_target(
+    runtime: &super::super::super::core::Runtime,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    arg: &VmNativeArg,
+) -> Result<(VmWriteTarget, Option<u32>), VmTrap> {
+    let VmNativeArgValue::Target(reference) = &arg.value else {
+        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+    };
+    let target = VmWriteTarget::from_reference(reference);
+    let target_type_idx = dynamic_ref_type(module, caller_frame, reference)?;
+    if target_type_idx.is_none()
+        && matches!(
+            target.peek(runtime, caller_frame)?,
+            Value::String(_) | Value::WString(_)
+        )
+    {
+        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+    }
+    Ok((target, target_type_idx))
+}
+
+fn require_in_out_type_compatibility(
+    module: &VmModule,
+    formal_type_idx: u32,
+    target_type_idx: Option<u32>,
+) -> Result<(), VmTrap> {
+    let formal = vm_string_shape_for_type(module, formal_type_idx);
+    let actual = target_type_idx.and_then(|type_idx| vm_string_shape_for_type(module, type_idx));
+    if (formal.is_some() || actual.is_some()) && formal != actual {
+        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+    }
+    Ok(())
+}
+
+pub(super) fn normalize_output_copyback_value(
+    runtime: &super::super::super::core::Runtime,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    target: &VmWriteTarget,
+    target_type_idx: Option<u32>,
+    value: Value,
+) -> Result<Value, VmTrap> {
+    let current = target.peek(runtime, caller_frame)?;
+    let current_string_primitive = match current {
+        Value::String(_) => Some(24),
+        Value::WString(_) => Some(25),
+        _ => None,
+    };
+    let value_string_primitive = match &value {
+        Value::String(_) => Some(24),
+        Value::WString(_) => Some(25),
+        _ => None,
+    };
+    let declared_string_primitive =
+        target_type_idx.and_then(|type_idx| vm_string_primitive_for_type(module, type_idx));
+    if let Some(expected) = declared_string_primitive {
+        let current_matches =
+            current_string_primitive == Some(expected) || matches!(current, Value::Null);
+        let value_matches =
+            value_string_primitive == Some(expected) || matches!(value, Value::Null);
+        if !current_matches || !value_matches {
+            return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+        }
+    } else if current_string_primitive.is_some() || value_string_primitive.is_some() {
+        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+    }
+    match target_type_idx {
+        Some(type_idx) => {
+            normalize_vm_value_for_type(module, type_idx, value).map_err(VmTrap::Runtime)
+        }
+        None => Ok(value),
     }
 }
 

@@ -10,14 +10,19 @@ pub(super) fn store_semantic_tokens(
     state: &ServerState,
     uri: Url,
     tokens: Vec<SemanticToken>,
-) -> String {
+    request_ticket: u64,
+) -> Option<String> {
+    let mut semantic_tokens = state.semantic_tokens.write();
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     let result_id = next_semantic_tokens_id(state);
     let cache = SemanticTokensCache {
         result_id: result_id.clone(),
         tokens,
     };
-    state.semantic_tokens.write().insert(uri, cache);
-    result_id
+    semantic_tokens.insert(uri, cache);
+    Some(result_id)
 }
 
 pub(super) fn store_diagnostics(
@@ -25,11 +30,15 @@ pub(super) fn store_diagnostics(
     uri: Url,
     content_hash: u64,
     diagnostic_hash: u64,
-) -> String {
+    request_ticket: u64,
+) -> Option<String> {
     let mut cache = state.diagnostics.write();
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(existing) = cache.get(&uri) {
         if existing.content_hash == content_hash && existing.diagnostic_hash == diagnostic_hash {
-            return existing.result_id.clone();
+            return Some(existing.result_id.clone());
         }
     }
     let result_id = next_diagnostic_id(state);
@@ -41,7 +50,7 @@ pub(super) fn store_diagnostics(
             diagnostic_hash,
         },
     );
-    result_id
+    Some(result_id)
 }
 
 fn next_semantic_tokens_id(state: &ServerState) -> String {

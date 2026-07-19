@@ -1,0 +1,39 @@
+schema_version = 1
+id = "CASES_UI_STATUS_001"
+title = "Cross-surface connector status traces"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "planned"
+invariant = "UI_STATUS_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:73e5270846cefc348e59f7f38ae2ff276a57edc069eb3ac5a00a1f5d1be55fb3"
+source_digest = "sha256:517a5721a119dd21eb2b33df6cd1282f7d762ce702cd0c71a78aba0809e5389d"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "UI_STATUS_001_CANONICAL_STATUS_VOCABULARY"
+family = "ordering_or_lifecycle"
+input = { scenario = "CANONICAL_STATUS_VOCABULARY" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_CONNECTOR_STATUS_001#canonical-vocabulary", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" } }
+trace = [
+  { sequence = 0, stimulus = { source = "runtime_schema" }, expected = { states = ["disabled", "configured", "starting", "ready", "degraded", "reconnecting", "stale", "not_ready", "faulted"], health = ["ok", "degraded", "faulted", "unknown"] }, oracle_ref = "SPEC_CONNECTOR_STATUS_001#canonical-vocabulary" },
+]
+
+[[case]]
+id = "UI_STATUS_001_FRESHNESS_AND_DETAIL_PRESERVATION"
+family = "ordering_or_lifecycle"
+input = { scenario = "FRESHNESS_AND_DETAIL_PRESERVATION" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" } }
+trace = [
+  { sequence = 0, stimulus = { state = "degraded", freshness_ms = 0, last_error = "read timeout", point_quality = "stale" }, expected = { state = "degraded", health = "degraded", freshness_preserved = true, detail_preserved = true, point_quality = "stale" }, oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules" },
+  { sequence = 1, stimulus = { state = "configured", freshness = "missing" }, expected = { state = "configured", inferred_stale = false }, oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules" },
+]
+
+[[case]]
+id = "UI_STATUS_001_UNKNOWN_STATUS_IDENTIFIER"
+family = "extra_or_unknown"
+input = { scenario = "UNKNOWN_STATUS_IDENTIFIER" }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { state = "invented_healthy" }, expected = { accepted = false, rendered_healthy = false, diagnostic_visible = true }, oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules" },
+]

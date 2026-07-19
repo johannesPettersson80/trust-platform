@@ -100,6 +100,7 @@ server -> lsp : did_change(params)
 activate lsp
 lsp -> handlers : did_change(client, state, params)
 activate handlers
+handlers -> handlers : document_text.apply_content_changes\n(UTF-16 ranges)
 handlers -> state : update_document(uri, version, content)
 state -> project : set_source_text(SourceKey, new_text)
 handlers -> state : with_database(|db| ...)

@@ -1,0 +1,98 @@
+schema_version = 1
+id = "IEC_PREC_001"
+title = "Expression precedence follows the active product contract"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-hir"
+last_reviewed = "2026-07-17"
+claim = "Expression parsing and evaluation must preserve the documented operator precedence and associativity."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src", "crates/trust-hir/src"]
+tests = ["TEST_IEC_PRECEDENCE_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_COMPARE",
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE_CASE_V2",
+  "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_COMPARE_CASE_V2",
+]
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_EXPRESSIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_EXPRESSIONS_001"
+
+[[behavior]]
+partition = { equals = "MULTIPLICATIVE_BEFORE_ADDITIVE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Multiplication is evaluated before addition unless parentheses explicitly change the grouping."
+
+[[behavior]]
+partition = { equals = "PARENTHESES_OVERRIDE_PRECEDENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Parenthesized subexpressions are evaluated before the surrounding default precedence."
+
+[[behavior]]
+partition = { equals = "EXPONENTIATION_LEFT_ASSOCIATIVE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Repeated exponentiation groups from the left under the active product contract."
+
+[[behavior]]
+partition = { equals = "UNARY_BEFORE_EXPONENTIATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Unary sign binds more tightly than exponentiation under the active product contract."
+
+[[behavior]]
+partition = { equals = "ADDITIVE_LEFT_ASSOCIATIVE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Operators at the additive precedence level group from the left."
+
+[[behavior]]
+partition = { equals = "MULTIPLICATIVE_LEFT_ASSOCIATIVE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Operators at the multiplicative precedence level group from the left."
+
+[[behavior]]
+partition = { equals = "COMPARISON_BEFORE_BOOLEAN_AND" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Comparison expressions are formed before boolean AND is applied."
+
+[[behavior]]
+partition = { equals = "AND_BEFORE_XOR_BEFORE_OR" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boolean AND binds more tightly than XOR, and XOR binds more tightly than OR."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The mapped case runner covers every reviewed precedence and associativity partition with a current producer-authentic CASE_V2 lock comparison; the prior pair remains historical source-revision evidence."

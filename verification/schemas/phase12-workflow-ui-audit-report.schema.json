@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/phase12-workflow-ui-audit-report.schema.json",
+  "title": "Phase 12 workflow and UI journey audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "input_digest",
+    "output_paths",
+    "command",
+    "boundaries",
+    "workflow_rows",
+    "journey_rows",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "phase12-workflow-ui-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "workflow_rows": {
+      "type": "array",
+      "minItems": 47,
+      "maxItems": 47,
+      "items": { "$ref": "#/$defs/workflow" }
+    },
+    "journey_rows": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/journey" }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_emits_proof",
+        "report_promotes_ui_invariants",
+        "backend_proof_replaces_visual_evidence",
+        "source_transform_requires_silent_corruption_risk",
+        "validated_ui_requires_accepted_journey"
+      ],
+      "properties": {
+        "report_emits_proof": { "const": false },
+        "report_promotes_ui_invariants": { "const": false },
+        "backend_proof_replaces_visual_evidence": { "const": false },
+        "source_transform_requires_silent_corruption_risk": { "const": true },
+        "validated_ui_requires_accepted_journey": { "const": true }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discovery_id",
+        "path",
+        "heading_path",
+        "disposition",
+        "spec_source_id",
+        "linked_journey_ids",
+        "invariant_ids",
+        "acceptance_status",
+        "missing_spec_source",
+        "missing_invariant_link",
+        "missing_acceptance_evidence"
+      ],
+      "properties": {
+        "discovery_id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "heading_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "disposition": { "enum": ["workflow_spec", "reviewed_nonworkflow"] },
+        "spec_source_id": { "type": ["string", "null"] },
+        "linked_journey_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "invariant_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "acceptance_status": {
+          "enum": ["missing", "stale", "provisional", "ux_accepted", "not_applicable"]
+        },
+        "missing_spec_source": { "type": "boolean" },
+        "missing_invariant_link": { "type": "boolean" },
+        "missing_acceptance_evidence": { "type": "boolean" }
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "surface",
+        "status",
+        "journey_source",
+        "workflow_candidate_ids",
+        "invariant_ids",
+        "supporting_test_ids",
+        "source_transformation",
+        "fresh_visual_evidence",
+        "backend_support_without_fresh_visual"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["evidence_missing", "provisional", "stale", "ux_accepted"] },
+        "journey_source": { "enum": ["batch", "standalone"] },
+        "workflow_candidate_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "invariant_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "supporting_test_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source_transformation": { "type": "boolean" },
+        "fresh_visual_evidence": { "type": "boolean" },
+        "backend_support_without_fresh_visual": { "type": "boolean" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_candidates",
+        "workflow_specs",
+        "reviewed_nonworkflows",
+        "workflow_missing_spec_source",
+        "workflow_missing_invariant_link",
+        "workflow_missing_acceptance_evidence",
+        "journeys",
+        "journeys_with_invariants",
+        "journeys_with_supporting_tests",
+        "journeys_with_fresh_visual_evidence",
+        "backend_support_without_fresh_visual",
+        "journey_status_counts"
+      ],
+      "properties": {
+        "workflow_candidates": { "type": "integer", "minimum": 0 },
+        "workflow_specs": { "type": "integer", "minimum": 0 },
+        "reviewed_nonworkflows": { "type": "integer", "minimum": 0 },
+        "workflow_missing_spec_source": { "type": "integer", "minimum": 0 },
+        "workflow_missing_invariant_link": { "type": "integer", "minimum": 0 },
+        "workflow_missing_acceptance_evidence": { "type": "integer", "minimum": 0 },
+        "journeys": { "type": "integer", "minimum": 0 },
+        "journeys_with_invariants": { "type": "integer", "minimum": 0 },
+        "journeys_with_supporting_tests": { "type": "integer", "minimum": 0 },
+        "journeys_with_fresh_visual_evidence": { "type": "integer", "minimum": 0 },
+        "backend_support_without_fresh_visual": { "type": "integer", "minimum": 0 },
+        "journey_status_counts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/count" }
+        }
+      }
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "count"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

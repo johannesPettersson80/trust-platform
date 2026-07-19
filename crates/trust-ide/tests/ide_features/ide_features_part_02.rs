@@ -307,3 +307,194 @@ END_PROGRAM
         "expected CrossFileImportedSymbolConflict from imported use, got {imported_err:?}"
     );
 }
+
+#[test]
+fn test_rename_refuses_case_insensitive_declaring_scope_conflict() {
+    let source = r#"
+VAR_GLOBAL
+    Speed : INT;
+    Limit : INT;
+END_VAR
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : INT").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, file, pos, "lImIt")
+        .expect_err("IEC identifiers are case-insensitive, so Limit must conflict with lImIt");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected case-insensitive DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_allows_case_only_change_for_same_symbol() {
+    let source = r#"
+PROGRAM Main
+VAR
+    Speed : INT;
+END_VAR
+Speed := 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : INT").unwrap() as u32);
+
+    let result = trust_ide::rename::rename_checked(&db, file, pos, "SPEED")
+        .expect("a case-only rename of the same IEC symbol must remain valid");
+
+    assert_eq!(result.edit_count(), 2);
+    assert!(result
+        .edits
+        .values()
+        .flatten()
+        .all(|edit| edit.new_text == "SPEED"));
+}
+
+#[test]
+fn test_rename_refuses_case_insensitive_struct_field_collision() {
+    let source = r#"
+TYPE MotorState : STRUCT
+    Speed : DINT;
+    Limit : DINT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    State : MotorState;
+END_VAR
+State.Speed := 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+    let pos = TextSize::from(source.find("Speed : DINT").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, file, pos, "lImIt")
+        .expect_err("a field rename must not collide with a case-equivalent sibling field");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected field DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_refuses_cross_file_struct_field_collision_from_use_site() {
+    let types_source = r#"
+NAMESPACE Motors
+TYPE MotorState : STRUCT
+    Speed : DINT;
+    Limit : DINT;
+END_STRUCT
+END_TYPE
+END_NAMESPACE
+"#;
+    let usage_source = r#"
+USING Motors;
+PROGRAM Main
+VAR
+    State : MotorState;
+END_VAR
+State.Speed := 1;
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let types_file = FileId(0);
+    let usage_file = FileId(1);
+    db.set_source_text(types_file, types_source.to_string());
+    db.set_source_text(usage_file, usage_source.to_string());
+    let pos = TextSize::from(usage_source.find("Speed :=").unwrap() as u32);
+
+    let err = trust_ide::rename::rename_checked(&db, usage_file, pos, "lImIt")
+        .expect_err("a cross-file field rename must check the declaration's sibling fields");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected cross-file field DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_refuses_project_wide_pou_collision() {
+    let primary_source = r#"
+FUNCTION_BLOCK LevelController
+END_FUNCTION_BLOCK
+"#;
+    let conflicting_source = r#"
+FUNCTION_BLOCK BackupController
+END_FUNCTION_BLOCK
+"#;
+    let usage_source = r#"
+PROGRAM Main
+VAR
+    Controller : LevelController;
+END_VAR
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let primary_file = FileId(0);
+    let conflicting_file = FileId(1);
+    let usage_file = FileId(2);
+    db.set_source_text(primary_file, primary_source.to_string());
+    db.set_source_text(conflicting_file, conflicting_source.to_string());
+    db.set_source_text(usage_file, usage_source.to_string());
+
+    let pos = TextSize::from(primary_source.find("LevelController").unwrap() as u32);
+    let err = trust_ide::rename::rename_checked(&db, primary_file, pos, "backupcontroller")
+        .expect_err("a top-level POU rename must check the merged project symbol table");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::DeclaringScopeConflict { .. }
+        ),
+        "expected project-wide DeclaringScopeConflict, got {err:?}"
+    );
+}
+
+#[test]
+fn test_rename_refuses_cross_file_reference_capture() {
+    let globals_source = r#"
+VAR_GLOBAL
+    Speed : INT;
+END_VAR
+"#;
+    let main_source = r#"
+PROGRAM Main
+VAR
+    Temp : INT;
+    Observed : INT;
+END_VAR
+Observed := Speed;
+END_PROGRAM
+"#;
+    let mut db = Database::new();
+    let globals_file = FileId(0);
+    let main_file = FileId(1);
+    db.set_source_text(globals_file, globals_source.to_string());
+    db.set_source_text(main_file, main_source.to_string());
+
+    let pos = TextSize::from(globals_source.find("Speed : INT").unwrap() as u32);
+    let err = trust_ide::rename::rename_checked(&db, globals_file, pos, "Temp")
+        .expect_err("a cross-file reference must not be rebound to a use-site local");
+
+    assert!(
+        matches!(
+            err,
+            trust_ide::rename::RenameError::ReferenceSiteRebind { file_id, .. }
+                if file_id == main_file
+        ),
+        "expected cross-file ReferenceSiteRebind, got {err:?}"
+    );
+}

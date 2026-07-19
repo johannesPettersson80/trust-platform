@@ -1,0 +1,5 @@
+# Historical identity redirects are added only after a proposal completes and
+# paired before/after behavior-lock evidence validates. The first pilot does
+# not require a refactor, so this registry is intentionally empty.
+
+redirects = []

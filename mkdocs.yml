@@ -259,6 +259,9 @@ nav:
           - 19 Project Model: reference/specifications/19-project-model.md
           - 20 Agent API v1: reference/specifications/20-agent-api-v1.md
           - 21 Harness Protocol: reference/specifications/21-harness-protocol.md
+          - 22 Developer Workflows: reference/specifications/22-developer-workflows.md
+          - 23 Connector Status: reference/specifications/23-connector-status.md
+          - 24 Release Evidence: reference/specifications/24-release-evidence.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

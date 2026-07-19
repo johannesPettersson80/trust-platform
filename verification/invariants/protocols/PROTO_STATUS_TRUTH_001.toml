@@ -1,0 +1,60 @@
+schema_version = 1
+id = "PROTO_STATUS_TRUTH_001"
+title = "Protocol status reports distinguish proven connectivity from assumptions"
+area = "protocols"
+risk = "false_status"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "Protocol status surfaces must distinguish confirmed protocol behavior, loopback proof, mock-only proof, and hardware-unproven states."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
+tests = [
+  "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001",
+  "TEST_CONFORMANCE_COMMS_PROJECTION_001",
+]
+gates = ["pr", "hardware_lab"]
+evidence_refs = [
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONNECTOR_STATUS_TRUTH_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate", "physical_device_status_evidence"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "ADS_STATUS_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "ADS starting, not-ready, ready, degraded, stale, reconnecting, disabled, and faulted source states retain distinct normalized state and health."
+
+[[behavior]]
+partition = { equals = "OPCUA_STATUS_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "OPC UA configured, no-snapshot, ready, degraded, stale, reconnecting, and faulted states do not collapse into healthy connectivity."
+
+[[behavior]]
+partition = { equals = "POINT_STALE_SEPARATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "A stale point remains a point-quality condition and does not silently rewrite the connector lifecycle state."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "The current-contract lock comparison covers ADS and OPC UA normalized status plus point staleness; a broad gate and physical-device status evidence remain open."

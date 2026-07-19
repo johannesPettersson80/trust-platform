@@ -1,0 +1,49 @@
+schema_version = 1
+id = "PROTO_ETHERCAT_001"
+title = "EtherCAT unavailable-resource behavior is bounded and visible"
+area = "protocols"
+risk = "false_status"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-10"
+claim = "Unavailable EtherCAT hardware or configuration must not create unbounded resource use or a false healthy status."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src"]
+tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
+gates = []
+evidence_refs = [
+  "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate", "physical_hardware_topology_evidence"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "MISSING_ADAPTER_TERMINAL" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A missing adapter does not block construction, faults on first wire use, and stays terminal without another allocation or retry until the driver is rebuilt."
+
+[[behavior]]
+partition = { equals = "MOCK_OPERATIONAL_NON_HARDWARE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The deterministic mock process image may be healthy while remaining explicitly non-hardware evidence."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "The current-contract lock comparison covers deferred construction, terminal missing-adapter failure, and mock operation; a broad gate and physical topology evidence remain open."

@@ -1,0 +1,73 @@
+schema_version = 1
+id = "EDIT_RENAME_002"
+title = "Cross-file rename checks the merged project symbol table"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "implemented"
+owner = "trust-ide"
+last_reviewed = "2026-07-18"
+claim = "Cross-file rename conflict checks must include imported and merged project symbols."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-ide/src", "crates/trust-hir/src"]
+tests = [
+  "TEST_EDITOR_RENAME_PROJECT_TRACE_001",
+  "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
+  "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_EDITOR_RENAME_PROJECT_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_EDITOR_RENAME_PROJECT_TRACE_001_LOCK_COMPARE",
+  "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714",
+  "EVID_EDITOR_FIELD_RENAME_CROSS_FILE_GAP_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "IMPORTED_ORIGIN_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A rename requested from an imported use site is checked against the declaration's origin scope before edits are returned."
+
+[[behavior]]
+partition = { equals = "PROJECT_TOP_LEVEL_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Top-level POU renames check case-insensitive names across the merged project symbol table."
+
+[[behavior]]
+partition = { equals = "CROSS_FILE_REFERENCE_REBIND" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A project-wide candidate edit is refused when a use-site local or imported symbol would capture an edited cross-file reference."
+
+[[behavior]]
+partition = { equals = "SAFE_CROSS_FILE_RENAME" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "When the complete merged-project edit preserves every reference binding, rename returns declaration and use-site edits without partial mutation."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "The merged-project field characterization confirms the reported cross-file collision bypass does not reproduce."

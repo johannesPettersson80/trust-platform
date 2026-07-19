@@ -1161,7 +1161,7 @@ dependencies = [
  "slab",
  "smallvec",
  "smlang",
- "spin 0.10.1",
+ "spin 0.10.0",
  "timerfd",
 ]
 
@@ -4531,9 +4531,9 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.10.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "023a211cb3138dbc438680b32560ad89f699977624c9f8dbb95a47d5b4c07dd3"
+checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
 
 [[package]]
 name = "stabby"
@@ -5032,6 +5032,7 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -5086,6 +5087,7 @@ version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -5156,7 +5158,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "serde",
  "serde_json",
@@ -5165,14 +5167,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5187,7 +5189,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5202,11 +5204,12 @@ dependencies = [
  "trust-runtime",
  "trust-syntax",
  "trust-wasm-analysis",
+ "verification-cases",
 ]
 
 [[package]]
 name = "trust-hir"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "boxcar",
  "insta",
@@ -5220,11 +5223,12 @@ dependencies = [
  "toml",
  "tracing",
  "trust-syntax",
+ "verification-cases",
 ]
 
 [[package]]
 name = "trust-ide"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5237,10 +5241,11 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "anyhow",
  "expect-test",
+ "futures-util",
  "glob",
  "insta",
  "lsp-types 0.97.0",
@@ -5253,6 +5258,7 @@ dependencies = [
  "text-size",
  "tokio",
  "toml",
+ "tower",
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
@@ -5260,11 +5266,12 @@ dependencies = [
  "trust-ide",
  "trust-runtime",
  "trust-syntax",
+ "verification-cases",
 ]
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5277,7 +5284,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "ads",
  "anyhow",
@@ -5329,22 +5336,23 @@ dependencies = [
  "tracing",
  "trust-ads-core",
  "trust-ads-server",
+ "trust-tcads-native",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
  "trust-runtime-core",
  "trust-syntax",
- "trust-tcads-native",
  "trust-wasm-analysis",
  "tungstenite",
  "ureq",
  "urlencoding",
+ "verification-cases",
  "zenoh",
 ]
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5355,25 +5363,26 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "drop_bomb",
  "insta",
  "logos",
  "rowan",
  "text-size",
+ "verification-cases",
 ]
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "libloading",
 ]
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "rowan",
  "serde",
@@ -5437,7 +5446,7 @@ dependencies = [
  "log",
  "rand 0.8.6",
  "serde",
- "spin 0.10.1",
+ "spin 0.10.0",
 ]
 
 [[package]]
@@ -5661,6 +5670,17 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
+
+[[package]]
+name = "verification-cases"
+version = "0.24.54"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "toml",
+]
 
 [[package]]
 name = "version_check"
@@ -6393,7 +6413,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.34"
+version = "0.24.54"
 dependencies = [
  "anyhow",
  "serde",

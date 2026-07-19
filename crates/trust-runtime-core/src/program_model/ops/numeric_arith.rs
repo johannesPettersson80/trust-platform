@@ -24,7 +24,13 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
                 return Err(RuntimeError::Overflow);
             }
             Ok(match target {
-                NumericKind::Real => Value::Real(result as f32),
+                NumericKind::Real => {
+                    let narrowed = result as f32;
+                    if !narrowed.is_finite() {
+                        return Err(RuntimeError::Overflow);
+                    }
+                    Value::Real(narrowed)
+                }
                 NumericKind::LReal => Value::LReal(result),
                 _ => unreachable!(),
             })

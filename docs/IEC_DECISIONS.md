@@ -6,15 +6,110 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-15 - Accuracy-preserving implicit conversion matrix
+
+- Area: Assignment, initialization, function results, and POU parameter transfer
+- IEC context: IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion in
+  assignments and input/output parameter transfer only when it keeps the value
+  and accuracy of the source type, and forbids implicit conversion for
+  `VAR_IN_OUT`.
+- Decision:
+  - Signed integers widen only within `SINT -> INT -> DINT -> LINT`.
+  - Unsigned integers widen only within `USINT -> UINT -> UDINT -> ULINT`.
+  - Bit strings widen only within `BYTE -> WORD -> DWORD -> LWORD`.
+  - Integer-to-real implicit conversion is limited to ranges that are exactly
+    representable for every source value: `SINT` and `INT` may widen to
+    `REAL`; `SINT`, `INT`, and `DINT` may widen to `LREAL`.
+  - `REAL` may widen to `LREAL`. Typed `DINT -> REAL` and `LINT -> LREAL`
+    require an explicit conversion because some source values require
+    rounding. Signed/unsigned cross-family, numeric/`BOOL`, and other
+    incompatible conversions also require an explicit conversion where one
+    exists.
+  - Contextual untyped numeric literals may initialize or assign directly to a
+    target type when the literal is representable by that target.
+  - A value that reaches a declared VM primitive with an incompatible runtime
+    tag is rejected with `TypeMismatch` before storage. Stable public error-code
+    mapping remains governed by `SPEC_GAP_VM_ERROR_MODEL_001`.
+- Reason:
+  - Type width alone is not sufficient for integer-to-floating conversion:
+    binary32 cannot represent every `DINT`, and binary64 cannot represent every
+    `LINT`. Requiring explicit conversion makes possible rounding visible in
+    source while retaining the exact IEC-permitted widenings.
+
+## 2026-07-14 - Malformed Structured Text parser recovery policy
+
+- Area: Structured Text control-flow and expression parsing
+- IEC context: IEC 61131-3 Ed.3 section 7.3.3.3 and Table 72 define the
+  required `THEN`, `OF`, label colon, `:=`, `TO`, `DO`, and terminator tokens
+  for selection and iteration statements; sections 7.3.3.4.2 through
+  7.3.3.4.4 define the `FOR`, `WHILE`, and `REPEAT` forms. The standard defines
+  valid syntax but does not prescribe an editor-oriented partial-tree recovery
+  algorithm for malformed source.
+- Decision:
+  - Missing required control-flow tokens always produce a parse diagnostic and
+    make the parse result unsuccessful. A retained partial syntax tree is for
+    tooling recovery only and cannot make the malformed construct valid.
+  - Recovery must advance over an offending token or stop at a known statement,
+    block, POU, or end-of-file synchronization boundary; it must not retry the
+    same token indefinitely.
+  - A missing inner terminator stops before an outer terminator, reports the
+    inner error, and leaves the outer boundary available to its owning
+    construct. Statements following that outer construct remain parseable.
+  - Missing POU and expression delimiters diagnose at the nearest bounded
+    boundary. Expression nesting and recovery scans remain explicitly bounded.
+- Reason:
+  - Silent acceptance can turn malformed control flow into a different valid
+    program, which is unsafe for both compilation and editor diagnostics.
+  - Preserving a partial tree is useful to IDE features only when the parse
+    remains visibly failed and recovery does not consume unrelated constructs.
+
+## 2026-07-12 - Standard timer scan-step and lifecycle policy
+
+- Area: TP, TON, TOF, and their LTIME variants
+- IEC context: IEC 61131-3 Ed.3 section 6.6.3.5.5 requires Table 46 and Figure 15 timer behavior, supports TIME and LTIME variants, and states that the effect of changing `PT` during timing is implementer-specific. Restart retention is governed separately by section 6.5.6.2.
+- Decision:
+  - Timer inputs and outputs are observed at executed function-block call boundaries. The first call initializes the elapsed-time baseline and contributes zero elapsed time. No background or continuous-time transition is implied.
+  - `PT` is sampled on every executed call while timing is active. Changing it immediately changes the active threshold; elapsed time is compared with the new non-negative value. After TOF expires, its `ET` holds the `PT` value used at expiry until the instance is rearmed.
+  - `PT <= T#0s` is treated as zero for TP, TON, and TOF.
+  - A skipped or conditional call performs no state transition. On the next executed call, elapsed time is measured from the preceding executed call, so the skipped interval is included.
+  - If the runtime clock does not advance or moves backward, that call contributes zero elapsed time and establishes the new clock baseline for the next call.
+  - Warm and cold restart reinitialize non-retained timer instances, including `Q`, `ET`, edge state, and the elapsed-time baseline. An in-process restart preserves the runtime's current monotonic time and establishes each new timer and task baseline at that value; only construction of a new runtime starts a new zero-based time epoch. The first executed timer call after restart therefore contributes zero elapsed time without rewinding the runtime clock. Retained function-block instance storage is a separate runtime-retention concern and is neither asserted nor changed by this timer vertical.
+  - A TP pulse is not cancelled by a sampled falling input. A new sampled FALSE-to-TRUE edge starts a new PT interval; the first timer proof keeps IN high through expiry and makes no retrigger or short-input assertion.
+  - TIME and LTIME variants use the same state transitions and clock source; `PT` and `ET` retain the variant's duration type.
+- Reason:
+  - Scan-boundary observation makes the IEC timing diagrams deterministic in a cyclic runtime while exposing implementation-owned boundaries explicitly.
+  - The first proof vertical asserted Figure 15's basic TP/TON behavior and TOF post-expiry plateau. Later traces may assert the reviewed restart, clock-step, PT-change, and short-input decisions independently.
+
+## 2026-07-13 - STRING and WSTRING binding-capacity policy
+
+- Area: STRING/WSTRING assignment and POU parameter binding
+- IEC context: IEC 61131-3 Ed.3 Table 10 defines declared string maxima, and section 6.6.1.2.2 makes the result of assigning a longer source string implementation-specific.
+- Decision:
+  - Ordinary assignment, `VAR_INPUT` copy-in, function result assignment, and `VAR_OUTPUT` copy-back truncate by Unicode scalar value to the receiving declaration's capacity.
+  - `VAR_IN_OUT` requires identical string family and identical effective capacity after alias and constant-expression resolution. Width-changing and bounded-to-unbounded `VAR_IN_OUT` bindings are rejected with diagnostic category `E205` rather than converted.
+  - A rejected `VAR_IN_OUT` binding cannot mutate caller state.
+  - Literal bounds and truncation count Unicode scalar values. The same rules apply to bounded `STRING[n]` and `WSTRING[n]`.
+  - `STRING` and `WSTRING` are separate families. Cross-family assignment or
+    parameter transfer requires an explicit standard conversion function.
+- Reason:
+  - Truncation preserves the product's established ordinary-assignment behavior while enforcing every receiving declaration's maximum.
+  - Exact-capacity `VAR_IN_OUT` avoids an implicit round trip that can change a caller even when the called POU performs no write.
+
 ## 2026-07-05 - Subrange runtime write enforcement
 
 - Area: ST subrange data types and runtime writes
 - IEC context: IEC 61131-3 Ed.3 §6.4.4.4.1 defines subrange values by inclusive lower/upper limits and treats values outside that range as errors; Table 11 defines user-defined subrange declarations.
 - Decision:
+  - Constant initializers outside the inclusive declared bounds are rejected at
+    compile time.
   - Runtime writes into subrange-typed storage are checked against the declared bounds.
   - Out-of-range execution-time assignment, function/FB parameter copy-in, dynamic-reference writes, HMI/control writes, and retain reload surface a deterministic runtime error.
   - The runtime must not silently clamp, wrap, or store an out-of-range value.
-  - Declaration-initialization edge cases remain out of this Phase 11 decision unless a separate initializer-specific proof row is opened.
+  - A rejected write is not committed: the target retains the exact value it held before the attempted write.
+  - A source with the wrong base type is rejected at compile time with `E203`.
+    Crafted bytecode presenting the wrong runtime value tag is rejected with
+    `TypeMismatch` before storage; stable public error-code mapping remains a
+    separate contract.
 - Reason:
   - Existing specs already describe subrange range violations as errors; Phase 11 proof showed the runtime currently stores out-of-range values silently.
   - A visible runtime error is safer and more auditable than silently changing the value.

@@ -2,9 +2,7 @@ use alloc::vec::Vec;
 
 use crate::value::Value;
 
-use super::VmTrap;
-
-const MAX_OPERAND_STACK: usize = 16 * 1024;
+use super::{VmTrap, VM_MAX_OPERAND_STACK};
 
 #[derive(Debug, Default)]
 pub struct OperandStack {
@@ -21,7 +19,7 @@ impl OperandStack {
     #[inline]
     /// Push one operand value, enforcing the VM stack limit.
     pub fn push(&mut self, value: Value) -> Result<(), VmTrap> {
-        if self.values.len() >= MAX_OPERAND_STACK {
+        if self.values.len() >= VM_MAX_OPERAND_STACK {
             return Err(VmTrap::StackOverflow);
         }
         self.values.push(value);

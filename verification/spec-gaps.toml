@@ -2,6 +2,178 @@
 
 [[spec_gaps]]
 schema_version = 1
+id = "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001"
+title = "Watchdog partial safe-state output commit is not fail-closed"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "On a pre-commit watchdog fault with a partial safe-state map, must every unconfigured output retain its last physically committed value rather than receive the pending scan image?"
+affected_invariants = ["RT_SAFE_DEADLINE_001"]
+affected_tests = ["TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_WATCHDOG_PARTIAL_SAFE_STATE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_INTERNAL_NONFINITE_CONVERSION_001"
+title = "Internal numeric conversions can synthesize non-finite PLC values"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Must explicit numeric and string-to-REAL/LREAL conversions reject or fault when narrowing, parsing, or bit reinterpretation would synthesize NaN or infinity inside PLC state?"
+affected_invariants = ["RT_SAFE_NAN_001"]
+affected_tests = ["TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_SEMANTICS_001"
+closeout_evidence = ["EVID_RUNTIME_INTERNAL_NONFINITE_CONVERSION_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_FIELD_RENAME_CROSS_FILE_001"
+title = "Cross-file field rename can bypass collision detection"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-ide"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "How must a field rename resolve the declaration owner and sibling fields from the merged project so a cross-file request cannot create a case-insensitive collision?"
+affected_invariants = ["EDIT_RENAME_002"]
+affected_tests = ["TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001"]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_FIELD_RENAME_CROSS_FILE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_UI_PEER_STATUS_FAILURE_001"
+title = "Malformed peer connector status can vanish without a visible failure"
+area = "hmi_ui"
+risk = "false_status"
+owner = "vscode"
+status = "spec_gap"
+gap_class = "missing_ui_contract"
+blocking_question = "How must Devices and Connections preserve valid peers and visibly identify each malformed peer status, health, confidence, or point-quality value?"
+affected_invariants = ["UI_STATUS_001"]
+affected_tests = [
+  "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
+]
+candidate_spec_sources = ["SPEC_CONNECTOR_STATUS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_CONNECTOR_STATUS_001"
+closeout_evidence = ["EVID_UI_PEER_STATUS_FAILURE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_COMMIT_ATOMIC_SCOPE_001"
+title = "Commit-helper scope validation is not atomic with index mutation"
+area = "plcopen_devtools"
+risk = "data_loss"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must the commit helper fail on canonical-scope errors and revalidate the Git index after interactive delay so newly staged unrelated paths cannot be absorbed?"
+affected_invariants = ["DEV_COMMIT_SCOPE_001"]
+affected_tests = [
+  "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001",
+  "TEST_REVIEW_COMMIT_SCOPE_RACE_001",
+]
+candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_COMMIT_ATOMIC_SCOPE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_RACE_001"
+title = "Document close can race in-flight cache publication"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must didClose invalidate request generations so semantic-token and diagnostic work started for discarded content cannot repopulate caches after eviction?"
+affected_invariants = ["EDIT_DOC_CLOSE_001"]
+affected_tests = ["TEST_REVIEW_DIDCLOSE_CACHE_RACE_001"]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_DOCUMENT_CLOSE_RACE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_SIM_CLOCK_OVERFLOW_001"
+title = "Simulation clock overflow behavior is unspecified"
+area = "runtime_safety"
+risk = "wrong_result"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "ambiguous_behavior"
+blocking_question = "When simulation-time advancement exceeds the signed nanosecond range, must the harness reject the command, saturate, or fault without wrapping?"
+affected_invariants = ["RT_SAFE_DEADLINE_001"]
+affected_tests = ["TEST_REVIEW_SIM_CLOCK_OVERFLOW_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_SEMANTICS_001"
+closeout_evidence = ["EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_LSP_INVALID_CHANGE_RANGE_001"
+title = "Invalid incremental edit ranges and line boundaries need a recovery contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "How must the LSP react to an incremental change outside the current document and how must range formatting share the negotiated CR, LF, and CRLF line model?"
+affected_invariants = ["EDIT_LSP_POS_001"]
+affected_tests = [
+  "TEST_REVIEW_LSP_INVALID_CHANGE_RANGE_001",
+  "TEST_REVIEW_LSP_BARE_CR_RANGE_FORMAT_001",
+]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_INVALID_CHANGE_RANGE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_OPCUA_SERVER_WRITE_EXPOSURE_001"
+title = "OPC UA server variables advertise writes without a write-back contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Until a transactional write-back path is reviewed, must server-published PLC variables expose read-only access rather than CurrentWrite?"
+affected_invariants = ["PROTO_OPCUA_001"]
+affected_tests = ["TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_OPCUA_SERVER_WRITE_EXPOSURE_GAP_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
 id = "SPEC_GAP_BYTECODE_VALIDATOR_001"
 title = "Bytecode validator semantic contract is incomplete"
 area = "bytecode_vm"
@@ -15,35 +187,208 @@ affected_invariants = [
   "VM_SEAM_REF_001",
   "VM_SEAM_OWNER_001",
 ]
-affected_tests = []
+affected_tests = [
+  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
+  "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
+  "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001",
+  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+  "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001",
+  "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
+  "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+  "TEST_BYTECODE_TRANSFORM_SEED_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
+  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+  "TEST_BYTECODE_VERSION_REJECTION_001",
+]
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
 
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_VM_VALUE_SEMANTICS_001"
-title = "VM declared-type and runtime-tag semantics need a written contract"
+title = "Residual VM bounded-value and incompatible-conversion semantics need a written contract"
 area = "bytecode_vm"
 risk = "wrong_result"
 owner = "trust-runtime"
 status = "spec_gap"
 gap_class = "ambiguous_behavior"
-blocking_question = "Where must implicit widening, STRING bounds, subranges, and reference-store conversions be materialized or rejected?"
+blocking_question = "What exact behavior applies to STRING[n] over-bound writes, unreviewed signed/unsigned and finite-range conversion edges, wrong-type subrange writes, and reference-store conversions?"
 affected_invariants = [
   "VM_SEAM_DECLARED_TYPE_001",
   "VM_SEAM_STRING_BOUND_001",
   "VM_SEAM_SUBRANGE_001",
 ]
-affected_tests = []
+affected_tests = [
+  "TEST_VM_COERCION_ASSIGNMENT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_INPUT_WIDENING_001",
+  "TEST_VM_COERCION_FUNCTION_OUTPUT_WIDENING_001",
+  "TEST_VM_COERCION_INITIALIZER_WIDENING_001",
+  "TEST_VM_COERCION_INOUT_NARROWING_REJECTION_001",
+  "TEST_VM_COERCION_NARROWING_ASSIGNMENT_REJECTION_001",
+  "TEST_VM_COERCION_RETURN_WIDENING_001",
+  "TEST_VM_DECLARED_DINT_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_DINT_RUNTIME_TAG_001",
+  "TEST_VM_DECLARED_LITERAL_CONTEXT_001",
+  "TEST_VM_DECLARED_PARAMETER_COPY_IN_001",
+  "TEST_VM_DECLARED_REAL_CONVERSION_PATHS_001",
+  "TEST_VM_DECLARED_REAL_RUNTIME_TAG_001",
+  "TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001",
+  "TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001",
+  "TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001",
+  "TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001",
+  "TEST_IEC_LOSSY_TYPED_FLOAT_REJECTION_001",
+  "TEST_IEC_CONTEXT_LITERAL_CONVERSION_001",
+  "TEST_IEC_CONTEXT_LITERAL_PRECISION_REJECTION_001",
+  "TEST_IEC_CROSS_FAMILY_CONVERSION_REJECTION_001",
+  "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
+  "TEST_VM_BOUNDED_TYPED_FLOAT_REJECTION_001",
+  "TEST_VM_BOUNDED_FLOAT_MATERIALIZATION_001",
+  "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
+  "TEST_VM_PRIMITIVE_TAG_REJECTION_001",
+  "TEST_VM_PRIMITIVE_FLOAT_WIDENING_001",
+  "TEST_VM_STRING_PRIMITIVE_POLICY_001",
+  "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+  "TEST_VM_NORMALIZE_NON_WIDENING_001",
+]
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+  "SPEC_VM_VALUE_SEMANTICS_001",
+]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_VM_VALUE_SEMANTICS_001"
+closeout_evidence = ["EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_LOWERING_FAIL_CLOSED_001"
+title = "Source lowering and bytecode encoding fail-closed contract is incomplete"
+area = "bytecode_vm"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which HIR-clean but unencodable source constructs must fail compilation rather than lower to NOP or partial bytecode?"
+affected_invariants = [
+  "VM_SEAM_ENC_001",
+]
+affected_tests = [
+  "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
+  "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
+]
 candidate_spec_sources = [
   "SPEC_BYTECODE_FORMAT_001",
   "SPEC_RUNTIME_SEMANTICS_001",
 ]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_LOWERING_FAIL_CLOSED_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_ERROR_MODEL_001"
+title = "VM and bytecode stable error-code model is incomplete"
+area = "bytecode_vm"
+risk = "wrong_result"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "Which stable typed error identifiers must bytecode validation, runtime value conversion, and VM traps emit so tests do not match ad-hoc strings?"
+affected_invariants = [
+  "VM_SEAM_VALID_001",
+  "VM_SEAM_DECLARED_TYPE_001",
+  "VM_SEAM_STRING_BOUND_001",
+  "VM_SEAM_SUBRANGE_001",
+]
+affected_tests = [
+  "TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
+  "TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001",
+  "TEST_VM_HMI_TYPE_ERROR_CODE_001",
+  "TEST_VM_PRIMITIVE_TAG_REJECTION_001",
+  "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
+  "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+  "TEST_VM_STRING_PRIMITIVE_POLICY_001",
+  "TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001",
+]
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+  "SPEC_VM_VALUE_SEMANTICS_001",
+]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_STABLE_ERROR_MODEL_BATCH_VALIDATION_20260716"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
+title = "VM determinism and resource-limit contract is incomplete"
+area = "bytecode_vm"
+risk = "wrong_result"
+owner = "trust-runtime-core"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Which VM determinism, instruction, stack, local, reference, call-depth, and resource limits must be specified and tested independently of bytecode validator structure?"
+affected_invariants = [
+  "VM_SEAM_DETERMINISM_LIMITS_001",
+]
+affected_tests = [
+  "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001",
+  "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_TYPE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
+  "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+  "TEST_VM_RESOURCE_LIMIT_CASES_001",
+]
+candidate_spec_sources = [
+  "SPEC_BYTECODE_FORMAT_001",
+  "SPEC_RUNTIME_SEMANTICS_001",
+]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
+closeout_evidence = ["EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
 
 [[spec_gaps]]
 schema_version = 1
@@ -53,17 +398,23 @@ area = "runtime_safety"
 risk = "safety_critical"
 owner = "trust-runtime"
 status = "spec_gap"
-gap_class = "missing_failure_mode"
+gap_class = "missing_behavior"
 blocking_question = "When stop/fault safe outputs are issued while an I/O worker queue is full, reconnecting, or down, what must reach hardware and what must be reported as not safe?"
 affected_invariants = [
   "RT_SAFE_STOP_001",
   "RT_SAFE_IO_WORKER_001",
 ]
-affected_tests = []
+affected_tests = [
+  "TEST_RUNTIME_SAFE_STATE_HANDOFF_001",
+  "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001",
+  "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001",
+  "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001",
+]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_SAFE_STATE_GAP_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
 
 [[spec_gaps]]
 schema_version = 1
@@ -79,11 +430,12 @@ affected_invariants = [
   "PROTO_STATUS_TRUTH_001",
   "PROTO_DISCOVERY_TRUTH_001",
 ]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001", "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PUBLIC_WIRE_CLAIM_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
 
 [[spec_gaps]]
 schema_version = 1
@@ -93,16 +445,19 @@ area = "release"
 risk = "compatibility"
 owner = "docs"
 status = "spec_gap"
-gap_class = "public_claim_needs_release_proof"
+gap_class = "public_claim_unproven"
 blocking_question = "For each public platform, which release asset, CI job, smoke command, and unsupported boundary proves or limits support?"
 affected_invariants = [
   "RELEASE_PLATFORM_MATRIX_001",
+  "PLAT_PATH_001",
+  "PLAT_VSCODE_001",
 ]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+affected_tests = ["TEST_RELEASE_PLATFORM_MATRIX_TRACE_001", "TEST_PLATFORM_PATH_TRACE_001", "TEST_VSIX_TARGET_IDENTITY_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_PLATFORM_PUBLIC_CLAIM_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
 
 [[spec_gaps]]
 schema_version = 1
@@ -112,14 +467,578 @@ area = "release"
 risk = "false_status"
 owner = "docs"
 status = "spec_gap"
-gap_class = "public_claim_needs_traceability"
+gap_class = "public_claim_unproven"
 blocking_question = "Which runtime and debugger behaviors are locked by which tests, suites, and durable evidence?"
 affected_invariants = [
   "RUNTIME_BEHAVIOR_LOCKED_001",
   "DEBUG_BEHAVIOR_LOCKED_001",
 ]
-affected_tests = []
-candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001"]
-resolution_status = "open"
-closeout_evidence = []
-last_reviewed = "2026-07-08"
+affected_tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_SOURCE_BUILD_PUBLIC_CLAIM_001"
+title = "Source-build public claim needs formal verification traceability"
+area = "release"
+risk = "compatibility"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "Which invariant, command set, suite tier, and release/public evidence proves that normal source builds fetch OpenOT through public dependencies without a sibling checkout?"
+affected_invariants = [
+  "RELEASE_SOURCE_BUILD_OPENOT_001",
+]
+affected_tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_SOURCE_BUILD_PUBLIC_CLAIM_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_PARSER_RECOVERY_001"
+title = "Parser recovery progress and diagnostic boundaries need a written contract"
+area = "compiler_iec"
+risk = "silent_corruption"
+owner = "trust-syntax"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "Which malformed delimiters and nesting states must recovery consume, diagnose, and stop without accepting a partial construct?"
+affected_invariants = ["IEC_PARSE_RECOVER_001"]
+affected_tests = [
+  "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
+  "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
+  "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
+  "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
+  "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
+  "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
+  "TEST_IEC_PARSER_UNCLOSED_CALL_001",
+]
+candidate_spec_sources = ["SPEC_IEC_DECISIONS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_IEC_DECISIONS_001"
+closeout_evidence = ["EVID_IEC_PARSER_RECOVERY_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_STRING_BINDING_BOUNDS_001"
+title = "STRING bounds across assignment and parameter binding need a written contract"
+area = "compiler_iec"
+risk = "wrong_result"
+owner = "trust-hir"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Where and how must STRING[n] bounds be enforced during assignment, calls, returns, and function-block parameter binding?"
+affected_invariants = ["IEC_STRING_001"]
+affected_tests = [
+  "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+  "TEST_IEC_STRING_INOUT_ALIAS_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_STRING_IMPORTED_CAPACITY_001",
+  "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
+]
+candidate_spec_sources = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+closeout_evidence = ["EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715"]
+last_reviewed = "2026-07-15"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+title = "Timer restart and time-base boundaries need a written contract"
+area = "compiler_iec"
+risk = "safety_critical"
+owner = "language"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "What are the TP, TOF, and TON ET, restart, clock-reset, and runtime time-base semantics at every lifecycle boundary?"
+affected_invariants = ["IEC_TIMER_001"]
+affected_tests = ["TEST_IEC_TIMER_TRACE_001"]
+candidate_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+closeout_evidence = ["EVID_IEC_TIMER_GAP_CLOSEOUT_20260712"]
+last_reviewed = "2026-07-12"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_RETAIN_FAILURE_001"
+title = "Retain load and save failure policy needs a written contract"
+area = "runtime_safety"
+risk = "data_loss"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_persistence"
+blocking_question = "Which retain read, decode, compatibility, and write failures block startup or shutdown, and how must each failure be surfaced?"
+affected_invariants = ["RT_SAFE_RETAIN_001"]
+affected_tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_RETAIN_FAILURE_GAP_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_FORCE_LIFECYCLE_001"
+title = "Force, write, and release lifecycle needs a written contract"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How do force, write, and release state transition across disconnect, stop, restart, pause, fault, and authorization changes?"
+affected_invariants = ["RT_SAFE_FORCE_001"]
+affected_tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_FORCE_LIFECYCLE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_NONFINITE_INGRESS_001"
+title = "Non-finite REAL ingress policy needs a written contract"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "At each I/O, protocol, API, and retained-value boundary, must NaN and infinity be rejected, normalized, faulted, or propagated?"
+affected_invariants = ["RT_SAFE_NAN_001"]
+affected_tests = [
+  "TEST_RUNTIME_TYPED_REAL_OUTPUT_NONFINITE_001",
+  "TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001",
+  "TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001",
+  "TEST_DEBUG_MANAGED_REAL_NONFINITE_001",
+  "TEST_DEBUG_MANAGED_LREAL_NONFINITE_001",
+  "TEST_RUNTIME_SIMULATION_THRESHOLD_NONFINITE_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001",
+  "TEST_RUNTIME_TYPED_INPUT_NONFINITE_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_WIRE_DECODE_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_PROCESS_IMAGE_READ_001",
+  "TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_TEXT_DECODE_001",
+  "TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001",
+  "TEST_RUNTIME_HMI_NONFINITE_WRITE_001",
+  "TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001",
+  "TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001",
+  "TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001",
+  "TEST_RUNTIME_MESH_NONFINITE_INGRESS_001",
+  "TEST_RUNTIME_RETAIN_NONFINITE_SAVE_001",
+  "TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001",
+]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RUNTIME_RELOAD_TRANSACTION_001"
+title = "Online-change and hot-reload transaction boundaries need a written contract"
+area = "runtime_safety"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which runtime state, status, I/O, retain, and debug changes form one reload transaction, and what must happen on partial failure?"
+affected_invariants = ["RT_RELOAD_001"]
+affected_tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_PROTOCOL_DISCOVERY_HANDSHAKE_001"
+title = "Protocol discovery handshake confidence needs a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which protocol exchange distinguishes a confirmed endpoint from a likely endpoint or port reachability for each connector?"
+affected_invariants = ["PROTO_MODBUS_001", "PROTO_MQTT_001"]
+affected_tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PROTOCOL_DISCOVERY_HANDSHAKE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_ETHERCAT_UNAVAILABLE_RESOURCE_001"
+title = "EtherCAT unavailable-resource behavior needs a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_hardware_contract"
+blocking_question = "What bounded memory, retry, timeout, and status behavior is required when EtherCAT hardware or configuration is unavailable?"
+affected_invariants = ["PROTO_ETHERCAT_001"]
+affected_tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_ETHERCAT_UNAVAILABLE_RESOURCE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_PROTOCOL_STATUS_MODEL_001"
+title = "Connector status vocabulary and lifecycle need a written contract"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which canonical states, freshness transitions, and error details must each connector expose without collapsing configured, reachable, and live?"
+affected_invariants = ["PROTO_ADS_001", "PROTO_OPCUA_001"]
+affected_tests = ["TEST_CONNECTOR_STATUS_TRUTH_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_PROTOCOL_STATUS_MODEL_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_RENAME_CONFLICT_001"
+title = "Rename conflict and shadow-capture policy needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-ide"
+status = "spec_gap"
+gap_class = "missing_behavior"
+blocking_question = "Which local, imported, project-wide, and cross-file conflicts must make rename refuse rather than capture another symbol?"
+affected_invariants = ["EDIT_RENAME_001", "EDIT_RENAME_002"]
+affected_tests = [
+  "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+  "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
+  "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+  "TEST_EDITOR_RENAME_CASE_ONLY_001",
+  "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+  "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_LSP_RENAME_CONFLICT_ERROR_001",
+]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_LSP_POSITION_ENCODING_001"
+title = "LSP negotiated position encoding needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_boundary"
+blocking_question = "Which negotiated or default character encoding governs every incoming and outgoing position, range, edit, and semantic-token length?"
+affected_invariants = ["EDIT_LSP_POS_001"]
+affected_tests = [
+  "TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_HANDSHAKE_001",
+  "TEST_LSP_POSITION_ENCODING_HOVER_001",
+  "TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001",
+  "TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001",
+  "TEST_LSP_POSITION_ENCODING_SYNC_001",
+]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_POSITION_ENCODING_FIX_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_DIAGNOSTIC_CANCELLATION_001"
+title = "Diagnostic cancellation publication policy needs a written contract"
+area = "editor_safety"
+risk = "false_status"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "How must push, pull, and workspace diagnostics distinguish cancellation from a successful empty diagnostic result?"
+affected_invariants = ["EDIT_DIAG_CANCEL_001"]
+affected_tests = [
+  "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+  "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
+]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_WORKSPACE_DIAGNOSTIC_CANCELLATION_FIX_20260714"]
+last_reviewed = "2026-07-14"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_EDITOR_DOCUMENT_CLOSE_001"
+title = "LSP document-close durable-source lifecycle needs a written contract"
+area = "editor_safety"
+risk = "silent_corruption"
+owner = "trust-lsp"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "After didClose discards an unsaved buffer, which durable source replaces it, which caches must be invalidated, and how must dependent diagnostics be recomputed?"
+affected_invariants = ["EDIT_DOC_CLOSE_001"]
+affected_tests = [
+  "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001",
+  "TEST_LSP_DOCUMENT_CLOSE_TRACE_001",
+]
+candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_LSP_CONTRACT_001"
+closeout_evidence = ["EVID_LSP_DOCUMENT_CLOSE_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEBUG_AUTHORIZATION_001"
+title = "Debug write and force authorization needs a written contract"
+area = "control_security"
+risk = "security"
+owner = "trust-debug"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which authenticated roles may write, force, or release each address class, and what denial contract applies by default?"
+affected_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+affected_tests = [
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+]
+candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEBUG_ADAPTER_001"
+closeout_evidence = ["EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001"
+title = "Debug pause and watchdog interaction needs a written contract"
+area = "editor_safety"
+risk = "safety_critical"
+owner = "trust-debug"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "While execution is paused, which scan deadline, watchdog, I/O, safe-state, and resume semantics remain active?"
+affected_invariants = ["DEBUG_PAUSE_001"]
+affected_tests = [
+  "TEST_DEBUG_PAUSE_WATCHDOG_001",
+  "TEST_RUNTIME_PAUSE_WATCHDOG_001",
+  "TEST_DEBUG_PAUSE_TRACE_001",
+]
+candidate_spec_sources = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_DEBUG_PAUSE_WATCHDOG_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_TEST_DISCOVERY_CASE_001"
+title = "Developer test-discovery filename case policy is unspecified"
+area = "plcopen_devtools"
+risk = "false_status"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_user_workflow"
+blocking_question = "Which supported source extensions and case variants must test discovery include, and how must unsupported files be reported?"
+affected_invariants = ["DEV_TEST_DISCOVERY_001"]
+affected_tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
+candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_TEST_DISCOVERY_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEV_COMMIT_SCOPE_001"
+title = "Developer commit-helper staging scope is unspecified"
+area = "plcopen_devtools"
+risk = "data_loss"
+owner = "trust-dev"
+status = "spec_gap"
+gap_class = "missing_user_workflow"
+blocking_question = "How must commit helpers distinguish their generated changes from unrelated pre-staged paths before creating a commit?"
+affected_invariants = ["DEV_COMMIT_SCOPE_001"]
+affected_tests = ["TEST_DEV_COMMIT_SCOPE_TRACE_001"]
+candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+closeout_evidence = ["EVID_DEV_COMMIT_SCOPE_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_UI_STATUS_VOCABULARY_001"
+title = "Cross-surface runtime status vocabulary needs a written contract"
+area = "hmi_ui"
+risk = "false_status"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_ui_contract"
+blocking_question = "Which canonical connector states, freshness labels, and fault details must HMI, editor, CLI, hover, and reports render consistently?"
+affected_invariants = ["UI_STATUS_001"]
+affected_tests = ["TEST_UI_CONNECTOR_STATUS_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "SPEC_CONNECTOR_STATUS_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_CONNECTOR_STATUS_001"
+closeout_evidence = ["EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_CONTROL_AUTHORIZATION_MATRIX_001"
+title = "Runtime control authorization matrix needs a written contract"
+area = "control_security"
+risk = "security"
+owner = "trust-runtime"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which roles may invoke every control, API, HMI, file-read, write, force, and release operation, including the default-deny boundary?"
+affected_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+affected_tests = [
+  "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+]
+candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RUNTIME_ENGINE_001"
+closeout_evidence = ["EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716"]
+last_reviewed = "2026-07-16"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_DEPENDENCY_AUDIT_POLICY_001"
+title = "Dependency audit and exception policy needs a written contract"
+area = "supply_chain_platform"
+risk = "supply_chain"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "Which vulnerability, license, advisory, and exception conditions block release, and who owns time-bounded exceptions?"
+affected_invariants = ["SEC_DEP_AUDIT_001"]
+affected_tests = ["TEST_DEPENDENCY_EXCEPTION_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_DEPENDENCY_AUDIT_POLICY_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_ARTIFACT_PROVENANCE_001"
+title = "Release artifact provenance chain needs a written contract"
+area = "supply_chain_platform"
+risk = "supply_chain"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_security"
+blocking_question = "How must each release binary, package, VSIX, checksum, tag, commit, and workflow run be bound and independently verified?"
+affected_invariants = ["SEC_ARTIFACT_001"]
+affected_tests = ["TEST_ARTIFACT_PROVENANCE_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_ARTIFACT_PROVENANCE_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"
+title = "Hardware public claims need proof-level boundaries"
+area = "release"
+risk = "false_status"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "How must public documentation distinguish mock, loopback, simulated, interoperability, and real device-in-loop evidence?"
+affected_invariants = ["REL_CLAIM_001"]
+affected_tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_HARDWARE_PUBLIC_CLAIM_CLOSEOUT_20260718"]
+last_reviewed = "2026-07-18"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_CONFORMANCE_PUBLICATION_001"
+title = "Conformance publication source-of-truth needs a written contract"
+area = "release"
+risk = "false_status"
+owner = "docs"
+status = "spec_gap"
+gap_class = "public_claim_unproven"
+blocking_question = "Which suite results, known gaps, timestamps, and toolchain identity must generate each public conformance statement?"
+affected_invariants = ["REL_CONF_001"]
+affected_tests = ["TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_CONFORMANCE_PUBLICATION_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_RELEASE_VERSION_CHAIN_001"
+title = "Release version and Latest-marker chain needs a written contract"
+area = "release"
+risk = "false_status"
+owner = "release"
+status = "spec_gap"
+gap_class = "missing_lifecycle"
+blocking_question = "Which version files, changelog entry, tag, workflow run, release object, artifacts, and Latest marker must agree before release completion?"
+affected_invariants = ["REL_VERSION_001"]
+affected_tests = ["TEST_RELEASE_VERSION_CHAIN_TRACE_001"]
+candidate_spec_sources = ["PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001", "SPEC_RELEASE_EVIDENCE_001"]
+resolution_status = "closed"
+resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
+closeout_evidence = ["EVID_RELEASE_VERSION_CHAIN_GAP_CLOSEOUT_20260717"]
+last_reviewed = "2026-07-17"

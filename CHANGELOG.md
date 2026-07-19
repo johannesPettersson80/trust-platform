@@ -6,14 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.34`
-
-### Added
-
-- vscode/trust-runtime: Devices & Connections can select any valid ADS server
-  port before browsing symbols, defaults to PLC port `851`, preserves non-851
-  ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
-  port, unsupported Symbol Upload, and an empty or incompatible symbol table.
+Target release: `v0.24.54`
 
 ### Fixed
 
@@ -29,7 +22,150 @@ Target release: `v0.24.34`
   slow Windows requests from starving the canvas; simulator Start now waits for
   the real Structured Text debug session and bounds I/O probes so a successful
   launch is not reported as a timeout.
+- ci: the main-branch version release guard now allows 90 minutes for a matching
+  Release workflow to finish, with a larger job budget and a focused regression
+  test, so healthy cold Windows artifact builds do not fail release evidence at
+  the former 30-minute boundary.
+- vscode: fixed stale Devices & Connections refresh and discovery sessions so
+  editor-group resize/remounts cannot publish torn capability state or leave old
+  Discover cards actionable; hidden webviews now pause polling and resynchronize
+  when visible.
+- vscode: kept Browse-tags symbol selection on accessible native checkbox
+  semantics and added a real X11 quick-click/Space regression journey across
+  multiple Network Canvas refreshes.
+- vscode: changed the fail-closed writable ADS import refusal to a complete
+  modal explanation with a **Start runtime** recovery action.
+- docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
+  MQTT, and OPC UA so the public navigation path matches the shipped ADS
+  client/server support.
+- trust-runtime: pending debug writes and active forces are now cleared at
+  runtime fault, stop, and restart boundaries so stale debugger mutations
+  cannot cross a lifecycle transition.
+- trust-runtime: pre-commit watchdog and output-handoff faults now restore the
+  last committed output image before applying a partial safe-state map, so
+  unconfigured points cannot receive pending values from the failed scan.
+- trust-runtime: explicit conversions to `REAL` or `LREAL` now return the
+  stable overflow fault when narrowing, parsing, or IEC bit transfer would
+  synthesize NaN or infinity inside PLC state.
+- trust-runtime: deterministic simulation-time advancement now saturates at the
+  signed nanosecond bounds instead of panicking or wrapping on overflow.
+- trust-runtime: OPC UA server variables backed by periodic PLC snapshots now
+  advertise read-only access and reject client writes instead of acknowledging
+  values that the runtime never applies to PLC storage.
 
+- verification: the runtime communications fuzz gate now selects the live WAN
+  allowlist smoke module instead of exiting successfully after running zero
+  tests; bounded campaigns also reject any zero-test Cargo filter.
+- trust-ads-server: restored the command-dispatch cargo-fuzz target after the
+  symbol snapshot interface moved to shared `Arc` ownership, so all registered
+  ADS fuzz targets compile and execute under the bounded campaign.
+- trust-dev: project-scoped commits now abort before mutation when the Git index
+  already contains an in-scope path, while repository-root commits reject any
+  pre-staged path and dry runs leave both the worktree and index unchanged.
+  Project paths must resolve canonically inside the repository, and the index is
+  checked again after interactive prompts so concurrently staged in-scope paths
+  are not absorbed.
+- vscode: connector state and health projections now accept only the shared
+  canonical wire vocabulary, so unknown backend values fail visibly instead of
+  flowing into the Devices & Connections UI as an invented status.
+- vscode: updated build and test dependencies and pinned patched transitive
+  versions so the committed extension lockfile passes `npm audit` with zero
+  known advisories; CI and release packaging now enforce the same audit.
+- trust-lsp: closing an unsaved file-backed document now cancels in-flight
+  semantic work, restores durable disk contents, and evicts semantic-token and
+  pull-diagnostic caches; late results are generation-checked under the cache
+  lock so discarded buffer state cannot survive `didClose`.
+- trust-lsp: invalid incremental edit lines now preserve the last valid buffer
+  and show a full-resynchronization error, while range/on-type formatting uses
+  the shared LF, CRLF, and bare-CR line model instead of an LF-only splitter.
+- trust-runtime: MQTT discovery now reports authentication and authorization
+  CONNACK rejections as `likely` protocol evidence instead of overclaiming an
+  accepted, confirmed broker session; clean-session DISCONNECT behavior is
+  preserved.
+- trust-runtime: control requests denied by the reviewed role matrix now return
+  the stable `insufficient_role` error code before dispatch; reviewed operation
+  names, fixed minimum roles, and debug-surface classification share one
+  internal registry while unclassified operations remain Admin-only.
+- trust-runtime: bytecode decoding, validation, VM traps, and runtime failures
+  now expose stable lower-snake-case machine identifiers without parsing
+  diagnostic text; HMI type, bounded-string, subrange, and non-finite write
+  rejections return the matching identifier in `error_code` before queueing.
+- trust-runtime: STBC decoding, validation, executable materialization, and VM
+  execution now enforce the documented fixed container, instruction,
+  reference, local, parameter, native-call, operand-stack, call-depth, and
+  per-invocation instruction limits; stack, register, and tier-1 execution
+  charge the same original bytecode instructions across nested calls.
+- trust-hir/trust-runtime: implicit numeric assignment now permits only
+  accuracy-preserving widenings, ordinary subrange initializers are checked at
+  both bounds, contextual subrange literals retain their declared runtime tag,
+  binary expressions, function returns, FOR bounds, and call arguments preserve
+  their HIR-resolved or declared numeric type, and crafted primitive-tag
+  mismatches fail before storage.
+- trust-runtime: the embedded web server now isolates read-only traffic from a
+  fixed, bounded body/mutation lane, so incomplete request bodies cannot block
+  HMI and control reads; saturated lanes fail promptly with HTTP 503 and the
+  stable `server_busy` denial code.
+- trust-runtime: TON, TOF, and TP elapsed-time accumulation now clamps safely
+  at `PT` instead of panicking in debug builds or wrapping negative in release
+  builds near the signed TIME/LTIME duration boundary.
+- trust-runtime: STBC decoding now rejects duplicate standardized section IDs
+  instead of silently selecting the first conflicting section during later
+  validation and execution.
+- trust-runtime: bytecode decoding now rejects top-level and nested collection
+  counts that cannot fit within their section payload before reserving the
+  declared collection capacity, preventing tiny malformed containers from
+  requesting disproportionate allocations.
+- trust-syntax: malformed `CASE`, `ELSIF`, `FOR`, `WHILE`, and `REPEAT`
+  statements now diagnose missing required delimiters instead of accepting
+  partial syntax as a valid control-flow construct.
+- trust-lsp: cancelled workspace diagnostic requests now return
+  `ContentModified` instead of a successful empty or partial report that could
+  hide diagnostics collected after a newer semantic request superseded them.
+- trust-lsp: UTF-16 positions now recognize bare-CR lines and keep every CRLF
+  terminator byte at the preceding line end, matching the LSP line-boundary
+  contract for incoming requests and outgoing ranges.
+- trust-runtime: debugger statement-boundary pauses no longer count operator
+  dwell time against the active cycle watchdog or output-commit deadline;
+  genuine execution time before and after resume remains bounded.
+- trust-runtime: enabling the debug control surface now requires Admin instead
+  of Engineer, and unclassified future control operations fail safe at Admin
+  rather than inheriting Viewer authority.
+- trust-runtime: online change now reads and validates the retained snapshot
+  before replacing the live executable or resetting runtime state, preventing a
+  retain-store failure from leaving a partially applied reload.
+- trust-runtime: safe-state application now requires confirmed healthy driver
+  handoff, reports queued/reconnecting worker delivery as unconfirmed, attempts
+  every configured driver, and prevents a deliberate stop from reporting
+  `Stopped` when physical safe-state delivery was not confirmed.
+- trust-runtime: retained snapshots are now fully validated before any restored
+  global is changed, preventing a later incompatible value from leaving earlier
+  values partially applied after a failed warm load.
+- trust-runtime: MQTT typed input-point batches now commit their mapped
+  process-image snapshot only after every payload validates, preventing values
+  from a rejected non-finite batch from leaking into a later successful scan.
+
+### Added
+
+- vscode/trust-runtime: Devices & Connections can select any valid ADS server
+  port before browsing symbols, defaults to PLC port `851`, preserves non-851
+  ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
+  port, unsupported Symbol Upload, and an empty or incompatible symbol table.
+- verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
+  bytecode containers, runtime configuration, LSP incremental edits, and HMI
+  payloads; linked all conformance cases, added direct runtime-anomaly tests,
+  and resolved six obsolete test skips, including retirement of a capture for
+  a runtime command that is intentionally hidden from the command palette.
+- release: added digest-bound artifact provenance and result-derived
+  conformance status assets, plus release checks binding the workspace version,
+  tag, successful workflow, required assets, and GitHub Latest pointer.
+- trust-runtime: documented the complete STBC validator-before-apply contract,
+  added product-path malformed-bytecode case execution, and promoted the
+  existing owner, reference, call, jump, stack, schema, checksum, and version
+  rejection checks from quarantine into the regular test suite.
+- trust-runtime: added focused automatic-restart storage coverage and cataloged
+  the existing runtime panic-containment and bounded Modbus slow-device tests;
+  broader restart, latency, and reload-migration cases remain explicit
+  verification debt.
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing
@@ -38,7 +174,10 @@ Target release: `v0.24.34`
   shared connector status and discovery-confidence contract while presenting it
   with user-facing labels: HMI summarizes connections in one compact header
   chip, and Network Canvas/Discover use Connection, Health, Verification, and
-  Signals wording instead of backend connector/proof terminology.
+  Signals wording instead of backend connector/proof terminology. Devices &
+  Connections now rejects unknown state, health, or confidence values while
+  retaining the affected peer topology and showing the validation error instead
+  of silently dropping all peers.
 - vscode: Generated truST projects and bundled examples now hide VS Code's
   native debug-status selector so the truST sidebar remains the single visible
   run/debug control surface while keeping the native simulator launch
@@ -251,6 +390,9 @@ Target release: `v0.24.34`
 
 ### Changed
 
+- branding: replaced font-dependent truST wordmarks and product icons with
+  self-contained path-based assets across the public documentation, runtime Web
+  IDE, and packaged VS Code extension.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
@@ -335,23 +477,59 @@ Target release: `v0.24.34`
 
 ### Fixed
 
-- ci: the main-branch version release guard now allows 90 minutes for a matching
-  Release workflow to finish, with a larger job budget and a focused regression
-  test, so healthy cold Windows artifact builds do not fail release evidence at
-  the former 30-minute boundary.
-- vscode: fixed stale Devices & Connections refresh and discovery sessions so
-  editor-group resize/remounts cannot publish torn capability state or leave old
-  Discover cards actionable; hidden webviews now pause polling and resynchronize
-  when visible.
-- vscode: kept Browse-tags symbol selection on accessible native checkbox
-  semantics and added a real X11 quick-click/Space regression journey across
-  multiple Network Canvas refreshes.
-- vscode: changed the fail-closed writable ADS import refusal to a complete
-  modal explanation with a **Start runtime** recovery action.
+- trust-runtime: typed process-image `REAL` and `LREAL` output bindings now
+  reject non-finite values transactionally before changing `%Q`/`%M` bytes or
+  committing output to a physical driver.
+- trust-runtime: finite `REAL` `EXP` and `EXPT` calls now fault before
+  assignment when their basic-single result would be NaN or infinity instead
+  of storing a non-finite process value.
+- trust-runtime: finite `REAL` binary arithmetic now faults before assignment
+  when its basic-single result would be NaN or infinity instead of storing a
+  non-finite process value.
+- trust-runtime: `simulation.toml` now rejects NaN and infinite coupling
+  thresholds before activating the configuration instead of silently selecting
+  a coupling branch.
+- trust-debug: managed Live Values writes and forces now parse declared
+  `REAL`/`LREAL` values semantically and reject NaN, infinities, width overflow,
+  and raw non-finite bit encodings before changing process-image or force state.
+- trust-hir: cross-file POU imports now preserve `STRING[n]` and `WSTRING[n]`
+  capacities derived from project constants, so equal-capacity `VAR_IN_OUT`
+  bindings no longer fail as bounded-to-unbounded mismatches.
+- trust-runtime: file-backed retain snapshots now reject non-finite
+  `REAL`/`LREAL` values recursively on save and load, preserving the last good
+  durable image and preventing partial application of an invalid snapshot.
+- trust-runtime: mesh subscriptions now reject integer values outside the
+  subscribed IEC type's range and reject floating-point conversions that would
+  produce a non-finite PLC value instead of silently wrapping or storing
+  infinity.
+- trust-runtime: OPC UA client `Float`/`Double` input samples now reject `NaN`
+  and positive or negative infinity before cache acceptance, mark the affected
+  point faulted, and leave the PLC target unchanged.
+- trust-ads-core/trust-runtime: ADS `REAL`/`LREAL` client reads, notifications,
+  arrays, and server writes now reject `NaN` and both infinities before cache
+  acceptance, server write queuing, or PLC storage mutation.
+- trust-hir/trust-runtime: compile-time bounded `STRING[n]` and `WSTRING[n]`
+  literal checks now count Unicode scalar values; call binding rejects
+  width-changing `VAR_IN_OUT`, and function/function-block output copy-back
+  honors the receiving declaration's capacity. Metadata-free legacy v1.1
+  bytecode now fails closed when a local string output target's declared type
+  cannot be recovered; compiler and runtime must be upgraded together for this
+  boundary.
 
-- docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
-  MQTT, and OPC UA so the public navigation path matches the shipped ADS
-  client/server support.
+- trust-runtime: in-process warm and cold restarts now preserve monotonic
+  runtime time while reinitializing timer and task baselines at the preserved
+  value, preventing restart from rewinding simulation time or charging
+  pre-restart elapsed time to recreated timer instances.
+- trust-runtime: bounded MQTT and Modbus input workers now preserve the typed
+  error from a completed protocol read instead of replacing MQTT connection
+  context and Modbus exception responses with a generic unavailable-snapshot
+  transport error; MQTT reads without a fresh snapshot report `IoFreshness`.
+- trust-runtime: watchdog faults before physical output commit no longer
+  re-send the pending process-image output when no safe-state outputs are
+  configured; the resource faults visibly without issuing a driver write.
+- trust-runtime: TOF and TOF_LTIME now hold `ET = PT` after the off-delay
+  expires while `IN` remains false, matching IEC 61131-3 Ed.3 Figure 15(c),
+  until a later true-input scan rearms the timer.
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.

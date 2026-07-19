@@ -1,0 +1,43 @@
+schema_version = 1
+id = "REL_CLAIM_001"
+title = "Public hardware claims name their proof level"
+area = "release"
+risk = "false_status"
+status = "validated"
+owner = "docs"
+last_reviewed = "2026-07-18"
+claim = "Public hardware documentation must distinguish mock, loopback, simulation, interoperability, and real device-in-loop evidence."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["docs/public", "README.md"]
+tests = ["TEST_RELEASE_HARDWARE_CLAIM_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RELEASE_HARDWARE_CLAIM_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_HARDWARE_CLAIM_TRACE_001_LOCK_COMPARE",
+  "EVID_HARDWARE_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+  "EVID_HARDWARE_PUBLIC_CLAIM_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = []
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_RUNTIME_WIRE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "HARDWARE_PROOF_LEVELS" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#hardware-and-conformance-claims"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Public hardware wording distinguishes mock, loopback, simulation, interoperability, and named-topology device-in-loop evidence."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "The public proof-level vocabulary and its device-in-loop qualification boundary are covered by a current-contract lock comparison; no physical-hardware qualification is claimed."

@@ -112,10 +112,11 @@ fn vm_harness_from_module(source: &str, module: &BytecodeModule) -> TestHarness 
 
 fn assert_invalid_bytecode_contains(errors: &[RuntimeError], needle: &str) {
     assert!(
-        errors.iter().any(
-            |err| matches!(err, RuntimeError::InvalidBytecode(message) if message.contains(needle))
-        ),
-        "expected InvalidBytecode containing '{needle}', got {errors:?}"
+        errors.iter().any(|err| matches!(
+            err,
+            RuntimeError::Bytecode { detail, .. } if detail.contains(needle)
+        )),
+        "expected coded bytecode error containing '{needle}', got {errors:?}"
     );
 }
 
@@ -126,13 +127,13 @@ fn assert_apply_invalid_bytecode_contains(module: &BytecodeModule, needle: &str)
         .apply_bytecode_bytes(&bytes, None)
         .expect_err("mutated module should fail during apply");
     match err {
-        RuntimeError::InvalidBytecode(message) => {
+        RuntimeError::Bytecode { code, detail } => {
             assert!(
-                message.contains(needle),
-                "expected InvalidBytecode containing '{needle}', got '{message}'"
+                detail.contains(needle),
+                "expected coded bytecode error containing '{needle}', got '{detail}' ({code})"
             );
         }
-        other => panic!("expected InvalidBytecode, got {other:?}"),
+        other => panic!("expected coded bytecode error, got {other:?}"),
     }
 }
 
@@ -318,4 +319,3 @@ fn first_opcode_u32_operand(module: &BytecodeModule, opcode: u8) -> u32 {
     }
     panic!("expected opcode 0x{opcode:02X} in main body");
 }
-

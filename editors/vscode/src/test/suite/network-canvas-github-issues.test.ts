@@ -260,6 +260,25 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
   });
 
+  test("#95 peer connector failures survive the refresh coordinator", () => {
+    const enrichment = readSrc("networkCanvas/refreshData.ts");
+    const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
+
+    assert.ok(
+      enrichment.includes("Peer topology unavailable:") &&
+        enrichment.includes("Peer topology degraded:"),
+      "peer transport and connector-vocabulary failures must remain visible",
+    );
+    assert.ok(
+      !enrichment.includes("options.loadPeerTopology().catch(() => undefined)"),
+      "the refresh coordinator must not silently discard peer failures",
+    );
+    assert.ok(
+      panelSource.includes("fetchAndMergeFleetTopologiesWithConnectorStatus(peers)"),
+      "the panel must pass peer topology and validation errors into refresh data",
+    );
+  });
+
   test("#95 runtime I/O events use cached canvas rendering instead of full refresh", () => {
     const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
     const lifecycleSource = readSrc("runtimeLifecycle.ts");

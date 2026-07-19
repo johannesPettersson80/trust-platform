@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/spec-completeness-report.schema.json",
+  "title": "truST specification-completeness report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "summary",
+    "invariants_without_spec",
+    "tests_without_oracle",
+    "spec_gap_cells",
+    "bytecode_pilot",
+    "public_claim_context",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "spec-completeness" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "invariants_without_spec": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/invariant_debt" }
+    },
+    "tests_without_oracle": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/test_debt" }
+    },
+    "spec_gap_cells": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/spec_gap_cell" }
+    },
+    "bytecode_pilot": { "$ref": "#/$defs/pilot" },
+    "public_claim_context": { "$ref": "#/$defs/public_context" },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "invariant_basis",
+        "test_oracle_basis",
+        "coverage_basis",
+        "bytecode_pilot_basis",
+        "public_claim_basis",
+        "debt_is_report_failure"
+      ],
+      "properties": {
+        "invariant_basis": { "const": "all_committed_invariant_records" },
+        "test_oracle_basis": { "const": "catalog_rows_with_expected_result" },
+        "coverage_basis": { "const": "all_committed_invariant_coverage_cells" },
+        "bytecode_pilot_basis": { "const": "open_spec_gaps_union_missing_required_runnable_test_classes" },
+        "public_claim_basis": { "const": "registered_spec_sources_non_exhaustive_context" },
+        "debt_is_report_failure": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "invariants_total",
+        "invariants_without_spec",
+        "expected_result_tests",
+        "tests_without_oracle",
+        "coverage_cells",
+        "spec_gap_cells",
+        "bytecode_pilot_gaps",
+        "registered_public_claims"
+      ],
+      "properties": {
+        "invariants_total": { "type": "integer", "minimum": 0 },
+        "invariants_without_spec": { "type": "integer", "minimum": 0 },
+        "expected_result_tests": { "type": "integer", "minimum": 0 },
+        "tests_without_oracle": { "type": "integer", "minimum": 0 },
+        "coverage_cells": { "type": "integer", "minimum": 0 },
+        "spec_gap_cells": { "type": "integer", "minimum": 0 },
+        "bytecode_pilot_gaps": { "type": "integer", "minimum": 0 },
+        "registered_public_claims": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "invariant_debt": {
+      "type": "object",
+      "required": [
+        "invariant_id",
+        "area",
+        "risk",
+        "invariant_status",
+        "spec_status",
+        "spec_source_refs",
+        "spec_gap_refs"
+      ],
+      "properties": {
+        "invariant_id": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "invariant_status": { "type": "string", "minLength": 1 },
+        "spec_status": { "type": "string", "minLength": 1 },
+        "spec_source_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "spec_gap_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "test_debt": {
+      "type": "object",
+      "required": ["test_id", "area", "test_class", "status", "missing_bindings"],
+      "properties": {
+        "test_id": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "test_class": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "missing_bindings": {
+          "type": "array",
+          "items": { "enum": ["oracle_ref", "spec_ref", "spec_gap_ref"] },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "spec_gap_cell": {
+      "type": "object",
+      "required": [
+        "invariant_id",
+        "area",
+        "risk",
+        "invariant_status",
+        "cell_index",
+        "dimension",
+        "spec_gap_ref",
+        "rationale"
+      ],
+      "properties": {
+        "invariant_id": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "invariant_status": { "type": "string", "minLength": 1 },
+        "cell_index": { "type": "integer", "minimum": 0 },
+        "dimension": { "type": "string", "minLength": 1 },
+        "spec_gap_ref": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "pilot": {
+      "type": "object",
+      "required": ["denominator", "summary", "gaps"],
+      "properties": {
+        "denominator": { "$ref": "#/$defs/denominator" },
+        "summary": { "$ref": "#/$defs/pilot_summary" },
+        "gaps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pilot_gap" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "denominator": {
+      "type": "object",
+      "required": [
+        "area",
+        "basis",
+        "open_resolution_statuses",
+        "runnable_test_statuses",
+        "ignored_catalog_tests_are_runnable",
+        "hardware_tool_or_na_inference"
+      ],
+      "properties": {
+        "area": { "const": "bytecode_vm" },
+        "basis": { "const": "open_spec_gaps_union_missing_required_runnable_test_classes" },
+        "open_resolution_statuses": {
+          "type": "array",
+          "items": { "enum": ["open", "decision_recorded", "spec_updated", "test_mapped"] },
+          "uniqueItems": true
+        },
+        "runnable_test_statuses": {
+          "type": "array",
+          "items": { "enum": ["mapped", "test_written", "implemented", "validated"] },
+          "uniqueItems": true
+        },
+        "ignored_catalog_tests_are_runnable": { "const": false },
+        "hardware_tool_or_na_inference": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "pilot_summary": {
+      "type": "object",
+      "required": ["total", "by_classification"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_classification": { "$ref": "#/$defs/classification_counts" }
+      },
+      "additionalProperties": false
+    },
+    "classification_counts": {
+      "type": "object",
+      "required": ["test_gap", "spec_gap", "hardware_tool_blocked", "not_applicable"],
+      "properties": {
+        "test_gap": { "type": "integer", "minimum": 0 },
+        "spec_gap": { "type": "integer", "minimum": 0 },
+        "hardware_tool_blocked": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "pilot_gap": {
+      "type": "object",
+      "required": [
+        "gap_id",
+        "classification",
+        "source_kind",
+        "area",
+        "risk",
+        "detail",
+        "related_record_ids"
+      ],
+      "properties": {
+        "gap_id": { "type": "string", "minLength": 1 },
+        "classification": {
+          "enum": ["test_gap", "spec_gap", "hardware_tool_blocked", "not_applicable"]
+        },
+        "source_kind": { "enum": ["spec_gap_record", "required_test_class_slot"] },
+        "area": { "const": "bytecode_vm" },
+        "risk": { "type": ["string", "null"] },
+        "detail": { "type": "string", "minLength": 1 },
+        "related_record_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "public_context": {
+      "type": "object",
+      "required": ["basis", "exhaustive", "claims"],
+      "properties": {
+        "basis": { "const": "registered_spec_sources_only" },
+        "exhaustive": { "const": false },
+        "claims": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/public_claim" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "public_claim": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "area",
+        "source_status",
+        "surface_ref",
+        "linked_invariant_ids",
+        "oracle_invariant_ids",
+        "linked_spec_gap_ids"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "source_status": { "type": "string", "minLength": 1 },
+        "surface_ref": { "type": "string", "minLength": 1 },
+        "linked_invariant_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "oracle_invariant_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "linked_spec_gap_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

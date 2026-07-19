@@ -9,6 +9,7 @@ mod modbus_support;
 use modbus_support::{
     start_closing_modbus_server, start_delayed_modbus_server, start_modbus_server, ModbusTestState,
 };
+use trust_runtime::error::RuntimeError;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
@@ -247,6 +248,57 @@ word_order = "little"
     assert_eq!(
         state.lock().expect("modbus state lock").functions,
         vec![0x01, 0x03]
+    );
+}
+
+#[test]
+fn modbus_nonfinite_mapped_read_preserves_complete_input_image() {
+    let nan_bits = f32::NAN.to_bits();
+    let state = Arc::new(Mutex::new(ModbusTestState {
+        holding_registers: vec![
+            42,
+            (nan_bits >> 16) as u16,
+            (nan_bits & u32::from(u16::MAX)) as u16,
+        ],
+        ..ModbusTestState::default()
+    }));
+    let addr = start_modbus_server(Arc::clone(&state), 2);
+    let params: toml::Value = toml::from_str(&format!(
+        r#"
+address = "{addr}"
+unit_id = 1
+
+[[input_points]]
+image_offset = 0
+address = 0
+function = "read_holding_registers"
+data_type = "u16"
+
+[[input_points]]
+image_offset = 2
+address = 1
+function = "read_holding_registers"
+data_type = "f32"
+byte_order = "big"
+word_order = "big"
+"#
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let before = vec![0xA5; 6];
+    let mut inputs = before.clone();
+
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("non-finite mapped input must reject the complete read");
+
+    assert!(
+        err.to_string().contains("finite"),
+        "expected finite-value diagnostic, got {err}"
+    );
+    assert_eq!(
+        inputs, before,
+        "a later non-finite point must not expose earlier points from the rejected read"
     );
 }
 
@@ -688,8 +740,8 @@ fn modbus_output_handoff_is_bounded_when_scan_outpaces_worker() {
 }
 
 #[test]
-fn modbus_safe_state_handoff_is_bounded_and_reaches_delayed_device() {
-    let delay = StdDuration::from_millis(120);
+fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
+    let delay = StdDuration::ZERO;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
         vec![0u16; 1],
@@ -715,12 +767,12 @@ fn modbus_safe_state_handoff_is_bounded_and_reaches_delayed_device() {
     let started = Instant::now();
     runtime
         .apply_io_safe_state()
-        .expect("warn policy should not hide safe-state handoff");
+        .expect("completed safe-state handoff should be confirmed");
     let elapsed = started.elapsed();
 
     assert!(
         elapsed < MODBUS_CI_SCAN_BOUND,
-        "safe-state output handoff must return within the scan bound while the worker writes, elapsed={elapsed:?}"
+        "confirmed safe-state output handoff must remain bounded, elapsed={elapsed:?}"
     );
 
     let deadline = Instant::now() + StdDuration::from_millis(500);
@@ -738,6 +790,67 @@ fn modbus_safe_state_handoff_is_bounded_and_reaches_delayed_device() {
         assert!(
             Instant::now() < deadline,
             "safe-state output should eventually reach the delayed Modbus device, got 0x{value:04x}"
+        );
+        thread::sleep(StdDuration::from_millis(5));
+    }
+}
+
+#[test]
+fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
+    let delay = StdDuration::from_millis(120);
+    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
+        vec![0u16; 1],
+        vec![0u16; 1],
+    )));
+    let addr = start_delayed_modbus_server(Arc::clone(&state), delay);
+    let params: toml::Value = toml::from_str(&format!(
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+    ))
+    .expect("params");
+    let mut runtime = Runtime::new();
+    runtime.io_mut().resize(0, 2, 0);
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((
+        IoAddress::parse("%QW0").expect("safe-state output word"),
+        Value::Word(0x1234),
+    ));
+    runtime.set_io_safe_state(safe_state);
+    runtime.add_io_driver(
+        "modbus-safe-state",
+        Box::new(ModbusTcpDriver::from_params(&params).expect("driver")),
+    );
+
+    let started = Instant::now();
+    let error = runtime
+        .apply_io_safe_state()
+        .expect_err("pending worker delivery must not confirm physical safe state");
+    let elapsed = started.elapsed();
+
+    assert!(
+        elapsed < MODBUS_CI_SCAN_BOUND,
+        "unconfirmed safe-state handoff must return within the scan bound, elapsed={elapsed:?}"
+    );
+    assert!(
+        error.to_string().contains("modbus-safe-state")
+            && error.to_string().contains("unconfirmed"),
+        "expected named unconfirmed Modbus safe-state error, got {error}"
+    );
+
+    let deadline = Instant::now() + StdDuration::from_millis(500);
+    loop {
+        let value = state
+            .lock()
+            .expect("modbus state lock")
+            .holding_registers
+            .first()
+            .copied()
+            .unwrap_or(0);
+        if value == 0x3412 {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "a later delivery must not erase the earlier unconfirmed result, got 0x{value:04x}"
         );
         thread::sleep(StdDuration::from_millis(5));
     }
@@ -768,7 +881,6 @@ fn modbus_driver_drop_is_bounded_while_worker_waits_for_first_response() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
 fn modbus_exception_is_not_reported_as_generic_transport() {
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
@@ -785,13 +897,11 @@ fn modbus_exception_is_not_reported_as_generic_transport() {
     let err = driver
         .read_inputs(&mut inputs)
         .expect_err("Modbus exception must be observable");
-    let text = err.to_string();
-    assert!(
-        text.contains("exception"),
-        "expected Modbus exception, got {err}"
-    );
-    assert!(
-        !text.starts_with("i/o driver error"),
-        "Modbus exception should not use the generic transport error variant: {err}"
-    );
+    match err {
+        RuntimeError::IoAddress(message) => assert!(
+            message.contains("modbus exception"),
+            "expected Modbus exception context, got {message}"
+        ),
+        other => panic!("expected Modbus address/exception error, got {other}"),
+    }
 }

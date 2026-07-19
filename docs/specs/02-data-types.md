@@ -360,13 +360,24 @@ END_IF;
 
 ### Implicit Conversions
 
-Implicit conversions are allowed from smaller to larger types within the same category:
+IEC 61131-3 Ed.3 section 6.6.1.6 requires implicit conversion to preserve both
+value and accuracy. truST therefore permits only this closed widening matrix:
 
 ```
 SINT → INT → DINT → LINT
 USINT → UINT → UDINT → ULINT
+BYTE → WORD → DWORD → LWORD
+SINT, INT → REAL
+SINT, INT, DINT → LREAL
 REAL → LREAL
 ```
+
+Typed `DINT -> REAL` and `LINT -> LREAL` are not implicit conversions because
+not every source value is exactly representable by the floating target. They
+require an explicit conversion function, as do signed/unsigned cross-family,
+numeric/`BOOL`, and `STRING`/`WSTRING` cross-family conversions. Contextual
+untyped numeric literals remain assignable when the literal is representable by
+the target. No implicit conversion is applied to `VAR_IN_OUT`.
 
 ### Explicit Conversions
 
@@ -412,6 +423,39 @@ END_VAR
 - Default initial value of `STRING`/`WSTRING` is the empty string (`''` / `""`). (IEC 61131-3 Ed.3, Table 10)
 - String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length. (IEC 61131-3 Ed.3, Figure 6)
 - Callable string-library functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`) are specified in `07-standard-functions.md`.
+
+### Assignment and parameter-binding bounds
+
+IEC 61131-3 Ed.3 section 6.6.1.2.2 permits an implementation-specific result
+when a source string is longer than its assignment target. For bounded
+`STRING[n]` and `WSTRING[n]`, truST applies the following rules:
+
+- Ordinary assignment truncates an overlong value to the target's declared
+  character capacity.
+- `VAR_INPUT` copy-in truncates to the formal parameter's declared capacity
+  without modifying the caller.
+- A function result is first bounded by its declared return capacity. Ordinary
+  assignment of that result, and function or function-block `VAR_OUTPUT`
+  copy-back, truncate to the receiving target's declared capacity.
+- `VAR_IN_OUT` requires the actual and formal to have the same string family
+  and the same effective capacity after alias and constant-expression
+  resolution. A width mismatch, including bounded-to-unbounded binding, is
+  rejected with invalid-argument diagnostic category `E205` instead of performing an
+  implicit truncating copy-in/copy-back conversion.
+- Literal bounds and truncation count Unicode scalar values and never split one
+  scalar value.
+
+These rules apply at function and function-block call boundaries. They prevent
+call copy-back from storing a value longer than the receiving declaration and
+prevent a no-op `VAR_IN_OUT` call from silently changing caller state.
+
+`STRING` and `WSTRING` remain distinct assignment families. Use the explicit
+standard conversion functions when crossing between them.
+
+This focused contract covers ordinary assignment, literal bounds, and direct
+function/function-block parameter boundaries. Cross-family conversion and
+storage-specific HMI, retain, I/O, and reference-write policies remain governed
+by their own contracts and gaps.
 
 ### Character Access
 

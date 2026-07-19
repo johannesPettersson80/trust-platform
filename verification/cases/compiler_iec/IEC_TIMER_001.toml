@@ -1,0 +1,67 @@
+schema_version = 1
+id = "CASES_IEC_TIMER_001"
+title = "IEC timer executed-scan state-machine traces"
+area = "compiler_iec"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "IEC_TIMER_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:9099114b1a5cfdfe880972030b8b52530814e009ce193392721eb675ccd38521"
+source_digest = "sha256:d0c5ed20612784e6a5ab7d3f23ee1a789a186d6ff9f8e5ace8d4fc90164c00cc"
+last_reviewed = "2026-07-12"
+
+[[case]]
+id = "IEC_TIMER_001_TOF_TIME_POST_EXPIRY_HOLD"
+family = "ordering_or_lifecycle"
+input = { scenario = "TOF_TIME_POST_EXPIRY_HOLD" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 1, stimulus = { input = true, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 2, stimulus = { input = false, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 3, stimulus = { input = false, advance_ms = 5 }, expected = { q = true, et_ms = 5 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 4, stimulus = { input = false, advance_ms = 5 }, expected = { q = false, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 5, stimulus = { input = false, advance_ms = 5 }, expected = { q = false, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 6, stimulus = { input = true, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+]
+
+[[case]]
+id = "IEC_TIMER_001_TOF_LTIME_POST_EXPIRY_HOLD"
+family = "ordering_or_lifecycle"
+input = { scenario = "TOF_LTIME_POST_EXPIRY_HOLD" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 1, stimulus = { input = true, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 2, stimulus = { input = false, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 3, stimulus = { input = false, advance_ms = 5 }, expected = { q = true, et_ms = 5 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 4, stimulus = { input = false, advance_ms = 5 }, expected = { q = false, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 5, stimulus = { input = false, advance_ms = 5 }, expected = { q = false, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+  { sequence = 6, stimulus = { input = true, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tof-scan-step-state-machine" },
+]
+
+[[case]]
+id = "IEC_TIMER_001_TON_TIME_BASIC_DELAY"
+family = "ordering_or_lifecycle"
+input = { scenario = "TON_TIME_BASIC_DELAY" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer" },
+  { sequence = 1, stimulus = { input = true, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer" },
+  { sequence = 2, stimulus = { input = true, advance_ms = 5 }, expected = { q = false, et_ms = 5 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer" },
+  { sequence = 3, stimulus = { input = true, advance_ms = 5 }, expected = { q = true, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer" },
+  { sequence = 4, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#ton---on-delay-timer" },
+]
+
+[[case]]
+id = "IEC_TIMER_001_TP_TIME_BASIC_PULSE"
+family = "ordering_or_lifecycle"
+input = { scenario = "TP_TIME_BASIC_PULSE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer" },
+  { sequence = 1, stimulus = { input = true, advance_ms = 0 }, expected = { q = true, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer" },
+  { sequence = 2, stimulus = { input = true, advance_ms = 5 }, expected = { q = true, et_ms = 5 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer" },
+  { sequence = 3, stimulus = { input = true, advance_ms = 5 }, expected = { q = false, et_ms = 10 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer" },
+  { sequence = 4, stimulus = { input = false, advance_ms = 0 }, expected = { q = false, et_ms = 0 }, oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer" },
+]

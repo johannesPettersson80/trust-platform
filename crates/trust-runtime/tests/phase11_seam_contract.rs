@@ -6,7 +6,7 @@ use trust_runtime::bytecode::{
 use trust_runtime::execution_backend::{
     ExecutionBackend, VmRegisterProfileSnapshot, VmTier1SpecializedExecutorSnapshot,
 };
-use trust_runtime::harness::{bytecode_module_from_source, TestHarness};
+use trust_runtime::harness::{bytecode_module_from_source, CompileSession, TestHarness};
 use trust_runtime::memory::InstanceId;
 use trust_runtime::value::Value;
 
@@ -674,7 +674,6 @@ fn mutate_worker_first_param_direction(
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-001"]
 fn declared_real_keeps_real_semantics_after_integer_assignment() {
     let source = r#"
 PROGRAM Main
@@ -700,7 +699,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-002"]
 fn declared_dint_keeps_dint_width_after_int_assignment() {
     let source = r#"
 PROGRAM Main
@@ -726,7 +724,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-004"]
 fn declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths() {
     let source = r#"
 PROGRAM Main
@@ -753,7 +750,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-004"]
 fn declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths() {
     let source = r#"
 PROGRAM Main
@@ -780,7 +776,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-IMPL-001B"]
 fn parameter_copy_in_materializes_declared_numeric_widening() {
     let source = r#"
 FUNCTION Half : REAL
@@ -845,7 +840,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-006"]
 fn ref_return_name_is_rejected_before_runtime_lowering() {
     let source = r#"
 VAR_GLOBAL
@@ -871,7 +865,12 @@ END_PROGRAM
 "#;
 
     match TestHarness::from_source(source) {
-        Err(_) => {}
+        Err(error) => assert!(
+            error.to_string().contains(
+                "error[E202]: REF cannot take a reference to a function or method return variable"
+            ),
+            "expected the REF(return variable) diagnostic, got: {error}"
+        ),
         Ok(mut harness) => {
             harness
                 .runtime_mut()
@@ -894,7 +893,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-008"]
 fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
     let mut harness = TestHarness::from_source(OWNER_DRIFT_SOURCE).expect("compile harness");
     let main_id = match harness.runtime().storage().get_global("Main") {
@@ -943,7 +941,6 @@ fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009B"]
 fn validator_rejects_multi_owner_instance_ref_contract() {
     let harness = TestHarness::from_source(OWNER_DRIFT_SOURCE).expect("compile harness");
     let main_id = match harness.runtime().storage().get_global("Main") {
@@ -963,7 +960,6 @@ fn validator_rejects_multi_owner_instance_ref_contract() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_stack_underflow_store_ref() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -972,7 +968,6 @@ fn validator_rejects_stack_underflow_store_ref() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_leftover_stack_at_pou_return() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -981,7 +976,6 @@ fn validator_rejects_leftover_stack_at_pou_return() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009C"]
 fn validator_rejects_bool_operands_for_arithmetic_opcode() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -997,7 +991,6 @@ fn validator_rejects_bool_operands_for_arithmetic_opcode() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009D"]
 fn validator_rejects_const_type_incompatible_with_store_ref_target() {
     let module =
         bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
@@ -1007,7 +1000,6 @@ fn validator_rejects_const_type_incompatible_with_store_ref_target() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009E"]
 fn validator_rejects_invalid_parameter_direction_metadata() {
     let mut module =
         bytecode_module_from_source(PARAM_VALIDATOR_SOURCE).expect("compile param module");
@@ -1021,7 +1013,6 @@ fn validator_rejects_invalid_parameter_direction_metadata() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009E"]
 fn validator_rejects_inout_parameter_bound_to_literal_argument() {
     let mut module =
         bytecode_module_from_source(PARAM_VALIDATOR_SOURCE).expect("compile param module");
@@ -1035,7 +1026,6 @@ fn validator_rejects_inout_parameter_bound_to_literal_argument() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009F"]
 fn validator_rejects_legacy_call_opcode_even_when_target_exists() {
     let mut module =
         bytecode_module_from_source(CALL_VALIDATOR_SOURCE).expect("compile call module");
@@ -1059,110 +1049,34 @@ fn validator_rejects_legacy_call_opcode_even_when_target_exists() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-010"]
 fn unsupported_array_initializer_assignment_fails_build_instead_of_nop() {
     let source = r#"
 PROGRAM Main
 VAR
     target : ARRAY[0..1] OF DINT;
 END_VAR
+target[0] := DINT#7;
 target := [DINT#1, DINT#2];
 END_PROGRAM
 "#;
 
-    match TestHarness::from_source(source) {
-        Err(_) => {}
-        Ok(mut harness) => {
-            harness
-                .runtime_mut()
-                .set_execution_backend(ExecutionBackend::BytecodeVm)
-                .expect("select bytecode VM backend");
-            harness
-                .runtime_mut()
-                .restart(trust_runtime::RestartMode::Cold)
-                .expect("restart runtime");
-            let cycle = harness.cycle();
-            panic!(
-                "expected unsupported array-initializer assignment to fail build instead of \
-                 lowering to NOP; cycle_errors={:?}; target={:?}",
-                cycle.errors,
-                harness.get_output("target")
-            );
-        }
+    assert_hir_clean_but_bytecode_rejected(source, "array-initializer assignment");
+}
+
+fn assert_hir_clean_but_bytecode_rejected(source: &str, construct: &str) {
+    let session = CompileSession::from_source(source);
+    if let Err(error) = session.build_runtime() {
+        panic!("{construct} fixture must pass source analysis before bytecode lowering: {error}");
+    }
+    if session.build_bytecode_module().is_ok() {
+        panic!(
+            "expected unsupported {construct} to fail bytecode-module construction instead of \
+             lowering to NOP or partial bytecode"
+        );
     }
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-011"]
-fn fb_string_parameter_binding_truncates_input_and_inout_fields() {
-    let source = r#"
-FUNCTION_BLOCK Echo
-VAR_INPUT
-    inStr : STRING[5];
-END_VAR
-VAR_IN_OUT
-    ioStr : STRING[5];
-END_VAR
-VAR_OUTPUT
-    outStr : STRING[5];
-END_VAR
-outStr := inStr;
-END_FUNCTION_BLOCK
-
-PROGRAM Main
-VAR
-    fb : Echo;
-    assigned : STRING[5];
-    ioArg : STRING[20] := 'ABCDEFGHIJKLMNOPQRST';
-    longValue : STRING[20] := 'ABCDEFGHIJKLMNOPQRST';
-END_VAR
-fb(inStr := longValue, ioStr := ioArg);
-assigned := longValue;
-END_PROGRAM
-"#;
-
-    let mut harness = bytecode_vm_harness(source);
-    let cycle = harness.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "FB string binding fixture must run before assertions: {:?}",
-        cycle.errors
-    );
-
-    let storage = harness.runtime().storage();
-    let main_id = match storage.get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main global instance, got {other:?}"),
-    };
-    let fb_id = match storage.read_instance_field_by_offset(main_id, 0) {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main.fb instance field, got {other:?}"),
-    };
-    let expected = Some(Value::String("ABCDE".into()));
-    let in_value = storage.read_instance_field_by_offset(fb_id, 0).cloned();
-    let io_value = storage.read_instance_field_by_offset(fb_id, 1).cloned();
-    let out_value = storage.read_instance_field_by_offset(fb_id, 2).cloned();
-    let assigned_value = harness.get_output("assigned");
-    let observations = [
-        ("assigned", assigned_value.clone()),
-        ("fb.inStr", in_value.clone()),
-        ("fb.ioStr", io_value.clone()),
-        ("fb.outStr", out_value.clone()),
-    ];
-    let failures = observations
-        .iter()
-        .filter(|(_, actual)| *actual != expected)
-        .map(|(name, actual)| format!("{name} expected {expected:?}, got {actual:?}"))
-        .collect::<Vec<_>>();
-    assert!(
-        failures.is_empty(),
-        "FB STRING parameter binding must match assignment truncation; failures={failures:?}; \
-         observations={observations:?}"
-    );
-}
-
-#[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 PROGRAM Main
@@ -1181,15 +1095,14 @@ END_PROGRAM
         "out-of-range subrange assignment must fail visibly; limited={:?}",
         harness.get_output("limited")
     );
-    assert_ne!(
+    assert_eq!(
         harness.get_output("limited"),
-        Some(Value::Int(100)),
-        "out-of-range subrange assignment must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange assignment must leave the prior value unchanged"
     );
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 FUNCTION_BLOCK Clamp
@@ -1229,15 +1142,14 @@ END_PROGRAM
         "out-of-range subrange FB input binding must fail visibly; \
          fb.limited={fb_limited:?}; fb.observed={fb_observed:?}"
     );
-    assert_ne!(
+    assert_eq!(
         fb_limited,
-        Some(Value::Int(100)),
-        "out-of-range subrange FB input binding must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange FB input binding must leave the prior value unchanged"
     );
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-012"]
 fn computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value() {
     let source = r#"
 PROGRAM Main
@@ -1259,15 +1171,14 @@ END_PROGRAM
         harness.get_output("limited"),
         harness.get_output("rLimited")
     );
-    assert_ne!(
+    assert_eq!(
         harness.get_output("limited"),
-        Some(Value::Int(100)),
-        "out-of-range subrange REF write must not commit the rejected value"
+        Some(Value::Int(0)),
+        "out-of-range subrange REF write must leave the prior value unchanged"
     );
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-007"]
 fn crafted_frame_local_ref_cannot_persist_to_global_storage() {
     let mut module =
         bytecode_module_from_source(CLEAN_LOCAL_REF_SOURCE).expect("compile clean module");
@@ -1304,7 +1215,6 @@ fn crafted_frame_local_ref_cannot_persist_to_global_storage() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety Phase 11 SEAM-TEST-009A"]
 fn validator_rejects_persistent_frame_local_ref_escape() {
     let mut module =
         bytecode_module_from_source(CLEAN_LOCAL_REF_SOURCE).expect("compile clean module");
@@ -1346,3 +1256,6 @@ END_PROGRAM
     assert_eq!(harness.get_output("d"), Some(Value::DInt(200)));
     assert_eq!(harness.get_output("e"), Some(Value::DInt(40_000)));
 }
+
+#[path = "phase11_seam_contract/vm_seam_case_support.rs"]
+mod vm_seam_case_support;

@@ -64,6 +64,47 @@ message = "fault-script"
 }
 
 #[test]
+fn simulation_toml_rejects_non_finite_coupling_thresholds() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("unix epoch")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-runtime-simulation-non-finite-threshold-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("create temp dir");
+    let path = root.join("simulation.toml");
+
+    for threshold in ["nan", "+nan", "-nan", "inf", "+inf", "-inf"] {
+        std::fs::write(
+            &path,
+            format!(
+                r#"
+[[couplings]]
+source = "%QW0"
+target = "%IX0.0"
+threshold = {threshold}
+on_true = "TRUE"
+on_false = "FALSE"
+"#
+            ),
+        )
+        .expect("write simulation.toml");
+
+        let err = SimulationConfig::load(&path)
+            .expect_err("non-finite coupling threshold must fail configuration loading");
+        assert!(
+            err.to_string()
+                .contains("couplings.threshold must be finite"),
+            "unexpected error for threshold {threshold}: {err}"
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
 fn simulation_toml_model_parses_physics_joints() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

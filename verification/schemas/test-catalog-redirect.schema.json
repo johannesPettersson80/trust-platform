@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/test-catalog-redirect.schema.json",
+  "title": "truST test-catalog redirect file",
+  "type": "object",
+  "required": ["redirects"],
+  "properties": {
+    "redirects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/record" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "required": ["discovery_id", "discovery_source_kind", "path", "name"],
+      "properties": {
+        "discovery_id": { "type": "string", "pattern": "^DISC_[A-F0-9]{20}$" },
+        "discovery_source_kind": {
+          "enum": [
+            "rust_integration_test",
+            "rust_unit_test",
+            "structured_text_test",
+            "vscode_test",
+            "conformance_case",
+            "fuzz_target",
+            "gate_script",
+            "github_workflow_job"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "id",
+        "proposal_id",
+        "test_id",
+        "status",
+        "old_identity",
+        "new_identity",
+        "before_behavior_lock_evidence",
+        "after_behavior_lock_evidence",
+        "last_reviewed"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "id": { "type": "string", "pattern": "^TEST_REDIRECT_[A-Z0-9_]+$" },
+        "proposal_id": { "type": "string", "pattern": "^TEST_REFACTOR_[A-Z0-9_]+$" },
+        "test_id": { "type": "string", "pattern": "^TEST_[A-Z0-9_]+$" },
+        "status": { "const": "active" },
+        "old_identity": { "$ref": "#/$defs/identity" },
+        "new_identity": { "$ref": "#/$defs/identity" },
+        "before_behavior_lock_evidence": { "type": "string", "pattern": "^EVID_[A-Z0-9_]+$" },
+        "after_behavior_lock_evidence": { "type": "string", "pattern": "^EVID_[A-Z0-9_]+$" },
+        "last_reviewed": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

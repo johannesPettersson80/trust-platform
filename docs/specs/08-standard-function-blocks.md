@@ -15,7 +15,7 @@ Standard function blocks are predefined FBs with internal state. They require in
 | `SR`, `RS` | Bistable | fixed BOOL inputs/outputs | Table 43 | signature only | full stateful behavior | none |
 | `R_TRIG`, `F_TRIG` | Edge detection | fixed BOOL inputs/outputs | Table 44 | signature only | full stateful behavior | none |
 | `CTU`, `CTD`, `CTUD` | Counters | fixed or overloaded counter types | Table 45 | signature only | full stateful behavior | CTUD LD profile in `docs/IEC_DEVIATIONS.md` |
-| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46 | signature only | full stateful behavior | TP/TOF `ET` exposure in `docs/IEC_DEVIATIONS.md` |
+| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; TP/TOF `ET` exposure in `docs/IEC_DEVIATIONS.md` |
 
 ### Common Characteristics
 
@@ -317,17 +317,34 @@ QD := (CV <= 0);
 
 ### Common Timer Interface
 
-All timers share:
+TIME timer variants use TIME for `PT` and `ET`; `*_LTIME` variants use LTIME
+for both fields. The TIME and LTIME variants use the same state machine and
+differ only in the duration type and range.
 
 | Input | Type | Description |
 |-------|------|-------------|
 | IN | BOOL | Timer input |
-| PT | TIME | Preset time |
+| PT | TIME or LTIME | Preset time |
 
 | Output | Type | Description |
 |--------|------|-------------|
 | Q | BOOL | Timer output |
-| ET | TIME | Elapsed time |
+| ET | TIME or LTIME | Elapsed time |
+
+### Timer Scan-Step Contract
+
+IEC 61131-3 Ed.3 section 6.6.3.5.5 requires the timer behaviors shown in
+Table 46 and Figure 15. truST observes those diagrams at executed function
+block calls: inputs are sampled, elapsed time is applied, and `Q`/`ET` become
+visible as one scan step. A timer has no background transition between calls,
+and this contract makes no continuous-time claim.
+
+The implementation-owned timer boundaries are reviewed in
+`docs/IEC_DECISIONS.md`. In particular, the current `PT` is sampled on each
+executed call while timing is active, non-positive `PT` is treated as zero,
+and TIME/LTIME variants share the same state transitions. Restart, clock-step,
+conditional-call, and TP retrigger decisions are specified there but are not
+asserted by the first timer trace vertical.
 
 ### TP - Pulse Timer
 
@@ -391,16 +408,28 @@ TIME---|PT ET|---TIME
 
 **Behavior**: Delays turning off.
 
-- Q goes TRUE immediately when IN goes TRUE
-- When IN goes FALSE, Q stays TRUE for duration PT
-- If IN goes TRUE again before PT, Q stays TRUE and ET resets
+- An executed call with IN TRUE sets Q TRUE, resets ET to zero, and rearms the
+  off-delay.
+- On a sampled TRUE-to-FALSE transition, Q remains TRUE and ET advances toward
+  PT on executed calls.
+- The first executed call whose accumulated elapsed time reaches PT sets Q
+  FALSE and ET to PT.
+- Later executed calls with IN still FALSE keep Q FALSE and ET at PT.
+- The next executed call with IN TRUE sets Q TRUE, resets ET to zero, and
+  rearms the off-delay.
+
+#### TOF Scan-Step State Machine
+
+The post-expiry `ET = PT` plateau is required by IEC Figure 15(c). It persists
+through the remaining low-input interval and ends only when a later executed
+call samples IN TRUE.
 
 **Timing Diagram**:
 ```
-IN:  __/‾‾‾‾‾‾\___________/‾\___________
-Q:   __/‾‾‾‾‾‾‾‾‾‾‾‾‾\____/‾‾‾‾‾‾‾‾‾\___
-ET:  _________/‾‾‾‾‾‾\________/‾‾‾‾‾‾\___
-              |<-PT-->|       |<-PT-->|
+IN:  __/------\______________/--\____________
+Q:   __/-------------\_______/---------\______
+ET:  0        /-----PT========0  /---PT========
+                    hold             hold
 ```
 
 **Use Case**: Keep motor running after button release, extend output
@@ -411,6 +440,9 @@ Standard timers use TIME. Variants for LTIME:
 - `TP_LTIME`
 - `TON_LTIME`
 - `TOF_LTIME`
+
+Each LTIME variant follows the corresponding Figure 15 scan-step state machine
+above and exposes `PT` and `ET` as LTIME.
 
 ## 6. Usage Examples
 

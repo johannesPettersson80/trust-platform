@@ -88,7 +88,10 @@ impl Runtime {
 
     /// Advance the runtime clock by the given duration.
     pub fn advance_time(&mut self, delta: Duration) {
-        let next = self.current_time.as_nanos() + delta.as_nanos();
+        let next = self
+            .current_time
+            .as_nanos()
+            .saturating_add(delta.as_nanos());
         self.current_time = Duration::from_nanos(next);
     }
 

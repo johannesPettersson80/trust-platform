@@ -1,0 +1,20 @@
+schema_version = 1
+id = "CASES_RT_SAFE_DEADLINE_001"
+title = "Runtime watchdog output-commit state-machine trace"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_DEADLINE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:f52aec180136ee613b0e4bc8bf39a986d59619ec3f82032c5859189c35814931"
+source_digest = "sha256:34709889ad6768f4753950c3c78ad617e3f4c5f1151befd71475eecbe3da4d24"
+last_reviewed = "2026-07-13"
+
+[[case]]
+id = "RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT"
+family = "time_or_clock_fault"
+input = { scenario = "WATCHDOG_BEFORE_OUTPUT_COMMIT_WITH_EMPTY_SAFE_STATE" }
+expect = { outcome = "fault_visible", fault_surface = "WatchdogTimeout", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-production", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" } }
+trace = [
+  { sequence = 0, stimulus = { configured_safe_outputs = 0, cycle_interval_ms = 1, logical_output = true, timeout_ns = 1, watchdog_enabled = true }, expected = { last_error = "WatchdogTimeout", physical_output_write_count = 0, resource_state = "faulted" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-production" },
+]

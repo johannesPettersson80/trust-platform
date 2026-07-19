@@ -271,6 +271,64 @@ fn write_port_accepts_guarded_write_and_coalesces_same_target() {
 }
 
 #[test]
+fn write_port_rejects_raw_non_finite_real_and_lreal_without_mutation() {
+    let cases = [
+        (
+            "REAL NaN",
+            Value::Real(0.0),
+            f32::NAN.to_le_bytes().to_vec(),
+        ),
+        (
+            "REAL positive infinity",
+            Value::Real(0.0),
+            f32::INFINITY.to_le_bytes().to_vec(),
+        ),
+        (
+            "REAL negative infinity",
+            Value::Real(0.0),
+            f32::NEG_INFINITY.to_le_bytes().to_vec(),
+        ),
+        (
+            "LREAL NaN",
+            Value::LReal(0.0),
+            f64::NAN.to_le_bytes().to_vec(),
+        ),
+        (
+            "LREAL positive infinity",
+            Value::LReal(0.0),
+            f64::INFINITY.to_le_bytes().to_vec(),
+        ),
+        (
+            "LREAL negative infinity",
+            Value::LReal(0.0),
+            f64::NEG_INFINITY.to_le_bytes().to_vec(),
+        ),
+    ];
+
+    for (case, initial, raw_bytes) in cases {
+        let config = config(true);
+        let symbols = build_runtime_symbol_snapshot(&config, &snapshot([("setpoint", initial)]))
+            .expect("symbol snapshot");
+        let symbol = symbols.symbols.first().expect("symbol").clone();
+        let policy = AdsServerClientPolicy::new(&config);
+        let debug = DebugControl::new();
+        let write_port =
+            AdsServerRuntimeWritePort::new(config, policy, debug.clone(), resource_control())
+                .expect("write port");
+
+        let error = write_port
+            .write(&symbol, &raw_bytes, &allowed_client())
+            .expect_err(case);
+
+        assert_eq!(error.code(), AdsErrorCode::InvalidData, "{case}");
+        assert!(
+            debug.drain_var_writes().is_empty(),
+            "{case} must not queue a PLC mutation"
+        );
+    }
+}
+
+#[test]
 fn write_port_rejects_policy_failure_without_mutation() {
     let config = config(true);
     let snapshot = snapshot([("setpoint", Value::Real(0.0))]);

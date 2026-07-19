@@ -162,29 +162,33 @@ fn json_to_value(json: &serde_json::Value, template: &Value) -> Option<Value> {
     match (json, template) {
         (serde_json::Value::Bool(value), Value::Bool(_)) => Some(Value::Bool(*value)),
         (serde_json::Value::Number(value), Value::SInt(_)) => {
-            Some(Value::SInt(value.as_i64()? as i8))
+            Some(Value::SInt(i8::try_from(value.as_i64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::Int(_)) => {
-            Some(Value::Int(value.as_i64()? as i16))
+            Some(Value::Int(i16::try_from(value.as_i64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::DInt(_)) => {
-            Some(Value::DInt(value.as_i64()? as i32))
+            Some(Value::DInt(i32::try_from(value.as_i64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::LInt(_)) => Some(Value::LInt(value.as_i64()?)),
         (serde_json::Value::Number(value), Value::USInt(_)) => {
-            Some(Value::USInt(value.as_u64()? as u8))
+            Some(Value::USInt(u8::try_from(value.as_u64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::UInt(_)) => {
-            Some(Value::UInt(value.as_u64()? as u16))
+            Some(Value::UInt(u16::try_from(value.as_u64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::UDInt(_)) => {
-            Some(Value::UDInt(value.as_u64()? as u32))
+            Some(Value::UDInt(u32::try_from(value.as_u64()?).ok()?))
         }
         (serde_json::Value::Number(value), Value::ULInt(_)) => Some(Value::ULInt(value.as_u64()?)),
         (serde_json::Value::Number(value), Value::Real(_)) => {
-            Some(Value::Real(value.as_f64()? as f32))
+            let value = value.as_f64()? as f32;
+            value.is_finite().then_some(Value::Real(value))
         }
-        (serde_json::Value::Number(value), Value::LReal(_)) => Some(Value::LReal(value.as_f64()?)),
+        (serde_json::Value::Number(value), Value::LReal(_)) => {
+            let value = value.as_f64()?;
+            value.is_finite().then_some(Value::LReal(value))
+        }
         (serde_json::Value::String(value), Value::String(_)) => {
             Some(Value::String(SmolStr::new(value)))
         }

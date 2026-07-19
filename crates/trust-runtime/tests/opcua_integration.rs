@@ -210,7 +210,7 @@ fn opcua_security_enforces_user_auth_and_certificate_trust() {
 }
 
 #[test]
-fn opcua_load_fixture_covers_browse_read_write_cycle() {
+fn opcua_load_fixture_rejects_writes_to_snapshot_backed_variables() {
     let mut server = start_fixture_server("perf");
     let node_name = preferred_node_name(&server);
     let report = server
@@ -225,6 +225,9 @@ fn opcua_load_fixture_covers_browse_read_write_cycle() {
     assert_eq!(report.iterations, 20);
     assert_eq!(report.browse_ok, 20);
     assert_eq!(report.read_ok, 20);
-    assert_eq!(report.write_ok, 20);
+    assert_eq!(
+        report.write_ok, 0,
+        "snapshot-backed server variables must remain read-only"
+    );
     server.stop();
 }
