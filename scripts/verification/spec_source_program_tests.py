@@ -7,6 +7,8 @@ import unittest
 
 from scripts.verification.metadata_validator.core import Validator
 from scripts.verification.metadata_validator.constants import AREAS
+from scripts.verification.metadata_validator.constants import ROOT
+from scripts.verification.spec_source_live import build_live_spec_source_state
 
 
 class SpecSourceProgramTests(unittest.TestCase):
@@ -72,6 +74,20 @@ class SpecSourceProgramTests(unittest.TestCase):
             any("mapped test must name oracle_ref or spec_gap_ref" in item for item in messages),
             messages,
         )
+
+    def test_live_source_and_public_prose_denominators_are_fully_reviewed(self) -> None:
+        analysis = build_live_spec_source_state(ROOT).analysis
+
+        for field in (
+            "source_classification_complete",
+            "semantic_claim_review_complete",
+            "conflict_review_complete",
+            "checklist_row_staleness_complete",
+            "removed_behavior_reference_review_complete",
+        ):
+            self.assertTrue(analysis["scope"][field], field)
+        self.assertEqual(0, analysis["summary"]["unreviewed_documents"])
+        self.assertEqual(0, analysis["summary"]["unreviewed_public_blocks"])
 
 
 if __name__ == "__main__":

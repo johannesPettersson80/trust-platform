@@ -1376,7 +1376,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-16"
+last_reviewed = "2026-07-19"
 covers = [
   "vm_value_tag_semantics",
   "runtime_value_tags",
@@ -1446,7 +1446,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DECISIONS.md"
 version = "current"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-19"
 covers = [
   "iec_ambiguity_decisions",
   "retain_policy_decisions",
@@ -1477,7 +1477,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DEVIATIONS.md"
 version = "current"
-last_reviewed = "2026-07-13"
+last_reviewed = "2026-07-19"
 covers = [
   "iec_deviations",
   "vendor_extensions",
@@ -1502,7 +1502,7 @@ visibility = "internal"
 locator_kind = "tracked_file"
 path = "docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-19"
 covers = [
   "panic_containment",
   "watchdog_deadline",
@@ -1555,7 +1555,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
-last_reviewed = "2026-07-08"
+last_reviewed = "2026-07-19"
 claim_text = "Runtimes connect to each other and to plant systems through truST Mesh: one runtime, the right wire for each job."
 surface_ref = "README.md"
 covers = [
@@ -1799,7 +1799,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/08-standard-function-blocks.md"
 version = "current"
-last_reviewed = "2026-07-12"
+last_reviewed = "2026-07-19"
 covers = [
   "standard_function_blocks",
   "timer_function_blocks",

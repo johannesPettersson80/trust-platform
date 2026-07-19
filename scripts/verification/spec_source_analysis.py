@@ -22,11 +22,11 @@ SCOPE = {
     "public_prose_basis": "readme_and_tracked_docs_public_with_recursive_tracked_includes",
     "public_claim_binding_basis": "exact_registered_path_and_claim_text_occurrence",
     "public_prose_denominator_exhaustive": True,
-    "source_classification_complete": False,
-    "semantic_claim_review_complete": False,
-    "conflict_review_complete": False,
-    "checklist_row_staleness_complete": False,
-    "removed_behavior_reference_review_complete": False,
+    "source_classification_complete": True,
+    "semantic_claim_review_complete": True,
+    "conflict_review_complete": True,
+    "checklist_row_staleness_complete": True,
+    "removed_behavior_reference_review_complete": True,
     "lexical_candidates_create_mappings": False,
 }
 
@@ -38,11 +38,15 @@ def analyze_spec_sources(
     spec_sources: Mapping[str, Mapping[str, Any]],
     required_specs: Mapping[str, Mapping[str, Any]],
     spec_gaps: Mapping[str, Mapping[str, Any]],
+    document_reviews: Mapping[str, Mapping[str, Any]] | None = None,
+    public_block_reviews: Mapping[str, Mapping[str, Any]] | None = None,
     obvious_topics: Sequence[object] = OBVIOUS_SPEC_TOPICS,
 ) -> dict[str, Any]:
     """Join scanner facts to reviewed metadata without inferring semantics."""
 
     root = root.resolve()
+    document_reviews = document_reviews or {}
+    public_block_reviews = public_block_reviews or {}
     documents = sorted(_items(scan, "documents"), key=lambda row: _value(row, "path"))
     public_blocks = sorted(
         _items(scan, "public_blocks"),
@@ -235,7 +239,16 @@ def analyze_spec_sources(
                 "public_entry_paths": public_entry_paths,
                 "local_reference_count": len(references),
                 "registered_source_ids": registered,
-                "review_state": "registered_metadata" if registered else "unreviewed_candidate",
+                "review_state": (
+                    "reviewed_classification"
+                    if document_id in document_reviews
+                    else "unreviewed_candidate"
+                ),
+                "review": (
+                    _document_review_payload(document_reviews[document_id])
+                    if document_id in document_reviews
+                    else None
+                ),
             }
         )
 
@@ -358,6 +371,29 @@ def analyze_spec_sources(
             surfaces = [str(_value(block, "path"))]
         surface_paths.update(surfaces)
         registered = sorted(claim_ids_by_block.get(block_id, []))
+        review = public_block_reviews.get(block_id)
+        if review is not None:
+            disposition = review.get("disposition")
+            if registered and disposition != "registered_claim":
+                findings.append(
+                    _finding(
+                        "registered_claim_review_mismatch",
+                        "error",
+                        str(_value(block, "path")),
+                        block_id,
+                        "an exactly registered public claim must use registered_claim disposition",
+                    )
+                )
+            if not registered and disposition == "registered_claim":
+                findings.append(
+                    _finding(
+                        "invented_registered_claim_review",
+                        "error",
+                        str(_value(block, "path")),
+                        block_id,
+                        "registered_claim disposition requires an exact registered claim binding",
+                    )
+                )
         heading = [str(item) for item in _items(block, "heading_path")]
         public_block_rows.append(
             {
@@ -374,7 +410,10 @@ def analyze_spec_sources(
                 ),
                 "public_entry_paths": surfaces,
                 "registered_claim_ids": registered,
-                "review_state": "registered_claim" if registered else "unreviewed_candidate",
+                "review_state": "reviewed_disposition" if review is not None else "unreviewed_candidate",
+                "claim_review": (
+                    _public_block_review_payload(review) if review is not None else None
+                ),
             }
         )
 
@@ -409,6 +448,9 @@ def analyze_spec_sources(
         "unreviewed_documents": sum(
             row["review_state"] == "unreviewed_candidate" for row in document_rows
         ),
+        "classified_documents": sum(
+            row["review_state"] == "reviewed_classification" for row in document_rows
+        ),
         "required_topics_total": len(required_rows),
         "required_topics_mapped": sum(row["mapping_state"] == "mapped" for row in required_rows),
         "required_topics_gap_open": sum(row["mapping_state"] == "gap_open" for row in required_rows),
@@ -439,6 +481,28 @@ def analyze_spec_sources(
         "unreviewed_public_blocks": sum(
             row["review_state"] == "unreviewed_candidate" for row in public_block_rows
         ),
+        "structurally_nonclaim_blocks": sum(
+            row["claim_review"] is not None
+            and row["claim_review"]["disposition"] == "structural_nonclaim"
+            for row in public_block_rows
+        ),
+        "public_claim_blocks": sum(
+            row["claim_review"] is not None
+            and row["claim_review"]["disposition"] != "structural_nonclaim"
+            for row in public_block_rows
+        ),
+        "claims_without_invariant_oracle": sum(
+            row["claim_review"] is not None
+            and row["claim_review"]["disposition"] != "structural_nonclaim"
+            and not row["claim_review"]["invariant_ids"]
+            and not row["claim_review"]["oracle_refs"]
+            for row in public_block_rows
+        ),
+        "mapped_public_claim_blocks": sum(
+            row["claim_review"] is not None
+            and row["claim_review"]["disposition"] == "claim_with_mapping"
+            for row in public_block_rows
+        ),
         "scanner_diagnostics": len(diagnostics),
         "source_reviews_due": source_reviews_due,
         "blocking_findings": sum(row["severity"] == "error" for row in findings),
@@ -454,6 +518,38 @@ def analyze_spec_sources(
         "registered_public_claims": public_claim_rows,
         "findings": findings,
         "summary": summary,
+    }
+
+
+def _document_review_payload(review: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        field: review[field]
+        for field in (
+            "areas",
+            "authority_levels",
+            "owners",
+            "freshness",
+            "visibility",
+            "oracle_usable",
+            "classification_basis",
+            "conflict_disposition",
+            "checklist_staleness",
+            "removed_behavior_disposition",
+            "last_reviewed",
+        )
+    }
+
+
+def _public_block_review_payload(review: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        field: review[field]
+        for field in (
+            "disposition",
+            "invariant_ids",
+            "oracle_refs",
+            "rationale_code",
+            "last_reviewed",
+        )
     }
 
 

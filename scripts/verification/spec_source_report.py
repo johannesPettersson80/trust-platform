@@ -19,23 +19,23 @@ BOUNDARIES = {
     "audit_promotes_invariants": False,
     "source_authority_is_inferred": False,
     "public_claims_are_oracles": False,
-    "semantic_claim_review_complete": False,
-    "conflict_review_complete": False,
-    "checklist_row_staleness_complete": False,
-    "removed_behavior_reference_review_complete": False,
+    "semantic_claim_review_complete": True,
+    "conflict_review_complete": True,
+    "checklist_row_staleness_complete": True,
+    "removed_behavior_reference_review_complete": True,
     "missing_spec_enforcement_enabled": False,
 }
 LIMITATIONS = (
     "Document and public-prose discovery is mechanical; authority, ownership, area, and oracle eligibility come only from reviewed metadata.",
     "A title, path fragment, heading, lexical candidate, or similar prose never creates a source, requirement, claim, invariant, test, or proof mapping.",
     "The public-prose denominator includes every block reached from README.md or tracked docs/public surfaces and their tracked recursive snippet includes.",
-    "Blocks without an exact registered claim-text binding remain unreviewed candidates; exhaustive discovery is not semantic claim review.",
+    "Every discovered document and rendered public block has an identity-and-digest-bound reviewed disposition; structural headings/directives are the only automatic nonclaim class.",
+    "All other public prose without an explicit invariant or eligible oracle remains conservatively reported as an unbound claim; review never infers a mapping from words, titles, or paths.",
     "Review-due status compares the reviewed date to the last tracked path change and is a review signal, not a claim that content changed semantically.",
     "External-source rows expose reviewed locator metadata only; expected ignored local bytes are neither read nor included in report provenance.",
     "Mutable evidence trees are outside the document denominator except for exact registered review sources; the audit's own evidence Markdown cannot enter its input closure.",
-    "Conflicts are limited to explicit metadata references and mechanical broken-reference diagnostics; prose similarity does not establish a conflict.",
-    "Conflict review is not complete: equal-authority overlaps are candidates and have not received an exhaustive semantic conflict disposition.",
-    "Checklist-row staleness and references to removed product behavior are not exhaustively classified by this mechanical pass.",
+    "Conflict findings remain limited to explicit metadata references, registered coverage overlaps, duplicate decisions, and mechanical broken-reference diagnostics; prose similarity does not establish a conflict.",
+    "Every document carries explicit conflict, checklist-staleness, and removed-behavior dispositions; potentially stale public or normative-candidate text stays visible rather than becoming an oracle.",
     "The report is report-only, creates no product proof, closes no specification gap, promotes no invariant, and changes no runtime behavior.",
 )
 
@@ -111,18 +111,21 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"Input SHA-256: `{payload['input_digest']}`",
         "",
         "This report is the mechanical denominator for tracked specification documents,",
-        "required-topic metadata, and public rendered prose. Unreviewed prose stays visible",
-        "as debt and creates no semantic claim or proof mapping.",
+        "required-topic metadata, and public rendered prose. Every fact has an explicit reviewed",
+        "disposition; unbound prose stays visible as debt and creates no proof mapping.",
         "",
         "## Summary",
         "",
         f"- Documents: {summary['documents_total']}",
+        f"- Classified documents: {summary['classified_documents']}",
         f"- Registered sources: {summary['registered_sources']} ({summary['bound_sources']} tracked-file bound, {summary['external_sources']} external, {summary['unbound_sources']} unbound)",
         f"- Unreviewed documents: {summary['unreviewed_documents']}",
         f"- Required topics: {summary['required_topics_total']} ({summary['required_topics_mapped']} mapped, {summary['required_topics_gap_open']} gap-open, {summary['required_topics_broken']} broken)",
         f"- Obvious specification topics: {summary['obvious_spec_topics_total']} ({summary['obvious_spec_source_present']} source-present, {summary['obvious_spec_gap']} gap, {summary['obvious_spec_partial']} partial, {summary['obvious_spec_unrepresented']} unrepresented, {summary['obvious_spec_reference_broken']} broken refs)",
         f"- Public surfaces: {summary['public_surfaces']}",
         f"- Public prose blocks: {summary['public_prose_blocks']}",
+        f"- Public claim blocks: {summary['public_claim_blocks']} ({summary['mapped_public_claim_blocks']} mapped, {summary['claims_without_invariant_oracle']} without invariant/oracle)",
+        f"- Structural nonclaim blocks: {summary['structurally_nonclaim_blocks']}",
         f"- Registered public claims: {summary['registered_public_claims']} ({summary['bound_public_claims']} bound, {summary['unbound_public_claims']} unbound)",
         f"- Unreviewed public blocks: {summary['unreviewed_public_blocks']}",
         f"- Scanner diagnostics: {summary['scanner_diagnostics']}",
@@ -191,24 +194,26 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             "",
             "## Document Denominator",
             "",
-            "| Document | Format | Spec scope | Public entries | Path | SHA-256 | Registered sources | Review state |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Document | Areas | Authority | Owners | Freshness | Oracle | Conflict / staleness | Path | Registered sources |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["documents"]:
         lines.append(
-            f"| `{row['document_id']}` | `{row['format']}` | "
-            f"`{str(row['in_spec_document_scope']).lower()}` | {_ids(row['public_entry_paths'])} | "
-            f"`{row['path']}` | `{row['content_sha256']}` | {_ids(row['registered_source_ids'])} | "
-            f"`{row['review_state']}` |"
+            f"| `{row['document_id']}` | {_ids(row['review']['areas'])} | "
+            f"{_ids(row['review']['authority_levels'])} | {_ids(row['review']['owners'])} | "
+            f"`{row['review']['freshness']}` | `{str(row['review']['oracle_usable']).lower()}` | "
+            f"`{row['review']['conflict_disposition']}` / `{row['review']['checklist_staleness']}` / "
+            f"`{row['review']['removed_behavior_disposition']}` | `{row['path']}` | "
+            f"{_ids(row['registered_source_ids'])} |"
         )
     lines.extend(
         [
             "",
             "## Public Prose Denominator",
             "",
-            "| Block | Source | Lines | Heading | Surfaces | Claims | Review state | SHA-256 |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Block | Source | Lines | Heading | Surfaces | Registered claims | Disposition | Invariants | Oracles | SHA-256 |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["public_prose_blocks"]:
@@ -216,7 +221,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         lines.append(
             f"| `{row['block_id']}` | `{row['path']}` | `{row['line_start']}-{row['line_end']}` | "
             f"{_escape(heading)} | {_ids(row['public_entry_paths'])} | "
-            f"{_ids(row['registered_claim_ids'])} | `{row['review_state']}` | "
+            f"{_ids(row['registered_claim_ids'])} | `{row['claim_review']['disposition']}` | "
+            f"{_ids(row['claim_review']['invariant_ids'])} | {_ids(row['claim_review']['oracle_refs'])} | "
             f"`{row['visible_text_sha256']}` |"
         )
     lines.extend(

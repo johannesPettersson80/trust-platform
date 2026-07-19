@@ -21,6 +21,11 @@ from .spec_source_contract import (
     validate_schema_contract,
 )
 from .spec_source_scanner import discover_spec_documents
+from .spec_source_reviews import (
+    DOCUMENT_REVIEWS_PATH,
+    PUBLIC_PROSE_REVIEWS_PATH,
+    load_spec_source_reviews,
+)
 from .test_catalog_common import input_digest
 from .test_catalog_json_schema import validate_json_schema_instance
 
@@ -49,6 +54,8 @@ REPORT_CONTRACT_PATHS = {
     "verification/spec-gaps.toml",
     "verification/spec-matrix.toml",
     "verification/spec-sources.toml",
+    DOCUMENT_REVIEWS_PATH,
+    PUBLIC_PROSE_REVIEWS_PATH,
 }
 
 
@@ -94,12 +101,32 @@ def build_live_spec_source_state(
                 for item in scanner_errors
             )
         )
+    preliminary = analyze_spec_sources(
+        root,
+        scan=scan,
+        spec_sources=validator.spec_sources,
+        required_specs=validator.required_specs,
+        spec_gaps=validator.spec_gaps,
+        document_reviews={},
+        public_block_reviews={},
+    )
+    document_reviews, public_block_reviews, review_failures = load_spec_source_reviews(
+        root,
+        documents=preliminary["documents"],
+        public_blocks=preliminary["public_prose_blocks"],
+        spec_sources=validator.spec_sources,
+        invariants=validator.invariants,
+    )
+    if review_failures:
+        raise ValueError("; ".join(review_failures))
     analysis = analyze_spec_sources(
         root,
         scan=scan,
         spec_sources=validator.spec_sources,
         required_specs=validator.required_specs,
         spec_gaps=validator.spec_gaps,
+        document_reviews=document_reviews,
+        public_block_reviews=public_block_reviews,
     )
     if analysis["summary"]["blocking_findings"]:
         blocking = [row for row in analysis["findings"] if row["severity"] == "error"]

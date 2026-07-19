@@ -173,13 +173,62 @@ def _metadata() -> tuple[dict[str, dict], dict[str, dict], dict[str, dict]]:
 
 def _analysis() -> dict:
     sources, required, gaps = _metadata()
+    document_reviews, public_block_reviews = _reviews()
     return analyze_spec_sources(
         ROOT,
         scan=_scan(),
         spec_sources=sources,
         required_specs=required,
         spec_gaps=gaps,
+        document_reviews=document_reviews,
+        public_block_reviews=public_block_reviews,
     )
+
+
+def _reviews() -> tuple[dict[str, dict], dict[str, dict]]:
+    shared = {
+        "freshness": "current",
+        "visibility": "public",
+        "classification_basis": "registered_metadata",
+        "conflict_disposition": "registered_conflicts_reviewed",
+        "checklist_staleness": "not_applicable",
+        "last_reviewed": "2026-07-19",
+    }
+    documents = {
+        "SPEC_DOC_docs_specs_contract_md_111111111111": {
+            **shared,
+            "areas": ["runtime_safety"],
+            "authority_levels": ["normative_product"],
+            "owners": ["trust-runtime"],
+            "oracle_usable": True,
+            "removed_behavior_disposition": "reviewed_current",
+        },
+        "SPEC_DOC_README_md_222222222222": {
+            **shared,
+            "areas": ["protocols"],
+            "authority_levels": ["public_claim"],
+            "owners": ["docs"],
+            "oracle_usable": False,
+            "removed_behavior_disposition": "potentially_stale_reported",
+        },
+    }
+    blocks = {
+        "PUBLIC_BLOCK_README_md_10_10_aaaaaaaaaaaa": {
+            "disposition": "registered_claim",
+            "invariant_ids": [],
+            "oracle_refs": [],
+            "rationale_code": "registered_public_claim_metadata",
+            "last_reviewed": "2026-07-19",
+        },
+        "PUBLIC_BLOCK_README_md_12_12_bbbbbbbbbbbb": {
+            "disposition": "claim_without_invariant_or_oracle",
+            "invariant_ids": [],
+            "oracle_refs": [],
+            "rationale_code": "conservative_unbound_public_prose",
+            "last_reviewed": "2026-07-19",
+        },
+    }
+    return documents, blocks
 
 
 def _report(analysis: dict) -> SpecSourceAuditReport:
@@ -254,12 +303,12 @@ class SpecSourceAnalysisTests(unittest.TestCase):
         self.assertEqual("SPEC_GAP_VM_LIMIT", topic["spec_gap_ref"])
         self.assertIsNone(topic["source_ref"])
 
-    def test_public_blocks_are_exhaustive_but_semantic_review_remains_open(self) -> None:
+    def test_public_blocks_are_exhaustive_and_conservatively_reviewed(self) -> None:
         analysis = _analysis()
 
         self.assertEqual(2, analysis["summary"]["public_prose_blocks"])
         self.assertEqual(1, analysis["summary"]["registered_public_claims"])
-        self.assertEqual(1, analysis["summary"]["unreviewed_public_blocks"])
+        self.assertEqual(0, analysis["summary"]["unreviewed_public_blocks"])
         blocks = {row["block_id"]: row for row in analysis["public_prose_blocks"]}
         self.assertEqual(
             ["PUBLIC_RUNTIME_WIRE"],
@@ -268,11 +317,13 @@ class SpecSourceAnalysisTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            "unreviewed_candidate",
-            blocks["PUBLIC_BLOCK_README_md_12_12_bbbbbbbbbbbb"]["review_state"],
+            "claim_without_invariant_or_oracle",
+            blocks["PUBLIC_BLOCK_README_md_12_12_bbbbbbbbbbbb"]["claim_review"][
+                "disposition"
+            ],
         )
         self.assertTrue(analysis["scope"]["public_prose_denominator_exhaustive"])
-        self.assertFalse(analysis["scope"]["semantic_claim_review_complete"])
+        self.assertTrue(analysis["scope"]["semantic_claim_review_complete"])
 
     def test_public_claim_binding_requires_exact_path_and_text(self) -> None:
         sources, required, gaps = _metadata()

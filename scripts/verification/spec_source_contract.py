@@ -12,6 +12,17 @@ from typing import Any
 from .metadata_validator.constants import AREAS
 from .spec_source_analysis import SCOPE
 from .spec_source_models import BLOCK_KINDS
+from .spec_source_reviews import (
+    AUTHORITY_LEVELS,
+    CHECKLIST_STALENESS,
+    CLAIM_DISPOSITIONS,
+    CLAIM_RATIONALES,
+    CLASSIFICATION_BASES,
+    CONFLICT_DISPOSITIONS,
+    FRESHNESS_STATES,
+    REMOVED_BEHAVIOR_DISPOSITIONS,
+    VISIBILITIES,
+)
 from .spec_source_scope import OBVIOUS_SPEC_TOPICS, REVIEWED_POSTURES
 from .spec_source_report import (
     BOUNDARIES,
@@ -63,6 +74,20 @@ DOCUMENT_FIELDS = {
     "local_reference_count",
     "registered_source_ids",
     "review_state",
+    "review",
+}
+DOCUMENT_REVIEW_FIELDS = {
+    "areas",
+    "authority_levels",
+    "owners",
+    "freshness",
+    "visibility",
+    "oracle_usable",
+    "classification_basis",
+    "conflict_disposition",
+    "checklist_staleness",
+    "removed_behavior_disposition",
+    "last_reviewed",
 }
 SOURCE_FIELDS = {
     "source_id",
@@ -121,6 +146,14 @@ BLOCK_FIELDS = {
     "public_entry_paths",
     "registered_claim_ids",
     "review_state",
+    "claim_review",
+}
+CLAIM_REVIEW_FIELDS = {
+    "disposition",
+    "invariant_ids",
+    "oracle_refs",
+    "rationale_code",
+    "last_reviewed",
 }
 CLAIM_FIELDS = {
     "claim_id",
@@ -139,6 +172,7 @@ SUMMARY_FIELDS = {
     "external_sources",
     "unbound_sources",
     "unreviewed_documents",
+    "classified_documents",
     "required_topics_total",
     "required_topics_mapped",
     "required_topics_gap_open",
@@ -155,6 +189,10 @@ SUMMARY_FIELDS = {
     "bound_public_claims",
     "unbound_public_claims",
     "unreviewed_public_blocks",
+    "structurally_nonclaim_blocks",
+    "public_claim_blocks",
+    "claims_without_invariant_oracle",
+    "mapped_public_claim_blocks",
     "scanner_diagnostics",
     "source_reviews_due",
     "blocking_findings",
@@ -287,10 +325,12 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         "scope": set(SCOPE),
         "boundaries": set(BOUNDARIES),
         "document": DOCUMENT_FIELDS,
+        "document_review": DOCUMENT_REVIEW_FIELDS,
         "source_binding": SOURCE_FIELDS,
         "required_topic": TOPIC_FIELDS,
         "obvious_spec_topic": OBVIOUS_FIELDS,
         "public_block": BLOCK_FIELDS,
+        "claim_review": CLAIM_REVIEW_FIELDS,
         "public_claim": CLAIM_FIELDS,
         "finding": FINDING_FIELDS,
         "summary": SUMMARY_FIELDS,
@@ -315,13 +355,23 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
         if _property(boundary_properties, field).get("const") != expected:
             failures.append(f"specification-source schema boundary const for {field} drifts")
     enum_expectations = {
-        ("document", "review_state"): ["registered_metadata", "unreviewed_candidate"],
+        ("document", "review_state"): ["reviewed_classification", "unreviewed_candidate"],
+        ("document_review", "freshness"): list(FRESHNESS_STATES),
+        ("document_review", "visibility"): list(VISIBILITIES),
+        ("document_review", "classification_basis"): list(CLASSIFICATION_BASES),
+        ("document_review", "conflict_disposition"): list(CONFLICT_DISPOSITIONS),
+        ("document_review", "checklist_staleness"): list(CHECKLIST_STALENESS),
+        ("document_review", "removed_behavior_disposition"): list(
+            REMOVED_BEHAVIOR_DISPOSITIONS
+        ),
         ("source_binding", "binding_state"): ["bound", "missing", "ambiguous", "external_reference"],
         ("source_binding", "locator_kind"): ["tracked_file", "external_reference"],
         ("source_binding", "availability"): ["not_applicable", "external_bytes_unbound"],
         ("required_topic", "mapping_state"): ["mapped", "gap_open", "broken"],
         ("obvious_spec_topic", "reference_health"): ["healthy", "broken"],
-        ("public_block", "review_state"): ["registered_claim", "unreviewed_candidate"],
+        ("public_block", "review_state"): ["reviewed_disposition", "unreviewed_candidate"],
+        ("claim_review", "disposition"): list(CLAIM_DISPOSITIONS),
+        ("claim_review", "rationale_code"): list(CLAIM_RATIONALES),
         ("public_claim", "binding_state"): ["bound", "missing", "ambiguous"],
         ("finding", "severity"): ["error", "warning"],
     }
@@ -341,6 +391,21 @@ def validate_schema_contract(schema: Mapping[str, Any]) -> list[str]:
     area_enum = area_items.get("enum") if isinstance(area_items, Mapping) else None
     if area_enum != sorted(AREAS):
         failures.append("specification-source schema obvious-topic area enum drifts")
+    document_review_properties = _definition_properties(definitions, "document_review")
+    review_area_items = _property(document_review_properties, "areas").get("items", {})
+    review_area_enum = (
+        review_area_items.get("enum") if isinstance(review_area_items, Mapping) else None
+    )
+    if review_area_enum != sorted(AREAS):
+        failures.append("specification-source schema document-review area enum drifts")
+    authority_items = _property(document_review_properties, "authority_levels").get(
+        "items", {}
+    )
+    authority_enum = (
+        authority_items.get("enum") if isinstance(authority_items, Mapping) else None
+    )
+    if authority_enum != list(AUTHORITY_LEVELS):
+        failures.append("specification-source schema document-review authority enum drifts")
     block_properties = _definition_properties(definitions, "public_block")
     if _property(block_properties, "block_kind").get("enum") != list(BLOCK_KINDS):
         failures.append("specification-source schema public-block kind enum drifts")
@@ -399,9 +464,41 @@ def _validate_documents(rows: list[dict[str, Any]], failures: list[str]) -> None
             failures.append(f"document {row.get('document_id')} has invalid reference count")
         if not _canonical_strings(row.get("registered_source_ids")):
             failures.append(f"document {row.get('document_id')} source IDs must be canonical")
-        expected = "registered_metadata" if row.get("registered_source_ids") else "unreviewed_candidate"
+        review = row.get("review")
+        expected = "reviewed_classification" if isinstance(review, Mapping) else "unreviewed_candidate"
         if row.get("review_state") != expected:
             failures.append(f"document {row.get('document_id')} review state is inconsistent")
+        if isinstance(review, Mapping):
+            _fields(review, DOCUMENT_REVIEW_FIELDS, f"document {row.get('document_id')} review", failures)
+            for field in ("areas", "authority_levels", "owners"):
+                if not _canonical_strings(review.get(field)) or not review.get(field):
+                    failures.append(f"document {row.get('document_id')} review {field} is invalid")
+            if isinstance(review.get("areas"), list) and any(
+                item not in AREAS for item in review["areas"]
+            ):
+                failures.append(f"document {row.get('document_id')} review areas are unknown")
+            if isinstance(review.get("authority_levels"), list) and any(
+                item not in AUTHORITY_LEVELS for item in review["authority_levels"]
+            ):
+                failures.append(f"document {row.get('document_id')} authority levels are invalid")
+            for field, allowed in (
+                ("freshness", FRESHNESS_STATES),
+                ("visibility", VISIBILITIES),
+                ("classification_basis", CLASSIFICATION_BASES),
+                ("conflict_disposition", CONFLICT_DISPOSITIONS),
+                ("checklist_staleness", CHECKLIST_STALENESS),
+                ("removed_behavior_disposition", REMOVED_BEHAVIOR_DISPOSITIONS),
+            ):
+                if review.get(field) not in allowed:
+                    failures.append(f"document {row.get('document_id')} review {field} is invalid")
+            if not isinstance(review.get("oracle_usable"), bool):
+                failures.append(f"document {row.get('document_id')} oracle_usable is invalid")
+            if not isinstance(review.get("last_reviewed"), str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}", review["last_reviewed"]
+            ):
+                failures.append(f"document {row.get('document_id')} review date is invalid")
+        elif review is not None:
+            failures.append(f"document {row.get('document_id')} review must be an object or null")
         if row.get("format") not in ("markdown", "text"):
             failures.append(f"document {row.get('document_id')} format is invalid")
         if not isinstance(row.get("title"), (str, type(None))):
@@ -542,9 +639,38 @@ def _validate_blocks(
         for field in ("heading_path", "public_entry_paths", "registered_claim_ids"):
             if not _canonical_strings(row.get(field), preserve_order=(field == "heading_path")):
                 failures.append(f"public block {row.get('block_id')} {field} is invalid")
-        expected_state = "registered_claim" if row.get("registered_claim_ids") else "unreviewed_candidate"
+        review = row.get("claim_review")
+        expected_state = "reviewed_disposition" if isinstance(review, Mapping) else "unreviewed_candidate"
         if row.get("review_state") != expected_state:
             failures.append(f"public block {row.get('block_id')} review state is inconsistent")
+        if isinstance(review, Mapping):
+            _fields(review, CLAIM_REVIEW_FIELDS, f"public block {row.get('block_id')} review", failures)
+            if review.get("disposition") not in CLAIM_DISPOSITIONS:
+                failures.append(f"public block {row.get('block_id')} disposition is invalid")
+            if review.get("rationale_code") not in CLAIM_RATIONALES:
+                failures.append(f"public block {row.get('block_id')} rationale is invalid")
+            for field in ("invariant_ids", "oracle_refs"):
+                if not _canonical_strings(review.get(field)):
+                    failures.append(f"public block {row.get('block_id')} {field} is invalid")
+            if not isinstance(review.get("last_reviewed"), str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}", review["last_reviewed"]
+            ):
+                failures.append(f"public block {row.get('block_id')} review date is invalid")
+            if review.get("disposition") == "structural_nonclaim" and row.get(
+                "block_kind"
+            ) not in ("heading", "directive"):
+                failures.append(f"public block {row.get('block_id')} structural review is invalid")
+            if review.get("disposition") in (
+                "structural_nonclaim",
+                "claim_without_invariant_or_oracle",
+            ) and (review.get("invariant_ids") or review.get("oracle_refs")):
+                failures.append(f"public block {row.get('block_id')} unbound review has mappings")
+            if review.get("disposition") == "claim_with_mapping" and not (
+                review.get("invariant_ids") or review.get("oracle_refs")
+            ):
+                failures.append(f"public block {row.get('block_id')} mapped review lacks mapping")
+        elif review is not None:
+            failures.append(f"public block {row.get('block_id')} review must be an object or null")
 
 
 def _validate_claims(
@@ -628,6 +754,9 @@ def _summary(
             for row in sources
         ),
         "unreviewed_documents": sum(row.get("review_state") == "unreviewed_candidate" for row in documents),
+        "classified_documents": sum(
+            row.get("review_state") == "reviewed_classification" for row in documents
+        ),
         "required_topics_total": len(topics),
         "required_topics_mapped": sum(row.get("mapping_state") == "mapped" for row in topics),
         "required_topics_gap_open": sum(row.get("mapping_state") == "gap_open" for row in topics),
@@ -655,6 +784,28 @@ def _summary(
         "bound_public_claims": sum(row.get("binding_state") == "bound" for row in claims),
         "unbound_public_claims": sum(row.get("binding_state") != "bound" for row in claims),
         "unreviewed_public_blocks": sum(row.get("review_state") == "unreviewed_candidate" for row in blocks),
+        "structurally_nonclaim_blocks": sum(
+            isinstance(row.get("claim_review"), Mapping)
+            and row["claim_review"].get("disposition") == "structural_nonclaim"
+            for row in blocks
+        ),
+        "public_claim_blocks": sum(
+            isinstance(row.get("claim_review"), Mapping)
+            and row["claim_review"].get("disposition") != "structural_nonclaim"
+            for row in blocks
+        ),
+        "claims_without_invariant_oracle": sum(
+            isinstance(row.get("claim_review"), Mapping)
+            and row["claim_review"].get("disposition") != "structural_nonclaim"
+            and not row["claim_review"].get("invariant_ids")
+            and not row["claim_review"].get("oracle_refs")
+            for row in blocks
+        ),
+        "mapped_public_claim_blocks": sum(
+            isinstance(row.get("claim_review"), Mapping)
+            and row["claim_review"].get("disposition") == "claim_with_mapping"
+            for row in blocks
+        ),
         "scanner_diagnostics": scanner_diagnostics,
         "source_reviews_due": sum(row.get("review_due") is True for row in sources),
         "blocking_findings": sum(row.get("severity") == "error" for row in findings),
