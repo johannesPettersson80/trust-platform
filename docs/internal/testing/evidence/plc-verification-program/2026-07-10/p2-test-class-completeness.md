@@ -1,20 +1,20 @@
 # Test-Class Completeness Report
 
 Generator: `test-class-completeness v1`
-Source revision: `1f3134524e86ceed2b8ba1369084dfa83d0fb7de`
-Generated: `2026-07-19T10:00:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `941d5a76ac5ff57e978d7b99a1b19f5613390fe7d4784314ee14c9ce3eaa6fce`
-Input SHA-256: `sha256:6840e56f12756acdb2af45009d2e274c8472945a841a9327a72271a5b4caf0a7`
+Generated JSON SHA-256: `6543fbf0f088bd8c2ddff603c2abc395505ddfe7caee3301b367d3ed58376930`
+Input SHA-256: `sha256:0850650933cfbb5dc6813a856ee6a925a6102b0fbfd5315818420e3e09ed26f9`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every scanner fact or required test class is mapped.
 
 ## Summary
 
-- Scanner facts: 4036
+- Scanner facts: 4102
 - Classified scanner facts: 258
-- Unmapped scanner facts: 3778
+- Unmapped scanner facts: 3844
 - Catalog records: 266
 - Runnable catalog records: 266
 - Non-runnable catalog records: 0
@@ -30,11 +30,11 @@ mean every scanner fact or required test class is mapped.
 | `conformance_case` | 21 | 21 | 0 |
 | `fuzz_target` | 8 | 0 | 8 |
 | `gate_script` | 29 | 0 | 29 |
-| `github_workflow_job` | 30 | 0 | 30 |
+| `github_workflow_job` | 31 | 0 | 31 |
 | `rust_integration_test` | 1488 | 163 | 1325 |
-| `rust_unit_test` | 1742 | 71 | 1671 |
+| `rust_unit_test` | 1768 | 71 | 1697 |
 | `structured_text_test` | 257 | 0 | 257 |
-| `vscode_test` | 461 | 3 | 458 |
+| `vscode_test` | 500 | 3 | 497 |
 
 Classified mappings:
 

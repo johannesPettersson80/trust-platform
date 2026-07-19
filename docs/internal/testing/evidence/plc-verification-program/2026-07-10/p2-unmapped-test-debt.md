@@ -1,27 +1,27 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v2`
-Source revision: `1f3134524e86ceed2b8ba1369084dfa83d0fb7de`
-Generated: `2026-07-19T10:00:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `905c398dd041b3b4fdb51f703344d9b2342746e81d47fd44871c3baf6911601a`
-Input SHA-256: `sha256:80e46886cd04dd48d24ae963e5e109cebd886f1e095bf3f52ff7a896eb8d6e5f`
+Generated JSON SHA-256: `d32dee441532bd48f76a3be98cd24d4cca13299b13e08e2c2b835d3e3b64bf4f`
+Input SHA-256: `sha256:c9f5a3d3aeed93c5620cb10a23947459bf4872f2fb1204fedd5c46e68e1ca327`
 
 `complete` means the source inventory, exact catalog subtraction, and
 reviewed mapped/nonmapping denominator partition all succeeded.
 
 ## Summary
 
-- Scanner facts: 4036
+- Scanner facts: 4102
 - Mapped scanner facts: 258
-- Unmapped scanner facts: 3778
-- Reviewed nonmapping facts: 3778
+- Unmapped scanner facts: 3844
+- Reviewed nonmapping facts: 3844
 - Unreviewed scanner facts: 0
-- Denominator review SHA-256: `sha256:05acf0a92c630f7a68183dd59400d5b26c68f4b210703ad69b3b61e7cd5582a2`
+- Denominator review SHA-256: `sha256:44cb9a213b60fea7e5ee7b1850cfa04aa3d30d01171c109d091f97ee73cc3c02`
 - Generated-test catalog rows: 258
 - Artifact catalog rows: 8
 - Ignored unmapped facts: 23
-- Conditional unmapped facts: 0
+- Conditional unmapped facts: 1
 - Unreviewed debt fails this report: yes
 
 | Source kind | Scanner facts | Mapped | Unmapped |
@@ -29,11 +29,11 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `conformance_case` | 21 | 21 | 0 |
 | `fuzz_target` | 8 | 0 | 8 |
 | `gate_script` | 29 | 0 | 29 |
-| `github_workflow_job` | 30 | 0 | 30 |
+| `github_workflow_job` | 31 | 0 | 31 |
 | `rust_integration_test` | 1488 | 163 | 1325 |
-| `rust_unit_test` | 1742 | 71 | 1671 |
+| `rust_unit_test` | 1768 | 71 | 1697 |
 | `structured_text_test` | 257 | 0 | 257 |
-| `vscode_test` | 461 | 3 | 458 |
+| `vscode_test` | 500 | 3 | 497 |
 
 ## Unmapped Scanner Facts
 
@@ -93,6 +93,7 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_CCEB4E82D928C12FB0E6` | `github_workflow_job` | `.github/workflows/demo-pages.yml` | `Docs Pages / build` | `not_ignored` |
 | `DISC_0C6190B196D300B91AD8` | `github_workflow_job` | `.github/workflows/demo-pages.yml` | `Docs Pages / deploy` | `not_ignored` |
 | `DISC_3D272017765F5D73BCE4` | `github_workflow_job` | `.github/workflows/diagrams.yml` | `Render Diagrams / render` | `not_ignored` |
+| `DISC_B3662117177505DC5D51` | `github_workflow_job` | `.github/workflows/docs-captures.yml` | `Docs Captures / create-refresh-pr` | `not_ignored` |
 | `DISC_A35CF62023CA62312980` | `github_workflow_job` | `.github/workflows/docs-captures.yml` | `Docs Captures / refresh` | `not_ignored` |
 | `DISC_8A5048EA5B2E3D3F24AF` | `github_workflow_job` | `.github/workflows/hmi-long-soak.yml` | `HMI Long Soak / hmi-soak` | `not_ignored` |
 | `DISC_59726B8C5AB103FE2332` | `github_workflow_job` | `.github/workflows/nightly-reliability.yml` | `Nightly Reliability / reliability` | `not_ignored` |
@@ -896,7 +897,7 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_72F64CA47C13D2F4C203` | `rust_integration_test` | `crates/trust-runtime/tests/io_fb_vars.rs` | `fb_instance_wildcard_requires_config` | `not_ignored` |
 | `DISC_FF081237FFA2A8F3966E` | `rust_integration_test` | `crates/trust-runtime/tests/io_hierarchy.rs` | `iec_6_5_5_2` | `not_ignored` |
 | `DISC_2BAB34A13985E33271F6` | `rust_integration_test` | `crates/trust-runtime/tests/io_multidriver_live.rs` | `broker_lifetime_outlasts_test_phases` | `not_ignored` |
-| `DISC_FE38938F6FB54A1B26E7` | `rust_integration_test` | `crates/trust-runtime/tests/io_multidriver_live.rs` | `runtime_composes_modbus_and_mqtt_drivers_live` | `not_ignored` |
+| `DISC_FE38938F6FB54A1B26E7` | `rust_integration_test` | `crates/trust-runtime/tests/io_multidriver_live.rs` | `runtime_composes_modbus_and_mqtt_drivers_live` | `conditional` |
 | `DISC_BD09C186FE58BC9DDBA1` | `rust_integration_test` | `crates/trust-runtime/tests/io_struct_array.rs` | `io_struct_array` | `not_ignored` |
 | `DISC_417C1603DFFB9ABF5E89` | `rust_integration_test` | `crates/trust-runtime/tests/io_wildcard.rs` | `wildcard_area_mismatch` | `not_ignored` |
 | `DISC_F97EF4F9DB47AEB251C4` | `rust_integration_test` | `crates/trust-runtime/tests/io_wildcard.rs` | `wildcard_memory_area_mismatch` | `not_ignored` |
@@ -1540,6 +1541,7 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_6E029464243111D82B64` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_01.rs` | `dispatch_set_breakpoints_in_if_block_targets_inner_stmt` | `not_ignored` |
 | `DISC_E557C58A57187D2B19A4` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_01.rs` | `dispatch_set_breakpoints_returns_adjusted_positions` | `not_ignored` |
 | `DISC_0CCCBD1333093016A183` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_01.rs` | `stdio_roundtrip` | `not_ignored` |
+| `DISC_BA6B629F668446485FAD` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_02.rs` | `ads_globals_are_appended_as_ordinary_live_value_rows` | `not_ignored` |
 | `DISC_19F254231ED02F7830F7` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_02.rs` | `attach_set_expression_forwards_remote_io_force_and_release` | `not_ignored` |
 | `DISC_FC6FA54BA863AEA3F13C` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_02.rs` | `attach_st_io_force_and_release_forward_remote_io_force_and_release` | `not_ignored` |
 | `DISC_15E90DB37D230716C87C` | `rust_unit_test` | `crates/trust-debug/src/adapter/tests_part_02.rs` | `debug_control_server_serves_hmi_schema_and_values` | `not_ignored` |
@@ -2199,14 +2201,20 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_9F24EED7F5885A7C98EB` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/apply/validation.rs` | `mqtt_mtls_cert_and_key_are_validated_together` | `not_ignored` |
 | `DISC_9184E80A519CE2602578` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/apply/validation.rs` | `mqtt_tls_fields_require_tls_enabled` | `not_ignored` |
 | `DISC_2470C2CC6EB8FFE1AA3F` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/apply/validation.rs` | `mqtt_tls_without_ca_path_is_field_specific` | `not_ignored` |
-| `DISC_182C09A5F08A014AE5A8` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `ads_browse_target_accepts_project_target_net_id_alias` | `not_ignored` |
-| `DISC_E5ED2585FE5C4C5F8AC6` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `ads_cached_snapshot_returns_tree_and_existing_import_shape` | `not_ignored` |
-| `DISC_EB106B12C640EB64DFF4` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `ads_symbol_upload_timeout_returns_route_missing_response` | `not_ignored` |
-| `DISC_207001D0F6692D151B6A` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `ethercat_channel_browse_returns_configured_module_channels` | `not_ignored` |
-| `DISC_1056BAD010C75259B977` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `local_project_symbol_picker_returns_declared_globals` | `not_ignored` |
-| `DISC_4FF3F269F0E7DDA49B63` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `opcua_client_browse_error_response_carries_structured_code` | `not_ignored` |
-| `DISC_3508EFC2ACC5AC3036EC` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | `opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type` | `not_ignored` |
+| `DISC_A046B6B3CAA11F8F2EDA` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_browse_errors_distinguish_port_and_symbol_upload_failures` | `not_ignored` |
+| `DISC_A119629796976C0D5A32` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_browse_target_defaults_to_first_plc_runtime_port` | `not_ignored` |
+| `DISC_7165388A689ED6BA2AB2` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_browse_target_preserves_non_plc_port` | `not_ignored` |
+| `DISC_AA57FFF1637B44CFDEE2` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_browse_target_rejects_zero_port` | `not_ignored` |
+| `DISC_18D093686A33EDDB602C` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_cached_snapshot_returns_tree_and_existing_import_shape` | `not_ignored` |
+| `DISC_FB99FBA21DA142AE1C0C` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_route_check_separates_unavailable_port_from_missing_return_route` | `not_ignored` |
+| `DISC_D0A4FCC61D908C1E0CA3` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ads_symbol_upload_timeout_returns_route_missing_response` | `not_ignored` |
+| `DISC_2B41FDEC55495BCFB7F8` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `ethercat_channel_browse_returns_configured_module_channels` | `not_ignored` |
+| `DISC_A6B8D3B90A3831881B0E` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `local_project_symbol_picker_returns_declared_globals` | `not_ignored` |
+| `DISC_A49ABF8D9DD805AA02B1` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `opcua_client_browse_error_response_carries_structured_code` | `not_ignored` |
+| `DISC_E3202BD621A52E4A3CDB` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs` | `opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type` | `not_ignored` |
 | `DISC_0F59C6B5C25634381AF9` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/contract.rs` | `communication_contract_serializes_stable_status_and_action_ids` | `not_ignored` |
+| `DISC_EF73873542581E072D6E` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs` | `default_ads_scan_also_targets_this_computer` | `not_ignored` |
+| `DISC_7BE55F4E2DF06E136B92` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs` | `explicit_ads_host_remains_the_directed_target` | `not_ignored` |
 | `DISC_51426D3B81C90181EA47` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/discover_tests.rs` | `ethercat_discovery_requires_runtime_origin` | `not_ignored` |
 | `DISC_CE734C80134AC815A815` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/discover_tests.rs` | `known_unimplemented_protocol_returns_warning_not_error` | `not_ignored` |
 | `DISC_AAC24666A37789CB72A0` | `rust_unit_test` | `crates/trust-runtime/src/control/comm_handlers/discover_tests.rs` | `modbus_discovery_rejects_large_cidr` | `not_ignored` |
@@ -2385,6 +2393,14 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_02981F393856BA51831F` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs.rs` | `readonly_ads_symbol_does_not_get_write_flag` | `not_ignored` |
 | `DISC_7E2D1AE394089750241B` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs.rs` | `subscribe_rejects_poll_mode_before_connection` | `not_ignored` |
 | `DISC_26B2B95CF2D4AA13215E` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs.rs` | `unsupported_compound_symbol_is_not_a_bindable_descriptor` | `not_ignored` |
+| `DISC_4360F5B89304593DBD74` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs/connection.rs` | `direct_loopback_server_falls_back_after_bounded_router_probe` | `not_ignored` |
+| `DISC_2498E5CEA00C16BBCD92` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs` | `loopback_source_policy_requests_router_assigned_address` | `not_ignored` |
+| `DISC_3B9CD609D5729B6D3232` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs` | `remote_source_policy_uses_automatic_address_without_configuration` | `not_ignored` |
+| `DISC_DFE9B3AA8E5C895C51E8` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs` | `remote_source_policy_uses_explicit_configured_address` | `not_ignored` |
+| `DISC_7C91CD41E5AED7F192C0` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_host.rs` | `linux_and_windows_remote_targets_preserve_direct_tcp` | `not_ignored` |
+| `DISC_284150616BBE9F31EA73` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_host.rs` | `windows_same_computer_targets_use_native_router` | `not_ignored` |
+| `DISC_FA8FB492140FBC6EE2F6` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_windows.rs` | `adapter_sends_exact_target_net_id_and_logical_port` | `not_ignored` |
+| `DISC_2BE4119752DDB75DDEC3` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/backend_windows.rs` | `adapter_uploads_symbols_and_supports_live_reads_and_writes` | `not_ignored` |
 | `DISC_4D94E392A2A94D009E35` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `committed_golden_fixtures_match_rust_schema` | `not_ignored` |
 | `DISC_8669D7D3B6B9DFB74ECD` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `credential_channel_classification_enforces_secret_boundary` | `not_ignored` |
 | `DISC_991D32566D53109352EC` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `error_classifier_maps_common_failures_to_remediation_and_actions` | `not_ignored` |
@@ -2402,11 +2418,14 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_9B2850A6DAD6497D7A59` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `server_step_ids_match_contract_names` | `not_ignored` |
 | `DISC_82101BAA11DC10486A75` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `skip_reasons_match_contract_names` | `not_ignored` |
 | `DISC_8158660BFF570618628B` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/diagnostics/tests.rs` | `v1_client_evidence_json_still_deserializes_with_server_defaults` | `not_ignored` |
+| `DISC_3F38497CFC562E396837` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/discover/interface_targets.rs` | `default_ads_scan_directs_identify_to_usable_local_ipv4_addresses` | `not_ignored` |
+| `DISC_33434D605346ED72DE26` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs` | `failed_same_host_identity_does_not_block_lan_broadcast_results` | `not_ignored` |
+| `DISC_B4F1D1A129CA54F0AC8C` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs` | `failed_same_host_identity_falls_back_to_directed_interface_identify` | `not_ignored` |
 | `DISC_A0A0EB9C09BCA4B8AFC5` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/errors.rs` | `connection_refused_is_not_route_missing` | `not_ignored` |
 | `DISC_F70C5D323F9AB05F0A00` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/errors.rs` | `empty_symbol_table_response_is_not_route_missing` | `not_ignored` |
 | `DISC_BBE68843CB4A347D72CC` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/errors.rs` | `upload_timeout_is_classified_as_missing_return_route` | `not_ignored` |
 | `DISC_9220A43D4A6A5E30654E` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `apply_import_merges_second_connection_and_is_idempotent` | `not_ignored` |
-| `DISC_83DB149CB87C57BB2CF0` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `apply_import_pins_local_net_id_and_generates_single_file` | `not_ignored` |
+| `DISC_BF30386E1A7E4C00F707` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `apply_import_preserves_non_plc_port_and_generates_single_file` | `not_ignored` |
 | `DISC_F98A4868272A8E9EB1BE` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `apply_import_rejects_empty_selection` | `not_ignored` |
 | `DISC_8D2E72DA273FCDEB8E98` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `apply_import_rejects_write_binding_without_acknowledgement` | `not_ignored` |
 | `DISC_009E3F7DCAB6C08B4647` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/import.rs` | `build_import_response_honors_explicit_symbol_list` | `not_ignored` |
@@ -2439,6 +2458,9 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_FA3E1817B26BA64B129E` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | `server_route_artifacts_do_not_include_client_mode_1861_warning` | `not_ignored` |
 | `DISC_F0541139A7F353BD69AD` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | `source_probe_rejects_invalid_target_ip_without_network_io` | `not_ignored` |
 | `DISC_A0984F0368FF8A8697D0` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | `wire_error_classification_keeps_remediation_machine_readable` | `not_ignored` |
+| `DISC_8E816988A137203B01DE` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs` | `local_router_open_port_reply_provides_same_host_identity` | `not_ignored` |
+| `DISC_90EED1B0B4BF3FA2CB33` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs` | `loopback_identity_prefers_local_router_before_udp` | `not_ignored` |
+| `DISC_DECE454F4BD49EE8A5CB` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs` | `loopback_identity_prefers_windows_native_router_before_tcp_and_udp` | `not_ignored` |
 | `DISC_E66354DC3BDE6BDD2D3C` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/server/tests.rs` | `audit_sink_records_accepted_and_rejected_ads_write_details` | `not_ignored` |
 | `DISC_E2A35826BCDD97347312` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/server/tests.rs` | `client_policy_records_refused_attempts_for_wait_for_client_flow` | `not_ignored` |
 | `DISC_727C28CE6777A7111F67` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/server/tests.rs` | `client_policy_requires_ams_net_id_and_source_pin` | `not_ignored` |
@@ -2461,11 +2483,13 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_2576E43F51C994EBD63F` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/server/tests.rs` | `write_port_rejects_policy_failure_without_mutation` | `not_ignored` |
 | `DISC_85DD16C333A177DB683D` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/server/tests.rs` | `write_port_rejects_read_only_gate_without_mutation` | `not_ignored` |
 | `DISC_605167FDAF897C8B15AE` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase` | `not_ignored` |
+| `DISC_EFC0B027AD738E325BFD` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `bridge_projects_ads_globals_for_live_values_and_queues_writable_points` | `not_ignored` |
 | `DISC_AF5192BD3500E5B08263` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `declared_binding_resolution_rejects_missing_global` | `not_ignored` |
 | `DISC_780808E07663D754A287` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `declared_binding_resolution_rejects_type_mismatch` | `not_ignored` |
 | `DISC_EE423FD67130C2A5AB06` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generated_ads_interface_compiles_multiple_connections_in_one_file` | `not_ignored` |
 | `DISC_93D92C1FACB63DF335B0` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generated_ads_interface_compiles_offline_without_plc` | `not_ignored` |
 | `DISC_F87275DFEEFBE028A8FD` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generates_deterministic_ads_interface_from_snapshot_and_config` | `not_ignored` |
+| `DISC_3CA2759D746F3EEF79A5` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generates_interface_when_another_discovered_port_has_no_points_or_snapshot` | `not_ignored` |
 | `DISC_9DDC7C59193E011A4994` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generator_emits_string_and_array_types` | `not_ignored` |
 | `DISC_1C4565B9F7D755C5FDC4` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generator_rejects_quality_name_collision` | `not_ignored` |
 | `DISC_0B4466D1F550FB760DB7` | `rust_unit_test` | `crates/trust-runtime/src/host/ads/tests.rs` | `generator_rejects_reserved_words_as_generated_identifiers` | `not_ignored` |
@@ -3079,6 +3103,9 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_80FBBC2C7BCEFE097E26` | `rust_unit_test` | `crates/trust-syntax/src/syntax/mod.rs` | `test_is_trivia` | `not_ignored` |
 | `DISC_1F0F8F8014CF763080CA` | `rust_unit_test` | `crates/trust-syntax/src/syntax/mod.rs` | `test_pou_declaration_classifier_set` | `not_ignored` |
 | `DISC_DB2158CD7AE4815BB669` | `rust_unit_test` | `crates/trust-syntax/src/syntax/mod.rs` | `test_token_kind_to_syntax_kind` | `not_ignored` |
+| `DISC_8DD4A8CDF4C291830912` | `rust_unit_test` | `crates/trust-tcads-native/src/lib.rs` | `native_net_id_parser_requires_six_nonzero_octets` | `not_ignored` |
+| `DISC_3B663EA0EC7035D8E878` | `rust_unit_test` | `crates/trust-tcads-native/src/lib.rs` | `native_port_preserves_target_port_and_closes_once` | `not_ignored` |
+| `DISC_D1A892E855BFD9DF61F8` | `rust_unit_test` | `crates/trust-tcads-native/src/lib.rs` | `native_read_and_read_write_validate_returned_lengths` | `not_ignored` |
 | `DISC_FA5CEF011E792047CDD9` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_05.rs` | `line_character_offset_roundtrip_ascii` | `not_ignored` |
 | `DISC_4D3B92E9D49D06F3333B` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_05.rs` | `line_character_offset_roundtrip_utf16` | `not_ignored` |
 | `DISC_CDAEFC4CD0CA84F72A78` | `rust_unit_test` | `crates/trust-wasm-analysis/src/lib/lib_part_05.rs` | `position_to_offset_clamps_inside_utf16_surrogate_pair` | `not_ignored` |
@@ -3359,8 +3386,23 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_0CCEB06343FFCE8E9522` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization/src/tests.st` | `plcopen_motion_synchronization_public_surface_resolves` | `not_ignored` |
 | `DISC_A3B01B7E0984FA55A1DA` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization/src/tests.st` | `plcopen_motion_synchronization_sync_types_resolve` | `not_ignored` |
 | `DISC_FB8A8871D2132A36C266` | `structured_text_test` | `crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/tests.st` | `plcopen_motion_synchronization_deferred_public_surface_is_absent` | `not_ignored` |
+| `DISC_50AF502ED8AA1603C13E` | `vscode_test` | `editors/vscode/src/test/suite/ads-discovery-results-rendered.test.ts` | `an identity without a verified ADS port never renders a fallback card` | `not_ignored` |
+| `DISC_B570EF15DC4485366A80` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `ADS discovery and tag browsing expose one purposeful multi-port workflow` | `not_ignored` |
+| `DISC_FABB7E69F536B3A915AC` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `ADS globals reuse the existing Live Values write force release actions` | `not_ignored` |
+| `DISC_F10678B7B205EBD73E1D` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `Boolean drafts survive scans and forced rows keep their value controls` | `not_ignored` |
+| `DISC_09F2D80925EFB3116E0D` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `Live Values feedback keeps a fixed layout slot` | `not_ignored` |
+| `DISC_FC1B44B479802ED9CD31` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `one ADS import request keeps selections grouped by responding port` | `not_ignored` |
+| `DISC_C2282C766B8687F11242` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `only ADS services that answer are reported on one discovered device` | `not_ignored` |
+| `DISC_3C46FB0BF3C5EE239599` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `per-port imports keep distinct connection identities and prior snapshots` | `not_ignored` |
+| `DISC_23929C14122A6627D304` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `repeated ADS imports preserve prior snapshots and enable runtime.toml once` | `not_ignored` |
+| `DISC_2159B539591EBC27C133` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `the ADS inspector summarizes devices and ports instead of dumping raw connections` | `not_ignored` |
+| `DISC_407219427A6DE73DFED6` | `vscode_test` | `editors/vscode/src/test/suite/ads-multiport-live-values.test.ts` | `the configurable scan list has the common ADS ports and normalizes user settings` | `not_ignored` |
 | `DISC_DEBFC2798C267C9DB3C9` | `vscode_test` | `editors/vscode/src/test/suite/ads-status-summary.test.ts` | `handles missing and empty status reports` | `not_ignored` |
 | `DISC_08764DB36247B68D502F` | `vscode_test` | `editors/vscode/src/test/suite/ads-status-summary.test.ts` | `summarizes device and degraded counts for runtime pane and ADS panel` | `not_ignored` |
+| `DISC_651DF96AAB1C5E92839E` | `vscode_test` | `editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts` | `checking merges with the existing port connection instead of duplicating it` | `not_ignored` |
+| `DISC_37454FCF0410E29A8E8F` | `vscode_test` | `editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts` | `tag removal regenerates ADS ST from the updated config and all snapshots` | `not_ignored` |
+| `DISC_ADCD4416977EED47A832` | `vscode_test` | `editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts` | `unchecking removes the tag from matching ADS connections only` | `not_ignored` |
+| `DISC_77B0F5F5634035579161` | `vscode_test` | `editors/vscode/src/test/suite/ads-tag-selection-interactions.test.ts` | `a successful ads.toml add keeps the tag checked and reversible` | `not_ignored` |
 | `DISC_A720969C879F1F3AC722` | `vscode_test` | `editors/vscode/src/test/suite/blockly-engine.test.ts` | `generates ST for Blockly while/until blocks` | `not_ignored` |
 | `DISC_51E1E3E54C0DF2B2A921` | `vscode_test` | `editors/vscode/src/test/suite/blockly-engine.test.ts` | `generates complete connected statement chains` | `not_ignored` |
 | `DISC_BB4FD7B1D3D0AB1D8459` | `vscode_test` | `editors/vscode/src/test/suite/blockly-engine.test.ts` | `resolves Blockly variable ids and infers untyped numeric variables` | `not_ignored` |
@@ -3443,6 +3485,10 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_A3D916B00BC4D04BC5A0` | `vscode_test` | `editors/vscode/src/test/suite/library-code-actions.test.ts` | `does not offer OSCAT when the project already depends on it` | `not_ignored` |
 | `DISC_AD4D72A19225B2F6FC96` | `vscode_test` | `editors/vscode/src/test/suite/library-code-actions.test.ts` | `offers OSCAT for known OSCAT symbols when the dependency is missing` | `not_ignored` |
 | `DISC_685679B1DD97897EAF8A` | `vscode_test` | `editors/vscode/src/test/suite/library-code-actions.test.ts` | `offers PLCopen Motion for MC symbols and ignores unknown symbols` | `not_ignored` |
+| `DISC_EE39CE99F0E2479A2D11` | `vscode_test` | `editors/vscode/src/test/suite/live-values-webview-interactions.test.ts` | `I/O and ADS rows use the same rendered column positions` | `not_ignored` |
+| `DISC_4752221D47BEE1959966` | `vscode_test` | `editors/vscode/src/test/suite/live-values-webview-interactions.test.ts` | `a live scan cannot interrupt a Boolean toggle gesture` | `not_ignored` |
+| `DISC_216A12555B42242BDEDA` | `vscode_test` | `editors/vscode/src/test/suite/live-values-webview-interactions.test.ts` | `a live scan preserves the highlight of the row under the pointer` | `not_ignored` |
+| `DISC_3303208246CBD78546F8` | `vscode_test` | `editors/vscode/src/test/suite/live-values-webview-interactions.test.ts` | `a stale scan cannot visually roll back a pending Boolean force` | `not_ignored` |
 | `DISC_5F1947728716956A6907` | `vscode_test` | `editors/vscode/src/test/suite/lm-tools-contract.test.ts` | `HMI page listing excludes scene view payload TOML` | `not_ignored` |
 | `DISC_F122614B980565AA0801` | `vscode_test` | `editors/vscode/src/test/suite/lm-tools-contract.test.ts` | `manifest declarations match activation events and registered tool names` | `not_ignored` |
 | `DISC_8AD54E0E8B8724B3CF3F` | `vscode_test` | `editors/vscode/src/test/suite/lm-tools-contract.test.ts` | `synthetic registration drift is detected by the contract check` | `not_ignored` |
@@ -3454,6 +3500,26 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_AE0D5D0F278C655AB826` | `vscode_test` | `editors/vscode/src/test/suite/lsp.integration.test.ts` | `executeCommand relocates namespaces across files` | `not_ignored` |
 | `DISC_7D478082563897055AFE` | `vscode_test` | `editors/vscode/src/test/suite/lsp.integration.test.ts` | `formatting applies canonical layout` | `not_ignored` |
 | `DISC_847A44F6019B1C0F755F` | `vscode_test` | `editors/vscode/src/test/suite/lsp.integration.test.ts` | `method calls surface VAR_INPUT completions and signature help` | `not_ignored` |
+| `DISC_B7A559878593B386FFAD` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#94 symbol selection preserves native pointer and keyboard activation` | `not_ignored` |
+| `DISC_761FDAA31309953026AF` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 canvas renders cached state before concurrent runtime enrichment` | `not_ignored` |
+| `DISC_320961680C555E2D3710` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 invalidated discovery requests cannot publish stale cards` | `not_ignored` |
+| `DISC_F6308A67CF138882AC1A` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 panel visibility recovery refreshes instead of polling a suspended webview` | `not_ignored` |
+| `DISC_684E466C17CECB3511BA` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 peer connector failures survive the refresh coordinator` | `not_ignored` |
+| `DISC_7AB72CEBBE3025038B97` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 polling waits for refresh completion before scheduling the next cycle` | `not_ignored` |
+| `DISC_6A1AA8E87EA7164714E4` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 refresh coordinator commits slow active work and coalesces pending refreshes` | `not_ignored` |
+| `DISC_D001914CF2367CB850BE` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 refresh requested at drain completion is not stranded` | `not_ignored` |
+| `DISC_84BB421CD2774DE3FDC9` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 runtime I/O events use cached canvas rendering instead of full refresh` | `not_ignored` |
+| `DISC_BE2E0308E7FFB852DE3B` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#95 stale or unsupported discovery cards are disabled with a reason` | `not_ignored` |
+| `DISC_764E9627FA2899B7FD4D` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#96 write-enabled offline refusal is complete and actionable` | `not_ignored` |
+| `DISC_11B4092DEB0467D319E2` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#97 ADS ports validate and round-trip on discovered candidates` | `not_ignored` |
+| `DISC_291ABC764429CB01A517` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-github-issues.test.ts` | `#97 visual browse flow groups discovered ADS ports` | `not_ignored` |
+| `DISC_9C0EEE18FED3001EE950` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `ADS browse opens the default port without an extra confirmation` | `not_ignored` |
+| `DISC_566D2EB92CF79947FA8E` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `browse reducer clears request data and retains completed data when the drawer closes` | `not_ignored` |
+| `DISC_7371E98B6DBC6B4A4411` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `browse responses are scoped to the current webview request` | `not_ignored` |
+| `DISC_597E707E8D10E9E9750B` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `discover model derives honest origins, protocols, and device drafts` | `not_ignored` |
+| `DISC_D9AD072A438F8ECC6B4B` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `endpoint browse keeps OPC UA and groups configured ADS ports` | `not_ignored` |
+| `DISC_E75C6A3BE23E12009D50` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `missing discovery capability never contradicts retained session activity` | `not_ignored` |
+| `DISC_F5900AB8C47C72ECC321` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas-session-model.test.ts` | `non-ADS and local browse plans retain their immediate request behavior` | `not_ignored` |
 | `DISC_90BAEA4AAE83469926B4` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas.test.ts` | `ADD_PICKER_GROUPS is the canonical S-09 group order` | `not_ignored` |
 | `DISC_33D8B26A40A6BF79BA14` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas.test.ts` | `ADS client links label the external counterpart as an ADS server` | `not_ignored` |
 | `DISC_E211B66071E114C122CD` | `vscode_test` | `editors/vscode/src/test/suite/network-canvas.test.ts` | `ADS server live client count survives topology to endpoint node data` | `not_ignored` |

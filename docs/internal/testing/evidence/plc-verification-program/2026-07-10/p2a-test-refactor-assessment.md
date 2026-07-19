@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `1f3134524e86ceed2b8ba1369084dfa83d0fb7de`
-Generated: `2026-07-19T10:00:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `4f792a35ec027b4e3d76c04d93bcad1159eeeede0bca042665acca6255b92049`
-Input SHA-256: `sha256:ec7a9d925e4257e1179a99c81c13fa9276ee01231f3aabcc455fb571c6ff4b2a`
+Generated JSON SHA-256: `63429b2fe214461842f3ab2ef7ac8b0a242df993210856a8622ac34ddd637111`
+Input SHA-256: `sha256:6258a4f7e61351f0ad44044b5e59810a8d1fb0685cde3c3d04f422a7921f1e06`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,9 +13,9 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 4036
-- Fact-bearing files: 725
-- Large-file candidates: 24
+- Scanner facts: 4102
+- Fact-bearing files: 741
+- Large-file candidates: 23
 - Reviewed mapping-diversity candidates: 19
 - Broad multi-invariant claim candidates: 9
 - Exact fact-file duplicate groups: 0
@@ -24,13 +24,13 @@ a move, split, rename, fixture merge, or behavior change.
 - Same-table structural case-input peer groups: 38
 - Shared case-file reference groups: 7
 - Malformed-class overlap groups: 8
-- VS Code facts: 461
-- VS Code files: 39
-- VS Code registrations: 39
+- VS Code facts: 500
+- VS Code files: 46
+- VS Code registrations: 46
 - Large registered VS Code files: 5
 - Catalog records: 266
 - Scanner facts with reviewed duration: 258
-- Scanner facts without reviewed duration: 3778
+- Scanner facts without reviewed duration: 3844
 - Catalog rows explicitly classified slow: 3
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -41,7 +41,7 @@ a move, split, rename, fixture merge, or behavior change.
 | --- | ---: | ---: | ---: | --- |
 | `crates/trust-ads-server/src/commands/tests.rs` | 1287 | 43 | 0 | `large_file` |
 | `crates/trust-ads-server/src/listener.rs` | 1374 | 16 | 0 | `large_file` |
-| `crates/trust-debug/src/adapter/tests_part_02.rs` | 1175 | 13 | 0 | `large_file` |
+| `crates/trust-debug/src/adapter/tests_part_02.rs` | 1222 | 14 | 0 | `large_file` |
 | `crates/trust-hir/src/openot_authoring.rs` | 2868 | 22 | 0 | `large_file` |
 | `crates/trust-hir/src/symbols/table.rs` | 1136 | 3 | 0 | `large_file` |
 | `crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs` | 1295 | 69 | 0 | `large_file` |
@@ -51,14 +51,13 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-lsp/src/handlers/sync.rs` | 206 | 5 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | 498 | 13 | 6 | `reviewed_mapping_diversity` |
 | `crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs` | 464 | 4 | 4 | `reviewed_mapping_diversity` |
-| `crates/trust-runtime/src/bin/trust-runtime/ads.rs` | 1562 | 2 | 0 | `large_file` |
+| `crates/trust-runtime/src/bin/trust-runtime/ads.rs` | 1569 | 2 | 0 | `large_file` |
 | `crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs` | 1543 | 49 | 0 | `large_file` |
 | `crates/trust-runtime/src/config/tests.rs` | 1154 | 71 | 0 | `large_file` |
-| `crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs` | 1123 | 7 | 0 | `large_file` |
 | `crates/trust-runtime/src/control/tests/core.rs` | 5785 | 71 | 0 | `large_file` |
 | `crates/trust-runtime/src/control/tests/hmi_values_write.rs` | 884 | 14 | 4 | `reviewed_mapping_diversity` |
-| `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | 1291 | 29 | 0 | `large_file` |
-| `crates/trust-runtime/src/host/ads/tests.rs` | 1404 | 36 | 1 | `large_file` |
+| `crates/trust-runtime/src/host/ads/onboarding/tests.rs` | 1292 | 29 | 0 | `large_file` |
+| `crates/trust-runtime/src/host/ads/tests.rs` | 1498 | 38 | 1 | `large_file` |
 | `crates/trust-runtime/src/io/mqtt/tests.rs` | 1240 | 31 | 1 | `large_file` |
 | `crates/trust-runtime/src/runtime/vm/type_policy/tests.rs` | 441 | 7 | 7 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/bounded_value_semantics.rs` | 222 | 6 | 6 | `reviewed_mapping_diversity` |
@@ -79,8 +78,8 @@ a move, split, rename, fixture merge, or behavior change.
 | `editors/vscode/src/test/suite/hmi.integration.test.ts` | 1445 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/ladder-engine.test.ts` | 1093 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/network-canvas.test.ts` | 2128 | 57 | 1 | `large_file` |
-| `editors/vscode/src/test/suite/runtime-controls-contract.test.ts` | 1245 | 47 | 0 | `large_file` |
-| `editors/vscode/src/test/suite/ux-shell-contract.test.ts` | 4378 | 158 | 0 | `large_file` |
+| `editors/vscode/src/test/suite/runtime-controls-contract.test.ts` | 1296 | 47 | 0 | `large_file` |
+| `editors/vscode/src/test/suite/ux-shell-contract.test.ts` | 4450 | 158 | 0 | `large_file` |
 
 ## Broad Invariant Claims
 
@@ -419,19 +418,19 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## VS Code Registration
 
-- Discovered facts: 461
-- Test files: 39
-- Literal registrations: 39
+- Discovered facts: 500
+- Test files: 46
+- Literal registrations: 46
 - Diagnostics: 0
 - `editors/vscode/src/test/suite/hmi.integration.test.ts`: 1445 lines, 14 facts.
 - `editors/vscode/src/test/suite/ladder-engine.test.ts`: 1093 lines, 14 facts.
 - `editors/vscode/src/test/suite/network-canvas.test.ts`: 2128 lines, 57 facts.
-- `editors/vscode/src/test/suite/runtime-controls-contract.test.ts`: 1245 lines, 47 facts.
-- `editors/vscode/src/test/suite/ux-shell-contract.test.ts`: 4378 lines, 158 facts.
+- `editors/vscode/src/test/suite/runtime-controls-contract.test.ts`: 1296 lines, 47 facts.
+- `editors/vscode/src/test/suite/ux-shell-contract.test.ts`: 4450 lines, 158 facts.
 
 ## Duration Classification
 
-- Scanner facts listed: 4036
+- Scanner facts listed: 4102
 - Artifact catalog rows listed separately: 8
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_011E6BF892E89DBE3DBD` / `TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001`: `fast` at `crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs`.

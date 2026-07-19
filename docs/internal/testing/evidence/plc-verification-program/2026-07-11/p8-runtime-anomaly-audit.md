@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v3`
-Source revision: `1f3134524e86ceed2b8ba1369084dfa83d0fb7de`
-Generated: `2026-07-19T10:00:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `11d1d9850dfd7d9a9cb1002b3f5079d0318634cacbc181ae2cc466dfec2c381f`
-Input SHA-256: `sha256:bd091e0269da426bad9e1b7419ab89e7b5fdd735026fe33f890b09fde956a885`
+Generated JSON SHA-256: `913ce4a34184ffcc5a73ceee0d82e00a9f800e6ad6ee1ef90c4c7c064b006c60`
+Input SHA-256: `sha256:1b16fd8e7a41069918433982de3cf479bfdcc637bc660c91914ffe9b79f573e1`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -15,10 +15,10 @@ It executes no fault and creates no proof or invariant coverage.
 
 - Taxonomy classes: 19
 - Explicit mapping records: 135
-- Live Rust scanner facts: 3230
+- Live Rust scanner facts: 3256
 - Denominator mapped facts: 135
-- Denominator reviewed-nonmapping facts: 3095
-- Denominator review SHA-256: `sha256:fb1c591dde749ee13823e236b6c4ad21ac2f7f638e522c32064a6a29f03774d7`
+- Denominator reviewed-nonmapping facts: 3121
+- Denominator review SHA-256: `sha256:07df7d77f57109189fc6f86501a087bb323972bcc5557b192d0218b52a65ba88`
 - Effectively runnable direct mappings: 125
 - Ignored or conditional mappings: 1
 - Gap classes: 0
@@ -171,7 +171,7 @@ It executes no fault and creates no proof or invariant coverage.
 | `ANOM_MAP_TIMEOUT_003` | `timeout` | `DISC_17A3C97ED5EF6F1D342D` | `partial` | `not_ignored` | `false` | `test_harness` |
 | `ANOM_MAP_TIMEOUT_REVIEW_0FF9C29E` | `timeout` | `DISC_5A83D1A380180FF9C29E` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMEOUT_REVIEW_4C97001E` | `timeout` | `DISC_3FD9DCA298624C97001E` | `direct` | `not_ignored` | `true` | `external_harness` |
-| `ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4` | `timeout` | `DISC_EB106B12C640EB64DFF4` | `direct` | `not_ignored` | `true` | `external_harness` |
+| `ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4` | `timeout` | `DISC_D0A4FCC61D908C1E0CA3` | `direct` | `not_ignored` | `true` | `external_harness` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001` | `timer_duration_overflow` | `DISC_33E5D40504EBC4C32030` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001` | `timer_duration_overflow` | `DISC_DA4DF0247AD9823BF96F` | `direct` | `not_ignored` | `true` | `ordinary_input` |
 | `ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001` | `timer_duration_overflow` | `DISC_93D5E86E7CF67A1A5AAE` | `direct` | `not_ignored` | `true` | `ordinary_input` |

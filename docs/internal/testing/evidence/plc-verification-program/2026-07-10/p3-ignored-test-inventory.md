@@ -1,27 +1,27 @@
 # Ignored-Test Inventory
 
 Generator: `ignored-test-inventory v1`
-Source revision: `82c62abe3d16873c8a65d92cab099843d9dbc5a3`
-Generated: `2026-07-18T22:30:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `12232803f66405fb92f3018b9bdec89e5f220c695c31e06f7b567a1397cb5892`
-Input SHA-256: `sha256:9e816c7b8c4c5fbc0f6c4833fd211094fe90d262bf4f02efa61be27de0c4cea6`
+Generated JSON SHA-256: `a68cc10353396e419f93a1b97fc4edabacb2106cadc9ad7565c2a49461fe0409`
+Input SHA-256: `sha256:558acd378bad2b1c26141c0dfab9496ba634edca24f8cc91628a5cb92bf4a0e6`
 
 This report is a mechanical inventory. It does not classify an ignored test,
 establish expected behavior, or count as product proof.
 
 ## Summary
 
-- Records: 23
+- Records: 24
 - Statically ignored: 23
-- Conditional ignore observations: 0
-- Diagnostics: 0
+- Conditional ignore observations: 1
+- Diagnostics: 1
 - Errors: 0
-- Warnings: 0
+- Warnings: 1
 
 | Source kind | Records |
 | --- | ---: |
-| `rust_integration_test` | 13 |
+| `rust_integration_test` | 14 |
 | `rust_unit_test` | 10 |
 
 ## Surface Coverage
@@ -29,9 +29,9 @@ establish expected behavior, or count as product proof.
 | Surface | Scanned files | Records | Ignored | Conditional | Coverage |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `conformance` | 21 | 0 | 0 | 0 | `limitation` |
-| `node` | 48 | 0 | 0 | 0 | `mechanical` |
+| `node` | 55 | 0 | 0 | 0 | `mechanical` |
 | `playwright` | 6 | 0 | 0 | 0 | `mechanical` |
-| `rust` | 589 | 23 | 23 | 0 | `mechanical` |
+| `rust` | 598 | 24 | 23 | 1 | `mechanical` |
 | `shell` | 29 | 0 | 0 | 0 | `limitation` |
 
 Surface notes:
@@ -52,6 +52,7 @@ Surface notes:
 | `DISC_EC41FC62FBEF09EFDFE8` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:273` | `modbus_lab_target_confirms_protocol_probe` | requires configured lab Modbus target; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_75F421CF89F3935418D6` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/device_in_the_loop.rs:366` | `mqtt_lab_broker_records_auth_tls_reconnect_and_disconnect` | requires configured lab MQTT broker; see docs/internal/testing/runtime-device-in-the-loop.md |
 | `DISC_083918C0A1695BEDB92E` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/ethercat_driver.rs:170` | `ethercat_missing_adapter_records_pdu_storage_retry_baseline` | runtime-safety EtherCAT PduStorage baseline; explicitly run for storage evidence |
+| `DISC_FE38938F6FB54A1B26E7` | `conditional` | `rust_cfg_attr` | `rust_integration_test` | `crates/trust-runtime/tests/io_multidriver_live.rs:415` | `runtime_composes_modbus_and_mqtt_drivers_live` | live MQTT broker handshake is network-timing flaky on non-Linux CI runners; \ run with `--ignored` locally to exercise. Linux runners are the source of truth \ for the driver-composition contract. |
 | `DISC_7F7F305082D2D125BF56` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:98` | `openot_capstone_consumer_process` | spawned by openot_capstone_fenced_cross_process |
 | `DISC_2EEB083ACDA59C7173DC` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:89` | `openot_capstone_producer_process` | spawned by openot_capstone_fenced_cross_process |
 | `DISC_076A01316BE505A43D6C` | `ignored` | `rust_attribute` | `rust_integration_test` | `crates/trust-runtime/tests/openot_capstone.rs:59` | `openot_capstone_unfenced_contrast` | diagnostic unfenced experiment; set OPENOT_CAPSTONE_RUN_UNFENCED=1 |
@@ -79,3 +80,7 @@ Surface notes:
 - Shell source has no repository-wide static ignored-test identity convention.
 - Conformance runtime skipped results are outcomes, not source ignore declarations.
 - Ignore classes, owners, areas, unblock conditions, expected behavior, and proof are hand-owned metadata.
+
+## Diagnostics
+
+- `editors/vscode/src/test/suite/live-values-webview-interactions.test.ts:300` `warning/existing_catalog_dynamic_test_name`: template-literal test title contains interpolation

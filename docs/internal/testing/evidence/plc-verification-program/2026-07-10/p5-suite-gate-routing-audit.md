@@ -1,18 +1,18 @@
 # Phase 5 Suite and Gate Audit
 
 Generator: `phase5-suite-audit v1`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Generated: `2026-07-19T19:20:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `6febbc4e0957bcfca56033e495059c5e9951444497f29bac8e6bc1bf568da4a8`
-Input SHA-256: `sha256:4b876f14877e7de31f6b473591c43a4e1eca65a9eaadb6c793bef1e5dda26da9`
+Generated JSON SHA-256: `e31b0bfc0b3388617055d6b306be7ed002776e9cb2613e7b2337f05fc895dc05`
+Input SHA-256: `sha256:f8604f966817017cf316a225d4892852979f5586cba0d1928846bc3014966fdd`
 
 This report inventories suite ownership and routing without creating proof,
 closing specification gaps, interpreting suite inheritance, or changing enforcement.
 
 ## Summary
 
-- Inventory records: 62 (59 scanner-bound)
+- Inventory records: 63 (60 scanner-bound)
 - Suite records: 6
 - Direct suite commands: 33
 - Suite inventory references: 58
@@ -25,7 +25,7 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 - `report_emits_proof`: `false`
 - `report_closes_spec_gaps`: `false`
 - `suite_includes_interpreted`: `false`
-- `p5_000b_remains_open`: `true`
+- `p5_000b_remains_open`: `false`
 
 ## Inventory
 
@@ -45,6 +45,7 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 | `GATE_JOB_CI_TEST` | `github_workflow_job` | `assigned` | `pr` | `required` | `ci_artifact/repository_default` |
 | `GATE_JOB_CI_VERSION_RELEASE_GUARD` | `github_workflow_job` | `assigned` | `release` | `required` | `ci_artifact/repository_default` |
 | `GATE_JOB_CI_VSCODE_EXTENSION` | `github_workflow_job` | `assigned` | `pr` | `required` | `ci_artifact/repository_default` |
+| `GATE_JOB_DOCS_CAPTURES_CREATE_REFRESH_PR` | `github_workflow_job` | `excluded` | `none` | `excluded` | `none/none` |
 | `GATE_JOB_DOCS_CAPTURES_REFRESH` | `github_workflow_job` | `excluded` | `none` | `excluded` | `ci_artifact/repository_default` |
 | `GATE_JOB_DOCS_PAGES_BUILD` | `github_workflow_job` | `excluded` | `none` | `excluded` | `ci_artifact/repository_default` |
 | `GATE_JOB_DOCS_PAGES_DEPLOY` | `github_workflow_job` | `excluded` | `none` | `excluded` | `none/none` |
@@ -160,4 +161,4 @@ closing specification gaps, interpreting suite inheritance, or changing enforcem
 - This report maps existing verification surfaces; the generator emits no behavior proof and closes no specification gap.
 - Suite includes and excludes are displayed but not interpreted; VERIF-P14-000B still owns composition semantics.
 - The changed-file verification job is enforcing; other report-only and planned inventory rows remain non-enforcing. This audit itself changes no workflow.
-- VERIF-P5-000B is live-validated from the board but excluded from the source digest because board/evidence follow-up is mutable.
+- VERIF-P5-000B is live-validated as completed after Phase 11; board/evidence follow-up remains excluded from the source digest because it is mutable.
