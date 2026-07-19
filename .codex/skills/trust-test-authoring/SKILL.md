@@ -36,7 +36,23 @@ route.
    claiming completion. Do not manufacture red behavior for a refactor.
 7. Run focused checks continuously. Run heavy `just fmt`, `just clippy`, and `just test-all` on
    `trust-builder` only at the final milestone defined by the active checklist.
-8. Record exact commands, red/green outcomes, catalog/invariant IDs, and local versus
+8. Before pushing a feature, behavior, or product-test change, rerun the planner with every changed
+   path. `missing_tests`, `spec_gap`, and `unmapped` are blocking results even when all implemented
+   tests pass:
+
+   ```bash
+   python3 scripts/plan_tests.py --intent <intent> --changed <every-changed-path>
+   python3 scripts/check_test_catalog_staleness.py
+   ```
+
+   The staleness command verifies committed mappings. Separately inspect every new scanner fact and
+   either catalog-map it or explicitly queue its denominator review; never infer completeness from
+   a passing native suite or from the absence of a catalog row.
+9. For VS Code work, run `python3 scripts/check_vscode_test_registration.py`. For hardware or
+   protocol features, run the cataloged device-in-the-loop case on the named real topology and
+   retain its machine-readable artifact before push. Simulator, compile, and unit evidence do not
+   substitute for the real hardware case.
+10. Record exact commands, red/green outcomes, catalog/invariant IDs, and local versus
    trust-builder evidence. Do not promote proof beyond the evidence tier actually obtained.
 
 ## Scenario Routing
@@ -60,6 +76,7 @@ route.
 python3 scripts/run_verification_focused_tests.py
 scripts/verification_metadata_gate.sh
 python3 scripts/check_verification_tooling_selftests.py
+python3 scripts/check_test_catalog_staleness.py
 ```
 
 The enforcing pull-request gate must remain read-only, run with `--strict`, and block merge on a

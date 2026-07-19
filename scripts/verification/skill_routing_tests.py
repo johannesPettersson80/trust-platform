@@ -17,6 +17,9 @@ class SkillRoutingTests(unittest.TestCase):
         self.assertLessEqual(len(text.splitlines()), 180)
         for marker in (
             "scripts/plan_tests.py",
+            "missing_tests",
+            "scripts/check_test_catalog_staleness.py",
+            "scripts/check_vscode_test_registration.py",
             "scripts/prove.py red",
             "scripts/prove.py green",
             "spec_gap",
@@ -26,6 +29,17 @@ class SkillRoutingTests(unittest.TestCase):
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
+
+        agents = (ROOT / "AGENTS.md").read_text()
+        for marker in (
+            "scripts/plan_tests.py",
+            "missing_tests",
+            "scripts/check_test_catalog_staleness.py",
+            "scripts/check_vscode_test_registration.py",
+            "device-in-the-loop",
+        ):
+            with self.subTest(agents_marker=marker):
+                self.assertIn(marker, agents)
 
     def test_agents_and_domain_skills_route_behavior_changes_to_shared_contract(self) -> None:
         expected = {

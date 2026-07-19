@@ -347,10 +347,20 @@ applicable, and lexer/parser tests or snapshots.
 - The SQLite-style PLC verification program is active at
   `docs/internal/testing/checklists/plc-verification-program-checklist.md`.
 - Use `.codex/skills/trust-test-authoring/SKILL.md` for the mandatory execution route.
-- Run `scripts/plan_tests.py` before behavior or test changes. A `spec_gap` verdict requires a
-  written specification or reviewed decision before the test.
+- Run `python3 scripts/plan_tests.py --intent <intent> --changed <every-changed-path>` before new
+  feature, behavior, or product-test changes and rerun it against the complete changed-path set
+  before push. Exit codes 2 (`missing_tests`), 3 (`spec_gap`), and 4 (`unmapped`) block that feature
+  push; passing focused or broad tests do not override the planner.
+- Run `python3 scripts/check_test_catalog_staleness.py` before push so every cataloged identity is
+  still bound to the live scanner fact. For every new test, inspect its scanner identity and either
+  map it in `verification/test-catalog.toml` or explicitly queue the denominator review; never
+  treat an absent catalog row as proof that no test or specification is missing.
 - Register every new or changed proof-bearing test in `verification/test-catalog.toml`; keep its
   invariant, oracle, suite, case file, and evidence bindings current.
+- For VS Code changes, also run `python3 scripts/check_vscode_test_registration.py`; for hardware
+  or protocol features, catalog and execute the named device-in-the-loop case on the real reviewed
+  topology before push, and retain its machine-readable artifact. A simulator or unit test does
+  not replace that hardware case.
 - Preserve an expected assertion red before a bug fix and paired green afterward. Use behavior-lock
   evidence for refactor-only work. Do not count compile, harness, dependency, timeout, or unrelated
   failures as red evidence.
