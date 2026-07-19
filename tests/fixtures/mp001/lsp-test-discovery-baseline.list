@@ -24,6 +24,7 @@ handlers::tests::completion_hover::lsp_hover_member_method_and_property: test
 handlers::tests::completion_hover::lsp_hover_respects_stdlib_filter: test
 handlers::tests::core::core_part_01::lsp_diagnostics_no_burst_baseline_reports_real_errors: test
 handlers::tests::core::core_part_01::lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar: test
+handlers::tests::core::core_part_01::lsp_hover_uses_utf16_positions_after_bare_cr_line_endings: test
 handlers::tests::core::core_part_01::lsp_hover_variable: test
 handlers::tests::core::core_part_01::lsp_pull_diagnostics_cancelled_request_returns_content_modified: test
 handlers::tests::core::core_part_01::lsp_pull_diagnostics_returns_unchanged_and_explainer: test
@@ -33,6 +34,7 @@ handlers::tests::core::core_part_01::lsp_rename_namespace_path_updates_using_and
 handlers::tests::core::core_part_01::lsp_rename_primary_pou_renames_file: test
 handlers::tests::core::core_part_01::lsp_rename_shadow_capture_returns_response_error: test
 handlers::tests::core::core_part_01::lsp_rename_variable: test
+handlers::tests::core::core_part_01::lsp_workspace_diagnostics_cancelled_request_returns_content_modified: test
 handlers::tests::core::core_part_02::lsp_diagnostics_respect_config_toggles: test
 handlers::tests::core::core_part_02::lsp_learner_diagnostics_include_did_you_mean_and_conversion_guidance: test
 handlers::tests::core::core_part_02::lsp_supports_virtual_document_uris: test
@@ -98,7 +100,14 @@ handlers::tests::formatting_and_navigation::lsp_on_type_formatting_formats_line:
 handlers::tests::formatting_and_navigation::lsp_range_formatting_aligns_assignment_groups: test
 handlers::tests::formatting_and_navigation::lsp_range_formatting_expands_to_syntax_block: test
 handlers::tests::formatting_and_navigation::lsp_range_formatting_formats_selection: test
+handlers::tests::formatting_and_navigation::lsp_range_formatting_uses_shared_bare_cr_line_model: test
 handlers::tests::formatting_and_navigation::lsp_signature_help_snapshot: test
 handlers::tests::formatting_and_navigation::lsp_type_hierarchy_super_and_subtypes: test
+handlers::tests::lsp_trace_cases::lsp_delivery_trace_cases: test
+handlers::tests::lsp_trace_cases::lsp_diagnostic_cancellation_trace_cases: test
+handlers::tests::lsp_trace_cases::lsp_document_close_trace_cases: test
+handlers::tests::lsp_trace_cases::lsp_position_encoding_trace_cases: test
 handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protocol_snapshot: test
 handlers::tests::mod_part_02::lsp_code_action_namespace_disambiguation_non_call: test
+handlers::tests::rename_trace_cases::editor_rename_local_trace_cases: test
+handlers::tests::rename_trace_cases::editor_rename_project_trace_cases: test
