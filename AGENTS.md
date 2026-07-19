@@ -111,6 +111,26 @@ applicable, and lexer/parser tests or snapshots.
   - confirm Release workflow for that tag is running/completed
   - confirm GitHub "Latest release" reflects that tag
 
+## Release Candidate State Machine (non-negotiable)
+
+- Integration, release, `main`, and version-bump pushes require the exact-SHA artifact produced by
+  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`; the shared
+  pre-push hook must be installed and must not be bypassed.
+- Freeze one clean candidate, run focused and exact strict preflight plus final remote broad gates,
+  then push once. Any code, validator, metadata, base, or instruction-file change invalidates the
+  artifact and returns the work to focused validation.
+- Wait for every required GitHub check before editing a red candidate. Run
+  `release_candidate_guard.py collect-failures --pr <number> --wait`, retain every failed job log,
+  and repair the complete ledger as one batch. Never issue serial corrective pushes from partial
+  CI results.
+- Merge only through `release_candidate_guard.py check-merge --pr <number> --execute`, which must
+  bind the exact validated head and require every check green.
+- When a version changes, continue through main CI, annotated tag, Release workflow, GitHub Latest,
+  asset/checksum verification, and VS Code Marketplace propagation; verify with
+  `release_candidate_guard.py verify-release` before reporting completion.
+- After a second red candidate or two elapsed hours without merge readiness, stop and report the
+  complete blocker ledger. Do not continue an unbounded push/wait/fix loop.
+
 ## Skills To Use
 
 - `trust-test-authoring`
@@ -347,10 +367,20 @@ applicable, and lexer/parser tests or snapshots.
 - The SQLite-style PLC verification program is active at
   `docs/internal/testing/checklists/plc-verification-program-checklist.md`.
 - Use `.codex/skills/trust-test-authoring/SKILL.md` for the mandatory execution route.
-- Run `scripts/plan_tests.py` before behavior or test changes. A `spec_gap` verdict requires a
-  written specification or reviewed decision before the test.
+- Run `python3 scripts/plan_tests.py --intent <intent> --changed <every-changed-path>` before new
+  feature, behavior, or product-test changes and rerun it against the complete changed-path set
+  before push. Exit codes 2 (`missing_tests`), 3 (`spec_gap`), and 4 (`unmapped`) block that feature
+  push; passing focused or broad tests do not override the planner.
+- Run `python3 scripts/check_test_catalog_staleness.py` before push so every cataloged identity is
+  still bound to the live scanner fact. For every new test, inspect its scanner identity and either
+  map it in `verification/test-catalog.toml` or explicitly queue the denominator review; never
+  treat an absent catalog row as proof that no test or specification is missing.
 - Register every new or changed proof-bearing test in `verification/test-catalog.toml`; keep its
   invariant, oracle, suite, case file, and evidence bindings current.
+- For VS Code changes, also run `python3 scripts/check_vscode_test_registration.py`; for hardware
+  or protocol features, catalog and execute the named device-in-the-loop case on the real reviewed
+  topology before push, and retain its machine-readable artifact. A simulator or unit test does
+  not replace that hardware case.
 - Preserve an expected assertion red before a bug fix and paired green afterward. Use behavior-lock
   evidence for refactor-only work. Do not count compile, harness, dependency, timeout, or unrelated
   failures as red evidence.
