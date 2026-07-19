@@ -1,7 +1,7 @@
 # Phase 8 Fault Policy Closeout
 
-- Clean source commit: `9d21b8b266378bf7d8c948bf4ca50cfa95430ed5`
-- Generated timestamp: `2026-07-19T09:00:00+02:00`
+- Clean source commit: `1f3134524e86ceed2b8ba1369084dfa83d0fb7de`
+- Generated timestamp: `2026-07-19T10:00:00+02:00`
 - Platform: `trust-builder-linux-x86_64`
 
 ## Contract
@@ -22,22 +22,22 @@ Their JSON SHA-256 digests are:
 
 | Report | JSON SHA-256 |
 | --- | --- |
-| P2 test class | `1ff3158b95620e0abd335c3f1eb294a214c437ead8ac004c719dcb4717f52812` |
-| P2 coverage matrix | `a84154bb4c4d923e62bb3c7d2c4ff540a8326f8baf9dbb39100143973f2b62b5` |
-| P2 malformed input | `0dfaa0d22c1297db8d42409e84cf49cbb8499ecc0e5edf1b6f898789439dc4bb` |
-| P2 unmapped debt | `d2485c556de51ce07fb0cd3c003653de77b01453459fd29a5273928b74cca9b7` |
-| P2A refactor | `ba111a9f2a20b4d84a9022cd0cf832014aefa79138c6327981515df2f5c45927` |
-| P4 invariant seeds | `5dcbd18692580da713803dc1f1e9677a26ef7acc859bfc3f17a3549a6af86ffa` |
-| P4A specification | `8e8e63a0275ae4cb78e045c36b989e29364b4aec51d21369ced48d1bf18d2a3f` |
-| P6 requirement/oracle | `1bc1b0e17ca6011184091693fa0f24fec5c2e7215099c7de92f41ea9ef3e603a` |
-| P7 conformance | `1cd792016c0a82a757fbceca6865750da6c155e3d9387494ab35f5c38817fe7d` |
-| P8 runtime anomaly | `42f09045d9fd24ac7d95979c516357d44684ae8fc6986263652bed9bc7a016bf` |
-| P9 fuzz | `ba4791117429b457f1dd5e456ea32546d75c932c93184bd29d449e8168896a56` |
-| P10 mutation | `6841eb31e6e12d8009cb25a614944c9e93656889bfb75a4384fa0c815b026b78` |
-| P1A sources | `122e674a257277630783075c375398f4f029a0f7bab9e195bbaf27466726f6c3` |
-| P12 workflow/UI | `3befe5c71cb5755503b786a2e3c73bef7e91d969e6a07d973aa489e48ae07c1c` |
-| P13 release | `7190db4a7aaf7b9daef4f6dbd4b90c30b1b677d7962ac127f6a3693482ac22a2` |
-| P11 hardware | `b0c54524e76faf733612b16634936ca46c368d70f01837a812d2eeba99b53e8f` |
+| P2 test class | `941d5a76ac5ff57e978d7b99a1b19f5613390fe7d4784314ee14c9ce3eaa6fce` |
+| P2 coverage matrix | `a0d1fe2fbb183c4ee2a37ff1fb3b1e1ad10a5206b4b8f9ef519396e5f430e651` |
+| P2 malformed input | `585fa6c80afc8001e667b42da0f40eeb0faf3b2d50801582d0585a62adf8b339` |
+| P2 unmapped debt | `905c398dd041b3b4fdb51f703344d9b2342746e81d47fd44871c3baf6911601a` |
+| P2A refactor | `4f792a35ec027b4e3d76c04d93bcad1159eeeede0bca042665acca6255b92049` |
+| P4 invariant seeds | `662a3b05866118fc450f5bbcb150e2316e4c948ef10966e3bce29c6da627401b` |
+| P4A specification | `d444d945f7e526c19a184a66040f124566f9a7a60c2c20bc1d3deaf53163b749` |
+| P6 requirement/oracle | `1c6188c3b587572eaf3a59cbfa86db46efb59e9ddf405e492c19f18e14c88c24` |
+| P7 conformance | `e4bd8f30f30902df66f24765ee19398d90336ebe41833695461c83cb4cbf9386` |
+| P8 runtime anomaly | `11d1d9850dfd7d9a9cb1002b3f5079d0318634cacbc181ae2cc466dfec2c381f` |
+| P9 fuzz | `fe7a7a527d047d4087b2a7b45caaf5a4e2ee24101a77d026b4a7a5fb6fc7eec0` |
+| P10 mutation | `05fb90d11aaf664ed81ba809c0f719ed0fce130e16ebf15e605763203a2d8487` |
+| P1A sources | `dd4fb17774414261af6967828996d309a982afca217ff08684adc9d1b0147a15` |
+| P12 workflow/UI | `dc09e1adf8e6a39fe494d386e09b8d185a26e6e7e7eac3a29ebeb18a56ce09a8` |
+| P13 release | `a32c52bbb4c4acdaec99c66e936b31f2963abbc5a382cc408a7f9efaf32b3bea` |
+| P11 hardware | `65b4a2e070574f8c78987accdd1fbac470ef083c219243dedde12bd41782772e` |
 
 The rebind also corrected three cataloged LSP facts whose exhaustive denominator
 rows still carried their prior nonmapping disposition. The resulting partition
