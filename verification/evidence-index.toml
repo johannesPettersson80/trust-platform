@@ -8349,3 +8349,25 @@ linked_spec_gaps = [
   "SPEC_GAP_WATCHDOG_PARTIAL_SAFE_STATE_001",
 ]
 last_reviewed = "2026-07-19"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P11_HARDWARE_LAB_PROGRAM_20260719"
+title = "Phase 11 hardware-lab matrix and skipped/unproven report"
+area = "protocols"
+owner = "verification"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md"
+command = "python3 scripts/report_hardware_lab.py --json-out target/gate-artifacts/verification/hardware-lab.json --markdown-out docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md --branch plc-verification-program --timestamp 2026-07-19T05:30:00+02:00 && python3 scripts/validate_hardware_lab_report.py --json target/gate-artifacts/verification/hardware-lab.json --markdown docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md"
+commit = "9c9f5186cd1f3ffef3f3e1a512fee06000996a8f"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-07-19"
+suite_id = "supporting_local"
+producer = "hardware-lab-audit v1"
+generated_report_version = "hardware-lab-audit-v1"
+proof_kind = "none"
+linked_invariants = []
+linked_tests = []
+linked_spec_gaps = ["SPEC_GAP_HARDWARE_PUBLIC_CLAIM_001"]
+last_reviewed = "2026-07-19"

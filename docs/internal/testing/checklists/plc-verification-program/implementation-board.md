@@ -724,11 +724,11 @@ Acceptance:
   sequence on `trust_builder`; its canonical Python runner discovers all 41
   verification `*_tests.py` modules, including the Phase 3 review regressions
   and the Phase 6, Phase 6A, and Phase 7 contract tests.
-- [ ] `VERIF-P5-000B` Phase 11 hardware lab work must build on any existing
+- [x] `VERIF-P5-000B` Phase 11 hardware lab work must build on any existing
   device-in-loop workflow/test harness instead of creating a parallel source of
   truth. Phase 5 binds the existing workflow, script, Rust harness, and JSON
-  artifact contract, but this standing row remains open until Phase 11 builds
-  the reviewed lab program on those sources.
+  artifact contract. Phase 11 now builds its reviewed matrix and honest
+  skipped/unproven report on those sources.
 - [x] `VERIF-P5-001` Define `veryquick`: one bounded direct entrypoint plus the
   metadata-gate helper, with no workflow enforcement added.
 - [x] `VERIF-P5-002` Define `pr`: 15 direct workflow entrypoints and 29 total
@@ -1076,16 +1076,29 @@ Acceptance:
 
 ## Phase 11 - Hardware Lab Program
 
-- [ ] `VERIF-P11-001` Create hardware lab matrix.
-- [ ] `VERIF-P11-002` Define Modbus lab cases.
-- [ ] `VERIF-P11-003` Define MQTT lab cases.
-- [ ] `VERIF-P11-004` Define ADS/TwinCAT lab cases.
-- [ ] `VERIF-P11-005` Define EtherCAT lab cases.
-- [ ] `VERIF-P11-006` Define GPIO lab cases.
-- [ ] `VERIF-P11-007` Public hardware docs stay preview/unverified until lab
+- [x] `VERIF-P11-001` Create hardware lab matrix.
+- [x] `VERIF-P11-002` Define Modbus lab cases.
+- [x] `VERIF-P11-003` Define MQTT lab cases.
+- [x] `VERIF-P11-004` Define ADS/TwinCAT lab cases.
+- [x] `VERIF-P11-005` Define EtherCAT lab cases.
+- [x] `VERIF-P11-006` Define GPIO lab cases.
+- [x] `VERIF-P11-007` Public hardware docs stay preview/unverified until lab
   row passes or is scoped.
-- [ ] `VERIF-P11-008` Add hardware-lab report renderer with skipped/unproven
+- [x] `VERIF-P11-008` Add hardware-lab report renderer with skipped/unproven
   rows visible.
+
+  Phase 11 closes the program definition, not hardware execution. The closed
+  matrix at `verification/hardware-lab.toml` reuses the existing strict
+  device-in-loop workflow, script, Rust harness, and JSON artifact contract;
+  it maps all five registered `lab_required` ignored tests exactly once and
+  binds the pre-existing GPIO manual script without inventing a Rust binding.
+  The durable report contains six cases across five protocols, all six
+  `skipped_unproven`, with zero lab evidence and no hardware-qualified public
+  claim. Source commit `9c9f5186cd1f3ffef3f3e1a512fee06000996a8f`;
+  generated JSON SHA-256
+  `40528e4daa58fca269d5431c22678943e80f80492333aaa3acebe3196771eb8a`;
+  report:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-19/phase11-hardware-lab.md`.
 
 ## Phase 12 - Editor, UI, and Human Workflow Verification
 
