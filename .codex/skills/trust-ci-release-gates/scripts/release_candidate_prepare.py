@@ -83,6 +83,23 @@ def planner_exit_is_advisory(exit_status: int, output: str) -> bool:
     return payload is not None and not planner_finding_blocks(payload)
 
 
+def planner_command(
+    *, python: str, intent: str, baseline: str, paths: Sequence[str]
+) -> list[str]:
+    return [
+        python,
+        "scripts/plan_tests.py",
+        "--intent",
+        intent,
+        "--baseline",
+        baseline,
+        "--changed",
+        *paths,
+        "--format",
+        "json",
+    ]
+
+
 def synthetic_record(command_id: str, command: str, failures: Sequence[str]) -> dict[str, Any]:
     output = "\n".join(failures).encode("utf-8")
     return {
@@ -175,16 +192,12 @@ def prepare(args: Any) -> int:
             log_dir=log_dir,
         )
     )
-    planner = [
-        sys.executable,
-        "scripts/plan_tests.py",
-        "--intent",
-        args.intent,
-        "--baseline",
-        base_sha,
-        "--changed",
-        *paths,
-    ]
+    planner = planner_command(
+        python=sys.executable,
+        intent=args.intent,
+        baseline=base_sha,
+        paths=paths,
+    )
     records.append(
         command_record(
             "planner",

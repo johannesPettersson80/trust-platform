@@ -125,6 +125,16 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertTrue(accepted)
         self.assertFalse(blocked)
 
+    def test_planner_command_requests_json_for_advisory_parser(self) -> None:
+        command = candidate_prepare.planner_command(
+            python="python3",
+            intent="bugfix",
+            baseline="a" * 40,
+            paths=["crates/trust-runtime/src/lib.rs"],
+        )
+
+        self.assertEqual(command[-2:], ["--format", "json"])
+
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()
         artifact["head"] = "1" * 40
