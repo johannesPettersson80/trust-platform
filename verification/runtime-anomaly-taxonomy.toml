@@ -4,9 +4,9 @@ title = "Runtime anomaly taxonomy v1"
 area = "runtime_safety"
 mapping_basis = "explicit_reviewed_discovery_id_only"
 proof_posture = "association_only"
-fault_interface_status = "not_implemented"
-production_hook_policy = "design_review_required"
-last_reviewed = "2026-07-11"
+fault_interface_status = "governed_test_harness_only"
+production_hook_policy = "source_guard_enforced_design_review_required"
+last_reviewed = "2026-07-19"
 
 [spec_gap_reviews.scan_cycle_allocation_policy]
 outcome = "written_contract_present"

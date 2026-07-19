@@ -24,9 +24,9 @@
     "area": { "const": "runtime_safety" },
     "mapping_basis": { "const": "explicit_reviewed_discovery_id_only" },
     "proof_posture": { "const": "association_only" },
-    "fault_interface_status": { "const": "not_implemented" },
-    "production_hook_policy": { "const": "design_review_required" },
-    "last_reviewed": { "const": "2026-07-11" },
+    "fault_interface_status": { "const": "governed_test_harness_only" },
+    "production_hook_policy": { "const": "source_guard_enforced_design_review_required" },
+    "last_reviewed": { "const": "2026-07-19" },
     "spec_gap_reviews": {
       "type": "object",
       "required": ["scan_cycle_allocation_policy", "restart_timebase"],

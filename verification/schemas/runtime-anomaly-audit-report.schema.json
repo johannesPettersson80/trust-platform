@@ -28,7 +28,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "generator": { "const": "runtime-anomaly-audit" },
-    "generator_version": { "const": 2 },
+    "generator_version": { "const": 3 },
     "report_status": { "const": "complete" },
     "input_digest": { "$ref": "#/$defs/digest" },
     "command": {
@@ -137,11 +137,11 @@
         "report_closes_spec_gaps": { "const": false },
         "semantic_oracles_assessed": { "const": false },
         "faults_executed": { "const": false },
-        "fault_interfaces_implemented": { "const": false },
+        "fault_interfaces_implemented": { "const": true },
         "production_fault_hooks_added": { "const": false },
         "p8_002_exhaustive_review_complete": { "const": true },
-        "p8_005_fault_toggle_row_remains_open": { "const": true },
-        "p8_006_production_hook_guard_remains_open": { "const": true },
+        "p8_005_fault_toggle_row_remains_open": { "const": false },
+        "p8_006_production_hook_guard_remains_open": { "const": false },
         "runtime_or_product_behavior_changed": { "const": false },
         "ci_enforcement_changed": { "const": false }
       },

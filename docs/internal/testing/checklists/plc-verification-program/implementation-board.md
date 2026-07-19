@@ -957,12 +957,14 @@ Acceptance:
 - [x] `VERIF-P8-003` Add gap report for untested runtime anomaly classes.
 - [x] `VERIF-P8-004` Classify anomaly classes as PR, nightly, release, or
   hardware_lab.
-- [ ] `VERIF-P8-005` Add mutation/fault toggles only behind explicit test-only
-  interfaces or harness layers. No general governed fault-toggle interface was
-  added by this report-only slice.
-- [ ] `VERIF-P8-006` Do not add production fault hooks without design review.
-  This standing guard stays open because taxonomy policy is not source-level
-  design-review enforcement.
+- [x] `VERIF-P8-005` Add mutation/fault toggles only behind explicit test-only
+  interfaces or harness layers. Every admitted fault stimulus is bound to an
+  exact live Rust test fact and classified as `test_harness` or
+  `external_harness`; ordinary inputs are explicitly not fault toggles.
+- [x] `VERIF-P8-006` Do not add production fault hooks without design review.
+  The metadata gate now rejects production Cargo features and public runtime
+  symbols with fault-hook vocabulary. Adding a production hook requires a
+  reviewed contract and source-guard update in the same change.
 
   The report-only audit at clean source commit
   `bb82eaf9cc3b6a2221e91ed1353bcd9fd88c6aa9` defines the exact 19-class
@@ -992,9 +994,10 @@ Acceptance:
   `4f8ded3df70ca63bfb9b078da7e25440665ca126e4e9dcec0d10851875bd180b`.
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p8-runtime-anomaly-audit.md`.
-  The audit executes no fault, adds no fault interface or production hook,
-  changes no runtime, product, workflow, or CI behavior, creates no proof or
-  coverage, and leaves `VERIF-P8-005` and `VERIF-P8-006` open.
+  The audit executes no fault, adds no production hook, changes no runtime,
+  product, workflow, or CI behavior, and creates no proof or coverage. The
+  existing scanner-bound harness seams are now governed and the production-hook
+  prohibition is source-checked, closing `VERIF-P8-005` and `VERIF-P8-006`.
 
 ## Phase 9 - Fuzz and Malformed Input Program
 

@@ -46,9 +46,9 @@ def fixture_taxonomy() -> dict:
         "area": "runtime_safety",
         "mapping_basis": "explicit_reviewed_discovery_id_only",
         "proof_posture": "association_only",
-        "fault_interface_status": "not_implemented",
-        "production_hook_policy": "design_review_required",
-        "last_reviewed": "2026-07-11",
+        "fault_interface_status": "governed_test_harness_only",
+        "production_hook_policy": "source_guard_enforced_design_review_required",
+        "last_reviewed": "2026-07-19",
         "spec_gap_reviews": {
             "scan_cycle_allocation_policy": {
                 "outcome": "written_contract_present",
@@ -149,6 +149,10 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
         )
         (self.root / "crates/trust-runtime/tests/runtime_safety_fail_closed.rs").write_text(
             "// fixture\n"
+        )
+        (self.root / "Cargo.toml").write_text("[workspace]\n")
+        (self.root / "crates/trust-runtime/Cargo.toml").write_text(
+            '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
         )
         (self.root / "crates/trust-runtime/src/scheduler/tests.rs").write_text("// fixture\n")
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)

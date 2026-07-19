@@ -17,6 +17,7 @@ from .runtime_anomaly_restart_contract import (
     validate_restart_review_shape,
     validate_restart_union_schema,
 )
+from .runtime_anomaly_fault_policy import validate_runtime_anomaly_fault_policy
 from .test_catalog_json_schema import validate_json_schema_instance
 from .test_catalog_validation import check_supported_schema_keywords, is_safe_relative_path
 
@@ -112,8 +113,8 @@ ROOT_CONSTS = {
     "area": "runtime_safety",
     "mapping_basis": "explicit_reviewed_discovery_id_only",
     "proof_posture": "association_only",
-    "fault_interface_status": "not_implemented",
-    "production_hook_policy": "design_review_required",
+    "fault_interface_status": "governed_test_harness_only",
+    "production_hook_policy": "source_guard_enforced_design_review_required",
 }
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 DISCOVERY_ID_RE = re.compile(r"^DISC_[A-F0-9]{20}$")
@@ -147,6 +148,7 @@ def validate_runtime_anomaly_contract(
         return [f"runtime-anomaly taxonomy schema cannot be read: {exc}"]
     failures.extend(validate_runtime_anomaly_schema_contract(schema))
     failures.extend(validate_json_schema_instance(dict(taxonomy), schema))
+    failures.extend(validate_runtime_anomaly_fault_policy(root))
 
     if set(taxonomy) != ROOT_FIELDS:
         failures.append("runtime-anomaly taxonomy root fields drift from contract")

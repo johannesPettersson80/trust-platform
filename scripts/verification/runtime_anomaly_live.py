@@ -35,10 +35,7 @@ REPORT_SCHEMA_PATH = "verification/schemas/runtime-anomaly-audit-report.schema.j
 BOARD_PATH = "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
 POLICY_PATH = "docs/internal/testing/checklists/plc-verification-program/policy.md"
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_OPEN_ROWS = (
-    "VERIF-P8-005",
-    "VERIF-P8-006",
-)
+REQUIRED_OPEN_ROWS: tuple[str, ...] = ()
 REQUIRED_OPEN_POLICY_ROWS = ("VERIF-STOP-014",)
 REPORT_CONTRACT_PATHS = {
     POLICY_PATH,
@@ -53,6 +50,7 @@ REPORT_CONTRACT_PATHS = {
     "scripts/verification/runtime_anomaly_cli.py",
     "scripts/verification/runtime_anomaly_contract.py",
     "scripts/verification/runtime_anomaly_denominator.py",
+    "scripts/verification/runtime_anomaly_fault_policy.py",
     "scripts/verification/runtime_anomaly_live.py",
     "scripts/verification/runtime_anomaly_mapping.py",
     "scripts/verification/runtime_anomaly_report.py",

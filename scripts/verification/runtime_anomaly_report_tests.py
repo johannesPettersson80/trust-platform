@@ -506,7 +506,7 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
             failures,
         )
 
-    def test_exhaustive_mapping_row_is_closed_and_fault_hook_rows_remain_open(self) -> None:
+    def test_exhaustive_mapping_and_fault_hook_rows_are_closed(self) -> None:
         board = (
             ROOT
             / "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
@@ -515,11 +515,8 @@ class RuntimeAnomalyReportTests(unittest.TestCase):
         self.assertNotIn("VERIF-P8-002", REQUIRED_OPEN_ROWS)
         self.assertIn("- [x] `VERIF-P8-002`", board)
         for row_id in ("VERIF-P8-005", "VERIF-P8-006"):
-            self.assertIn(row_id, REQUIRED_OPEN_ROWS)
-            changed = board.replace(f"- [ ] `{row_id}`", f"- [x] `{row_id}`", 1)
-            self.assertTrue(
-                any(row_id in failure for failure in validate_open_board_rows(changed))
-            )
+            self.assertNotIn(row_id, REQUIRED_OPEN_ROWS)
+            self.assertIn(f"- [x] `{row_id}`", board)
 
     def test_source_revision_requires_clean_full_sha(self) -> None:
         self.assertIn(

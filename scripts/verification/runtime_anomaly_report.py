@@ -12,7 +12,7 @@ from .runtime_anomaly_restart_contract import restart_reference_text
 
 
 GENERATOR = "runtime-anomaly-audit"
-GENERATOR_VERSION = 2
+GENERATOR_VERSION = 3
 DEFAULT_JSON_PATH = Path("target/gate-artifacts/verification/runtime-anomaly-audit.json")
 DEFAULT_MARKDOWN_PATH = Path("target/gate-artifacts/verification/runtime-anomaly-audit.md")
 PRIMARY_SUITE_ORDER = ("pr", "nightly", "release", "hardware_lab")
@@ -31,11 +31,11 @@ BOUNDARIES = {
     "report_closes_spec_gaps": False,
     "semantic_oracles_assessed": False,
     "faults_executed": False,
-    "fault_interfaces_implemented": False,
+    "fault_interfaces_implemented": True,
     "production_fault_hooks_added": False,
     "p8_002_exhaustive_review_complete": True,
-    "p8_005_fault_toggle_row_remains_open": True,
-    "p8_006_production_hook_guard_remains_open": True,
+    "p8_005_fault_toggle_row_remains_open": False,
+    "p8_006_production_hook_guard_remains_open": False,
     "runtime_or_product_behavior_changed": False,
     "ci_enforcement_changed": False,
 }
@@ -48,7 +48,8 @@ LIMITATIONS = (
     "Suite tiers are planned routing metadata. This report does not wire commands, change suite enforcement, or claim that a tier ran.",
     "The allocation-policy review reuses an active written contract; allocation-failure and OOM testing remains visible debt outside that claimed scan path.",
     "The restart-timebase review uses one closed schema-v1 state: existing_open_gap requires an actionable gap, while resolved_source binds an active reviewed source and any later closed gap must name that same resolution source; neither state creates test coverage, proof, or gap closure.",
-    "No fault interface or production hook is added. VERIF-P8-005 and VERIF-P8-006 remain open until a governed harness and enforceable design-review boundary exist.",
+    "Fault stimuli are admitted only through exact scanner-bound test_harness or external_harness mappings; ordinary_input records are not fault toggles and no general production toggle is introduced.",
+    "The metadata gate rejects production Cargo features and public runtime symbols with fault-hook vocabulary. Production hooks remain prohibited pending an explicit reviewed design and contract update.",
     "The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation.",
 )
 

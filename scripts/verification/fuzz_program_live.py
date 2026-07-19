@@ -33,8 +33,6 @@ TIMESTAMP_RE = re.compile(
     r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
 )
 REQUIRED_OPEN_ROWS = (
-    "VERIF-P8-005",
-    "VERIF-P8-006",
 )
 REQUIRED_OPEN_POLICY_ROWS = ("VERIF-STOP-014",)
 REPORT_CONTRACT_PATHS = {
