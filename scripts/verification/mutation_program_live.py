@@ -51,9 +51,6 @@ TIMESTAMP_RE = re.compile(
     r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
 )
 REQUIRED_OPEN_ROWS = (
-    "VERIF-P1A-003",
-    "VERIF-P1A-006",
-    "VERIF-P4A-005",
     "VERIF-P8-005",
     "VERIF-P8-006",
 )

@@ -26,11 +26,7 @@ REPORT_SCHEMA_PATH = "verification/schemas/conformance-alignment-report.schema.j
 BOARD_PATH = "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
 POLICY_PATH = "docs/internal/testing/checklists/plc-verification-program/policy.md"
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_OPEN_ROWS = (
-    "VERIF-P1A-003",
-    "VERIF-P1A-006",
-    "VERIF-P4A-005",
-)
+REQUIRED_OPEN_ROWS: tuple[str, ...] = ()
 REPORT_CONTRACT_PATHS = {
     ".gitignore",
     ".github/workflows/ci.yml",

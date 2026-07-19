@@ -261,8 +261,9 @@ is closed rather than inferred from this procedure.
   whose specification is not `specified`, expected-result tests without an
   oracle/gap binding, `spec_gap` coverage cells, and the bytecode pilot's
   explicit spec-gap/test-gap partition. Registered public claims are shown as
-  non-exhaustive context; `VERIF-P4A-005` remains open until broad claim-source
-  inventory exists. Neither report is wired into CI enforcement.
+  registered-metadata context. The separate source audit exhaustively reviews
+  every rendered public block and reports substantive blocks without an
+  invariant/oracle. Neither report is wired into CI enforcement.
 - `verification/gate-inventory.toml` binds every executable root workflow job
   and root `scripts/*gate*` fact to its live discovery identity, command,
   owner, duration, environment, artifact posture, enforcement posture, and a
@@ -294,20 +295,21 @@ is closed rather than inferred from this procedure.
   `python3 scripts/validate_spec_source_audit_report.py` for the Phase 1A
   tracked-document and rendered-public-prose census. The audit follows tracked
   public snippet includes, binds only exact reviewed source/claim metadata,
-  excludes the mutable evidence plane except for two explicitly registered
-  evidence-backed sources, and reports unreviewed documents/prose without
-  inferring authority or proof. Its ignored external-standard path is metadata
-  only and is never read or included in report provenance.
+  excludes the mutable evidence plane except for exact registered
+  evidence-backed sources, and joins identity-and-digest-bound document and
+  public-block review registries without inferring proof. Structural headings
+  and directives are the only nonclaim class; all other unbound prose is
+  reported conservatively. Its ignored external-standard path is metadata only
+  and is never read or included in report provenance.
 - Run `python3 scripts/check_verification_tooling_selftests.py` for the Phase 6A
   known-good/known-bad fixture contract. Metadata fixtures exercise their
   assigned validator phase directly and then the full `Validator.validate()`
   wiring; catalog staleness, case artifacts, proof classification, and planner
   findings stay assigned to their owning production layers. Registered public
   claims require a proof-backed validated invariant or an explicit open gap;
-  this is not semantic review of the exhaustive public-prose denominator still
-  blocked by `VERIF-P4A-005`. Six spec-source fixtures now exercise production
-  discovery and association analysis; unreviewed prose remains a report-only
-  boundary, and `VERIF-P1A-003`/`VERIF-P1A-006` remain open.
+  this does not replace the separate exhaustive public-prose review. Six
+  spec-source fixtures exercise production discovery and association analysis;
+  their unreviewed-prose case remains a deliberate report-only boundary test.
 - Run `python3 scripts/report_conformance_alignment.py` with
   `python3 scripts/validate_conformance_alignment_report.py` for the Phase 7
   report-only conformance audit. It binds the public suite contract, all 16

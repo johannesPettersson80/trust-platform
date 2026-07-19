@@ -56,7 +56,7 @@ LIMITATIONS = (
     "The bytecode pilot denominator is exactly the union of open bytecode_vm spec-gap records and required bytecode_vm test-class slots lacking an effectively runnable, non-ignored catalog row.",
     "The pilot does not infer hardware/tool-blocked or not-applicable entries; those classifications remain zero unless a future reviewed metadata source extends the denominator contract.",
     "A test is oracle-bound only by a non-empty oracle_ref, spec_ref, or spec_gap_ref field; names, paths, expected-result prose, and inferred references never create a binding.",
-    "Public-claim rows in this report are registered-spec-source context only; the separate source audit inventories all rendered public prose, but semantic claim dispositions remain incomplete and VERIF-P4A-005 stays open.",
+    "Public-claim rows in this report are registered-spec-source context only; the separate source audit now exhaustively dispositions every rendered public block and reports all substantive blocks without an invariant or oracle.",
     "verification/evidence-index.toml is live-validated but excluded from the input digest to avoid a report-evidence digest cycle; close-out evidence relationships are recomputed at rest.",
     "Report debt is visibility, not proof, spec-gap closure, test adequacy, or CI enforcement.",
     "Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.",

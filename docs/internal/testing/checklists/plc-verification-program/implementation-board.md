@@ -132,16 +132,16 @@ proof.
 - [x] `VERIF-P1A-002` Add a source scanner/report for likely spec documents:
   `docs/specs/**`, `docs/internal/**`, top-level README, public docs,
   conformance docs, release docs, and protocol/lab notes. The mechanical
-  tracked-file scanner inventories 392 authored/reachable documents and 14,102
+  tracked-file scanner inventories 398 authored/reachable documents and 14,508
   rendered public-prose blocks. The mutable evidence plane is excluded to
   prevent provenance cycles except for the two explicitly registered
   evidence-backed specification sources; tracked public snippet includes are
   still followed recursively.
-- [ ] `VERIF-P1A-003` Classify each source by area, authority level, owner,
-  freshness, public/internal visibility, and oracle usability. The 20
-  registered sources are classified, but 375 discovered documents remain
-  `unreviewed_candidate`; this row stays open until that denominator receives
-  reviewed dispositions.
+- [x] `VERIF-P1A-003` Classify each source by area, authority level, owner,
+  freshness, public/internal visibility, and oracle usability. The
+  identity-and-content-bound review registry now classifies all 398 discovered
+  documents, including multi-area/multi-authority registered documents, with
+  zero unreviewed facts and no path-derived oracle promotion.
 - [x] `VERIF-P1A-004` Emit obvious-missing-spec report by area:
   bytecode format, bytecode validator, VM value semantics, scan-cycle lifecycle,
   stop/safe-state, retain/restart, protocol status/discovery, HMI API/UI,
@@ -157,12 +157,13 @@ proof.
   with no normative source, no invariant, or no proof path.
   Initial report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-08/public-docs-truth-scan-initial.md`.
-- [ ] `VERIF-P1A-006` Emit conflict/staleness report: docs that disagree, specs
+- [x] `VERIF-P1A-006` Emit conflict/staleness report: docs that disagree, specs
   that reference removed behavior, stale checklist rows, duplicate decisions.
-  The source audit now reports explicit conflicts, registered-source review
-  dates, broken local references, and duplicate decision headings, but
-  checklist-row staleness and removed-behavior semantics remain unreviewed;
-  this row stays open.
+  Every document now carries explicit conflict, checklist-staleness, and
+  removed-behavior dispositions. The report retains 121 visible warnings (117
+  broken local references and four equal-authority coverage overlaps), zero
+  overdue registered-source reviews, and zero blocking findings; prose
+  similarity never creates a conflict.
 - [x] `VERIF-P1A-007` For external standards that cannot be committed, record
   local path, retrieval expectation, version/date, and whether absence blocks
   proof. `SPEC_IEC_61131_3_ED3_EXTERNAL_001` records Edition 3, the expected
@@ -683,10 +684,12 @@ Acceptance:
   unbound.
 - [x] `VERIF-P4A-004` Report coverage dimensions marked `spec_gap`. The report
   lists 53 of 61 coverage cells; the other eight remain `gap_open`.
-- [ ] `VERIF-P4A-005` Report public docs claims with no invariant and no oracle.
-  The current output shows four registered public-claim sources as explicitly
-  non-exhaustive context only. It does not scan all public docs, so this row
-  remains open.
+- [x] `VERIF-P4A-005` Report public docs claims with no invariant and no oracle.
+  The exhaustive source audit dispositions all 14,508 rendered public blocks:
+  2,408 headings/directives are structural nonclaims and all 12,100 substantive
+  blocks are conservatively reported without an invariant/oracle (including
+  the four exact registered public claims). Zero blocks remain unreviewed and
+  no lexical content creates a mapping.
 - [x] `VERIF-P4A-006` Add close-out rule: spec gap closes only when owning
   spec/decision/deviation/design doc is updated and mapped tests are written or
   explicitly deferred. The primary validator requires an active oracle-eligible
@@ -829,8 +832,8 @@ Acceptance:
   Durable report:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-11/p6-requirement-oracle-audit.md`.
   It creates no proof, closes no specification gap, enables no enforcement,
-  and leaves the non-exhaustive public-claim and live-test traceability rows
-  open.
+  and leaves registered-metadata public claims non-oracle; the separate source
+  audit now owns the exhaustive public-prose denominator.
 
 Acceptance:
 

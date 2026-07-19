@@ -21,11 +21,7 @@ from .test_catalog_common import input_digest
 REPORT_SCHEMA_PATH = "verification/schemas/requirement-oracle-audit-report.schema.json"
 BOARD_PATH = "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_OPEN_ROWS = (
-    "VERIF-P1A-003",
-    "VERIF-P1A-006",
-    "VERIF-P4A-005",
-)
+REQUIRED_OPEN_ROWS: tuple[str, ...] = ()
 REPORT_CONTRACT_PATHS = {
     "docs/internal/testing/checklists/plc-verification-program/metadata-evidence-traceability.md",
     "scripts/report_requirement_oracle_audit.py",

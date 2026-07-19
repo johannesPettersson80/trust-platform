@@ -262,13 +262,7 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
     def test_incomplete_source_and_traceability_rows_must_remain_open(self) -> None:
         board = (ROOT / BOARD_PATH).read_text()
         self.assertEqual([], validate_open_board_rows(board))
-        self.assertTrue(
-            {
-                "VERIF-P1A-003",
-                "VERIF-P1A-006",
-                "VERIF-P4A-005",
-            }.issubset(REQUIRED_OPEN_ROWS)
-        )
+        self.assertEqual((), REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P1B-012", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P1B-014", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P6-008", REQUIRED_OPEN_ROWS)

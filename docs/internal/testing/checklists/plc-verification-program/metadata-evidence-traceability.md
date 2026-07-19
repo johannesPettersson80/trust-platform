@@ -485,11 +485,10 @@ The report lists missing-oracle invariants in the four risk classes named by
 the governance check fails an overdue live record rather than changing the
 historical report payload. The report scope is committed
 verification metadata, not the separate mechanical source/public-prose audit.
-That audit now supplies the tracked document and rendered-prose denominator and
+That audit now supplies the tracked document and rendered-prose denominator,
 records the non-oracle external IEC locator without binding ignored local
-bytes. Semantic source classification, conflict/checklist review, and
-exhaustive public-prose claim disposition remain open under `VERIF-P1A-003`,
-`VERIF-P1A-006`, and `VERIF-P4A-005`. The Phase 6 v2 report nevertheless has
+bytes, classifies every document, and records exhaustive conflict/checklist,
+removed-behavior, and public-prose dispositions. The Phase 6 v2 report has
 complete registered-metadata denominators: all invariants for the forward
 trace, every registered public-claim source for the reverse trace, and all
 registered spec sources, tests, invariants, claims, and evidence for the orphan
