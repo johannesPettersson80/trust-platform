@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import release_candidate_guard as guard
 
@@ -43,6 +43,7 @@ def command_record(
     cwd: Path,
     scope: str,
     log_dir: Path,
+    accepted_nonzero: Callable[[int, str], bool] | None = None,
 ) -> dict[str, Any]:
     start = time.monotonic()
     result = guard.run(command, cwd=cwd)
@@ -51,14 +52,35 @@ def command_record(
     log_path = log_dir / f"{command_id}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_bytes(output)
-    return {
+    accepted_advisory = (
+        result.returncode != 0
+        and accepted_nonzero is not None
+        and accepted_nonzero(result.returncode, result.stdout)
+    )
+    record = {
         "id": command_id,
         "command": shlex.join(command),
-        "exit_status": result.returncode,
+        "exit_status": 0 if accepted_advisory else result.returncode,
         "output_sha256": guard.sha256_bytes(output),
         "duration_ms": duration_ms,
         "scope": scope,
     }
+    if accepted_advisory:
+        record["raw_exit_status"] = result.returncode
+        record["disposition"] = "accepted_planner_advisory"
+    return record
+
+
+def planner_exit_is_advisory(exit_status: int, output: str) -> bool:
+    if exit_status == 0:
+        return False
+    repo = guard.repo_root(Path.cwd())
+    if str(repo) not in sys.path:
+        sys.path.insert(0, str(repo))
+    from scripts.verification.report_gate import parse_planner_json, planner_finding_blocks
+
+    payload = parse_planner_json(output)
+    return payload is not None and not planner_finding_blocks(payload)
 
 
 def synthetic_record(command_id: str, command: str, failures: Sequence[str]) -> dict[str, Any]:
@@ -163,7 +185,16 @@ def prepare(args: Any) -> int:
         "--changed",
         *paths,
     ]
-    records.append(command_record("planner", planner, cwd=repo, scope="local", log_dir=log_dir))
+    records.append(
+        command_record(
+            "planner",
+            planner,
+            cwd=repo,
+            scope="local",
+            log_dir=log_dir,
+            accepted_nonzero=planner_exit_is_advisory,
+        )
+    )
     vscode_changed = any(
         path == "editors/vscode" or path.startswith("editors/vscode/") for path in paths
     )

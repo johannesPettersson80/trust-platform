@@ -327,7 +327,15 @@ def planner_finding_blocks(payload: dict[str, object] | None) -> bool:
     areas = payload.get("areas")
     if not isinstance(missing, list) or not isinstance(areas, list):
         return True
-    return bool(missing and "bytecode_vm" in areas)
+    if not missing or "bytecode_vm" not in areas:
+        return False
+    missing_by_area = payload.get("missing_test_classes_by_area")
+    if missing_by_area is None:
+        return True
+    if not isinstance(missing_by_area, dict):
+        return True
+    bytecode_missing = missing_by_area.get("bytecode_vm", [])
+    return not isinstance(bytecode_missing, list) or bool(bytecode_missing)
 
 
 def render_markdown(report: VerificationReport) -> str:

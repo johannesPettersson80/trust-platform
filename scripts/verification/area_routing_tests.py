@@ -138,6 +138,49 @@ class AreaRoutingTests(unittest.TestCase):
                 self.assertIn("verification_tooling", result.route_ids)
                 self.assertIn("verification", result.area_ids)
 
+    def test_pre_matrix_release_paths_are_all_explicitly_routed(self) -> None:
+        expected_routes = {
+            ".gitignore": "platform_package",
+            "justfile": "verification_tooling",
+            "docs/IEC_DECISIONS.md": "hir_type_diagnostics",
+            "docs/IEC_DEVIATIONS.md": "hir_type_diagnostics",
+            "docs/internal/architecture/runtime-safety-fail-closed-contract.md":
+                "runtime_scheduler_lifecycle",
+            "docs/internal/testing/checklists/plc-verification-program-checklist.md":
+                "verification_tooling",
+            "docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md":
+                "verification_tooling",
+            "docs/internal/testing/evidence/vscode-ui-ux-acceptance/2026-06-25/runners/cdp_peer_topology_failure.js":
+                "vscode_extension",
+            "docs/specs/02-data-types.md": "hir_type_diagnostics",
+            "docs/specs/06-statements.md": "hir_type_diagnostics",
+            "docs/specs/07-standard-functions.md": "hir_type_diagnostics",
+            "docs/specs/08-standard-function-blocks.md": "hir_type_diagnostics",
+            "docs/specs/09-semantic-rules.md": "hir_type_diagnostics",
+            "docs/specs/10-runtime-semantics.md": "runtime_scheduler_lifecycle",
+            "docs/specs/11-runtime-engine.md": "runtime_scheduler_lifecycle",
+            "docs/specs/12-bytecode.md": "bytecode_encoder_validator_container",
+            "docs/specs/13-debug-adapter.md": "debug_authority_lifecycle",
+            "docs/specs/14-lsp.md": "lsp_protocol_boundary",
+            "docs/specs/19-project-model.md": "trust_dev_cli",
+            "docs/specs/22-developer-workflows.md": "trust_dev_cli",
+            "docs/specs/23-connector-status.md": "ads_opcua_connectors",
+            "docs/specs/24-release-evidence.md": "public_docs_release_version",
+            "docs/specs/README.md": "hir_type_diagnostics",
+            "docs/specs/coverage/standard-functions-coverage.md":
+                "hir_type_diagnostics",
+            "tests/fixtures/mp001/hir-type-checking-test-discovery-baseline.list":
+                "verification_tooling",
+            "tests/fixtures/mp001/lsp-test-discovery-baseline.list":
+                "verification_tooling",
+        }
+
+        for path, route_id in expected_routes.items():
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
+                self.assertFalse(result.unmapped)
+                self.assertIn(route_id, result.route_ids)
+
     def test_unmatched_path_is_default_denied(self) -> None:
         result = classify_changed_path(self.matrix, "unmodeled/new_surface.xyz")
 

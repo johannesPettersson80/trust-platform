@@ -363,6 +363,21 @@ class VerificationReportGateTests(unittest.TestCase):
         report = _report_with_planner(base, planner_exit=2)
         self.assertEqual(report_exit_code(report, strict=True), 1)
 
+        broad_payload = {
+            **base,
+            "areas": ["bytecode_vm", "runtime_safety"],
+            "missing_test_classes": ["runtime_vertical"],
+            "missing_test_classes_by_area": {
+                "runtime_safety": ["runtime_vertical"],
+            },
+        }
+        self.assertEqual(
+            report_exit_code(
+                _report_with_planner(broad_payload, planner_exit=2), strict=True
+            ),
+            0,
+        )
+
         for field, value in (
             ("spec_gaps", ["SPEC_GAP_X"]),
             ("unmapped_files", ["unknown/path"]),

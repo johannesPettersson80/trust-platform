@@ -55,6 +55,7 @@ class PlanResult:
     conditional_suites: list[str]
     spec_gaps: list[str]
     missing_test_classes: list[str]
+    missing_test_classes_by_area: dict[str, list[str]]
     existing_tests: list[str]
     risk_notes: list[str]
     waiver_notes: list[str]
@@ -171,6 +172,7 @@ class Planner:
         spec_gaps: set[str] = set()
         existing_tests: set[str] = set()
         missing_classes: set[str] = set()
+        missing_classes_by_area: dict[str, list[str]] = {}
         risk_notes: set[str] = set()
         waiver_notes: set[str] = set()
         uninventoried: list[str] = []
@@ -228,10 +230,14 @@ class Planner:
             for test in runnable_area_tests:
                 existing_tests.add(test["id"])
             covered_classes = {test.get("test_class") for test in runnable_area_tests}
-            missing_classes.update(area_required_classes - covered_classes)
+            area_missing_classes = sorted(area_required_classes - covered_classes)
+            missing_classes.update(area_missing_classes)
+            if area_missing_classes:
+                missing_classes_by_area[area_id] = area_missing_classes
 
         if spec_gaps:
             missing_classes.clear()
+            missing_classes_by_area.clear()
 
         return PlanResult(
             intent=intent,
@@ -247,6 +253,7 @@ class Planner:
             conditional_suites=sorted(conditional_suites - required_suites),
             spec_gaps=sorted(spec_gaps),
             missing_test_classes=sorted(missing_classes),
+            missing_test_classes_by_area=missing_classes_by_area,
             existing_tests=sorted(existing_tests),
             risk_notes=sorted(risk_notes),
             waiver_notes=sorted(waiver_notes),
@@ -316,6 +323,10 @@ def render_text(result: PlanResult) -> str:
     if result.missing_test_classes:
         lines.extend(["", "Missing test classes:"])
         lines.extend(f"- `{name}`" for name in result.missing_test_classes)
+    if result.missing_test_classes_by_area:
+        lines.extend(["", "Missing test classes by area:"])
+        for area_id, names in result.missing_test_classes_by_area.items():
+            lines.append(f"- `{area_id}`: {', '.join(f'`{name}`' for name in names)}")
     if result.existing_tests:
         lines.extend(["", "Existing mapped tests:"])
         lines.extend(f"- `{test_id}`" for test_id in result.existing_tests)
@@ -358,6 +369,7 @@ def result_to_json(result: PlanResult) -> str:
             "conditional_suites": result.conditional_suites,
             "spec_gaps": result.spec_gaps,
             "missing_test_classes": result.missing_test_classes,
+            "missing_test_classes_by_area": result.missing_test_classes_by_area,
             "existing_tests": result.existing_tests,
             "risk_notes": result.risk_notes,
             "waiver_notes": result.waiver_notes,

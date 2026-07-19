@@ -104,6 +104,27 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         ]
         self.assertFalse(candidate_prepare.stage_passed(records, ("bootstrap", "planner")))
 
+    def test_planner_advisory_exit_is_accepted_without_hiding_raw_status(self) -> None:
+        payload = {
+            "areas": ["bytecode_vm", "runtime_safety"],
+            "missing_test_classes": ["runtime_vertical"],
+            "missing_test_classes_by_area": {
+                "runtime_safety": ["runtime_vertical"],
+            },
+            "spec_gaps": [],
+            "unmapped_files": [],
+            "unknown_areas": [],
+            "uninventoried_areas": [],
+        }
+        accepted = candidate_prepare.planner_exit_is_advisory(2, json.dumps(payload))
+        blocked = candidate_prepare.planner_exit_is_advisory(
+            4,
+            json.dumps({**payload, "unmapped_files": ["unknown/path"]}),
+        )
+
+        self.assertTrue(accepted)
+        self.assertFalse(blocked)
+
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()
         artifact["head"] = "1" * 40
