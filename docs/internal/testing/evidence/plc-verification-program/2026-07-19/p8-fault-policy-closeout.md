@@ -29,18 +29,17 @@ Their JSON SHA-256 digests are:
 | P2A refactor | `e8c4c677278445386e0d8a91c0f704f7eaee7ebfca25c01af4fd3f1670e5f09e` |
 | P4 invariant seeds | `0259b6806aeed2b4ea4eb155108771193147ea4881c5213cf6806e09327c6817` |
 | P4A specification | `a8ef43350a5c80d6c706f018eb99891eb66c1a734d3481aeb38e940161ef8ae1` |
-| P6 requirement/oracle | `ef906d5d587b6dc5febcc5e9eda1c68592ac781ab7199da362010a0de7e8c96c` |
+| P6 requirement/oracle | `aa7ec6b34cd1f404459d95f0735e42105ac33f50d310c8da232e6c84228707b9` |
 | P7 conformance | `4f4119d1ba0db5807533ece3243dc88223d230cbc74f2612e8314536bdd2e601` |
 | P8 runtime anomaly | `f5c2a7b01dbb343d75070fc067c9290227557608201e34ae331ffb851b70aa46` |
 | P9 fuzz | `3dff6b260cfa5909319528c410c170fc29e892b9acfeb63847a45bd1a3771c49` |
 | P10 mutation | `37739205f34664ed8e86a0baf5ca54bd37b70d04e7864fafacd161cc5da11988` |
 | P1A sources | `a77537470a3d40959db3347f7231483c72f296c9d5e01f7b346809732e826cf0` |
 | P12 workflow/UI | `96587f1eb6f7de47657e13e9e6517bd1fbea3c81cd032d820187647527b0cdef` |
-| P13 release | `1554606a54ab73b3ee9077b2cb30d3fe270b2e5b3adac4d8a6dc62da0934bd89` |
+| P13 release | `dcc996f0a9290f29de1b76f43be944b65a31a72c26d4d6b96dcd5bcd9937a9bb` |
 | P11 hardware | `a1e16fb2a463d8ede0249d3734fe358ad8cedb6bbc95d86bbf8c0092135f5b8e` |
 
 The rebind also corrected three cataloged LSP facts whose exhaustive denominator
 rows still carried their prior nonmapping disposition. The resulting partition
 is 258 catalog-mapped plus 3,778 reviewed nonmapping facts, with zero unreviewed
 facts.
-
