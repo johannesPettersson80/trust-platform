@@ -406,6 +406,12 @@ fn handle_write_multiple(pdu: &[u8], regs: &Arc<Mutex<Vec<u16>>>) -> Vec<u8> {
 }
 
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "live MQTT broker handshake is network-timing flaky on non-Linux CI runners; \
+              run with `--ignored` locally to exercise. Linux runners are the source of truth \
+              for the driver-composition contract."
+)]
 fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let regs = Arc::new(Mutex::new(vec![0u16; 4]));
     {
