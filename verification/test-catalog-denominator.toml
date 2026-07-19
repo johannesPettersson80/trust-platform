@@ -31892,6 +31892,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_C9E7F084EF3BF8A3418B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs"
+name = "lsp_delivery_trace_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_LSP_DELIVERY_TRACE_001"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_C9FFA0F5E342456F1897"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/hardware.rs"

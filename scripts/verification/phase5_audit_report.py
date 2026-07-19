@@ -19,13 +19,13 @@ BOUNDARIES = {
     "report_emits_proof": False,
     "report_closes_spec_gaps": False,
     "suite_includes_interpreted": False,
-    "p5_000b_remains_open": True,
+    "p5_000b_remains_open": False,
 }
 LIMITATIONS = (
     "This report maps existing verification surfaces; the generator emits no behavior proof and closes no specification gap.",
     "Suite includes and excludes are displayed but not interpreted; VERIF-P14-000B still owns composition semantics.",
     "The changed-file verification job is enforcing; other report-only and planned inventory rows remain non-enforcing. This audit itself changes no workflow.",
-    "VERIF-P5-000B is live-validated from the board but excluded from the source digest because board/evidence follow-up is mutable.",
+    "VERIF-P5-000B is live-validated as completed after Phase 11; board/evidence follow-up remains excluded from the source digest because it is mutable.",
 )
 
 

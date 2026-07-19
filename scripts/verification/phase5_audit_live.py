@@ -23,7 +23,7 @@ REPORT_SCHEMA_PATH = "verification/schemas/phase5-suite-audit-report.schema.json
 BOARD_PATH = "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
 TAXONOMY_PATH = "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md"
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-P5_000B_OPEN_RE = re.compile(r"^- \[ \] `VERIF-P5-000B`", re.MULTILINE)
+P5_000B_CLOSED_RE = re.compile(r"^- \[x\] `VERIF-P5-000B`", re.MULTILINE)
 REPORT_CONTRACT_PATHS = {
     "scripts/report_phase5_suite_audit.py",
     "scripts/validate_phase5_suite_audit_report.py",
@@ -94,8 +94,8 @@ def build_live_phase5_state(
     taxonomy = (root / TAXONOMY_PATH).read_text()
     failures.extend(validate_area_routing(matrix, taxonomy, canonical_areas=set(AREAS)))
     board = (root / BOARD_PATH).read_text()
-    if not P5_000B_OPEN_RE.search(board):
-        failures.append("VERIF-P5-000B must remain open")
+    if not P5_000B_CLOSED_RE.search(board):
+        failures.append("VERIF-P5-000B must remain completed after Phase 11")
     if failures:
         raise ValueError("; ".join(sorted(set(failures))))
 
@@ -116,7 +116,7 @@ def build_live_phase5_state(
         "report_emits_proof": False,
         "report_closes_spec_gaps": False,
         "suite_includes_interpreted": False,
-        "p5_000b_remains_open": True,
+        "p5_000b_remains_open": False,
     }
     input_paths = tuple(
         sorted(

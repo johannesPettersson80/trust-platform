@@ -58,7 +58,7 @@ class Phase5AuditReportTests(unittest.TestCase):
                 "report_emits_proof": False,
                 "report_closes_spec_gaps": False,
                 "suite_includes_interpreted": False,
-                "p5_000b_remains_open": True,
+                "p5_000b_remains_open": False,
             },
             state.boundaries,
         )

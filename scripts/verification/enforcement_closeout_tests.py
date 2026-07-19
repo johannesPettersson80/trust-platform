@@ -44,6 +44,7 @@ class EnforcementCloseoutTests(unittest.TestCase):
         self.assertIn("- [ ] `VERIF-STOP-014`", policy)
 
     def test_closed_ratchets_are_absent_from_every_live_open_guard(self) -> None:
+        board = BOARD.read_text()
         for rows in (
             CONFORMANCE_OPEN_ROWS,
             FUZZ_OPEN_ROWS,
@@ -53,6 +54,12 @@ class EnforcementCloseoutTests(unittest.TestCase):
         ):
             self.assertNotIn("VERIF-P1B-012", rows)
             self.assertNotIn("VERIF-P1B-014", rows)
+            for row_id in rows:
+                self.assertIn(
+                    f"- [ ] `{row_id}`",
+                    board,
+                    f"stale open-row guard for completed or missing row {row_id}",
+                )
         for rows in (
             FUZZ_OPEN_POLICY_ROWS,
             MUTATION_OPEN_POLICY_ROWS,

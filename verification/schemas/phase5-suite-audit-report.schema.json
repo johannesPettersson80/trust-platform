@@ -160,7 +160,7 @@
           "const": false
         },
         "p5_000b_remains_open": {
-          "const": true
+          "const": false
         }
       },
       "additionalProperties": false
