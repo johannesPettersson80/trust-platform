@@ -1,7 +1,7 @@
 # Phase 8 Fault Policy Closeout
 
-- Clean source commit: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
-- Generated timestamp: `2026-07-19T08:00:00+02:00`
+- Clean source commit: `9d21b8b266378bf7d8c948bf4ca50cfa95430ed5`
+- Generated timestamp: `2026-07-19T09:00:00+02:00`
 - Platform: `trust-builder-linux-x86_64`
 
 ## Contract
@@ -43,3 +43,20 @@ The rebind also corrected three cataloged LSP facts whose exhaustive denominator
 rows still carried their prior nonmapping disposition. The resulting partition
 is 258 catalog-mapped plus 3,778 reviewed nonmapping facts, with zero unreviewed
 facts.
+
+## Final Validation
+
+The committed evidence was validated from the isolated trust-builder worktree
+at `0ef3db947b0b7de55570425cdd69dc81480855a8`:
+
+- all 16 rebound report pairs passed their at-rest validators;
+- the four refreshed census and open-row regression tripwires passed (4/4 in
+  92.145 seconds);
+- `just fmt`, `just clippy`, and `just test-all` all exited zero; and
+- both metadata entry points validated 846 records, with `git diff --check`
+  clean.
+
+The earlier `just verification-veryquick` run had 927 passing tests and four
+stale count fixtures. Those four fixtures were corrected and rerun directly;
+the full 40-minute Python suite was not repeated after that test-only baseline
+refresh.
