@@ -1,22 +1,22 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `18a0984bd0118686fb0cc43e543eaff4628ad496104404aaefab7ec67748eca2`
-Input SHA-256: `sha256:e9b1adaad1af2f1bf92e293aa6838bb3eddaf8c5ac78657b7c0450bd8da99713`
+Generated JSON SHA-256: `a8ef43350a5c80d6c706f018eb99891eb66c1a734d3481aeb38e940161ef8ae1`
+Input SHA-256: `sha256:d0aac09b61cfc72f7196c7a9839579f37547adfb2ce6897fe15a47ef190f876b`
 
 `complete` means the committed metadata was exhaustively analyzed under the
 declared scopes. It does not mean the specifications or tests are complete.
 
 ## Summary
 
-- Invariants: 54
+- Invariants: 55
 - Invariants without specified specs: 0
-- Tests with expected results: 262
+- Tests with expected results: 266
 - Tests without oracle/spec/gap binding: 0
-- Coverage cells: 69
+- Coverage cells: 71
 - Coverage cells marked spec_gap: 0
 - Bytecode pilot gaps: 0
 - Registered public-claim sources: 4
@@ -68,7 +68,7 @@ Basis: `registered_spec_sources_only`. Exhaustive public-doc scan: `no`.
 - The bytecode pilot denominator is exactly the union of open bytecode_vm spec-gap records and required bytecode_vm test-class slots lacking an effectively runnable, non-ignored catalog row.
 - The pilot does not infer hardware/tool-blocked or not-applicable entries; those classifications remain zero unless a future reviewed metadata source extends the denominator contract.
 - A test is oracle-bound only by a non-empty oracle_ref, spec_ref, or spec_gap_ref field; names, paths, expected-result prose, and inferred references never create a binding.
-- Public-claim rows in this report are registered-spec-source context only; the separate source audit inventories all rendered public prose, but semantic claim dispositions remain incomplete and VERIF-P4A-005 stays open.
+- Public-claim rows in this report are registered-spec-source context only; the separate source audit now exhaustively dispositions every rendered public block and reports all substantive blocks without an invariant or oracle.
 - verification/evidence-index.toml is live-validated but excluded from the input digest to avoid a report-evidence digest cycle; close-out evidence relationships are recomputed at rest.
 - Report debt is visibility, not proof, spec-gap closure, test adequacy, or CI enforcement.
 - Platform is historical provenance requiring evidence review; at-rest validation cannot rederive a prior host.

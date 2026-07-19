@@ -1,11 +1,11 @@
 # Specification Source and Public Prose Audit
 
 Generator: `spec-source-audit v1`
-Source revision: `663d62e63823b90e928c7bae4cd2c6095050e838`
-Generated: `2026-07-19T06:45:00+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `b9c72146e6faf50691656cb26dc982adfd15f09157a138b537dfce9671ed006e`
-Input SHA-256: `sha256:f03a0399bc7b640e6b4c51e6653bb4bdc5bbcb1403a7a2101adf0519f12fc36f`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `a77537470a3d40959db3347f7231483c72f296c9d5e01f7b346809732e826cf0`
+Input SHA-256: `sha256:e904616d0a9b6d4e2d6a9bcf1445f030d5c6bd42afbab25bf88d96563ef85ba7`
 
 This report is the mechanical denominator for tracked specification documents,
 required-topic metadata, and public rendered prose. Every fact has an explicit reviewed

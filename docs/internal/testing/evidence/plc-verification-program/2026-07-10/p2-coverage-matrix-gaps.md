@@ -1,11 +1,11 @@
 # Coverage-Matrix Gap Report
 
 Generator: `coverage-matrix-gap-report v1`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `4ed94e4e18424801f498bcc50bb2772139be279e6fe1ad96845a8d767fdd38b7`
-Input SHA-256: `sha256:df358f0e4394e98104d6d86bbf7e77b863986592a76f4ee3f504994a372715b8`
+Generated JSON SHA-256: `a0b10fa20fdba40136a7a981a962c787e72894bf1e287e91b3ba0744690f2b4f`
+Input SHA-256: `sha256:a6137d6f0a0ca4c97cd238bac5f6ed3740ca232f3c032fc065e35025ae5593df`
 
 `complete` means the report was generated and bound successfully. It does not
 mean every required coverage slot is assigned or covered.
@@ -13,13 +13,13 @@ mean every required coverage slot is assigned or covered.
 ## Summary
 
 - Mapped areas: 11
-- Mapped-area invariants: 54
+- Mapped-area invariants: 55
 - Out-of-scope invariants: 0
 - Required family slots: 80
 - Assigned required slots: 17
 - Missing required slots: 63
-- Additional recorded cells: 52
-- Recorded mapped-area cells: 69
+- Additional recorded cells: 54
+- Recorded mapped-area cells: 71
 - Catalog-bound case files: 7
 - Case observations: 38
 - Blocked case observations: 0
@@ -28,7 +28,7 @@ mean every required coverage slot is assigned or covered.
 
 | State | Cells |
 | --- | ---: |
-| `covered` | 63 |
+| `covered` | 65 |
 | `covered_by_fuzz` | 0 |
 | `not_applicable` | 0 |
 | `blocked` | 0 |
@@ -249,6 +249,13 @@ Required families: none
 | Dimension | Assignment | Declared state | Blocked cases | Issues |
 | --- | --- | --- | --- | --- |
 | `persistence_or_recovery` | `additional_recorded` | `covered` | none | none |
+
+### `EDIT_LSP_DELIVERY_001`
+
+| Dimension | Assignment | Declared state | Blocked cases | Issues |
+| --- | --- | --- | --- | --- |
+| `concurrency_or_cancellation` | `additional_recorded` | `covered` | none | none |
+| `resource_limit` | `additional_recorded` | `covered` | none | none |
 
 ### `EDIT_LSP_POS_001`
 

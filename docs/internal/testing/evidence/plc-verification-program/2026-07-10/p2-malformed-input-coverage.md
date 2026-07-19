@@ -1,11 +1,11 @@
 # Malformed-Input Coverage Report
 
 Generator: `malformed-input-coverage v1`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `69768b9e17671ed8607ba0c3dc8500fefc45269505d3b042b6fb7699042b5d1a`
-Input SHA-256: `sha256:bf19d96a92319101a542a620ba498ed1d51536a17c3a540523eceb47f93d7c54`
+Generated JSON SHA-256: `854a908922b3807855e2018d6cbf80a708e60c8fec8c8e995a348100bf967a59`
+Input SHA-256: `sha256:ef3082595681b3a073e8cd487f6d87e1e3d5a381c21fe911a1b3e29e1e173139`
 
 `complete` means the reviewed taxonomy and live joins validated. It does not
 mean every malformed-input class is covered.

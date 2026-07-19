@@ -1,11 +1,11 @@
 # Phase 11 Hardware-Lab Program
 
-- Source commit: `9c9f5186cd1f3ffef3f3e1a512fee06000996a8f`
+- Source commit: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
 - Branch: `plc-verification-program`
-- Timestamp: `2026-07-19T05:30:00+02:00`
-- Platform: `Linux-6.18.33-v8-16k+-aarch64-with-glibc2.41`
-- JSON SHA-256: `40528e4daa58fca269d5431c22678943e80f80492333aaa3acebe3196771eb8a`
-- Input digest: `sha256:20d2f478ded230e39aa659a657790b9298d307f200c09c4c57c1478141e10b09`
+- Timestamp: `2026-07-19T08:00:00+02:00`
+- Platform: `Linux-7.0.0-15-generic-x86_64-with-glibc2.43`
+- JSON SHA-256: `a1e16fb2a463d8ede0249d3734fe358ad8cedb6bbc95d86bbf8c0092135f5b8e`
+- Input digest: `sha256:71657c62dfe2f2ba188a8f17b66140063f27831322d7c30c35b7e388f1a2f0ab`
 - Cases: 6
 - Protocols: 5
 - Strict-harness cases: 5

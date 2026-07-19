@@ -1,11 +1,11 @@
 # Phase 8 Runtime Anomaly Audit
 
-Generator: `runtime-anomaly-audit v2`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Generator: `runtime-anomaly-audit v3`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `3f8dc596687023f67c80b90857fcdeb4dbee73c270898fae2203924a1abcca47`
-Input SHA-256: `sha256:edad3b55548f772ec7ee9896b07b7a05806603cf440010d2c1292f90c35c909c`
+Generated JSON SHA-256: `f5c2a7b01dbb343d75070fc067c9290227557608201e34ae331ffb851b70aa46`
+Input SHA-256: `sha256:2cb3ebda83093b62d59ff6a5516452528e5edd7d51b4489addc56ca0ba70cda1`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
 explicit existing-test associations, open test gaps, and planned suite tiers.
@@ -15,10 +15,10 @@ It executes no fault and creates no proof or invariant coverage.
 
 - Taxonomy classes: 19
 - Explicit mapping records: 135
-- Live Rust scanner facts: 3229
+- Live Rust scanner facts: 3230
 - Denominator mapped facts: 135
-- Denominator reviewed-nonmapping facts: 3094
-- Denominator review SHA-256: `sha256:858eea0b83da01498246deb373cfb43011d09010f31c9c4965b5ee7e709dc6fb`
+- Denominator reviewed-nonmapping facts: 3095
+- Denominator review SHA-256: `sha256:fb1c591dde749ee13823e236b6c4ad21ac2f7f638e522c32064a6a29f03774d7`
 - Effectively runnable direct mappings: 125
 - Ignored or conditional mappings: 1
 - Gap classes: 0
@@ -211,11 +211,11 @@ It executes no fault and creates no proof or invariant coverage.
 - `report_closes_spec_gaps`: `false`
 - `semantic_oracles_assessed`: `false`
 - `faults_executed`: `false`
-- `fault_interfaces_implemented`: `false`
+- `fault_interfaces_implemented`: `true`
 - `production_fault_hooks_added`: `false`
 - `p8_002_exhaustive_review_complete`: `true`
-- `p8_005_fault_toggle_row_remains_open`: `true`
-- `p8_006_production_hook_guard_remains_open`: `true`
+- `p8_005_fault_toggle_row_remains_open`: `false`
+- `p8_006_production_hook_guard_remains_open`: `false`
 - `runtime_or_product_behavior_changed`: `false`
 - `ci_enforcement_changed`: `false`
 
@@ -229,5 +229,6 @@ It executes no fault and creates no proof or invariant coverage.
 - Suite tiers are planned routing metadata. This report does not wire commands, change suite enforcement, or claim that a tier ran.
 - The allocation-policy review reuses an active written contract; allocation-failure and OOM testing remains visible debt outside that claimed scan path.
 - The restart-timebase review uses one closed schema-v1 state: existing_open_gap requires an actionable gap, while resolved_source binds an active reviewed source and any later closed gap must name that same resolution source; neither state creates test coverage, proof, or gap closure.
-- No fault interface or production hook is added. VERIF-P8-005 and VERIF-P8-006 remain open until a governed harness and enforceable design-review boundary exist.
+- Fault stimuli are admitted only through exact scanner-bound test_harness or external_harness mappings; ordinary_input records are not fault toggles and no general production toggle is introduced.
+- The metadata gate rejects production Cargo features and public runtime symbols with fault-hook vocabulary. Production hooks remain prohibited pending an explicit reviewed design and contract update.
 - The implementation board is checked live but excluded from the digest because board and evidence closure follow report generation.

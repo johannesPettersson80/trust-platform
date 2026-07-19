@@ -1,24 +1,24 @@
 # Unmapped Test Debt Report
 
 Generator: `unmapped-test-debt v2`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `c957840805a6278412f1499e8b2d802c98f58eec5dde391b76a868affe117888`
-Input SHA-256: `sha256:f04fd4d183d8cb35873d974a97f7cec011a7719be2e718309807dbfd541a05b2`
+Generated JSON SHA-256: `9f086275204663270511880cbb2534edb78c8df31398b5392571215ebee58d7a`
+Input SHA-256: `sha256:1fd3220d557390ea084d3097de1219610e82b579840c05bcc05c1faff82165f6`
 
 `complete` means the source inventory, exact catalog subtraction, and
 reviewed mapped/nonmapping denominator partition all succeeded.
 
 ## Summary
 
-- Scanner facts: 4035
-- Mapped scanner facts: 254
-- Unmapped scanner facts: 3781
-- Reviewed nonmapping facts: 3781
+- Scanner facts: 4036
+- Mapped scanner facts: 258
+- Unmapped scanner facts: 3778
+- Reviewed nonmapping facts: 3778
 - Unreviewed scanner facts: 0
-- Denominator review SHA-256: `sha256:d997c825ed440ccf7981ea82a5f23a9bd3b06dd5fbfd8027bd189bc7288d4ae0`
-- Generated-test catalog rows: 254
+- Denominator review SHA-256: `sha256:05acf0a92c630f7a68183dd59400d5b26c68f4b210703ad69b3b61e7cd5582a2`
+- Generated-test catalog rows: 258
 - Artifact catalog rows: 8
 - Ignored unmapped facts: 23
 - Conditional unmapped facts: 0
@@ -31,7 +31,7 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `gate_script` | 29 | 0 | 29 |
 | `github_workflow_job` | 30 | 0 | 30 |
 | `rust_integration_test` | 1488 | 163 | 1325 |
-| `rust_unit_test` | 1741 | 67 | 1674 |
+| `rust_unit_test` | 1742 | 71 | 1671 |
 | `structured_text_test` | 257 | 0 | 257 |
 | `vscode_test` | 461 | 3 | 458 |
 
@@ -1860,11 +1860,9 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_818364CD7F8F3F86CD28` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_will_rename_files_updates_pou_name` | `not_ignored` |
 | `DISC_5DC993BF389C806BEE3B` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_05.rs` | `lsp_workspace_diagnostics_supports_unchanged_reports` | `not_ignored` |
 | `DISC_0025E404D4C651A13A89` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_document_highlight_variable` | `not_ignored` |
-| `DISC_75651FE091A83D17F3BA` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_references_partial_result_token_returns_empty_final_response` | `not_ignored` |
 | `DISC_8EFABE39D3C261DB52B2` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_semantic_tokens_delta` | `not_ignored` |
 | `DISC_71F51CF28CFFE96F622C` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_will_rename_files_updates_using_namespace` | `not_ignored` |
 | `DISC_F928598D5BBAA90A687C` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_workspace_symbols` | `not_ignored` |
-| `DISC_6BABF1F5BCB555CD8662` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_workspace_symbols_partial_result_token_returns_empty_final_response` | `not_ignored` |
 | `DISC_ADA1F6D7C200549FC079` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_06.rs` | `lsp_workspace_symbols_respect_root_visibility_and_priority` | `not_ignored` |
 | `DISC_269A71689690AD6442AC` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_07.rs` | `lsp_inlay_hints_parameters` | `not_ignored` |
 | `DISC_F2EEF121410262A63852` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_07.rs` | `lsp_inline_values_constants` | `not_ignored` |
@@ -1874,7 +1872,6 @@ reviewed mapped/nonmapping denominator partition all succeeded.
 | `DISC_630A4F126B28C4B9ED98` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_08.rs` | `lsp_inline_values_runtime_override_accepts_camel_case_client_settings` | `not_ignored` |
 | `DISC_F60A22ECF20B175C891E` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_08.rs` | `lsp_inline_values_runtime_override_accepts_snake_case_client_settings` | `not_ignored` |
 | `DISC_7CD986673360C8A05E91` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_08.rs` | `lsp_inline_values_runtime_override_prefers_camel_case_when_aliases_conflict` | `not_ignored` |
-| `DISC_BD0392DD8ECDFB73D297` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_08.rs` | `lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result` | `not_ignored` |
 | `DISC_FE98D0D47CA087189BA5` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_09.rs` | `lsp_inline_values_merge_instances_with_namespace` | `not_ignored` |
 | `DISC_2372C0F335CE19502006` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_09.rs` | `lsp_tutorial_examples_no_unexpected_diagnostics_snapshot` | `not_ignored` |
 | `DISC_D267DFF2A19BCADE84F0` | `rust_unit_test` | `crates/trust-lsp/src/handlers/tests/core_part_10.rs` | `lsp_siemens_hash_prefixed_example_has_no_unexpected_diagnostics` | `not_ignored` |

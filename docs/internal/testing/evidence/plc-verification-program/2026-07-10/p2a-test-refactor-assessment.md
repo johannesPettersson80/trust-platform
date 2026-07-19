@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `8cf3c5308ef95ea70c6dc99438c65bdf76a0cedb`
-Generated: `2026-07-18T23:30:00+02:00`
+Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
+Generated: `2026-07-19T08:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `1d07f5301a61b7b74004ad26dec266dddd73053a871e4c2fb351ea61a44447e9`
-Input SHA-256: `sha256:6a96f745f0103edf0420792848e830b60217f4ae75a11dca41f6c4ca9afc58d3`
+Generated JSON SHA-256: `e8c4c677278445386e0d8a91c0f704f7eaee7ebfca25c01af4fd3f1670e5f09e`
+Input SHA-256: `sha256:725bd2680398d5c06b02bacb9b257cfe6000c2a786be2c1e61b98b3d109e4fab`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -13,7 +13,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Summary
 
-- Scanner facts: 4035
+- Scanner facts: 4036
 - Fact-bearing files: 725
 - Large-file candidates: 24
 - Reviewed mapping-diversity candidates: 19
@@ -21,16 +21,16 @@ a move, split, rename, fixture merge, or behavior change.
 - Exact fact-file duplicate groups: 0
 - Whitespace-normalized fact-file duplicate groups: 0
 - Exact case-input duplicate groups: 3
-- Same-table structural case-input peer groups: 37
+- Same-table structural case-input peer groups: 38
 - Shared case-file reference groups: 7
 - Malformed-class overlap groups: 8
 - VS Code facts: 461
 - VS Code files: 39
 - VS Code registrations: 39
 - Large registered VS Code files: 5
-- Catalog records: 262
-- Scanner facts with reviewed duration: 254
-- Scanner facts without reviewed duration: 3781
+- Catalog records: 266
+- Scanner facts with reviewed duration: 258
+- Scanner facts without reviewed duration: 3778
 - Catalog rows explicitly classified slow: 3
 - Reviewed proposal decisions: 1
 - Assessment-supported decisions: 1
@@ -50,7 +50,7 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-ide/tests/ide_features/ide_features_part_02.rs` | 500 | 16 | 8 | `reviewed_mapping_diversity` |
 | `crates/trust-lsp/src/handlers/sync.rs` | 206 | 5 | 2 | `reviewed_mapping_diversity` |
 | `crates/trust-lsp/src/handlers/tests/core_part_01.rs` | 498 | 13 | 6 | `reviewed_mapping_diversity` |
-| `crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs` | 435 | 3 | 3 | `reviewed_mapping_diversity` |
+| `crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs` | 464 | 4 | 4 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/src/bin/trust-runtime/ads.rs` | 1562 | 2 | 0 | `large_file` |
 | `crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs` | 1543 | 49 | 0 | `large_file` |
 | `crates/trust-runtime/src/config/tests.rs` | 1154 | 71 | 0 | `large_file` |
@@ -143,7 +143,11 @@ a move, split, rename, fixture merge, or behavior change.
 - `TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001` claims 1 invariants; result `single_invariant`.
+- `TEST_LSP_REFERENCES_PARTIAL_RESULT_DELIVERY_001` claims 1 invariants; result `single_invariant`.
+- `TEST_LSP_WORKSPACE_SYMBOL_PARTIAL_RESULT_DELIVERY_001` claims 1 invariants; result `single_invariant`.
+- `TEST_LSP_INLINE_VALUE_LATENCY_001` claims 1 invariants; result `single_invariant`.
 - `TEST_REVIEW_LSP_BARE_CR_RANGE_FORMAT_001` claims 1 invariants; result `single_invariant`.
+- `TEST_LSP_DELIVERY_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_DOCUMENT_CLOSE_TRACE_001` claims 1 invariants; result `single_invariant`.
 - `TEST_LSP_POSITION_ENCODING_TRACE_001` claims 1 invariants; result `single_invariant`.
@@ -352,7 +356,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Exact fact-file groups: 0
 - Whitespace-normalized fact-file groups: 0
 - Exact case-input groups: 3
-- Same-table structural case-input peer groups: 37
+- Same-table structural case-input peer groups: 38
 - Shared case-file reference groups: 7
 - Explicit malformed-class overlap groups: 8
 - Free-form source-body similarity: `not_assessed`
@@ -379,6 +383,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Structural peers in `verification/cases/editor_safety/DEBUG_PAUSE_001.toml`: `DEBUG_PAUSE_001_BETWEEN_CYCLES_STARTS_NO_SCAN`, `DEBUG_PAUSE_001_STATEMENT_DWELL_EXCLUDED`; shape `sha256:5583f769954ed3a1265abd03edaee615985ac4cd8dffbd88b1b246bdc76df8e2`.
 - Structural peers in `verification/cases/editor_safety/EDIT_DIAG_CANCEL_001.toml`: `EDIT_DIAG_CANCEL_001_CANCELLED_PUSH`, `EDIT_DIAG_CANCEL_001_CANCELLED_TEXT_PULL`, `EDIT_DIAG_CANCEL_001_CANCELLED_WORKSPACE_PULL`, `EDIT_DIAG_CANCEL_001_COMPLETED_PUSH`, `EDIT_DIAG_CANCEL_001_COMPLETED_WORKSPACE_PULL`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/editor_safety/EDIT_DOC_CLOSE_001.toml`: `EDIT_DOC_CLOSE_001_CACHE_INVALIDATION`, `EDIT_DOC_CLOSE_001_DEPENDENT_RECOMPUTE`, `EDIT_DOC_CLOSE_001_PULL_DIAGNOSTIC_RECOMPUTE`, `EDIT_DOC_CLOSE_001_TRACKED_FILE_RELOAD`, `EDIT_DOC_CLOSE_001_UNREADABLE_OR_NON_FILE_REMOVE`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
+- Structural peers in `verification/cases/editor_safety/EDIT_LSP_DELIVERY_001.toml`: `EDIT_LSP_DELIVERY_001_REFERENCES_PARTIAL_RESULT_TOKEN`, `EDIT_LSP_DELIVERY_001_SILENT_RUNTIME_INLINE_VALUE_ENDPOINT`, `EDIT_LSP_DELIVERY_001_WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/editor_safety/EDIT_LSP_POS_001.toml`: `EDIT_LSP_POS_001_BARE_CR_LINE_MAPPING`, `EDIT_LSP_POS_001_CRLF_LINE_MAPPING`, `EDIT_LSP_POS_001_EOF_AFTER_TRAILING_NEWLINE`, `EDIT_LSP_POS_001_HOVER_RANGE_AFTER_EMOJI`, `EDIT_LSP_POS_001_INCREMENTAL_EDIT_AFTER_EMOJI`, `EDIT_LSP_POS_001_INITIALIZE_UTF16`, `EDIT_LSP_POS_001_LF_LINE_MAPPING`, `EDIT_LSP_POS_001_OVERLONG_COLUMN_CLAMP`, `EDIT_LSP_POS_001_SEMANTIC_TOKEN_AFTER_EMOJI`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/editor_safety/EDIT_RENAME_001.toml`: `EDIT_RENAME_001_CASE_INSENSITIVE_SCOPE_COLLISION`, `EDIT_RENAME_001_CASE_ONLY_SELF_RENAME`, `EDIT_RENAME_001_DECLARING_SCOPE_COLLISION`, `EDIT_RENAME_001_INVALID_IDENTIFIER`, `EDIT_RENAME_001_RESERVED_KEYWORD`, `EDIT_RENAME_001_STRUCT_FIELD_COLLISION`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
 - Structural peers in `verification/cases/editor_safety/EDIT_RENAME_002.toml`: `EDIT_RENAME_002_CROSS_FILE_REFERENCE_CAPTURE`, `EDIT_RENAME_002_IMPORTED_ORIGIN_COLLISION`, `EDIT_RENAME_002_PROJECT_POU_COLLISION`, `EDIT_RENAME_002_SAFE_CROSS_FILE_RENAME`; shape `sha256:1be9655b754ca9d884c27bd43460558fb86cb55d995475a1d19b276b5de60ecc`.
@@ -426,7 +431,7 @@ a move, split, rename, fixture merge, or behavior change.
 
 ## Duration Classification
 
-- Scanner facts listed: 4035
+- Scanner facts listed: 4036
 - Artifact catalog rows listed separately: 8
 - Ignored, nightly, hardware, and name signals never infer duration.
 - Scanner `DISC_011E6BF892E89DBE3DBD` / `TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001`: `fast` at `crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs`.
@@ -537,6 +542,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_636CB8D8E6B5C60C383F` / `TEST_CONTROL_AUTHORIZATION_TRACE_001`: `fast` at `crates/trust-runtime/src/control/tests/authorization_trace.rs`.
 - Scanner `DISC_65F388E79760A36195DD` / `TEST_RELEASE_PLATFORM_MATRIX_TRACE_001`: `fast` at `crates/verification-cases/tests/release_evidence_trace_cases.rs`.
 - Scanner `DISC_67101E056EB7BA78433B` / `TEST_CONFORMANCE_ARITHMETIC_OVERFLOW_002`: `fast` at `conformance/cases/arithmetic/cfm_arithmetic_overflow_error_002/manifest.toml`.
+- Scanner `DISC_6BABF1F5BCB555CD8662` / `TEST_LSP_WORKSPACE_SYMBOL_PARTIAL_RESULT_DELIVERY_001`: `fast` at `crates/trust-lsp/src/handlers/tests/core_part_06.rs`.
 - Scanner `DISC_6C10B5D7ACB21ECE8E9D` / `TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001`: `fast` at `crates/trust-runtime/tests/modbus_driver.rs`.
 - Scanner `DISC_6CE89ED4FAD369DC5B1D` / `TEST_VM_BOUNDED_TYPED_FLOAT_REJECTION_001`: `fast` at `crates/trust-runtime/tests/bounded_value_semantics.rs`.
 - Scanner `DISC_6CFBD9D83878AB20470A` / `TEST_CONFORMANCE_REFERENCE_WRITE_001`: `fast` at `conformance/cases/references/cfm_references_ref_to_deref_write_001/manifest.toml`.
@@ -554,6 +560,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_726176040625B846A7AD` / `TEST_RUNTIME_FORCE_DISCONNECT_001`: `fast` at `crates/trust-runtime/tests/force_lifecycle_boundaries.rs`.
 - Scanner `DISC_733F49BAD3FF00FA4D54` / `TEST_RUNTIME_TYPED_INPUT_NONFINITE_001`: `fast` at `crates/trust-runtime/src/io/interface.rs`.
 - Scanner `DISC_753F27F0D2AE25935D15` / `TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001`: `fast` at `crates/trust-runtime/tests/runtime_safety_fail_closed.rs`.
+- Scanner `DISC_75651FE091A83D17F3BA` / `TEST_LSP_REFERENCES_PARTIAL_RESULT_DELIVERY_001`: `fast` at `crates/trust-lsp/src/handlers/tests/core_part_06.rs`.
 - Scanner `DISC_7893EB565C7B46B94B21` / `TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002`: `fast` at `conformance/cases/memory_map/cfm_memory_map_wildcard_unresolved_002/manifest.toml`.
 - Scanner `DISC_7B56C0BED850B5D2ECF1` / `TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001`: `fast` at `crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs`.
 - Scanner `DISC_7D6DBE32ECF7F31D1748` / `TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001`: `fast` at `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs`.
@@ -618,6 +625,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_B7CAF85079658EF2FB1B` / `TEST_EDITOR_RENAME_CASE_ONLY_001`: `fast` at `crates/trust-ide/tests/ide_features/ide_features_part_02.rs`.
 - Scanner `DISC_B7E97F9BAA11D0743107` / `TEST_VM_COERCION_INOUT_NARROWING_REJECTION_001`: `fast` at `crates/trust-runtime/tests/coercion_proof.rs`.
 - Scanner `DISC_BCA3C293212BE0D52B3D` / `TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001`: `fast` at `crates/trust-runtime/tests/phase11_seam_contract.rs`.
+- Scanner `DISC_BD0392DD8ECDFB73D297` / `TEST_LSP_INLINE_VALUE_LATENCY_001`: `fast` at `crates/trust-lsp/src/handlers/tests/core_part_08.rs`.
 - Scanner `DISC_BD8E8257D5B1250AA650` / `TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001`: `fast` at `crates/trust-ide/tests/ide_features/ide_features_part_02.rs`.
 - Scanner `DISC_BDB3FF86B2273DD827C1` / `TEST_BYTECODE_CHECKSUM_REJECTION_001`: `fast` at `crates/trust-runtime/tests/bytecode_container.rs`.
 - Scanner `DISC_BFC7BB3FA588D9EC14C1` / `TEST_RUNTIME_RESTART_STORAGE_TRACE_001`: `fast` at `crates/trust-runtime/src/scheduler/runner_loop/restart_storage_trace_cases.rs`.
@@ -628,6 +636,7 @@ a move, split, rename, fixture merge, or behavior change.
 - Scanner `DISC_C46D4AB834A6E974B42E` / `TEST_RUNTIME_MESH_NONFINITE_INGRESS_001`: `fast` at `crates/trust-runtime/src/host/mesh/tests.rs`.
 - Scanner `DISC_C5A04B37E39DDBE237C5` / `TEST_IEC_TIMER_TRACE_001`: `fast` at `crates/trust-runtime/tests/iec_timer_trace_cases.rs`.
 - Scanner `DISC_C74FB437C18E65242C35` / `TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001`: `fast` at `crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs`.
+- Scanner `DISC_C9E7F084EF3BF8A3418B` / `TEST_LSP_DELIVERY_TRACE_001`: `fast` at `crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs`.
 - Scanner `DISC_CA34AD06400345CAADED` / `TEST_RUNTIME_FORCE_AUTH_CHANGE_001`: `fast` at `crates/trust-runtime/src/control/tests/debug_mutation_lifecycle.rs`.
 - Scanner `DISC_CA616B8FA0E5BB982CB5` / `TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001`: `fast` at `crates/trust-runtime/src/io/ethercat/trace_cases.rs`.
 - Scanner `DISC_CB54CD2528CC85474EAC` / `TEST_CONFORMANCE_ARRAY_MATRIX_001`: `fast` at `conformance/cases/arrays/cfm_arrays_matrix_update_001/manifest.toml`.
