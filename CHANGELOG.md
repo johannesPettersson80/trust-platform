@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- ci/trust-runtime: the live Modbus+MQTT composition test now retries the
+  transient MQTT snapshot-startup race on non-Linux runners instead of treating
+  the expected freshness delay as a product failure.
 - ci/docs: Browser IDE capture automation now requests the editor session
   required to switch the active tutorial project, and code-server captures now
   assert the accepted `truST:` command category, keeping post-merge docs

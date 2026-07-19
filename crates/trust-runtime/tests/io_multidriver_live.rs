@@ -32,6 +32,10 @@ fn broker_lifetime_outlasts_test_phases() {
         MQTT_LIVE_BROKER_LIFETIME,
         MQTT_LIVE_TEST_TIMEOUT,
     );
+    assert!(
+        is_retryable_mqtt_live_error("i/o freshness error 'mqtt input snapshot unavailable'"),
+        "the live harness must retry the MQTT snapshot-startup race"
+    );
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,6 +173,7 @@ fn is_retryable_mqtt_live_error(text: &str) -> bool {
     text.contains("mqtt connect")
         || text.contains("mqtt disconnected")
         || text.contains("mqtt input not fresh")
+        || text.contains("mqtt input snapshot unavailable")
         || text.contains("Connection refused")
         || text.contains("Connection reset by peer")
         || text.contains("Connection closed by peer abruptly")
