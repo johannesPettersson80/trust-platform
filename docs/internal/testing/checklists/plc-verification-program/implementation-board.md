@@ -1719,10 +1719,14 @@ same commit, with the closure evidence linked.
   and case checks, Phase 16 product fence, planner, and uncataloged-test ratchet.
   The board flip, P1B ratchets, STOP-012 closure, live guard removals, and skill
   mandate land in one reviewed implementation checkpoint.
-- [ ] `VERIF-P16-008` Final closure report: zero open spec gaps, zero `S0`
+- [x] `VERIF-P16-008` Final closure report: zero open spec gaps, zero `S0`
   invariants, ledgers closed or explicitly scoped, CI enforcing, board
   complete. Byte-reproducible like the Phase 2-10 reports, reviewed like
-  every slice.
+  every slice. Independent acceptance was received on 2026-07-19 after the
+  final 16-report at-rest validation, metadata validation at 846 records, and
+  the clean trust-builder `fmt`/`clippy`/`test-all` milestone. The completed
+  board is rebound in the final evidence follow-up from this reviewed source
+  commit.
 
 ## Review Acceptance
 
