@@ -1,7 +1,7 @@
 # PLC Verification Program Final Closure
 
-- Reviewed source commit: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
-- Report timestamp: `2026-07-19T19:20:00+02:00`
+- Reviewed source commit: `3803c39a829cf4d771c8b621f48edff5d2500600`
+- Report timestamp: `2026-07-19T20:10:00+02:00`
 - Platform: `trust-builder-linux-x86_64`
 - Independent acceptance: approved 2026-07-19
 
@@ -36,11 +36,14 @@ The repaired implementation checkpoint passed the affected 70-test verification
 surface, metadata validation at 848 records, the full metadata gate, and all 18
 report generators and at-rest validators on `trust-builder`. After indexing the
 report-rebind and ADS/TwinCAT candidate records, metadata validation covers 850
-records. The cataloged read-only TwinCAT device-in-the-loop test also passed
-against the live PLC; its guarded write probe remained deliberately unconfigured
-and unclaimed. The final exact-SHA release-candidate guard owns the one broad
-`just fmt`, `just clippy`, and `just test-all` run before push. `git diff --check`
-was clean before this evidence follow-up.
+records. The release planner also classifies every integration path and records
+area-specific missing test classes, so non-bytecode debt cannot block a
+bytecode-complete integration diff. The cataloged read-only TwinCAT
+device-in-the-loop test passed against the live PLC; its guarded write probe
+remained deliberately unconfigured and unclaimed. The final exact-SHA
+release-candidate guard owns the one broad `just fmt`, `just clippy`, and
+`just test-all` run before push. `git diff --check` was clean before this
+evidence follow-up.
 
 This record closes `VERIF-P16-008`. It does not create new product proof,
 change suite authorization, or alter product/runtime behavior.

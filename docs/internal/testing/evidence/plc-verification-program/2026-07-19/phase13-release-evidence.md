@@ -1,12 +1,12 @@
 # Phase 13 Release Evidence Audit
 
 Generator: `phase13-release-evidence-audit v1`
-Source revision: `f3bbc8d0e264c9d27bdf6355a444f4403494cb18`
+Source revision: `3803c39a829cf4d771c8b621f48edff5d2500600`
 Branch label: `plc-verification-program`
-Generated: `2026-07-19T19:20:00+02:00`
+Generated: `2026-07-19T20:10:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `6842c767c1b2d46de1a419537e97c903a5db8cfec723ee9fcdd9fbbb502e572f`
-Input SHA-256: `sha256:cd2bdb6a663a257130e3a8fd6aa6a2d509c194f6d22167497cf7378f90572e6f`
+Generated JSON SHA-256: `96d288152a7bcf3dc05d197a0d061c1135fa94f5edbfd4afa5ce53b225d0a5b7`
+Input SHA-256: `sha256:b80519b49d1f55ff0d0e1c75504e4e6046215e2dbadd0aa5ef1e871de5d06ec0`
 
 ## Candidate
 
@@ -28,8 +28,8 @@ Input SHA-256: `sha256:cd2bdb6a663a257130e3a8fd6aa6a2d509c194f6d22167497cf7378f9
 
 | Origin | Typed evidence rows | Status | Limitation |
 | --- | ---: | --- | --- |
-| `local` | 119 | `recorded` | Local committed evidence is not remote, CI, hardware, or public proof. |
-| `remote_builder` | 129 | `recorded` | Builder evidence is not CI or public release proof. |
+| `local` | 120 | `recorded` | Local committed evidence is not remote, CI, hardware, or public proof. |
+| `remote_builder` | 130 | `recorded` | Builder evidence is not CI or public release proof. |
 | `ci` | 0 | `missing` | Only typed ci_artifact records count; configured jobs do not. |
 | `hardware_lab` | 0 | `missing` | Only typed lab_report records count; skipped rows do not. |
 | `public_github` | 0 | `snapshot_only` | The checked public snapshot is metadata until a release_object evidence row exists. |
