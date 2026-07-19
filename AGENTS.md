@@ -111,6 +111,26 @@ applicable, and lexer/parser tests or snapshots.
   - confirm Release workflow for that tag is running/completed
   - confirm GitHub "Latest release" reflects that tag
 
+## Release Candidate State Machine (non-negotiable)
+
+- Integration, release, `main`, and version-bump pushes require the exact-SHA artifact produced by
+  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`; the shared
+  pre-push hook must be installed and must not be bypassed.
+- Freeze one clean candidate, run focused and exact strict preflight plus final remote broad gates,
+  then push once. Any code, validator, metadata, base, or instruction-file change invalidates the
+  artifact and returns the work to focused validation.
+- Wait for every required GitHub check before editing a red candidate. Run
+  `release_candidate_guard.py collect-failures --pr <number> --wait`, retain every failed job log,
+  and repair the complete ledger as one batch. Never issue serial corrective pushes from partial
+  CI results.
+- Merge only through `release_candidate_guard.py check-merge --pr <number> --execute`, which must
+  bind the exact validated head and require every check green.
+- When a version changes, continue through main CI, annotated tag, Release workflow, GitHub Latest,
+  asset/checksum verification, and VS Code Marketplace propagation; verify with
+  `release_candidate_guard.py verify-release` before reporting completion.
+- After a second red candidate or two elapsed hours without merge readiness, stop and report the
+  complete blocker ledger. Do not continue an unbounded push/wait/fix loop.
+
 ## Skills To Use
 
 - `trust-test-authoring`

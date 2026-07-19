@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+guard="${repo_root}/.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py"
+
+if [[ ! -f "${guard}" ]]; then
+  echo "Release-candidate push blocked: missing ${guard}" >&2
+  exit 1
+fi
+
+exec python3 "${guard}" --repo "${repo_root}" check-push

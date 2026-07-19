@@ -17,6 +17,43 @@ routing. This skill owns CI parity, gate wiring, artifact evidence, and release 
 
 ## Core workflow
 
+### Release-candidate state machine
+
+For integration, release, `main`, or any branch whose workspace version differs from
+`origin/main`, use the guard bundled with this skill. Do not replace these states with serial
+push-and-repair attempts.
+
+1. Freeze one clean candidate and prepare its exact-SHA artifact:
+
+   ```bash
+   python3 .codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py \
+     prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
+   ```
+
+   Preparation runs bootstrap parity, complete-diff planning, catalog staleness, the focused
+   verification suite, metadata/self-tests, the exact strict PR gate, and final remote broad
+   gates. Any commit, base movement, missing command, or dirty checkout invalidates the artifact.
+2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
+   without a passing artifact for the exact head and current base.
+3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole
+   failure set and all failed job logs:
+
+   ```bash
+   python3 .codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py \
+     collect-failures --pr '<number>' --wait
+   ```
+
+   Do not issue a corrective push from partial CI results. Repair one complete failure ledger,
+   return to focused tests, refreeze, and prepare one new candidate.
+4. Merge only through `check-merge --pr <number> --execute`; it requires the validated exact head,
+   a clean merge state, and every check green.
+5. After main CI and the annotated tag/Release workflow, run `verify-release`; completion requires
+   the final main SHA, annotated tag, successful Release workflow, GitHub Latest, verified assets
+   and checksums, and the expected VS Code Marketplace target versions.
+
+Stop after a second red candidate or two elapsed hours without merge readiness. Report the full
+blocker ledger and obtain a new decision instead of continuing an unbounded push/wait/fix loop.
+
 1. Preflight the repository transport before the first push:
    - Record `git remote get-url origin`, `git remote get-url --push origin`, and
      `gh auth status --hostname github.com` without exposing credentials.
