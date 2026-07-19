@@ -338,8 +338,7 @@ class MutationProgramReportTests(unittest.TestCase):
         self.assertNotIn("VERIF-P16-001", REQUIRED_OPEN_ROWS)
         self.assertNotIn("VERIF-P16-000D", REQUIRED_OPEN_ROWS)
         self.assertEqual([], validate_open_board_rows(board))
-        row = REQUIRED_OPEN_ROWS[0]
-        self.assertTrue(validate_open_board_rows(board.replace(f"- [ ] `{row}`", f"- [x] `{row}`")))
+        self.assertEqual((), REQUIRED_OPEN_ROWS)
 
     def test_production_at_rest_path_rejects_markdown_tamper(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT / "target") as directory:

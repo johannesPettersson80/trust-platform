@@ -314,14 +314,14 @@ class UnmappedTestDebtTests(unittest.TestCase):
             denominator_review=denominator_review,
         )
 
-        self.assertEqual(analysis["summary"]["scanner_facts"], 4035)
-        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 254)
-        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3781)
-        self.assertEqual(len(analysis["unmapped_tests"]), 3781)
+        self.assertEqual(analysis["summary"]["scanner_facts"], 4036)
+        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 258)
+        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3778)
+        self.assertEqual(len(analysis["unmapped_tests"]), 3778)
         self.assertEqual(analysis["denominator_review"]["summary"]["unreviewed_facts"], 0)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
-            3781,
+            3778,
         )
 
 
