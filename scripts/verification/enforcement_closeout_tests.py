@@ -37,7 +37,7 @@ class EnforcementCloseoutTests(unittest.TestCase):
             "VERIF-P16-007",
         ):
             self.assertIn(f"- [x] `{row_id}`", board, row_id)
-        self.assertIn("- [ ] `VERIF-P16-008`", board)
+        self.assertIn("- [x] `VERIF-P16-008`", board)
 
         policy = POLICY.read_text()
         self.assertIn("- [x] `VERIF-STOP-012`", policy)

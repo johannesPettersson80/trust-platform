@@ -255,11 +255,11 @@ def _route_row(order: int, record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _require_denominators(inventory, suites, areas, routes) -> None:
-    expected = (("inventory records", len(inventory), 62), ("suite records", len(suites), 6),
+    expected = (("inventory records", len(inventory), 63), ("suite records", len(suites), 6),
                 ("canonical areas", len(areas), 11), ("taxonomy routes", len(routes), 29))
     failures = [f"Phase 5 requires {want} {label}, found {actual}" for label, actual, want in expected if actual != want]
-    if sum(row["discovery_id"] is not None for row in inventory) != 59:
-        failures.append("Phase 5 requires exactly 59 live scanner-bound inventory records")
+    if sum(row["discovery_id"] is not None for row in inventory) != 60:
+        failures.append("Phase 5 requires exactly 60 live scanner-bound inventory records")
     if failures:
         raise ValueError("; ".join(failures))
 

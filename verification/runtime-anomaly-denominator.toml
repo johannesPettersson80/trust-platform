@@ -4,7 +4,7 @@ title = "Exhaustive Phase 8 runtime-anomaly denominator review"
 area = "runtime_safety"
 denominator_basis = "all_live_production_rust_test_facts"
 review_basis = "explicit_per_discovery_id_no_lexical_inference"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-19"
 
 [reason_definitions]
 outside_runtime_safety_scope = "The reviewed test belongs to a compiler, language-service, developer-tool, or verification-helper boundary and does not exercise a shipped runtime response to one of the nineteen Phase 8 stimuli."
@@ -2011,15 +2011,6 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_1056BAD010C75259B977"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "local_project_symbol_picker_returns_declared_globals"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_105F7B3C79DD106058B2"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/io_control.rs"
@@ -2830,15 +2821,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_182C09A5F08A014AE5A8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_browse_target_accepts_project_target_net_id_alias"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_182D8126262938F884B5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -2963,6 +2945,15 @@ name = "test_assert_equal_requires_comparable_types"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_18D093686A33EDDB602C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_cached_snapshot_returns_tree_and_existing_import_shape"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_191BB5A62DA24F2032D3"
@@ -3775,15 +3766,6 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_207001D0F6692D151B6A"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ethercat_channel_browse_returns_configured_module_channels"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_207B274F176363CF8993"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_02.rs"
@@ -4351,6 +4333,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2498E5CEA00C16BBCD92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "loopback_source_policy_requests_router_assigned_address"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_24CAD09D429B178C5142"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
@@ -4718,6 +4709,15 @@ name = "test_diagnostic_creation"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_284150616BBE9F31EA73"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_host.rs"
+name = "windows_same_computer_targets_use_native_router"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_285B9436CE0FDA88577E"
@@ -5152,6 +5152,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2B41FDEC55495BCFB7F8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ethercat_channel_browse_returns_configured_module_channels"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_2B4D4E8F343185DE898D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/server/tests.rs"
@@ -5240,6 +5249,15 @@ name = "scripted_fault_disturbance_faults_runtime"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_2BE4119752DDB75DDEC3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_windows.rs"
+name = "adapter_uploads_symbols_and_supports_live_reads_and_writes"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_2BF93534ED0410D8DF91"
@@ -6196,6 +6214,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_33434D605346ED72DE26"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs"
+name = "failed_same_host_identity_does_not_block_lan_broadcast_results"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3345DCAA227ED6CDA264"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/control_proxy_policy.rs"
@@ -6380,15 +6407,6 @@ discovery_id = "DISC_34FD22A3D82FA5008A39"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
 name = "mqtt_driver_drop_is_bounded_while_session_is_connecting"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_3508EFC2ACC5AC3036EC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -6997,6 +7015,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3B663EA0EC7035D8E878"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_port_preserves_target_port_and_closes_once"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3B724A69637CEE49AF44"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_expressions.rs"
@@ -7022,6 +7049,15 @@ name = "device_data_time_base_read_matches_twincat_probe"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3B9CD609D5729B6D3232"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "remote_source_policy_uses_automatic_address_without_configuration"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3BACCC2F19E340EBE5E8"
@@ -7130,6 +7166,15 @@ name = "parenthesized_value_used_as_callable_reports_not_callable"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3CA2759D746F3EEF79A5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "generates_interface_when_another_discovered_port_has_no_points_or_snapshot"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3CCB4095994DA45DF913"
@@ -7373,6 +7418,15 @@ name = "trust_runtime_commit_alias_forwards_to_trust_dev_with_deprecation_warnin
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3F38497CFC562E396837"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/interface_targets.rs"
+name = "default_ads_scan_directs_identify_to_usable_local_ipv4_addresses"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3F63F41C5FE5DCAF6DCE"
@@ -7814,6 +7868,15 @@ name = "diagnostics_hover_and_completion_contracts_are_exposed"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_4360F5B89304593DBD74"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/connection.rs"
+name = "direct_loopback_server_falls_back_after_bounded_router_probe"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_436234C5C6BCCA6EC051"
@@ -9143,15 +9206,6 @@ discovery_id = "DISC_4FE6FED1EBCF1EE95C22"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
 name = "parse_ads_import_command"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_4FF3F269F0E7DDA49B63"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "opcua_client_browse_error_response_carries_structured_code"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
@@ -13036,6 +13090,15 @@ mapping_id = "ANOM_MAP_SLOW_DEVICE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7165388A689ED6BA2AB2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_preserves_non_plc_port"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_71687ECB877C3D7C3908"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_01.rs"
@@ -14215,6 +14278,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7BE55F4E2DF06E136B92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs"
+name = "explicit_ads_host_remains_the_directed_target"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_7BF20E25879691FCCF92"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/executor_cases.rs"
@@ -14276,6 +14348,15 @@ name = "test_var_config_undefined_target_error"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_7C91CD41E5AED7F192C0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_host.rs"
+name = "linux_and_windows_remote_targets_preserve_direct_tcp"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_7CA6B0C95F982C23D82F"
@@ -15022,15 +15103,6 @@ path = "crates/trust-runtime/tests/fb_counters_full.rs"
 name = "counter_variants"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_83DB149CB87C57BB2CF0"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
-name = "apply_import_pins_local_net_id_and_generates_single_file"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -16168,6 +16240,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8DD4A8CDF4C291830912"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_net_id_parser_requires_six_nonzero_octets"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_8DEF54CCCE9994233D00"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/plcopen_st_complete_parity.rs"
@@ -16238,6 +16319,15 @@ name = "parameter_copy_in_materializes_declared_numeric_widening"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8E816988A137203B01DE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "local_router_open_port_reply_provides_same_host_identity"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_8ECA38A3365D2E70B739"
@@ -16427,6 +16517,15 @@ name = "test_at_wildcard_requires_var_config"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_90EED1B0B4BF3FA2CB33"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "loopback_identity_prefers_local_router_before_udp"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_910A76F9F6474D5CB95C"
@@ -18076,6 +18175,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A046B6B3CAA11F8F2EDA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_errors_distinguish_port_and_symbol_upload_failures"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_A05C64AD0252D8DF4AD6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -18182,6 +18290,15 @@ name = "export_emits_codesys_global_vars_and_project_structure_metadata"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A119629796976C0D5A32"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_defaults_to_first_plc_runtime_port"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_A11A3EC89B0848F97F9F"
@@ -18571,6 +18688,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A49ABF8D9DD805AA02B1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "opcua_client_browse_error_response_carries_structured_code"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_A4A87F179D0CC41E298C"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/opcua_client_runtime.rs"
@@ -18893,6 +19019,15 @@ name = "generated_v2_provenance_is_accepted"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A6B8D3B90A3831881B0E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "local_project_symbol_picker_returns_declared_globals"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_A6FCBE2677A8C090BECF"
@@ -19262,6 +19397,15 @@ name = "stack_trace_falls_back_to_main_frame_when_no_storage_frames_exist"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_AA57FFF1637B44CFDEE2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_rejects_zero_port"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_AA62E0EB2E654D81531D"
@@ -20470,6 +20614,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B4F1D1A129CA54F0AC8C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs"
+name = "failed_same_host_identity_falls_back_to_directed_interface_identify"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_B516350856505B05A639"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ide/src/completion/tests.rs"
@@ -20972,6 +21125,15 @@ name = "register_execution_buffers_reuse_clears_frames_and_register_files"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BA6B629F668446485FAD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/adapter/tests_part_02.rs"
+name = "ads_globals_are_appended_as_ordinary_live_value_rows"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_BA6FF20972DDD9F2B981"
@@ -21503,6 +21665,15 @@ name = "input_navigation_handles_prompt_and_read_only_mode"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BF30386E1A7E4C00F707"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
+name = "apply_import_preserves_non_plc_port_and_generates_single_file"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_BF353CF9E6FDD42E514D"
@@ -23449,6 +23620,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D0A4FCC61D908C1E0CA3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_symbol_upload_timeout_returns_route_missing_response"
+disposition = "mapped"
+mapping_id = "ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_D0C160614872004F05DB"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
@@ -23537,6 +23717,15 @@ name = "dispatch_continue_then_immediate_pause_emits_pause_stop"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_D1A892E855BFD9DF61F8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_read_and_read_write_validate_returned_lengths"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_D1BD83DB9C4B98C948C7"
@@ -24871,6 +25060,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DECE454F4BD49EE8A5CB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "loopback_identity_prefers_windows_native_router_before_tcp_and_udp"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_DEFB3533B646090DEA05"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
@@ -24950,6 +25148,15 @@ name = "runtime_cloud_preflight_denies_cfg_apply_for_viewer_with_deterministic_a
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_DFE9B3AA8E5C895C51E8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "remote_source_policy_uses_explicit_configured_address"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_DFEE0D11D0FD2F454862"
@@ -25393,6 +25600,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E3202BD621A52E4A3CDB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_E32C0305FC5026249B23"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
@@ -25669,15 +25885,6 @@ path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access
 name = "test_var_retain_not_allowed_in_in_out"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_E5ED2585FE5C4C5F8AC6"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_cached_snapshot_returns_tree_and_existing_import_shape"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
@@ -26410,15 +26617,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_EB106B12C640EB64DFF4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_symbol_upload_timeout_returns_route_missing_response"
-disposition = "mapped"
-mapping_id = "ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_EB3EE710B80C9D3A6147"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/declaration_catalog.rs"
@@ -27022,6 +27220,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EF73873542581E072D6E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs"
+name = "default_ads_scan_also_targets_this_computer"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_EF7733E7E189B8A906F5"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
@@ -27056,6 +27263,15 @@ name = "requested_stop_applies_safe_outputs_before_thread_exits"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EFC0B027AD738E325BFD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "bridge_projects_ads_globals_for_live_values_and_queues_writable_points"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_EFC56644DA203DABB116"
@@ -28435,6 +28651,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_FA8FB492140FBC6EE2F6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_windows.rs"
+name = "adapter_sends_exact_target_net_id_and_logical_port"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_FA958AC0CC2925AC422E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_cloud_architecture.rs"
@@ -28577,6 +28802,15 @@ name = "runtime_cloud_config_reconcile_surfaces_error_state_for_invalid_desired_
 disposition = "mapped"
 mapping_id = "ANOM_MAP_BAD_CONFIG_REVIEW_B3AAE6BE"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FB99FBA21DA142AE1C0C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_route_check_separates_unavailable_port_from_missing_return_route"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_FB9C21E77224EA856F14"

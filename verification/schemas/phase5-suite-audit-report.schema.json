@@ -80,8 +80,8 @@
       "items": {
         "$ref": "#/$defs/inventory_row"
       },
-      "minItems": 62,
-      "maxItems": 62
+      "minItems": 63,
+      "maxItems": 63
     },
     "suites": {
       "type": "array",
@@ -618,10 +618,10 @@
       ],
       "properties": {
         "inventory_records": {
-          "const": 62
+          "const": 63
         },
         "live_inventory_records": {
-          "const": 59
+          "const": 60
         },
         "suite_records": {
           "const": 6

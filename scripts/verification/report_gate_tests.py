@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -121,14 +122,29 @@ class VerificationReportGateTests(unittest.TestCase):
     def test_uncataloged_test_report_uses_catalog_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            known = tests / "known.rs"
+            known.write_text("#[test]\nfn known() {}\n")
+            new_case = tests / "new_case.rs"
+            new_case.write_text("#[test]\nfn new_case() {}\n")
+            from scripts.verification.test_catalog_rust import scan_rust_tests
+
+            known_fact = next(
+                fact for fact in scan_rust_tests(root).facts if fact.name == "known"
+            )
             catalog = root / "verification/test-catalog.toml"
             catalog.parent.mkdir(parents=True)
-            catalog.write_text(
-                """
-[[tests]]
-id = "TEST_KNOWN"
-path = "crates/trust-runtime/tests/known.rs"
-"""
+            catalog.write_text(textwrap.dedent(f"""
+                [[tests]]
+                id = "TEST_KNOWN"
+                path = "crates/trust-runtime/tests/known.rs"
+                discovery_id = "{known_fact.stable_id}"
+            """)
             )
 
             missing = find_uncataloged_tests(
@@ -142,6 +158,94 @@ path = "crates/trust-runtime/tests/known.rs"
             )
 
         self.assertEqual(missing, ["crates/trust-runtime/tests/new_case.rs"])
+
+    def test_reviewed_nonmapping_fact_is_not_reported_as_uncataloged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            source = tests / "reviewed.rs"
+            source.write_text("#[test]\nfn reviewed() {}\n")
+            from scripts.verification.test_catalog_rust import scan_rust_tests
+
+            fact = scan_rust_tests(root).facts[0]
+            verification = root / "verification"
+            verification.mkdir()
+            (verification / "test-catalog.toml").write_text("")
+            (verification / "test-catalog-denominator.toml").write_text(
+                textwrap.dedent(f"""
+                    [[reviews]]
+                    discovery_id = "{fact.stable_id}"
+                    disposition = "reviewed_nonmapping"
+                """)
+            )
+
+            missing = find_uncataloged_tests(
+                root=root,
+                changed_files=["crates/trust-runtime/tests/reviewed.rs"],
+            )
+
+        self.assertEqual(missing, [])
+
+    def test_unreviewed_fact_in_an_already_reviewed_file_is_uncataloged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            source = tests / "mixed.rs"
+            source.write_text(
+                "#[test]\nfn reviewed() {}\n\n#[test]\nfn newly_added() {}\n"
+            )
+            from scripts.verification.test_catalog_rust import scan_rust_tests
+
+            facts = scan_rust_tests(root).facts
+            reviewed = next(fact for fact in facts if fact.name == "reviewed")
+            verification = root / "verification"
+            verification.mkdir()
+            (verification / "test-catalog.toml").write_text(
+                textwrap.dedent(f"""
+                    [[tests]]
+                    id = "TEST_REVIEWED"
+                    path = "crates/trust-runtime/tests/mixed.rs"
+                    discovery_id = "{reviewed.stable_id}"
+                """)
+            )
+
+            missing = find_uncataloged_tests(
+                root=root,
+                changed_files=["crates/trust-runtime/tests/mixed.rs"],
+            )
+
+        self.assertEqual(missing, ["crates/trust-runtime/tests/mixed.rs"])
+
+    def test_test_support_file_without_a_scanner_fact_is_not_uncataloged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            (tests / "support.rs").write_text("pub fn fixture() {}\n")
+            verification = root / "verification"
+            verification.mkdir()
+            (verification / "test-catalog.toml").write_text("")
+
+            missing = find_uncataloged_tests(
+                root=root,
+                changed_files=["crates/trust-runtime/tests/support.rs"],
+            )
+
+        self.assertEqual(missing, [])
 
     def test_build_report_is_report_only_when_gate_and_planner_fail(self) -> None:
         results = [
@@ -157,6 +261,14 @@ path = "crates/trust-runtime/tests/known.rs"
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            (crate / "tests").mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            (crate / "tests/new_case.rs").write_text(
+                "#[test]\nfn new_case() {}\n"
+            )
             catalog = root / "verification/test-catalog.toml"
             catalog.parent.mkdir(parents=True)
             catalog.write_text("")
@@ -308,6 +420,13 @@ path = "crates/trust-runtime/tests/known.rs"
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            vscode = root / "editors/vscode"
+            suite = vscode / "src/test/suite"
+            suite.mkdir(parents=True)
+            (vscode / "package.json").write_text('{"name":"trust-vscode"}\n')
+            (suite / "new.test.ts").write_text(
+                'test("new test", () => {});\n'
+            )
             catalog = root / "verification/test-catalog.toml"
             catalog.parent.mkdir(parents=True)
             catalog.write_text("")

@@ -10,11 +10,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from . import mutation_program_live
 from .metadata_validator.constants import ROOT
 from .mutation_program_cli import report_main
 from .mutation_program_live import (
     REPORT_SCHEMA_PATH,
     REQUIRED_OPEN_ROWS,
+    TOOL_VERSION,
     build_live_mutation_program_state,
     _normalize_focused_result,
     validate_open_board_rows,
@@ -34,7 +36,20 @@ class MutationProgramReportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         (ROOT / "target").mkdir(exist_ok=True)
-        cls.state = build_live_mutation_program_state(ROOT, require_clean_commit=False)
+        command_text = mutation_program_live._command_text
+
+        def command_text_with_pinned_tool(root: Path, command: tuple[str, ...]) -> str:
+            if command == ("cargo", "mutants", "--version"):
+                return TOOL_VERSION
+            return command_text(root, command)
+
+        with mock.patch(
+            "scripts.verification.mutation_program_live._command_text",
+            side_effect=command_text_with_pinned_tool,
+        ):
+            cls.state = build_live_mutation_program_state(
+                ROOT, require_clean_commit=False
+            )
         cls.report = MutationProgramReport.from_state(cls.state)
         cls.payload = cls.report.payload
 

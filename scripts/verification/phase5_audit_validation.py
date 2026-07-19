@@ -99,8 +99,8 @@ def validate_report_payload(payload: Mapping[str, Any], *, expected_state=None) 
     suites = _rows(payload, "suites", SUITE_FIELDS, failures)
     areas = _rows(payload, "areas", AREA_FIELDS, failures)
     routes = _rows(payload, "routes", ROUTE_FIELDS, failures)
-    if len(inventory) != 62 or sum(row.get("discovery_id") is not None for row in inventory) != 59:
-        failures.append("inventory must contain 62 records with exactly 59 scanner-bound rows")
+    if len(inventory) != 63 or sum(row.get("discovery_id") is not None for row in inventory) != 60:
+        failures.append("inventory must contain 63 records with exactly 60 scanner-bound rows")
     if len(suites) != 6:
         failures.append("suites must contain exactly six suite records")
     if len(areas) != 11:

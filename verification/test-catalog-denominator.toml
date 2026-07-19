@@ -3,7 +3,7 @@ id = "TEST_CATALOG_DENOMINATOR_REVIEW_V1"
 title = "Exhaustive reviewed existing-test catalog denominator"
 denominator_basis = "all_live_existing_test_scanner_facts"
 review_basis = "explicit_per_discovery_id_no_semantic_inference"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-19"
 
 [reason_definitions]
 no_reviewed_spec_or_invariant_binding = "The fact remains part of its native test suite, but no hand-reviewed catalog row authorizes a specification, invariant, oracle, or expected-result claim for it. It is retired from mapping debt without being deleted."
@@ -1562,6 +1562,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_09F2D80925EFB3116E0D"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "Live Values feedback keeps a fixed layout slot"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_0A04A77D33D20737366A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/routing.rs"
@@ -2722,16 +2732,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_1056BAD010C75259B977"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "local_project_symbol_picker_returns_declared_globals"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_105F7B3C79DD106058B2"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/io_control.rs"
@@ -2960,6 +2960,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_11B4092DEB0467D319E2"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#97 ADS ports validate and round-trip on discovered candidates"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_11BBA7D6EDF97286D62C"
@@ -3842,16 +3852,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_182C09A5F08A014AE5A8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_browse_target_accepts_project_target_net_id_alias"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_182D8126262938F884B5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -4040,6 +4040,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_18D093686A33EDDB602C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_cached_snapshot_returns_tree_and_existing_import_shape"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_191BB5A62DA24F2032D3"
@@ -5192,16 +5202,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_207001D0F6692D151B6A"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ethercat_channel_browse_returns_configured_module_channels"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_207B274F176363CF8993"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_02.rs"
@@ -5392,6 +5392,16 @@ catalog_test_id = "TEST_RUNTIME_RESTART_TRACE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2159B539591EBC27C133"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "the ADS inspector summarizes devices and ports instead of dumping raw connections"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_215F95264ECBE3E9B8C7"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ladder-schema.test.ts"
@@ -5400,6 +5410,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_216A12555B42242BDEDA"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/live-values-webview-interactions.test.ts"
+name = "a live scan preserves the highlight of the row under the pointer"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_21730EA1408811561B32"
@@ -5822,6 +5842,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_23929C14122A6627D304"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "repeated ADS imports preserve prior snapshots and enable runtime.toml once"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_23B82380B693BF86A795"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/metrics.rs"
@@ -5980,6 +6010,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_2498E5CEA00C16BBCD92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "loopback_source_policy_requests_router_assigned_address"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_24CAD09D429B178C5142"
@@ -6492,6 +6532,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_284150616BBE9F31EA73"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_host.rs"
+name = "windows_same_computer_targets_use_native_router"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_285B9436CE0FDA88577E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs"
@@ -6670,6 +6720,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_291ABC764429CB01A517"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#97 visual browse flow groups discovered ADS ports"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_291B55D1A946A33DD891"
@@ -7082,6 +7142,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2B41FDEC55495BCFB7F8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ethercat_channel_browse_returns_configured_module_channels"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_2B4D4E8F343185DE898D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/server/tests.rs"
@@ -7200,6 +7270,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_2BE4119752DDB75DDEC3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_windows.rs"
+name = "adapter_uploads_symbols_and_supports_live_reads_and_writes"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_2BF93534ED0410D8DF91"
@@ -8352,6 +8432,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_320961680C555E2D3710"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 invalidated discovery requests cannot publish stale cards"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_320B8B612E00D578B1EF"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
@@ -8502,6 +8592,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3303208246CBD78546F8"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/live-values-webview-interactions.test.ts"
+name = "a stale scan cannot visually roll back a pending Boolean force"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3308821824B623536278"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
@@ -8520,6 +8620,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_33434D605346ED72DE26"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs"
+name = "failed_same_host_identity_does_not_block_lan_broadcast_results"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3345DCAA227ED6CDA264"
@@ -8812,16 +8922,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_3508EFC2ACC5AC3036EC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_350FBA48B87CF570391C"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/runtime_cloud_state/links.rs"
@@ -9070,6 +9170,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_37454FCF0410E29A8E8F"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts"
+name = "tag removal regenerates ADS ST from the updated config and all snapshots"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3749626F8574DCE99810"
@@ -9542,6 +9652,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3B663EA0EC7035D8E878"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_port_preserves_target_port_and_closes_once"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3B6E97361EE4CE45A600"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -9580,6 +9700,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3B9CD609D5729B6D3232"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "remote_source_policy_uses_automatic_address_without_configuration"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3BACCC2F19E340EBE5E8"
@@ -9652,6 +9782,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3C46FB0BF3C5EE239599"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "per-port imports keep distinct connection identities and prior snapshots"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3C5AC4C3361E223612AF"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
@@ -9710,6 +9850,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3CA2759D746F3EEF79A5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "generates_interface_when_another_discovered_port_has_no_points_or_snapshot"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_3CBE50E285837AFBCFC4"
@@ -10062,6 +10212,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3F38497CFC562E396837"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/interface_targets.rs"
+name = "default_ads_scan_directs_identify_to_usable_local_ipv4_addresses"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_3F63F41C5FE5DCAF6DCE"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/hmi/tests/live_state.rs"
@@ -10200,6 +10360,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_407219427A6DE73DFED6"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "the configurable scan list has the common ADS ports and normalizes user settings"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_409932463EB8BCB34BAF"
@@ -10630,6 +10800,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_4360F5B89304593DBD74"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/connection.rs"
+name = "direct_loopback_server_falls_back_after_bounded_router_probe"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_436234C5C6BCCA6EC051"
@@ -11260,6 +11440,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_4752221D47BEE1959966"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/live-values-webview-interactions.test.ts"
+name = "a live scan cannot interrupt a Boolean toggle gesture"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_475B227B49C510855C19"
@@ -12492,16 +12682,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_4FF3F269F0E7DDA49B63"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "opcua_client_browse_error_response_carries_structured_code"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_4FF8622E56E0FBAD8281"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion/src/tests.st"
@@ -12640,6 +12820,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_HMI_TYPE_ERROR_CODE_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_50AF502ED8AA1603C13E"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-discovery-results-rendered.test.ts"
+name = "an identity without a verified ADS port never renders a fallback card"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_50B6D52320D460D3E7FB"
@@ -13652,6 +13842,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_566D2EB92CF79947FA8E"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "browse reducer clears request data and retains completed data when the drawer closes"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_568746B1EBFDBEB42545"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs"
@@ -14110,6 +14310,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_597E707E8D10E9E9750B"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "discover model derives honest origins, protocols, and device drafts"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_598D28DD4E4B50652577"
@@ -15922,6 +16132,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_651DF96AAB1C5E92839E"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts"
+name = "checking merges with the existing port connection instead of duplicating it"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_6521C6CB6BC337195C4C"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/function_blocks.rs"
@@ -16402,6 +16622,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_684E466C17CECB3511BA"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 peer connector failures survive the refresh coordinator"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_685679B1DD97897EAF8A"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/library-code-actions.test.ts"
@@ -16700,6 +16930,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_6A1AA8E87EA7164714E4"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 refresh coordinator commits slow active work and coalesces pending refreshes"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_6A3280B7A303857F2177"
@@ -17932,6 +18172,16 @@ catalog_test_id = "TEST_CONFORMANCE_SCHEDULER_INTERVAL_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7165388A689ED6BA2AB2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_preserves_non_plc_port"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_71687ECB877C3D7C3908"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_01.rs"
@@ -18382,6 +18632,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7371E98B6DBC6B4A4411"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "browse responses are scoped to the current webview request"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_738D769BA80FB78B8554"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/homing/src/tests.st"
@@ -18752,6 +19012,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_761FDAA31309953026AF"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 canvas renders cached state before concurrent runtime enrichment"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_762A97917AE0CAFB87B0"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/shell_modules.rs"
@@ -18780,6 +19050,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_764E9627FA2899B7FD4D"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#96 write-enabled offline refusal is complete and actionable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_764F9CB2D8B8839E7425"
@@ -18950,6 +19230,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_77B0F5F5634035579161"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-tag-selection-interactions.test.ts"
+name = "a successful ads.toml add keeps the tag checked and reversible"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_77B320477851DD08182E"
@@ -19432,6 +19722,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7AB72CEBBE3025038B97"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 polling waits for refresh completion before scheduling the next cycle"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_7ABC26CF210FA536482F"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/connectors_status.rs"
@@ -19622,6 +19922,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7BE55F4E2DF06E136B92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs"
+name = "explicit_ads_host_remains_the_directed_target"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_7BF20E25879691FCCF92"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/executor_cases.rs"
@@ -19700,6 +20010,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_7C91CD41E5AED7F192C0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_host.rs"
+name = "linux_and_windows_remote_targets_preserve_direct_tcp"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_7CA6B0C95F982C23D82F"
@@ -20702,16 +21022,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_83DB149CB87C57BB2CF0"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
-name = "apply_import_pins_local_net_id_and_generates_single_file"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_83FE96819CB25F21CA77"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_restart.rs"
@@ -20820,6 +21130,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_84BB421CD2774DE3FDC9"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 runtime I/O events use cached canvas rendering instead of full refresh"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_84C79FF30C860C65E495"
@@ -22282,6 +22602,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8DD4A8CDF4C291830912"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_net_id_parser_requires_six_nonzero_octets"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_8DEF54CCCE9994233D00"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/plcopen_st_complete_parity.rs"
@@ -22360,6 +22690,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_DECLARED_PARAMETER_COPY_IN_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8E816988A137203B01DE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "local_router_open_port_reply_provides_same_host_identity"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_8ECA38A3365D2E70B739"
@@ -22650,6 +22990,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_90EED1B0B4BF3FA2CB33"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "loopback_identity_prefers_local_router_before_udp"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_910A76F9F6474D5CB95C"
@@ -24422,6 +24772,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9C0EEE18FED3001EE950"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "ADS browse opens the default port without an extra confirmation"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_9C0F92513658AAAD135E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/openot_authoring.rs"
@@ -25092,6 +25452,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A046B6B3CAA11F8F2EDA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_errors_distinguish_port_and_symbol_upload_failures"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_A05C64AD0252D8DF4AD6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -25210,6 +25580,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A119629796976C0D5A32"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_defaults_to_first_plc_runtime_port"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_A11A3EC89B0848F97F9F"
@@ -25742,6 +26122,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A49ABF8D9DD805AA02B1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "opcua_client_browse_error_response_carries_structured_code"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_A4A87F179D0CC41E298C"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/opcua_client_runtime.rs"
@@ -26240,6 +26630,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A6B8D3B90A3831881B0E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "local_project_symbol_picker_returns_declared_globals"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_A6FCBE2677A8C090BECF"
@@ -26760,6 +27160,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_AA57FFF1637B44CFDEE2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_browse_target_rejects_zero_port"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_AA62E0EB2E654D81531D"
@@ -27320,6 +27730,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_ADCD4416977EED47A832"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-tag-config-mutation.test.ts"
+name = "unchecking removes the tag from matching ADS connections only"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_ADD0FD8E22F548C5E643"
@@ -28242,6 +28662,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B3662117177505DC5D51"
+discovery_source_kind = "github_workflow_job"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / create-refresh-pr"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "gate_inventory_owned"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_B36669CB797EB957D551"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/tests_part_05.rs"
@@ -28512,6 +28942,16 @@ catalog_test_id = "TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B4F1D1A129CA54F0AC8C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs"
+name = "failed_same_host_identity_falls_back_to_directed_interface_identify"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_B4F300EA5F20BEE609A6"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/visual-runtime-controller.test.ts"
@@ -28570,6 +29010,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B570EF15DC4485366A80"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "ADS discovery and tag browsing expose one purposeful multi-port workflow"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_B58468A80460889AC646"
@@ -28860,6 +29310,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B7A559878593B386FFAD"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#94 symbol selection preserves native pointer and keyboard activation"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_B7BD910E8880AC232E6C"
@@ -29310,6 +29770,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BA6B629F668446485FAD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/adapter/tests_part_02.rs"
+name = "ads_globals_are_appended_as_ordinary_live_value_rows"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_BA6FF20972DDD9F2B981"
@@ -29892,6 +30362,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_BE2E0308E7FFB852DE3B"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 stale or unsupported discovery cards are disabled with a reason"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_BE2E7DD0C24F76859578"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/discovery_probe.rs"
@@ -30020,6 +30500,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BF30386E1A7E4C00F707"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
+name = "apply_import_preserves_non_plc_port_and_generates_single_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_BF353CF9E6FDD42E514D"
@@ -30620,6 +31110,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_C2282C766B8687F11242"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "only ADS services that answer are reported on one discovered device"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_C2284EC7ED5A57B09C4C"
@@ -32752,6 +33252,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D001914CF2367CB850BE"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 refresh requested at drain completion is not stranded"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_D0022CD29DB5061F146B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/opcua/tests.rs"
@@ -32806,6 +33316,16 @@ discovery_id = "DISC_D097DB1E2FB45715FC5E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/verification-cases/src/lib.rs"
 name = "schema_version_mismatch_is_rejected_before_execution"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_D0A4FCC61D908C1E0CA3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_symbol_upload_timeout_returns_route_missing_response"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -32940,6 +33460,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_D1A892E855BFD9DF61F8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-tcads-native/src/lib.rs"
+name = "native_read_and_read_write_validate_returned_lengths"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_D1BD83DB9C4B98C948C7"
@@ -34002,6 +34532,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D9AD072A438F8ECC6B4B"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "endpoint browse keeps OPC UA and groups configured ADS ports"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_D9CD3462B2F8FEF93512"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -34802,6 +35342,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DECE454F4BD49EE8A5CB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs"
+name = "loopback_identity_prefers_windows_native_router_before_tcp_and_udp"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_DED48E736E3A27E72CF8"
 discovery_source_kind = "fuzz_target"
 path = "fuzz/fuzz_targets/bytecode_container.rs"
@@ -34930,6 +35480,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_DFE9B3AA8E5C895C51E8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/source_policy.rs"
+name = "remote_source_policy_uses_explicit_configured_address"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_DFEE0D11D0FD2F454862"
@@ -35502,6 +36062,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E3202BD621A52E4A3CDB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_E32C0305FC5026249B23"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
@@ -35892,16 +36462,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_E5ED2585FE5C4C5F8AC6"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_cached_snapshot_returns_tree_and_existing_import_shape"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_E5EF572EAAC5CCAF56CD"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/io_driver.rs"
@@ -36180,6 +36740,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E75C6A3BE23E12009D50"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "missing discovery capability never contradicts retained session activity"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_E77A750D7CCA1DF62C00"
@@ -36852,16 +37422,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_EB106B12C640EB64DFF4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
-name = "ads_symbol_upload_timeout_returns_route_missing_response"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_EB3EE710B80C9D3A6147"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/declaration_catalog.rs"
@@ -37442,6 +38002,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EE39CE99F0E2479A2D11"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/live-values-webview-interactions.test.ts"
+name = "I/O and ADS rows use the same rendered column positions"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_EE4014B513F4E29CDCC3"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_reliability.rs"
@@ -37662,6 +38232,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EF73873542581E072D6E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/discover/ads_discovery_target.rs"
+name = "default_ads_scan_also_targets_this_computer"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_EF7733E7E189B8A906F5"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
@@ -37720,6 +38300,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EFC0B027AD738E325BFD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "bridge_projects_ads_globals_for_live_values_and_queues_writable_points"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_EFC56644DA203DABB116"
@@ -37940,6 +38530,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_COERCION_RETURN_WIDENING_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F10678B7B205EBD73E1D"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "Boolean drafts survive scans and forced rows keep their value controls"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_F10AD29A2D63DBFAF259"
@@ -38612,6 +39212,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_F5900AB8C47C72ECC321"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-session-model.test.ts"
+name = "non-ADS and local browse plans retain their immediate request behavior"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_F5A9D54CD1CD046BC7B8"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs"
@@ -38720,6 +39330,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F6308A67CF138882AC1A"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/network-canvas-github-issues.test.ts"
+name = "#95 panel visibility recovery refreshes instead of polling a suspended webview"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_F646072A82984A6F257F"
@@ -39532,6 +40152,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_FA8FB492140FBC6EE2F6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_windows.rs"
+name = "adapter_sends_exact_target_net_id_and_logical_port"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_FA958AC0CC2925AC422E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_cloud_architecture.rs"
@@ -39570,6 +40200,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FABB7E69F536B3A915AC"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "ADS globals reuse the existing Live Values write force release actions"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_FABFE69E280524A5BCAC"
@@ -39722,6 +40362,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_FB99FBA21DA142AE1C0C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_route_check_separates_unavailable_port_from_missing_return_route"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
+
+[[reviews]]
 discovery_id = "DISC_FB9C21E77224EA856F14"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/iec_timers.rs"
@@ -39830,6 +40480,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FC1B44B479802ED9CD31"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/ads-multiport-live-values.test.ts"
+name = "one ADS import request keeps selections grouped by responding port"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_FC37E5CDDECDA03F76F4"
@@ -40096,10 +40756,10 @@ discovery_id = "DISC_FE38938F6FB54A1B26E7"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/io_multidriver_live.rs"
 name = "runtime_composes_modbus_and_mqtt_drivers_live"
-ignore_state = "not_ignored"
+ignore_state = "conditional"
 disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+reason_code = "ignored_test_registry_owned"
+last_reviewed = "2026-07-19"
 
 [[reviews]]
 discovery_id = "DISC_FE3CF701DB5C862F2AA8"

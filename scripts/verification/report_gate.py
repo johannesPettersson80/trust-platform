@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Callable
 
 from .focused_test_suite import NON_TEST_SUFFIX_COLLISIONS, TEST_ROOT
-
 from .metadata_validator.constants import ROOT
+from .test_catalog_scanner import scan_repository
 
 
 TEST_PATH_MARKERS = (
@@ -227,8 +227,7 @@ def parse_name_status_z(output: str) -> list[str]:
 
 
 def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]:
-    catalog_paths = load_catalog_paths(root)
-    missing: list[str] = []
+    candidates: set[str] = set()
     for path in changed_files:
         normalized = normalize_changed_file(path)
         relative = Path(normalized)
@@ -238,24 +237,48 @@ def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]
             and relative.name.endswith("_tests.py")
         ):
             continue
-        if is_test_like(normalized) and normalized not in catalog_paths:
-            missing.append(normalized)
-    return sorted(set(missing))
+        if is_test_like(normalized):
+            candidates.add(normalized)
+    if not candidates:
+        return []
+
+    authorized_ids = load_authorized_discovery_ids(root)
+    scan = scan_repository(root)
+    facts_by_path: dict[str, set[str]] = {}
+    for fact in scan.inferred_facts:
+        facts_by_path.setdefault(normalize_changed_file(fact.path), set()).add(
+            fact.stable_id
+        )
+    error_paths = {
+        normalize_changed_file(item.path)
+        for item in scan.diagnostics
+        if item.severity == "error"
+    }
+    return sorted(
+        path
+        for path in candidates
+        if path in error_paths
+        or bool(facts_by_path.get(path, set()) - authorized_ids)
+    )
 
 
-def load_catalog_paths(root: Path) -> set[str]:
-    catalog = root / "verification/test-catalog.toml"
-    if not catalog.exists():
-        return set()
-    data = tomllib.loads(catalog.read_text())
-    records = data.get("tests", [])
-    if not isinstance(records, list):
-        return set()
-    paths: set[str] = set()
-    for record in records:
-        if isinstance(record, dict) and isinstance(record.get("path"), str):
-            paths.add(normalize_changed_file(record["path"]))
-    return paths
+def load_authorized_discovery_ids(root: Path) -> set[str]:
+    authorized: set[str] = set()
+    for path, collection in (
+        (root / "verification/test-catalog.toml", "tests"),
+        (root / "verification/test-catalog-denominator.toml", "reviews"),
+    ):
+        if not path.exists():
+            continue
+        data = tomllib.loads(path.read_text())
+        records = data.get(collection, [])
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            discovery_id = record.get("discovery_id") if isinstance(record, dict) else None
+            if isinstance(discovery_id, str):
+                authorized.add(discovery_id)
+    return authorized
 
 
 def is_test_like(path: str) -> bool:

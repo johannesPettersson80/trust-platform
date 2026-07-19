@@ -607,9 +607,7 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
         assert!(config.artifact_dir.is_absolute());
         assert!(config.artifact_dir.ends_with("target/gate-artifacts/cases"));
-        assert!(config.artifact_dir.starts_with(
-            env!("CARGO_MANIFEST_DIR").trim_end_matches("/crates/verification-cases")
-        ));
+        assert!(config.artifact_dir.starts_with(crate::workspace_root()));
     }
 
     #[test]

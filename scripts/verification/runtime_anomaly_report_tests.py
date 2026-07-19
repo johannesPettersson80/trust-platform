@@ -45,7 +45,7 @@ REPORT_MARKDOWN = (
 EXPECTED_SUMMARY = {
     "taxonomy_classes": 19,
     "mapping_records": 135,
-    "scanner_denominator": 3230,
+    "scanner_denominator": 3256,
     "effectively_runnable_mappings": 125,
     "ignored_or_conditional_mappings": 1,
     "gap_classes": 0,
@@ -63,15 +63,15 @@ EXPECTED_SUMMARY = {
     },
 }
 EXPECTED_DENOMINATOR_SUMMARY = {
-    "scanner_denominator": 3230,
+    "scanner_denominator": 3256,
     "mapped_facts": 135,
-    "reviewed_nonmapping_facts": 3095,
+    "reviewed_nonmapping_facts": 3121,
     "unreviewed_facts": 0,
     "exhaustive": True,
     "by_nonmapping_reason": {
         "outside_runtime_safety_scope": 1305,
-        "no_taxonomy_stimulus_or_response": 720,
-        "supporting_internal_contract_only": 919,
+        "no_taxonomy_stimulus_or_response": 753,
+        "supporting_internal_contract_only": 912,
         "different_safety_domain": 151,
     },
 }

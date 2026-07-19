@@ -34,8 +34,8 @@ class Phase5AuditReportTests(unittest.TestCase):
 
     def test_live_state_has_reviewed_phase5_denominators(self) -> None:
         state = self.state
-        self.assertEqual(62, len(state.inventory_rows))
-        self.assertEqual(59, sum(row["discovery_id"] is not None for row in state.inventory_rows))
+        self.assertEqual(63, len(state.inventory_rows))
+        self.assertEqual(60, sum(row["discovery_id"] is not None for row in state.inventory_rows))
         self.assertEqual(6, len(state.suite_rows))
         self.assertEqual(11, len(state.area_rows))
         self.assertEqual(29, len(state.route_rows))
@@ -68,11 +68,11 @@ class Phase5AuditReportTests(unittest.TestCase):
         payload = report.to_dict()
         self.assertEqual([], validate_report_payload(payload, expected_state=self.state))
         summary = payload["summary"]
-        self.assertEqual(62, summary["inventory_records"])
+        self.assertEqual(63, summary["inventory_records"])
         self.assertEqual(29, summary["taxonomy_routes"])
         self.assertEqual(11, summary["canonical_areas"])
         self.assertEqual(
-            {"assigned": 51, "excluded": 8, "report_only": 1, "supporting": 2},
+            {"assigned": 51, "excluded": 9, "report_only": 1, "supporting": 2},
             keyed_counts(summary["by_disposition"]),
         )
 
