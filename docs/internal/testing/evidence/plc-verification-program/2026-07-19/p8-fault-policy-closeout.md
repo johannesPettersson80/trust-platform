@@ -22,22 +22,22 @@ Their JSON SHA-256 digests are:
 
 | Report | JSON SHA-256 |
 | --- | --- |
-| P2 test class | `7a79848c6667859f5ba02e073fc255667153c2bad8b6d04c4299ef658cf42191` |
-| P2 coverage matrix | `a0b10fa20fdba40136a7a981a962c787e72894bf1e287e91b3ba0744690f2b4f` |
-| P2 malformed input | `854a908922b3807855e2018d6cbf80a708e60c8fec8c8e995a348100bf967a59` |
-| P2 unmapped debt | `9f086275204663270511880cbb2534edb78c8df31398b5392571215ebee58d7a` |
-| P2A refactor | `e8c4c677278445386e0d8a91c0f704f7eaee7ebfca25c01af4fd3f1670e5f09e` |
-| P4 invariant seeds | `0259b6806aeed2b4ea4eb155108771193147ea4881c5213cf6806e09327c6817` |
-| P4A specification | `a8ef43350a5c80d6c706f018eb99891eb66c1a734d3481aeb38e940161ef8ae1` |
-| P6 requirement/oracle | `aa7ec6b34cd1f404459d95f0735e42105ac33f50d310c8da232e6c84228707b9` |
-| P7 conformance | `4f4119d1ba0db5807533ece3243dc88223d230cbc74f2612e8314536bdd2e601` |
-| P8 runtime anomaly | `f5c2a7b01dbb343d75070fc067c9290227557608201e34ae331ffb851b70aa46` |
-| P9 fuzz | `3dff6b260cfa5909319528c410c170fc29e892b9acfeb63847a45bd1a3771c49` |
-| P10 mutation | `37739205f34664ed8e86a0baf5ca54bd37b70d04e7864fafacd161cc5da11988` |
-| P1A sources | `a77537470a3d40959db3347f7231483c72f296c9d5e01f7b346809732e826cf0` |
-| P12 workflow/UI | `96587f1eb6f7de47657e13e9e6517bd1fbea3c81cd032d820187647527b0cdef` |
-| P13 release | `dcc996f0a9290f29de1b76f43be944b65a31a72c26d4d6b96dcd5bcd9937a9bb` |
-| P11 hardware | `a1e16fb2a463d8ede0249d3734fe358ad8cedb6bbc95d86bbf8c0092135f5b8e` |
+| P2 test class | `1ff3158b95620e0abd335c3f1eb294a214c437ead8ac004c719dcb4717f52812` |
+| P2 coverage matrix | `a84154bb4c4d923e62bb3c7d2c4ff540a8326f8baf9dbb39100143973f2b62b5` |
+| P2 malformed input | `0dfaa0d22c1297db8d42409e84cf49cbb8499ecc0e5edf1b6f898789439dc4bb` |
+| P2 unmapped debt | `d2485c556de51ce07fb0cd3c003653de77b01453459fd29a5273928b74cca9b7` |
+| P2A refactor | `ba111a9f2a20b4d84a9022cd0cf832014aefa79138c6327981515df2f5c45927` |
+| P4 invariant seeds | `5dcbd18692580da713803dc1f1e9677a26ef7acc859bfc3f17a3549a6af86ffa` |
+| P4A specification | `8e8e63a0275ae4cb78e045c36b989e29364b4aec51d21369ced48d1bf18d2a3f` |
+| P6 requirement/oracle | `1bc1b0e17ca6011184091693fa0f24fec5c2e7215099c7de92f41ea9ef3e603a` |
+| P7 conformance | `1cd792016c0a82a757fbceca6865750da6c155e3d9387494ab35f5c38817fe7d` |
+| P8 runtime anomaly | `42f09045d9fd24ac7d95979c516357d44684ae8fc6986263652bed9bc7a016bf` |
+| P9 fuzz | `ba4791117429b457f1dd5e456ea32546d75c932c93184bd29d449e8168896a56` |
+| P10 mutation | `6841eb31e6e12d8009cb25a614944c9e93656889bfb75a4384fa0c815b026b78` |
+| P1A sources | `122e674a257277630783075c375398f4f029a0f7bab9e195bbaf27466726f6c3` |
+| P12 workflow/UI | `3befe5c71cb5755503b786a2e3c73bef7e91d969e6a07d973aa489e48ae07c1c` |
+| P13 release | `7190db4a7aaf7b9daef4f6dbd4b90c30b1b677d7962ac127f6a3693482ac22a2` |
+| P11 hardware | `b0c54524e76faf733612b16634936ca46c368d70f01837a812d2eeba99b53e8f` |
 
 The rebind also corrected three cataloged LSP facts whose exhaustive denominator
 rows still carried their prior nonmapping disposition. The resulting partition

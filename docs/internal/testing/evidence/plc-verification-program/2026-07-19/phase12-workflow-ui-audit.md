@@ -1,11 +1,11 @@
 # Phase 12 Workflow and UI Journey Audit
 
 Generator: `phase12-workflow-ui-audit v1`
-Source revision: `22fab65fe3ab7b31bb610d88daa5561f2642cee7`
-Generated: `2026-07-19T08:00:00+02:00`
+Source revision: `9d21b8b266378bf7d8c948bf4ca50cfa95430ed5`
+Generated: `2026-07-19T09:00:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `96587f1eb6f7de47657e13e9e6517bd1fbea3c81cd032d820187647527b0cdef`
-Input SHA-256: `sha256:dbfd6460883a85d36b10aa98c4eca2e0a4c731996e9b9721cc5a8a2cc4e3af41`
+Generated JSON SHA-256: `3befe5c71cb5755503b786a2e3c73bef7e91d969e6a07d973aa489e48ae07c1c`
+Input SHA-256: `sha256:8c4f7676819795ad8188ebbaa3744caa80214f9a73e4c98c1ed75d49a2fb284a`
 
 This report inventories workflow specifications and UI journey evidence without
 converting backend tests or provisional screenshots into UI acceptance.
