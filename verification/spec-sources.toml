@@ -200,7 +200,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/public/connect/external-systems/ads.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-19"
 covers = ["public_workflow:WORKFLOW_CANDIDATE_F16D362FF6234B98DD156CA4"]
 known_limitations = ["This source specifies the public workflow but does not by itself prove that a user completed the journey."]
 conflicts_with = []
@@ -211,6 +211,7 @@ visible_steps = [
   "Select the online runtime in the VS Code Runtime pane.",
   "Open Structured Text: Add Beckhoff ADS Device or open the runtime-host setup page at /setup/ads.",
   "Discover the TwinCAT target. Broadcast discovery is easiest when UDP 48899 is allowed; otherwise enter the TwinCAT IP and AMS Net ID manually.",
+  "In Devices & Connections, choose the logical ADS port before browsing symbols. Port 851 is the default PLC runtime; other examples include 301 for an I/O server, 501 for NC/Motion, and 852 or later for additional PLC runtimes. Each port is a separate ADS server with its own symbol namespace; this setting does not search all ports.",
   "Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host. The wizard can generate the exact PowerShell, XML, or manual route values.",
   "Run the ADS Doctor from the runtime host.",
   "Import TwinCAT symbols into ads.toml, a cached symbol snapshot, and the single generated ST file src/generated/ads_generated.st.",

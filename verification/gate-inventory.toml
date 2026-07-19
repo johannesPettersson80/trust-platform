@@ -1078,6 +1078,28 @@ rationale = "Capture refresh automation does not establish accepted UI journey p
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_DOCS_CAPTURES_CREATE_REFRESH_PR"
+discovery_id = "DISC_B3662117177505DC5D51"
+source_kind = "github_workflow_job"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / create-refresh-pr"
+command = "workflow job .github/workflows/docs-captures.yml#create-refresh-pr"
+variant = "capture refresh branch and pull-request publication"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Opening an automated capture-refresh pull request is a publishing action, not verification evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_HMI_LONG_SOAK"
 discovery_id = "DISC_8A5048EA5B2E3D3F24AF"
 source_kind = "github_workflow_job"
