@@ -13,6 +13,14 @@ from typing import Any, Callable, Sequence
 import release_candidate_guard as guard
 
 
+def remote_vscode_command() -> str:
+    return (
+        "cd editors/vscode && npm run lint && npm run compile && "
+        "TRUST_UI_TEST_BROWSER=/usr/bin/google-chrome "
+        'xvfb-run -a -s "-screen 0 1920x1080x24" npm test'
+    )
+
+
 def tree_manifest(root: Path) -> dict[str, str]:
     files = [root / "AGENTS.md"]
     skills = root / ".codex" / "skills"
@@ -273,9 +281,7 @@ def prepare(args: Any) -> int:
     )
     remote_commands = [("remote_exact_head", remote_head_check)]
     if vscode_changed:
-        remote_commands.append(
-            ("remote_vscode", "cd editors/vscode && npm run lint && npm run compile && npm test")
-        )
+        remote_commands.append(("remote_vscode", remote_vscode_command()))
     remote_commands.extend(
         [
             ("remote_fmt", "just fmt"),

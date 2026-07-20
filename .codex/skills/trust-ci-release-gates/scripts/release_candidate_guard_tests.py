@@ -135,6 +135,14 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
 
         self.assertEqual(command[-2:], ["--format", "json"])
 
+    def test_remote_vscode_command_runs_rendered_tests_headlessly(self) -> None:
+        self.assertEqual(
+            candidate_prepare.remote_vscode_command(),
+            "cd editors/vscode && npm run lint && npm run compile && "
+            "TRUST_UI_TEST_BROWSER=/usr/bin/google-chrome "
+            'xvfb-run -a -s "-screen 0 1920x1080x24" npm test',
+        )
+
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()
         artifact["head"] = "1" * 40
