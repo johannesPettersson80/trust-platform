@@ -32,6 +32,23 @@ class ReleaseClaimContractTests(unittest.TestCase):
         )
         self.assertEqual(audit_dependency_policy()["vscode_vulnerabilities"], 0)
 
+    @patch("scripts.release_claim_contract.sys.platform", "win32")
+    @patch("scripts.release_claim_contract.validate_file", return_value=[object()] * 7)
+    @patch("scripts.release_claim_contract.subprocess.run")
+    def test_dependency_policy_uses_windows_npm_launcher(
+        self, run_mock, _validate_mock
+    ) -> None:
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=["npm.cmd", "audit"],
+            returncode=0,
+            stdout=json.dumps({"metadata": {"vulnerabilities": {"total": 0}}}),
+            stderr="",
+        )
+
+        audit_dependency_policy()
+
+        self.assertEqual(run_mock.call_args.args[0][0], "npm.cmd")
+
     @patch("scripts.release_claim_contract.validate_file", return_value=[object()] * 7)
     @patch("scripts.release_claim_contract.subprocess.run")
     def test_dependency_policy_rejects_a_nonzero_vscode_audit(

@@ -40,6 +40,10 @@ def _require(text: str, fragments: list[str], label: str) -> None:
         raise ReleaseEvidenceError(f"{label} missing reviewed fragments: {missing}")
 
 
+def _npm_program() -> str:
+    return "npm.cmd" if sys.platform == "win32" else "npm"
+
+
 def audit_platform_matrix() -> dict[str, Any]:
     release = _text(".github/workflows/release.yml")
     ci = _text(".github/workflows/ci.yml")
@@ -217,7 +221,7 @@ def audit_dependency_policy() -> dict[str, Any]:
         "VS Code dependency audit wiring",
     )
     audit = subprocess.run(
-        ["npm", "audit", "--json", "--audit-level=low"],
+        [_npm_program(), "audit", "--json", "--audit-level=low"],
         cwd=ROOT / "editors/vscode",
         check=False,
         capture_output=True,
