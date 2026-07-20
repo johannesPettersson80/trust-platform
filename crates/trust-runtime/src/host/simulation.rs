@@ -476,6 +476,9 @@ impl CouplingSection {
                 format!("coupling target must be %I*, got {}", self.target).into(),
             ));
         }
+        if let Some(threshold) = self.threshold {
+            validate_finite("couplings.threshold", threshold)?;
+        }
         if self.threshold.is_none() && (self.on_true.is_some() || self.on_false.is_some()) {
             return Err(RuntimeError::InvalidConfig(
                 "coupling on_true/on_false require threshold".into(),

@@ -1,0 +1,89 @@
+schema_version = 1
+id = "PROTO_DISCOVERY_TRUTH_001"
+title = "Protocol discovery labels do not overclaim"
+area = "protocols"
+risk = "false_status"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-08"
+claim = "Discovery results must label protocol handshakes, likely devices, and mere port reachability without collapsing them into one truthful state."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
+tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+gates = ["pr", "hardware_lab"]
+evidence_refs = [
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate", "physical_device_interop_evidence"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "MODBUS_DEVICE_ID_CONFIRMED" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid FC43/14 response confirms Modbus."
+
+[[behavior]]
+partition = { equals = "MODBUS_SAFE_READ_CONFIRMED" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An explicitly configured safe FC03 read confirms Modbus when device identification is unavailable."
+
+[[behavior]]
+partition = { equals = "MODBUS_TCP_ONLY" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "A TCP listener without a valid Modbus exchange remains port-reachable only."
+
+[[behavior]]
+partition = { equals = "MQTT_ACCEPTED_CONNACK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An accepted CONNACK confirms MQTT and the clean discovery session is disconnected immediately."
+
+[[behavior]]
+partition = { equals = "MQTT_AUTH_REJECTED" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "An authentication-rejected CONNACK is likely MQTT with auth_required, not a confirmed accepted session, and is disconnected immediately."
+
+[[behavior]]
+partition = { equals = "MQTT_GENERIC_REJECTED" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "A valid rejected CONNACK is likely MQTT but does not confirm an accepted broker session."
+
+[[behavior]]
+partition = { equals = "MQTT_TCP_ONLY" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "A TCP listener without CONNACK remains port-reachable only."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "The current-contract lock comparison covers reviewed Modbus and MQTT confidence boundaries; a broad gate and physical-device interoperability evidence remain open."

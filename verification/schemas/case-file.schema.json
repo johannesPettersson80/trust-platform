@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/case-file.schema.json",
+  "title": "truST verification case file",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "invariant",
+    "source_digest",
+    "last_reviewed",
+    "case"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "type": "string", "minLength": 1 },
+    "owner": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "invariant": { "type": "string", "minLength": 1 },
+    "case_provenance_kind": {
+      "enum": [
+        "generated_decision_table_v1",
+        "hand_authored_state_machine_v1"
+      ]
+    },
+    "generator": {
+      "enum": ["gen_cases.py v1", "gen_cases_v2.py v1"]
+    },
+    "generator_digest": { "$ref": "#/$defs/digest" },
+    "source_digest": { "$ref": "#/$defs/digest" },
+    "trace_definition_digest": { "$ref": "#/$defs/digest" },
+    "last_reviewed": { "type": "string", "minLength": 1 },
+    "case": { "type": "array", "minItems": 1 }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "inputMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {}
+    },
+    "expectMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {}
+    },
+    "traceValueMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {}
+    },
+    "traceStep": {
+      "type": "object",
+      "required": ["sequence", "stimulus", "expected", "oracle_ref"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 0 },
+        "stimulus": { "$ref": "#/$defs/traceValueMap" },
+        "expected": { "$ref": "#/$defs/traceValueMap" },
+        "oracle_ref": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "generatedBlockedCase": {
+      "type": "object",
+      "required": ["id", "family", "input", "state", "spec_gap_ref"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "input": { "$ref": "#/$defs/inputMap" },
+        "state": { "const": "blocked" },
+        "spec_gap_ref": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "generatedRunnableCase": {
+      "type": "object",
+      "required": ["id", "family", "input", "expect"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "input": { "$ref": "#/$defs/inputMap" },
+        "expect": { "$ref": "#/$defs/expectMap" }
+      },
+      "additionalProperties": false
+    },
+    "handAuthoredBlockedCase": {
+      "$ref": "#/$defs/generatedBlockedCase"
+    },
+    "handAuthoredRunnableCase": {
+      "type": "object",
+      "required": ["id", "family", "input", "expect", "trace"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "input": { "$ref": "#/$defs/inputMap" },
+        "expect": { "$ref": "#/$defs/expectMap" },
+        "trace": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/traceStep" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["generator", "generator_digest"],
+      "properties": {
+        "case_provenance_kind": { "const": "generated_decision_table_v1" },
+        "case": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/generatedBlockedCase" },
+              { "$ref": "#/$defs/generatedRunnableCase" }
+            ]
+          }
+        }
+      },
+      "not": { "required": ["trace_definition_digest"] }
+    },
+    {
+      "required": ["case_provenance_kind", "trace_definition_digest"],
+      "properties": {
+        "case_provenance_kind": { "const": "hand_authored_state_machine_v1" },
+        "case": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/handAuthoredBlockedCase" },
+              { "$ref": "#/$defs/handAuthoredRunnableCase" }
+            ]
+          }
+        }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["generator"] },
+          { "required": ["generator_digest"] }
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

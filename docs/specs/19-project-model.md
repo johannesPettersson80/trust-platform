@@ -36,6 +36,15 @@ project/
 - `simulation.toml` defines deterministic plant simulation behavior
 - `hmi/` defines operator-facing presentation
 
+### 3.1 Simulation coupling thresholds
+
+For file-backed `simulation.toml`, each optional
+`[[couplings]].threshold` must be finite. The loader rejects NaN and positive
+or negative infinity before returning a configuration; it does not normalize,
+clamp, or substitute a value. This requirement covers TOML loading only and
+does not define programmatic `SignalCouplingRule` construction or source-value
+admission. (DEV-041)
+
 ## 4. Lifecycle
 
 1. Author/edit source files in `src/`

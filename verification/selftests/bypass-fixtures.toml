@@ -1,0 +1,343 @@
+schema_version = 1
+id = "PLC_VERIFICATION_TOOLING_BYPASSES_V1"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-13"
+spec_source_scanner_status = "mapped"
+spec_source_scanner_blocked_by = []
+limitations = [
+  "The known-good fixture is the unmodified committed metadata graph, not a second hand-maintained copy.",
+  "The bypass registry covers VERIF-P6A-002, VERIF-P6A-002A, VERIF-P6A-005, VERIF-P6A-009, and the assertion-strength boundary in VERIF-P6A-010.",
+  "Spec-source scanner fixtures invoke production discovery and association analysis; unreviewed public prose remains a report-only boundary and creates no inferred classification or claim mapping.",
+  "Metadata validation does not establish assertion strength; proof production and mutation evidence own that question.",
+]
+
+[[cases]]
+id = "P6A_GOOD_COMMITTED_METADATA_001"
+board_row = "VERIF-P6A-001"
+fixture_kind = "known_good"
+assigned_layer = "metadata_validator"
+executor = "metadata_known_good"
+expected_disposition = "accept"
+expected_signal = "no validation failures"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_GOOD_SPEC_SOURCE_SCAN_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_good"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_scan_known_good"
+expected_disposition = "accept"
+expected_signal = "no scanner or analysis failures"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_MISSING_REGISTERED_PATH_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_missing_registered_path"
+expected_disposition = "reject"
+expected_signal = "registered_source_missing"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_UNCLOSED_FENCE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_unclosed_fence"
+expected_disposition = "reject"
+expected_signal = "scanner_unclosed_code_fence"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_STALE_CLAIM_TEXT_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_stale_claim_text"
+expected_disposition = "reject"
+expected_signal = "public_claim_missing"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SPEC_SOURCE_ESCAPING_INCLUDE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "known_bad"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_escaping_include"
+expected_disposition = "reject"
+expected_signal = "scanner_escaping_include"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BOUNDARY_SPEC_SOURCE_UNREVIEWED_PROSE_001"
+board_row = "VERIF-P6A-005"
+fixture_kind = "boundary"
+assigned_layer = "spec_source_scanner"
+executor = "spec_source_unreviewed_prose"
+expected_disposition = "report"
+expected_signal = "unreviewed public prose"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_MISSING_REQUIRED_FIELD_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_missing_required_field"
+expected_disposition = "reject"
+expected_signal = "test TEST_BYTECODE_CONTAINER_INVALID_MAGIC missing owner"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_UNKNOWN_STATUS_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_unknown_status"
+expected_disposition = "reject"
+expected_signal = "uses unknown status 'fixture_unknown'"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_STALE_RUNNABLE_PATH_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_stale_runnable_path"
+expected_disposition = "reject"
+expected_signal = "runnable test path does not exist"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_UNKNOWN_INVARIANT_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_unknown_invariant"
+expected_disposition = "reject"
+expected_signal = "references unknown invariant INV_UNKNOWN_P6A"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_UNKNOWN_SUITE_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_unknown_suite"
+expected_disposition = "reject"
+expected_signal = "references unknown suite SUITE_UNKNOWN_P6A"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SCHEMA_VERSION_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_schema_version"
+expected_disposition = "reject"
+expected_signal = "must use schema_version = 2"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_PUBLIC_CLAIM_WITHOUT_PROOF_OR_GAP_001"
+board_row = "VERIF-P6A-002"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_public_claim_links"
+executor = "metadata_public_claim_without_proof_or_gap"
+expected_disposition = "reject"
+expected_signal = "has no proof-backed invariant or explicit spec gap"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_IGNORED_DURABLE_EVIDENCE_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_evidence"
+executor = "metadata_ignored_durable_evidence"
+expected_disposition = "reject"
+expected_signal = "evidence path is gitignored"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_UNKNOWN_EVIDENCE_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_unknown_evidence"
+expected_disposition = "reject"
+expected_signal = "references unknown evidence EVID_UNKNOWN_P6A"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_MAPPED_EMPTY_INVARIANTS_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_mapped_empty_invariants"
+expected_disposition = "reject"
+expected_signal = "mapped test must name invariants"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_STALE_TEST_NAME_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "catalog_staleness"
+executor = "catalog_stale_test_name"
+expected_disposition = "reject"
+expected_signal = "name is stale"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_VALIDATED_EMPTY_EVIDENCE_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_validated_empty_evidence"
+expected_disposition = "reject"
+expected_signal = "validated without evidence_refs"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SAFETY_VALIDATED_GAP_OPEN_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_safety_validated_gap_open"
+expected_disposition = "reject"
+expected_signal = "high-risk validated with open coverage cell time_or_clock_fault"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SAFETY_VALIDATED_SPEC_GAP_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_safety_validated_spec_gap"
+expected_disposition = "reject"
+expected_signal = "high-risk validated with open coverage cell ordering_or_lifecycle"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_VALIDATED_LOW_PROOF_001"
+board_row = "VERIF-P6A-002A"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_validated_low_proof"
+expected_disposition = "reject"
+expected_signal = "validated with insufficient proof_level 'S1'"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_DECISION_TABLE_MISSING_BEHAVIOR_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_invariants"
+executor = "metadata_decision_table_missing_behavior"
+expected_disposition = "reject"
+expected_signal = "decision_table has applicable covered dimensions but no behavior rows"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_CASE_UNKNOWN_FAMILY_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "case_file_validator"
+executor = "case_unknown_family"
+expected_disposition = "reject"
+expected_signal = "uses unknown family 'fixture_unknown'"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_STALE_CASE_DIGEST_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "metadata_validator.validate_tests"
+executor = "metadata_stale_case_digest"
+expected_disposition = "reject"
+expected_signal = "case_file_digest mismatch"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_SKIPPED_CASE_ARTIFACT_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "case_artifact_validator"
+executor = "proof_skipped_case_artifact"
+expected_disposition = "reject"
+expected_signal = "was skipped without waiver"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_HIGH_RISK_RED_PRODUCER_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "evidence_pairing"
+executor = "evidence_high_risk_red_producer"
+expected_disposition = "reject"
+expected_signal = "high-risk red/green proof producer 'codex' is not allowlisted"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_HIGH_RISK_GREEN_PRODUCER_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "evidence_pairing"
+executor = "evidence_high_risk_green_producer"
+expected_disposition = "reject"
+expected_signal = "high-risk red/green proof producer 'codex' is not allowlisted"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_GREEN_MISSING_RED_PAIR_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "evidence_pairing"
+executor = "evidence_green_missing_red_pair"
+expected_disposition = "reject"
+expected_signal = "green proof missing pairing field paired_red_evidence"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_RISK_DOWNGRADE_NO_DECISION_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "planner_report"
+executor = "planner_risk_downgrade_without_decision"
+expected_disposition = "report"
+expected_signal = "risk downgrade requires decision_ref"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_COMPILE_ERROR_AS_RED_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "proof_producer"
+executor = "proof_compile_error_as_red"
+expected_disposition = "reject"
+expected_signal = "compile_error"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_HARNESS_PANIC_AS_RED_001"
+board_row = "VERIF-P6A-009"
+fixture_kind = "known_bad"
+assigned_layer = "proof_producer"
+executor = "proof_harness_panic_as_red"
+expected_disposition = "reject"
+expected_signal = "harness_panic"
+assertion_strength = "not_assessed"
+
+[[cases]]
+id = "P6A_BAD_ASSERT_NOTHING_RED_001"
+board_row = "VERIF-P6A-010"
+fixture_kind = "boundary"
+assigned_layer = "proof_producer"
+executor = "proof_assert_nothing_red"
+expected_disposition = "reject"
+expected_signal = "none"
+assertion_strength = "not_assessed"

@@ -9,7 +9,12 @@ fn decode_section_data(
     let mut reader = BytecodeReader::new(payload);
     let data = match kind {
         SectionId::StringTable | SectionId::DebugStringTable => {
-            let table = decode_string_table(version, &mut reader)?;
+            let context = match kind {
+                SectionId::StringTable => "STRING_TABLE",
+                SectionId::DebugStringTable => "DEBUG_STRING_TABLE",
+                _ => unreachable!("string table branch"),
+            };
+            let table = decode_string_table(version, &mut reader, context)?;
             match kind {
                 SectionId::StringTable => SectionData::StringTable(table),
                 SectionId::DebugStringTable => SectionData::DebugStringTable(table),
@@ -31,7 +36,7 @@ fn decode_section_data(
 }
 
 fn decode_const_pool(reader: &mut BytecodeReader<'_>) -> Result<ConstPool, BytecodeError> {
-    let count = reader.read_u32()? as usize;
+    let count = read_bounded_count(reader, 8, "CONST_POOL")?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let type_id = reader.read_u32()?;
@@ -43,7 +48,12 @@ fn decode_const_pool(reader: &mut BytecodeReader<'_>) -> Result<ConstPool, Bytec
 }
 
 fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, BytecodeError> {
-    let count = reader.read_u32()? as usize;
+    let count = read_bounded_count_with_limit(
+        reader,
+        16,
+        BYTECODE_MAX_REFERENCES,
+        "REF_TABLE",
+    )?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let location = reader.read_u8()?;
@@ -51,7 +61,7 @@ fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, Bytecod
         let _reserved = reader.read_u16()?;
         let owner_id = reader.read_u32()?;
         let offset = reader.read_u32()?;
-        let segment_count = reader.read_u32()? as usize;
+        let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
         let location = RefLocation::from_raw(location)
             .ok_or_else(|| BytecodeError::InvalidSection("invalid ref location".into()))?;
         let mut segments = Vec::with_capacity(segment_count);
@@ -60,7 +70,7 @@ fn decode_ref_table(reader: &mut BytecodeReader<'_>) -> Result<RefTable, Bytecod
             let _reserved = reader.read_bytes(3)?;
             match kind {
                 0 => {
-                    let count = reader.read_u32()? as usize;
+                    let count = read_bounded_count(reader, 8, "REF_TABLE index")?;
                     let mut indices = Vec::with_capacity(count);
                     for _ in 0..count {
                         indices.push(reader.read_i64()?);
@@ -88,7 +98,7 @@ fn decode_pou_index(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
 ) -> Result<PouIndex, BytecodeError> {
-    let count = reader.read_u32()? as usize;
+    let count = read_bounded_count(reader, 40, "POU_INDEX")?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let id = reader.read_u32()?;
@@ -100,9 +110,20 @@ fn decode_pou_index(
         let code_length = reader.read_u32()?;
         let local_ref_start = reader.read_u32()?;
         let local_ref_count = reader.read_u32()?;
+        if local_ref_count as usize > BYTECODE_MAX_LOCALS_PER_POU {
+            return Err(BytecodeError::InvalidSection(
+                "POU_INDEX local reference count exceeds fixed resource limit".into(),
+            ));
+        }
         let return_type_id = optional_u32(reader.read_u32()?);
         let owner_pou_id = optional_u32(reader.read_u32()?);
-        let param_count = reader.read_u32()? as usize;
+        let parameter_bytes = if version.minor >= 1 { 16 } else { 12 };
+        let param_count = read_bounded_count_with_limit(
+            reader,
+            parameter_bytes,
+            BYTECODE_MAX_PARAMETERS_PER_POU,
+            "POU_INDEX parameter",
+        )?;
         let kind = PouKind::from_raw(kind)
             .ok_or_else(|| BytecodeError::InvalidSection("invalid pou kind".into()))?;
 
@@ -128,11 +149,11 @@ fn decode_pou_index(
 
         let class_meta = if kind.is_class_like() {
             let parent_pou_id = optional_u32(reader.read_u32()?);
-            let interface_count = reader.read_u32()? as usize;
+            let interface_count = read_bounded_count(reader, 8, "POU_INDEX interface")?;
             let mut interfaces = Vec::with_capacity(interface_count);
             for _ in 0..interface_count {
                 let interface_type_id = reader.read_u32()?;
-                let method_count = reader.read_u32()? as usize;
+                let method_count = read_bounded_count(reader, 4, "POU_INDEX vtable slot")?;
                 let mut vtable_slots = Vec::with_capacity(method_count);
                 for _ in 0..method_count {
                     vtable_slots.push(reader.read_u32()?);
@@ -143,7 +164,7 @@ fn decode_pou_index(
                 });
             }
 
-            let method_count = reader.read_u32()? as usize;
+            let method_count = read_bounded_count(reader, 16, "POU_INDEX method")?;
             let mut methods = Vec::with_capacity(method_count);
             for _ in 0..method_count {
                 let name_idx = reader.read_u32()?;
@@ -187,26 +208,27 @@ fn decode_pou_index(
 }
 
 fn decode_resource_meta(reader: &mut BytecodeReader<'_>) -> Result<ResourceMeta, BytecodeError> {
-    let resource_count = reader.read_u32()? as usize;
+    let resource_count = read_bounded_count(reader, 20, "RESOURCE_META")?;
     let mut resources = Vec::with_capacity(resource_count);
     for _ in 0..resource_count {
         let name_idx = reader.read_u32()?;
         let inputs_size = reader.read_u32()?;
         let outputs_size = reader.read_u32()?;
         let memory_size = reader.read_u32()?;
-        let task_count = reader.read_u32()? as usize;
+        let task_count = read_bounded_count(reader, 28, "RESOURCE_META task")?;
         let mut tasks = Vec::with_capacity(task_count);
         for _ in 0..task_count {
             let name_idx = reader.read_u32()?;
             let priority = reader.read_u32()?;
             let interval_nanos = reader.read_i64()?;
             let single_name_idx = optional_u32(reader.read_u32()?);
-            let program_count = reader.read_u32()? as usize;
+            let program_count = read_bounded_count(reader, 4, "RESOURCE_META program")?;
             let mut program_name_idx = Vec::with_capacity(program_count);
             for _ in 0..program_count {
                 program_name_idx.push(reader.read_u32()?);
             }
-            let fb_ref_count = reader.read_u32()? as usize;
+            let fb_ref_count =
+                read_bounded_count(reader, 4, "RESOURCE_META function-block reference")?;
             let mut fb_ref_idx = Vec::with_capacity(fb_ref_count);
             for _ in 0..fb_ref_count {
                 fb_ref_idx.push(reader.read_u32()?);
@@ -232,7 +254,7 @@ fn decode_resource_meta(reader: &mut BytecodeReader<'_>) -> Result<ResourceMeta,
 }
 
 fn decode_io_map(reader: &mut BytecodeReader<'_>) -> Result<IoMap, BytecodeError> {
-    let binding_count = reader.read_u32()? as usize;
+    let binding_count = read_bounded_count(reader, 12, "IO_MAP")?;
     let mut bindings = Vec::with_capacity(binding_count);
     for _ in 0..binding_count {
         let address_str_idx = reader.read_u32()?;
@@ -248,7 +270,7 @@ fn decode_io_map(reader: &mut BytecodeReader<'_>) -> Result<IoMap, BytecodeError
 }
 
 fn decode_debug_map(reader: &mut BytecodeReader<'_>) -> Result<DebugMap, BytecodeError> {
-    let entry_count = reader.read_u32()? as usize;
+    let entry_count = read_bounded_count(reader, 24, "DEBUG_MAP")?;
     let mut entries = Vec::with_capacity(entry_count);
     for _ in 0..entry_count {
         let pou_id = reader.read_u32()?;
@@ -271,7 +293,7 @@ fn decode_debug_map(reader: &mut BytecodeReader<'_>) -> Result<DebugMap, Bytecod
 }
 
 fn decode_var_meta(reader: &mut BytecodeReader<'_>) -> Result<VarMeta, BytecodeError> {
-    let entry_count = reader.read_u32()? as usize;
+    let entry_count = read_bounded_count(reader, 20, "VAR_META")?;
     let mut entries = Vec::with_capacity(entry_count);
     for _ in 0..entry_count {
         let name_idx = reader.read_u32()?;
@@ -293,7 +315,7 @@ fn decode_var_meta(reader: &mut BytecodeReader<'_>) -> Result<VarMeta, BytecodeE
 }
 
 fn decode_retain_init(reader: &mut BytecodeReader<'_>) -> Result<RetainInit, BytecodeError> {
-    let entry_count = reader.read_u32()? as usize;
+    let entry_count = read_bounded_count(reader, 8, "RETAIN_INIT")?;
     let mut entries = Vec::with_capacity(entry_count);
     for _ in 0..entry_count {
         let ref_idx = reader.read_u32()?;

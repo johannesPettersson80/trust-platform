@@ -1,0 +1,2 @@
+# Append-only tombstones for retired invariants or evidence. Empty is valid.
+retirements = []

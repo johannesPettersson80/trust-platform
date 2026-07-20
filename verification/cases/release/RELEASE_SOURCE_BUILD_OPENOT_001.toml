@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_RELEASE_SOURCE_BUILD_OPENOT_001"
+title = "Source build without sibling OpenOT trace"
+area = "release"
+owner = "release"
+status = "planned"
+invariant = "RELEASE_SOURCE_BUILD_OPENOT_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:ae5f30f09338cfcb76fbd757b74fa50854a654b35ba4f99023cbdb9d49dea3ea"
+source_digest = "sha256:7bd6775e76eaeab381c47acda1efc72ebcac6585d91c7d453382d2b3aba1bc95"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "RELEASE_SOURCE_BUILD_OPENOT_001_CLEAN_SOURCE"
+family = "supply_chain_or_artifact_fault"
+input = { scenario = "SOURCE_BUILD_WITHOUT_OPENOT_SIBLING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#source-builds", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { sibling_openot_present = false, command = "cargo build shipped binaries" }, expected = { exit_status = 0, dependencies = "pinned_public_git" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#source-builds" }]

@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
@@ -224,6 +224,27 @@ fn raw_get(addr: &str, path: &str, timeout: Duration) -> std::io::Result<String>
     Ok(response)
 }
 
+fn raw_post(addr: &str, path: &str, body: &str, timeout: Duration) -> std::io::Result<String> {
+    let mut stream = TcpStream::connect(addr)?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+    write!(
+        stream,
+        "POST {path} HTTP/1.1\r\n\
+         Host: {addr}\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {}\r\n\
+         Connection: close\r\n\
+         \r\n\
+         {body}",
+        body.len()
+    )?;
+    stream.flush()?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response)?;
+    Ok(response)
+}
+
 fn open_incomplete_pair_claim(addr: &str) -> TcpStream {
     let mut stream = TcpStream::connect(addr).expect("connect slow request");
     stream
@@ -245,8 +266,7 @@ fn open_incomplete_pair_claim(addr: &str) -> TcpStream {
 }
 
 #[test]
-#[ignore = "explicit probe for the current single-threaded web dispatch HOL behavior"]
-fn incomplete_body_route_blocks_unrelated_hmi_request_until_released() {
+fn incomplete_body_does_not_block_unrelated_hmi_request() {
     let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
     let base = start_test_server(state);
     let addr = base
@@ -256,14 +276,73 @@ fn incomplete_body_route_blocks_unrelated_hmi_request_until_released() {
     let slow_stream = open_incomplete_pair_claim(addr);
     thread::sleep(Duration::from_millis(100));
 
-    let blocked = raw_get(addr, "/hmi", Duration::from_millis(200));
+    let response = raw_get(addr, "/hmi", Duration::from_secs(1));
     assert!(
-        blocked
+        response
             .as_ref()
-            .is_err_and(|error| matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)),
-        "expected unrelated /hmi request to time out while incomplete POST body holds the single web dispatch loop, got {blocked:?}"
+            .is_ok_and(|response| response.starts_with("HTTP/1.1 200")),
+        "incomplete POST body must not block unrelated /hmi traffic, got {response:?}"
     );
 
     drop(slow_stream);
     wait_for_hmi_ready(addr);
+}
+
+#[test]
+fn saturated_body_lane_rejects_promptly_without_blocking_hmi_and_recovers() {
+    let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
+    let base = start_test_server(state);
+    let addr = base
+        .strip_prefix("http://")
+        .expect("test server base should be http");
+
+    let slow_streams = (0..4)
+        .map(|_| open_incomplete_pair_claim(addr))
+        .collect::<Vec<_>>();
+    thread::sleep(Duration::from_millis(100));
+
+    let overloaded = raw_post(
+        addr,
+        "/api/pair/claim",
+        r#"{"code":"invalid"}"#,
+        Duration::from_secs(1),
+    )
+    .expect("saturated body lane must respond instead of blocking");
+    assert!(
+        overloaded.starts_with("HTTP/1.1 503"),
+        "saturated body lane must return 503, got {overloaded:?}"
+    );
+    assert!(
+        overloaded.contains("\"denial_code\":\"server_busy\""),
+        "saturated response must carry server_busy, got {overloaded:?}"
+    );
+
+    let hmi = raw_get(addr, "/hmi", Duration::from_secs(1))
+        .expect("read lane must remain responsive while body lane is saturated");
+    assert!(
+        hmi.starts_with("HTTP/1.1 200"),
+        "body saturation must not block /hmi, got {hmi:?}"
+    );
+
+    drop(slow_streams);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let response = raw_post(
+            addr,
+            "/api/pair/claim",
+            r#"{"code":"invalid"}"#,
+            Duration::from_millis(500),
+        );
+        if response
+            .as_ref()
+            .is_ok_and(|response| response.starts_with("HTTP/1.1 200"))
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "body lane did not recover after slow clients disconnected: {response:?}"
+        );
+        thread::sleep(Duration::from_millis(25));
+    }
 }

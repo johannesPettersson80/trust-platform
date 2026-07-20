@@ -17,9 +17,10 @@ impl Runtime {
         bytes: &[u8],
         resource_name: Option<&str>,
     ) -> Result<super::RuntimeMetadata, error::RuntimeError> {
+        let retained = self.retain.load()?;
         self.apply_bytecode_bytes(bytes, resource_name)?;
         self.restart(super::types::RestartMode::Warm)?;
-        self.load_retain_store()?;
+        self.apply_retain_snapshot(&retained)?;
         Ok(self.metadata_snapshot())
     }
 }

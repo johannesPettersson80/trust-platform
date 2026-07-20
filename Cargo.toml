@@ -11,6 +11,7 @@ members = [
     "crates/trust-plcopen",
     "crates/trust-ads-core",
     "crates/trust-ads-server",
+    "crates/verification-cases",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
     "crates/trust-tcads-native",
@@ -21,7 +22,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.34"
+version = "0.24.54"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -42,6 +43,7 @@ salsa = "0.26"
 # LSP
 tower-lsp = "0.20"
 lsp-types = "0.97"
+tower = "0.4"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -67,6 +69,7 @@ anyhow = "1"
 # Testing
 expect-test = "1.5"
 insta = { version = "1", features = ["glob"] }
+futures-util = "0.3"
 
 # Utilities
 smol_str = "0.2.2"
@@ -98,6 +101,7 @@ trust-dev = { path = "crates/trust-dev" }
 trust-plcopen = { path = "crates/trust-plcopen" }
 trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
+verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }

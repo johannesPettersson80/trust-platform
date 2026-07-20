@@ -1,0 +1,22 @@
+schema_version = 1
+id = "CASES_RT_RELOAD_001"
+title = "Runtime online-change transaction traces"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_RELOAD_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:2f992d3c083e6cd80ea8ba1226c593d0de4f41ded63ffbc399b9e0bd3ececc28"
+source_digest = "sha256:ff4ef22bb1f68ba5d988f98e213a6604f4509e2e50bcd6f9ed59e7c00c510aed"
+last_reviewed = "2026-07-14"
+
+[[case]]
+id = "RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME"
+family = "persistence_or_recovery"
+input = { scenario = "RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME" }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { action = "establish_old_runtime_and_force" }, expected = { count = 1, cycle_counter = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+  { sequence = 1, stimulus = { action = "attempt_reload_with_retain_load_failure" }, expected = { count = 1, cycle_counter = 1, error_contains = "injected retain load failure", reload_result = "rejected" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+  { sequence = 2, stimulus = { action = "release_force_and_run_old_program" }, expected = { count = 2, cycle_counter = 2 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+]

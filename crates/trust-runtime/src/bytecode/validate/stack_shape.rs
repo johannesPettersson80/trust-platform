@@ -268,6 +268,7 @@ fn enqueue_stack_state(
     states: &mut [Option<Vec<StackShape>>],
     work: &mut Vec<usize>,
 ) -> Result<(), BytecodeError> {
+    validate_operand_stack_depth(stack.len())?;
     if pc == code_len {
         if !stack.is_empty() {
             return Err(BytecodeError::InvalidSection(

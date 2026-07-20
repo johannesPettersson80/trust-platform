@@ -421,3 +421,287 @@ fn bind_vm_call_arguments_allows_omitted_trailing_positional_input() {
     assert!(out_bindings.is_empty());
     assert_eq!(locals, vec![Value::DInt(1), Value::Null]);
 }
+
+#[test]
+fn bind_vm_call_arguments_rejects_legacy_untyped_string_output_target() {
+    let mut runtime = Runtime::new();
+    runtime
+        .storage
+        .set_global("LEGACY_TEXT", Value::String("OLD".into()));
+    let target = runtime
+        .storage
+        .ref_for_global("LEGACY_TEXT")
+        .expect("legacy string target");
+    let (module, pou_id) = manual_vm_function_module(
+        "EmitText",
+        vec![VmParamMeta {
+            name: SmolStr::new("TEXT"),
+            type_id: 0,
+            direction: 1,
+            default_const_idx: None,
+        }],
+        false,
+    );
+
+    let error = super::bind_vm_call_arguments(
+        &mut runtime,
+        &module,
+        &empty_caller_frame(),
+        pou_id,
+        &[target_arg(None, target)],
+    )
+    .expect_err("metadata-free string copyback must fail before callee execution");
+
+    assert!(matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)));
+    assert_eq!(
+        runtime.storage.get_global("LEGACY_TEXT"),
+        Some(&Value::String("OLD".into()))
+    );
+}
+
+#[test]
+fn bind_vm_call_arguments_rejects_string_inout_capacity_mismatch_before_copy_in() {
+    let mut runtime = Runtime::new();
+    runtime
+        .storage
+        .set_global("CALLER_TEXT", Value::String("ABCDEFGHIJKLMNOPQRST".into()));
+    let target = runtime
+        .storage
+        .ref_for_global("CALLER_TEXT")
+        .expect("caller string ref");
+    let (mut module, pou_id) = manual_vm_function_module(
+        "ObserveText",
+        vec![VmParamMeta {
+            name: SmolStr::new("TEXT"),
+            type_id: 0,
+            direction: 2,
+            default_const_idx: None,
+        }],
+        false,
+    );
+    install_string_inout_types(&mut module, target.clone());
+
+    let error = super::bind_vm_call_arguments(
+        &mut runtime,
+        &module,
+        &empty_caller_frame(),
+        pou_id,
+        &[target_arg(None, target)],
+    )
+    .expect_err("crafted STRING[20] -> STRING[5] IN_OUT must fail before execution");
+
+    assert!(matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)));
+    assert_eq!(
+        runtime.storage.get_global("CALLER_TEXT"),
+        Some(&Value::String("ABCDEFGHIJKLMNOPQRST".into()))
+    );
+}
+
+#[test]
+fn bind_vm_function_block_arguments_rejects_string_inout_capacity_mismatch_before_copy_in() {
+    let mut runtime = Runtime::new();
+    let instance = runtime.storage.create_instance("FB");
+    assert!(runtime
+        .storage
+        .set_instance_var(instance, "PREFIX", Value::DInt(1)));
+    assert!(runtime
+        .storage
+        .set_instance_var(instance, "TEXT", Value::String("OLD".into())));
+    runtime
+        .storage
+        .set_global("CALLER_TEXT", Value::String("ABCDEFGHIJKLMNOPQRST".into()));
+    let target = runtime
+        .storage
+        .ref_for_global("CALLER_TEXT")
+        .expect("caller string ref");
+    let (mut module, pou_id) = manual_vm_function_block_module(vec![
+        VmParamMeta {
+            name: SmolStr::new("PREFIX"),
+            type_id: 2,
+            direction: 0,
+            default_const_idx: None,
+        },
+        VmParamMeta {
+            name: SmolStr::new("TEXT"),
+            type_id: 0,
+            direction: 2,
+            default_const_idx: None,
+        },
+    ]);
+    install_string_inout_types(&mut module, target.clone());
+
+    let error = super::bind_vm_function_block_arguments(
+        &mut runtime,
+        &module,
+        &empty_caller_frame(),
+        pou_id,
+        instance,
+        &[expr_arg(None, Value::DInt(99)), target_arg(None, target)],
+    )
+    .expect_err("crafted STRING[20] -> STRING[5] FB IN_OUT must fail before execution");
+
+    assert!(matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)));
+    assert_eq!(
+        runtime.storage.get_global("CALLER_TEXT"),
+        Some(&Value::String("ABCDEFGHIJKLMNOPQRST".into()))
+    );
+    assert_eq!(
+        instance_field(&runtime, instance, "PREFIX"),
+        Value::DInt(1),
+        "later IN_OUT rejection must happen before earlier FB input mutation"
+    );
+    assert_eq!(
+        instance_field(&runtime, instance, "TEXT"),
+        Value::String("OLD".into())
+    );
+}
+
+#[test]
+fn output_copyback_rejects_untyped_null_string_target_without_writing() {
+    let mut runtime = Runtime::new();
+    runtime.storage.set_global("LEGACY_TEXT", Value::Null);
+    let reference = runtime
+        .storage
+        .ref_for_global("LEGACY_TEXT")
+        .expect("legacy null target");
+    let target = super::VmWriteTarget::from_reference(&reference);
+    let module = manual_vm_function_module("EmitText", Vec::new(), false).0;
+    let caller_frame = empty_caller_frame();
+
+    let error = super::normalize_output_copyback_value(
+        &runtime,
+        &module,
+        &caller_frame,
+        &target,
+        None,
+        Value::String("UNBOUNDED".into()),
+    )
+    .expect_err("metadata-free null target must reject string copyback");
+
+    assert!(matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)));
+    assert_eq!(
+        runtime.storage.get_global("LEGACY_TEXT"),
+        Some(&Value::Null)
+    );
+}
+
+#[test]
+fn output_copyback_rejects_nonstring_for_declared_string_null_target() {
+    let mut runtime = Runtime::new();
+    runtime.storage.set_global("TEXT", Value::Null);
+    let reference = runtime
+        .storage
+        .ref_for_global("TEXT")
+        .expect("declared string target");
+    let target = super::VmWriteTarget::from_reference(&reference);
+    let (mut module, _) = manual_vm_function_module("EmitText", Vec::new(), false);
+    install_string_inout_types(&mut module, reference);
+    let caller_frame = empty_caller_frame();
+
+    let error = super::normalize_output_copyback_value(
+        &runtime,
+        &module,
+        &caller_frame,
+        &target,
+        Some(1),
+        Value::DInt(7),
+    )
+    .expect_err("declared STRING target must reject a non-string output even while unassigned");
+
+    assert!(matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)));
+    assert_eq!(runtime.storage.get_global("TEXT"), Some(&Value::Null));
+}
+
+#[test]
+fn output_binding_rejects_conflicting_reference_types_for_nonstring_target() {
+    let mut runtime = Runtime::new();
+    runtime.storage.set_global("VALUE", Value::DInt(1));
+    let reference = runtime
+        .storage
+        .ref_for_global("VALUE")
+        .expect("numeric target");
+    let (mut module, pou_id) = manual_vm_function_module(
+        "EmitValue",
+        vec![VmParamMeta {
+            name: SmolStr::new("VALUE"),
+            type_id: 0,
+            direction: 1,
+            default_const_idx: None,
+        }],
+        false,
+    );
+    module.types = crate::bytecode::TypeTable {
+        offsets: Vec::new(),
+        entries: vec![
+            primitive_type(8, 0),
+            primitive_type(4, 0),
+        ],
+    };
+    for type_idx in 0..=1 {
+        module.refs.push(super::super::VmRef::Global {
+            offset: reference.offset,
+            path: reference.path.clone(),
+        });
+        module.ref_types.insert(type_idx, type_idx);
+    }
+
+    let error = super::bind_vm_call_arguments(
+        &mut runtime,
+        &module,
+        &empty_caller_frame(),
+        pou_id,
+        &[target_arg(None, reference)],
+    )
+    .expect_err("conflicting canonical reference types must fail closed for numeric targets");
+
+    assert!(matches!(
+        error,
+        VmTrap::Runtime(RuntimeError::Bytecode {
+            code: crate::error::StableErrorCode::VmBytecodeDecode,
+            detail,
+        }) if detail.contains("conflicting type metadata")
+    ));
+    assert_eq!(runtime.storage.get_global("VALUE"), Some(&Value::DInt(1)));
+}
+
+fn primitive_type(prim_id: u16, max_length: u16) -> crate::bytecode::TypeEntry {
+    crate::bytecode::TypeEntry {
+        kind: crate::bytecode::TypeKind::Primitive,
+        name_idx: None,
+        data: crate::bytecode::TypeData::Primitive {
+            prim_id,
+            max_length,
+        },
+    }
+}
+
+fn install_string_inout_types(module: &mut VmModule, target: ValueRef) {
+    module.types = crate::bytecode::TypeTable {
+        offsets: Vec::new(),
+        entries: vec![
+            crate::bytecode::TypeEntry {
+                kind: crate::bytecode::TypeKind::Primitive,
+                name_idx: None,
+                data: crate::bytecode::TypeData::Primitive {
+                    prim_id: 24,
+                    max_length: 5,
+                },
+            },
+            crate::bytecode::TypeEntry {
+                kind: crate::bytecode::TypeKind::Primitive,
+                name_idx: None,
+                data: crate::bytecode::TypeData::Primitive {
+                    prim_id: 24,
+                    max_length: 20,
+                },
+            },
+            primitive_type(8, 0),
+        ],
+    };
+    assert_eq!(target.location, MemoryLocation::Global);
+    module.refs.push(super::super::VmRef::Global {
+        offset: target.offset,
+        path: target.path,
+    });
+    module.ref_types.insert(0, 1);
+}

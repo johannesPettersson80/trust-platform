@@ -8,6 +8,8 @@ fn validate_pou_index(
     bodies: &[u8],
 ) -> Result<(), BytecodeError> {
     let mut seen_pou_ids = HashSet::new();
+    let mut decoded_instruction_count = 0usize;
+    validate_pou_local_ref_partition(ref_table, index)?;
     for entry in &index.entries {
         if !seen_pou_ids.insert(entry.id) {
             return Err(BytecodeError::InvalidSection(
@@ -82,13 +84,53 @@ fn validate_pou_index(
             ref_table,
         };
         let code = &bodies[start..end];
-        validate_instruction_stream(&tables, entry, code)?;
+        validate_instruction_stream(&tables, entry, code, &mut decoded_instruction_count)?;
         validate_call_targets(code)?;
         validate_reference_escape(ref_table, entry, code)?;
         validate_owner_contract(ref_table, entry, code)?;
         validate_stack_shape(types, const_pool, code)?;
         validate_const_compat(types, const_pool, ref_table, var_meta, code)?;
         validate_param_direction_calls(strings, types, var_meta, index, entry, code)?;
+    }
+    Ok(())
+}
+
+fn validate_pou_local_ref_partition(
+    ref_table: &RefTable,
+    index: &PouIndex,
+) -> Result<(), BytecodeError> {
+    let mut claimed_refs = HashSet::new();
+    let mut claimed_owners = HashSet::new();
+    for pou in &index.entries {
+        let end = pou
+            .local_ref_start
+            .checked_add(pou.local_ref_count)
+            .ok_or_else(|| BytecodeError::InvalidSection("POU local ref range overflow".into()))?;
+        let mut owner_id = None;
+        for ref_idx in pou.local_ref_start..end {
+            if !claimed_refs.insert(ref_idx) {
+                return Err(BytecodeError::InvalidSection(
+                    "POU local ref ranges overlap".into(),
+                ));
+            }
+            let reference = ref_table.entries.get(ref_idx as usize).ok_or_else(|| {
+                BytecodeError::InvalidSection("POU local ref range out of bounds".into())
+            })?;
+            match owner_id {
+                Some(expected) if expected != reference.owner_id => {
+                    return Err(BytecodeError::InvalidSection(
+                        "POU local ref range contains multiple frame owners".into(),
+                    ));
+                }
+                None => owner_id = Some(reference.owner_id),
+                Some(_) => {}
+            }
+        }
+        if owner_id.is_some_and(|owner| !claimed_owners.insert(owner)) {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref ranges share a frame owner".into(),
+            ));
+        }
     }
     Ok(())
 }
@@ -105,11 +147,13 @@ fn validate_instruction_stream(
     tables: &InstructionValidationTables<'_>,
     pou: &PouEntry,
     code: &[u8],
+    decoded_instruction_count: &mut usize,
 ) -> Result<(), BytecodeError> {
     let mut reader = BytecodeReader::new(code);
     let mut starts = Vec::new();
     let mut jumps = Vec::new();
     while reader.remaining() > 0 {
+        charge_decoded_instruction(decoded_instruction_count)?;
         let pc = reader.pos();
         starts.push(pc as i32);
         let opcode = reader.read_u8()?;
@@ -174,7 +218,7 @@ fn validate_instruction_stream(
                         index: symbol_idx,
                     });
                 }
-                if arg_count > 1024 {
+                if arg_count as usize > super::BYTECODE_MAX_NATIVE_ARGUMENTS {
                     return Err(BytecodeError::InvalidSection(
                         "CALL_NATIVE arg_count out of range".into(),
                     ));

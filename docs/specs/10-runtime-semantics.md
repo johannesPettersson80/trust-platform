@@ -187,7 +187,83 @@ wire/storage shape temporarily, but every entry point with declared type context
 must validate before storing or executing the value; validation failure returns
 a diagnostic error and never substitutes a default value.
 
-#### 2.3 Time/Date Representation
+#### 2.3 Declared-Type Materialization
+
+IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion for assignments
+and input/output parameter assignment, requires it to preserve value and
+accuracy, and forbids it for `VAR_IN_OUT` assignment. Sections 6.4.4.1.2 and
+6.5.1.3 permit compatible literal or constant-expression initializers.
+
+The permitted typed widening matrix is closed:
+
+- signed integer: `SINT -> INT -> DINT -> LINT`;
+- unsigned integer: `USINT -> UINT -> UDINT -> ULINT`;
+- bit string: `BYTE -> WORD -> DWORD -> LWORD`;
+- exact integer-to-real: `SINT`/`INT -> REAL` and
+  `SINT`/`INT`/`DINT -> LREAL`;
+- real: `REAL -> LREAL`.
+
+Typed `DINT -> REAL` and `LINT -> LREAL` require explicit conversion because
+some source values cannot be represented without rounding. Signed/unsigned
+cross-family, numeric/`BOOL`, and otherwise incompatible conversions are not
+implicit. Contextual untyped literals remain allowed when representable by the
+target.
+
+When semantic analysis permits an implicit numeric widening, variable
+initialization, assignment, function-result assignment, and POU input/output
+parameter transfer materialize the value as the declared target type before it
+is stored or used by the callee or caller. In particular, an `INT` value
+assigned or passed to `REAL` storage is represented as `Value::Real`, and an
+`INT` value assigned or passed to `DINT` storage is represented as
+`Value::DInt`. The stack, register, and tier-1 execution paths must produce the
+same declared runtime type and value.
+
+Implicit conversion is never applied to `VAR_IN_OUT`: a binding that would
+require it, including an `INT` actual bound to a `DINT` formal, fails
+compilation with diagnostic category `E205`. A narrowing assignment that
+cannot preserve the source value and accuracy is rejected unless the program
+uses an explicit conversion;
+incompatible assignment uses diagnostic category `E203`. Diagnostic prose is
+not part of this contract. At the VM boundary, a value whose runtime tag cannot
+materialize as the declared primitive is rejected with `TypeMismatch` before
+storage and reports `runtime_type_mismatch`.
+
+#### 2.3.1 Bounded String Runtime Writes
+
+Every write into declared `STRING[n]` or `WSTRING[n]` storage applies the
+receiving declaration's capacity in Unicode scalar values. Initializers,
+ordinary assignment, function and function-block input copy-in, output
+copy-back, and function-result assignment truncate only the excess suffix and
+preserve the first `n` scalar values. An in-bound value is stored unchanged.
+
+`VAR_IN_OUT` does not convert or resize its actual argument: the string family
+and effective declared capacity must match exactly after alias resolution, and
+a rejected binding cannot mutate caller state. `STRING` and `WSTRING` remain
+separate families. Source-level cross-family assignment or binding is rejected
+unless an explicit standard conversion is used; crafted VM input with the
+wrong string-family runtime tag returns `TypeMismatch` before storage and
+reports `runtime_type_mismatch`.
+
+#### 2.4 Subrange Runtime Writes
+
+Subrange lower and upper bounds are inclusive. Constant initializers outside
+those bounds fail semantic analysis with an out-of-range diagnostic.
+Assignment, POU parameter copy-in, and dynamic-reference writes into
+subrange-typed storage validate the
+incoming value before modifying the target. An out-of-range value produces a
+visible runtime error and leaves the target at its previous value; the runtime
+must not clamp, wrap, or partially store the rejected value. The same rule
+applies at HMI/control and retain-reload write boundaries when declared
+subrange type information is available. A wrong-base-type source fails
+semantic analysis with `E203`; crafted VM input with the wrong runtime tag
+returns `TypeMismatch` with `runtime_type_mismatch` and does not modify
+storage. An out-of-range runtime value reports
+`runtime_subrange_violation` at VM, retain-reload, and HMI/control boundaries.
+
+This product rule implements the reviewed subrange decision in
+`docs/IEC_DECISIONS.md`; it does not define that stable public error mapping.
+
+#### 2.5 Time/Date Representation
 
 IEC 61131-3 defines LTIME/LDATE/LTOD/LDT as signed 64-bit nanosecond counts with fixed
 epochs, while TIME/DATE/TOD/DT have implementer-specific range and precision
@@ -274,7 +350,7 @@ runtime behavior (CODESYS/TwinCAT-style):
 
 Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
 
-#### 2.4 Default Values
+#### 2.6 Default Values
 
 Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 §6.4.2, Table 10; §6.4.4.2; §6.4.4.10.2):
 
@@ -529,6 +605,14 @@ Per IEC 61131-3, within each **scheduled task** execution:
 
 `execute_cycle` determines due tasks (periodic/event) and invokes `execute_task` in scheduler order.
 
+The bytecode executor applies the fixed resource limits in
+`12-bytecode.md` section 4.6. In particular, one top-level VM invocation may
+execute at most 1,000,000 original bytecode instructions. Nested calls share
+that remaining budget, and every execution backend charges the same original
+bytecode instruction count. Budget exhaustion is reported through the current
+execution-timeout category before the invocation can complete; configured
+deadline and watchdog checks remain independent.
+
 ```rust
 impl Runtime {
     fn execute_task(&mut self, task: &TaskConfig) -> Result<(), RuntimeError> {
@@ -656,7 +740,8 @@ pub enum StmtResult {
 
 **REF operator** (IEC 61131-3 Ed.3 §6.4.4.10.3):
 - `REF(var)` returns a reference to a declared variable or instance.
-- Applying `REF` to temporary variables (VAR_TEMP or function-local temporaries) is not permitted.
+- Applying `REF` to temporary variables (VAR_TEMP, function-local temporaries,
+  or the implicit result variable of a function or method) is not permitted.
 
 **SIZEOF operator** (vendor extension, see `DEV-016`):
 - `SIZEOF(...)` accepts either an explicit type reference or a storage operand (`name`, field/index access, dereference, `THIS.field`).
@@ -701,6 +786,38 @@ REAL → LREAL
 ```
 
 Narrowing conversions require explicit type conversion functions (e.g., `DINT_TO_INT`).
+
+#### 6.5 REAL binary arithmetic overflow
+
+For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` results are
+accepted only when the result remains finite after representation at IEC basic
+single width. Otherwise evaluation returns `RuntimeError::Overflow` before an
+assignment store, leaving the target unchanged; the runtime does not clamp or
+store infinity or NaN. This rule does not define `LREAL`, subnormal underflow,
+signed zero, non-finite operands, explicit conversions, or named numerical
+functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
+footnote e; DEV-042)
+
+#### 6.6 REAL named numerical-function overflow
+
+For finite `REAL` operands, `EXP` and `EXPT` results are accepted only when the
+result remains finite after representation at IEC basic single width.
+Otherwise evaluation returns `RuntimeError::Overflow` before an assignment
+store, leaving the target unchanged; the runtime does not clamp or store
+infinity or NaN. This rule does not define `LREAL`, non-finite operands,
+subnormal underflow, signed zero, explicit conversions, or domain behavior for
+other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
+Table 10 footnote e; DEV-043)
+
+#### 6.7 Non-finite REAL conversion results
+
+Explicit numeric, text, and bit-transfer conversions whose destination is
+`REAL` or `LREAL` accept a result only when it is finite in the destination
+representation. Narrowing overflow, non-finite text, and IEEE bit patterns for
+NaN or either infinity return `RuntimeError::Overflow` before the destination
+is stored. Finite values, including signed zero and subnormal values, remain
+valid. This is the reviewed truST safety policy recorded by `DEV-053`; IEC
+61131-3 does not prescribe this runtime fault surface.
 
 ### 7. POU Execution
 
@@ -1035,7 +1152,38 @@ pub enum RuntimeError {
 }
 ```
 
-#### 10.2 Error Configuration
+#### 10.2 Stable Machine Error Identifiers
+
+`RuntimeError::stable_code()` returns a `StableErrorCode` whose
+lower-snake-case string is the machine contract. Existing `RuntimeError`
+variants map to `runtime_<variant-name>` in lower snake case, including
+`runtime_type_mismatch`, `runtime_division_by_zero`,
+`runtime_modulo_by_zero`, `runtime_overflow`,
+`runtime_index_out_of_bounds`, `runtime_subrange_violation`,
+`runtime_null_reference`, `runtime_for_step_zero`,
+`runtime_condition_not_bool`, `runtime_watchdog_timeout`, and
+`runtime_execution_timeout`. Bytecode and VM structural errors retain the
+more specific `bytecode_*` or `vm_*` code specified in
+`docs/specs/12-bytecode.md` rather than collapsing to
+`runtime_invalid_bytecode`.
+
+The mapping is exhaustive for the committed `RuntimeError` enum. Adding or
+renaming a variant requires an explicit stable-code mapping and review.
+Human-readable `Display` text is diagnostic context and may become more
+specific without changing the code. Machine consumers and verification cases
+must compare the code, not message substrings.
+
+The HMI admission boundary uses the same runtime codes for type and subrange
+failures. It additionally reports `runtime_string_capacity_exceeded` for a
+rejected bounded-string request and `runtime_non_finite_value` for a rejected
+NaN, infinity, or width-overflowing floating-point request. A failed control
+response carries the stable identifier in `error_code` and retains the
+diagnostic message in `error`.
+
+These identifiers are truST product API choices. They do not interpret,
+extend, or deviate from IEC 61131-3 semantics.
+
+#### 10.3 Error Configuration
 
 ```rust
 /// Configuration for error handling behavior.
@@ -1073,6 +1221,13 @@ pub enum OverflowBehavior {
 
 #### 11.1 Test Harness
 
+##### Simulation clock overflow
+
+Explicit simulation-time advancement saturates at the signed nanosecond bounds.
+It must not panic, wrap, or make the test clock move backward. This policy is a
+deterministic harness contract and does not alter production monotonic-clock
+behavior.
+
 ```rust
 /// Test harness for PLC code unit testing.
 pub struct TestHarness {
@@ -1106,7 +1261,7 @@ impl TestHarness {
     where
         F: Fn(&Runtime) -> bool;
 
-    /// Advances simulation time.
+    /// Advances simulation time, saturating at the signed Duration bounds.
     pub fn advance_time(&mut self, duration: Duration);
 
     /// Gets the current simulation time.

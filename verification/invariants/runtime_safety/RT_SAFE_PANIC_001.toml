@@ -1,0 +1,70 @@
+schema_version = 1
+id = "RT_SAFE_PANIC_001"
+title = "Scan-cycle panic cannot leave a healthy status"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-16"
+claim = "A scan-cycle panic must be contained and surfaced without leaving control surfaces reporting healthy execution."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/runtime"]
+tests = [
+  "TEST_RUNTIME_PANIC_TRACE_001",
+  "TEST_RUNTIME_PANIC_IO_DRIVER_001",
+  "TEST_RUNTIME_PANIC_SAFE_OUTPUT_001",
+  "TEST_RUNTIME_PANIC_THREAD_GUARD_001",
+  "TEST_RUNTIME_PANIC_CYCLE_GUARD_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_PANIC_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_PANIC_TRACE_001_LOCK_COMPARE",
+]
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SAFETY_FAIL_CLOSED_BOARD_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "INPUT_DRIVER_PANIC" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "An input-driver panic is contained as ResourcePanic and leaves the resource visibly faulted."
+
+[[behavior]]
+partition = { equals = "PANIC_SAFE_OUTPUT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "expected_delta", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A contained panic applies configured safe output before the resource remains faulted."
+
+[[behavior]]
+partition = { equals = "OUTER_RESOURCE_THREAD_PANIC" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "An unexpected outer resource-thread unwind is contained and reported through the same visible ResourcePanic state."
+
+[[behavior]]
+partition = { equals = "PANIC_WITH_RESTART_POLICY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "ResourcePanic is not retried by the ordinary restart policy and remains the visible fault."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "The committed panic trace covers cycle, I/O-driver, safe-output, outer-thread, and restart-policy boundaries with a current-contract lock comparison; a causal broad gate remains open."

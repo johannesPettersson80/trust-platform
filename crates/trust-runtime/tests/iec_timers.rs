@@ -80,11 +80,11 @@ fn timing_diagrams() {
     harness.assert_eq("q_tof", Value::Bool(false));
     harness.assert_eq("et_tof", Value::Time(Duration::from_millis(10)));
 
-    // t = 25ms, TOF ET resets.
+    // t = 25ms, TOF ET holds at PT until rearm.
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
     harness.assert_eq("q_tof", Value::Bool(false));
-    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
+    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(10)));
 
     // New TP pulse after re-trigger.
     harness.set_input("in_tp", true);

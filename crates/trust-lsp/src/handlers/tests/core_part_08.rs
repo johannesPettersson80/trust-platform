@@ -182,6 +182,14 @@ pub(super) fn lsp_inline_values_runtime_override_prefers_camel_case_when_aliases
 
 #[test]
 pub(super) fn lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result() {
+    let observation =
+        silent_runtime_inline_value_observation().expect("silent runtime inline-value observation");
+    assert_eq!(observation["completed_within_bound"], true);
+    assert_eq!(observation["value_count"], 0);
+}
+
+pub(in crate::handlers::tests) fn silent_runtime_inline_value_observation() -> Result<Value, String>
+{
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind silent endpoint");
     let addr = listener.local_addr().expect("silent endpoint addr");
     let endpoint = format!("tcp://{addr}");
@@ -235,19 +243,25 @@ pub(super) fn lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_re
 
     accepted_rx
         .recv_timeout(std::time::Duration::from_millis(200))
-        .expect("silent endpoint accepted connection");
+        .map_err(|error| format!("silent endpoint did not accept connection: {error}"))?;
     let completed = done_rx.recv_timeout(std::time::Duration::from_millis(500));
     let _ = release_tx.send(());
-    server.join().expect("silent endpoint thread");
-    worker.join().expect("inline worker thread");
+    server
+        .join()
+        .map_err(|_| "silent endpoint thread panicked".to_string())?;
+    worker
+        .join()
+        .map_err(|_| "inline worker thread panicked".to_string())?;
 
     let values = completed
-        .expect("inlineValue must return within the bounded timeout for a silent runtime endpoint")
-        .expect("inline values response");
-    assert!(
-        values.is_empty(),
-        "timeout or transport failure should return an empty inline-value result"
-    );
+        .map_err(|_| {
+            "inlineValue exceeded the bounded timeout for a silent runtime endpoint".to_string()
+        })?
+        .ok_or_else(|| "inline values response missing".to_string())?;
+    Ok(json!({
+        "completed_within_bound": true,
+        "value_count": values.len(),
+    }))
 }
 
 #[test]

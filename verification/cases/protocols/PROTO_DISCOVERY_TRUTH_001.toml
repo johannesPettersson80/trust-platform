@@ -1,0 +1,88 @@
+schema_version = 1
+id = "CASES_PROTO_DISCOVERY_TRUTH_001"
+title = "Protocol discovery confidence traces"
+area = "protocols"
+owner = "trust-runtime"
+status = "planned"
+invariant = "PROTO_DISCOVERY_TRUTH_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:72e378cd0ebce069addbbe9dfa4f8d146801595989abf6e6352bc9fb5896765a"
+source_digest = "sha256:5c66c498a1a6aad9fb4e0bfeeb91c031734d38917079c091aa14df0ad0fe1cdb"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MODBUS_DEVICE_ID_CONFIRMED"
+family = "happy_path"
+input = { source_partition = { equals = "MODBUS_DEVICE_ID_CONFIRMED" }, scenario = "MODBUS_DEVICE_ID_CONFIRMED" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "confirmed", source = "modbus_device_id", auth_required = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MODBUS_SAFE_READ_CONFIRMED"
+family = "happy_path"
+input = { source_partition = { equals = "MODBUS_SAFE_READ_CONFIRMED" }, scenario = "MODBUS_SAFE_READ_CONFIRMED" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "confirmed", source = "modbus_safe_read", auth_required = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MODBUS_TCP_ONLY"
+family = "hardware_or_network_fault"
+input = { source_partition = { equals = "MODBUS_TCP_ONLY" }, scenario = "MODBUS_TCP_ONLY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "port_reachable", source = "tcp_connect", auth_required = false, warning = true }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MQTT_ACCEPTED_CONNACK"
+family = "happy_path"
+input = { source_partition = { equals = "MQTT_ACCEPTED_CONNACK" }, scenario = "MQTT_ACCEPTED_CONNACK" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "confirmed", source = "mqtt_connack", auth_required = false, clean_session = true, disconnect_seen = true }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MQTT_AUTH_REJECTED"
+family = "auth_or_permission"
+input = { source_partition = { equals = "MQTT_AUTH_REJECTED" }, scenario = "MQTT_AUTH_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "likely", source = "mqtt_connack_auth_rejected", auth_required = true, clean_session = true, disconnect_seen = true, warning = true }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MQTT_GENERIC_REJECTED"
+family = "extra_or_unknown"
+input = { source_partition = { equals = "MQTT_GENERIC_REJECTED" }, scenario = "MQTT_GENERIC_REJECTED" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "likely", source = "mqtt_connack_rejected", auth_required = false, clean_session = true, disconnect_seen = true }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"
+
+[[case]]
+id = "PROTO_DISCOVERY_TRUTH_001_MQTT_TCP_ONLY"
+family = "hardware_or_network_fault"
+input = { source_partition = { equals = "MQTT_TCP_ONLY" }, scenario = "MQTT_TCP_ONLY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract" }
+[[case.trace]]
+sequence = 0
+stimulus = { action = "probe" }
+expected = { confidence = "port_reachable", source = "tcp_connect", auth_required = false, warning = true }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#connector-status-and-discovery-truth-contract"

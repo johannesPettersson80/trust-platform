@@ -213,6 +213,16 @@ fn normalize_assignment_preserves_null_reference_and_leaves_non_widening_values(
         normalize_assignment_for_target(&Value::Bool(false), Value::Int(1)),
         Value::Int(1)
     );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::Real(0.0), Value::DInt(16_777_217)),
+        Value::DInt(16_777_217),
+        "DINT cannot be widened implicitly to REAL without possible precision loss"
+    );
+    assert_eq!(
+        normalize_assignment_for_target(&Value::LReal(0.0), Value::LInt(9_007_199_254_740_993)),
+        Value::LInt(9_007_199_254_740_993),
+        "LINT cannot be widened implicitly to LREAL without possible precision loss"
+    );
 }
 
 fn dummy_ref() -> ValueRef {

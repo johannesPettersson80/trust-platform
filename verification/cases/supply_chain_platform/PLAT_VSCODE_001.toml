@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_PLAT_VSCODE_001"
+title = "VSIX target binary identity trace"
+area = "supply_chain_platform"
+owner = "editors-vscode"
+status = "planned"
+invariant = "PLAT_VSCODE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:e321b020fc080b075f62839fdffc46fde79290a5ce0ebcf3d65947e603109be6"
+source_digest = "sha256:5570d4652ec21cbf12401d977fefee00131b29f67cfc96f8c46b069b1bd26b60"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "PLAT_VSCODE_001_BINARY_IDENTITY"
+family = "platform_or_filesystem_variation"
+input = { scenario = "VSIX_TARGET_BINARY_IDENTITY" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "vsix_package" }, expected = { target_named = true, lsp_present = true, debug_present = true, runtime_present = true, binary_suffix_matches = true }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix" }]

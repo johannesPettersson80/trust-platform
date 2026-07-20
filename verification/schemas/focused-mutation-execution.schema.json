@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-platform.invalid/schemas/focused-mutation-execution.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "status", "runner", "tool", "tool_version",
+    "source_commit", "platform", "started_at", "finished_at", "shard_id",
+    "contract_digest", "baseline_commands", "mutations", "summary", "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^MUTATION_EXECUTION_[A-Z0-9_]+$" },
+    "status": { "const": "complete" },
+    "runner": { "const": "focused-mutation-shard.py v1" },
+    "tool": { "const": "cargo-mutants-single-file-adapter" },
+    "tool_version": { "const": "cargo-mutants 27.0.0" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "platform": { "type": "string", "minLength": 1 },
+    "started_at": { "type": "string", "minLength": 1 },
+    "finished_at": { "type": "string", "minLength": 1 },
+    "shard_id": {
+      "enum": [
+        "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
+        "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+        "MUTATION_SHARD_PARSER_RECOVERY_001",
+        "MUTATION_SHARD_RETAIN_RESTART_001"
+      ]
+    },
+    "contract_digest": { "$ref": "#/$defs/digest" },
+    "baseline_commands": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/baseline" }
+    },
+    "mutations": {
+      "type": "array", "minItems": 1, "maxItems": 2,
+      "items": { "$ref": "#/$defs/result" }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "boundaries": { "$ref": "#/$defs/boundaries" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "command": {
+      "type": "array", "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["command", "exit_status", "timed_out", "duration_seconds"],
+      "properties": {
+        "command": { "$ref": "#/$defs/command" },
+        "exit_status": { "const": 0 },
+        "timed_out": { "const": false },
+        "duration_seconds": { "minimum": 0 }
+      }
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "id", "source_file", "function", "genre", "replacement",
+        "generated_mutant_name", "build_command", "build_exit_status",
+        "build_stdout", "build_stderr", "build_timed_out",
+        "build_duration_seconds", "test_command", "test_exit_status",
+        "test_stdout", "test_stderr", "test_timed_out",
+        "test_duration_seconds", "duration_seconds", "result", "association_ids"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^MUTANT_[A-Z0-9_]+$" },
+        "source_file": { "type": "string", "pattern": "^crates/[^.].*\\.rs$" },
+        "function": { "type": "string", "minLength": 1 },
+        "genre": { "enum": ["FnValue", "BinaryOperator"] },
+        "replacement": { "type": "string" },
+        "generated_mutant_name": { "type": "string", "minLength": 1 },
+        "build_command": { "$ref": "#/$defs/command" },
+        "build_exit_status": { "type": ["integer", "null"] },
+        "build_stdout": { "type": "string" },
+        "build_stderr": { "type": "string" },
+        "build_timed_out": { "type": "boolean" },
+        "build_duration_seconds": { "minimum": 0 },
+        "test_command": { "$ref": "#/$defs/command" },
+        "test_exit_status": { "type": ["integer", "null"] },
+        "test_stdout": { "type": "string" },
+        "test_stderr": { "type": "string" },
+        "test_timed_out": { "type": "boolean" },
+        "test_duration_seconds": { "minimum": 0 },
+        "duration_seconds": { "minimum": 0 },
+        "result": { "enum": ["caught", "survived", "unviable", "timeout", "error"] },
+        "association_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "caught", "survived", "unviable", "timeout", "error"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 1 },
+        "caught": { "type": "integer", "minimum": 0 },
+        "survived": { "type": "integer", "minimum": 0 },
+        "unviable": { "type": "integer", "minimum": 0 },
+        "timeout": { "type": "integer", "minimum": 0 },
+        "error": { "const": 0 }
+      }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "association_ids_are_execution_claims", "artifact_creates_proof",
+        "artifact_closes_spec_gaps", "artifact_promotes_invariants"
+      ],
+      "properties": {
+        "association_ids_are_execution_claims": { "const": false },
+        "artifact_creates_proof": { "const": false },
+        "artifact_closes_spec_gaps": { "const": false },
+        "artifact_promotes_invariants": { "const": false }
+      }
+    }
+  }
+}

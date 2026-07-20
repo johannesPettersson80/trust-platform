@@ -1,0 +1,203 @@
+schema_version = 1
+id = "MALFORMED_INPUT_BYTECODE_VM_V1"
+title = "Bytecode malformed-input taxonomy"
+area = "bytecode_vm"
+surface_id = "bytecode_container_instruction_stream"
+review_doc = "verification/malformed-input-taxonomy.md"
+last_reviewed = "2026-07-15"
+
+[[classes]]
+id = "ambiguous_instance_owner"
+title = "Ambiguous instance owner"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "The validator-before-apply contract requires unambiguous POU frame ownership."
+
+[[classes]]
+id = "argument_count_resource_limit"
+title = "Argument-count resource limit"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits declared POU parameters and native-call arguments before executable materialization."
+
+[[classes]]
+id = "bad_magic"
+title = "Bad bytecode magic"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires the four-byte magic to equal STBC."
+
+[[classes]]
+id = "call_depth_resource_limit"
+title = "Call-depth resource limit"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract rejects creation of a call frame beyond the active-frame limit."
+
+[[classes]]
+id = "call_target_mismatch"
+title = "Call-target mismatch"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "The validator-before-apply contract requires call targets and metadata to be compatible."
+
+[[classes]]
+id = "const_type_incompatible"
+title = "Constant type incompatible with use"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "The validator-before-apply contract requires constant payloads to match declared use."
+
+[[classes]]
+id = "duplicate_section"
+title = "Duplicate bytecode section"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "The bytecode format and validator-before-apply contract reject duplicate standardized sections."
+
+[[classes]]
+id = "instructions_resource_limit"
+title = "Instruction-count resource limit"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits decoded module instructions and executed instructions per top-level invocation."
+
+[[classes]]
+id = "invalid_checksum"
+title = "Invalid bytecode checksum"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires CRC32 validation when the checksum flag is set."
+
+[[classes]]
+id = "jump_target_not_instruction_boundary"
+title = "Jump target not on instruction boundary"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Every jump must land at a decoded instruction boundary or the exact POU end."
+
+[[classes]]
+id = "jump_target_out_of_bounds"
+title = "Jump target outside code"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Every relative jump must stay inside its owning POU body."
+
+[[classes]]
+id = "local_frame_reference_persistence"
+title = "Local-frame reference persistence"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Frame-local references must not escape into longer-lived storage."
+
+[[classes]]
+id = "locals_resource_limit"
+title = "Locals resource limit"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits POU local references before frame-local allocation."
+
+[[classes]]
+id = "missing_instance_owner"
+title = "Missing instance owner"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Instance and local references must resolve through declared ownership metadata."
+
+[[classes]]
+id = "missing_section"
+title = "Missing required bytecode section"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Every required STBC section must be present before apply."
+
+[[classes]]
+id = "operand_index_out_of_bounds"
+title = "Operand index out of bounds"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Every instruction operand index must resolve inside its owning table."
+
+[[classes]]
+id = "parameter_direction_mismatch"
+title = "Parameter-direction mismatch"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Call parameter directions and argument shapes must be compatible."
+
+[[classes]]
+id = "reference_escape"
+title = "Reference escape"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Frame-local references must not escape directly or through dynamic non-local references."
+
+[[classes]]
+id = "refs_resource_limit"
+title = "Reference-count resource limit"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+rationale = "The fixed resource contract limits module references before executable materialization."
+
+[[classes]]
+id = "stack_leftover"
+title = "Operand stack leftover"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "A normal POU-body exit must leave no operand-stack values."
+
+[[classes]]
+id = "stack_type_mismatch"
+title = "Operand stack type mismatch"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Operand-stack shapes must be compatible at instructions and control-flow merges."
+
+[[classes]]
+id = "stack_underflow"
+title = "Operand stack underflow"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Operand-stack dataflow must reject every underflow before execution."
+
+[[classes]]
+id = "stale_instance_owner"
+title = "Stale instance owner"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "A POU body may use only references compatible with its explicit current owner."
+
+[[classes]]
+id = "truncated_section"
+title = "Truncated bytecode section"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Required section payloads must be complete and within the container."
+
+[[classes]]
+id = "unknown_opcode"
+title = "Unknown opcode"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Reserved and unknown opcodes remain invalid until explicitly implemented."
+
+[[classes]]
+id = "unsupported_schema_tag"
+title = "Unsupported bytecode schema tag"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Decoded metadata must use a shape compatible with its assigned section and referenced declarations."
+
+[[classes]]
+id = "unsupported_version"
+title = "Unsupported bytecode version"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+rationale = "The bytecode format requires unsupported major versions to be rejected."
+
+[[classes]]
+id = "wrong_section"
+title = "Wrong bytecode section shape"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Each required section ID must decode to and validate as its assigned section kind."

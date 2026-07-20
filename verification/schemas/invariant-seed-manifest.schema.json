@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/invariant-seed-manifest.schema.json",
+  "title": "truST Phase 4 invariant-seed manifest",
+  "type": "object",
+  "required": ["schema_version", "seeds"],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "seeds": {
+      "type": "array",
+      "minItems": 44,
+      "maxItems": 44,
+      "items": { "$ref": "#/$defs/seed" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "seed": {
+      "type": "object",
+      "required": [
+        "seed_id",
+        "canonical_invariant_id",
+        "board_row",
+        "origin",
+        "lifecycle_version",
+        "lifecycle_state"
+      ],
+      "properties": {
+        "seed_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+_[0-9]{3}$" },
+        "canonical_invariant_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+_[0-9]{3}$" },
+        "board_row": {
+          "enum": [
+            "VERIF-P4-001",
+            "VERIF-P4-002",
+            "VERIF-P4-003",
+            "VERIF-P4-004",
+            "VERIF-P4-005",
+            "VERIF-P4-006",
+            "VERIF-P4-007",
+            "VERIF-P4-008"
+          ]
+        },
+        "origin": { "enum": ["phase4", "preexisting"] },
+        "lifecycle_version": { "const": 1 },
+        "lifecycle_state": { "enum": ["baseline", "execution_ready"] },
+        "p4_000_risk_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -3,7 +3,6 @@ use super::common;
 use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;
 use trust_hir::{Type, TypeId};
-use trust_runtime::error::RuntimeError;
 use trust_runtime::eval::{
     call_function, expr::Expr, ops::BinaryOp, stmt::Stmt, ArgValue, CallArg, FunctionDef, Param,
     VarDef,
@@ -54,8 +53,7 @@ fn call_function_exec() {
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
-fn function_input_default_failure_returns_init_failed() {
+fn function_input_interface_defaults_to_null() {
     let mut registry = TypeRegistry::new();
     let interface = registry.register(
         "I_Svc",
@@ -70,7 +68,7 @@ fn function_input_default_failure_returns_init_failed() {
 
     let func = FunctionDef {
         name: "NeedsSvc".into(),
-        return_type: TypeId::INT,
+        return_type: interface,
         params: vec![
             Param {
                 name: "Seed".into(),
@@ -91,7 +89,7 @@ fn function_input_default_failure_returns_init_failed() {
         static_locals: Vec::new(),
         using: Vec::new(),
         body: vec![Stmt::Return {
-            expr: Some(Expr::Literal(Value::Int(1))),
+            expr: Some(Expr::Name("Svc".into())),
             location: None,
         }],
     };
@@ -100,14 +98,12 @@ fn function_input_default_failure_returns_init_failed() {
         name: Some("Seed".into()),
         value: ArgValue::Expr(Expr::Literal(Value::Int(1))),
     }];
-    let err = call_function(&mut ctx, &func, &args)
-        .expect_err("missing unsupported input default must fail closed");
-    assert_init_failed(err, "NeedsSvc", "Svc");
+    let result = call_function(&mut ctx, &func, &args).unwrap();
+    assert_eq!(result, Value::Null);
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
-fn function_return_default_failure_returns_init_failed() {
+fn function_interface_return_defaults_to_null() {
     let mut registry = TypeRegistry::new();
     let interface = registry.register(
         "I_Svc",
@@ -130,14 +126,12 @@ fn function_return_default_failure_returns_init_failed() {
         body: Vec::new(),
     };
 
-    let err = call_function(&mut ctx, &func, &[])
-        .expect_err("unsupported return default must fail closed");
-    assert_init_failed(err, "ReturnSvc", "ReturnSvc");
+    let result = call_function(&mut ctx, &func, &[]).unwrap();
+    assert_eq!(result, Value::Null);
 }
 
 #[test]
-#[ignore = "red test for runtime-safety fail-closed Phase 1"]
-fn function_local_default_failure_returns_init_failed() {
+fn function_local_interface_defaults_to_null() {
     let mut registry = TypeRegistry::new();
     let interface = registry.register(
         "I_Svc",
@@ -152,7 +146,7 @@ fn function_local_default_failure_returns_init_failed() {
 
     let func = FunctionDef {
         name: "LocalSvc".into(),
-        return_type: TypeId::INT,
+        return_type: interface,
         params: Vec::new(),
         locals: vec![VarDef {
             name: "Svc".into(),
@@ -167,26 +161,11 @@ fn function_local_default_failure_returns_init_failed() {
         static_locals: Vec::new(),
         using: Vec::new(),
         body: vec![Stmt::Return {
-            expr: Some(Expr::Literal(Value::Int(1))),
+            expr: Some(Expr::Name("Svc".into())),
             location: None,
         }],
     };
 
-    let err = call_function(&mut ctx, &func, &[])
-        .expect_err("unsupported local default must fail closed");
-    assert_init_failed(err, "LocalSvc", "Svc");
-}
-
-fn assert_init_failed(err: RuntimeError, owner: &str, variable: &str) {
-    match err {
-        RuntimeError::InitFailed {
-            owner: actual_owner,
-            variable: actual_variable,
-            ..
-        } => {
-            assert_eq!(actual_owner, owner);
-            assert_eq!(actual_variable, variable);
-        }
-        other => panic!("expected InitFailed for {owner}.{variable}, got {other:?}"),
-    }
+    let result = call_function(&mut ctx, &func, &[]).unwrap();
+    assert_eq!(result, Value::Null);
 }

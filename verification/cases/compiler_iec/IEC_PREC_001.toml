@@ -1,0 +1,59 @@
+schema_version = 1
+id = "CASES_IEC_PREC_001"
+title = "Generated cases for Expression precedence follows the active product contract"
+area = "compiler_iec"
+owner = "trust-hir"
+status = "planned"
+invariant = "IEC_PREC_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
+source_digest = "sha256:0498fa048327ac842476ddde0375be24a0ae4741f3e5a6409a49825be17d9f66"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "IEC_PREC_001_MULTIPLICATIVE_BEFORE_ADDITIVE_9A3C35EC"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "MULTIPLICATIVE_BEFORE_ADDITIVE" }, scenario = "MULTIPLICATIVE_BEFORE_ADDITIVE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_PARENTHESES_OVERRIDE_PRECEDENCE_ED1DEEBA"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "PARENTHESES_OVERRIDE_PRECEDENCE" }, scenario = "PARENTHESES_OVERRIDE_PRECEDENCE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_EXPONENTIATION_LEFT_ASSOCIATIVE_21D9554E"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "EXPONENTIATION_LEFT_ASSOCIATIVE" }, scenario = "EXPONENTIATION_LEFT_ASSOCIATIVE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_UNARY_BEFORE_EXPONENTIATION_584586B7"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "UNARY_BEFORE_EXPONENTIATION" }, scenario = "UNARY_BEFORE_EXPONENTIATION" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_ADDITIVE_LEFT_ASSOCIATIVE_780E3108"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "ADDITIVE_LEFT_ASSOCIATIVE" }, scenario = "ADDITIVE_LEFT_ASSOCIATIVE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_MULTIPLICATIVE_LEFT_ASSOCIATIVE_55CA8AD0"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "MULTIPLICATIVE_LEFT_ASSOCIATIVE" }, scenario = "MULTIPLICATIVE_LEFT_ASSOCIATIVE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_COMPARISON_BEFORE_BOOLEAN_AND_5391BC0E"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "COMPARISON_BEFORE_BOOLEAN_AND" }, scenario = "COMPARISON_BEFORE_BOOLEAN_AND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_AND_BEFORE_XOR_BEFORE_OR_6AC7B6D0"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "AND_BEFORE_XOR_BEFORE_OR" }, scenario = "AND_BEFORE_XOR_BEFORE_OR" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }

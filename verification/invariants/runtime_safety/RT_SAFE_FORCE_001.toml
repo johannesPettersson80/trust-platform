@@ -1,0 +1,61 @@
+schema_version = 1
+id = "RT_SAFE_FORCE_001"
+title = "Force and write lifetime is bounded and visible"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-16"
+claim = "Force, write, and release state must not persist through lifecycle boundaries without an explicit contract."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
+tests = [
+  "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+  "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+  "TEST_RUNTIME_FORCE_DISCONNECT_001",
+  "TEST_RUNTIME_FORCE_RELEASE_001",
+  "TEST_RUNTIME_FORCE_STOP_001",
+  "TEST_RUNTIME_FORCE_FAULT_001",
+  "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_RED",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_GREEN",
+  "EVID_RUNTIME_FORCE_LIFECYCLE_COVERAGE_20260714",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_FORCE_LIFECYCLE_001_LOCK_COMPARE",
+  "EVID_RUNTIME_FORCE_LIFECYCLE_GAP_CLOSEOUT_20260716",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "RESTART_CLEARS_DEBUG_MUTATIONS" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Warm and cold restart clear queued writes and active forces before the first scan of the recreated PLC state."
+
+[[behavior]]
+partition = { equals = "SAFE_STATE_CLEARS_IO_FORCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#debug-mutation-lifecycle"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A deliberate safe-state boundary clears the active I/O force before the next scan so the configured safe output remains authoritative."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The committed force-lifecycle trace covers restart and safe-state clearing boundaries with a current-contract lock comparison; a causal broad gate remains open."

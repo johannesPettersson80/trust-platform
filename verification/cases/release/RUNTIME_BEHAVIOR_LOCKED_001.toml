@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_RUNTIME_BEHAVIOR_LOCKED_001"
+title = "Runtime behavior-lock mapping trace"
+area = "release"
+owner = "docs"
+status = "planned"
+invariant = "RUNTIME_BEHAVIOR_LOCKED_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:807cca7bfd3acb58599664dfd9063fd6e8b9d921b700a81c1ea339508412acb8"
+source_digest = "sha256:60d6275debb8a0594f24ca5b75f31ceb1d93b45e2f3b7abb4d299d1adb3930f8"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "RUNTIME_BEHAVIOR_LOCKED_001_MAPPING"
+family = "happy_path"
+input = { scenario = "RUNTIME_BEHAVIOR_LOCK_MAPPING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { domain = "runtime" }, expected = { mapped_invariants = true, mapped_tests = true, durable_evidence = true, repository_wide_claim = false }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims" }]

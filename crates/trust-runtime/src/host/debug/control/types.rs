@@ -129,4 +129,5 @@ pub(crate) struct PendingLValueWrite {
 #[derive(Debug, Clone)]
 pub struct DebugControl {
     state: Arc<(Mutex<DebugState>, Condvar)>,
+    watchdog_pause_nanos: Arc<AtomicU64>,
 }

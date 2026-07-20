@@ -213,5 +213,5 @@ fn read_exact<const N: usize>(payload: &[u8], kind: &str) -> Result<[u8; N], Run
 }
 
 fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
-    RuntimeError::InvalidBytecode(message.into())
+    RuntimeError::bytecode(crate::error::StableErrorCode::VmBytecodeDecode, message)
 }

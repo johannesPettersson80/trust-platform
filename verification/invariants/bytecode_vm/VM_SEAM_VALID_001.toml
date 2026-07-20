@@ -1,0 +1,130 @@
+schema_version = 1
+id = "VM_SEAM_VALID_001"
+title = "Bytecode validator rejects VM semantic contract violations"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-17"
+claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime/src/bytecode/decode",
+  "crates/trust-runtime/src/bytecode/validate",
+]
+tests = [
+  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
+  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+  "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
+  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+  "TEST_BYTECODE_TRANSFORM_SEED_001",
+  "TEST_BYTECODE_VALIDATOR_CASES_001",
+  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+  "TEST_BYTECODE_VERSION_REJECTION_001",
+  "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001",
+]
+gates = ["veryquick", "pr"]
+evidence_refs = [
+  "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709",
+  "EVID_TEST_BYTECODE_VALIDATOR_CASES_001_LOCK_BASELINE",
+  "EVID_TEST_BYTECODE_VALIDATOR_CASES_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[transform_seed]
+path = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+
+[input]
+name = "bytecode_container"
+type = "trust bytecode"
+declared = "bytecode module"
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001"
+
+[[behavior]]
+partition = { equals = "TRUNCATED_REQUIRED_CONTAINER_DATA" }
+case_family = "missing_required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A container truncated before its section table or before a declared required payload is rejected before the candidate module changes live runtime state."
+
+[[behavior]]
+partition = { equals = "DUPLICATE_STANDARDIZED_SECTION_ID" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A second occurrence of any standardized section ID from 0x0001 through 0x000C invalidates the container before first-section selection can create order-dependent semantics."
+
+[[behavior]]
+partition = { equals = "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reserved and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_OPTIONAL_SECTION_FLAGS_ZERO" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An unknown STBC 1.x section with flags zero is preserved as uninterpreted bytes and ignored by validation and runtime apply."
+
+[[behavior]]
+partition = { equals = "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A relative jump outside its POU or into an operand byte is rejected before execution."
+
+[[behavior]]
+partition = { equals = "INVALID_OPERAND_STACK_DATAFLOW" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Stack underflow, incompatible merge depth or shape, and non-empty normal exits are rejected during validation."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "The product-path case runner covers truncation before the section table and before a declared required section payload without partial runtime apply."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Mapped validator tests cover invalid jumps, stack dataflow, reference ranges and escape, owner ambiguity, call metadata, and declared metadata compatibility."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Mapped tests cover duplicate standardized section rejection, reserved opcode rejection, and preservation plus product-path ignore semantics for unknown optional sections; the generated validator cases have a current producer-authentic lock comparison."

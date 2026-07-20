@@ -355,9 +355,7 @@ impl Runtime {
             return Ok(());
         }
         let module = self.build_vm_module()?;
-        module
-            .validate()
-            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
+        module.validate().map_err(error::RuntimeError::from)?;
         let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
         self.vm_module = Some(vm_module);
         Ok(())
@@ -366,8 +364,9 @@ impl Runtime {
     fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
         if self.source_text_index.is_empty() {
             return crate::bytecode::build_module_from_runtime(self).map_err(|err| {
-                error::RuntimeError::InvalidBytecode(
-                    format!("vm module build failed: {err}").into(),
+                error::RuntimeError::bytecode(
+                    err.stable_code(),
+                    format!("vm module build failed: {err}"),
                 )
             });
         }
@@ -382,7 +381,10 @@ impl Runtime {
             })
             .collect::<Vec<_>>();
         crate::bytecode::build_module_from_runtime_with_sources(self, &sources).map_err(|err| {
-            error::RuntimeError::InvalidBytecode(format!("vm module build failed: {err}").into())
+            error::RuntimeError::bytecode(
+                err.stable_code(),
+                format!("vm module build failed: {err}"),
+            )
         })
     }
 
@@ -408,22 +410,33 @@ impl Runtime {
     }
 
     fn write_cycle_outputs(&mut self) -> Result<(), error::RuntimeError> {
-        self.io.interface_mut().write_outputs(&self.storage)?;
-        if let Some(debug) = self.debug.clone() {
-            self.apply_forced_values(&debug)?;
-        }
-        let now_ms = self.current_time_ms();
-        self.ads.capture_outputs(&mut self.storage, now_ms)?;
-        self.opcua_client
-            .capture_outputs(&mut self.storage, now_ms)?;
-        #[cfg(feature = "debug")]
-        self.emit_io_snapshot();
-        self.check_output_commit_deadline()?;
-        {
-            let (interface, drivers) = self.io.interface_and_drivers_mut();
-            for entry in drivers {
-                entry.driver.write_outputs(interface.outputs())?;
+        let committed_outputs = self.io.interface().outputs().to_vec();
+        let commit_result = (|| {
+            self.io.interface_mut().write_outputs(&self.storage)?;
+            if let Some(debug) = self.debug.clone() {
+                self.apply_forced_values(&debug)?;
             }
+            let now_ms = self.current_time_ms();
+            self.ads.capture_outputs(&mut self.storage, now_ms)?;
+            self.opcua_client
+                .capture_outputs(&mut self.storage, now_ms)?;
+            #[cfg(feature = "debug")]
+            self.emit_io_snapshot();
+            self.check_output_commit_deadline()?;
+            {
+                let (interface, drivers) = self.io.interface_and_drivers_mut();
+                for entry in drivers {
+                    entry.driver.write_outputs(interface.outputs())?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(error) = commit_result {
+            self.io
+                .interface_mut()
+                .outputs_mut()
+                .copy_from_slice(&committed_outputs);
+            return Err(error);
         }
         self.openot_telemetry
             .publish(self.cycle_counter, &self.storage)?;
@@ -434,7 +447,7 @@ impl Runtime {
 
     fn check_output_commit_deadline(&self) -> Result<(), error::RuntimeError> {
         if self
-            .output_commit_deadline
+            .effective_output_commit_deadline()
             .is_some_and(|deadline| std::time::Instant::now() >= deadline)
         {
             return Err(error::RuntimeError::WatchdogTimeout);

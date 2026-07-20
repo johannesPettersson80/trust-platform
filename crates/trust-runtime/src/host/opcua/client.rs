@@ -733,8 +733,19 @@ fn value_from_opcua_variant(
         (OpcUaDataType::UInt16, OpcUaVariant::UInt16(value)) => Ok(Value::UInt(value)),
         (OpcUaDataType::UInt32, OpcUaVariant::UInt32(value)) => Ok(Value::UDInt(value)),
         (OpcUaDataType::UInt64, OpcUaVariant::UInt64(value)) => Ok(Value::ULInt(value)),
-        (OpcUaDataType::Float, OpcUaVariant::Float(value)) => Ok(Value::Real(value)),
-        (OpcUaDataType::Double, OpcUaVariant::Double(value)) => Ok(Value::LReal(value)),
+        (OpcUaDataType::Float, OpcUaVariant::Float(value)) if value.is_finite() => {
+            Ok(Value::Real(value))
+        }
+        (OpcUaDataType::Double, OpcUaVariant::Double(value)) if value.is_finite() => {
+            Ok(Value::LReal(value))
+        }
+        (OpcUaDataType::Float, actual @ OpcUaVariant::Float(_))
+        | (OpcUaDataType::Double, actual @ OpcUaVariant::Double(_)) => {
+            Err(RuntimeError::ControlError(
+                format!("OPC UA input contains a non-finite floating-point value: {actual:?}")
+                    .into(),
+            ))
+        }
         (OpcUaDataType::String, OpcUaVariant::String(value)) => Ok(Value::String(value.into())),
         (expected, actual) => Err(RuntimeError::ControlError(
             format!(

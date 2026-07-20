@@ -1,0 +1,716 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/phase5-suite-audit-report.schema.json",
+  "title": "Combined Phase 5 suite and gate audit report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "boundaries",
+    "inventory",
+    "suites",
+    "areas",
+    "routes",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "generator": {
+      "const": "phase5-suite-audit"
+    },
+    "generator_version": {
+      "const": 1
+    },
+    "report_status": {
+      "const": "complete"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "command": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "output_paths": {
+      "$ref": "#/$defs/output_paths"
+    },
+    "boundaries": {
+      "$ref": "#/$defs/boundary"
+    },
+    "inventory": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/inventory_row"
+      },
+      "minItems": 63,
+      "maxItems": 63
+    },
+    "suites": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/suite_row"
+      },
+      "minItems": 6,
+      "maxItems": 6
+    },
+    "areas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/area_row"
+      },
+      "minItems": 11,
+      "maxItems": 11
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/route_row"
+      },
+      "minItems": 29,
+      "maxItems": 29
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "required": [
+        "json",
+        "markdown"
+      ],
+      "properties": {
+        "json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "boundary": {
+      "type": "object",
+      "required": [
+        "verification_gate_enforcing",
+        "report_emits_proof",
+        "report_closes_spec_gaps",
+        "suite_includes_interpreted",
+        "p5_000b_remains_open"
+      ],
+      "properties": {
+        "verification_gate_enforcing": {
+          "const": true
+        },
+        "report_emits_proof": {
+          "const": false
+        },
+        "report_closes_spec_gaps": {
+          "const": false
+        },
+        "suite_includes_interpreted": {
+          "const": false
+        },
+        "p5_000b_remains_open": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "inventory_row": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "id",
+        "discovery_id",
+        "source_kind",
+        "path",
+        "name",
+        "command",
+        "variant",
+        "command_role",
+        "disposition",
+        "suite_ids",
+        "owner",
+        "duration_class",
+        "environment",
+        "artifact_kind",
+        "artifact_paths",
+        "artifact_retention",
+        "enforcement",
+        "required_env",
+        "rationale"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "discovery_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_kind": {
+          "enum": [
+            "catalog_test_command",
+            "gate_script",
+            "github_workflow_job",
+            "just_recipe",
+            "workflow_template"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_role": {
+          "enum": [
+            "entrypoint",
+            "helper",
+            "reference"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "assigned",
+            "excluded",
+            "report_only",
+            "supporting"
+          ]
+        },
+        "suite_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration_class": {
+          "enum": [
+            "fast",
+            "lab",
+            "long",
+            "manual",
+            "medium",
+            "slow",
+            "very_fast"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "consumer_project_ci",
+            "github_matrix",
+            "github_nightly",
+            "github_or_lab_runner",
+            "github_pages",
+            "github_release",
+            "github_release_matrix",
+            "github_self_hosted_linux",
+            "github_ubuntu",
+            "linux_tooling",
+            "local",
+            "local_or_ci",
+            "nightly_toolchain",
+            "trust_builder"
+          ]
+        },
+        "artifact_kind": {
+          "enum": [
+            "ci_artifact",
+            "ci_job_result",
+            "committed_file",
+            "lab_report",
+            "machine_local",
+            "none",
+            "release_object"
+          ]
+        },
+        "artifact_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "artifact_retention": {
+          "enum": [
+            "committed",
+            "machine_local",
+            "none",
+            "release_object",
+            "repository_default"
+          ]
+        },
+        "enforcement": {
+          "enum": [
+            "advisory",
+            "conditional",
+            "excluded",
+            "non_executable",
+            "planned",
+            "report_only",
+            "required",
+            "supporting"
+          ]
+        },
+        "required_env": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "suite_row": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "status",
+        "owner",
+        "duration_class",
+        "environment",
+        "direct_commands",
+        "direct_command_bindings",
+        "direct_inventory_refs",
+        "evidence_destination",
+        "includes",
+        "excludes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration_class": {
+          "enum": [
+            "fast",
+            "lab",
+            "long",
+            "manual",
+            "medium",
+            "slow",
+            "very_fast"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "consumer_project_ci",
+            "github_matrix",
+            "github_nightly",
+            "github_or_lab_runner",
+            "github_pages",
+            "github_release",
+            "github_release_matrix",
+            "github_self_hosted_linux",
+            "github_ubuntu",
+            "linux_tooling",
+            "local",
+            "local_or_ci",
+            "nightly_toolchain",
+            "trust_builder"
+          ]
+        },
+        "direct_commands": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "direct_command_bindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "direct_inventory_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidence_destination": {
+          "type": "string",
+          "minLength": 1
+        },
+        "includes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "excludes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "area_row": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "owner",
+        "risk_default",
+        "path_globs",
+        "required_test_classes",
+        "required_case_families",
+        "direct_suite_tiers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_default": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path_globs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "required_test_classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "required_case_families": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "direct_suite_tiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "route_row": {
+      "type": "object",
+      "required": [
+        "order",
+        "id",
+        "match_kind",
+        "area_ids",
+        "path_globs",
+        "intents",
+        "required_test_classes",
+        "direct_suite_tiers",
+        "conditional_suite_tiers",
+        "notes"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "match_kind": {
+          "enum": [
+            "path",
+            "intent"
+          ]
+        },
+        "area_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "path_globs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "intents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "required_test_classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "direct_suite_tiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "conditional_suite_tiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "inventory_records",
+        "live_inventory_records",
+        "suite_records",
+        "suite_direct_commands",
+        "suite_inventory_refs",
+        "canonical_areas",
+        "taxonomy_routes",
+        "path_routes",
+        "intent_routes",
+        "by_disposition",
+        "by_source_kind",
+        "by_suite",
+        "by_enforcement",
+        "by_artifact_kind",
+        "route_direct_suite_tiers",
+        "route_conditional_suite_tiers"
+      ],
+      "properties": {
+        "inventory_records": {
+          "const": 63
+        },
+        "live_inventory_records": {
+          "const": 60
+        },
+        "suite_records": {
+          "const": 6
+        },
+        "suite_direct_commands": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suite_inventory_refs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "canonical_areas": {
+          "const": 11
+        },
+        "taxonomy_routes": {
+          "const": 29
+        },
+        "path_routes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "intent_routes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_disposition": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "by_source_kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "by_suite": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "by_enforcement": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "by_artifact_kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "route_direct_suite_tiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        },
+        "route_conditional_suite_tiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "count": {
+      "type": "object",
+      "required": [
+        "name",
+        "count"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

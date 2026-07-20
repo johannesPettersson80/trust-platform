@@ -65,9 +65,18 @@ struct SectionEntry {
 
 Section table rules:
 - Entries may appear in any order.
+- Each standardized section ID in the range `0x0001` through `0x000C` may
+  appear at most once. A duplicate standardized section ID invalidates the
+  container before any section is selected for validation or execution.
 - Offsets must be 4-byte aligned.
 - Sections must not overlap.
-- Unknown section IDs are ignored unless marked required by the runtime configuration.
+- In STBC version 1.x, an unknown section ID with `flags = 0` is an optional
+  extension. The decoder preserves its payload as uninterpreted bytes, semantic
+  validation ignores it, and runtime apply does not execute or otherwise
+  interpret it.
+- STBC version 1.x defines no required-extension flag. A future producer that
+  needs an unknown section to be mandatory must use a separately reviewed
+  versioned contract; it cannot encode that requirement in a version 1.x file.
 
 #### 4.3 Section Flags
 
@@ -81,6 +90,52 @@ Section table rules:
 | Bit | Name | Meaning |
 |-----|------|---------|
 | `0x0001` | `CRC32` | header `checksum` is CRC32 of the section table and section payloads |
+
+#### 4.5 Collection Count Bounds
+
+Before reserving capacity for any top-level or nested collection encoded by a
+`u32 count`, the decoder must prove with checked arithmetic that
+`count * minimum_entry_bytes` fits in the unread bytes of the containing
+section or entry. `minimum_entry_bytes` includes only fields present in every
+encoded entry of that collection. A count that cannot fit must be rejected
+before a count-sized allocation is attempted.
+
+This is a necessary structural bound, not a general VM resource budget. It
+does not define maximum container size, instruction count, stack depth, local
+count, reference count, call depth, or execution-time limits; those broader
+determinism and resource-limit contracts remain separately specified.
+
+#### 4.6 Fixed Resource Limits
+
+The STBC decoder, validator, and executor enforce the following fixed limits.
+They are part of the bytecode version 1.x product contract and are not
+configuration knobs:
+
+| Resource | Maximum |
+| --- | ---: |
+| Encoded STBC container | 67,108,864 bytes (64 MiB) |
+| Decoded instructions in one module | 1,000,000 |
+| References in one module | 65,536 |
+| Local references in one POU | 65,536 |
+| Declared POU parameters | 1,024 |
+| Native-call arguments | 1,024 |
+| Operand-stack values | 16,384 |
+| Active VM call frames | 1,024 |
+| Executed instructions in one top-level VM invocation | 1,000,000 |
+
+The encoded-container limit is checked before checksum calculation or section
+decoding. Count and decoded-instruction limits are checked before count-sized
+or instruction-state allocation. A module above any validation limit is
+rejected as a complete candidate before it can replace the active module.
+
+The execution budget counts each executed bytecode instruction, not only loop
+back-edges. Nested POU and native calls share the caller's remaining budget.
+The stack interpreter and optimized register/tier-1 paths charge the same
+original bytecode instructions even when lowering fuses or expands internal
+operations. Exhausting the instruction budget faults the invocation through
+the existing execution-timeout category; it does not define a stable public
+error identifier. Deadline/watchdog checks remain independent and may fault an
+invocation before its instruction budget is exhausted.
 
 ### 5. Section IDs (Version 1.x)
 
@@ -96,7 +151,7 @@ Section table rules:
 | 0x0008 | IO_MAP | Yes | Direct I/O bindings |
 | 0x0009 | DEBUG_MAP | No | Source mapping, breakpoints |
 | 0x000A | DEBUG_STRING_TABLE | No | Debug-only strings (file paths) |
-| 0x000B | VAR_META | No | Variable metadata (globals) |
+| 0x000B | VAR_META | No | Variable type and retention metadata |
 | 0x000C | RETAIN_INIT | No | Retain initialization values |
 | 0x8000-0xFFFF | VENDOR | No | Vendor/experimental |
 
@@ -510,7 +565,29 @@ struct VarMetaEntry {
 }
 ```
 
-VarMeta entries describe global variables and their retain policies.
+VarMeta entries describe typed storage references. Global and instance-storage
+entries use their source variable names and may carry retain or initializer
+metadata. Base local declarations use the reserved name
+`@local/<pou_id>/<slot>/<name>`, where `slot` is the zero-based offset within
+the POU's contiguous local-reference range. Local entries must use `retain = 0`,
+must not carry an initializer constant, and must refer to an empty-path LOCAL
+reference owned by exactly one POU. Return and parameter entry types must match
+the corresponding POU_INDEX signature; the entry type is authoritative for
+declared local variables, whose types are otherwise absent from POU_INDEX.
+
+Version 1.1 containers produced before local metadata was introduced may omit
+these local entries. A runtime may continue untyped numeric copy-back for such a
+container, but it must reject STRING or WSTRING output copy-back when the
+receiving declaration's type cannot be recovered; it must not perform an
+unbounded raw string write. Internal `Null` remains the unassigned-output
+sentinel; every non-null value copied to a declared STRING or WSTRING target
+must match that target's string family before normalization.
+
+The local metadata extension retains the version 1.1 wire layout. Runtimes
+before truST 0.24.34 do not enforce its local string-copy semantics, so
+bytecode generated by truST 0.24.34 or later that uses local string output
+targets must be deployed with a runtime from the same or a later release.
+Mixed deployment with an older runtime is unsupported.
 
 #### 6.12 RETAIN_INIT (0x000C, optional)
 
@@ -611,7 +688,110 @@ Reserved opcode ranges:
 - `0x80-0xEF` reserved for future core extensions.
 - `0xF0-0xFF` vendor/experimental.
 
-#### 7.4 Fault Semantics
+#### 7.4 Validator Before Apply
+
+An STBC module must pass complete structural and semantic validation before it
+may replace the runtime's active module or mutate runtime metadata, configured
+tasks, process-image sizing, retain state, or executable VM state. Validation
+is fail-closed: the first observed violation rejects the complete candidate
+module; validation order does not make an otherwise invalid module acceptable.
+
+The validator enforces these module-wide contracts:
+
+- every required section in section 5 is present with the decoded section
+  kind assigned to that ID;
+- string, type, constant, reference, POU, variable, resource, I/O, retain, and
+  debug indexes resolve inside their owning table;
+- array bounds are ordered, constant payloads are complete and compatible with
+  their declared type, and optional metadata agrees with the referenced POU or
+  storage declaration;
+- POU IDs are unique, code ranges stay inside `POU_BODIES`, local-reference
+  ranges are checked for arithmetic overflow, bounds, overlap, contiguous
+  offsets, local location, and unique frame ownership;
+- a POU may use a local reference only from its declared local range, including
+  path references rooted in that same frame owner;
+- a frame-local reference must not be stored into global, retain, I/O,
+  instance, or otherwise longer-lived storage, directly or through a dynamic
+  non-local reference;
+- every instruction is recognized and carries its complete fixed-width
+  operand payload; an opcode in a reserved range remains invalid until the
+  accepted bytecode version explicitly implements it;
+- direct, native, method, and interface calls resolve to compatible targets,
+  metadata, parameter directions, and argument shapes supported by the active
+  runtime;
+- every relative jump stays inside its POU body and lands at a decoded
+  instruction boundary or the exact end of that body;
+- operand-stack dataflow has no underflow, has compatible depth at each
+  control-flow merge, uses reference/numeric/boolean shapes where required,
+  and leaves no values at a normal POU-body exit; and
+- resource, task, program, I/O, retain, variable, and debug metadata resolves
+  to compatible table entries and code locations.
+
+`BytecodeModule::decode` may reject malformed container bytes before semantic
+validation. `BytecodeModule::validate` performs the decoded semantic checks.
+`Runtime::apply_bytecode_bytes` must perform both boundaries and must
+materialize the candidate executable module before changing live runtime
+metadata. Any rejection leaves the previously active runtime configuration and
+executable module unchanged.
+
+`BytecodeError` variants identify the in-process failure category. Every
+variant also has the following stable machine identifier. Diagnostic text may
+provide a narrower reason, but text is not part of the machine contract.
+
+| `BytecodeError` variant | Stable identifier |
+| --- | --- |
+| `InvalidMagic` | `bytecode_invalid_magic` |
+| `UnsupportedVersion` | `bytecode_unsupported_version` |
+| `InvalidHeader` | `bytecode_invalid_header` |
+| `InvalidChecksum` | `bytecode_invalid_checksum` |
+| `InvalidSectionTable` | `bytecode_invalid_section_table` |
+| `SectionOutOfBounds` | `bytecode_section_out_of_bounds` |
+| `SectionOverlap` | `bytecode_section_overlap` |
+| `SectionAlignment` | `bytecode_section_alignment` |
+| `UnexpectedEof` | `bytecode_unexpected_eof` |
+| `InvalidSection` | `bytecode_invalid_section` |
+| `MissingSection` | `bytecode_missing_section` |
+| `InvalidOpcode` | `bytecode_invalid_opcode` |
+| `InvalidJumpTarget` | `bytecode_invalid_jump_target` |
+| `InvalidPouId` | `bytecode_invalid_pou_id` |
+| `InvalidIndex` | `bytecode_invalid_index` |
+
+`BytecodeError::stable_code()` returns the table entry. Conversion into the
+public runtime error preserves that identifier; it must not derive a code by
+parsing `Display` text. Direct decode/validation and
+`Runtime::apply_bytecode_bytes` therefore report the same identifier for the
+same rejected candidate. Control responses place the identifier in
+`error_code` while retaining the existing human-readable `error` field.
+
+The fixed limits in section 4.6 are validated before apply and enforced again
+at their allocation or execution boundary. Their diagnostic text remains
+non-normative even though the enclosing error category has a stable machine
+identifier.
+
+#### 7.4.1 VM Trap Identifiers
+
+VM traps that represent malformed executable state retain a stable identifier
+when converted to `RuntimeError`. Invalid opcode, jump, POU, and table-index
+traps reuse the corresponding `bytecode_*` identifier above. The remaining
+VM-only structural identifiers are:
+
+| Trap category | Stable identifier |
+| --- | --- |
+| Operand stack underflow | `vm_stack_underflow` |
+| Operand stack overflow | `vm_stack_overflow` |
+| Call stack underflow | `vm_call_stack_underflow` |
+| Call stack overflow | `vm_call_stack_overflow` |
+| Unsupported runtime opcode | `vm_unsupported_opcode` |
+| Unsupported reference location | `vm_unsupported_reference_location` |
+| Invalid native-call metadata or payload | `vm_invalid_native_call` |
+| Bytecode decode failure without a narrower decoder variant | `vm_bytecode_decode` |
+
+Condition, null-reference, loop-step, deadline, instruction-budget, and other
+runtime-value traps use the stable `runtime_*` identifiers in
+`docs/specs/10-runtime-semantics.md`. `VmTrap::Runtime` preserves the embedded
+runtime error's identifier.
+
+#### 7.5 Fault Semantics
 
 The executor must fault on:
 - Type mismatches (e.g., BOOL in arithmetic)
@@ -620,6 +800,34 @@ The executor must fault on:
 - FOR loop step expressions that evaluate to 0 (encoder emits a step==0 guard that executes `HALT` before loop entry)
 - Invalid jump targets
 - Method/interface dispatch on NULL or incompatible references
+
+#### 7.6 Source-to-Bytecode Fail-Closed Boundary
+
+Source analysis and bytecode lowering are separate acceptance boundaries. A
+source construct may be valid in the analyzed runtime model while the bytecode
+encoder does not yet implement its executable semantics. In that case,
+bytecode-module construction must fail visibly and return no module. The
+encoder must not replace the construct with `NOP`, discard the unsupported
+subtree, or return a module containing only the successfully emitted prefix.
+
+The reviewed lowering partitions are:
+
+- supported `EXIT` and `CONTINUE` statements inside active loops emit their
+  defined jump paths and remain executable;
+- a source `JMP` statement, which is accepted by source analysis but has no
+  reviewed bytecode lowering, rejects bytecode-module construction; and
+- an executable array-initializer assignment, including one following an
+  otherwise supported statement, rejects bytecode-module construction while
+  that expression remains unsupported by the encoder.
+
+During source lowering, an explicit empty label is the sole reviewed
+intentional no-action statement that may emit `NOP`. The presence of the
+encoded `NOP` instruction in an already constructed module is governed by the
+normal instruction contract and does not authorize fail-open source lowering.
+
+This boundary requires a visible compiler build error and is not a runtime
+failure surface. The stable bytecode and VM identifiers in Section 7.7 apply
+after bytecode production; they do not replace source-lowering diagnostics.
 
 ### 8. Versioning
 
@@ -643,7 +851,7 @@ The loader must populate runtime metadata from:
 - STRING_TABLE -> names for tasks/programs/resources
 - REF_TABLE -> FB instance references
 - POU_INDEX -> method tables, inheritance, interface dispatch mapping
-- VAR_META / RETAIN_INIT -> global variable metadata and retain initialization (if present)
+- VAR_META / RETAIN_INIT -> variable type metadata and retain initialization (if present)
 
 ### 10. Debugging Data
 

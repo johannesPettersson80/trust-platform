@@ -78,6 +78,12 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - `PauseRequest` is honored only if execution is currently running.
 - The adapter **must** respond to the request before emitting `StoppedEvent` with reason `pause`.
 - If already paused, the adapter returns success and does not emit another pause event.
+- A statement-boundary pause suspends the current runtime cycle. Operator dwell
+  time while stopped is excluded from the cycle watchdog and output-commit
+  deadlines; resume continues with the remaining active-execution budget.
+- No new scan or output commit starts solely because the debugger is waiting.
+  Pause does not apply safe state. An independent stop, fault, or active-execution
+  watchdog breach retains its normal runtime semantics. See DEV-049.
 
 #### Stop on Entry
 
@@ -101,10 +107,48 @@ Attach arguments (adapter-specific):
 Attach requires `runtime.control.debug_enabled=true`. If disabled, the adapter must report an
 error and remain disconnected.
 
+The runtime control role matrix in
+`docs/specs/11-runtime-engine.md#runtime-control-authorization` governs attach
+operations. Debug reads require Viewer; pause/resume require Operator; step,
+breakpoint mutation, evaluation, write, force, and release require Engineer.
+Viewer and Operator mutation attempts must fail before queued writes or force
+state changes. Only Admin may enable the debug surface or change control mode;
+Engineer authority permits use of an already enabled surface, not activation of
+that surface. Runtime role denials carry the stable control error code
+`insufficient_role`; the adapter must preserve that authorization category when
+reporting the failed request. (DEV-050)
+
 Current attach limitation: arbitrary `setVariable` / `setExpression` variable writes are not
 supported in attach mode. Live Values I/O operations are the supported write path while attached:
 `stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control endpoint and must surface
 runtime authorization/capability errors honestly.
+
+For a managed local debug session, Live Values writes and forces to a declared
+`REAL` or `LREAL` address parse the submitted text as that IEC floating-point
+type. The adapter accepts only finite semantic values. It rejects `NaN`,
+positive infinity, negative infinity, values that overflow the declared type,
+and integer encodings that attempt to supply non-finite IEEE bit patterns. A
+rejection returns a failed DAP response before the value is queued, forced, or
+written to the process image; the previous value and force state remain
+unchanged. Attach-mode validation remains governed by the runtime control
+endpoint and is not covered by this managed-session rule. (DEV-040)
+
+#### Live Values Mutation Lifetime
+
+- A successful write is queued for the next scan boundary and is consumed
+  once.
+- A successful force remains active across scans, pause/resume, and a
+  non-terminating detach until an authorized release or a runtime clearing
+  boundary.
+- Release removes the force but does not write a replacement value.
+- Deliberate stop, fault handling, and warm or cold restart clear queued writes
+  and active forces before safe-state handling or restarted execution.
+- Authentication or authorization changes apply to later commands and do not
+  silently clear an existing force. The force remains visible to authorized
+  clients until release or a clearing boundary.
+
+These are truST debugger/runtime lifecycle rules outside the IEC language
+execution model. See DEV-047.
 
 ### Stepping Semantics
 
@@ -178,6 +222,13 @@ expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 
 - `stReload` replaces runtime sources and revalidates breakpoints.
 - If the session was paused before reload, it remains paused after reload.
+- Source compilation and runtime reload are fail-closed. A compile,
+  bytecode-validation, resource-validation, or retained-state preparation
+  error returns a failed response and preserves the previously running program
+  and its live state. The adapter must not emit a successful reload or replace
+  its current metadata on that path.
+- The runtime transaction and state-preservation boundary is normative in
+  `docs/specs/11-runtime-engine.md#671-online-change-transaction`.
 
 #### Reload Trigger Policy (Required)
 

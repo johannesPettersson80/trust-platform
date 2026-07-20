@@ -1,0 +1,91 @@
+{
+  "baseline_commands": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "conversion_functions",
+        "--",
+        "--exact"
+      ],
+      "duration_seconds": 79.577,
+      "exit_status": 0,
+      "timed_out": false
+    }
+  ],
+  "boundaries": {
+    "artifact_closes_spec_gaps": false,
+    "artifact_creates_proof": false,
+    "artifact_promotes_invariants": false,
+    "association_ids_are_execution_claims": false
+  },
+  "contract_digest": "sha256:c353734f56a12a6d0ef12a145c36100d9995daf580730932dd14cbc6ff925e7b",
+  "finished_at": "2026-07-16T09:52:40Z",
+  "id": "MUTATION_EXECUTION_RUNTIME_VALUE_CONVERSION_001",
+  "mutations": [
+    {
+      "association_ids": [
+        "DISC_11144C19050BB255758E"
+      ],
+      "build_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "--no-run"
+      ],
+      "build_duration_seconds": 15.718,
+      "build_exit_status": 101,
+      "build_stderr": "   Compiling trust-runtime v0.24.50 (/tmp/trust-focused-mutation-qr5575jy/crates/trust-runtime)\nwarning: unused import: `crate::stdlib::helpers::require_arity`\n --> crates/trust-runtime/src/stdlib/conversions/dispatch.rs:2:5\n  |\n2 | use crate::stdlib::helpers::require_arity;\n  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  |\n  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused imports: `from_bcd` and `to_bcd`\n --> crates/trust-runtime/src/stdlib/conversions/dispatch.rs:6:18\n  |\n6 | use super::bcd::{from_bcd, to_bcd};\n  |                  ^^^^^^^^  ^^^^^^\n\nerror[E0277]: the trait bound `Value: Default` is not satisfied\n  --> crates/trust-runtime/src/stdlib/conversions/dispatch.rs:19:8\n   |\n19 |     Ok(Default::default())\n   |        ^^^^^^^^^^^^^^^^^^ unsatisfied trait bound\n   |\n   = help: the trait `std::default::Default` is not implemented for `trust_runtime_core::value::Value`\n   = note: the full name for the type has been written to '/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/trust_runtime-814ed762d8af8fea.long-type-857812935442561447.txt'\n   = note: consider using `--verbose` to print the full type name to the console\n\nFor more information about this error, try `rustc --explain E0277`.\nwarning: `trust-runtime` (lib) generated 2 warnings\nerror: could not compile `trust-runtime` (lib) due to 1 previous error; 2 warnings emitted\n",
+      "build_stdout": "",
+      "build_timed_out": false,
+      "duration_seconds": 15.718,
+      "function": "apply_conversion",
+      "generated_mutant_name": "dispatch.rs:19:5: replace apply_conversion -> Result<Value, RuntimeError> with Ok(Default::default())",
+      "genre": "FnValue",
+      "id": "MUTANT_RUNTIME_APPLY_CONVERSION_DEFAULT",
+      "replacement": "Ok(Default::default())",
+      "result": "unviable",
+      "source_file": "crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
+      "test_command": [
+        "cargo",
+        "test",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "stdlib_conv",
+        "conversion_functions",
+        "--",
+        "--exact"
+      ],
+      "test_duration_seconds": 0.0,
+      "test_exit_status": null,
+      "test_stderr": "",
+      "test_stdout": "",
+      "test_timed_out": false
+    }
+  ],
+  "platform": "linux-x86_64",
+  "runner": "focused-mutation-shard.py v1",
+  "schema_version": 1,
+  "shard_id": "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
+  "source_commit": "bb7ee859d59914f15d9edd53b1fbe6e60dd0d449",
+  "started_at": "2026-07-16T09:51:03Z",
+  "status": "complete",
+  "summary": {
+    "caught": 0,
+    "error": 0,
+    "survived": 0,
+    "timeout": 0,
+    "total": 1,
+    "unviable": 1
+  },
+  "tool": "cargo-mutants-single-file-adapter",
+  "tool_version": "cargo-mutants 27.0.0"
+}

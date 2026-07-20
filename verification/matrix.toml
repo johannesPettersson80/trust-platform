@@ -1,0 +1,478 @@
+# Verification planning and changed-file routing matrix.
+
+schema_version = 2
+id = "VERIFICATION_MATRIX_001"
+title = "Full verification planning and code-area routing matrix"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-10"
+
+[[areas]]
+id = "compiler_iec"
+status = "mapped"
+owner = "language"
+risk_default = "wrong_result"
+high_risks = ["safety_critical", "wrong_result", "silent_corruption"]
+path_globs = ["crates/trust-syntax/**", "crates/trust-hir/**", "fuzz/**", "libraries/**"]
+required_test_classes = ["metadata_validation", "unit", "negative_malformed_input", "iec_conformance"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "bytecode_vm"
+status = "mapped"
+owner = "trust-runtime"
+risk_default = "wrong_result"
+high_risks = ["wrong_result", "silent_corruption"]
+path_globs = ["crates/trust-runtime/src/bytecode/**", "crates/trust-runtime/src/runtime/vm/**", "crates/trust-runtime/src/host/harness/**", "crates/trust-runtime-core/src/bytecode/**", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/program_model/**", "crates/trust-runtime-core/src/value/**", "crates/trust-runtime-core/src/vm/**", "verification/invariants/bytecode_vm/**", "verification/cases/bytecode_vm/**"]
+required_test_classes = ["metadata_validation", "negative_malformed_input", "failing_regression", "iec_conformance", "mutation"]
+required_case_families = ["happy_path", "boundary_low", "boundary_high", "below_min", "above_max", "wrong_type_or_shape", "missing_required", "extra_or_unknown", "encoding_or_unicode", "resource_limit"]
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "runtime_safety"
+status = "mapped"
+owner = "trust-runtime"
+risk_default = "safety_critical"
+high_risks = ["safety_critical", "wrong_result", "silent_corruption", "false_status"]
+path_globs = ["crates/trust-runtime/**", "crates/trust-runtime-core/**"]
+required_test_classes = ["unit", "integration", "runtime_vertical"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "protocols"
+status = "mapped"
+owner = "trust-runtime"
+risk_default = "false_status"
+high_risks = ["safety_critical", "wrong_result", "false_status"]
+path_globs = ["crates/trust-ads-core/**", "crates/trust-ads-server/**", "crates/trust-runtime/src/io/**", "crates/trust-runtime/src/connectors/**", "crates/trust-runtime/src/host/ads/**", "crates/trust-runtime/src/host/opcua/**"]
+required_test_classes = ["unit", "integration", "protocol_loopback"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "control_security"
+status = "mapped"
+owner = "trust-runtime"
+risk_default = "security"
+high_risks = ["safety_critical", "false_status"]
+path_globs = ["crates/trust-runtime/src/control/**", "crates/trust-runtime/src/host/debug/**", "crates/trust-runtime/src/host/security/**", "crates/trust-runtime/src/web/**", "crates/trust-debug/**"]
+required_test_classes = ["integration", "runtime_vertical", "rbac_security"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "editor_safety"
+status = "mapped"
+owner = "editor"
+risk_default = "silent_corruption"
+high_risks = ["wrong_result", "silent_corruption", "false_status"]
+path_globs = ["crates/trust-ide/**", "crates/trust-lsp/**", "crates/trust-debug/**", "crates/trust-wasm-analysis/**", "editors/vscode/**"]
+required_test_classes = ["unit", "lsp_protocol", "vscode_extension"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "plcopen_devtools"
+status = "mapped"
+owner = "developer-tools"
+risk_default = "wrong_result"
+high_risks = ["wrong_result", "silent_corruption"]
+path_globs = ["crates/trust-plcopen/**", "crates/trust-dev/**"]
+required_test_classes = ["unit", "integration", "negative_malformed_input"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "hmi_ui"
+status = "mapped"
+owner = "hmi"
+risk_default = "false_status"
+high_risks = ["safety_critical", "wrong_result", "false_status"]
+path_globs = ["crates/trust-runtime/src/hmi/**", "hmi/**", "editors/vscode/src/hmi-panel/**", "editors/vscode/src/io-panel/**", "editors/vscode/src/networkCanvas/**", "editors/vscode/src/**/webview/**"]
+required_test_classes = ["integration", "runtime_vertical", "browser_webview_visual", "ui_journey_acceptance"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "release"
+status = "mapped"
+owner = "release-engineering"
+risk_default = "false_status"
+high_risks = ["false_status"]
+path_globs = ["docs/public/**", "CHANGELOG.md", "README.md", "mkdocs.yml", ".github/workflows/release.yml"]
+required_test_classes = ["release_docs"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "supply_chain_platform"
+status = "mapped"
+owner = "release-engineering"
+risk_default = "supply_chain"
+high_risks = ["false_status"]
+path_globs = ["Cargo.toml", "Cargo.lock", "deny.toml", ".cargo/**", "docker/**", "third_party/**", "editors/vscode/package.json", "editors/vscode/package-lock.json"]
+required_test_classes = ["supply_chain_security", "platform_package"]
+required_case_families = []
+suite_tiers = ["pr"]
+
+[[areas]]
+id = "verification"
+status = "mapped"
+owner = "verification"
+risk_default = "false_status"
+high_risks = ["wrong_result", "silent_corruption", "false_status"]
+path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", "conformance/**", "docs/diagrams/**", ".github/workflows/**"]
+required_test_classes = ["metadata_validation"]
+required_case_families = []
+suite_tiers = ["veryquick", "pr"]
+
+[[code_areas]]
+id = "lexer_parser"
+match_kind = "path"
+area_ids = ["compiler_iec"]
+path_globs = ["crates/trust-syntax/**", "fuzz/Cargo.toml", "fuzz/fuzz_targets/syntax_parse.rs"]
+intents = []
+required_test_classes = ["unit", "negative_malformed_input", "fuzz"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["nightly"]
+notes = "Nightly is conditional on recovery or malformed behavior changing."
+
+[[code_areas]]
+id = "hir_type_diagnostics"
+match_kind = "path"
+area_ids = ["compiler_iec"]
+path_globs = ["crates/trust-hir/**", "crates/trust-runtime/src/stdlib/**", "crates/trust-runtime/src/stdlib.rs", "fuzz/fuzz_targets/hir_semantic.rs", "docs/IEC_DECISIONS.md", "docs/IEC_DEVIATIONS.md", "docs/specs/02-data-types.md", "docs/specs/06-statements.md", "docs/specs/07-standard-functions.md", "docs/specs/08-standard-function-blocks.md", "docs/specs/09-semantic-rules.md", "docs/specs/README.md", "docs/specs/coverage/standard-functions-coverage.md"]
+intents = []
+required_test_classes = ["unit", "negative_malformed_input", "iec_conformance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "User-visible behavior also requires a conformance case."
+
+[[code_areas]]
+id = "source_lowering_host_harness"
+match_kind = "path"
+area_ids = ["bytecode_vm"]
+path_globs = ["crates/trust-runtime/src/host/harness/**", "crates/trust-runtime/src/host/eval/**", "crates/trust-runtime/src/host/helper_eval/**", "crates/trust-runtime/src/host/bundle_builder/**"]
+intents = []
+required_test_classes = ["integration", "runtime_vertical", "iec_conformance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Runtime vertical proof is required when execution behavior changes."
+
+[[code_areas]]
+id = "bytecode_encoder_validator_container"
+match_kind = "path"
+area_ids = ["bytecode_vm"]
+path_globs = ["crates/trust-runtime/src/bytecode/**", "crates/trust-runtime-core/src/bytecode/**", "verification/invariants/bytecode_vm/**", "verification/cases/bytecode_vm/**", "docs/specs/12-bytecode.md"]
+intents = []
+required_test_classes = ["unit", "integration", "negative_malformed_input", "fuzz", "mutation"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["nightly"]
+notes = "Nightly is conditional on validator or malformed-input behavior changing."
+
+[[code_areas]]
+id = "vm_value_backend_execution"
+match_kind = "path"
+area_ids = ["bytecode_vm"]
+path_globs = ["crates/trust-runtime/src/runtime/vm/**", "crates/trust-runtime/src/value/**", "crates/trust-runtime/src/program_model/**", "crates/trust-runtime/src/program_model.rs", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/vm/**", "crates/trust-runtime-core/src/value/**", "crates/trust-runtime-core/src/program_model/**"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "iec_conformance", "property", "mutation"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["nightly"]
+notes = "Mutation is required where a reviewed shard exists."
+
+[[code_areas]]
+id = "debug_authority_lifecycle"
+match_kind = "path"
+area_ids = ["editor_safety", "control_security", "runtime_safety"]
+path_globs = ["crates/trust-debug/**", "crates/trust-runtime/src/host/debug/**", "crates/trust-runtime/src/control/debug*", "crates/trust-runtime/src/control/handlers/debug.rs", "editors/vscode/src/debug/**", "editors/vscode/src/debug.ts", "docs/specs/13-debug-adapter.md"]
+intents = []
+required_test_classes = ["integration", "runtime_vertical", "lsp_protocol", "vscode_extension", "rbac_security"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Visible workflows additionally require journey evidence."
+
+[[code_areas]]
+id = "runtime_scheduler_lifecycle"
+match_kind = "path"
+area_ids = ["runtime_safety"]
+path_globs = ["crates/trust-runtime/src/scheduler/**", "crates/trust-runtime/src/scheduler.rs", "crates/trust-runtime/src/runtime/core/**", "crates/trust-runtime/src/runtime/watchdog_subsystem.rs", "crates/trust-runtime/src/watchdog.rs", "crates/trust-runtime/src/task.rs", "docs/internal/architecture/runtime-safety-fail-closed-contract.md", "docs/specs/10-runtime-semantics.md", "docs/specs/11-runtime-engine.md"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "soak_stability", "performance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is a broader close gate, not inferred for every change."
+
+[[code_areas]]
+id = "retain_restart_init_reset"
+match_kind = "path"
+area_ids = ["runtime_safety"]
+path_globs = ["crates/trust-runtime/src/retain/**", "crates/trust-runtime/src/retain.rs", "crates/trust-runtime/src/runtime/restart.rs", "crates/trust-runtime/src/host/harness/initializer/**", "crates/trust-runtime/src/host/harness/initializer.rs"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "iec_conformance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is a broader close gate, not inferred for every change."
+
+[[code_areas]]
+id = "process_image_memory_map"
+match_kind = "path"
+area_ids = ["runtime_safety"]
+path_globs = ["crates/trust-runtime/src/memory/**", "crates/trust-runtime/src/memory.rs", "crates/trust-runtime/src/io.rs", "crates/trust-runtime/src/io/driver.rs", "crates/trust-runtime/src/io/interface.rs", "crates/trust-runtime/src/io/provenance.rs"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "iec_conformance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Visible Live Values behavior additionally requires journey evidence."
+
+[[code_areas]]
+id = "modbus_mqtt_gpio_io"
+match_kind = "path"
+area_ids = ["protocols"]
+path_globs = ["crates/trust-runtime/src/connectors/**", "crates/trust-runtime/src/io/modbus/**", "crates/trust-runtime/src/io/mqtt/**", "crates/trust-runtime/src/io/gpio*", "examples/communication/modbus_tcp/**", "examples/communication/mqtt/**", "examples/communication/gpio/**", "scripts/gpio_hardware_test.sh"]
+intents = []
+required_test_classes = ["unit", "integration", "protocol_loopback", "runtime_vertical"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["hardware_lab"]
+notes = "Hardware lab is conditional on a public hardware claim."
+
+[[code_areas]]
+id = "ethercat_io"
+match_kind = "path"
+area_ids = ["protocols"]
+path_globs = ["crates/trust-runtime/src/io/ethercat/**", "examples/communication/ethercat/**", "examples/ethercat_*/**"]
+intents = []
+required_test_classes = ["unit", "integration", "protocol_loopback"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["hardware_lab"]
+notes = "Hardware lab is conditional on a hardware claim."
+
+[[code_areas]]
+id = "ads_opcua_connectors"
+match_kind = "path"
+area_ids = ["protocols"]
+path_globs = ["crates/trust-ads-core/**", "crates/trust-ads-server/**", "crates/trust-runtime/src/host/ads/**", "crates/trust-runtime/src/host/opcua/**", "examples/communication/ads*/**", "examples/communication/opcua/**", "docs/specs/23-connector-status.md"]
+intents = []
+required_test_classes = ["unit", "integration", "protocol_loopback", "runtime_vertical"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["hardware_lab"]
+notes = "Hardware lab is conditional on a TwinCAT or OPC UA hardware claim."
+
+[[code_areas]]
+id = "control_api_rbac_web"
+match_kind = "path"
+area_ids = ["control_security"]
+path_globs = ["crates/trust-runtime/src/control/**", "crates/trust-runtime/src/control.rs", "crates/trust-runtime/src/config/**", "crates/trust-runtime/src/config.rs", "crates/trust-runtime/src/host/security/**", "crates/trust-runtime/src/web/**", "crates/trust-runtime/src/web.rs", "crates/trust-runtime/src/runtime_cloud/**"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "rbac_security"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Browser or VS Code proof is conditional on a visible change."
+
+[[code_areas]]
+id = "hmi_runtime_web_ui"
+match_kind = "path"
+area_ids = ["hmi_ui", "control_security"]
+path_globs = ["crates/trust-runtime/src/hmi/**", "crates/trust-runtime/src/hmi.rs", "hmi/**", "editors/vscode/src/hmi-panel/**", "editors/vscode/src/io-panel/**", "editors/vscode/src/networkCanvas/**", "editors/vscode/src/**/webview/**"]
+intents = []
+required_test_classes = ["integration", "runtime_vertical", "browser_webview_visual", "ui_journey_acceptance", "rbac_security"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "The taxonomy requires browser or journey proof, not an unconditional release suite."
+
+[[code_areas]]
+id = "ide_source_intelligence"
+match_kind = "path"
+area_ids = ["editor_safety"]
+path_globs = ["crates/trust-ide/**", "crates/trust-wasm-analysis/**"]
+intents = []
+required_test_classes = ["unit", "integration", "property"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "LSP or VS Code proof is conditional on surfaced behavior."
+
+[[code_areas]]
+id = "lsp_protocol_boundary"
+match_kind = "path"
+area_ids = ["editor_safety"]
+path_globs = ["crates/trust-lsp/**", "docs/specs/14-lsp.md"]
+intents = []
+required_test_classes = ["unit", "integration", "lsp_protocol", "performance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "VS Code proof is conditional on visible behavior."
+
+[[code_areas]]
+id = "vscode_extension"
+match_kind = "path"
+area_ids = ["editor_safety"]
+path_globs = ["editors/vscode/**", "docs/internal/testing/evidence/vscode-ui-ux-acceptance/**"]
+intents = []
+required_test_classes = ["vscode_extension"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Visible changes additionally require capture or journey evidence."
+
+[[code_areas]]
+id = "public_workflow"
+match_kind = "path"
+area_ids = ["release"]
+path_globs = ["docs/public/**", "docs/guides/**", "examples/**", "README.md"]
+intents = []
+required_test_classes = ["ui_journey_acceptance", "release_docs"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is conditional on a shipped public workflow claim."
+
+[[code_areas]]
+id = "plcopen_import_export"
+match_kind = "path"
+area_ids = ["plcopen_devtools"]
+path_globs = ["crates/trust-plcopen/**", "crates/trust-runtime/src/bin/trust-runtime/plcopen.rs", "crates/trust-runtime/src/bin/trust-runtime/cli/plcopen.rs", "examples/plcopen*/**", "docs/PLCOPEN_*.md"]
+intents = []
+required_test_classes = ["unit", "integration", "negative_malformed_input"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "A real vendor corpus is required before a compatibility claim."
+
+[[code_areas]]
+id = "trust_dev_cli"
+match_kind = "path"
+area_ids = ["plcopen_devtools"]
+path_globs = ["crates/trust-dev/**", "docs/specs/19-project-model.md", "docs/specs/22-developer-workflows.md"]
+intents = []
+required_test_classes = ["unit", "integration"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Visible CLI changes additionally follow release hygiene."
+
+[[code_areas]]
+id = "conformance_suite"
+match_kind = "path"
+area_ids = ["verification", "compiler_iec", "bytecode_vm", "runtime_safety"]
+path_globs = ["conformance/**"]
+intents = []
+required_test_classes = ["iec_conformance", "metadata_validation", "behavior_lock"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is conditional on public conformance output."
+
+[[code_areas]]
+id = "verification_tooling"
+match_kind = "path"
+area_ids = ["verification"]
+path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", ".github/workflows/**", ".codex/skills/**", "AGENTS.md", "justfile", "docs/internal/testing/checklists/**", "docs/internal/testing/evidence/plc-verification-program/**", "tests/fixtures/mp001/**"]
+intents = []
+required_test_classes = ["metadata_validation", "unit"]
+suite_tiers = ["veryquick", "pr"]
+conditional_suite_tiers = []
+notes = "Verification control, evidence, shared agent instructions, and repo-local skill changes must traverse the enforcing verification suites."
+
+[[code_areas]]
+id = "architecture_diagrams"
+match_kind = "path"
+area_ids = ["verification"]
+path_globs = ["docs/diagrams/**", "docs/internal/testing/checklists/architecture-*.md", "scripts/render_diagrams.sh", "scripts/check_diagram_drift.py"]
+intents = []
+required_test_classes = ["architecture_diagram", "metadata_validation"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Architecture changes remain subject to the repository diagram rule."
+
+[[code_areas]]
+id = "public_docs_release_version"
+match_kind = "path"
+area_ids = ["release"]
+path_globs = ["docs/public/**", "CHANGELOG.md", "Cargo.toml", "editors/vscode/package.json", "editors/vscode/package-lock.json", ".github/workflows/release.yml", "scripts/check_release_*.py", "scripts/check_version_release_evidence.py", "mkdocs.yml", "docs/specs/24-release-evidence.md"]
+intents = []
+required_test_classes = ["release_docs"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is conditional on version or shipped artifact changes."
+
+[[code_areas]]
+id = "unsafe_concurrency"
+match_kind = "path"
+area_ids = ["verification", "supply_chain_platform"]
+path_globs = ["xtask/config/full_map_policy.json", "scripts/unsafe_concurrency_*", "scripts/architecture_external_safety_*", "third_party/tiverse-mmap/**"]
+intents = []
+required_test_classes = ["unit", "miri_sanitizer_loom"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["nightly"]
+notes = "Known policy and tool paths only; source text is not semantically inferred."
+
+[[code_areas]]
+id = "performance_hot_paths"
+match_kind = "path"
+area_ids = ["bytecode_vm", "runtime_safety", "editor_safety"]
+path_globs = ["crates/trust-runtime/src/runtime/vm/**", "crates/trust-runtime/src/scheduler/**", "crates/trust-lsp/src/perf.rs", "scripts/*bench*", "scripts/*perf*"]
+intents = []
+required_test_classes = ["behavior_lock", "performance"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["nightly", "release"]
+notes = "Known hot paths only; source text is not semantically inferred."
+
+[[code_areas]]
+id = "security_supply_chain"
+match_kind = "path"
+area_ids = ["supply_chain_platform", "control_security"]
+path_globs = ["Cargo.toml", "Cargo.lock", "deny.toml", "crates/**/Cargo.toml", "crates/**/build.rs", "crates/trust-runtime/src/host/security/**", "crates/trust-runtime/src/control/auth.rs", "docker/**", ".github/workflows/**"]
+intents = []
+required_test_classes = ["supply_chain_security", "rbac_security"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is conditional on shipped dependency or artifact changes."
+
+[[code_areas]]
+id = "platform_package"
+match_kind = "path"
+area_ids = ["supply_chain_platform"]
+path_globs = [".cargo/**", ".gitignore", "docker/**", "editors/vscode/package.json", "editors/vscode/package-lock.json", "editors/vscode/bin/**", "scripts/check_test_path_hygiene.sh", "scripts/check_runtime_cross_target_warnings.sh"]
+intents = []
+required_test_classes = ["platform_package"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = ["release"]
+notes = "Release is conditional on packaged or supported-platform behavior."
+
+[[code_areas]]
+id = "refactor_only"
+match_kind = "intent"
+area_ids = []
+path_globs = []
+intents = ["refactor", "test-refactor"]
+required_test_classes = ["behavior_lock"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Intent overlay; changed paths retain their owning canonical areas."
+
+[[intent_requirements]]
+intent = "bugfix"
+required_test_classes = ["failing_regression", "negative_malformed_input", "metadata_validation"]
+red_required = true
+lock_required = false
+
+[[intent_requirements]]
+intent = "feature"
+required_test_classes = ["failing_regression", "negative_malformed_input", "metadata_validation"]
+red_required = true
+lock_required = false
+
+[[intent_requirements]]
+intent = "refactor"
+required_test_classes = ["behavior_lock", "metadata_validation"]
+red_required = false
+lock_required = true
+
+[[intent_requirements]]
+intent = "docs"
+required_test_classes = ["metadata_validation"]
+red_required = false
+lock_required = false
+
+[[intent_requirements]]
+intent = "test-refactor"
+required_test_classes = ["behavior_lock", "metadata_validation"]
+red_required = false
+lock_required = true

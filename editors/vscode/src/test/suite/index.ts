@@ -48,6 +48,7 @@ export function run(): Promise<void> {
   require("./ads-tag-config-mutation.test");
   require("./network-canvas-session-model.test");
   require("./ads-status-summary.test");
+  require("./connector-status-contract.test");
   require("./libraries-model.test");
   require("./library-code-actions.test");
   require("./snippets.test");

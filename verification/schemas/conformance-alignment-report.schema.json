@@ -1,0 +1,467 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/conformance-alignment-report.schema.json",
+  "title": "Phase 7 conformance program alignment report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "boundaries",
+    "contract",
+    "categories",
+    "cases",
+    "unlinked_case_ids",
+    "coverage_gaps",
+    "comms_determinism",
+    "publication",
+    "summary",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "conformance-alignment-audit" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "command": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "contract": { "$ref": "#/$defs/contract" },
+    "categories": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/category" },
+      "minItems": 16,
+      "maxItems": 16
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/case" },
+      "minItems": 1
+    },
+    "unlinked_case_ids": { "$ref": "#/$defs/string_array" },
+    "coverage_gaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/coverage_gap" },
+      "maxItems": 10
+    },
+    "comms_determinism": { "$ref": "#/$defs/comms_determinism" },
+    "publication": { "$ref": "#/$defs/publication" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_paths": {
+      "type": "object",
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["case_basis", "mapping_basis", "gap_basis", "debt_is_report_failure"],
+      "properties": {
+        "case_basis": { "const": "live_conformance_manifests" },
+        "mapping_basis": { "const": "exact_test_catalog_discovery_id_only" },
+        "gap_basis": { "const": "ten_v2_categories" },
+        "debt_is_report_failure": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "boundaries": {
+      "type": "object",
+      "required": [
+        "report_creates_proof",
+        "report_closes_spec_gaps",
+        "semantic_oracles_assessed",
+        "live_network_or_hardware_used",
+        "p7_002_invariant_mapping_remains_open",
+        "generated_reports_remain_ci_artifacts",
+        "public_page_updated",
+        "runtime_or_product_behavior_changed",
+        "ci_enforcement_changed"
+      ],
+      "properties": {
+        "report_creates_proof": { "const": false },
+        "report_closes_spec_gaps": { "const": false },
+        "semantic_oracles_assessed": { "const": true },
+        "live_network_or_hardware_used": { "const": false },
+        "p7_002_invariant_mapping_remains_open": { "const": false },
+        "generated_reports_remain_ci_artifacts": { "const": true },
+        "public_page_updated": { "const": false },
+        "runtime_or_product_behavior_changed": { "const": false },
+        "ci_enforcement_changed": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "contract": {
+      "type": "object",
+      "required": [
+        "spec_source_id",
+        "path",
+        "area",
+        "owner",
+        "metadata_status",
+        "covers",
+        "digest",
+        "tracked",
+        "visibility",
+        "authority",
+        "oracle_eligible",
+        "public_page_bound",
+        "reviewed_runner_source_paths",
+        "reviewed_runner_source_digest",
+        "reviewed_runner_behaviors"
+      ],
+      "properties": {
+        "spec_source_id": { "const": "SPEC_CONFORMANCE_CONTRACT_001" },
+        "path": { "const": "conformance/contract.md" },
+        "area": { "const": "release" },
+        "owner": { "const": "verification" },
+        "metadata_status": { "const": "mapped" },
+        "covers": {
+          "const": [
+            "conformance_categories",
+            "summary_profiles",
+            "result_classification",
+            "deterministic_ordering",
+            "generated_report_artifact_policy"
+          ]
+        },
+        "digest": { "$ref": "#/$defs/digest" },
+        "tracked": { "const": true },
+        "visibility": { "const": "public" },
+        "authority": { "const": "normative_product" },
+        "oracle_eligible": { "const": false },
+        "public_page_bound": { "const": true },
+        "reviewed_runner_source_paths": {
+          "const": [
+            "crates/trust-runtime/src/bin/trust-runtime/conformance.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/discovery.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/execution.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/models.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/runner.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/series_values.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/tests.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/time_utils.rs"
+          ]
+        },
+        "reviewed_runner_source_digest": {
+          "const": "sha256:e792eef817eb9f0ed5b43e56e4525b22415295e5c12bd2ad2e0e5399bf598051"
+        },
+        "reviewed_runner_behaviors": {
+          "const": [
+            "category_profile_order",
+            "default_program_source",
+            "case_id_order",
+            "expected_artifact_comparison",
+            "case_status_classification",
+            "summary_emission"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "category": {
+      "type": "object",
+      "required": [
+        "category",
+        "profile",
+        "case_count",
+        "expected_artifact_count",
+        "linked_case_count",
+        "unlinked_case_count",
+        "case_ids"
+      ],
+      "properties": {
+        "category": {
+          "enum": [
+            "timers",
+            "edges",
+            "scan_cycle",
+            "init_reset",
+            "arithmetic",
+            "memory_map",
+            "strings",
+            "arrays",
+            "structs",
+            "enums",
+            "nested_values",
+            "oop_dispatch",
+            "references",
+            "retain_matrix",
+            "scheduler",
+            "comms_determinism"
+          ]
+        },
+        "profile": { "enum": ["v1", "v2"] },
+        "case_count": { "type": "integer", "minimum": 0 },
+        "expected_artifact_count": { "type": "integer", "minimum": 0 },
+        "linked_case_count": { "type": "integer", "minimum": 0 },
+        "unlinked_case_count": { "type": "integer", "minimum": 0 },
+        "case_ids": { "$ref": "#/$defs/string_array" }
+      },
+      "additionalProperties": false
+    },
+    "case": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "case_id",
+        "category",
+        "profile",
+        "kind",
+        "manifest_path",
+        "manifest_digest",
+        "program_path",
+        "program_digest",
+        "expected_artifact_path",
+        "expected_artifact_digest",
+        "catalog_test_id",
+        "invariant_ids",
+        "oracle_ref",
+        "expected_result"
+      ],
+      "properties": {
+        "discovery_id": { "type": "string", "minLength": 1 },
+        "case_id": { "type": "string", "pattern": "^cfm_[a-z0-9_]+$" },
+        "category": {
+          "enum": [
+            "timers",
+            "edges",
+            "scan_cycle",
+            "init_reset",
+            "arithmetic",
+            "memory_map",
+            "strings",
+            "arrays",
+            "structs",
+            "enums",
+            "nested_values",
+            "oop_dispatch",
+            "references",
+            "retain_matrix",
+            "scheduler",
+            "comms_determinism"
+          ]
+        },
+        "profile": { "enum": ["v1", "v2"] },
+        "kind": { "enum": ["runtime", "compile_error", "connector_status_trace"] },
+        "manifest_path": { "type": "string", "pattern": "^conformance/cases/.+/manifest\\.toml$" },
+        "manifest_digest": { "$ref": "#/$defs/digest" },
+        "program_path": {
+          "type": ["string", "null"],
+          "pattern": "^conformance/cases/.+/program\\.st$"
+        },
+        "program_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "expected_artifact_path": {
+          "type": "string",
+          "pattern": "^conformance/expected/.+\\.json$"
+        },
+        "expected_artifact_digest": { "$ref": "#/$defs/digest" },
+        "catalog_test_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "invariant_ids": { "$ref": "#/$defs/string_array" },
+        "oracle_ref": {
+          "type": ["string", "null"],
+          "pattern": "^SPEC_[A-Z0-9_]+(?:#.+)?$"
+        },
+        "expected_result": { "type": ["string", "null"], "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "coverage_gap": {
+      "type": "object",
+      "required": [
+        "category",
+        "case_ids",
+        "case_present",
+        "expected_artifact_present",
+        "invariant_mapping_state",
+        "semantic_oracle_state",
+        "gap_status"
+      ],
+      "properties": {
+        "category": {
+          "enum": [
+            "strings",
+            "arrays",
+            "structs",
+            "enums",
+            "nested_values",
+            "oop_dispatch",
+            "references",
+            "retain_matrix",
+            "scheduler",
+            "comms_determinism"
+          ]
+        },
+        "case_ids": { "$ref": "#/$defs/string_array" },
+        "case_present": { "const": true },
+        "expected_artifact_present": { "const": true },
+        "invariant_mapping_state": { "enum": ["missing", "linked"] },
+        "semantic_oracle_state": { "const": "not_assessed" },
+        "gap_status": { "const": "open" }
+      },
+      "additionalProperties": false
+    },
+    "comms_determinism": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "kind",
+        "execution_mode",
+        "scripted_steps",
+        "program_source_present",
+        "live_socket_dependency",
+        "reviewed_call_path",
+        "reviewed_source_paths",
+        "reviewed_source_digest"
+      ],
+      "properties": {
+        "case_id": { "const": "cfm_comms_determinism_connector_projection_001" },
+        "kind": { "const": "connector_status_trace" },
+        "execution_mode": { "const": "scripted_in_process" },
+        "scripted_steps": { "const": 8 },
+        "program_source_present": { "const": false },
+        "live_socket_dependency": { "const": false },
+        "reviewed_call_path": {
+          "const": [
+            "execute_case",
+            "execute_connector_status_trace_case",
+            "project_connector_status_step"
+          ]
+        },
+        "reviewed_source_paths": {
+          "const": [
+            "crates/trust-runtime/src/bin/trust-runtime/conformance.rs",
+            "crates/trust-runtime/src/bin/trust-runtime/conformance/execution.rs",
+            "crates/trust-runtime/src/connectors/mapping.rs"
+          ]
+        },
+        "reviewed_source_digest": {
+          "const": "sha256:3af615cb312d64ce9152ab0fbd35b48f77f9fd13b03ffafe88ed8d8a2dd5d5ca"
+        }
+      },
+      "additionalProperties": false
+    },
+    "publication": {
+      "type": "object",
+      "required": [
+        "ci_job",
+        "ci_job_digest",
+        "ci_artifact_name",
+        "generated_json_glob",
+        "generated_markdown_glob",
+        "generated_report_policy",
+        "tracked_report_files",
+        "public_page_embeds_generated_result",
+        "public_page_digest"
+      ],
+      "properties": {
+        "ci_job": { "const": ".github/workflows/ci.yml#conformance" },
+        "ci_job_digest": {
+          "const": "sha256:687db5f20cd1eef8f6e6cecc1b923a23c5ec5e14b92d9d1c3e90b4cfdf4ac96f"
+        },
+        "ci_artifact_name": { "const": "conformance-suite" },
+        "generated_json_glob": { "const": "gate-artifacts/conformance-pass-*.json" },
+        "generated_markdown_glob": { "const": "gate-artifacts/conformance-pass-*.md" },
+        "generated_report_policy": { "const": "ci_artifact_only" },
+        "tracked_report_files": { "const": ["conformance/reports/.gitkeep"] },
+        "public_page_embeds_generated_result": { "const": false },
+        "public_page_digest": {
+          "const": "sha256:c01090a72714efc747060c0a9564dfeae4d5ceca6e1e73c737f325ff331803c3"
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "categories",
+        "v1_categories",
+        "v2_categories",
+        "cases",
+        "v1_cases",
+        "v2_cases",
+        "runtime_cases",
+        "compile_error_cases",
+        "connector_status_trace_cases",
+        "program_sources",
+        "expected_artifacts",
+        "missing_expected_artifacts",
+        "orphan_expected_artifacts",
+        "explicitly_linked_cases",
+        "unlinked_cases",
+        "coverage_gaps"
+      ],
+      "properties": {
+        "categories": { "type": "integer", "minimum": 0 },
+        "v1_categories": { "type": "integer", "minimum": 0 },
+        "v2_categories": { "type": "integer", "minimum": 0 },
+        "cases": { "type": "integer", "minimum": 0 },
+        "v1_cases": { "type": "integer", "minimum": 0 },
+        "v2_cases": { "type": "integer", "minimum": 0 },
+        "runtime_cases": { "type": "integer", "minimum": 0 },
+        "compile_error_cases": { "type": "integer", "minimum": 0 },
+        "connector_status_trace_cases": { "type": "integer", "minimum": 0 },
+        "program_sources": { "type": "integer", "minimum": 0 },
+        "expected_artifacts": { "type": "integer", "minimum": 0 },
+        "missing_expected_artifacts": { "type": "integer", "minimum": 0 },
+        "orphan_expected_artifacts": { "type": "integer", "minimum": 0 },
+        "explicitly_linked_cases": { "type": "integer", "minimum": 0 },
+        "unlinked_cases": { "type": "integer", "minimum": 0 },
+        "coverage_gaps": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}

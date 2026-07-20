@@ -1,0 +1,58 @@
+schema_version = 1
+id = "DEBUG_AUTH_001"
+title = "Debug writes and forces require explicit authorization"
+area = "control_security"
+risk = "security"
+status = "implemented"
+owner = "trust-debug"
+last_reviewed = "2026-07-16"
+claim = "A default viewer or control connection must not gain write, force, or release authority without an explicit authorization contract."
+proof_level = "G1"
+contract_kind = "security_policy"
+source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
+tests = [
+  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_GREEN",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_LOCK_COMPARE",
+  "EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716",
+  "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
+]
+spec_gap_refs = []
+missing = [
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "DEBUG_ACTIVATION_BY_ENGINEER" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Engineer authority permits use of an already enabled debug surface but cannot activate it; activation requires Admin."
+
+[[behavior]]
+partition = { equals = "DEBUG_MUTATION_BY_VIEWER_OR_OPERATOR" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Viewer and Operator write, force, and release requests are denied before queued writes or force state changes."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "The committed authorization trace covers the reviewed activation and mutation denial boundaries with a current-contract lock comparison; a causal broad gate remains open."

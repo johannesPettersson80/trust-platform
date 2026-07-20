@@ -29,6 +29,7 @@ struct ModbusWorkerState {
     completed_input_seq: u64,
     latest_inputs: Option<Vec<u8>>,
     last_snapshot_at: Option<Instant>,
+    input_error: Option<RuntimeError>,
     last_error: Option<SmolStr>,
     pending_output: Option<(u64, Vec<u8>)>,
     output_inflight: bool,
@@ -46,6 +47,7 @@ impl ModbusWorkerState {
             completed_input_seq: 0,
             latest_inputs: None,
             last_snapshot_at: None,
+            input_error: None,
             last_error: None,
             pending_output: None,
             output_inflight: false,
@@ -95,6 +97,15 @@ impl ModbusWorker {
                 break;
             }
             thread::sleep(WORKER_IDLE_POLL);
+        }
+
+        {
+            let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
+            if state.completed_input_seq >= seq {
+                if let Some(error) = state.input_error.clone() {
+                    return Err(error);
+                }
+            }
         }
 
         if let Some(result) = self.copy_latest_inputs(inputs) {
@@ -220,6 +231,7 @@ fn run_worker(
             }
             let mut inputs = vec![0u8; input_len];
             let result = driver.read_inputs(&mut inputs);
+            let input_error = result.as_ref().err().cloned();
             let health = driver.health();
             let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
             if result.is_ok() && matches!(health, IoDriverHealth::Ok) {
@@ -231,6 +243,7 @@ fn run_worker(
                 state.next_reconnect = Instant::now() + RECONNECT_BACKOFF;
                 state.last_error = health_error(&health);
             }
+            state.input_error = input_error;
             state.completed_input_seq = seq;
             state.health = health;
         }

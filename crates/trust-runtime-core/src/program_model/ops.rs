@@ -20,6 +20,7 @@ include!("ops/numeric_arith.rs");
 #[cfg(test)]
 mod tests {
     use super::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+    use crate::error::RuntimeError;
     use crate::value::{DateTimeProfile, Value};
 
     #[test]
@@ -34,6 +35,26 @@ mod tests {
             apply_unary(UnaryOp::Not, Value::Bool(true)),
             Ok(Value::Bool(false))
         );
+    }
+
+    #[test]
+    fn real_arithmetic_rejects_non_finite_single_width_results() {
+        let profile = DateTimeProfile::default();
+        let cases = [
+            (BinaryOp::Add, f32::MAX, f32::MAX),
+            (BinaryOp::Sub, f32::MAX, -f32::MAX),
+            (BinaryOp::Mul, f32::MAX, 2.0),
+            (BinaryOp::Div, f32::MAX, 0.5),
+            (BinaryOp::Pow, f32::MAX, 2.0),
+        ];
+
+        for (op, left, right) in cases {
+            assert_eq!(
+                apply_binary(op, Value::Real(left), Value::Real(right), &profile,),
+                Err(RuntimeError::Overflow),
+                "operator {op:?} must reject single-width overflow"
+            );
+        }
     }
 
     #[test]

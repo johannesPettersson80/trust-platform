@@ -1,0 +1,23 @@
+schema_version = 1
+id = "CASES_VM_SEAM_OWNER_001"
+title = "Generated cases for Bytecode instance ownership is explicit or rejected"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "planned"
+invariant = "VM_SEAM_OWNER_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:516e2fba41f6d5cc1873e9ccadd71d1891b59ad121406d0977bba40e7c9efdf2"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "VM_SEAM_OWNER_001_LOCAL_RANGES_SHARE_FRAME_OWNER_05903843"
+family = "duplicate_or_collision"
+input = { source_partition = { equals = "LOCAL_RANGES_SHARE_FRAME_OWNER" }, scenario = "LOCAL_RANGES_SHARE_FRAME_OWNER" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_OWNER_001_INSTRUCTION_MIXES_INSTANCE_OWNERS_961CC2A4"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "INSTRUCTION_MIXES_INSTANCE_OWNERS" }, scenario = "INSTRUCTION_MIXES_INSTANCE_OWNERS" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }

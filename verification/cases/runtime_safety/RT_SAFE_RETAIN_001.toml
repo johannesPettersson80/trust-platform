@@ -1,0 +1,21 @@
+schema_version = 1
+id = "CASES_RT_SAFE_RETAIN_001"
+title = "Retain snapshot failure transaction trace"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_RETAIN_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:9eb545ffade5f03b9fb81e8cd99a44da54d649f8d7f31474e5ed975b295b710e"
+source_digest = "sha256:c72393f35a196486460a642cc92d3f951df9bca653e67df776d6ef37ac5afdce"
+last_reviewed = "2026-07-14"
+
+[[case]]
+id = "RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE"
+family = "persistence_or_recovery"
+input = { scenario = "RETAIN_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE" }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { accepted_first = 70, action = "set_current", rejected_later = 7 }, expected = { accepted_first = 70, apply_result = "not_attempted", rejected_later = 7 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656" },
+  { sequence = 1, stimulus = { accepted_first = 111, action = "apply_snapshot", rejected_later = 100 }, expected = { accepted_first = 70, apply_result = "rejected", error_contains = "outside declared subrange 0..10", rejected_later = 7 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656" },
+]

@@ -310,3 +310,10 @@ Runtime note:
 - [x] TP_LTIME
 - [x] TON_LTIME
 - [x] TOF_LTIME
+
+Execution evidence: `TEST_IEC_TIMER_TRACE_001` runs committed scan-step traces,
+and `TEST_IEC_TIMER_RUNTIME_VARIANTS_001` executes all six TIME/LTIME variants
+through real Structured Text. The three `TEST_IEC_TIMER_*_DURATION_OVERFLOW_001`
+regressions assert overflow-safe elapsed accumulation for TON, TOF, and TP.
+Restart, PT-change, skipped-call, nonmonotonic-clock, and TP short-input/retrigger
+branches remain explicit test debt and are not implied by these checked rows.

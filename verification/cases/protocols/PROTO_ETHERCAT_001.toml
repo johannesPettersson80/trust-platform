@@ -1,0 +1,53 @@
+schema_version = 1
+id = "CASES_PROTO_ETHERCAT_001"
+title = "EtherCAT unavailable-resource traces"
+area = "protocols"
+owner = "trust-runtime"
+status = "planned"
+invariant = "PROTO_ETHERCAT_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:624b824c30af8e635f2bb7a06f4a2359c86bcf4435ba4a32b4847eb526d2a11f"
+source_digest = "sha256:a088ab86b48c4785847d67637ad2d04b93aea9470f97a0b05dc649615827b35f"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "PROTO_ETHERCAT_001_MISSING_ADAPTER_TERMINAL"
+family = "resource_limit"
+input = { source_partition = { equals = "MISSING_ADAPTER_TERMINAL" }, scenario = "MISSING_ADAPTER_TERMINAL" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "construct_missing" }
+expected = { construction = "accepted", health = "degraded", hardware_proof = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "read_missing" }
+expected = { operation = "rejected", health = "faulted", error_contains = "ethercat hardware unavailable until driver rebuild", retry_scheduled = false, hardware_proof = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+
+[[case.trace]]
+sequence = 2
+stimulus = { action = "read_missing" }
+expected = { operation = "rejected", health = "faulted", error_contains = "ethercat hardware unavailable until driver rebuild", retry_scheduled = false, hardware_proof = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+
+[[case]]
+id = "PROTO_ETHERCAT_001_MOCK_OPERATIONAL_NON_HARDWARE"
+family = "happy_path"
+input = { source_partition = { equals = "MOCK_OPERATIONAL_NON_HARDWARE" }, scenario = "MOCK_OPERATIONAL_NON_HARDWARE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract" }
+
+[[case.trace]]
+sequence = 0
+stimulus = { action = "construct_mock" }
+expected = { construction = "accepted", health = "degraded", hardware_proof = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"
+
+[[case.trace]]
+sequence = 1
+stimulus = { action = "read_mock" }
+expected = { operation = "accepted", health = "ok", input_byte = 1, hardware_proof = false }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ethercat-unavailable-resource-contract"

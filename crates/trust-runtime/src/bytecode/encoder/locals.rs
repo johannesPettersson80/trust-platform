@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use smol_str::SmolStr;
+use trust_hir::TypeId;
 
 use crate::memory::{FrameId, MemoryLocation};
 use crate::value::{RefPath, ValueRef};
@@ -19,23 +20,29 @@ impl<'a> BytecodeEncoder<'a> {
 
     pub(super) fn local_scope_for_body(
         &mut self,
-        return_name: Option<&SmolStr>,
+        pou_id: u32,
+        _owner_name: &SmolStr,
+        return_slot: Option<(&SmolStr, TypeId)>,
         params: &[Param],
         locals: &[VarDef],
         body: &[Stmt],
     ) -> Result<LocalScope, BytecodeError> {
         let mut names = Vec::new();
-        if let Some(name) = return_name {
+        let mut typed_names = Vec::new();
+        if let Some((name, type_id)) = return_slot {
             names.push(name.clone());
+            typed_names.push((name.clone(), type_id));
         }
         for param in params {
             names.push(param.name.clone());
+            typed_names.push((param.name.clone(), param.type_id));
         }
         for local in locals {
             if local.external {
                 continue;
             }
             names.push(local.name.clone());
+            typed_names.push((local.name.clone(), local.type_id));
         }
         let for_loop_count = count_for_loops(body);
         let for_temp_pairs = self.alloc_for_temp_pairs(&names, for_loop_count);
@@ -43,7 +50,21 @@ impl<'a> BytecodeEncoder<'a> {
             names.push(end.clone());
             names.push(step.clone());
         }
-        self.build_local_scope(names, for_temp_pairs)
+        let scope = self.build_local_scope(names, for_temp_pairs)?;
+        for (name, type_id) in typed_names {
+            let reference = scope.locals.get(&normalize_name(&name)).ok_or_else(|| {
+                BytecodeError::InvalidSection("declared local reference missing".into())
+            })?;
+            let ref_idx = self.ref_map.get(reference).copied().ok_or_else(|| {
+                BytecodeError::InvalidSection("declared local ref index missing".into())
+            })?;
+            self.local_var_meta.push(super::PendingLocalVarMeta {
+                name: SmolStr::new(format!("@local/{pou_id}/{}/{name}", reference.offset)),
+                type_id,
+                ref_idx,
+            });
+        }
+        Ok(scope)
     }
 
     fn alloc_for_temp_pairs(&self, existing: &[SmolStr], count: usize) -> Vec<(SmolStr, SmolStr)> {

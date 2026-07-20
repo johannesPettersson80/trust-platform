@@ -1,0 +1,55 @@
+schema_version = 1
+id = "RT_SAFE_NAN_001"
+title = "Non-finite ingress cannot silently become unsafe REAL state"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-18"
+claim = "Typed external floating-point boundaries and explicit internal REAL/LREAL conversions reject non-finite values before they can change accepted PLC state, and a rejected MQTT payload batch cannot leak partial values into a later recovered snapshot."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src", "crates/trust-runtime-core/src/value"]
+tests = [
+  "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001",
+  "TEST_REVIEW_INTERNAL_NONFINITE_CONVERSION_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_RED",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_GREEN",
+  "EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_2E2FE51F4D40",
+  "EVID_RUNTIME_INTERNAL_NONFINITE_CONVERSION_GAP_CLOSEOUT_20260718",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_LOCK_BASELINE_REVIEW18_FINAL",
+  "EVID_TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001_LOCK_COMPARE_REVIEW18_FINAL",
+]
+spec_gap_refs = []
+missing = ["boundary_value_matrix_depth", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001"
+
+[[behavior]]
+partition = { equals = "MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "After one accepted mapped MQTT snapshot, a batch containing an earlier finite point and a later non-finite point is rejected as one transaction; a later valid point may recover, but the earlier point from the rejected batch must never become visible."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The internal conversion regression passes; current-contract proof refresh and an exhaustive value-width, aggregate-shape, and future-boundary matrix remain open."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "The committed MQTT state-machine trace has producer-authentic red and green proof showing the rejected-batch state leak and its transactional fix."

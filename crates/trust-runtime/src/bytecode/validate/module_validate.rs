@@ -41,6 +41,7 @@ impl BytecodeModule {
             _ => return Err(BytecodeError::MissingSection("IO_MAP".into())),
         };
 
+        validate_declared_resource_limits(ref_table, pou_index)?;
         validate_string_table(strings)?;
         if let Some(table) = debug_strings {
             validate_string_table(table)?;
@@ -54,7 +55,7 @@ impl BytecodeModule {
         validate_resource_meta(strings, ref_table, pou_index, resource_meta)?;
         validate_io_map(strings, types, ref_table, io_map)?;
         if let Some(meta) = var_meta {
-            validate_var_meta(strings, types, const_pool, ref_table, meta)?;
+            validate_var_meta(strings, types, const_pool, ref_table, pou_index, meta)?;
         }
         if let Some(SectionData::RetainInit(retain)) = self.section(SectionId::RetainInit) {
             validate_retain_init(const_pool, ref_table, retain)?;

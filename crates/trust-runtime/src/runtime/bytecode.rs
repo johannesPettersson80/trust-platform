@@ -46,12 +46,8 @@ impl Runtime {
         module: &crate::bytecode::BytecodeModule,
         resource_name: Option<&str>,
     ) -> Result<(), error::RuntimeError> {
-        module
-            .validate()
-            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
-        let metadata = module
-            .metadata()
-            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
+        module.validate().map_err(error::RuntimeError::from)?;
+        let metadata = module.metadata().map_err(error::RuntimeError::from)?;
         // Materialize VM module before mutating runtime metadata so failures do not
         // leave runtime state updated without a corresponding executable module.
         let vm_module = Arc::new(super::vm::VmModule::from_bytecode(module)?);
@@ -66,8 +62,8 @@ impl Runtime {
         bytes: &[u8],
         resource_name: Option<&str>,
     ) -> Result<(), error::RuntimeError> {
-        let module = crate::bytecode::BytecodeModule::decode(bytes)
-            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
+        let module =
+            crate::bytecode::BytecodeModule::decode(bytes).map_err(error::RuntimeError::from)?;
         self.apply_bytecode_module(&module, resource_name)
     }
 

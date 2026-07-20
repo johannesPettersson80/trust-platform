@@ -1,0 +1,43 @@
+schema_version = 1
+id = "RELEASE_PLATFORM_MATRIX_001"
+title = "Public platform support claims map to release proof"
+area = "release"
+risk = "compatibility"
+status = "validated"
+owner = "docs"
+last_reviewed = "2026-07-18"
+claim = "Every public platform support claim must map to a release artifact, CI job, smoke proof, or explicit unsupported boundary."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["README.md", ".github/workflows"]
+tests = ["TEST_RELEASE_PLATFORM_MATRIX_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RELEASE_PLATFORM_MATRIX_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_PLATFORM_MATRIX_TRACE_001_LOCK_COMPARE",
+  "EVID_PLATFORM_SUPPORT_MATRIX_SPEC_REVIEW_20260717",
+  "EVID_PLATFORM_PUBLIC_CLAIM_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = []
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "PLATFORM_SUPPORT_MATRIX" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every advertised target maps to its actual native-CI, artifact-only, hardware-qualified, or unsupported evidence tier."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The platform evidence-tier matrix and its advertised artifact identities are covered by a current-contract lock comparison and published release evidence; artifact-only tiers do not imply native execution."

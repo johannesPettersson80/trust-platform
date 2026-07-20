@@ -1,0 +1,53 @@
+schema_version = 1
+id = "CASES_VM_SEAM_VALID_001"
+title = "Generated cases for Bytecode validator rejects VM semantic contract violations"
+area = "bytecode_vm"
+owner = "trust-runtime"
+status = "active"
+invariant = "VM_SEAM_VALID_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:9996ab0fd60501f5709c585982d78e0038758f4cf6802b2462b8123d5b306419"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_SECTION_TABLE_0E24E3AC"
+family = "missing_required"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "container_truncate", truncate_point = "before_section_table", truncate_offset = 24, bytes_hex = "535442430100010000000000180008001800000000000000", mutated_digest = "sha256:c7644c2e9e495d88249a9bbda15bafdd2721b1bc4d3676f3171bf4833e050fd5" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_TRUNCATE_BEFORE_POU_BODIES_4DDD6D2B"
+family = "missing_required"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "container_truncate", truncate_point = "before_pou_bodies", truncate_offset = 252, bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000", mutated_digest = "sha256:ef40debcc0784be9ce9b0c98e0f97805f94a8dce9d342a0ea005c6860ea0e43e" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633"
+family = "extra_or_unknown"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "unknown_opcode", opcode_site = "pou_body_first_opcode", opcode_offset = 252, opcode = 255, bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000ff0200000000000101000000000000000000000000000000000000000000000000000000", mutated_digest = "sha256:7112ada553922b6e43de96e42362ae2abf90cb81dfd9b3e5051fa05f7c98910d" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA"
+family = "extra_or_unknown"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "unknown_opcode", opcode_site = "pou_body_first_opcode", opcode_offset = 252, opcode = 128, bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000800200000000000101000000000000000000000000000000000000000000000000000000", mutated_digest = "sha256:615aec36498d4266e7f6e736db725cac624000f1f7bc941e91cc003fc09de18b" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "jump_target", jump_site = "pou_body_jmp_operand", operand_offset = 254, delta = 100, bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000000264000000000101000000000000000000000000000000000000000000000000000000", mutated_digest = "sha256:ee2894084b67cdfce48a7ca7aa0e65687030d0e0cb70b38868ab921593a3651c" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "jump_target", jump_site = "pou_body_jmp_operand", operand_offset = 254, delta = -100, bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff0000000000029cffffff000101000000000000000000000000000000000000000000000000000000", mutated_digest = "sha256:fb380bd9200072651d6b625f632c53b96126d0e4fb4ed59ea12fa857afc9e3a5" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+
+[[case]]
+id = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
+family = "wrong_type_or_shape"
+input = { seed_artifact = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml", seed_id = "minimal-stbc-seed", seed_digest = "sha256:5ebb5e66afb99eaa6b01ca0c422f90b2bdf45dd9649bbf3c60c2f82726284bd4", transform = "stack_underflow", stack_site = "pou_body_pop_empty_stack", patch_offset = 252, patch_bytes_hex = "12", bytes_hex = "53544243010001000000000018000800180000000000000001000000780000003c00000002000000b40000001400000003000000c80000000400000004000000cc0000000400000005000000d00000002c00000006000000fc00000008000000070000000401000018000000080000001c010000040000000600000001000000520000000100000054000000040000004d61696e070000007472696767657200050000006669656c640000000400000046696c65010000000800000000000000ffffffff0100000000000000000000000100000001000000020000000000000000000000080000000000000000000000ffffffffffffffff00000000120200000000000101000000000000000000000000000000000000000000000000000000", mutated_digest = "sha256:94fc02823f8506b206cb1a395bc5637ffe9478b86439866d165a62a922301d59" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }

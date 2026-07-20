@@ -23,6 +23,9 @@ Read in this order:
 5. [verification-areas.md](plc-verification-program/verification-areas.md)
 6. [implementation-board.md](plc-verification-program/implementation-board.md)
 7. [fable-review-brief.md](plc-verification-program/fable-review-brief.md)
+8. [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
+   (queued: Phase 16 readiness plus the first spec-to-green vertical; product
+   edits remain blocked until the readiness rows close)
 
 ## Purpose
 
@@ -53,6 +56,16 @@ execution, and unproven hardware claims are treated as high-risk.
 8. Protocol and hardware lab proof.
 9. Editor/LSP/VS Code source-safety proof.
 10. HMI/UI/release/security/platform proof.
+
+11. Execution: run the program and close every gap (board Phase 16; starts
+    after Phase 10 and may run before or interleaved with Phases 11-15).
+    First close the execution-readiness rows without changing product
+    behavior. Then write missing specs, add and run missing tests, fix each
+    proven failure through red/green proof, promote invariants only as far as
+    evidence supports, close ledgers, and finally flip CI enforcement. The
+    first product vertical is detailed in
+    [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
+    (board row `VERIF-P16-001`).
 
 The review gate
 [VERIF-REVIEW-004](plc-verification-program/implementation-board.md) was

@@ -1,0 +1,24 @@
+schema_version = 2
+id = "veryquick"
+title = "Very Quick Verification"
+area = "suite"
+owner = "verification"
+status = "mapped"
+last_reviewed = "2026-07-10"
+purpose = "Bounded trust-builder feedback for verification tooling, compiler semantics, runtime core, bytecode validation, and one deterministic conformance case."
+duration_class = "fast"
+environment = "trust_builder"
+commands = [
+  "just verification-veryquick",
+]
+command_bindings = [
+  "GATE_JUST_VERIFICATION_VERYQUICK",
+]
+inventory_ids = [
+  "GATE_JUST_VERIFICATION_VERYQUICK",
+  "GATE_SCRIPT_VERIFICATION_METADATA",
+]
+evidence_destination = "target/gate-artifacts/veryquick/"
+includes = []
+excludes = ["hardware_lab", "network_timing", "long_soak", "visual_capture"]
+approved_proof_producers = []

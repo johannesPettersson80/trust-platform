@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_DEV_TEST_DISCOVERY_001"
+title = "Developer test source discovery traces"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "planned"
+invariant = "DEV_TEST_DISCOVERY_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:86a858613add968e4609e51f91b995ceaea58b9df95dbbc02d8c0d4d43c30106"
+source_digest = "sha256:e0fe31c0c1b17414e86b8cbe5ca95e1b6d61cafc1672df906b9f87a42b8880f6"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "DEV_TEST_DISCOVERY_001_SUPPORTED_EXTENSION_CASES"
+family = "platform_or_filesystem_variation"
+input = { scenario = "SUPPORTED_EXTENSION_CASES" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { paths = ["Ω[plant]/A.st", "Ω[plant]/B.St", "deep/C.sT", "deep/D.ST", "E.pou", "F.PoU", "G.POU"] }, expected = { discovered = 7, recursive = true, literal_paths = true }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery" },
+]
+
+[[case]]
+id = "DEV_TEST_DISCOVERY_001_UNSUPPORTED_OR_EMPTY_DISCOVERY"
+family = "extra_or_unknown"
+input = { scenario = "UNSUPPORTED_OR_EMPTY_DISCOVERY" }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { paths = ["Main.txt", "Generated.stbc"] }, expected = { discovered = 0, success = false, diagnostic_names = ".st and .pou" }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery" },
+]

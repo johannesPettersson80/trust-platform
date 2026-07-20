@@ -1,0 +1,40 @@
+schema_version = 1
+id = "CASES_DEV_COMMIT_SCOPE_001"
+title = "Project-scoped commit collision traces"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "planned"
+invariant = "DEV_COMMIT_SCOPE_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:fc50e4eec66cbb212ba6917d7dd56a8f0b4ef7a8ce0abb3249038de7a2014f1d"
+source_digest = "sha256:132aff42a1793be351ef42e9450bfd7bff5d6efe44604cd4821842e829a3f5ce"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "DEV_COMMIT_SCOPE_001_PRESTAGED_SCOPE_COLLISION"
+family = "duplicate_or_collision"
+input = { scenario = "PRESTAGED_SCOPE_COLLISION" }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scope = "project", staged_path = "project/Motor Ω.st", staged_kind = "addition" }, expected = { result = "rejected", index_mutated = false, history_mutated = false, path_named = true }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit" },
+  { sequence = 1, stimulus = { scope = "repository_root", staged_path = "Main.st", staged_kind = "addition" }, expected = { result = "rejected", index_mutated = false, history_mutated = false, path_named = true }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit" },
+  { sequence = 2, stimulus = { scope = "project", staged_path = "project/Old.st->project/New.st", staged_kind = "rename" }, expected = { result = "rejected", index_mutated = false, history_mutated = false, path_named = true }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit" },
+]
+
+[[case]]
+id = "DEV_COMMIT_SCOPE_001_PRESTAGED_OUTSIDE_SCOPE"
+family = "duplicate_or_collision"
+input = { scenario = "PRESTAGED_OUTSIDE_SCOPE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { scope = "project", staged_path = "outside.txt", unstaged_path = "project/Main.st" }, expected = { result = "committed", outside_remains_staged = true, outside_committed = false, project_committed = true }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit" },
+]
+
+[[case]]
+id = "DEV_COMMIT_SCOPE_001_DRY_RUN_OR_CANCEL"
+family = "ordering_or_lifecycle"
+input = { scenario = "DRY_RUN_OR_CANCEL" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { mode = "dry_run", changed_path = "project/Main.st" }, expected = { index_mutated = false, history_mutated = false, worktree_mutated = false }, oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit" },
+]

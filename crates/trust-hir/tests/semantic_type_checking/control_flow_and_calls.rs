@@ -383,6 +383,68 @@ END_PROGRAM
 }
 
 #[test]
+fn string_in_out_requires_equal_declared_capacity() {
+    let errors = check_errors(
+        r#"
+FUNCTION_BLOCK Bind
+VAR_IN_OUT
+    narrow : STRING[5];
+    wide_narrow : WSTRING[5];
+END_VAR
+END_FUNCTION_BLOCK
+
+PROGRAM Test
+VAR
+    fb : Bind;
+    text : STRING[20];
+    unbounded_text : STRING;
+    wide_text : WSTRING[20];
+    wide_equal : WSTRING[5];
+END_VAR
+fb(narrow := text, wide_narrow := wide_text);
+fb(narrow := unbounded_text, wide_narrow := wide_equal);
+END_PROGRAM
+"#,
+    );
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|code| **code == DiagnosticCode::InvalidArgumentType)
+            .count(),
+        3,
+        "STRING/WSTRING width mismatches and bounded/unbounded binding must be rejected: {errors:?}"
+    );
+}
+
+#[test]
+fn string_in_out_accepts_equal_capacity_and_aliases() {
+    check_no_errors(
+        r#"
+TYPE
+    ShortText : STRING[5];
+    ShortWideText : WSTRING[5];
+END_TYPE
+
+FUNCTION_BLOCK Bind
+VAR_IN_OUT
+    narrow : STRING[5];
+    wide_narrow : WSTRING[5];
+END_VAR
+END_FUNCTION_BLOCK
+
+PROGRAM Test
+VAR
+    fb : Bind;
+    text : ShortText;
+    wide_text : ShortWideText;
+END_VAR
+fb(narrow := text, wide_narrow := wide_text);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn test_formal_call_duplicate_parameter_error() {
     check_has_error(
         r#"

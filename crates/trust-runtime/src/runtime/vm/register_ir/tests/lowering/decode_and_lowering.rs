@@ -102,7 +102,10 @@ fn register_ir_decode_rejects_rot_underflow_and_accepts_exact_depth() {
             pou.code_end,
         )
         .expect_err("ROT underflow must fail stack-depth analysis");
-        let RuntimeError::InvalidBytecode(message) = err else {
+        let RuntimeError::Bytecode {
+            detail: message, ..
+        } = err
+        else {
             panic!("expected invalid bytecode for {label} underflow");
         };
         assert!(
@@ -159,7 +162,10 @@ fn register_ir_decode_rejects_conflicting_block_entry_depths() {
     let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(0), Value::DInt(1)], 0);
     let err =
         lower_pou_to_register_ir(&module, pou_id).expect_err("conflicting entry depth must fail");
-    let RuntimeError::InvalidBytecode(message) = err else {
+    let RuntimeError::Bytecode {
+        detail: message, ..
+    } = err
+    else {
         panic!("expected invalid bytecode for conflicting entry depth");
     };
     assert!(
@@ -530,4 +536,3 @@ fn register_executor_runs_string_case_program_without_fallback() {
         profile.fallback_reasons
     );
 }
-

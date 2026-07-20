@@ -18,9 +18,9 @@ use crate::{RestartMode, Runtime};
 use super::super::{VmPouEntry, VmRef};
 use super::{
     block_index_from_id, collect_block_leaders, compute_block_entry_stack_depths,
-    consume_loop_budget, consume_loop_budget_for_block_target, deadline_exceeded, decode_pou,
-    execute_register_block_interpreted, execute_tier1_compiled_block,
-    fuse_register_block_instructions, instruction_reads_register, invalid_bytecode,
+    deadline_exceeded, decode_pou, execute_register_block_interpreted,
+    execute_tier1_compiled_block, fuse_register_block_instructions,
+    fuse_register_block_instructions_with_costs, instruction_reads_register, invalid_bytecode,
     lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
     parse_env_bool, parse_tier1_env_bool, parse_tier1_env_usize, prepare_register_file,
     read_bool_register, read_reference_register, read_reference_register_with_counts,
@@ -609,11 +609,15 @@ fn assert_no_fallback(program: &RegisterProgram) {
 }
 
 fn test_register_block(id: u32, start_pc: usize, instructions: Vec<RegisterInstr>) -> RegisterBlock {
+    let bytecode_instruction_count = instructions.len();
+    let instruction_costs = vec![1; instructions.len()];
     RegisterBlock {
         id,
         start_pc,
         end_pc: start_pc + 1,
         entry_stack_depth: 0,
+        bytecode_instruction_count,
+        instruction_costs,
         instructions,
     }
 }
@@ -667,7 +671,7 @@ fn fill_register_execution_pools_to_limit() {
 
 fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
     assert!(
-        matches!(&err, RuntimeError::InvalidBytecode(message) if message.contains(needle)),
+        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
         "unexpected error: {err:?}"
     );
 }
@@ -849,50 +853,6 @@ fn interpreted_ref_field_reports_null_reference_base() {
     .expect_err("null reference base must fail");
 
     assert!(matches!(err, RuntimeError::NullReference));
-}
-
-#[test]
-fn loop_budget_helpers_consume_only_backward_block_targets() {
-    let program = test_register_program(vec![
-        test_register_block(0, 5, vec![RegisterInstr::Nop]),
-        test_register_block(1, 20, vec![RegisterInstr::Nop]),
-        test_register_block(2, 30, vec![RegisterInstr::Nop]),
-    ]);
-    let source = &program.blocks[1];
-
-    let mut direct_budget = 2;
-    consume_loop_budget(&mut direct_budget).expect("first budget consume");
-    assert_eq!(direct_budget, 1);
-    consume_loop_budget(&mut direct_budget).expect("second budget consume");
-    assert_eq!(direct_budget, 0);
-    assert!(matches!(
-        consume_loop_budget(&mut direct_budget),
-        Err(RuntimeError::ExecutionTimeout)
-    ));
-
-    let mut backward_budget = 1;
-    consume_loop_budget_for_block_target(
-        &program,
-        source,
-        BlockTarget::Block(0),
-        &mut backward_budget,
-    )
-    .expect("backward target consumes budget");
-    assert_eq!(backward_budget, 0);
-
-    let mut forward_budget = 1;
-    consume_loop_budget_for_block_target(
-        &program,
-        source,
-        BlockTarget::Block(2),
-        &mut forward_budget,
-    )
-    .expect("forward target does not consume budget");
-    assert_eq!(forward_budget, 1);
-
-    consume_loop_budget_for_block_target(&program, source, BlockTarget::Exit, &mut forward_budget)
-        .expect("exit target does not consume budget");
-    assert_eq!(forward_budget, 1);
 }
 
 #[test]

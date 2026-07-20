@@ -631,7 +631,23 @@ fn parse_io_value_for_type(
                 .trim()
                 .parse::<f32>()
                 .map_err(|_| "REAL inputs accept decimal values such as 1.5".to_string())?;
+            if !value.is_finite() {
+                return Err("REAL I/O values must be finite".to_string());
+            }
             Ok(RuntimeValue::DWord(value.to_bits()))
+        }
+        Some(TypeId::LREAL) => {
+            if !matches!(address.size, IoSize::LWord) {
+                return Err("LREAL I/O values require an LWORD address".to_string());
+            }
+            let value = raw
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| "LREAL inputs accept decimal values such as 1.5".to_string())?;
+            if !value.is_finite() {
+                return Err("LREAL I/O values must be finite".to_string());
+            }
+            Ok(RuntimeValue::LWord(value.to_bits()))
         }
         Some(TypeId::TIME) => {
             if !matches!(address.size, IoSize::DWord) {

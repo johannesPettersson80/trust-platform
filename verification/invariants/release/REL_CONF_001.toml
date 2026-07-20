@@ -1,0 +1,42 @@
+schema_version = 1
+id = "REL_CONF_001"
+title = "Public conformance status derives from results and known gaps"
+area = "release"
+risk = "false_status"
+status = "implemented"
+owner = "docs"
+last_reviewed = "2026-07-17"
+claim = "Public conformance status must be generated from identified suite results and the current known-gap set."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["docs/public", "verification"]
+tests = ["TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001_LOCK_COMPARE",
+  "EVID_CONFORMANCE_PUBLICATION_GAP_CLOSEOUT_20260717",
+]
+spec_gap_refs = []
+missing = ["published_release_conformance_asset", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "RESULT_DERIVED_CONFORMANCE_STATUS" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#hardware-and-conformance-claims"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Published conformance status binds a suite result, commit, toolchain, timestamp, totals, outcomes, and current known gaps."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Result-derived conformance publication is covered by a current-contract lock comparison; a published asset and a causal broad gate remain open."

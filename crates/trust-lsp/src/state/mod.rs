@@ -472,13 +472,24 @@ impl ServerState {
         cache::semantic_tokens_cache(self, uri)
     }
 
-    pub fn store_semantic_tokens(&self, uri: Url, tokens: Vec<SemanticToken>) -> String {
-        cache::store_semantic_tokens(self, uri, tokens)
+    pub fn store_semantic_tokens(
+        &self,
+        uri: Url,
+        tokens: Vec<SemanticToken>,
+        request_ticket: u64,
+    ) -> Option<String> {
+        cache::store_semantic_tokens(self, uri, tokens, request_ticket)
     }
 
     /// Stores diagnostics in the cache and returns the result ID.
-    pub fn store_diagnostics(&self, uri: Url, content_hash: u64, diagnostic_hash: u64) -> String {
-        cache::store_diagnostics(self, uri, content_hash, diagnostic_hash)
+    pub fn store_diagnostics(
+        &self,
+        uri: Url,
+        content_hash: u64,
+        diagnostic_hash: u64,
+        request_ticket: u64,
+    ) -> Option<String> {
+        cache::store_diagnostics(self, uri, content_hash, diagnostic_hash, request_ticket)
     }
 
     #[cfg(test)]
@@ -508,6 +519,11 @@ impl ServerState {
         self.semantic_request_generation
             .fetch_add(1, Ordering::Relaxed)
             + 1
+    }
+
+    pub(super) fn cancel_semantic_requests(&self) {
+        self.semantic_request_generation
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     /// Returns true if a semantic request ticket has been superseded.
@@ -705,9 +721,15 @@ evict_to_percent = 75
         let state = ServerState::new();
         let uri = Url::parse("file:///tmp/trust-lsp-cache.st").expect("uri");
 
-        let first = state.store_diagnostics(uri.clone(), 11, 22);
-        let second = state.store_diagnostics(uri.clone(), 11, 22);
-        let third = state.store_diagnostics(uri.clone(), 11, 23);
+        let first = state
+            .store_diagnostics(uri.clone(), 11, 22, state.begin_semantic_request())
+            .expect("store diagnostics");
+        let second = state
+            .store_diagnostics(uri.clone(), 11, 22, state.begin_semantic_request())
+            .expect("store diagnostics");
+        let third = state
+            .store_diagnostics(uri.clone(), 11, 23, state.begin_semantic_request())
+            .expect("store diagnostics");
 
         assert_eq!(
             first, second,
@@ -717,6 +739,43 @@ evict_to_percent = 75
             first, third,
             "changed diagnostics should emit a new result id"
         );
+    }
+
+    #[test]
+    fn closing_document_cancels_in_flight_semantic_requests() {
+        let root = temp_dir("trustlsp-close-cancels-semantic-request");
+        let path = root.join("Main.st");
+        fs::write(&path, "PROGRAM Main\nEND_PROGRAM\n").expect("write source");
+        let uri = Url::from_file_path(&path).expect("file uri");
+        let state = ServerState::new();
+        state.open_document(
+            uri.clone(),
+            1,
+            "PROGRAM Main\nVAR x : INT; END_VAR\nEND_PROGRAM\n".to_string(),
+        );
+        let request_ticket = state.begin_semantic_request();
+
+        state.close_document(&uri);
+
+        assert!(
+            state.semantic_request_cancelled(request_ticket),
+            "didClose must invalidate work started from the discarded buffer"
+        );
+        assert!(
+            state
+                .store_semantic_tokens(uri.clone(), Vec::new(), request_ticket)
+                .is_none(),
+            "cancelled semantic tokens must not repopulate the cache"
+        );
+        assert!(
+            state
+                .store_diagnostics(uri.clone(), 1, 1, request_ticket)
+                .is_none(),
+            "cancelled diagnostics must not repopulate the cache"
+        );
+        assert!(state.semantic_tokens_cache(&uri).is_none());
+        assert!(state.diagnostic_result_id(&uri).is_none());
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

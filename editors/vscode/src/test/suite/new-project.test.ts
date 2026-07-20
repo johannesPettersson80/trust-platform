@@ -335,10 +335,10 @@ suite("New project command (VS Code)", function () {
     );
 
     const runtimeBin = process.env.ST_RUNTIME_TEST_BIN;
-    if (!runtimeBin) {
-      this.skip();
-      return;
-    }
+    assert.ok(
+      runtimeBin,
+      "ST_RUNTIME_TEST_BIN must be provided by the extension test harness."
+    );
 
     const buildResult = spawnSync(
       runtimeBin,

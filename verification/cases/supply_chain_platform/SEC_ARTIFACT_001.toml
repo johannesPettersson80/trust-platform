@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_SEC_ARTIFACT_001"
+title = "Release artifact provenance trace"
+area = "supply_chain_platform"
+owner = "release"
+status = "planned"
+invariant = "SEC_ARTIFACT_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:5bfd2c6a377f21198e7a621a0cecc8075f73ab26154479f61d973c1eabfd8f98"
+source_digest = "sha256:fc918adcd62b62b4110a4224a5cbf1077cd4fdadc2acb794f01eb332dcc133ce"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "SEC_ARTIFACT_001_CHAIN"
+family = "supply_chain_or_artifact_fault"
+input = { scenario = "ARTIFACT_PROVENANCE_CHAIN" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "release_artifacts" }, expected = { tag_bound = true, commit_bound = true, workflow_bound = true, inventory_exhaustive = true, sha256_bound = true }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" }]

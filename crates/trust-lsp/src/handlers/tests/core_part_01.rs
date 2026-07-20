@@ -74,6 +74,28 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_hover_uses_utf16_positions_after_bare_cr_line_endings() {
+    let source =
+        "PROGRAM Test\rVAR\r    speed : INT;\rEND_VAR\r(* 😀 *) speed := 1;\rEND_PROGRAM\r";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///utf16-bare-cr-hover.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::HoverParams {
+        text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: tower_lsp::lsp_types::Position::new(4, 10),
+        },
+        work_done_progress_params: Default::default(),
+    };
+
+    let hover = hover(&state, params).expect("hover after bare CR line endings");
+    let range = hover.range.expect("hover range");
+    assert_eq!(range.start, tower_lsp::lsp_types::Position::new(4, 9));
+    assert_eq!(range.end, tower_lsp::lsp_types::Position::new(4, 14));
+}
+
+#[test]
 pub(super) fn lsp_references_variable() {
     let source = r#"
 PROGRAM Test
@@ -392,6 +414,36 @@ END_PROGRAM
         stale_ticket,
     )
     .expect_err("cancelled pull diagnostics should return ContentModified");
+
+    assert_eq!(err.code, tower_lsp::jsonrpc::ErrorCode::ContentModified);
+}
+
+#[test]
+pub(super) fn lsp_workspace_diagnostics_cancelled_request_returns_content_modified() {
+    let source = r#"
+PROGRAM Test
+    VAR
+        A__B : INT;
+    END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace-diag-cancelled.st").unwrap();
+    state.open_document(uri, 1, source.to_string());
+
+    let stale_ticket = state.begin_semantic_request();
+    let _newer_ticket = state.begin_semantic_request();
+    let err = super::diagnostics::workspace_diagnostic_result_with_ticket_for_tests(
+        &state,
+        tower_lsp::lsp_types::WorkspaceDiagnosticParams {
+            identifier: None,
+            previous_result_ids: Vec::new(),
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+        stale_ticket,
+    )
+    .expect_err("cancelled workspace diagnostics should return ContentModified");
 
     assert_eq!(err.code, tower_lsp::jsonrpc::ErrorCode::ContentModified);
 }

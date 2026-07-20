@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/spec-source.schema.json",
+  "title": "truST verification spec-source record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "authority",
+    "source_status",
+    "oracle_eligible",
+    "visibility",
+    "locator_kind",
+    "version",
+    "last_reviewed",
+    "covers",
+    "known_limitations",
+    "conflicts_with"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "area": {
+      "enum": [
+        "compiler_iec",
+        "bytecode_vm",
+        "runtime_safety",
+        "protocols",
+        "control_security",
+        "editor_safety",
+        "plcopen_devtools",
+        "hmi_ui",
+        "release",
+        "supply_chain_platform",
+        "verification"
+      ]
+    },
+    "owner": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "planned",
+        "mapped",
+        "gap_open",
+        "spec_gap",
+        "test_written",
+        "implemented",
+        "validated",
+        "blocked",
+        "deferred",
+        "rejected",
+        "unproven"
+      ]
+    },
+    "authority": {
+      "enum": [
+        "normative_external",
+        "normative_product",
+        "reviewed_decision",
+        "reviewed_deviation",
+        "public_claim"
+      ]
+    },
+    "source_status": {
+      "enum": ["active", "draft", "stale", "superseded", "missing", "conflicting"]
+    },
+    "oracle_eligible": { "type": "boolean" },
+    "visibility": { "enum": ["public", "internal", "external"] },
+    "locator_kind": { "enum": ["tracked_file", "external_reference"] },
+    "version": { "type": "string", "minLength": 1 },
+    "last_reviewed": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "covers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "conflicts_with": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "external_ref": { "type": "string", "minLength": 1 },
+    "expected_local_path": { "type": "string", "minLength": 1 },
+    "retrieval_expectation": { "type": "string", "minLength": 1 },
+    "publication_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}(?:-\\d{2})?$" },
+    "redistributable": { "type": "boolean" },
+    "absence_blocks_proof": { "type": "boolean" },
+    "claim_text": { "type": "string", "minLength": 1 },
+    "surface_ref": { "type": "string", "minLength": 1 },
+    "context_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "actor": { "type": "string", "minLength": 1 },
+    "entry_point": { "type": "string", "minLength": 1 },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "visible_steps": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "success_state": { "type": "string", "minLength": 1 },
+    "failure_status_behavior": { "type": "string", "minLength": 1 },
+    "safety_authz_boundaries": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "acceptance_evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["locator_kind", "path"],
+      "properties": { "locator_kind": { "const": "tracked_file" } }
+    },
+    {
+      "required": [
+        "locator_kind",
+        "external_ref",
+        "expected_local_path",
+        "retrieval_expectation",
+        "publication_date",
+        "redistributable",
+        "absence_blocks_proof"
+      ],
+      "properties": { "locator_kind": { "const": "external_reference" } }
+    }
+  ],
+  "additionalProperties": false
+}

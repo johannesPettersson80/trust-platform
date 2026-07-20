@@ -1,0 +1,71 @@
+schema_version = 1
+id = "EDIT_LSP_DELIVERY_001"
+title = "Progressive and runtime-backed LSP results remain bounded and nonduplicating"
+area = "editor_safety"
+risk = "false_status"
+status = "implemented"
+owner = "trust-lsp"
+last_reviewed = "2026-07-19"
+claim = "Partial-result requests must stream their payload once under the supplied token, and a silent runtime control endpoint must not indefinitely block runtime-backed inline values."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-lsp/src/handlers/features/core_impl/navigation_requests.rs",
+  "crates/trust-lsp/src/handlers/features/core_impl/symbol_requests.rs",
+  "crates/trust-lsp/src/handlers/features/core_impl/runtime_requests.rs",
+]
+tests = [
+  "TEST_LSP_DELIVERY_TRACE_001",
+  "TEST_LSP_REFERENCES_PARTIAL_RESULT_DELIVERY_001",
+  "TEST_LSP_WORKSPACE_SYMBOL_PARTIAL_RESULT_DELIVERY_001",
+  "TEST_LSP_INLINE_VALUE_LATENCY_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_LSP_DELIVERY_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_LSP_DELIVERY_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate", "full_extension_host_latency_journey"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+
+[[behavior]]
+partition = { equals = "REFERENCES_PARTIAL_RESULT_TOKEN" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "References stream one nonempty progress payload under the supplied token and return an empty final payload."
+
+[[behavior]]
+partition = { equals = "WORKSPACE_SYMBOL_PARTIAL_RESULT_TOKEN" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Workspace symbols stream one nonempty progress payload under the supplied token and return an empty final payload."
+
+[[behavior]]
+partition = { equals = "SILENT_RUNTIME_INLINE_VALUE_ENDPOINT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_LSP_CONTRACT_001#progressive-results-and-interactive-latency"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime-assisted inline values stop waiting at the interactive control-I/O bound and return without invented runtime-derived values."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Focused wire-level tests observe the progress token and nonempty payload for references and workspace symbols."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "The case-bound lock pair observes completion at the 250 ms control-I/O bound; full extension-host latency evidence remains open."

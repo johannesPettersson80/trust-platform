@@ -2,7 +2,7 @@ use alloc::format;
 
 use smol_str::SmolStr;
 
-use crate::error::RuntimeError;
+use crate::error::{RuntimeError, StableErrorCode};
 
 #[derive(Debug)]
 pub enum VmTrap {
@@ -37,70 +37,95 @@ pub enum VmTrap {
 }
 
 impl VmTrap {
+    /// Return the stable identifier that survives conversion to `RuntimeError`.
+    #[must_use]
+    pub const fn stable_code(&self) -> StableErrorCode {
+        match self {
+            Self::InvalidOpcode(_) => StableErrorCode::BytecodeInvalidOpcode,
+            Self::InvalidJumpTarget(_) => StableErrorCode::BytecodeInvalidJumpTarget,
+            Self::InvalidRefIndex(_)
+            | Self::InvalidConstIndex(_)
+            | Self::InvalidLocalRef { .. } => StableErrorCode::BytecodeInvalidIndex,
+            Self::StackUnderflow => StableErrorCode::VmStackUnderflow,
+            Self::StackOverflow => StableErrorCode::VmStackOverflow,
+            Self::CallStackUnderflow => StableErrorCode::VmCallStackUnderflow,
+            Self::CallStackOverflow => StableErrorCode::VmCallStackOverflow,
+            Self::UnsupportedOpcode(_) => StableErrorCode::VmUnsupportedOpcode,
+            Self::UnsupportedRefLocation(_) => StableErrorCode::VmUnsupportedReferenceLocation,
+            Self::ConditionNotBool => StableErrorCode::RuntimeConditionNotBool,
+            Self::NullReference => StableErrorCode::RuntimeNullReference,
+            Self::DeadlineExceeded | Self::BudgetExceeded => {
+                StableErrorCode::RuntimeExecutionTimeout
+            }
+            Self::ForStepZero => StableErrorCode::RuntimeForStepZero,
+            Self::MissingPou(_) => StableErrorCode::BytecodeInvalidPouId,
+            Self::MissingProgram(_) => StableErrorCode::RuntimeUndefinedProgram,
+            Self::MissingFunctionBlock(_) => StableErrorCode::RuntimeUndefinedFunctionBlock,
+            Self::InvalidNativeCallKind(_)
+            | Self::InvalidNativeSymbolIndex(_)
+            | Self::InvalidNativeCall(_) => StableErrorCode::VmInvalidNativeCall,
+            Self::BytecodeDecode(_) => StableErrorCode::VmBytecodeDecode,
+            Self::Runtime(error) => error.stable_code(),
+        }
+    }
+
     /// Convert the VM trap into the public runtime error contract.
     pub fn into_runtime_error(self) -> RuntimeError {
+        let code = self.stable_code();
         match self {
             Self::ConditionNotBool => RuntimeError::ConditionNotBool,
             Self::NullReference => RuntimeError::NullReference,
             Self::ForStepZero => RuntimeError::ForStepZero,
             Self::MissingPou(pou_id) => {
-                RuntimeError::InvalidBytecode(format!("vm missing pou id {pou_id}").into())
+                RuntimeError::bytecode(code, format!("vm missing pou id {pou_id}"))
             }
             Self::MissingProgram(name) => RuntimeError::UndefinedProgram(name),
             Self::MissingFunctionBlock(name) => RuntimeError::UndefinedFunctionBlock(name),
             Self::DeadlineExceeded | Self::BudgetExceeded => RuntimeError::ExecutionTimeout,
             Self::InvalidNativeCallKind(kind) => {
-                RuntimeError::InvalidBytecode(format!("vm invalid CALL_NATIVE kind {kind}").into())
+                RuntimeError::bytecode(code, format!("vm invalid CALL_NATIVE kind {kind}"))
             }
-            Self::InvalidNativeSymbolIndex(idx) => RuntimeError::InvalidBytecode(
-                format!("vm invalid index {idx} for native symbol").into(),
-            ),
-            Self::InvalidNativeCall(message) => RuntimeError::InvalidBytecode(
-                format!("vm invalid CALL_NATIVE payload: {message}").into(),
-            ),
+            Self::InvalidNativeSymbolIndex(idx) => {
+                RuntimeError::bytecode(code, format!("vm invalid index {idx} for native symbol"))
+            }
+            Self::InvalidNativeCall(message) => {
+                RuntimeError::bytecode(code, format!("vm invalid CALL_NATIVE payload: {message}"))
+            }
             Self::Runtime(err) => err,
             Self::InvalidOpcode(opcode) => {
-                RuntimeError::InvalidBytecode(format!("vm invalid opcode 0x{opcode:02X}").into())
+                RuntimeError::bytecode(code, format!("vm invalid opcode 0x{opcode:02X}"))
             }
             Self::InvalidJumpTarget(target) => {
-                RuntimeError::InvalidBytecode(format!("vm invalid jump target {target}").into())
+                RuntimeError::bytecode(code, format!("vm invalid jump target {target}"))
             }
             Self::InvalidRefIndex(idx) => {
-                RuntimeError::InvalidBytecode(format!("vm invalid ref index {idx}").into())
+                RuntimeError::bytecode(code, format!("vm invalid ref index {idx}"))
             }
             Self::InvalidConstIndex(idx) => {
-                RuntimeError::InvalidBytecode(format!("vm invalid const index {idx}").into())
+                RuntimeError::bytecode(code, format!("vm invalid const index {idx}"))
             }
             Self::InvalidLocalRef {
                 ref_index,
                 start,
                 count,
-            } => RuntimeError::InvalidBytecode(
+            } => RuntimeError::bytecode(
+                code,
                 format!(
                     "vm invalid local ref {ref_index} (frame local range {start}..{})",
                     start.saturating_add(count)
-                )
-                .into(),
+                ),
             ),
-            Self::StackUnderflow => {
-                RuntimeError::InvalidBytecode("vm operand stack underflow".into())
-            }
-            Self::StackOverflow => {
-                RuntimeError::InvalidBytecode("vm operand stack overflow".into())
-            }
-            Self::CallStackUnderflow => {
-                RuntimeError::InvalidBytecode("vm call stack underflow".into())
-            }
-            Self::CallStackOverflow => {
-                RuntimeError::InvalidBytecode("vm call stack overflow".into())
-            }
+            Self::StackUnderflow => RuntimeError::bytecode(code, "vm operand stack underflow"),
+            Self::StackOverflow => RuntimeError::bytecode(code, "vm operand stack overflow"),
+            Self::CallStackUnderflow => RuntimeError::bytecode(code, "vm call stack underflow"),
+            Self::CallStackOverflow => RuntimeError::bytecode(code, "vm call stack overflow"),
             Self::UnsupportedOpcode(name) => {
-                RuntimeError::InvalidBytecode(format!("vm unsupported opcode {name}").into())
+                RuntimeError::bytecode(code, format!("vm unsupported opcode {name}"))
             }
             Self::UnsupportedRefLocation(name) => {
-                RuntimeError::InvalidBytecode(format!("vm unsupported ref location {name}").into())
+                RuntimeError::bytecode(code, format!("vm unsupported ref location {name}"))
             }
-            Self::BytecodeDecode(message) => RuntimeError::InvalidBytecode(message),
+            Self::BytecodeDecode(message) => RuntimeError::bytecode(code, message),
         }
     }
 }
@@ -108,5 +133,109 @@ impl VmTrap {
 impl From<RuntimeError> for VmTrap {
     fn from(value: RuntimeError) -> Self {
         Self::Runtime(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use super::VmTrap;
+    use crate::error::{RuntimeError, StableErrorCode};
+
+    #[test]
+    fn vm_traps_preserve_stable_codes_across_runtime_conversion() {
+        let cases = vec![
+            (
+                VmTrap::InvalidOpcode(0xff),
+                StableErrorCode::BytecodeInvalidOpcode,
+            ),
+            (
+                VmTrap::InvalidJumpTarget(17),
+                StableErrorCode::BytecodeInvalidJumpTarget,
+            ),
+            (
+                VmTrap::InvalidRefIndex(3),
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (
+                VmTrap::InvalidConstIndex(4),
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (
+                VmTrap::InvalidLocalRef {
+                    ref_index: 2,
+                    start: 8,
+                    count: 3,
+                },
+                StableErrorCode::BytecodeInvalidIndex,
+            ),
+            (VmTrap::StackUnderflow, StableErrorCode::VmStackUnderflow),
+            (VmTrap::StackOverflow, StableErrorCode::VmStackOverflow),
+            (
+                VmTrap::CallStackUnderflow,
+                StableErrorCode::VmCallStackUnderflow,
+            ),
+            (
+                VmTrap::CallStackOverflow,
+                StableErrorCode::VmCallStackOverflow,
+            ),
+            (
+                VmTrap::UnsupportedOpcode("reserved"),
+                StableErrorCode::VmUnsupportedOpcode,
+            ),
+            (
+                VmTrap::UnsupportedRefLocation("external"),
+                StableErrorCode::VmUnsupportedReferenceLocation,
+            ),
+            (
+                VmTrap::ConditionNotBool,
+                StableErrorCode::RuntimeConditionNotBool,
+            ),
+            (VmTrap::NullReference, StableErrorCode::RuntimeNullReference),
+            (
+                VmTrap::DeadlineExceeded,
+                StableErrorCode::RuntimeExecutionTimeout,
+            ),
+            (
+                VmTrap::BudgetExceeded,
+                StableErrorCode::RuntimeExecutionTimeout,
+            ),
+            (VmTrap::ForStepZero, StableErrorCode::RuntimeForStepZero),
+            (VmTrap::MissingPou(9), StableErrorCode::BytecodeInvalidPouId),
+            (
+                VmTrap::MissingProgram("missing".into()),
+                StableErrorCode::RuntimeUndefinedProgram,
+            ),
+            (
+                VmTrap::MissingFunctionBlock("missing".into()),
+                StableErrorCode::RuntimeUndefinedFunctionBlock,
+            ),
+            (
+                VmTrap::InvalidNativeCallKind(7),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::InvalidNativeSymbolIndex(8),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::InvalidNativeCall("invalid".into()),
+                StableErrorCode::VmInvalidNativeCall,
+            ),
+            (
+                VmTrap::BytecodeDecode("invalid".into()),
+                StableErrorCode::VmBytecodeDecode,
+            ),
+            (
+                VmTrap::Runtime(RuntimeError::TypeMismatch),
+                StableErrorCode::RuntimeTypeMismatch,
+            ),
+        ];
+
+        for (trap, expected) in cases {
+            assert_eq!(trap.stable_code(), expected);
+            assert_eq!(trap.into_runtime_error().stable_code(), expected);
+        }
     }
 }

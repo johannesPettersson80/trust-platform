@@ -14,7 +14,7 @@ use crate::program_model::InitializerCatalog;
 use crate::stdlib::StandardLibrary;
 use crate::task::TaskState;
 use crate::value::{
-    truncate_string_elements, ArrayValue, DateTimeProfile, Duration, EnumValue, StructValue, Value,
+    truncate_string_elements, ArrayValue, DateTimeProfile, EnumValue, StructValue, Value,
 };
 
 use super::core::Runtime;
@@ -23,6 +23,9 @@ use super::types::{GlobalInitValue, RestartMode, RetainPolicy, RetainSnapshot};
 impl Runtime {
     /// Restart the runtime in the given mode (cold or warm).
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), error::RuntimeError> {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
         let globals = self.globals.clone();
         let mut retained = IndexMap::new();
         let mut retained_program_vars = Vec::new();
@@ -141,7 +144,6 @@ impl Runtime {
             self.storage.set_instance_var(*id, var_name, value);
         }
 
-        self.current_time = Duration::ZERO;
         for state in self.task_state.values_mut() {
             *state = TaskState::new(self.current_time);
         }
@@ -173,14 +175,14 @@ impl Runtime {
         &mut self,
         snapshot: &RetainSnapshot,
     ) -> Result<(), error::RuntimeError> {
+        let mut staged_values = Vec::new();
+        let mut staged_events = Vec::new();
         for (name, value) in snapshot.values() {
             let Some(meta) = self.globals.get(name) else {
-                if let Some(debug) = &self.debug {
-                    debug.push_runtime_event(crate::debug::RuntimeEvent::RetainOrphanDropped {
-                        name: name.clone(),
-                        time: self.current_time,
-                    });
-                }
+                staged_events.push(crate::debug::RuntimeEvent::RetainOrphanDropped {
+                    name: name.clone(),
+                    time: self.current_time,
+                });
                 continue;
             };
             let retain = meta.retain;
@@ -202,17 +204,21 @@ impl Runtime {
                     )
                 })?;
                 if &migrated != value {
-                    if let Some(debug) = &self.debug {
-                        debug.push_runtime_event(
-                            crate::debug::RuntimeEvent::RetainMigrationApplied {
-                                name: name.clone(),
-                                detail: retain_migration_detail(value, &migrated),
-                                time: self.current_time,
-                            },
-                        );
-                    }
+                    staged_events.push(crate::debug::RuntimeEvent::RetainMigrationApplied {
+                        name: name.clone(),
+                        detail: retain_migration_detail(value, &migrated),
+                        time: self.current_time,
+                    });
                 }
-                self.storage.set_global(name.clone(), migrated);
+                staged_values.push((name.clone(), migrated));
+            }
+        }
+        for (name, value) in staged_values {
+            self.storage.set_global(name, value);
+        }
+        if let Some(debug) = &self.debug {
+            for event in staged_events {
+                debug.push_runtime_event(event);
             }
         }
         Ok(())

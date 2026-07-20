@@ -1,0 +1,42 @@
+schema_version = 1
+id = "PLAT_PATH_001"
+title = "Supported platform path behavior is proven or rejected clearly"
+area = "supply_chain_platform"
+risk = "platform"
+status = "implemented"
+owner = "release"
+last_reviewed = "2026-07-18"
+claim = "Path and filesystem behavior on each supported platform must be tested or fail with an explicit unsupported diagnostic."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates", "scripts"]
+tests = ["TEST_PLATFORM_PATH_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_PLATFORM_PATH_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_PLATFORM_PATH_TRACE_001_LOCK_COMPARE",
+  "EVID_PLATFORM_SUPPORT_MATRIX_SPEC_REVIEW_20260717",
+]
+spec_gap_refs = []
+missing = ["native_cross_platform_archive_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_SUPPORTED_PLATFORMS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "PLATFORM_PATH_CONTRACT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Release archives and tools preserve target path conventions, and unsupported targets fail with a named diagnostic."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Archive path behavior is covered by a current-contract lock comparison; native cross-platform execution and a causal broad gate remain open."

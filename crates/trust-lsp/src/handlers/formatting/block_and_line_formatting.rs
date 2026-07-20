@@ -12,24 +12,20 @@ fn format_lines_edit(
         source.len()
     };
 
-    let newline = if source.contains("\r\n") {
-        "\r\n"
-    } else {
-        "\n"
-    };
-    let mut formatted_lines: Vec<&str> = formatted.split('\n').collect();
-    for line in &mut formatted_lines {
-        if let Some(stripped) = line.strip_suffix('\r') {
-            *line = stripped;
-        }
-    }
+    let newline = preferred_line_ending(source);
+    let formatted_index = LineIndex::new(formatted);
+    let formatted_lines = (0..formatted_index.line_count())
+        .filter_map(|line| formatted_index.line_text(line))
+        .collect::<Vec<_>>();
 
     if start_line >= formatted_lines.len() || end_line >= formatted_lines.len() {
         return None;
     }
 
     let mut new_text = formatted_lines[start_line..=end_line].join(newline);
-    if end_line + 1 < line_starts.len() || (source.ends_with('\n') && !new_text.ends_with('\n')) {
+    if end_line + 1 < line_starts.len()
+        || (ends_with_line_ending(source) && !ends_with_line_ending(&new_text))
+    {
         new_text.push_str(newline);
     }
 
@@ -43,13 +39,24 @@ fn format_lines_edit(
 }
 
 fn line_starts(source: &str) -> Vec<usize> {
-    let mut starts = vec![0];
-    for (idx, ch) in source.char_indices() {
-        if ch == '\n' {
-            starts.push(idx + 1);
-        }
+    let index = LineIndex::new(source);
+    (0..index.line_count())
+        .filter_map(|line| index.line_start(line))
+        .collect()
+}
+
+fn preferred_line_ending(source: &str) -> &'static str {
+    if source.contains("\r\n") {
+        "\r\n"
+    } else if source.contains('\r') {
+        "\r"
+    } else {
+        "\n"
     }
-    starts
+}
+
+fn ends_with_line_ending(source: &str) -> bool {
+    source.ends_with(['\r', '\n'])
 }
 
 fn line_index(line_starts: &[usize], offset: usize) -> usize {
@@ -481,4 +488,3 @@ fn align_var_block_colons(
         }
     }
 }
-

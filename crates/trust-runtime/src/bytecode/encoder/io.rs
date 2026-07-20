@@ -138,6 +138,15 @@ impl<'a> BytecodeEncoder<'a> {
                 });
             }
         }
+        for local in std::mem::take(&mut self.local_var_meta) {
+            entries.push(VarMetaEntry {
+                name_idx: self.strings.intern(local.name),
+                type_id: self.type_index(local.type_id)?,
+                ref_idx: local.ref_idx,
+                retain: 0,
+                init_const_idx: None,
+            });
+        }
         Ok(VarMeta { entries })
     }
 

@@ -1,0 +1,136 @@
+"""Tests for verification-report input provenance contracts."""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from scripts.verification.metadata_validator.constants import ROOT
+from scripts.verification.report_input_contract import (
+    resolve_report_output_path,
+    validate_bound_input_paths,
+    validator_code_input_paths,
+)
+
+
+class ReportInputContractTests(unittest.TestCase):
+    REPORT_GENERATOR_CLIS = (
+        "conformance_alignment_cli.py",
+        "coverage_matrix_gap_cli.py",
+        "fuzz_program_cli.py",
+        "ignored_test_cli.py",
+        "invariant_seed_cli.py",
+        "malformed_input_coverage_cli.py",
+        "mutation_program_cli.py",
+        "phase5_audit_cli.py",
+        "requirement_oracle_cli.py",
+        "runtime_anomaly_cli.py",
+        "spec_completeness_cli.py",
+        "spec_source_cli.py",
+        "test_catalog_debt_cli.py",
+        "test_class_completeness_cli.py",
+        "test_refactor_cli.py",
+    )
+
+    def test_regular_workspace_input_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "verification").mkdir()
+            (root / "verification/input.toml").write_text("value = 1\n")
+
+            self.assertEqual(
+                validate_bound_input_paths(root, ["verification/input.toml"]),
+                [],
+            )
+
+    def test_symlink_input_is_rejected_even_when_target_stays_in_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "verification").mkdir()
+            (root / "unbound.toml").write_text("value = 1\n")
+            (root / "verification/input.toml").symlink_to(root / "unbound.toml")
+
+            failures = validate_bound_input_paths(
+                root,
+                ["verification/input.toml"],
+            )
+
+        self.assertTrue(any("symlink component" in item for item in failures), failures)
+
+    def test_symlinked_parent_and_workspace_escape_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outside = root.parent / f"{root.name}-outside"
+            outside.mkdir()
+            self.addCleanup(lambda: outside.rmdir())
+            (outside / "input.toml").write_text("value = 1\n")
+            self.addCleanup(lambda: (outside / "input.toml").unlink())
+            (root / "verification").symlink_to(outside, target_is_directory=True)
+
+            failures = validate_bound_input_paths(
+                root,
+                ["verification/input.toml"],
+            )
+
+        self.assertTrue(any("symlink component" in item for item in failures), failures)
+        self.assertTrue(any("escapes the workspace" in item for item in failures), failures)
+
+    def test_validator_code_closure_excludes_mutable_evidence_plane(self) -> None:
+        paths = validator_code_input_paths(ROOT)
+
+        for expected in (
+            ".github/workflows/ci.yml",
+            ".github/workflows/salsa-hardening.yml",
+            "Cargo.toml",
+            "crates/trust-ads-server/fuzz/.gitignore",
+            "fuzz/.gitignore",
+            "scripts/runtime_comms_fuzz_gate.sh",
+            "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
+            "scripts/salsa_fuzz_gate.sh",
+            "scripts/validate_verification_metadata.py",
+            "scripts/gen_cases.py",
+            "docs/internal/testing/checklists/plc-verification-program/test-taxonomy.md",
+            "scripts/verification/malformed_input_contract.py",
+            "scripts/verification/metadata_validator/case_files.py",
+            "verification/malformed-input-taxonomy.md",
+            "verification/malformed-input-taxonomy.toml",
+            "verification/schemas/malformed-input-taxonomy.schema.json",
+            "verification/runtime-anomaly-taxonomy.toml",
+            "verification/schemas/runtime-anomaly-taxonomy.schema.json",
+            "verification/fuzz-program.toml",
+            "verification/schemas/fuzz-program.schema.json",
+            "verification/gate-inventory.toml",
+            "verification/mutation-program.toml",
+            "verification/schemas/mutation-program.schema.json",
+        ):
+            self.assertIn(expected, paths)
+        self.assertNotIn("verification/evidence-index.toml", paths)
+        self.assertFalse(any("__pycache__" in path or path.endswith(".pyc") for path in paths))
+
+    def test_all_paired_report_generators_share_the_output_path_contract(self) -> None:
+        verification = ROOT / "scripts/verification"
+        for name in self.REPORT_GENERATOR_CLIS:
+            with self.subTest(name=name):
+                source = (verification / name).read_text()
+                self.assertIn("resolve_report_output_path", source)
+
+    def test_report_output_rejects_absolute_escape_and_symlink_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "target").mkdir()
+            (root / "linked").symlink_to(root / "target", target_is_directory=True)
+            relative, absolute = resolve_report_output_path(
+                root, Path("target/report.json"), "JSON"
+            )
+            self.assertEqual("target/report.json", relative)
+            self.assertEqual(root / "target/report.json", absolute)
+            for unsafe in (Path("/tmp/report.json"), Path("../report.json")):
+                with self.assertRaisesRegex(ValueError, "workspace-relative"):
+                    resolve_report_output_path(root, unsafe, "JSON")
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                resolve_report_output_path(root, Path("linked/report.json"), "JSON")
+
+
+if __name__ == "__main__":
+    unittest.main()

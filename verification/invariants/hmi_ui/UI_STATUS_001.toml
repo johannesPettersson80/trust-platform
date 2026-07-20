@@ -1,0 +1,65 @@
+schema_version = 1
+id = "UI_STATUS_001"
+title = "Runtime connector status vocabulary is consistent across surfaces"
+area = "hmi_ui"
+risk = "false_status"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-18"
+claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
+tests = [
+  "TEST_UI_CONNECTOR_STATUS_TRACE_001",
+  "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001",
+  "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_COMPARE",
+  "EVID_UI_STATUS_VOCABULARY_GAP_CLOSEOUT_20260717",
+  "EVID_UI_PEER_STATUS_FAILURE_GAP_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = ["cross_surface_extension_host", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_CONNECTOR_STATUS_001", "PUBLIC_CLAIM_RUNTIME_WIRE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_CONNECTOR_STATUS_001"
+
+[[behavior]]
+partition = { equals = "CANONICAL_STATUS_VOCABULARY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#canonical-vocabulary"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Runtime, HMI, CLI, reports, hover, and VS Code preserve the closed connector state, health, confidence, and point-quality identifiers."
+
+[[behavior]]
+partition = { equals = "FRESHNESS_AND_DETAIL_PRESERVATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Missing freshness is distinct from stale, while degraded and faulted projections retain available detail and point quality."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_STATUS_IDENTIFIER" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unknown wire status fails at the closed mapping boundary and cannot silently render as healthy."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Malformed peer status and confidence preserve topology and render a visible error in the real extension; full cross-surface extension-host coverage remains open."

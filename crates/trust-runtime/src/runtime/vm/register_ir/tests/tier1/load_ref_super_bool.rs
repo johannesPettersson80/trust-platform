@@ -85,6 +85,8 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         start_pc: 0,
         end_pc: 1,
         entry_stack_depth: 0,
+        bytecode_instruction_count: 1,
+        instruction_costs: vec![1],
         instructions: Vec::new(),
     };
     let target_block = RegisterBlock {
@@ -92,6 +94,8 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         start_pc: 1,
         end_pc: 1,
         entry_stack_depth: 0,
+        bytecode_instruction_count: 0,
+        instruction_costs: Vec::new(),
         instructions: Vec::new(),
     };
     let program = RegisterProgram {

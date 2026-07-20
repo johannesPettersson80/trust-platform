@@ -1,0 +1,106 @@
+# Initial risk register for the PLC verification program.
+
+[[risks]]
+schema_version = 1
+id = "RISK_BYTECODE_VALIDATOR_SCOPE_001"
+title = "Validator coverage may lag VM assumptions"
+area = "bytecode_vm"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-17"
+description = "Malformed bytecode could satisfy structural checks while violating VM semantic assumptions; the written contract, mapped test set, stable machine identifiers, and STBC 1.x optional-section rule now cover the reviewed validator boundary."
+mitigation = "Keep the mapped decoder, validator, product-apply, owner, reference, call, jump, stack, optional-section, and exact-code checks active; retain mutation adequacy and producer-authentic targeted proof before claiming invariant closure."
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+related_invariants = ["VM_SEAM_OWNER_001", "VM_SEAM_REF_001", "VM_SEAM_VALID_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
+evidence_refs = [
+  "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709",
+  "EVID_VM_BYTECODE_VALIDATOR_CONTRACT_CLOSEOUT_20260715",
+]
+
+[[risks]]
+schema_version = 1
+id = "RISK_IEC_TIMER_SEMANTICS_001"
+title = "Timer restart and elapsed-time semantics may diverge across lifecycle boundaries"
+area = "compiler_iec"
+risk = "safety_critical"
+owner = "language"
+status = "planned"
+last_reviewed = "2026-07-12"
+description = "The external review identified TP, TOF, and TON elapsed-time, restart, and time-base boundaries that required an explicit product contract and targeted evidence."
+mitigation = "The focused timer contract is written and the TOF scan-step defect has paired targeted red/green evidence; keep residual timer-boundary test debt explicit until separate cases exist."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["IEC_TIMER_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+evidence_refs = ["EVID_IEC_TIMER_GAP_CLOSEOUT_20260712"]
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_NONFINITE_INGRESS_001"
+title = "Non-finite values may cross runtime ingress boundaries without a defined policy"
+area = "runtime_safety"
+risk = "safety_critical"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-14"
+description = "The external review identified unsafe ambiguity around NaN and infinity at I/O, protocol, API, and retained-value boundaries; the focused product contract is now written and the mapped boundary set has targeted and broad execution evidence."
+mitigation = "The MQTT rejected-batch recovery defect has paired red/green proof, all 22 named boundary tests are mapped to the written oracle, and the focused specification gap is closed; retain the exhaustive boundary-value matrix as explicit invariant debt."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["RT_SAFE_NAN_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+evidence_refs = ["EVID_RUNTIME_NONFINITE_INGRESS_GAP_CLOSEOUT_20260714"]
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_AUTHORIZATION_001"
+title = "Runtime control and debug authorization boundaries may permit unintended operations"
+area = "control_security"
+risk = "security"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-16"
+description = "The external review identified unresolved viewer, control, file-read, write, force, and release authorization boundaries; the role matrix and stable denial contract are now written and exercised by focused product tests."
+mitigation = "Keep the explicit default-deny operation registry and role-transition traces active; retain broad-gate and exhaustive operation-denominator work as invariant debt rather than reopening the resolved specification gaps."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["DEBUG_AUTH_001", "SEC_AUTHZ_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+evidence_refs = ["EVID_DEBUG_AUTHORIZATION_GAP_CLOSEOUT_20260716", "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716"]
+
+[[risks]]
+schema_version = 1
+id = "RISK_OPCUA_CLIENT_LIFECYCLE_001"
+title = "OPC UA client session lifecycle may report stale data as current"
+area = "protocols"
+risk = "false_status"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-16"
+description = "The external review imported the historical session-per-poll finding; the persistent lifecycle and normalized status contracts are now explicit and exercised by cataloged traces."
+mitigation = "Keep the persistent lifecycle and connector-status traces active; retain broad-gate and physical-device evidence as invariant debt rather than reopening the resolved status specification gap."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["PROTO_OPCUA_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001", "SPEC_RUNTIME_ENGINE_001"]
+evidence_refs = ["EVID_PROTOCOL_STATUS_MODEL_GAP_CLOSEOUT_20260716"]
+
+[[risks]]
+schema_version = 1
+id = "RISK_RUNTIME_RELOAD_TRANSACTION_001"
+title = "Online change may leave runtime state partially applied"
+area = "runtime_safety"
+risk = "silent_corruption"
+owner = "trust-runtime"
+status = "planned"
+last_reviewed = "2026-07-14"
+description = "The external review identified hot-reload consistency risk across live state and status; the transaction contract is now written and the retain-read failure path has targeted red/green proof."
+mitigation = "The retain-store read-failure defect is fixed with paired proof; keep bytecode/resource commit and retained-migration failure coverage as explicit RT_RELOAD_001 debt."
+source_refs = ["SPEC_EXTERNAL_REVIEW_V08_001"]
+related_invariants = ["RT_RELOAD_001"]
+related_spec_gaps = []
+related_spec_sources = ["SPEC_RUNTIME_ENGINE_001", "SPEC_DEBUG_ADAPTER_001"]
+evidence_refs = ["EVID_RUNTIME_RELOAD_TRANSACTION_GAP_CLOSEOUT_20260714"]

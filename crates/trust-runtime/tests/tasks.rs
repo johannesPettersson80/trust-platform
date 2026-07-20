@@ -400,3 +400,16 @@ fn task_overrun_drops_missed_intervals() {
     );
     assert_eq!(runtime.task_overrun_count("T"), Some(2));
 }
+
+#[test]
+fn simulation_time_advance_saturates_at_duration_limit() {
+    let mut runtime = Runtime::new();
+    runtime.set_current_time(Duration::from_nanos(i64::MAX - 5));
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        runtime.advance_time(Duration::from_nanos(10));
+    }));
+
+    assert!(result.is_ok(), "simulation-time overflow must not panic");
+    assert_eq!(runtime.current_time(), Duration::from_nanos(i64::MAX));
+}

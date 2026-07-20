@@ -1,0 +1,1952 @@
+{
+  "catalog_path": "verification/test-catalog.toml",
+  "executed_at": "2026-07-17T22:07:31+00:00",
+  "platform": "linux-x86_64",
+  "results": [
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases artifact_provenance_trace_cases",
+      "duration_ms": 1719,
+      "exit_status": 0,
+      "log_sha256": "sha256:006f6eeb32c4de50384887128b78710225f547ebe72f1d4aa1ca625bec883c15",
+      "test_id": "TEST_ARTIFACT_PROVENANCE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_bool_operands_for_arithmetic_opcode -- --exact",
+      "duration_ms": 429,
+      "exit_status": 0,
+      "log_sha256": "sha256:fd469a658d3eab9107cfa6bb7cdeafc49ba13f2412da699b358d03b3eea2d7c2",
+      "test_id": "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_validation call_validation -- --exact",
+      "duration_ms": 1761,
+      "exit_status": 0,
+      "log_sha256": "sha256:6a3d17510cbc0bc002e99ee62b46bd0f4d9f445720d85f18d5b3b2e44e795096",
+      "test_id": "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container checksum_validation -- --exact",
+      "duration_ms": 1862,
+      "exit_status": 0,
+      "log_sha256": "sha256:7b61a5eb24183c4641d5338a055897d4d762dc96a17e135ab7715833fb446c7f",
+      "test_id": "TEST_BYTECODE_CHECKSUM_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container duplicate_standard_section_ids_are_rejected -- --exact",
+      "duration_ms": 395,
+      "exit_status": 0,
+      "log_sha256": "sha256:d8c2e373ff6de29eca893bde378ec28051f2581a154238870d335142d34b0a81",
+      "test_id": "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container header_validation -- --exact",
+      "duration_ms": 369,
+      "exit_status": 0,
+      "log_sha256": "sha256:0642544fe5c00ca1ea0f3e915fa96e524d2c8b6d8c736dcfa7f0da2b3ea31d98",
+      "test_id": "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds fixed_section_entry_counts_must_fit_before_allocation -- --exact",
+      "duration_ms": 1751,
+      "exit_status": 0,
+      "log_sha256": "sha256:d43bbdf3bf8ed277d0c944fe765d030e1acd1b47f42fc3f41207cb7c7467c1c6",
+      "test_id": "TEST_BYTECODE_FIXED_SECTION_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_inout_parameter_bound_to_literal_argument -- --exact",
+      "duration_ms": 429,
+      "exit_status": 0,
+      "log_sha256": "sha256:d4213cc40251a51d971ca63a6cbafbb45721862d6efa7fe81479d2961fad317a",
+      "test_id": "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_validation jump_target_must_land_on_instruction_boundary -- --exact",
+      "duration_ms": 471,
+      "exit_status": 0,
+      "log_sha256": "sha256:ba66ed01b16e5e40e0843cb13a43839169318dff89a0ed0026ab93d5be5fcb18",
+      "test_id": "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_legacy_call_opcode_even_when_target_exists -- --exact",
+      "duration_ms": 373,
+      "exit_status": 0,
+      "log_sha256": "sha256:f3f89842d8fa08349ec668f952a64d5cf73b2ab87cc914d23d828a21c059157f",
+      "test_id": "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_validator_accepts_local_path_ref_for_pou_owned_local_slot -- --exact",
+      "duration_ms": 370,
+      "exit_status": 0,
+      "log_sha256": "sha256:084b3b90e4045e12ce161a1a24f403e1ef2024ce9b26fcb70836e18ffdef2dd6",
+      "test_id": "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_validator_rejects_local_ref_outside_pou_local_range -- --exact",
+      "duration_ms": 505,
+      "exit_status": 0,
+      "log_sha256": "sha256:4b11704b87a787897d814eff9c6b9739adef6fd7c8f16f2d2d330726fef84b10",
+      "test_id": "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container truncated_reference_owner_field_is_rejected -- --exact",
+      "duration_ms": 402,
+      "exit_status": 0,
+      "log_sha256": "sha256:c878eb8a119c10fbbe4097b0f317c2b25e9160164b5cdd7402a9a9c29ade52f7",
+      "test_id": "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_validation required_sections_are_rejected_before_runtime_apply -- --exact",
+      "duration_ms": 440,
+      "exit_status": 0,
+      "log_sha256": "sha256:2ab3c4c0179ba0161394dae377246b8e7731d3599a11ffa8a3a95355833e78c4",
+      "test_id": "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds nested_pou_counts_must_fit_before_allocation -- --exact",
+      "duration_ms": 409,
+      "exit_status": 0,
+      "log_sha256": "sha256:71b1e8a7ad6f8619d9fcb072f4d3623659160b4e1c7f3863b62be019a3c9332f",
+      "test_id": "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds nested_reference_counts_must_fit_before_allocation -- --exact",
+      "duration_ms": 344,
+      "exit_status": 0,
+      "log_sha256": "sha256:423dd2ca0881be15da3620924476c564454bbea48b7776c70895b7a34a4e5dcc",
+      "test_id": "TEST_BYTECODE_NESTED_REFERENCE_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds nested_resource_counts_must_fit_before_allocation -- --exact",
+      "duration_ms": 428,
+      "exit_status": 0,
+      "log_sha256": "sha256:758b656ab1d24a13337ab8ba882e242cf3557c371ac145ea5b041564fe5517a7",
+      "test_id": "TEST_BYTECODE_NESTED_RESOURCE_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds nested_type_counts_must_fit_before_allocation -- --exact",
+      "duration_ms": 375,
+      "exit_status": 0,
+      "log_sha256": "sha256:29b209cb43120b193bc26071cc1d2e1d679faf36772b9a5ffdc7da4847847359",
+      "test_id": "TEST_BYTECODE_NESTED_TYPE_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract crafted_multi_owner_instance_refs_are_rejected_before_execution -- --exact",
+      "duration_ms": 414,
+      "exit_status": 0,
+      "log_sha256": "sha256:7aefd2bd3e33595f402867fd956ff76b116653387e7402394be87ee95f0034c6",
+      "test_id": "TEST_BYTECODE_OWNER_PRODUCT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_validation pou_local_ranges_reject_shared_frame_owner -- --exact",
+      "duration_ms": 409,
+      "exit_status": 0,
+      "log_sha256": "sha256:482d94826b304dd0fe2ed22888223ee5e89c61536b7cc9379f8fc32725e3bbb2",
+      "test_id": "TEST_BYTECODE_OWNER_SHARED_FRAME_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_multi_owner_instance_ref_contract -- --exact",
+      "duration_ms": 463,
+      "exit_status": 0,
+      "log_sha256": "sha256:fc05b67542a3061fef4a647f5d39917e6b2ba1ecb5ec3ba4f5a72ff8398db4bf",
+      "test_id": "TEST_BYTECODE_OWNER_VALIDATOR_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_invalid_parameter_direction_metadata -- --exact",
+      "duration_ms": 443,
+      "exit_status": 0,
+      "log_sha256": "sha256:766ef81b951bc40c5023f6624891d235b205210b71b72d0d84d3504cca54440f",
+      "test_id": "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract crafted_frame_local_ref_cannot_persist_to_global_storage -- --exact",
+      "duration_ms": 508,
+      "exit_status": 0,
+      "log_sha256": "sha256:d1cf3b8307f54e35749b20dbaf60ff991faf06f436976b6e11518feb77605519",
+      "test_id": "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_persistent_frame_local_ref_escape -- --exact",
+      "duration_ms": 437,
+      "exit_status": 0,
+      "log_sha256": "sha256:b056e8c9783bf8a3353c150e56b1975851996ab60b7e32010992c9828dbb49af",
+      "test_id": "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container unsupported_reference_location_tag_is_rejected -- --exact",
+      "duration_ms": 355,
+      "exit_status": 0,
+      "log_sha256": "sha256:5cb25c2500a345b3217975803387b469afb9521099799371ec99dd2ecdcc1a43",
+      "test_id": "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime-core bytecode::tests::bytecode_error_variants_have_exact_stable_codes -- --exact",
+      "duration_ms": 1472,
+      "exit_status": 0,
+      "log_sha256": "sha256:a78c22858e5fad1d4538c5e17d98b020585f40daceec689bcb33af4d68c1af08",
+      "test_id": "TEST_BYTECODE_STABLE_ERROR_CODE_MODEL_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_leftover_stack_at_pou_return -- --exact",
+      "duration_ms": 439,
+      "exit_status": 0,
+      "log_sha256": "sha256:ff52c2ddaca9ea2670336d3eabff9f8dd6b389add951d4426ae9998dd77efea5",
+      "test_id": "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_stack_underflow_store_ref -- --exact",
+      "duration_ms": 488,
+      "exit_status": 0,
+      "log_sha256": "sha256:75bec4dda0a882c0f0be3614ec6b6808b5fe961299e4d5e916ed217bd77ee328",
+      "test_id": "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract validator_rejects_const_type_incompatible_with_store_ref_target -- --exact",
+      "duration_ms": 437,
+      "exit_status": 0,
+      "log_sha256": "sha256:20ddd8e11a72ccdb861ede5e779f4ad3e38484bebe173adb1015a082317b2a9f",
+      "test_id": "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds string_table_count_must_fit_section_before_allocation -- --exact",
+      "duration_ms": 423,
+      "exit_status": 0,
+      "log_sha256": "sha256:c07b77e656842d343a3e035c401e46ca1a90a66d47a2d81bb3943e18fa6b0c1c",
+      "test_id": "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_verification_cases committed_transform_seed_is_a_complete_applicable_module -- --exact",
+      "duration_ms": 373,
+      "exit_status": 0,
+      "log_sha256": "sha256:6bce93c58962abe6d0215d4004e0b2fe479a22c4a0bbda24c79ada755da46d67",
+      "test_id": "TEST_BYTECODE_TRANSFORM_SEED_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_decode_resource_bounds type_table_count_must_fit_offset_table_before_allocation -- --exact",
+      "duration_ms": 385,
+      "exit_status": 0,
+      "log_sha256": "sha256:623616bb09a39d3f27bc9511f7f7720ec169b676c7a6c9061005970d5c2aa789",
+      "test_id": "TEST_BYTECODE_TYPE_TABLE_COUNT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_optional_sections unknown_optional_section_is_preserved_and_ignored_by_runtime_apply -- --exact",
+      "duration_ms": 1601,
+      "exit_status": 0,
+      "log_sha256": "sha256:b803ace9da4ac68fff065967cb9ec0a501ed11a0853537560babf08f462ab5b9",
+      "test_id": "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_verification_cases bytecode_validator_cases_reject_before_partial_apply -- --exact",
+      "duration_ms": 2030,
+      "exit_status": 0,
+      "log_sha256": "sha256:0a81804a11c47068bd80a0e3a37b78281732dba18be90b48463d5df22c4e4843",
+      "test_id": "TEST_BYTECODE_VALIDATOR_CASES_001",
+      "timed_out": false
+    },
+    {
+      "command": "python3 scripts/bytecode_validator_mutation.py",
+      "duration_ms": 122558,
+      "exit_status": 0,
+      "log_sha256": "sha256:8773c5d771c5826628f2cbdfa73c0b3387261afaa4e7d2fc7cc55fc45541e596",
+      "test_id": "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_container version_gate -- --exact",
+      "duration_ms": 409,
+      "exit_status": 0,
+      "log_sha256": "sha256:c44ca55a3a7437f7290e4e9d55b7df324baac2415fc9ce84025d7a3ceac43dc9",
+      "test_id": "TEST_BYTECODE_VERSION_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_arithmetic_conversion_compare_001",
+      "duration_ms": 54421,
+      "exit_status": 0,
+      "log_sha256": "sha256:d4d1136469ca574686766ff15a9572d2ecc48aafaf55d98120e711e46adabe2d",
+      "test_id": "TEST_CONFORMANCE_ARITHMETIC_CONVERSION_COMPARE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_arithmetic_overflow_error_002",
+      "duration_ms": 1343,
+      "exit_status": 0,
+      "log_sha256": "sha256:ec72ccb906deceaa3c8ec7b1bc46a05577a5f733b284224fdb7d1fb9455832d3",
+      "test_id": "TEST_CONFORMANCE_ARITHMETIC_OVERFLOW_002",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_arrays_matrix_update_001",
+      "duration_ms": 386,
+      "exit_status": 0,
+      "log_sha256": "sha256:c956a8ef6048e64e9d9d9321a58d04c2fdea779b300f3c4139d190f503bf68df",
+      "test_id": "TEST_CONFORMANCE_ARRAY_MATRIX_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_comms_determinism_connector_projection_001",
+      "duration_ms": 404,
+      "exit_status": 0,
+      "log_sha256": "sha256:514fcc9b583250e266e914f14817bf1a0c0363700b14ee6e88813922cc9765b7",
+      "test_id": "TEST_CONFORMANCE_COMMS_PROJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_edges_r_f_trig_sequence_001",
+      "duration_ms": 431,
+      "exit_status": 0,
+      "log_sha256": "sha256:ec184037fbc20a9fd5bc3b5ac37423422520a8015a27d5abcaa4d0a7e5a18ed1",
+      "test_id": "TEST_CONFORMANCE_EDGE_SEQUENCE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_enums_variant_assignment_001",
+      "duration_ms": 416,
+      "exit_status": 0,
+      "log_sha256": "sha256:7a3a2903e48f7df152d2e61e55a1791aabd4a25f91e8fe54c5a532864e78f369",
+      "test_id": "TEST_CONFORMANCE_ENUM_ASSIGNMENT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_init_reset_var_initialization_001",
+      "duration_ms": 385,
+      "exit_status": 0,
+      "log_sha256": "sha256:fbd3b61d72177dcfdfaeec07d3be34890cca6828d956dfa3abc9041f61e85fad",
+      "test_id": "TEST_CONFORMANCE_INITIALIZATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_memory_map_var_config_sync_001",
+      "duration_ms": 342,
+      "exit_status": 0,
+      "log_sha256": "sha256:e74aa3b3f617f325c0190c30ade036070da175109332e246d942392c14eca255",
+      "test_id": "TEST_CONFORMANCE_MEMORY_MAP_SYNC_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_memory_map_wildcard_unresolved_002",
+      "duration_ms": 366,
+      "exit_status": 0,
+      "log_sha256": "sha256:55ad44778bda8ca0875887905156ab55abb4757237c714f7eeb4efa9383e26b7",
+      "test_id": "TEST_CONFORMANCE_MEMORY_MAP_WILDCARD_002",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_nested_values_matrix_struct_001",
+      "duration_ms": 417,
+      "exit_status": 0,
+      "log_sha256": "sha256:9713104345f378ad66ed8603ec4127d143a35a65822173e173057b343ea22a26",
+      "test_id": "TEST_CONFORMANCE_NESTED_VALUES_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_oop_dispatch_interface_super_001",
+      "duration_ms": 423,
+      "exit_status": 0,
+      "log_sha256": "sha256:764667fd2a5d9af96e4a2d6928fa405827cc061975e7b5dd6fc1fe237d620414",
+      "test_id": "TEST_CONFORMANCE_OOP_DISPATCH_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_references_ref_to_deref_write_001",
+      "duration_ms": 375,
+      "exit_status": 0,
+      "log_sha256": "sha256:ea59bc53547cd1c32bc534e4a21bb70e98985189ce16717e08bf6ff9f66628ae",
+      "test_id": "TEST_CONFORMANCE_REFERENCE_WRITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_retain_matrix_restart_aliases_001",
+      "duration_ms": 396,
+      "exit_status": 0,
+      "log_sha256": "sha256:4a5101967115c41ace98babc80e0367f6d2fb0581352ea1acdf68d69ef76b19d",
+      "test_id": "TEST_CONFORMANCE_RETAIN_MATRIX_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_init_reset_retain_warm_cold_002",
+      "duration_ms": 410,
+      "exit_status": 0,
+      "log_sha256": "sha256:88e16feb75856a997fca3b638871dee23039546c1e691a76e5737604507fee53",
+      "test_id": "TEST_CONFORMANCE_RETAIN_RESTART_002",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_scan_cycle_ordering_visibility_001",
+      "duration_ms": 400,
+      "exit_status": 0,
+      "log_sha256": "sha256:1fd55b9f49036f712acde99566001b63463b80a54076813354f6fe3c5910c83f",
+      "test_id": "TEST_CONFORMANCE_SCAN_CYCLE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_scheduler_task_interval_001",
+      "duration_ms": 410,
+      "exit_status": 0,
+      "log_sha256": "sha256:d9b0c396cbf7f65ec128bebda332b00c38b619d6ff7e7d944c2b7a64e52b922e",
+      "test_id": "TEST_CONFORMANCE_SCHEDULER_INTERVAL_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_strings_slice_concat_001",
+      "duration_ms": 421,
+      "exit_status": 0,
+      "log_sha256": "sha256:f1c14b2c5b37aecbb8b35f7d78b27860a3465706ca2dd67055f7971f963a6d8f",
+      "test_id": "TEST_CONFORMANCE_STRING_SLICE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_structs_initializer_field_update_001",
+      "duration_ms": 372,
+      "exit_status": 0,
+      "log_sha256": "sha256:6d2b7536c223cc255a12fa1d1e5188e1b83eff0ac22055077f0885a1fd05c724",
+      "test_id": "TEST_CONFORMANCE_STRUCT_UPDATE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_timers_tof_sequence_002",
+      "duration_ms": 402,
+      "exit_status": 0,
+      "log_sha256": "sha256:11752ab5c6f8af831307276d06cdf40145f5c8e20cc729d6cc699a03177def2e",
+      "test_id": "TEST_CONFORMANCE_TIMER_TOF_002",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_timers_ton_sequence_001",
+      "duration_ms": 397,
+      "exit_status": 0,
+      "log_sha256": "sha256:4cd86f3ffd2405cedae35e235b5f1808281faed7ddcb94800ffe822c7ce6b895",
+      "test_id": "TEST_CONFORMANCE_TIMER_TON_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance --filter cfm_timers_tp_sequence_003",
+      "duration_ms": 413,
+      "exit_status": 0,
+      "log_sha256": "sha256:821060ad0cf90fc52260874788d1af58202fb689a0e12b0f5da437ecfec001bf",
+      "test_id": "TEST_CONFORMANCE_TIMER_TP_003",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test protocol_status_trace_cases connector_status_truth_trace_cases -- --exact",
+      "duration_ms": 1894,
+      "exit_status": 0,
+      "log_sha256": "sha256:e9fe6d699b1af80d8f5a8bfaeb18e954766286512d4d5bb9c29f5fbcf577301c",
+      "test_id": "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::policy::tests::security_sensitive_debug_activation_and_unclassified_requests_fail_safe -- --exact",
+      "duration_ms": 476,
+      "exit_status": 0,
+      "log_sha256": "sha256:fbb89cb6296251a223b58b7e4f6bff512550df80f7396ea21de0d9e30419e5f9",
+      "test_id": "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::control_authorization_trace_cases -- --exact",
+      "duration_ms": 655,
+      "exit_status": 0,
+      "log_sha256": "sha256:8193279759b07d1c86ec4073159bc87dc06ede34892c1ac1e5027f03247b4de1",
+      "test_id": "TEST_CONTROL_AUTHORIZATION_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary -- --exact",
+      "duration_ms": 457,
+      "exit_status": 0,
+      "log_sha256": "sha256:9a6e4162148cc0955e56298eeeadcff04d4153e3556d305d15860d041e3a7ad4",
+      "test_id": "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases debug_behavior_lock_trace_cases",
+      "duration_ms": 285,
+      "exit_status": 0,
+      "log_sha256": "sha256:65b287ca2ef4f9fafb0718b91e1664b29c3aba35caa175a98b8b9e5d4110ae1e",
+      "test_id": "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-debug adapter::tests::tests_part_01::dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values -- --exact",
+      "duration_ms": 5312,
+      "exit_status": 0,
+      "log_sha256": "sha256:d63b81b284f432e226161ac184d6ee3cd9ba1c416f83f758dc2b720146fcadfa",
+      "test_id": "TEST_DEBUG_MANAGED_LREAL_NONFINITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-debug adapter::tests::tests_part_01::dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects -- --exact",
+      "duration_ms": 416,
+      "exit_status": 0,
+      "log_sha256": "sha256:51688d1e3eca1c134ede795a839304de231e9eeab83c92c8fa4d092b8b25749b",
+      "test_id": "TEST_DEBUG_MANAGED_REAL_NONFINITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test debug_pause_watchdog_trace_cases debug_pause_watchdog_trace_cases -- --exact",
+      "duration_ms": 2518,
+      "exit_status": 0,
+      "log_sha256": "sha256:9bf04a5ccb8ffedca900d0d8cf7b321e2f2f2e6797f75f792012d3582dc33afb",
+      "test_id": "TEST_DEBUG_PAUSE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test debug_pause_watchdog statement_pause_longer_than_watchdog_does_not_fault_resource -- --exact",
+      "duration_ms": 565,
+      "exit_status": 0,
+      "log_sha256": "sha256:2b6c6c39deff73db5a689932b8ed7b052ed82f325d2feb7255eed803cecf2b77",
+      "test_id": "TEST_DEBUG_PAUSE_WATCHDOG_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases dependency_exception_trace_cases",
+      "duration_ms": 1446,
+      "exit_status": 0,
+      "log_sha256": "sha256:149000b6522f0f2fee3fd0d26262569b5d7e0300d5a86af10f405d9351acd256",
+      "test_id": "TEST_DEPENDENCY_EXCEPTION_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-dev developer_commit_scope_trace_cases",
+      "duration_ms": 5162,
+      "exit_status": 0,
+      "log_sha256": "sha256:cba6e151109062135a63f976f7ee204bc593f709a6de97d8c64037b8d7dfad41",
+      "test_id": "TEST_DEV_COMMIT_SCOPE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-dev developer_test_discovery_trace_cases",
+      "duration_ms": 387,
+      "exit_status": 0,
+      "log_sha256": "sha256:051c100f9eb34646623422507f1b750126f4363255028f467f1159978ff1710a",
+      "test_id": "TEST_DEV_TEST_DISCOVERY_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_refuses_case_insensitive_declaring_scope_conflict -- --exact",
+      "duration_ms": 190,
+      "exit_status": 0,
+      "log_sha256": "sha256:035a9e61a597f097d43cc25d403145099bb522ef3913e3f5f9224f73bda14da7",
+      "test_id": "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_allows_case_only_change_for_same_symbol -- --exact",
+      "duration_ms": 14901,
+      "exit_status": 0,
+      "log_sha256": "sha256:36a334a4d241e91514b0ace1a50dd3e8cf092257ca5fe18396483d854db1df91",
+      "test_id": "TEST_EDITOR_RENAME_CASE_ONLY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_refuses_cross_file_reference_capture -- --exact",
+      "duration_ms": 155,
+      "exit_status": 0,
+      "log_sha256": "sha256:43b252936d9f73f063a2dc16b6d6c635a97476cc5f4a210234a5ff79dae52df7",
+      "test_id": "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_refuses_case_insensitive_struct_field_collision -- --exact",
+      "duration_ms": 189,
+      "exit_status": 0,
+      "log_sha256": "sha256:035a9e61a597f097d43cc25d403145099bb522ef3913e3f5f9224f73bda14da7",
+      "test_id": "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_from_imported_use_checks_origin_conflicts_with_named_reason -- --exact",
+      "duration_ms": 163,
+      "exit_status": 0,
+      "log_sha256": "sha256:43b252936d9f73f063a2dc16b6d6c635a97476cc5f4a210234a5ff79dae52df7",
+      "test_id": "TEST_EDITOR_RENAME_IMPORTED_ORIGIN_CONFLICT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::rename_trace_cases::editor_rename_local_trace_cases -- --exact",
+      "duration_ms": 436,
+      "exit_status": 0,
+      "log_sha256": "sha256:dcebe501574af624edca17e8654b82041eb57e099ec4236f1a0b7fb635232788",
+      "test_id": "TEST_EDITOR_RENAME_LOCAL_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_refuses_project_wide_pou_collision -- --exact",
+      "duration_ms": 160,
+      "exit_status": 0,
+      "log_sha256": "sha256:43b252936d9f73f063a2dc16b6d6c635a97476cc5f4a210234a5ff79dae52df7",
+      "test_id": "TEST_EDITOR_RENAME_PROJECT_POU_COLLISION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::rename_trace_cases::editor_rename_project_trace_cases -- --exact",
+      "duration_ms": 484,
+      "exit_status": 0,
+      "log_sha256": "sha256:8572ab2a7b349b78f72361f293faa943459fce1d78c7205e2c7c1d837af77a67",
+      "test_id": "TEST_EDITOR_RENAME_PROJECT_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ide --test ide_features test_rename_refuses_shadow_capture_with_named_reason -- --exact",
+      "duration_ms": 260,
+      "exit_status": 0,
+      "log_sha256": "sha256:b1c4525f44a2c497ea1717f6eac9cd50cfd5866e9b94f8eb28f7b2b42132774e",
+      "test_id": "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::ethercat::trace_cases::ethercat_unavailable_resource_trace_cases -- --exact",
+      "duration_ms": 465,
+      "exit_status": 0,
+      "log_sha256": "sha256:38b255ba7177a209d92ffe000aba4692bc14cf0034609ec76b5e1ae079b256e2",
+      "test_id": "TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::explicit_integer_to_float_conversion_and_representable_context_literals_are_accepted -- --exact",
+      "duration_ms": 161,
+      "exit_status": 0,
+      "log_sha256": "sha256:fb791757e1d07d8edafe8622af1d339629865074ed3cc13a10356db38fcc0b84",
+      "test_id": "TEST_IEC_CONTEXT_LITERAL_CONVERSION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::untyped_integer_literals_must_be_exactly_representable_in_float_targets -- --exact",
+      "duration_ms": 216,
+      "exit_status": 0,
+      "log_sha256": "sha256:63ad0f5946946dced37a96deeab0d9281d3238bc8f084717fbd0f69eaa33a3e3",
+      "test_id": "TEST_IEC_CONTEXT_LITERAL_PRECISION_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::cross_family_and_non_numeric_implicit_assignments_are_rejected -- --exact",
+      "duration_ms": 167,
+      "exit_status": 0,
+      "log_sha256": "sha256:c1be0e66cd40f7fcbb47fdb1a79554be1977f2e16e0eba1c09d3c2d6eb57a6ca",
+      "test_id": "TEST_IEC_CROSS_FAMILY_CONVERSION_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::accuracy_preserving_implicit_conversion_matrix_is_accepted -- --exact",
+      "duration_ms": 18799,
+      "exit_status": 0,
+      "log_sha256": "sha256:c3b9311524c3a234c34783430cfc0c3cb14f9a3b2e653555bac423516320c881",
+      "test_id": "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::typed_integer_to_float_edges_that_can_lose_accuracy_require_explicit_conversion -- --exact",
+      "duration_ms": 178,
+      "exit_status": 0,
+      "log_sha256": "sha256:60b160983ccd047cbb7e4ed627bd306c148c2bc41d96fa2c5ef4440997189dc8",
+      "test_id": "TEST_IEC_LOSSY_TYPED_FLOAT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery test_deep_parenthesized_expression_is_bounded -- --exact",
+      "duration_ms": 347,
+      "exit_status": 0,
+      "log_sha256": "sha256:4417a061590b5397faebb869be8a28fba9d9f264eb7fd7f67383914196012629",
+      "test_id": "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery test_deep_unary_expression_is_bounded -- --exact",
+      "duration_ms": 362,
+      "exit_status": 0,
+      "log_sha256": "sha256:0d347ecce53bf27dd92e9fdcf0d15d9ffdecc11abb856bd5ae4ba8a7e8332c02",
+      "test_id": "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery test_missing_end_program -- --exact",
+      "duration_ms": 250,
+      "exit_status": 0,
+      "log_sha256": "sha256:752f8180e68843dbb8e2fe27ef3d1fcbf7bda1e4ececb823850e04f812a1289c",
+      "test_id": "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery mismatched_nested_terminator_preserves_outer_boundary_and_following_statement -- --exact",
+      "duration_ms": 194,
+      "exit_status": 0,
+      "log_sha256": "sha256:4e19ff1ff008b7d0ca1f4097c1317e5140b4389296e6fce3f4e2f53554002a16",
+      "test_id": "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_recovery_trace_cases parser_recovery_trace_cases -- --exact",
+      "duration_ms": 978,
+      "exit_status": 0,
+      "log_sha256": "sha256:5a617aaf59fae0c18fcb9360be1207a6f95e2f9fcc67349b53e6c01cd9e11e5b",
+      "test_id": "TEST_IEC_PARSER_RECOVERY_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery malformed_control_flow_delimiters_are_diagnosed -- --exact",
+      "duration_ms": 9690,
+      "exit_status": 0,
+      "log_sha256": "sha256:ddf4bff7a7003bf92cb2958b5810440385d1c06f6eabb3a54098e146b7972c3d",
+      "test_id": "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_expressions unclosed_call_argument_list_reports_missing_rparen -- --exact",
+      "duration_ms": 659,
+      "exit_status": 0,
+      "log_sha256": "sha256:a1a5b76716c7e238daafd4bfb4c2c1875906285fa4622b87e57cbb0d082a229e",
+      "test_id": "TEST_IEC_PARSER_UNCLOSED_CALL_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-syntax --test parser_error_recovery test_unexpected_token -- --exact",
+      "duration_ms": 242,
+      "exit_status": 0,
+      "log_sha256": "sha256:fd7f5f3af82b4a82940221805c91737027a4b2bdb18f1cbd8b73784560d7ca18",
+      "test_id": "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test iec_precedence_trace_cases expression_precedence_trace_cases -- --exact",
+      "duration_ms": 2343,
+      "exit_status": 0,
+      "log_sha256": "sha256:1216e879fdde6098840e01a84bbbbd2e9e19eaa05f1d1e00a07abbfc2ab3d6c4",
+      "test_id": "TEST_IEC_PRECEDENCE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test iec_string_binding_trace_cases iec_string_binding_trace_cases -- --exact",
+      "duration_ms": 2545,
+      "exit_status": 0,
+      "log_sha256": "sha256:82f13bc50866e0bfc3714d6f284d3ea6ceff72851b856dd62007787bc966b416",
+      "test_id": "TEST_IEC_STRING_BINDING_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_block_inout_rejects_mismatched_string_capacity -- --exact",
+      "duration_ms": 399,
+      "exit_status": 0,
+      "log_sha256": "sha256:02e2f106a1cbc22fae0093cd2e411070710f6b3a6fa2ac87259c980bb358f1e1",
+      "test_id": "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_block_input_and_equal_width_inout_preserve_string_bounds -- --exact",
+      "duration_ms": 469,
+      "exit_status": 0,
+      "log_sha256": "sha256:16219ebf3fd01669556e629b4993418621fd2ae29dedfc46c7e064ee1479dd98",
+      "test_id": "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_block_output_copyback_respects_receiving_string_capacity -- --exact",
+      "duration_ms": 483,
+      "exit_status": 0,
+      "log_sha256": "sha256:b43b51f10520faf10367eed12ce5fcefcb8b03da98902bc960c47940ec6f9330",
+      "test_id": "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_inout_rejects_mismatched_string_capacity -- --exact",
+      "duration_ms": 435,
+      "exit_status": 0,
+      "log_sha256": "sha256:e7ca7a29a3272ec3c6cf826e4e9a15fc433122a31fd0b5eeba1dd9bfffeff6cd",
+      "test_id": "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_input_and_equal_width_inout_preserve_string_bounds -- --exact",
+      "duration_ms": 433,
+      "exit_status": 0,
+      "log_sha256": "sha256:04f57924c1c76f5148da3d128cfb0f36e2138cb6f853318cb445587e4ff35d40",
+      "test_id": "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_output_copyback_respects_receiving_string_capacity -- --exact",
+      "duration_ms": 404,
+      "exit_status": 0,
+      "log_sha256": "sha256:48c580045bdb99aabd541ea3ddbd6b9b5219be3c93490f918eabd316ab8a0f84",
+      "test_id": "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds bounded_function_result_truncates_at_receiving_assignment -- --exact",
+      "duration_ms": 537,
+      "exit_status": 0,
+      "log_sha256": "sha256:7fe14f40a7f302baeec1ba088ac74898765b908e3ca6220a369f1f93aa00aa3a",
+      "test_id": "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds bounded_function_result_respects_its_declared_string_capacity -- --exact",
+      "duration_ms": 1879,
+      "exit_status": 0,
+      "log_sha256": "sha256:a65a8a9bb447b5e6ec4b204def2016aa5058710efab708c3773cbe012f57d203",
+      "test_id": "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir db::queries::database::tests::analyze_salsa_preserves_cross_file_constant_string_capacity_on_in_out_parameters -- --exact",
+      "duration_ms": 6335,
+      "exit_status": 0,
+      "log_sha256": "sha256:35add266ecca5a1405620b8d2f33b78e0b7651fa6381ef4db2e79a6e7bdc9e75",
+      "test_id": "TEST_IEC_STRING_IMPORTED_CAPACITY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir db::queries::database::tests::analyze_salsa_rejects_mismatched_cross_file_constant_string_capacity -- --exact",
+      "duration_ms": 332,
+      "exit_status": 0,
+      "log_sha256": "sha256:d71ae05938d776c561092c68f0dd9aec933c9e2161517547d4056405b73fc524",
+      "test_id": "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking control_flow_and_calls::string_in_out_accepts_equal_capacity_and_aliases -- --exact",
+      "duration_ms": 199,
+      "exit_status": 0,
+      "log_sha256": "sha256:3094117b59caf6ea18cf8621100e1d9350c7619e4be8b8962ca575f415bb7dbc",
+      "test_id": "TEST_IEC_STRING_INOUT_ALIAS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking control_flow_and_calls::string_in_out_requires_equal_declared_capacity -- --exact",
+      "duration_ms": 194,
+      "exit_status": 0,
+      "log_sha256": "sha256:ff31dbc07a7891e413812d9c8abd577060ac16e77689d3c572cd238fb55f3a4a",
+      "test_id": "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds nested_function_output_copyback_respects_local_string_capacity -- --exact",
+      "duration_ms": 388,
+      "exit_status": 0,
+      "log_sha256": "sha256:cf48ec5ec9a75050a9111606d410c06192b58103f90fbb4df7b84d55b101ef0d",
+      "test_id": "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_output_copyback_respects_nested_string_field_capacity -- --exact",
+      "duration_ms": 429,
+      "exit_status": 0,
+      "log_sha256": "sha256:4ff9a91e78d688368547cbceb669a3a80d188f61cb70489871b5a80a02e406d6",
+      "test_id": "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds bounded_string_assignment_truncates_at_unicode_scalar_boundary -- --exact",
+      "duration_ms": 472,
+      "exit_status": 0,
+      "log_sha256": "sha256:fc11c7b772ffc0c4262e5771dcf75d8802ff231a152fcb454462152ab300da4f",
+      "test_id": "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds bounded_string_initializers_count_unicode_scalar_values -- --exact",
+      "duration_ms": 528,
+      "exit_status": 0,
+      "log_sha256": "sha256:f3cb2a5b7146f36c622b5f1a15fca7be0758078872a7646c7f4c969b2acd59cc",
+      "test_id": "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test semantic_type_checking bounded_value_semantics::subrange_constant_initializers_and_wrong_base_assignments_fail_closed -- --exact",
+      "duration_ms": 205,
+      "exit_status": 0,
+      "log_sha256": "sha256:c910a782aa491a7cc6207fd2907f7013ca3b90ef1000424929e2d6810b1feed9",
+      "test_id": "TEST_IEC_SUBRANGE_INITIALIZER_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-hir --test subrange_trace_cases subrange_trace_cases -- --exact",
+      "duration_ms": 700,
+      "exit_status": 0,
+      "log_sha256": "sha256:d1df22987971c2a8cdcd241b5f5017899792876d1cb41a4b4037873a9492229f",
+      "test_id": "TEST_IEC_SUBRANGE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test fb_timers_full timer_variants -- --exact",
+      "duration_ms": 1694,
+      "exit_status": 0,
+      "log_sha256": "sha256:254e81ef743f54e17e371028fd4a4f9aa917f0d6a9c3a811087dec374aa98a64",
+      "test_id": "TEST_IEC_TIMER_RUNTIME_VARIANTS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test fb_timers tof_clamps_elapsed_time_at_duration_max -- --exact",
+      "duration_ms": 1450,
+      "exit_status": 0,
+      "log_sha256": "sha256:1d0c9af8bae4e3b9c889aa2c10cf6d3a9abab59aba17dc16dbecf86196607d66",
+      "test_id": "TEST_IEC_TIMER_TOF_DURATION_OVERFLOW_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test fb_timers ton_clamps_elapsed_time_at_duration_max -- --exact",
+      "duration_ms": 392,
+      "exit_status": 0,
+      "log_sha256": "sha256:121de3c61d0e96042c9ff18ccb1b8951719205d53e03de28f92b53f7cf4aa58d",
+      "test_id": "TEST_IEC_TIMER_TON_DURATION_OVERFLOW_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test fb_timers tp_clamps_elapsed_time_at_duration_max -- --exact",
+      "duration_ms": 362,
+      "exit_status": 0,
+      "log_sha256": "sha256:fd43d1a1443a75bc660efdfd988438d582dccdc344a4997f9be9ad8c79b34a84",
+      "test_id": "TEST_IEC_TIMER_TP_DURATION_OVERFLOW_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test iec_timer_trace_cases timer_state_machine_trace_cases -- --exact",
+      "duration_ms": 1823,
+      "exit_status": 0,
+      "log_sha256": "sha256:98ef199fb96759383f19a3c51a89c036d7f2bc1daa78f4aec5e0a7ffeef23b3b",
+      "test_id": "TEST_IEC_TIMER_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_block_inout_rejects_mismatched_wstring_capacity -- --exact",
+      "duration_ms": 427,
+      "exit_status": 0,
+      "log_sha256": "sha256:1ef1ae76c5e38c5a6d61802e3b95a87ba6590d5cedb3f7e3e77c21f710bab780",
+      "test_id": "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds function_block_wstring_output_copyback_respects_receiving_capacity -- --exact",
+      "duration_ms": 443,
+      "exit_status": 0,
+      "log_sha256": "sha256:af32f738bfc76fac26c9009dff78bc1e89354752d5fe99633e43cac95f09d9bf",
+      "test_id": "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test string_binding_bounds nested_function_output_copyback_respects_local_wstring_alias_capacity -- --exact",
+      "duration_ms": 424,
+      "exit_status": 0,
+      "log_sha256": "sha256:29a8c8f6d94121539f8057b44c60f3cfb76ceac6b94bbf28e978607ebc596eed",
+      "test_id": "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::lsp_trace_cases::lsp_diagnostic_cancellation_trace_cases -- --exact",
+      "duration_ms": 572,
+      "exit_status": 0,
+      "log_sha256": "sha256:93b1fd75841f287d41fa027c41c11b8f7561498af1ec701df55402dbfefdf26f",
+      "test_id": "TEST_LSP_DIAGNOSTIC_CANCELLATION_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk -- --exact",
+      "duration_ms": 20687,
+      "exit_status": 0,
+      "log_sha256": "sha256:34da8c404787378a5ba76722704db9e5c7ae94bc1245427c10538bc7ad504a9c",
+      "test_id": "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::lsp_trace_cases::lsp_document_close_trace_cases -- --exact",
+      "duration_ms": 447,
+      "exit_status": 0,
+      "log_sha256": "sha256:2de166d046e074b99acc0df705705e49a1f8402952f0820b312a6a878fc00127",
+      "test_id": "TEST_LSP_DOCUMENT_CLOSE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_hover_uses_utf16_positions_after_bare_cr_line_endings",
+      "duration_ms": 386,
+      "exit_status": 0,
+      "log_sha256": "sha256:7558a335b707bc09dd8a22fe4b3514ec620e45a22c73c20107bdc3ce3471db11",
+      "test_id": "TEST_LSP_POSITION_ENCODING_BARE_CR_HOVER_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp initialize_advertises_utf16_position_encoding",
+      "duration_ms": 380,
+      "exit_status": 0,
+      "log_sha256": "sha256:36df6ab3fe3c8296917e37e3728e591aacaccd34d40dd68222c52b751ece1e04",
+      "test_id": "TEST_LSP_POSITION_ENCODING_HANDSHAKE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar",
+      "duration_ms": 447,
+      "exit_status": 0,
+      "log_sha256": "sha256:8ea48a3e7dc0a8b04ff910535fb5348f956da6b2fe11f6f09aea76e38be07aa4",
+      "test_id": "TEST_LSP_POSITION_ENCODING_HOVER_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp utf16_positions_round_trip_across_all_lsp_line_endings",
+      "duration_ms": 410,
+      "exit_status": 0,
+      "log_sha256": "sha256:3fda7d65d5e2d2dfa2e51f82cf023dae074b0914384ff817bbbf2e38da19c67d",
+      "test_id": "TEST_LSP_POSITION_ENCODING_LINE_ENDINGS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_semantic_tokens_use_utf16_start_and_length_after_supplementary_scalar",
+      "duration_ms": 441,
+      "exit_status": 0,
+      "log_sha256": "sha256:467b2ba3e6c6182ced0d66610204fce4bed965d29da249eaabf3338f48f4ba9c",
+      "test_id": "TEST_LSP_POSITION_ENCODING_SEMANTIC_TOKENS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp apply_content_changes_uses_utf16_columns_after_supplementary_scalar",
+      "duration_ms": 53502,
+      "exit_status": 0,
+      "log_sha256": "sha256:19ea9b5576cd1d5a246be55d6532d6ebc8f27ab4fc19e6a105fbfafe32f88d56",
+      "test_id": "TEST_LSP_POSITION_ENCODING_SYNC_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp handlers::tests::lsp_trace_cases::lsp_position_encoding_trace_cases -- --exact",
+      "duration_ms": 424,
+      "exit_status": 0,
+      "log_sha256": "sha256:ce81d300fd29b5dbe54e221377db4f8dfb2bc6473422dce9975484904c89886c",
+      "test_id": "TEST_LSP_POSITION_ENCODING_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_pull_diagnostics_cancelled_request_returns_content_modified",
+      "duration_ms": 420,
+      "exit_status": 0,
+      "log_sha256": "sha256:13cae2c8b294d6f71716fdf77c7c83e0c6cf36a8c55ddda5a07315a0a353d656",
+      "test_id": "TEST_LSP_PULL_DIAGNOSTIC_CANCELLATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_push_diagnostics_cancelled_collection_is_skipped_not_empty_publish",
+      "duration_ms": 417,
+      "exit_status": 0,
+      "log_sha256": "sha256:ca090099fa77c6b6897da9e76282cab97884f8980cf56c0662c903ccfcf7f56b",
+      "test_id": "TEST_LSP_PUSH_DIAGNOSTIC_CANCELLATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_rename_shadow_capture_returns_response_error -- --exact",
+      "duration_ms": 410,
+      "exit_status": 0,
+      "log_sha256": "sha256:fd342e85c362a4bc48fdf44871c726dab64d55546a4876cf365f9ceaef2cbdfe",
+      "test_id": "TEST_LSP_RENAME_CONFLICT_ERROR_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-lsp lsp_workspace_diagnostics_cancelled_request_returns_content_modified",
+      "duration_ms": 421,
+      "exit_status": 0,
+      "log_sha256": "sha256:737718f931debd3b4a1ef19011e41e2df67e55b0604021da47c96fa9999a4604",
+      "test_id": "TEST_LSP_WORKSPACE_DIAGNOSTIC_CANCELLATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib opcua::lifecycle_cases::opcua_client_lifecycle_trace_cases -- --exact",
+      "duration_ms": 498,
+      "exit_status": 0,
+      "log_sha256": "sha256:ea478042a14f075af58df3941a2759286a4dada64f532dcb7998150b85f60281",
+      "test_id": "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases platform_path_trace_cases",
+      "duration_ms": 248,
+      "exit_status": 0,
+      "log_sha256": "sha256:4c991a9e1a9a25a33ff90c6c46007fb5ba2a1ffee8c2e07733fe3af63bf48f81",
+      "test_id": "TEST_PLATFORM_PATH_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test plcopen_import_trace_cases plcopen_import_trace_cases -- --exact",
+      "duration_ms": 1916,
+      "exit_status": 0,
+      "log_sha256": "sha256:7c0dc1d8971adec1336e7c209827a6d364d5f7298d1b66c4a3f1d2465b662f49",
+      "test_id": "TEST_PLCOPEN_IMPORT_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::comm_handlers::discovery_probe::trace_cases::protocol_discovery_confidence_trace_cases -- --exact",
+      "duration_ms": 398,
+      "exit_status": 0,
+      "log_sha256": "sha256:6c392d108f08c03ea85584274bead40834f0f5976d64eed2df8c1b02aa7fb381",
+      "test_id": "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases release_conformance_status_trace_cases",
+      "duration_ms": 221,
+      "exit_status": 0,
+      "log_sha256": "sha256:bc1d6acb2f0401620deae550a55baace75ac7fcacd69e9371356e8e2c022f4fa",
+      "test_id": "TEST_RELEASE_CONFORMANCE_STATUS_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases release_hardware_claim_trace_cases",
+      "duration_ms": 221,
+      "exit_status": 0,
+      "log_sha256": "sha256:c14344ec8db912ec37cef6576298cc18ec73be2d2cf6215c4f295b8414bb87b4",
+      "test_id": "TEST_RELEASE_HARDWARE_CLAIM_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases release_platform_matrix_trace_cases",
+      "duration_ms": 241,
+      "exit_status": 0,
+      "log_sha256": "sha256:da31a7d28e185ab610c347d2c5d789d796bef1f81b07f68e493f02620bb1c120",
+      "test_id": "TEST_RELEASE_PLATFORM_MATRIX_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases release_source_build_trace_cases",
+      "duration_ms": 272,
+      "exit_status": 0,
+      "log_sha256": "sha256:5dc034d35520e68c4262da2245c7db4271d5a9ab623d8fa61dfd41682abbcb52",
+      "test_id": "TEST_RELEASE_SOURCE_BUILD_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases release_version_chain_trace_cases",
+      "duration_ms": 250,
+      "exit_status": 0,
+      "log_sha256": "sha256:b7fefc1cd40967fa81e608ffe5e6bb10a5a7b3972e62a36d198d41b1b250935c",
+      "test_id": "TEST_RELEASE_VERSION_CHAIN_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ads-core mapping::tests::rejects_real_array_with_non_finite_element -- --exact",
+      "duration_ms": 138,
+      "exit_status": 0,
+      "log_sha256": "sha256:9ad3df6ff500d414d25663f12986ccc564c06767fe53437251c7b28a7772afff",
+      "test_id": "TEST_RUNTIME_ADS_NONFINITE_ARRAY_DECODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib ads::tests::client_rejects_non_finite_real_and_lreal_before_storage_apply -- --exact",
+      "duration_ms": 366,
+      "exit_status": 0,
+      "log_sha256": "sha256:d1a9edcb9e7ae5a5977a1bed1daf2f67e27508f4d6e8f5eba035dbddce93f112",
+      "test_id": "TEST_RUNTIME_ADS_NONFINITE_CLIENT_INGRESS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-ads-core mapping::tests::rejects_non_finite_real_and_lreal_scalars -- --exact",
+      "duration_ms": 4380,
+      "exit_status": 0,
+      "log_sha256": "sha256:4cbc17a3a0165dce0bda7110bb327e5fda51d55ac1f92d78eae151a98cbb04ed",
+      "test_id": "TEST_RUNTIME_ADS_NONFINITE_SCALAR_DECODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib ads::server::tests::write_port_rejects_raw_non_finite_real_and_lreal_without_mutation -- --exact",
+      "duration_ms": 36206,
+      "exit_status": 0,
+      "log_sha256": "sha256:58a3792e0d312a5a9f6acec8aad89bf0264818e60cb5a9f018f3c707d0b7dc36",
+      "test_id": "TEST_RUNTIME_ADS_NONFINITE_SERVER_INGRESS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases runtime_behavior_lock_trace_cases",
+      "duration_ms": 242,
+      "exit_status": 0,
+      "log_sha256": "sha256:cf3cde4953724099b914c8e27badc18e1a42a372f023ef577406520230367bf9",
+      "test_id": "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::auth_token_change_preserves_force_until_authorized_release -- --exact",
+      "duration_ms": 473,
+      "exit_status": 0,
+      "log_sha256": "sha256:3464cacfffd2487c514231de4a197213798b96ad3d6a3d3655296ee39e6ec7e3",
+      "test_id": "TEST_RUNTIME_FORCE_AUTH_CHANGE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle_boundaries nonterminating_debug_disconnect_preserves_active_force -- --exact",
+      "duration_ms": 522,
+      "exit_status": 0,
+      "log_sha256": "sha256:69ba796c902b84a576a2e1216b1f91d2921b1b8c86e26eb69021372e2837e808",
+      "test_id": "TEST_RUNTIME_FORCE_DISCONNECT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle_boundaries fault_boundary_clears_debug_mutations -- --exact",
+      "duration_ms": 436,
+      "exit_status": 0,
+      "log_sha256": "sha256:743fe6a03ec45630266b35fcccfcb36ba3be1bc24d1f19c4e527247a64ebec0a",
+      "test_id": "TEST_RUNTIME_FORCE_FAULT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle force_lifecycle_trace_cases -- --exact",
+      "duration_ms": 2442,
+      "exit_status": 0,
+      "log_sha256": "sha256:6ab4230cff5df4b42ec6c42b36aad8f16100ea30523d16d7f49d7458ae051aae",
+      "test_id": "TEST_RUNTIME_FORCE_LIFECYCLE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle_boundaries pause_resume_preserves_active_force -- --exact",
+      "duration_ms": 511,
+      "exit_status": 0,
+      "log_sha256": "sha256:f9b2bc9186bbedf864d1e9e249fb08759793a40d108c1fb1b7ac6ea51aa96a90",
+      "test_id": "TEST_RUNTIME_FORCE_PAUSE_RESUME_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle_boundaries release_removes_force_without_replacement_write -- --exact",
+      "duration_ms": 510,
+      "exit_status": 0,
+      "log_sha256": "sha256:2fdb8526634124c80fc896afbaf21bbff2b42d5608777b3aa38cd156f54bba29",
+      "test_id": "TEST_RUNTIME_FORCE_RELEASE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test force_lifecycle_boundaries deliberate_stop_boundary_clears_debug_mutations -- --exact",
+      "duration_ms": 2006,
+      "exit_status": 0,
+      "log_sha256": "sha256:be41684449e872e7e3690fa5d71d66b3ba8d7e81699a7f2b8cab5216d5813b9d",
+      "test_id": "TEST_RUNTIME_FORCE_STOP_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_non_finite_real_text -- --exact",
+      "duration_ms": 511,
+      "exit_status": 0,
+      "log_sha256": "sha256:cd0d3a2e15b0c0c2e70a6701672a336673b466ede2d77f4faf5caf57ed45810d",
+      "test_id": "TEST_RUNTIME_HMI_NONFINITE_WRITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_io_bound_trace_cases runtime_io_bound_trace_cases -- --exact",
+      "duration_ms": 2019,
+      "exit_status": 0,
+      "log_sha256": "sha256:9e62699e7237f880c197882759f4ced9a561992b32fe7149caf92b2ff6d2b7ee",
+      "test_id": "TEST_RUNTIME_IO_BOUND_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib mesh::tests::mesh_payload_rejects_real_overflow_to_non_finite -- --exact",
+      "duration_ms": 426,
+      "exit_status": 0,
+      "log_sha256": "sha256:1dcee0ef0315ed8d32c8da7e4a14bbc8c8798863eb5da4b4efa4ef9d324f508a",
+      "test_id": "TEST_RUNTIME_MESH_NONFINITE_INGRESS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test modbus_driver modbus_nonfinite_mapped_read_preserves_complete_input_image -- --exact",
+      "duration_ms": 2125,
+      "exit_status": 0,
+      "log_sha256": "sha256:ff4203ff350ac54c8b1ac42d5881024748da501715725a12a82a5e65dbf13f9d",
+      "test_id": "TEST_RUNTIME_MODBUS_NONFINITE_MAPPED_READ_TRANSACTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::modbus::point_map::tests::mapped_f32_process_image_read_rejects_non_finite -- --exact",
+      "duration_ms": 561,
+      "exit_status": 0,
+      "log_sha256": "sha256:7a621a49b4b7893d2cdf3cd21b8d5cb8b7d348938414445d96299dbd0244745d",
+      "test_id": "TEST_RUNTIME_MODBUS_NONFINITE_PROCESS_IMAGE_READ_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::modbus::point_map::tests::mapped_f32_wire_decode_rejects_non_finite -- --exact",
+      "duration_ms": 409,
+      "exit_status": 0,
+      "log_sha256": "sha256:69d17faddc2eec6235079317c6ded9e93ccff9cb08c4663cb6ab34a2cd761e85",
+      "test_id": "TEST_RUNTIME_MODBUS_NONFINITE_WIRE_DECODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test modbus_driver modbus_read_inputs_returns_within_scan_bound_while_response_delayed -- --exact",
+      "duration_ms": 432,
+      "exit_status": 0,
+      "log_sha256": "sha256:960f14b473bf0c5c336b248b0d39b2e2b31f5b94611f3d278c78a5e5761037a9",
+      "test_id": "TEST_RUNTIME_MODBUS_SLOW_READ_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test modbus_driver modbus_write_outputs_returns_within_scan_bound_while_response_delayed -- --exact",
+      "duration_ms": 414,
+      "exit_status": 0,
+      "log_sha256": "sha256:c214a237a112db20a3836f6dfc30386d52fd4859331d14f34f4125c2b98ac6ea",
+      "test_id": "TEST_RUNTIME_MODBUS_SLOW_WRITE_BOUND_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::mqtt::tests::nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery -- --exact",
+      "duration_ms": 517,
+      "exit_status": 0,
+      "log_sha256": "sha256:49031acc844efbe001be6b991dc6aa46ca921c459a516170c45732420c300e19",
+      "test_id": "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::mqtt::point_map_nonfinite_tests::mapped_f32_process_image_read_rejects_non_finite -- --exact",
+      "duration_ms": 410,
+      "exit_status": 0,
+      "log_sha256": "sha256:1321a971c465e403d3200148c1987626a61b25301c8b641d71fe91ff0099d47f",
+      "test_id": "TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::mqtt::point_map_nonfinite_tests::mapped_f32_text_payload_rejects_non_finite -- --exact",
+      "duration_ms": 437,
+      "exit_status": 0,
+      "log_sha256": "sha256:25f5c95290979d0ff358fc53032a3253abdf034015fe02ddd9fce3fde7e59254",
+      "test_id": "TEST_RUNTIME_MQTT_NONFINITE_TEXT_DECODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib opcua::tests::opcua_client_rejects_non_finite_subscription_values_before_storage -- --exact",
+      "duration_ms": 392,
+      "exit_status": 0,
+      "log_sha256": "sha256:e9bdcff38ec4cb8aa262f2ccf8ba562bd26eca0f23cd5aac18472e9b9dca9ca5",
+      "test_id": "TEST_RUNTIME_OPCUA_NONFINITE_INGRESS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib scheduler::runner_loop_poison_tests::cycle_execution_panic_faults_resource_visibly -- --exact",
+      "duration_ms": 378,
+      "exit_status": 0,
+      "log_sha256": "sha256:a9f6f2e99f607ecd5edc0ae4089beb8fbc8a0c9d97e13a7b75fb6fdaba4b584a",
+      "test_id": "TEST_RUNTIME_PANIC_CYCLE_GUARD_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_safety_fail_closed panic_in_io_driver_faults_resource_visibly -- --exact",
+      "duration_ms": 360,
+      "exit_status": 0,
+      "log_sha256": "sha256:6249e711df37558b58897b3d20dee0854a38886d61dfb8c8468d49ac87084967",
+      "test_id": "TEST_RUNTIME_PANIC_IO_DRIVER_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_safety_fail_closed panic_applies_safe_outputs_before_faulting_resource -- --exact",
+      "duration_ms": 383,
+      "exit_status": 0,
+      "log_sha256": "sha256:3babfdc8cb8c4f365685a298b370a45c43555b3e0eef7ed197e999e4d568d178",
+      "test_id": "TEST_RUNTIME_PANIC_SAFE_OUTPUT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_safety_fail_closed unexpected_thread_unwind_after_running_faults_control_surface -- --exact",
+      "duration_ms": 330,
+      "exit_status": 0,
+      "log_sha256": "sha256:001512cd6bb197ccd6390d77f9c878f04efe82a26f5e4871d4a247f2c0e972d8",
+      "test_id": "TEST_RUNTIME_PANIC_THREAD_GUARD_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_panic_trace_cases runtime_panic_trace_cases -- --exact",
+      "duration_ms": 2148,
+      "exit_status": 0,
+      "log_sha256": "sha256:6a5fc64aabac07bd23932b777389a5da09a2db6908d4bdf6a16f0fd48fda3a27",
+      "test_id": "TEST_RUNTIME_PANIC_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test debug_pause_watchdog resource_pause_between_cycles_starts_no_scan_or_watchdog_interval -- --exact",
+      "duration_ms": 1899,
+      "exit_status": 0,
+      "log_sha256": "sha256:52507cd454ac0e5ef6787de11c0d64fcddc4a0a7e014945bad1c5aab865d1282",
+      "test_id": "TEST_RUNTIME_PAUSE_WATCHDOG_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test reload_transaction_trace_cases reload_transaction_trace_cases -- --exact",
+      "duration_ms": 1889,
+      "exit_status": 0,
+      "log_sha256": "sha256:8261b23b030139d0cb92d9f88b49231425af8343518eb7d2261a500b8b83fa15",
+      "test_id": "TEST_RUNTIME_RELOAD_TRANSACTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib scheduler::runner_loop_poison_tests::automatic_fault_restart_uses_warm_storage_semantics -- --exact",
+      "duration_ms": 434,
+      "exit_status": 0,
+      "log_sha256": "sha256:9e0eab2dcce78fbf1b9b9816a53c8b300f46f8f73ee07061bb8e2eb1f98f26be",
+      "test_id": "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_restart cold_restart_initializes_retain_values -- --exact",
+      "duration_ms": 1888,
+      "exit_status": 0,
+      "log_sha256": "sha256:e9602e3dbe8b5f2d2233d458849f001c9b9cd8e12961a859ee06f7a829b8caa7",
+      "test_id": "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib scheduler::restart_storage_trace_cases::runtime_restart_storage_trace_cases -- --exact",
+      "duration_ms": 453,
+      "exit_status": 0,
+      "log_sha256": "sha256:46861f4aeb7faa8e3fea953c650bba990f4e495f9c7708f03b28fe90cc73e215",
+      "test_id": "TEST_RUNTIME_RESTART_STORAGE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_restart_trace_cases runtime_restart_trace_cases -- --exact",
+      "duration_ms": 1956,
+      "exit_status": 0,
+      "log_sha256": "sha256:c234e3c4b6b2a8ec606ad2fbf787975dabb8f13970bda4064eab4b82a10b1db5",
+      "test_id": "TEST_RUNTIME_RESTART_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_restart warm_restart_preserves_retain_and_initializes_nonretain -- --exact",
+      "duration_ms": 414,
+      "exit_status": 0,
+      "log_sha256": "sha256:ba73d98aed01ba3cada801c1f47c8d830735ac4d243306c3c6d29f2f76b7c50a",
+      "test_id": "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test retain_failure_trace_cases retain_failure_trace_cases -- --exact",
+      "duration_ms": 1860,
+      "exit_status": 0,
+      "log_sha256": "sha256:b45846f3c0d14d6f4dbef9f55b6f4c1696e5ae4e03ac655dc2e1874d057bd459",
+      "test_id": "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test retain_integrity retain_nonfinite_snapshot_fails_warm_reload_without_partial_apply -- --exact",
+      "duration_ms": 1804,
+      "exit_status": 0,
+      "log_sha256": "sha256:30235359d7947f8ccd9a4e4845dc258a16138c6c324d2ea262463fbef9112e94",
+      "test_id": "TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test retain_integrity retain_store_rejects_nonfinite_values_without_replacing_last_good_snapshot -- --exact",
+      "duration_ms": 351,
+      "exit_status": 0,
+      "log_sha256": "sha256:1069aaf18e99a827979f944bb619229280083a8e9a00fddd652d684f6a5e9939",
+      "test_id": "TEST_RUNTIME_RETAIN_NONFINITE_SAVE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test safe_state_handoff_trace_cases safe_state_handoff_trace_cases -- --exact",
+      "duration_ms": 1955,
+      "exit_status": 0,
+      "log_sha256": "sha256:a89d5118de6f28afe534aefd84b9835dfc874d327ad01900b2bb8efa69fa807f",
+      "test_id": "TEST_RUNTIME_SAFE_STATE_HANDOFF_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test modbus_driver modbus_safe_state_handoff_reports_unconfirmed_worker_delivery -- --exact",
+      "duration_ms": 540,
+      "exit_status": 0,
+      "log_sha256": "sha256:255256ae216e8d8311e9e23c089a761a4ec5b6830177b35470f5fb92666513e6",
+      "test_id": "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::mqtt::tests::safe_state_cases::mqtt_safe_state_handoff_reports_unconfirmed_connecting_worker -- --exact",
+      "duration_ms": 463,
+      "exit_status": 0,
+      "log_sha256": "sha256:dd8ea908073e5bf814077c0607d74e98deb76da6ca3c2df62eb196dbafaadb19",
+      "test_id": "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_safety_fail_closed requested_stop_faults_when_safe_state_handoff_is_unconfirmed -- --exact",
+      "duration_ms": 363,
+      "exit_status": 0,
+      "log_sha256": "sha256:a3a5ec846eefa1713e5c3b88c8e03233da166a13608f6c2f70a4798cfe85a331",
+      "test_id": "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test simulation_workflow simulation_toml_rejects_non_finite_coupling_thresholds -- --exact",
+      "duration_ms": 1839,
+      "exit_status": 0,
+      "log_sha256": "sha256:68d10dceb19f8b94c1f465451ea0586f3997280422d01d7524f8055c70bdc294",
+      "test_id": "TEST_RUNTIME_SIMULATION_THRESHOLD_NONFINITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::tests::snapshot_rejects_non_finite_real_input_bits -- --exact",
+      "duration_ms": 380,
+      "exit_status": 0,
+      "log_sha256": "sha256:b58be75ad83aaae4265c45f1cecfe64eaba762b811979cc85ace7c054d64648d",
+      "test_id": "TEST_RUNTIME_TYPED_INPUT_NONFINITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::tests::typed_lreal_output_rejection_is_transactional -- --exact",
+      "duration_ms": 495,
+      "exit_status": 0,
+      "log_sha256": "sha256:d8c3f48191ccbeef4469a09204292e1dcbc44a9630a3c29ae76095ea86d84b98",
+      "test_id": "TEST_RUNTIME_TYPED_LREAL_OUTPUT_TRANSACTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_safety_fail_closed nonfinite_typed_output_faults_before_driver_commit -- --exact",
+      "duration_ms": 1877,
+      "exit_status": 0,
+      "log_sha256": "sha256:219911454bb624a91a8f2b7ed75f4f3b675b25b3ca329a40826da9250c04e38f",
+      "test_id": "TEST_RUNTIME_TYPED_OUTPUT_DRIVER_COMMIT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib io::tests::typed_real_output_rejects_nonfinite_and_narrowing_overflow_without_write -- --exact",
+      "duration_ms": 447,
+      "exit_status": 0,
+      "log_sha256": "sha256:29f5e4a0c69b045a15b649b40d29c3757e22b4bfb87b5aa2746676539ca36557",
+      "test_id": "TEST_RUNTIME_TYPED_REAL_OUTPUT_NONFINITE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test runtime_watchdog_output_case watchdog_deadline_before_output_commit_case -- --exact",
+      "duration_ms": 1929,
+      "exit_status": 0,
+      "log_sha256": "sha256:be32ddb38ef1fb1e525abb0c51738effdcb67931b44550af22137b9bc50fe10b",
+      "test_id": "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test protocol_status_trace_cases ui_connector_status_trace_cases",
+      "duration_ms": 406,
+      "exit_status": 0,
+      "log_sha256": "sha256:1e7635dcb56d1da9e1aae19b0f7fa863dee205e8ca27ed7cd4578340eafe53ea",
+      "test_id": "TEST_UI_CONNECTOR_STATUS_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics accuracy_preserving_integer_to_float_assignments_materialize_target_tags -- --exact",
+      "duration_ms": 11627,
+      "exit_status": 0,
+      "log_sha256": "sha256:a3b27ffb5d738943b5dfce4261b9448b0c6924cd5b788c898705d1caeb54c43a",
+      "test_id": "TEST_VM_BOUNDED_FLOAT_MATERIALIZATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics precision_losing_typed_integer_to_float_assignments_require_explicit_conversion -- --exact",
+      "duration_ms": 378,
+      "exit_status": 0,
+      "log_sha256": "sha256:bc0cfcaee6b992637e1a325047142e35bde3afce4cb1ecacbc8428c1905deefb",
+      "test_id": "TEST_VM_BOUNDED_TYPED_FLOAT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics call_arguments_materialize_formal_parameter_types -- --exact",
+      "duration_ms": 433,
+      "exit_status": 0,
+      "log_sha256": "sha256:3fca7f816ac3650ba9063c13f984afd268f2f527c15c6f6fbec3db9c3669b88b",
+      "test_id": "TEST_VM_CALL_ARGUMENT_TYPE_MATERIALIZATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof assignment_widening_materializes_target_runtime_type -- --exact",
+      "duration_ms": 2053,
+      "exit_status": 0,
+      "log_sha256": "sha256:a2695462e726f15fce450b8a5dc10ca7a012a79599d908b2cb7c8dbe912d6ef4",
+      "test_id": "TEST_VM_COERCION_ASSIGNMENT_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof function_input_parameter_widening_executes_as_runtime_target_type -- --exact",
+      "duration_ms": 541,
+      "exit_status": 0,
+      "log_sha256": "sha256:01abbe2c2c24050ef4dcd7b33d87866322b6f0376e4fac3f6bc5f5d3e66fbbcd",
+      "test_id": "TEST_VM_COERCION_FUNCTION_INPUT_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof function_output_parameter_widening_executes_as_runtime_target_type -- --exact",
+      "duration_ms": 460,
+      "exit_status": 0,
+      "log_sha256": "sha256:0377838745a31c5e084d0ab7b570f79d8f2c0386110329265d70353ccefca881",
+      "test_id": "TEST_VM_COERCION_FUNCTION_OUTPUT_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof initializer_widening_materializes_target_runtime_type -- --exact",
+      "duration_ms": 501,
+      "exit_status": 0,
+      "log_sha256": "sha256:10f2733ffd1322c176853514cd7aae5a727c00b08e9d5a63286a3f60ff4299da",
+      "test_id": "TEST_VM_COERCION_INITIALIZER_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof inout_narrowing_is_rejected_instead_of_silent_writeback_loss -- --exact",
+      "duration_ms": 443,
+      "exit_status": 0,
+      "log_sha256": "sha256:dd1d7572ae35ae0829a5e1848bfc19da008c6e227353a4b4624b848230b51dcc",
+      "test_id": "TEST_VM_COERCION_INOUT_NARROWING_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof narrowing_assignment_is_rejected_instead_of_silent_truncation -- --exact",
+      "duration_ms": 401,
+      "exit_status": 0,
+      "log_sha256": "sha256:e37e6c0cc2a4fae88bec00ae64e84afd21c6d462685226b93150f3cafff68577",
+      "test_id": "TEST_VM_COERCION_NARROWING_ASSIGNMENT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test coercion_proof return_value_widening_executes_as_runtime_target_type -- --exact",
+      "duration_ms": 374,
+      "exit_status": 0,
+      "log_sha256": "sha256:4fd0919fc877b9c9c03f1d2c461678185698d911a4cea264789e65487b7eacb2",
+      "test_id": "TEST_VM_COERCION_RETURN_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths -- --exact",
+      "duration_ms": 523,
+      "exit_status": 0,
+      "log_sha256": "sha256:6071206f291fc6fae29ff60618b1b0acbb6e5aab57d0366872534aa2b9c9b422",
+      "test_id": "TEST_VM_DECLARED_DINT_CONVERSION_PATHS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract declared_dint_keeps_dint_width_after_int_assignment -- --exact",
+      "duration_ms": 426,
+      "exit_status": 0,
+      "log_sha256": "sha256:77942e95dbbfed8cb1aadb4d00cdcb8382e49706cebbdc74db5fd4951837437d",
+      "test_id": "TEST_VM_DECLARED_DINT_RUNTIME_TAG_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract literal_context_coercions_stay_declared_width_and_type -- --exact",
+      "duration_ms": 425,
+      "exit_status": 0,
+      "log_sha256": "sha256:2beda6a3cda453ab5dc016b834df5e792bd3da57627816ab1e270ccab5092f3e",
+      "test_id": "TEST_VM_DECLARED_LITERAL_CONTEXT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract parameter_copy_in_materializes_declared_numeric_widening -- --exact",
+      "duration_ms": 504,
+      "exit_status": 0,
+      "log_sha256": "sha256:2b25b4b4f3b82602c231ffff0fad8d66f9faf3faabd2cd3b17f4ba72fb2d7ce0",
+      "test_id": "TEST_VM_DECLARED_PARAMETER_COPY_IN_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths -- --exact",
+      "duration_ms": 545,
+      "exit_status": 0,
+      "log_sha256": "sha256:e45fa9bd82726c6ae20cbd4c73953a3a4ee1a69e1ee63cbe0b48b6c86a25af3f",
+      "test_id": "TEST_VM_DECLARED_REAL_CONVERSION_PATHS_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract declared_real_keeps_real_semantics_after_integer_assignment -- --exact",
+      "duration_ms": 449,
+      "exit_status": 0,
+      "log_sha256": "sha256:af3ced6b9649e17a3240dae8eb32d85e34a091fd560757a732088cff92c580d7",
+      "test_id": "TEST_VM_DECLARED_REAL_RUNTIME_TAG_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::declared_type_policy_trace_cases -- --exact",
+      "duration_ms": 508,
+      "exit_status": 0,
+      "log_sha256": "sha256:8d3dbbf9b9f71119f0ce9259fba57d716f6d774f863665d2e4fb42b338d67c5e",
+      "test_id": "TEST_VM_DECLARED_TYPE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_encoder_fail_closed_trace_cases -- --exact",
+      "duration_ms": 2194,
+      "exit_status": 0,
+      "log_sha256": "sha256:3c698c71639334e4fc81c5dedb49f470098d717a58233359ddacb5f447380c77",
+      "test_id": "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics for_loop_bounds_materialize_the_control_variable_type -- --exact",
+      "duration_ms": 594,
+      "exit_status": 0,
+      "log_sha256": "sha256:79befe82729887c6ea253a50341cee463f9e4f3a195b892361fb6684244c8bef",
+      "test_id": "TEST_VM_FOR_CONTROL_TYPE_MATERIALIZATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics function_return_arithmetic_materializes_the_declared_integer_type -- --exact",
+      "duration_ms": 422,
+      "exit_status": 0,
+      "log_sha256": "sha256:b6aacd1856c7036068cd7d58921eb2e2ed8b4352e065c3c2f1f97bb72f34ba19",
+      "test_id": "TEST_VM_FUNCTION_RETURN_TYPE_MATERIALIZATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_overlong_bounded_string -- --exact",
+      "duration_ms": 531,
+      "exit_status": 0,
+      "log_sha256": "sha256:2acc12395c395c0bc4e6289b70e90c4f5394159a141a38dc88f65d63c784ca07",
+      "test_id": "TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_type_mismatch -- --exact",
+      "duration_ms": 434,
+      "exit_status": 0,
+      "log_sha256": "sha256:4186abafa6e57ec4c0ea9cfc6074d5645d14334d30e466ee2901b655c5ee32e1",
+      "test_id": "TEST_VM_HMI_TYPE_ERROR_CODE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_supports_exit_and_continue_in_loop_stmt_paths -- --exact",
+      "duration_ms": 491,
+      "exit_status": 0,
+      "log_sha256": "sha256:2ae650ad3a21eeb395534aad77fa9cc35a7d8f3ed72877b296f312ca9718f13e",
+      "test_id": "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract unsupported_array_initializer_assignment_fails_build_instead_of_nop -- --exact",
+      "duration_ms": 400,
+      "exit_status": 0,
+      "log_sha256": "sha256:2f93a58bc5b2966dae3656ba9b9bd292663e99787c4d1366adbc59de75568a42",
+      "test_id": "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_lowering_rejects_unsupported_c5_edge_case_stmt_paths -- --exact",
+      "duration_ms": 483,
+      "exit_status": 0,
+      "log_sha256": "sha256:e67eeef2e0671fa3f7f0e45fc4881f7d7e600e991e4ca36fca6d5aca6b931609",
+      "test_id": "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime-core value::types::tests::normalize_assignment_preserves_null_reference_and_leaves_non_widening_values -- --exact",
+      "duration_ms": 154,
+      "exit_status": 0,
+      "log_sha256": "sha256:8af5a20034b34a9065b863fb008235684fef4f2d6c7f9b44f8350cc4211350f2",
+      "test_id": "TEST_VM_NORMALIZE_NON_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bytecode_vm_differential register_and_stack_paths_match_for_case_insensitive_oscat_style_calls -- --exact",
+      "duration_ms": 2416,
+      "exit_status": 0,
+      "log_sha256": "sha256:5125fd06ee1541490eebfd9d4351b3f13a63173e74806797d3613bda65eca2d6",
+      "test_id": "TEST_VM_OSCAT_BINARY_TYPE_PRESERVATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test oscat_oop_library oscat_oop_core_st_unit_tests_pass -- --exact",
+      "duration_ms": 73541,
+      "exit_status": 0,
+      "log_sha256": "sha256:8e83105a6772cd43400014bc9d7f5bbb220a1d0cbfbbb9cb66c4788a62e1278e",
+      "test_id": "TEST_VM_OSCAT_OOP_CORE_REGRESSION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract vm_seam_case_support::vm_owner_trace_cases -- --exact",
+      "duration_ms": 466,
+      "exit_status": 0,
+      "log_sha256": "sha256:d60e8543a592b2ababb5432dff80f97f926b6d0a89a49b8984eeedf47c3c8e9b",
+      "test_id": "TEST_VM_OWNER_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::primitive_policy_materializes_only_accuracy_preserving_float_widening -- --exact",
+      "duration_ms": 462,
+      "exit_status": 0,
+      "log_sha256": "sha256:f59b8e57d94e3cfe4c22628eddab15a08cd8078f1003373c7455f79c2e1b3476",
+      "test_id": "TEST_VM_PRIMITIVE_FLOAT_WIDENING_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::primitive_policy_rejects_incompatible_runtime_tags -- --exact",
+      "duration_ms": 460,
+      "exit_status": 0,
+      "log_sha256": "sha256:798ece59c697029a5d6eb81dafa74f002d1ce3afc57a21fa3f742924c7be24df",
+      "test_id": "TEST_VM_PRIMITIVE_TAG_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test errors_policy real_arithmetic_overflow_faults_before_assignment_store -- --exact",
+      "duration_ms": 1888,
+      "exit_status": 0,
+      "log_sha256": "sha256:b983fa6454403b4893bcebd759c9443fc17c91fc13ebb1de0688f76fff099073",
+      "test_id": "TEST_VM_REAL_BINARY_OVERFLOW_INTEGRATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime-core program_model::ops::tests::real_arithmetic_rejects_non_finite_single_width_results -- --exact",
+      "duration_ms": 206,
+      "exit_status": 0,
+      "log_sha256": "sha256:35c211d4cad2c8fa627ddb1c56c0ec19c530c573f74668d4e159d040bb05c2d5",
+      "test_id": "TEST_VM_REAL_BINARY_OVERFLOW_UNIT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test stdlib_numeric real_named_numeric_functions_reject_single_width_overflow -- --exact",
+      "duration_ms": 1590,
+      "exit_status": 0,
+      "log_sha256": "sha256:5bec69f2743fe26cb702aa00ac9a373b2ba0a5bc3abb5fe6faecfa71b8f3652e",
+      "test_id": "TEST_VM_REAL_NAMED_OVERFLOW_DIRECT_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test errors_policy real_named_numeric_overflow_faults_before_assignment_store -- --exact",
+      "duration_ms": 421,
+      "exit_status": 0,
+      "log_sha256": "sha256:5af03ac2189dab3f178e7993735712cea4d9b366060d2838f0598929a42a831c",
+      "test_id": "TEST_VM_REAL_NAMED_OVERFLOW_INTEGRATION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract vm_seam_case_support::vm_ref_escape_trace_cases -- --exact",
+      "duration_ms": 476,
+      "exit_status": 0,
+      "log_sha256": "sha256:6a4ce0f76c6544077e908add78e09ed7d3081164c281fc8c8c2d9c9ec1282022",
+      "test_id": "TEST_VM_REF_ESCAPE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test vm_resource_limit_cases vm_resource_limit_trace_cases -- --exact",
+      "duration_ms": 3256,
+      "exit_status": 0,
+      "log_sha256": "sha256:845e1d3c995066a23211ac160a66436bb3387642d77837303380ad7bb222552f",
+      "test_id": "TEST_VM_RESOURCE_LIMIT_CASES_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::bounded_string_policy_trace_cases -- --exact",
+      "duration_ms": 522,
+      "exit_status": 0,
+      "log_sha256": "sha256:ba5aa079ccb46008025471fdd2dae29d1ef0270b6471bb957f0454067e1d7249",
+      "test_id": "TEST_VM_STRING_BOUND_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::bounded_string_policy_truncates_by_scalar_and_rejects_wrong_family -- --exact",
+      "duration_ms": 478,
+      "exit_status": 0,
+      "log_sha256": "sha256:ac754e917d78244f74c548a5b715bf59fcc3ce4023570f5016b900f781cd764e",
+      "test_id": "TEST_VM_STRING_PRIMITIVE_POLICY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value -- --exact",
+      "duration_ms": 2381,
+      "exit_status": 0,
+      "log_sha256": "sha256:080986f750cfa8619def9c5afeb6cd353ea55a06ecc057f27dad149b0cb63f06",
+      "test_id": "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test bounded_value_semantics subrange_accepts_inclusive_bounds_and_rejects_below_min_without_mutation -- --exact",
+      "duration_ms": 371,
+      "exit_status": 0,
+      "log_sha256": "sha256:daf4896a5c5a83157c4f35c3ba376524cfe4113b4b8699e5aeb18f52f05bedaa",
+      "test_id": "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value -- --exact",
+      "duration_ms": 484,
+      "exit_status": 0,
+      "log_sha256": "sha256:9dd7708ec9be27e9512745cedcd17f80af83d6d693afbbe6f7e862f102e62ade",
+      "test_id": "TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_out_of_range_subrange_value -- --exact",
+      "duration_ms": 435,
+      "exit_status": 0,
+      "log_sha256": "sha256:c25ff348e84c03beeefe3b8e0d8ad6e364a90ca2275d7620355c920c0fc4064c",
+      "test_id": "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test phase11_seam_contract computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value -- --exact",
+      "duration_ms": 433,
+      "exit_status": 0,
+      "log_sha256": "sha256:be50d7cc25e525e7beecba10a10e34d9fd880d4cbc50db34ed35c1cc069b4ead",
+      "test_id": "TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --test retain_integrity retain_subrange_rejects_out_of_range_value_on_load -- --exact",
+      "duration_ms": 478,
+      "exit_status": 0,
+      "log_sha256": "sha256:6bfc38f7c03f4539f6b7c35d22ad47c134bb6a1d96fdecf59341b41b23aa5aee",
+      "test_id": "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::subrange_policy_trace_cases -- --exact",
+      "duration_ms": 430,
+      "exit_status": 0,
+      "log_sha256": "sha256:d82037f41b7fb10602155490bd44314431bf62cc0131d66a0107afda294b2696",
+      "test_id": "TEST_VM_SUBRANGE_TRACE_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime --lib runtime::vm::type_policy::tests::subrange_policy_accepts_inclusive_bounds_and_rejects_other_values -- --exact",
+      "duration_ms": 481,
+      "exit_status": 0,
+      "log_sha256": "sha256:89468e2aebc501ab9e447a27f1f230df5a81b3bcfef67232f37754a2cceedf8b",
+      "test_id": "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p trust-runtime-core vm::errors::tests::vm_traps_preserve_stable_codes_across_runtime_conversion -- --exact",
+      "duration_ms": 139,
+      "exit_status": 0,
+      "log_sha256": "sha256:439eb9389137d998e4125fa3888f9fee1cf9afe34ab4ac0935d8daff66c1be0c",
+      "test_id": "TEST_VM_TRAP_STABLE_ERROR_CODE_MODEL_001",
+      "timed_out": false
+    },
+    {
+      "command": "cargo test -p verification-cases --test release_evidence_trace_cases vsix_target_identity_trace_cases",
+      "duration_ms": 273,
+      "exit_status": 0,
+      "log_sha256": "sha256:80e1aa5cf467307eaa5cf2834b3c5e8537fcade551d8dc2b63856ca7cdb90a8d",
+      "test_id": "TEST_VSIX_TARGET_IDENTITY_TRACE_001",
+      "timed_out": false
+    }
+  ],
+  "runner": "mapped-catalog-sweep-v1",
+  "schema_version": 1,
+  "source_commit": "b7e3ab47172ff2e857c22a4173d78a639a6616dd",
+  "summary": {
+    "failed": 0,
+    "mapped_tests": 242,
+    "passed": 242,
+    "timed_out": 0
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/suite.schema.json",
+  "title": "truST verification suite record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "owner",
+    "status",
+    "last_reviewed",
+    "purpose",
+    "duration_class",
+    "environment",
+    "commands",
+    "command_bindings",
+    "inventory_ids",
+    "evidence_destination",
+    "includes",
+    "excludes",
+    "approved_proof_producers"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "const": "suite" },
+    "owner": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "last_reviewed": { "type": "string", "minLength": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "duration_class": {
+      "enum": ["very_fast", "fast", "medium", "slow", "long", "lab", "manual"]
+    },
+    "environment": {
+      "enum": [
+        "local_or_ci",
+        "local",
+        "github_ubuntu",
+        "github_matrix",
+        "github_self_hosted_linux",
+        "github_or_lab_runner",
+        "github_release",
+        "github_release_matrix",
+        "github_pages",
+        "github_nightly",
+        "nightly_toolchain",
+        "linux_tooling",
+        "trust_builder",
+        "consumer_project_ci"
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "command_bindings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "inventory_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "evidence_destination": { "type": "string", "minLength": 1 },
+    "includes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "excludes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "approved_proof_producers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

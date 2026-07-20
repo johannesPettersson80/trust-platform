@@ -6,6 +6,8 @@ so area ownership can evolve without rewriting the board.
 
 ## Compiler and IEC Frontend
 
+Machine area: `compiler_iec`.
+
 Owns:
 
 - `trust-syntax`
@@ -33,6 +35,8 @@ Harnesses:
 - mutation tests for type rules and diagnostics.
 
 ## HIR to Bytecode to VM Seam
+
+Machine area: `bytecode_vm`.
 
 Owns:
 
@@ -69,6 +73,8 @@ This is the first implementation pilot after specification-source inventory.
 
 ## Runtime Safety
 
+Machine area: `runtime_safety`.
+
 Owns:
 
 - scan-cycle execution,
@@ -104,7 +110,39 @@ Harnesses:
 - debug control and force/write/release tests,
 - long soak.
 
+## Control, Security, and Debug Authority
+
+Machine area: `control_security`.
+
+Owns:
+
+- runtime control API and control-socket authorization,
+- RBAC roles and token behavior,
+- HMI write authorization boundaries,
+- debug write/force/release authorization,
+- secret handling and audit/status visibility.
+
+Required invariant classes:
+
+- Viewer/default-level access cannot perform control writes, debug writes, or
+  force outputs.
+- Authorized writes are visible, bounded, and auditable.
+- Force/write/release lifecycle has specified stop, disconnect, restart, and
+  debug-pause behavior.
+- Control and debug surfaces expose stable error/status identifiers.
+- Secrets and tokens are never printed in diagnostics, logs, or public reports.
+
+Harnesses:
+
+- API/RBAC negative and allowed-path tests,
+- runtime debug control tests,
+- VS Code debug journey evidence when user-visible,
+- HMI write-authz tests,
+- security/release gate checks for secret leakage.
+
 ## Protocol and Connectivity
+
+Machine area: `protocols`.
 
 Owns:
 
@@ -136,6 +174,8 @@ Harnesses:
 
 ## Editor and Source Transformation Safety
 
+Machine area: `editor_safety`.
+
 Owns:
 
 - `trust-ide`,
@@ -165,6 +205,8 @@ Harnesses:
 
 ## PLCopen Import and Developer Tooling
 
+Machine area: `plcopen_devtools`.
+
 Owns:
 
 - `trust-plcopen`,
@@ -192,6 +234,8 @@ Harnesses:
 
 ## HMI, Web, and UI Acceptance
 
+Machine area: `hmi_ui`.
+
 Owns:
 
 - HMI web UI,
@@ -217,6 +261,8 @@ Harnesses:
 - PNG hygiene and structural acceptance audit.
 
 ## Security, Supply Chain, and Platform Integrity
+
+Machine area: `supply_chain_platform`.
 
 Owns:
 
@@ -246,6 +292,8 @@ Harnesses:
 
 ## Release and Public Claims
 
+Machine area: `release`.
+
 Owns:
 
 - changelog/version/tag/release proof,
@@ -268,6 +316,66 @@ Harnesses:
 - public docs IA/search checks,
 - release workflow artifact checks.
 
+## Required Specification Matrix Seed Scope
+
+`VERIF-P1A-010` turns this scope into `verification/spec-matrix.toml`. The
+matrix is keyed by the machine areas above and by coverage tags, not by these
+human headings.
+
+Initial required spec tags by area:
+
+- `compiler_iec`: ST syntax/parser recovery, operator precedence, IEC
+  decisions/deviations, type system, implicit conversions, subranges, strings,
+  arrays/structs/enums, references, OOP/method dispatch, `VAR_IN_OUT`,
+  standard functions/FBs, timers/counters, retain/init/reset semantics, and
+  external IEC source availability.
+- `bytecode_vm`: HIR diagnostic gate, lowering/fail-closed contract, bytecode
+  format, bytecode validator semantic contract, VM value/tag semantics,
+  reference and owner semantics, stable trap/error-code model, deterministic
+  execution, and resource limits.
+- `runtime_safety`: scan-cycle lifecycle, scheduler/deadline/watchdog,
+  panic/fault policy, stop/signal behavior, safe-state output handoff,
+  retain/restart/corruption, online change/hot reload, time model,
+  scan-critical allocation/resource policy, runtime/project config behavior,
+  and scan-cycle/VM performance budgets.
+- `protocols`: unified status/quality/confidence vocabulary, process-image I/O
+  contract, `on_error`, worker/snapshot architecture, discovery truth model,
+  Modbus, MQTT, ADS, OPC UA, EtherCAT, GPIO, protocol config schemas, and
+  hardware-lab proof matrix.
+- `control_security`: control API, ctl/JSON-line protocol, RBAC/authz roles,
+  HMI write authorization, debug write/force/release lifecycle, audit/logging,
+  secret handling, and default-safe permissions.
+- `editor_safety`: LSP position/sync contract, diagnostics cancellation,
+  rename/source-transform safety, cross-file indexing/staleness, completion,
+  hover, references, call hierarchy, workspace performance budgets, and VS Code
+  extension protocol boundaries.
+- `plcopen_devtools`: PLCopen import/export, vendor metadata, non-ST body
+  rejection, XML malformed-input behavior, vendor corpus/provenance, `trust-dev`
+  test discovery, developer CLI behavior, and commit-helper scope.
+- `hmi_ui`: HMI API/UI contract, widget mapping, trends, alarms, writes,
+  Devices and Connections, Live Values, HMI config, webview/browser behavior,
+  and accepted user journeys.
+- `release`: conformance suite contract, public known-gaps contract, public
+  claim registry, release evidence, version/changelog/tag/latest proof,
+  platform support claims, source-build/install workflows, and tutorial/public
+  workflow promises.
+- `supply_chain_platform`: dependency/provenance policy, optional dependency
+  behavior, license/security gates, VSIX/package artifact identity, platform
+  path/socket behavior, build scripts, and packaged binary provenance.
+- `verification`: TestHarness cycle/time semantics, simulation-mode semantics,
+  verification metadata schemas, case-file/prover contracts, mutation/fuzz
+  report contracts, and CI/report artifact semantics.
+
+Phase 10 mutation shards remain owned by their product area while the generic
+manifest/report contract belongs to `verification`. Exact invariant and test
+associations establish review scope only. They do not promote an invariant,
+close a specification gap, prove execution, or identify which test caught a
+mutant. Coverage percentages are never release-safety proof, and a delivered
+binary must be identified before a packaged-path mutation result is measured.
+
+The bytecode/VM tags are the only tags that must be complete enough for Phase
+1B. Other areas may start with open spec gaps and owners.
+
 ## Initial High-Risk Invariant Seeds
 
 These are seed records for the future `verification/invariants/**` files. They
@@ -275,109 +383,109 @@ are not complete metadata yet.
 
 ### Runtime Safety
 
-- [ ] `RT_SAFE_PANIC_001` A scan-cycle panic cannot silently kill execution while
+- [x] `RT_SAFE_PANIC_001` A scan-cycle panic cannot silently kill execution while
   surfaces report healthy.
-- [ ] `RT_SAFE_DEADLINE_001` Execution deadline is armed and expiry is visible.
-- [ ] `RT_SAFE_STOP_001` Deliberate stop applies safe outputs or reports
+- [x] `RT_SAFE_DEADLINE_001` Execution deadline is armed and expiry is visible.
+- [x] `RT_SAFE_STOP_001` Deliberate stop applies safe outputs or reports
   not-safe.
-- [ ] `RT_SAFE_IO_001` Slow Modbus/MQTT device work cannot block the scan cycle.
-- [ ] `RT_SAFE_RETAIN_001` Retain load/save failure is visible and fail-closed.
-- [ ] `RT_SAFE_RESTART_001` Warm/cold/fault restart labels map to deterministic
+- [x] `RT_SAFE_IO_001` Slow Modbus/MQTT device work cannot block the scan cycle.
+- [x] `RT_SAFE_RETAIN_001` Retain load/save failure is visible and fail-closed.
+- [x] `RT_SAFE_RESTART_001` Warm/cold/fault restart labels map to deterministic
   retain behavior.
-- [ ] `RT_SAFE_FORCE_001` Force/write/release lifetime is bounded and visible;
+- [x] `RT_SAFE_FORCE_001` Force/write/release lifetime is bounded and visible;
   disconnect, stop, restart, and debug-pause behavior is specified or marked
   `spec_gap`.
-- [ ] `RT_SAFE_NAN_001` NaN/Inf ingress from IO/comms cannot silently create
+- [x] `RT_SAFE_NAN_001` NaN/Inf ingress from IO/comms cannot silently create
   unsafe REAL behavior; accepted behavior is specified and tested.
-- [ ] `RT_RELOAD_001` Online change/hot reload cannot leave live runtime state
+- [x] `RT_RELOAD_001` Online change/hot reload cannot leave live runtime state
   half-applied or inconsistent with status.
 
 ### HIR/VM Seam
 
-- [ ] `VM_SEAM_TYPE_001` Declared REAL storage cannot later execute as integer
+- [x] `VM_SEAM_TYPE_001` Declared REAL storage cannot later execute as integer
   arithmetic because of a stale runtime value tag.
-- [ ] `VM_SEAM_TYPE_002` Declared-width integer widening cannot trap at the
+- [x] `VM_SEAM_TYPE_002` Declared-width integer widening cannot trap at the
   narrower stored tag width after assignment.
-- [ ] `VM_SEAM_REF_001` REF to temporary/local/return-frame data cannot persist
+- [x] `VM_SEAM_REF_001` REF to temporary/local/return-frame data cannot persist
   beyond its valid frame.
-- [ ] `VM_SEAM_OWNER_001` Bytecode with ambiguous or stale instance ownership is
+- [x] `VM_SEAM_OWNER_001` Bytecode with ambiguous or stale instance ownership is
   rejected before execution.
-- [ ] `VM_SEAM_VALID_001` Bytecode validator rejects stack shape/type,
+- [x] `VM_SEAM_VALID_001` Bytecode validator rejects stack shape/type,
   const-use, param-direction, call-target, owner, and reference-escape
   violations.
-- [ ] `VM_SEAM_ENC_001` Unsupported source constructs fail to compile instead of
+- [x] `VM_SEAM_ENC_001` Unsupported source constructs fail to compile instead of
   lowering to NOP.
 
 ### Compiler and IEC
 
-- [ ] `IEC_PARSE_RECOVER_001` Parser recovery always consumes or advances and
+- [x] `IEC_PARSE_RECOVER_001` Parser recovery always consumes or advances and
   emits diagnostics for missing delimiters.
-- [ ] `IEC_PREC_001` Operator precedence matches IEC or documented deviation.
-- [ ] `IEC_STRING_001` `STRING[n]` bounds are enforced through assignment and
+- [x] `IEC_PREC_001` Operator precedence matches IEC or documented deviation.
+- [x] `IEC_STRING_001` `STRING[n]` bounds are enforced through assignment and
   call/FB parameter binding.
-- [ ] `IEC_SUBRANGE_001` Subrange writes are checked or explicitly documented as
+- [x] `IEC_SUBRANGE_001` Subrange writes are checked or explicitly documented as
   unsupported/deferred.
-- [ ] `IEC_TIMER_001` TP/TOF/TON timer semantics, including ET behavior and
+- [x] `IEC_TIMER_001` TP/TOF/TON timer semantics, including ET behavior and
   restart/time-base boundaries, match IEC or documented deviation.
 
 ### PLCopen and Developer Tooling
 
-- [ ] `PLCO_IMPORT_001` Unsupported executable non-ST PLCopen content rejects
+- [x] `PLCO_IMPORT_001` Unsupported executable non-ST PLCopen content rejects
   loudly while benign metadata does not skip valid ST.
-- [ ] `DEV_TEST_DISCOVERY_001` `trust-dev` test discovery does not silently skip
+- [x] `DEV_TEST_DISCOVERY_001` `trust-dev` test discovery does not silently skip
   supported mixed-case source extensions.
-- [ ] `DEV_COMMIT_SCOPE_001` `trust-dev` commit helpers cannot silently include
+- [x] `DEV_COMMIT_SCOPE_001` `trust-dev` commit helpers cannot silently include
   unrelated pre-staged changes without surfacing the scope.
 
 ### Protocols
 
-- [ ] `PROTO_DISC_001` Discovery confidence vocabulary is consistent and honest:
+- [x] `PROTO_DISC_001` Discovery confidence vocabulary is consistent and honest:
   confirmed, likely, or port_reachable.
-- [ ] `PROTO_MODBUS_001` Modbus discovery does not report protocol truth from TCP
+- [x] `PROTO_MODBUS_001` Modbus discovery does not report protocol truth from TCP
   connect alone unless labelled port_reachable.
-- [ ] `PROTO_MQTT_001` MQTT discovery uses CONNECT/CONNACK or is labelled
+- [x] `PROTO_MQTT_001` MQTT discovery uses CONNECT/CONNACK or is labelled
   port_reachable; discovery does not leak broker sessions.
-- [ ] `PROTO_ETHERCAT_001` EtherCAT unavailable hardware paths are bounded in
+- [x] `PROTO_ETHERCAT_001` EtherCAT unavailable hardware paths are bounded in
   memory and visible in status.
-- [ ] `PROTO_ADS_001` ADS status and route/browse/import surfaces report honest
+- [x] `PROTO_ADS_001` ADS status and route/browse/import surfaces report honest
   connection state.
-- [ ] `PROTO_OPCUA_001` OPC UA client session/subscription lifecycle is
+- [x] `PROTO_OPCUA_001` OPC UA client session/subscription lifecycle is
   persistent, observable, and reconnects without false fresh data.
 
 ### Editor and UI
 
-- [ ] `EDIT_RENAME_001` Rename refuses shadow capture.
-- [ ] `EDIT_RENAME_002` Cross-file rename conflict checks use the merged project
+- [x] `EDIT_RENAME_001` Rename refuses shadow capture.
+- [x] `EDIT_RENAME_002` Cross-file rename conflict checks use the merged project
   symbol table.
-- [ ] `EDIT_LSP_POS_001` LSP wire positions use negotiated encoding and handle
+- [x] `EDIT_LSP_POS_001` LSP wire positions use negotiated encoding and handle
   supplementary-plane characters.
-- [ ] `EDIT_DIAG_CANCEL_001` Cancelled diagnostics do not publish false empty
+- [x] `EDIT_DIAG_CANCEL_001` Cancelled diagnostics do not publish false empty
   success.
-- [ ] `UI_STATUS_001` Runtime connector status vocabulary is consistent across
+- [x] `UI_STATUS_001` Runtime connector status vocabulary is consistent across
   HMI, Devices and Connections, hover, CLI, and reports.
-- [ ] `DEBUG_AUTH_001` Debug writes and forces require an authorized role; a
+- [x] `DEBUG_AUTH_001` Debug writes and forces require an authorized role; a
   default viewer/control connection cannot force outputs.
-- [ ] `DEBUG_PAUSE_001` Pause/breakpoint interaction with scan deadline and
+- [x] `DEBUG_PAUSE_001` Pause/breakpoint interaction with scan deadline and
   watchdog is specified and tested.
 
 ### Security, Supply Chain, and Platform
 
-- [ ] `SEC_DEP_AUDIT_001` Dependency vulnerability/license status is visible in
+- [x] `SEC_DEP_AUDIT_001` Dependency vulnerability/license status is visible in
   release proof with owned exceptions.
-- [ ] `SEC_AUTHZ_001` Runtime control/API/debug authorization boundaries are
+- [x] `SEC_AUTHZ_001` Runtime control/API/debug authorization boundaries are
   tested for denied and allowed cases, including force/write/release.
-- [ ] `SEC_ARTIFACT_001` Release artifacts map to the tested commit, tag, and
+- [x] `SEC_ARTIFACT_001` Release artifacts map to the tested commit, tag, and
   generated checksums.
-- [ ] `PLAT_PATH_001` Supported platform path behavior is tested or unsupported
+- [x] `PLAT_PATH_001` Supported platform path behavior is tested or unsupported
   behavior fails with a clear diagnostic.
-- [ ] `PLAT_VSCODE_001` VSIX/package behavior is smoke-tested on the supported
+- [x] `PLAT_VSCODE_001` VSIX/package behavior is smoke-tested on the supported
   platform matrix or scoped honestly.
 
 ### Release and Docs
 
-- [ ] `REL_CLAIM_001` Public hardware docs distinguish loopback/mock proof from
+- [x] `REL_CLAIM_001` Public hardware docs distinguish loopback/mock proof from
   real device-in-loop proof.
-- [ ] `REL_CONF_001` Public conformance page is generated from suite result and
+- [x] `REL_CONF_001` Public conformance page is generated from suite result and
   known gaps.
-- [ ] `REL_VERSION_001` Version, changelog, VSIX version, tag, Release workflow,
+- [x] `REL_VERSION_001` Version, changelog, VSIX version, tag, Release workflow,
   and Latest marker are aligned.

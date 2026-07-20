@@ -43,40 +43,40 @@ pub(super) fn convert_to_int(
 
 pub(super) fn convert_to_real(value: &Value, dst: TypeId) -> Result<Value, RuntimeError> {
     match value {
-        Value::DWord(v) if dst == TypeId::REAL => Ok(Value::Real(f32::from_bits(*v))),
-        Value::LWord(v) if dst == TypeId::LREAL => Ok(Value::LReal(f64::from_bits(*v))),
-        Value::Real(v) => match dst {
-            TypeId::REAL => Ok(Value::Real(*v)),
-            TypeId::LREAL => Ok(Value::LReal(*v as f64)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        Value::LReal(v) => match dst {
-            TypeId::REAL => Ok(Value::Real(*v as f32)),
-            TypeId::LREAL => Ok(Value::LReal(*v)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        Value::SInt(v) => real_from_int(*v as f64, dst),
-        Value::Int(v) => real_from_int(*v as f64, dst),
-        Value::DInt(v) => real_from_int(*v as f64, dst),
-        Value::LInt(v) => real_from_int(*v as f64, dst),
-        Value::USInt(v) => real_from_int(*v as f64, dst),
-        Value::UInt(v) => real_from_int(*v as f64, dst),
-        Value::UDInt(v) => real_from_int(*v as f64, dst),
-        Value::ULInt(v) => real_from_int(*v as f64, dst),
+        Value::DWord(v) if dst == TypeId::REAL => {
+            finite_real_result(f32::from_bits(*v) as f64, dst)
+        }
+        Value::LWord(v) if dst == TypeId::LREAL => finite_real_result(f64::from_bits(*v), dst),
+        Value::Real(v) => finite_real_result(*v as f64, dst),
+        Value::LReal(v) => finite_real_result(*v, dst),
+        Value::SInt(v) => finite_real_result(*v as f64, dst),
+        Value::Int(v) => finite_real_result(*v as f64, dst),
+        Value::DInt(v) => finite_real_result(*v as f64, dst),
+        Value::LInt(v) => finite_real_result(*v as f64, dst),
+        Value::USInt(v) => finite_real_result(*v as f64, dst),
+        Value::UInt(v) => finite_real_result(*v as f64, dst),
+        Value::UDInt(v) => finite_real_result(*v as f64, dst),
+        Value::ULInt(v) => finite_real_result(*v as f64, dst),
         Value::String(_) | Value::WString(_) => {
             let text = string_input(value)?;
             let parsed = parse_real_text(text)?;
-            real_from_int(parsed, dst)
+            finite_real_result(parsed, dst)
         }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
 
-fn real_from_int(value: f64, dst: TypeId) -> Result<Value, RuntimeError> {
-    match dst {
-        TypeId::REAL => Ok(Value::Real(value as f32)),
-        TypeId::LREAL => Ok(Value::LReal(value)),
-        _ => Err(RuntimeError::TypeMismatch),
+fn finite_real_result(value: f64, dst: TypeId) -> Result<Value, RuntimeError> {
+    let result = match dst {
+        TypeId::REAL => Value::Real(value as f32),
+        TypeId::LREAL => Value::LReal(value),
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    match result {
+        Value::Real(value) if value.is_finite() => Ok(Value::Real(value)),
+        Value::LReal(value) if value.is_finite() => Ok(Value::LReal(value)),
+        Value::Real(_) | Value::LReal(_) => Err(RuntimeError::Overflow),
+        _ => unreachable!("finite_real_result only constructs REAL or LREAL"),
     }
 }
 

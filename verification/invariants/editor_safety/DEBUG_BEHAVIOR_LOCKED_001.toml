@@ -1,0 +1,43 @@
+schema_version = 1
+id = "DEBUG_BEHAVIOR_LOCKED_001"
+title = "Debugger behavior-locked claim maps to tests and evidence"
+area = "editor_safety"
+risk = "false_status"
+status = "validated"
+owner = "trust-debug"
+last_reviewed = "2026-07-18"
+claim = "The public claim that debugger behavior is locked by tests must map to debug invariants, suites, and durable evidence."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["README.md", "docs/specs/13-debug-adapter.md", "crates/trust-debug"]
+tests = ["TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_COMPARE",
+  "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+  "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = []
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "DEBUG_BEHAVIOR_LOCK_MAPPING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The debugger behavior-lock claim resolves only explicit debugger invariant, test, suite, and durable evidence mappings."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The narrowly scoped debugger mapping contract is covered by a current-contract lock comparison; it does not imply broad release validation."

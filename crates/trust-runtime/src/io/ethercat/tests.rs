@@ -27,6 +27,8 @@ mod tests {
         let params: toml::Value = toml::from_str(
             r#"
 adapter = "mock"
+timeout_ms = 250
+cycle_warn_ms = 250
 mock_inputs = ["01", "00"]
 [[modules]]
 model = "EK1100"
@@ -47,7 +49,11 @@ channels = 8
         driver.read_inputs(&mut inputs).expect("read");
         assert_eq!(inputs, [0x01]);
         driver.write_outputs(&[0xAA]).expect("write");
-        assert!(matches!(driver.health(), IoDriverHealth::Ok));
+        let health = driver.health();
+        assert!(
+            matches!(health, IoDriverHealth::Ok),
+            "mock image exchange unexpectedly changed health: {health:?}"
+        );
     }
 
     #[test]

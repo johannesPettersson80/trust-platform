@@ -1,0 +1,96 @@
+schema_version = 1
+id = "VM_SEAM_SUBRANGE_001"
+title = "Subrange writes cannot silently store out-of-range values"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-17"
+claim = "Runtime writes to subrange-typed storage accept inclusive bounds and reject out-of-range or wrong-tag values without modifying the target; the stable public error identifier remains explicit."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
+tests = [
+  "TEST_VM_SUBRANGE_ASSIGNMENT_REJECTION_001",
+  "TEST_VM_SUBRANGE_FB_INPUT_REJECTION_001",
+  "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001",
+  "TEST_VM_SUBRANGE_REF_WRITE_REJECTION_001",
+  "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001",
+  "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001",
+  "TEST_VM_SUBRANGE_TYPE_POLICY_001",
+  "TEST_VM_SUBRANGE_TRACE_001",
+]
+gates = ["veryquick", "pr"]
+evidence_refs = [
+  "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
+  "EVID_TEST_VM_SUBRANGE_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_VM_SUBRANGE_TRACE_001_LOCK_COMPARE",
+]
+spec_gap_refs = []
+missing = [
+  "broad_remote_gate",
+]
+
+[input]
+name = "value"
+type = "INT"
+declared = "INT(0..100)"
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001"
+
+[[behavior]]
+partition = { min = 0, max = 100 }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
+outcome = "accept_value"
+delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The inclusive lower and upper bounds are valid subrange values and are stored without a diagnostic."
+
+[[behavior]]
+partition = { below = 0 }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A value below the inclusive lower bound is rejected visibly before target storage changes."
+
+[[behavior]]
+partition = { above = 100 }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A value above the inclusive upper bound is rejected visibly before target storage changes."
+
+[[behavior]]
+partition = { wrong_type = "REAL" }
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A REAL value or crafted REAL runtime tag is rejected before an INT subrange target changes."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The mapped runtime and VM policy tests cover both inclusive bounds."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "covered"
+rationale = "Mapped runtime tests cover assignment, FB parameter copy-in, dynamic-reference, HMI/control, and retain-reload writes above the declared maximum without claiming a stable error identifier."
+
+[[coverage.cells]]
+dimension = "below_min"
+state = "covered"
+rationale = "The mapped runtime transaction test covers below-minimum rejection without mutation."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Wrong-type rejection is case-backed against runtime_type_mismatch and out-of-range cases bind runtime_subrange_violation with a current producer-authentic lock comparison."

@@ -271,6 +271,13 @@ package "Lifecycle" as lifecyclePkg #LightGray {
 ' CONTROL + HMI CONTRACT
 ' ============================================================
 package "Control + HMI Contract" as hmiPkg #Lavender {
+    rectangle "Bounded Web Dispatch (web/request_dispatch.rs)" as webDispatch #Wheat {
+        card "accept loop\n(request admission only)" as webAccept
+        card "read lane\n4 workers + 32 queued" as webReadLane
+        card "body/mutating lane\n4 workers + 4 admitted" as webBodyLane
+        card "saturation response\n503 + Retry-After + server_busy" as webBusy
+    }
+
     rectangle "Control API (control/transport.rs + control/* handlers)" as hmiControl #Wheat {
         card "control/hmi_runtime_ports.rs\n(narrow runtime read/write port)" as hmiRuntimePort
         card "hmi.schema.get\n(read-only schema from metadata)" as hmiSchema
@@ -341,6 +348,14 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
     ideSession --> ideFiles
     ideFiles --> ideOpen
     ideOpen --> ideWrite
+    webAccept --> webReadLane
+    webAccept --> webBodyLane
+    webReadLane --> hmiRoute
+    webReadLane --> ideRoute
+    webBodyLane --> hmiRoute
+    webBodyLane --> ideRoute
+    webReadLane --> webBusy : full
+    webBodyLane --> webBusy : full
     tuiFacade --> tuiClient
     tuiFacade --> tuiState
     tuiFacade --> tuiInput
@@ -359,6 +374,9 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
     note right of hmiWeb
         web transport boundary:
         • accept loop + HTTP lifecycle in web/server.rs
+        • bounded admission/workers in web/request_dispatch.rs
+        • incomplete bodies cannot occupy the read lane
+        • saturation fails with stable 503 server_busy
         • route handlers split by concern in web/*_routes.rs
     end note
 

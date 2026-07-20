@@ -136,7 +136,7 @@ END_PROGRAM
         work_done_progress_params: Default::default(),
         partial_result_params: Default::default(),
     };
-    let report = workspace_diagnostic(&state, params);
+    let report = workspace_diagnostic(&state, params).expect("workspace diagnostics");
     let report = match report {
         tower_lsp::lsp_types::WorkspaceDiagnosticReportResult::Report(report) => report,
         _ => panic!("expected workspace diagnostic report"),
@@ -169,7 +169,7 @@ END_PROGRAM
         work_done_progress_params: Default::default(),
         partial_result_params: Default::default(),
     };
-    let report = workspace_diagnostic(&state, params);
+    let report = workspace_diagnostic(&state, params).expect("workspace diagnostics");
     let report = match report {
         tower_lsp::lsp_types::WorkspaceDiagnosticReportResult::Report(report) => report,
         _ => panic!("expected workspace diagnostic report"),

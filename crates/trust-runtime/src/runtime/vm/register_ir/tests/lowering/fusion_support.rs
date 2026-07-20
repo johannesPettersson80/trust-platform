@@ -123,6 +123,24 @@ fn register_ir_fuse_preserves_unmatched_windows_and_fused_tail() {
     );
 }
 
+#[test]
+fn register_ir_fusion_preserves_original_bytecode_instruction_costs() {
+    let instructions = binary_ref_to_ref_window();
+    let (fused, costs) =
+        fuse_register_block_instructions_with_costs(&instructions, &[1, 1, 1, 1]);
+
+    assert_eq!(
+        fused,
+        vec![RegisterInstr::BinaryRefToRef {
+            op: BinaryOp::Add,
+            left_ref_idx: 10,
+            right_ref_idx: 11,
+            dest_ref_idx: 12,
+        }]
+    );
+    assert_eq!(costs, vec![4]);
+}
+
 fn assert_fuses(instructions: Vec<RegisterInstr>, expected: Vec<RegisterInstr>) {
     assert_eq!(fuse_register_block_instructions(&instructions), expected);
 }
@@ -229,4 +247,3 @@ fn prefixed(instructions: Vec<RegisterInstr>) -> Vec<RegisterInstr> {
     prefixed.extend(instructions);
     prefixed
 }
-

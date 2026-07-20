@@ -1,0 +1,391 @@
+"""Adversarial fixtures for the verification control-plane pilot."""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from scripts.verification.metadata_validator.constants import ROOT
+from scripts.verification.metadata_validator.core import Validator
+from scripts.verification.metadata_validator.evidence_proof import validate_green_pairing
+from scripts.verification.metadata_validator.case_files import validate_case_record
+from scripts.verification.planner import Planner, risk_changes_from_matrices
+from scripts.verification.proof_contract import (
+    PROOF_CONTRACT_VERSION,
+    proof_contract_digest,
+)
+from scripts.verification.prover import ProofError
+from scripts.verification.prover_tests import fixture
+from scripts.verification.report_gate import find_uncataloged_tests
+
+
+class AdversarialSelfTestFixtures(unittest.TestCase):
+    def test_assert_nothing_red_proof_is_refused(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("passed", exit_code=0)
+
+            with self.assertRaises(ProofError) as raised:
+                fx.prover().red("TEST_RED")
+
+            self.assertEqual(raised.exception.failure_kind, "none")
+            self.assertFalse((fx.evidence_dir / "EVID_TEST_RED_RED.toml").exists())
+
+    def test_skipped_case_cannot_be_red_proof(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("skipped_case", exit_code=1)
+
+            with self.assertRaises(ProofError) as raised:
+                fx.prover().red("TEST_RED")
+
+            self.assertEqual(raised.exception.failure_kind, "metadata_error")
+            self.assertIn("skipped", str(raised.exception))
+
+    def test_stale_case_digest_is_rejected_by_metadata_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.tests["TEST_CASE_TABLE_VM_SEAM_VALID_001"]["case_file_digest"] = "sha256:stale"
+
+        validator.validate()
+
+        self.assertTrue(
+            any("case_file_digest mismatch" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_mutation_catalog_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.tests["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]["mutation_shard_id"] = (
+            "BYTECODE_VALIDATOR_CORRUPTED"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any("shard/test binding mismatch" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_proof_contract_version_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        evidence = next(iter(validator.evidence.values()))
+        catalog_test = validator.tests["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"]
+        evidence["proof_kind"] = "red"
+        evidence["proof_scope"] = "targeted"
+        evidence["linked_tests"] = [catalog_test["id"]]
+        evidence["linked_invariants"] = list(catalog_test["invariants"])
+        evidence["proof_contract_digest"] = proof_contract_digest(
+            test=catalog_test,
+            invariants=validator.invariants,
+        )
+        evidence["proof_contract_version"] = PROOF_CONTRACT_VERSION + "-corrupted"
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "unsupported proof_contract_version" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_catalog_subject_bypass_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        mutation = validator.tests["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"]
+        mutation["subject_kind"] = "generated_test"
+
+        validator.validate()
+
+        self.assertTrue(
+            any("generated_test requires discovery_id" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_unknown_malformed_input_class_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.tests["TEST_BYTECODE_CONTAINER_INVALID_MAGIC"][
+            "malformed_input_class_ids"
+        ] = ["invented_from_test_name"]
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "unknown malformed-input class invented_from_test_name" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_ignored_registry_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        ignored_id = sorted(validator.ignored_tests)[0]
+        validator.ignored_tests[ignored_id]["status"] = "mapped"
+        validator.ignored_tests[ignored_id]["ignore_class"] = "unknown"
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "unknown classification must use status gap_open" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_invariant_seed_manifest_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.seed_manifest["seeds"][0]["canonical_invariant_id"] = (
+            "RT_SAFE_DEADLINE_001"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "canonical invariant must be RT_SAFE_PANIC_001" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_risk_without_provenance_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.risks["RISK_RUNTIME_NONFINITE_INGRESS_001"]["source_refs"] = []
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "must name at least one provenance source_ref" in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_non_gap_oracle_corruption_is_rejected_by_full_validator(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        validator.invariants["IEC_PREC_001"]["oracle"]["ref"] = (
+            "SPEC_DOES_NOT_EXIST"
+        )
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "oracle_ref references unknown spec source 'SPEC_DOES_NOT_EXIST'"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_provenance_only_source_is_rejected_as_invariant_oracle(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        source_id = "SPEC_EXTERNAL_REVIEW_V08_001"
+        validator.spec_sources[source_id]["oracle_eligible"] = False
+        invariant = validator.invariants["IEC_PREC_001"]
+        invariant["spec"]["source_refs"] = [source_id]
+        invariant["oracle"] = {"kind": "reviewed_decision", "ref": source_id}
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "oracle_ref references provenance-only spec source"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_provenance_only_source_cannot_satisfy_required_spec(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        record = next(
+            item for item in validator.required_specs.values() if item.get("source_ref")
+        )
+        source_ref = record["source_ref"]
+        validator.spec_sources[source_ref]["oracle_eligible"] = False
+
+        validator.validate()
+
+        self.assertTrue(
+            any(
+                "is provenance-only and cannot satisfy a required spec"
+                in failure.message
+                for failure in validator.failures
+            ),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_missing_oracle_is_rejected_by_case_file_validator(self) -> None:
+        failures: list[str] = []
+
+        validate_case_record(
+            fail=lambda _path, message: failures.append(message),
+            path=ROOT / "verification/test-catalog.toml",
+            test_id="TEST_MISSING_ORACLE",
+            case={
+                "id": "CASE_EXPECT",
+                "family": "happy_path",
+                "input": {"scenario": "RUN"},
+                "expect": {"outcome": "accept_value", "oracle_ref": "SPEC_DOES_NOT_EXIST#case"},
+            },
+            invariant={"id": "INV", "behavior": [], "input": {}},
+            spec_sources={},
+            spec_gaps={},
+            seen_case_ids=set(),
+        )
+
+        self.assertTrue(any("unknown spec source" in failure for failure in failures), failures)
+        self.assertTrue(any("does not match an oracle-backed behavior row" in failure for failure in failures), failures)
+
+    def test_closed_spec_gap_still_referenced_by_required_spec_is_rejected(self) -> None:
+        validator = Validator()
+        validator.load_records()
+        gap_id = "SPEC_GAP_BYTECODE_VALIDATOR_001"
+        closed_gap = dict(validator.spec_gaps[gap_id])
+        closed_gap["resolution_status"] = "closed"
+        validator.spec_gaps[gap_id] = closed_gap
+
+        validator.validate_required_spec_gap(
+            ROOT / "verification/spec-matrix.toml",
+            {"id": "REQ_TEST", "status": "spec_gap"},
+            gap_id,
+        )
+
+        self.assertTrue(
+            any("not open/actionable" in failure.message for failure in validator.failures),
+            [failure.message for failure in validator.failures],
+        )
+
+    def test_risk_downgrade_is_reported(self) -> None:
+        changes = risk_changes_from_matrices(
+            {"bytecode_vm"},
+            current_areas={
+                "bytecode_vm": {
+                    "risk_default": "maintenance",
+                    "high_risks": [],
+                }
+            },
+            baseline_areas={
+                "bytecode_vm": {
+                    "risk_default": "wrong_result",
+                    "high_risks": ["wrong_result", "silent_corruption"],
+                }
+            },
+        )
+
+        joined = "\n".join(changes)
+        self.assertIn("risk_default wrong_result -> maintenance", joined)
+        self.assertIn("high_risks ['silent_corruption', 'wrong_result'] -> []", joined)
+
+    def test_manual_safety_evidence_cannot_feed_green_pairing(self) -> None:
+        failures: list[str] = []
+        catalog_test = {
+            "id": "TEST_RED",
+            "invariants": [],
+            "case_file_digest": "sha256:cases",
+        }
+        contract_digest = proof_contract_digest(test=catalog_test, invariants={})
+        green = {
+            "id": "EVID_GREEN",
+            "proof_kind": "green",
+            "producer": "prove.py v1",
+            "linked_tests": ["TEST_RED"],
+            "linked_invariants": [],
+            "proof_contract_digest": contract_digest,
+            "case_file_digest": "sha256:cases",
+            "paired_red_evidence": "EVID_RED",
+            "formerly_red_case_ids": ["CASE_FAIL"],
+            "per_case_summary": ["CASE_FAIL:passed"],
+            "command_exit_status": 0,
+        }
+        red = {
+            "id": "EVID_RED",
+            "proof_kind": "red",
+            "producer": "manual",
+            "failure_kind": "assertion_failure",
+            "linked_tests": ["TEST_RED"],
+            "linked_invariants": [],
+            "proof_contract_digest": contract_digest,
+            "case_file_digest": "sha256:cases",
+            "red_case_ids": ["CASE_FAIL"],
+            "per_case_summary": ["CASE_FAIL:failed"],
+        }
+
+        validate_green_pairing(
+            fail=lambda _path, message: failures.append(message),
+            path=ROOT / "verification/evidence-index.toml",
+            record=green,
+            evidence={"EVID_RED": red},
+            tests={"TEST_RED": catalog_test},
+            invariants={},
+            approved_producers=set(),
+        )
+
+        self.assertTrue(any("producer 'manual' is not allowlisted" in failure for failure in failures), failures)
+
+    def test_compile_error_cannot_be_recorded_as_red(self) -> None:
+        with fixture() as fx:
+            fx.add_case_file("CASE_FAIL")
+            fx.add_catalog_test(status="mapped")
+            fx.add_writer("none", exit_code=1)
+
+            with self.assertRaises(ProofError) as raised:
+                fx.prover().red("TEST_RED")
+
+            self.assertEqual(raised.exception.failure_kind, "compile_error")
+            self.assertFalse((fx.evidence_dir / "EVID_TEST_RED_RED.toml").exists())
+
+    def test_uncataloged_changed_test_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            (tests / "new_case.rs").write_text(
+                "#[test]\nfn new_case() {}\n"
+            )
+            (root / "verification").mkdir()
+            (root / "verification/test-catalog.toml").write_text("")
+
+            missing = find_uncataloged_tests(
+                root=root,
+                changed_files=["crates/trust-runtime/tests/new_case.rs"],
+            )
+
+        self.assertEqual(missing, ["crates/trust-runtime/tests/new_case.rs"])
+
+    def test_unmapped_file_is_reported_by_planner(self) -> None:
+        result = Planner().plan(
+            "bugfix",
+            ["editors/neovim/lspconfig.lua"],
+            None,
+            None,
+        )
+
+        self.assertEqual(result.exit_code, 4)
+        self.assertEqual(result.unmapped_files, ["editors/neovim/lspconfig.lua"])
+
+
+if __name__ == "__main__":
+    unittest.main()

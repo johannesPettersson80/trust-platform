@@ -1,0 +1,46 @@
+schema_version = 1
+id = "CASES_EDIT_DIAG_CANCEL_001"
+title = "Diagnostic cancellation traces"
+area = "editor_safety"
+owner = "trust-lsp"
+status = "planned"
+invariant = "EDIT_DIAG_CANCEL_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:79506792e6691e8d089162b17c1da1ee132e67299ed6fa0888768c66fafa62a1"
+source_digest = "sha256:92344d4ac829c782d7c7806421f6f47fd2c1a59ac0057a4a77c860c97965d18c"
+last_reviewed = "2026-07-16"
+
+[[case]]
+id = "EDIT_DIAG_CANCEL_001_COMPLETED_PUSH"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "PUSH_COLLECTION_COMPLETED" }, scenario = "COMPLETED_PUSH" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { cancelled = false }, expected = { result = "diagnostics", contains_e106 = true }, oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation" }]
+
+[[case]]
+id = "EDIT_DIAG_CANCEL_001_CANCELLED_PUSH"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "PUSH_COLLECTION_CANCELLED" }, scenario = "CANCELLED_PUSH" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { cancelled = true }, expected = { result = "no_publication", contains_e106 = false }, oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation" }]
+
+[[case]]
+id = "EDIT_DIAG_CANCEL_001_CANCELLED_TEXT_PULL"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "PULL_REQUEST_CANCELLED" }, scenario = "CANCELLED_TEXT_PULL" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation", delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { cancelled = true }, expected = { result = "content_modified" }, oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation" }]
+
+[[case]]
+id = "EDIT_DIAG_CANCEL_001_CANCELLED_WORKSPACE_PULL"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "WORKSPACE_REQUEST_CANCELLED" }, scenario = "CANCELLED_WORKSPACE_PULL" }
+expect = { outcome = "reject", oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { cancelled = true }, expected = { result = "content_modified", report_count = 0 }, oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation" }]
+
+[[case]]
+id = "EDIT_DIAG_CANCEL_001_COMPLETED_WORKSPACE_PULL"
+family = "concurrency_or_cancellation"
+input = { source_partition = { equals = "WORKSPACE_COLLECTION_COMPLETED" }, scenario = "COMPLETED_WORKSPACE_PULL" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { cancelled = false }, expected = { result = "reports", report_count = 1, contains_e106 = true }, oracle_ref = "SPEC_LSP_CONTRACT_001#diagnostic-cancellation" }]

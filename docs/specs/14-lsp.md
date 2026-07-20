@@ -263,6 +263,21 @@ Workspace warning policy is configured through `trust-lsp.toml` `[diagnostics]`.
 Profiles may override severities to mirror vendor expectations, but the
 canonical code list and default severity guidance live in this spec.
 
+##### 6.2.6 Diagnostic Cancellation
+
+Diagnostic cancellation must never be reported as a successful empty or
+partial diagnostic result:
+
+- a cancelled push diagnostic collection publishes nothing;
+- a cancelled `textDocument/diagnostic` request returns `ContentModified`;
+- a cancelled `workspace/diagnostic` request returns `ContentModified` for the
+  complete request and must not return the documents collected before
+  cancellation as a successful partial report.
+
+The server may reuse a completed result only when its content and diagnostic
+hashes still match. A stale semantic-analysis ticket is cancellation for this
+contract, including when a newer document or workspace request supersedes it.
+
 #### 6.3 Navigation
 
 ##### 6.3.1 Go to Definition
@@ -292,6 +307,25 @@ canonical code list and default severity guidance live in this spec.
 - Preview changes
 - Namespace path moves via dotted rename or refactor action (updates namespace declarations, `USING`, qualified names, and namespace-qualified field access; relocation across files moves the namespace block to a derived target file and removes the source file when empty; default target path maps `Namespace.Path` → `<workspace>/Namespace/Path.st` unless an explicit URI is provided) (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66)
 - VS Code surfaces namespace relocation via `Structured Text: Move Namespace`, prompting for the new path and optional target file (invokes `trust-lsp.moveNamespace`) (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66)
+
+###### Rename Conflict Safety
+
+Rename is atomic and fail-closed. Before returning edits, the server evaluates
+the complete candidate edit set against the merged project symbol table. It
+refuses the request when the replacement identifier:
+
+- is invalid or reserved;
+- names a different declaration in the target's declaring scope, including an
+  imported or project-wide top-level declaration;
+- collides with another field in the same structure or union; or
+- would make any edited reference unresolved or resolve to a symbol other than
+  the original target.
+
+Conflict comparison is case-insensitive because IEC 61131-3 Ed.3 §6.1.2
+defines identifier case as insignificant. A case-only rename of the same symbol
+is therefore allowed, but a spelling that differs only by case from another
+visible declaration is a collision. Refusal returns a named reason and no
+partial workspace edit.
 
 ##### 6.4.2 Code Actions / Quick Fixes
 
@@ -379,10 +413,69 @@ Range: 0.0 to 3000.0
 | Code Actions | `textDocument/codeAction` | ✅ | Quick fixes for unused symbols, missing END_* / RETURN, call style conversion, namespace disambiguation, implicit conversion, etc. |
 | Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph |
 
+##### 7.1.1 Position Encoding and Line Boundaries
+
+truST supports the mandatory LSP UTF-16 position encoding and advertises
+`utf-16` in the initialize result. Incoming and outgoing positions, ranges,
+text edits, and semantic-token starts and lengths count UTF-16 code units. A
+supplementary-plane scalar therefore contributes two character units.
+
+The line index recognizes all LSP 3.17 line endings: LF (`\n`), CRLF
+(`\r\n`), and bare CR (`\r`). Each sequence advances exactly one line and its
+terminator bytes are not addressable as positions. A character value beyond
+the line length clamps to the line end, as required by the
+[LSP 3.17 Position contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#position).
+
+##### 7.1.2 Progressive Results and Interactive Latency
+
+When a references or workspace-symbol request supplies a partial-result token,
+truST sends each non-empty result chunk through `$/progress` using that exact
+token. The final request response is empty after streaming so a client cannot
+count the same locations or symbols twice. Without a partial-result token, the
+complete result remains in the final response.
+
+Runtime-assisted inline values are an optional interactive enhancement, not a
+reason to block the editor. Connect, read, and write operations against the
+configured runtime control endpoint use a 250 ms I/O bound. An unavailable,
+silent, or malformed endpoint produces no runtime-derived inline values and
+returns within that bound; static inline values remain independently
+available. This timeout behavior is tooling policy, not IEC program semantics.
+
 #### 7.2 Document Synchronization
 
 - Incremental sync using `TextDocumentContentChangeEvent` ranges.
 - Full-document replacement is supported when the change range is omitted.
+- An incremental range whose start or end line is outside the current document,
+  or whose start follows its end, is rejected without changing the last valid
+  buffer. Because `didChange` is a notification, the server logs the reason and
+  sends `window/showMessage` with a full-resynchronization recovery action
+  instead of returning a request error.
+- Range and on-type formatting use the same LF, CRLF, bare-CR, and UTF-16 line
+  model as synchronization and navigation, and preserve the document's line
+  ending in emitted edits.
+
+##### 7.2.1 Document Close and Durable Project Truth
+
+`textDocument/didClose` discards the server's unsaved buffer for the closed
+URI. Closing a document never writes that buffer to disk and never treats its
+contents as durable project state.
+
+- When the URI resolves to a readable file, the server reloads the file from
+  disk, marks the document closed, and uses those bytes as project truth.
+- When the URI is not a file URI or its file cannot be read, the server removes
+  the document from the project index.
+- Closing invalidates semantic, semantic-token, and diagnostic caches that
+  could retain the discarded contents. Dependent files are recomputed against
+  the reloaded or removed durable source. It also cancels semantic work started
+  from the discarded buffer; cache writers verify that request generation while
+  holding the cache lock, so a late result cannot repopulate an evicted cache.
+- For push diagnostics, the server publishes an empty diagnostic list only for
+  the closed URI. It does not publish an empty-success result for dependent
+  files. Pull-diagnostic clients receive results recomputed from durable project
+  truth on their next request.
+
+This lifecycle is an LSP/project-state contract. It does not define IEC
+program execution or an IEC 61131-3 deviation.
 
 #### 7.3 Semantic Token Types
 

@@ -1,0 +1,44 @@
+schema_version = 1
+id = "RELEASE_SOURCE_BUILD_OPENOT_001"
+title = "Source-build OpenOT dependency claim maps to proof"
+area = "release"
+risk = "compatibility"
+status = "validated"
+owner = "docs"
+last_reviewed = "2026-07-18"
+claim = "The public source-build claim for OpenOT dependencies must map to a formal invariant, command set, and durable evidence before it can be treated as proven."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["README.md", "docs/public/start/install-from-source.md"]
+tests = ["TEST_RELEASE_SOURCE_BUILD_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_SOURCE_BUILD_OPENOT_ISSUE_93_20260708",
+  "EVID_TEST_RELEASE_SOURCE_BUILD_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RELEASE_SOURCE_BUILD_TRACE_001_LOCK_COMPARE",
+  "EVID_SOURCE_BUILD_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
+  "EVID_SOURCE_BUILD_PUBLIC_CLAIM_CLOSEOUT_20260718",
+]
+spec_gap_refs = []
+missing = []
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RELEASE_EVIDENCE_001", "PUBLIC_CLAIM_SOURCE_BUILD_RUNTIME_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RELEASE_EVIDENCE_001"
+
+[[behavior]]
+partition = { equals = "SOURCE_BUILD_WITHOUT_OPENOT_SIBLING" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#source-builds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The documented shipped-binary source build resolves pinned OpenOT Rust dependencies without a sibling ST source checkout."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "The pinned-public-dependency source-build contract is covered by a current-contract lock comparison and an isolated clean-checkout release build."

@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/test-class-completeness-report.schema.json",
+  "title": "truST test-class completeness report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "input_digest",
+    "command",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "output_paths",
+    "scope",
+    "summary",
+    "scanner_classification",
+    "areas",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "generator": {
+      "const": "test-class-completeness"
+    },
+    "generator_version": {
+      "const": 1
+    },
+    "report_status": {
+      "const": "complete"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "output_paths": {
+      "type": "object",
+      "required": [
+        "json",
+        "markdown"
+      ],
+      "properties": {
+        "json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "scanner_classification": {
+      "$ref": "#/$defs/scanner"
+    },
+    "areas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/area"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "required": [
+        "classification_basis",
+        "class_completeness_basis",
+        "runnable_statuses",
+        "excluded_scanner_ignore_states",
+        "debt_is_report_failure",
+        "inference_prohibited"
+      ],
+      "properties": {
+        "classification_basis": {
+          "const": "exact_generated_test_discovery_id"
+        },
+        "class_completeness_basis": {
+          "const": "mapped_area_required_classes_with_effectively_runnable_catalog_rows"
+        },
+        "runnable_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "implemented",
+              "mapped",
+              "test_written",
+              "validated"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "excluded_scanner_ignore_states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "conditional",
+              "ignored"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "debt_is_report_failure": {
+          "const": false
+        },
+        "inference_prohibited": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "area",
+              "expected_result",
+              "invariant",
+              "oracle",
+              "test_class"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "scanner_facts",
+        "classified_scanner_facts",
+        "unmapped_scanner_facts",
+        "catalog_records",
+        "runnable_catalog_records",
+        "non_runnable_catalog_records",
+        "mapped_areas",
+        "required_class_slots",
+        "complete_class_slots",
+        "missing_class_slots"
+      ],
+      "properties": {
+        "scanner_facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classified_scanner_facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmapped_scanner_facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "catalog_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runnable_catalog_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_runnable_catalog_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mapped_areas": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_class_slots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complete_class_slots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_class_slots": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "mapping": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "test_id"
+      ],
+      "properties": {
+        "discovery_id": {
+          "type": "string",
+          "pattern": "^DISC_[A-F0-9]{20}$"
+        },
+        "test_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_count": {
+      "type": "object",
+      "required": [
+        "source_kind",
+        "facts",
+        "classified",
+        "unmapped"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmapped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "scanner": {
+      "type": "object",
+      "required": [
+        "facts",
+        "classified_facts",
+        "unmapped_facts",
+        "classified_mappings",
+        "by_source_kind"
+      ],
+      "properties": {
+        "facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classified_facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmapped_facts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classified_mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mapping"
+          }
+        },
+        "by_source_kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_count"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "non_runnable": {
+      "type": "object",
+      "required": [
+        "test_id",
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "class": {
+      "type": "object",
+      "required": [
+        "test_class",
+        "runnable_test_ids",
+        "non_runnable_tests",
+        "complete"
+      ],
+      "properties": {
+        "test_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runnable_test_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "non_runnable_tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_runnable"
+          }
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "area": {
+      "type": "object",
+      "required": [
+        "area",
+        "required_classes",
+        "additional_classes"
+      ],
+      "properties": {
+        "area": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/class"
+          }
+        },
+        "additional_classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/class"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

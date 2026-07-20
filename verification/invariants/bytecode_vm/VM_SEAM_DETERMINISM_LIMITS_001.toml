@@ -1,0 +1,133 @@
+schema_version = 1
+id = "VM_SEAM_DETERMINISM_LIMITS_001"
+title = "VM determinism and resource limits are specified before validation"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-15"
+claim = "STBC validation and execution enforce the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation instruction limits written in the product specifications."
+proof_level = "G2"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-runtime-core/src/vm",
+  "crates/trust-runtime/src/runtime/vm",
+  "crates/trust-runtime/src/bytecode/decode",
+]
+tests = ["TEST_VM_RESOURCE_LIMIT_CASES_001"]
+gates = ["veryquick", "pr"]
+evidence_refs = [
+  "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_RED",
+  "EVID_TEST_VM_RESOURCE_LIMIT_CASES_001_GREEN",
+  "EVID_BROAD_REMOTE_PR_20260715_81EA8F2854DB",
+  "EVID_VM_RESOURCE_LIMITS_CLOSEOUT_20260715",
+]
+spec_gap_refs = []
+missing = ["time_or_clock_fault_cases"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001"
+
+[[behavior]]
+partition = { equals = "DECLARED_COUNT_EXCEEDS_REMAINING_MINIMUM" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#collection-count-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A top-level or nested collection count that cannot fit its minimum encoded entries in the containing bytecode section is rejected before count-sized capacity is reserved."
+
+[[behavior]]
+partition = { equals = "ENCODED_CONTAINER_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An encoded STBC candidate above 64 MiB is rejected before checksum work, decoding, validation, or live-module replacement."
+
+[[behavior]]
+partition = { equals = "MODULE_INSTRUCTIONS_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A decoded module containing more than 1,000,000 original bytecode instructions is rejected before instruction-state allocation or apply."
+
+[[behavior]]
+partition = { equals = "MODULE_REFERENCES_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A decoded module containing more than 65,536 references is rejected before executable materialization."
+
+[[behavior]]
+partition = { equals = "POU_LOCALS_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A POU declaring more than 65,536 local references is rejected before frame-local allocation."
+
+[[behavior]]
+partition = { equals = "POU_PARAMETERS_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A POU declaring more than 1,024 parameters is rejected before parameter-vector allocation or executable materialization."
+
+[[behavior]]
+partition = { equals = "OPERAND_STACK_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Static stack-shape analysis rejects a POU path that requires more than 16,384 operand values."
+
+[[behavior]]
+partition = { equals = "CALL_DEPTH_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "The VM rejects an attempt to create a 1,025th active call frame."
+
+[[behavior]]
+partition = { equals = "EXECUTED_INSTRUCTIONS_ABOVE_FIXED_LIMIT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "fault_visible"
+fault_surface = "ExecutionTimeout"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "A terminating forward workload that executes more than 1,000,000 original bytecode instructions faults even when it takes fewer than 1,000,000 backward branches."
+
+[[behavior]]
+partition = { equals = "OSCAT_CONTAINER_WITHIN_FIXED_LIMITS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The largest tracked OSCAT STBC fixture remains within the fixed limits and continues to decode and validate."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "Producer-authentic red and green proof covers the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation execution limits through the product path."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Instruction-budget enforcement is covered independently; deadline and watchdog timing interactions remain unasserted invariant debt and are not part of the closed fixed-resource-limit contract."

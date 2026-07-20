@@ -71,6 +71,17 @@ impl<'a> SymbolCollector<'a> {
         (self.table, self.diagnostics.finish(), pending_types)
     }
 
+    pub(crate) fn collect_with_project_const_roots(
+        mut self,
+        root: &SyntaxNode,
+        const_roots: &[SyntaxNode],
+    ) -> (SymbolTable, Vec<Diagnostic>) {
+        for project_root in const_roots {
+            self.precollect_constants(project_root, &[], &[]);
+        }
+        self.collect(root)
+    }
+
     pub(crate) fn validate_project_after_merge(
         table: SymbolTable,
         root: &SyntaxNode,

@@ -200,11 +200,7 @@ fn publish_new_nodes(
             browse_name.as_str(),
             to_wire_variant(&node.value),
         );
-        variable.set_writable(true);
-        variable.set_user_access_level(
-            variable.user_access_level()
-                | ::opcua::server::prelude::UserAccessLevel::CURRENT_WRITE,
-        );
+        variable.set_writable(false);
         variables.push(variable);
         inserted.push((node.name, node.data_type, node_id));
     }

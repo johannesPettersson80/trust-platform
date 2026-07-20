@@ -77,6 +77,19 @@ END_PROGRAM
 
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_references_partial_result_token_returns_empty_final_response() {
+    let observation = references_partial_result_observation()
+        .await
+        .expect("references partial-result observation");
+    assert_eq!(observation["final_count"], 0);
+    assert_eq!(observation["notification_method"], "$/progress");
+    assert_eq!(observation["token"], "refs-partial");
+    assert_eq!(observation["partial_nonempty"], true);
+}
+
+pub(in crate::handlers::tests) async fn references_partial_result_observation(
+) -> Result<Value, String> {
+    use futures_util::StreamExt;
+
     let source = r#"
 PROGRAM Main
 VAR
@@ -86,7 +99,8 @@ Speed := Speed + 1;
 END_PROGRAM
 "#;
     let state = ServerState::new();
-    let client = test_client();
+    let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+    crate::test_support::initialize_test_client(&mut service).await;
     let uri = tower_lsp::lsp_types::Url::parse("file:///partial-refs.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
 
@@ -108,16 +122,37 @@ END_PROGRAM
 
     let final_result = references_with_progress(&client, &state, params)
         .await
-        .expect("references final result");
-    assert!(
-        final_result.is_empty(),
-        "when partial results are streamed, the final references response must be empty, got {} items",
-        final_result.len()
-    );
+        .ok_or_else(|| "references returned no final result".to_string())?;
+    let notification = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+        .await
+        .map_err(|_| "partial references notification timeout".to_string())?
+        .ok_or_else(|| "partial references notification missing".to_string())?;
+    let params = notification
+        .params()
+        .ok_or_else(|| "partial references params missing".to_string())?;
+    Ok(json!({
+        "final_count": final_result.len(),
+        "notification_method": notification.method(),
+        "token": params["token"],
+        "partial_nonempty": params["value"].as_array().is_some_and(|items| !items.is_empty()),
+    }))
 }
 
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_workspace_symbols_partial_result_token_returns_empty_final_response() {
+    let observation = workspace_symbols_partial_result_observation()
+        .await
+        .expect("workspace-symbol partial-result observation");
+    assert_eq!(observation["final_count"], 0);
+    assert_eq!(observation["notification_method"], "$/progress");
+    assert_eq!(observation["token"], "symbols-partial");
+    assert_eq!(observation["partial_nonempty"], true);
+}
+
+pub(in crate::handlers::tests) async fn workspace_symbols_partial_result_observation(
+) -> Result<Value, String> {
+    use futures_util::StreamExt;
+
     let source = r#"
 FUNCTION_BLOCK Pump
 END_FUNCTION_BLOCK
@@ -129,7 +164,8 @@ END_VAR
 END_PROGRAM
 "#;
     let state = ServerState::new();
-    let client = test_client();
+    let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+    crate::test_support::initialize_test_client(&mut service).await;
     let uri = tower_lsp::lsp_types::Url::parse("file:///partial-symbols.st").unwrap();
     state.open_document(uri, 1, source.to_string());
 
@@ -145,12 +181,20 @@ END_PROGRAM
 
     let final_result = workspace_symbol_with_progress(&client, &state, params)
         .await
-        .expect("workspace symbol final result");
-    assert!(
-        final_result.is_empty(),
-        "when partial results are streamed, the final workspace-symbol response must be empty, got {} items",
-        final_result.len()
-    );
+        .ok_or_else(|| "workspace symbols returned no final result".to_string())?;
+    let notification = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+        .await
+        .map_err(|_| "partial workspace-symbol notification timeout".to_string())?
+        .ok_or_else(|| "partial workspace-symbol notification missing".to_string())?;
+    let params = notification
+        .params()
+        .ok_or_else(|| "partial workspace-symbol params missing".to_string())?;
+    Ok(json!({
+        "final_count": final_result.len(),
+        "notification_method": notification.method(),
+        "token": params["token"],
+        "partial_nonempty": params["value"].as_array().is_some_and(|items| !items.is_empty()),
+    }))
 }
 
 #[test]

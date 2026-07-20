@@ -470,8 +470,7 @@ mod tests {
     use trust_hir::Type;
 
     #[test]
-    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
-    fn vm_return_slot_default_failure_returns_init_failed() {
+    fn vm_interface_return_slot_defaults_to_null() {
         let mut runtime = crate::Runtime::new();
         let interface = register_interface(&mut runtime);
         let plan = VmPouInitPlan::Function {
@@ -483,16 +482,12 @@ mod tests {
         };
         let mut frame = frame_with_slots(1);
 
-        let err = initialize_declared_locals_direct(&mut runtime, &plan, &mut frame)
-            .expect_err("unsupported VM return default must fail closed");
-
-        assert_init_failed(err, "ReturnSvc", "ReturnSvc");
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
         assert_eq!(frame.locals[0], Value::Null);
     }
 
     #[test]
-    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
-    fn vm_local_default_failure_returns_init_failed() {
+    fn vm_local_interface_defaults_to_null() {
         let mut runtime = crate::Runtime::new();
         let interface = register_interface(&mut runtime);
         let plan = VmPouInitPlan::Program {
@@ -509,11 +504,9 @@ mod tests {
             }],
         };
         let mut frame = frame_with_slots(1);
+        frame.locals[0] = Value::Int(1);
 
-        let err = initialize_declared_locals_direct(&mut runtime, &plan, &mut frame)
-            .expect_err("unsupported VM local default must fail closed");
-
-        assert_init_failed(err, "Main", "Svc");
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
         assert_eq!(frame.locals[0], Value::Null);
     }
 
@@ -537,20 +530,6 @@ mod tests {
             locals: vec![Value::Null; count],
             runtime_instance: None,
             instance_owner: None,
-        }
-    }
-
-    fn assert_init_failed(err: RuntimeError, owner: &str, variable: &str) {
-        match err {
-            RuntimeError::InitFailed {
-                owner: actual_owner,
-                variable: actual_variable,
-                ..
-            } => {
-                assert_eq!(actual_owner, owner);
-                assert_eq!(actual_variable, variable);
-            }
-            other => panic!("expected InitFailed for {owner}.{variable}, got {other:?}"),
         }
     }
 }

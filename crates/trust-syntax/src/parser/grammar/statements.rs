@@ -95,6 +95,8 @@ impl Parser<'_, '_> {
             self.parse_expression();
             if self.at(TokenKind::KwThen) {
                 self.bump();
+            } else {
+                self.error("expected THEN");
             }
             while !self.at(TokenKind::KwElsif)
                 && !self.at(TokenKind::KwElse)
@@ -155,6 +157,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::KwOf) {
             self.bump();
+        } else {
+            self.error("expected OF");
         }
 
         // Parse case branches
@@ -174,6 +178,8 @@ impl Parser<'_, '_> {
 
             if self.at(TokenKind::Colon) {
                 self.bump();
+            } else {
+                self.error("expected ':' after CASE label");
             }
 
             // Parse statements
@@ -233,16 +239,22 @@ impl Parser<'_, '_> {
             }
         } else if self.at(TokenKind::Ident) {
             self.parse_name();
+        } else {
+            self.error("expected FOR control variable");
         }
 
         if self.at(TokenKind::Assign) {
             self.bump();
             self.parse_expression(); // start
+        } else {
+            self.error("expected ':=' after FOR control variable");
         }
 
         if self.at(TokenKind::KwTo) {
             self.bump();
             self.parse_expression(); // end
+        } else {
+            self.error("expected TO");
         }
 
         if self.at(TokenKind::KwBy) {
@@ -252,6 +264,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::KwDo) {
             self.bump();
+        } else {
+            self.error("expected DO");
         }
 
         while !self.at(TokenKind::KwEndFor) && !self.at_end() && !self.at_stmt_list_end() {
@@ -276,6 +290,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::KwDo) {
             self.bump();
+        } else {
+            self.error("expected DO");
         }
 
         while !self.at(TokenKind::KwEndWhile) && !self.at_end() && !self.at_stmt_list_end() {
@@ -303,6 +319,8 @@ impl Parser<'_, '_> {
         if self.at(TokenKind::KwUntil) {
             self.bump();
             self.parse_expression();
+        } else {
+            self.error("expected UNTIL");
         }
 
         if self.at(TokenKind::KwEndRepeat) {

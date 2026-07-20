@@ -1,0 +1,253 @@
+schema_version = 1
+id = "MUTATION_PROGRAM_V1"
+title = "Focused mutation adequacy program"
+status = "mapped"
+owner = "verification"
+proof_posture = "adequacy_only_no_proof"
+coverage_posture = "adequacy_signal_not_safety_proof"
+execution_posture = "report_only"
+max_mutants_per_shard = 2
+last_reviewed = "2026-07-16"
+survivor_resolutions = []
+
+[survivor_policy]
+allowed_actions = ["add_test", "unreachable_defensive_rationale", "dead_code_removal"]
+resolution_status_required = "resolved"
+durable_resolution_ref_required = true
+
+[[shards]]
+id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
+title = "Bytecode validator"
+area = "bytecode_vm"
+invariant_ids = ["VM_SEAM_VALID_001"]
+execution_status = "measured"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "not_applicable_source_mutation"
+owner = "trust-runtime"
+legacy_catalog_test_id = "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"
+legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
+
+[[shards.mutations]]
+id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
+source_file = "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs"
+source_digest = "sha256:5f31346110fd936a1677a1a3a5ef8c88ad389877f782677227927e13acb520de"
+function = "validate_instruction_stream"
+genre = "FnValue"
+replacement = "Ok(())"
+selector_name = "pou_and_instr.rs:152:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())"
+build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"]
+association_ids = [
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633",
+  "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85",
+  "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F",
+]
+
+[[shards.mutations]]
+id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
+source_file = "crates/trust-runtime/src/bytecode/validate/stack_shape.rs"
+source_digest = "sha256:f397f8ac7876602ba9d29423fa424b7ea36bed4b211476a11354b2cbc97646d8"
+function = "validate_stack_shape"
+genre = "FnValue"
+replacement = "Ok(())"
+selector_name = "stack_shape.rs:15:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())"
+build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "vm_rejects_stack_underflow", "--", "--exact"]
+association_ids = ["VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"]
+
+[[shards.associated_tests]]
+id_kind = "committed_case_id"
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633"
+source_kind = "case_table"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_FF_3A193633"
+ignore_state = "not_applicable"
+
+[[shards.associated_tests]]
+id_kind = "committed_case_id"
+id = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA"
+source_kind = "case_table"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+name = "VM_SEAM_VALID_001_UNKNOWN_OPCODE_POU_BODY_FIRST_OPCODE_80_36D182BA"
+ignore_state = "not_applicable"
+
+[[shards.associated_tests]]
+id_kind = "committed_case_id"
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85"
+source_kind = "case_table"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND_100_DF169D85"
+ignore_state = "not_applicable"
+
+[[shards.associated_tests]]
+id_kind = "committed_case_id"
+id = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
+source_kind = "case_table"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+name = "VM_SEAM_VALID_001_JUMP_TARGET_POU_BODY_JMP_OPERAND__100_4555B79F"
+ignore_state = "not_applicable"
+
+[[shards.associated_tests]]
+id_kind = "committed_case_id"
+id = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
+source_kind = "case_table"
+path = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
+name = "VM_SEAM_VALID_001_STACK_UNDERFLOW_POU_BODY_POP_EMPTY_STACK_443E654C"
+ignore_state = "not_applicable"
+
+[[shards]]
+id = "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001"
+title = "Runtime value and type conversion"
+area = "bytecode_vm"
+invariant_ids = ["VM_SEAM_DECLARED_TYPE_001"]
+execution_status = "measured"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "not_applicable_source_mutation"
+owner = "trust-runtime"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json"
+
+[[shards.mutations]]
+id = "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON"
+source_file = "crates/trust-runtime/src/stdlib/conversions/dispatch.rs"
+source_digest = "sha256:fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27"
+function = "convert_value"
+genre = "BinaryOperator"
+replacement = "!="
+selector_name = "dispatch.rs:78:16: replace == with != in convert_value"
+build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "conversion_functions", "--", "--exact"]
+association_ids = ["DISC_11144C19050BB255758E"]
+
+[[shards.associated_tests]]
+id_kind = "scanner_discovery_id"
+id = "DISC_11144C19050BB255758E"
+source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/stdlib_conv.rs"
+name = "conversion_functions"
+ignore_state = "not_ignored"
+
+[[shards]]
+id = "MUTATION_SHARD_HIR_DIAGNOSTICS_001"
+title = "HIR subrange diagnostics"
+area = "compiler_iec"
+invariant_ids = ["IEC_SUBRANGE_001"]
+execution_status = "measured"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "not_applicable_source_mutation"
+owner = "trust-hir"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json"
+
+[[shards.mutations]]
+id = "MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP"
+source_file = "crates/trust-hir/src/type_check/stmt_impl_part_04.rs"
+source_digest = "sha256:e4baaa08b5483cb98da84f5737e0daa825cbb12ba7569382df7f9c69f8b45c9f"
+function = "StmtChecker<'a, 'b>::check_subrange_assignment"
+genre = "FnValue"
+replacement = "()"
+selector_name = "stmt_impl_part_04.rs:226:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()"
+build_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "basics_and_warnings::test_subrange_assignment_out_of_range", "--", "--exact"]
+association_ids = ["DISC_44D2AECEE13EB41E3AA0"]
+
+[[shards.associated_tests]]
+id_kind = "scanner_discovery_id"
+id = "DISC_44D2AECEE13EB41E3AA0"
+source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs"
+name = "test_subrange_assignment_out_of_range"
+ignore_state = "not_ignored"
+
+[[shards]]
+id = "MUTATION_SHARD_PARSER_RECOVERY_001"
+title = "Parser recovery"
+area = "compiler_iec"
+invariant_ids = ["IEC_PARSE_RECOVER_001"]
+execution_status = "measured"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "not_applicable_source_mutation"
+owner = "trust-syntax"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json"
+
+[[shards.mutations]]
+id = "MUTANT_PARSER_RECOVERY_EOF_COMPARISON"
+source_file = "crates/trust-syntax/src/parser/parser.rs"
+source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+function = "Parser<'t, 'src>::recover_top_level_until"
+genre = "BinaryOperator"
+replacement = "!="
+selector_name = "parser.rs:238:21: replace == with != in Parser<'t, 'src>::recover_top_level_until"
+build_command = ["cargo", "test", "-p", "trust-syntax", "--lib", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-syntax", "--lib", "parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket", "--", "--exact"]
+association_ids = ["DISC_3C5D1667AD9E1B86A142"]
+
+[[shards.associated_tests]]
+id_kind = "scanner_discovery_id"
+id = "DISC_3C5D1667AD9E1B86A142"
+source_kind = "rust_unit_test"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket"
+ignore_state = "not_ignored"
+
+[[shards]]
+id = "MUTATION_SHARD_RETAIN_RESTART_001"
+title = "Retain and restart"
+area = "runtime_safety"
+invariant_ids = ["RT_SAFE_RESTART_001", "RT_SAFE_RETAIN_001"]
+execution_status = "measured"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "not_applicable_source_mutation"
+owner = "trust-runtime"
+result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json"
+
+[[shards.mutations]]
+id = "MUTANT_RETAIN_ON_WARM_FALSE"
+source_file = "crates/trust-runtime/src/runtime/restart.rs"
+source_digest = "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808"
+function = "retain_on_warm"
+genre = "FnValue"
+replacement = "false"
+selector_name = "restart.rs:686:5: replace retain_on_warm -> bool with false"
+build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"]
+test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "warm_restart_preserves_retain_and_initializes_nonretain", "--", "--exact"]
+association_ids = ["DISC_83FE96819CB25F21CA77"]
+
+[[shards.associated_tests]]
+id_kind = "scanner_discovery_id"
+id = "DISC_83FE96819CB25F21CA77"
+source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_restart.rs"
+name = "warm_restart_preserves_retain_and_initializes_nonretain"
+ignore_state = "not_ignored"
+
+[[shards]]
+id = "MUTATION_SHARD_CONNECTOR_STATUS_PROJECTION_001"
+title = "Connector status projection"
+area = "protocols"
+invariant_ids = ["PROTO_STATUS_TRUTH_001"]
+execution_status = "planned"
+association_semantics = "association_only_not_execution_claim"
+delivered_build_requirement = "required_before_execution"
+owner = "trust-runtime"
+delivered_binary_path = "{target_dir}/debug/trust-runtime"
+delivered_confirmation = ["artifact_sha256", "direct_execution"]
+
+[[shards.mutations]]
+id = "MUTANT_ADS_STATUS_DEGRADED_COMPARISON"
+source_file = "crates/trust-runtime/src/connectors/mapping.rs"
+source_digest = "sha256:94cb6e7991023e43eea005e5d0048281893da29a3b157debaaaf089cb858eb60"
+function = "ads_connection_status_state"
+genre = "BinaryOperator"
+replacement = "!="
+selector_name = "mapping.rs:163:64: replace == with != in ads_connection_status_state"
+build_command = ["cargo", "build", "-p", "trust-runtime", "--bin", "trust-runtime"]
+test_command = ["{delivered_binary}", "conformance", "--suite-root", "conformance", "--filter", "cfm_comms_determinism_connector_projection_001", "--output", "target/gate-artifacts/verification/p10-connector-status-projection.json"]
+association_ids = ["DISC_FA437CAA77C99B81B753"]
+
+[[shards.associated_tests]]
+id_kind = "scanner_discovery_id"
+id = "DISC_FA437CAA77C99B81B753"
+source_kind = "conformance_case"
+path = "conformance/cases/comms_determinism/cfm_comms_determinism_connector_projection_001/manifest.toml"
+name = "cfm_comms_determinism_connector_projection_001"
+ignore_state = "not_ignored"

@@ -237,6 +237,91 @@
     }
 
     #[test]
+    fn analyze_salsa_preserves_cross_file_constant_string_capacity_on_in_out_parameters() {
+        let mut db = Database::new();
+        let file_globals = FileId(32);
+        let file_library = FileId(33);
+        let file_main = FileId(34);
+
+        db.set_source_text(
+            file_globals,
+            "VAR_GLOBAL CONSTANT\n    STRING_LENGTH : INT := INT#12;\nEND_VAR\n".to_string(),
+        );
+        db.set_source_text(
+            file_library,
+            "FUNCTION Touch : BOOL\nVAR_IN_OUT\n    Text : STRING[STRING_LENGTH];\nEND_VAR\nTouch := TRUE;\nEND_FUNCTION\n\nFUNCTION_BLOCK Bind\nVAR_IN_OUT\n    Text : STRING[STRING_LENGTH];\nEND_VAR\nEND_FUNCTION_BLOCK\n".to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    fb : Bind;\n    text : STRING[STRING_LENGTH];\n    ok : BOOL;\nEND_VAR\nok := Touch(Text := text);\nfb(Text := text);\nEND_PROGRAM\n".to_string(),
+        );
+
+        let analysis = db.analyze_salsa(file_main);
+
+        assert!(
+            analysis
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.is_error()),
+            "matching cross-file constant capacities must remain equal after import: {:?}",
+            analysis.diagnostics
+        );
+        let text_parameter = analysis
+            .symbols
+            .iter()
+            .find(|symbol| {
+                symbol.name == "Text"
+                    && matches!(
+                        symbol.kind,
+                        SymbolKind::Parameter {
+                            direction: ParamDirection::InOut
+                        }
+                    )
+            })
+            .expect("imported Text parameter should remain available");
+        assert_eq!(
+            analysis.symbols.type_by_id(text_parameter.type_id),
+            Some(&Type::String { max_len: Some(12) }),
+            "imported parameter must preserve its effective string capacity"
+        );
+    }
+
+    #[test]
+    fn analyze_salsa_rejects_mismatched_cross_file_constant_string_capacity() {
+        let mut db = Database::new();
+        let file_globals = FileId(35);
+        let file_library = FileId(36);
+        let file_main = FileId(37);
+
+        db.set_source_text(
+            file_globals,
+            "VAR_GLOBAL CONSTANT\n    STRING_LENGTH : INT := INT#12;\nEND_VAR\n".to_string(),
+        );
+        db.set_source_text(
+            file_library,
+            "FUNCTION Touch : BOOL\nVAR_IN_OUT\n    Text : STRING[STRING_LENGTH];\nEND_VAR\nTouch := TRUE;\nEND_FUNCTION\n"
+                .to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    text : STRING[11];\n    ok : BOOL;\nEND_VAR\nok := Touch(Text := text);\nEND_PROGRAM\n"
+                .to_string(),
+        );
+
+        let analysis = db.analyze_salsa(file_main);
+        assert_eq!(
+            analysis
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == DiagnosticCode::InvalidArgumentType)
+                .count(),
+            1,
+            "mismatched cross-file string capacities must still be rejected: {:?}",
+            analysis.diagnostics
+        );
+    }
+
+    #[test]
     fn analyze_salsa_accepts_cross_file_root_global_struct_field_access() {
         let mut db = Database::new();
         let (_file_types, _file_globals, file_main) =

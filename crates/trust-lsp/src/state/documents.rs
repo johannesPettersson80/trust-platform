@@ -123,6 +123,7 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) {
     if !state.documents.read().contains_key(uri) {
         return;
     }
+    state.cancel_semantic_requests();
 
     if let Some(path) = uri_to_path(uri) {
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -139,6 +140,8 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) {
                 doc.file_id = file_id;
                 touch_document(doc, access);
             }
+            state.semantic_tokens.write().remove(uri);
+            state.diagnostics.write().remove(uri);
             invalidate_project_caches(state);
             enforce_memory_budget(state);
             return;

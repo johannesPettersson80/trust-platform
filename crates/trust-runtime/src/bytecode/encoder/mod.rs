@@ -219,6 +219,7 @@ struct BytecodeEncoder<'a> {
     const_pool: Vec<ConstEntry>,
     ref_entries: Vec<RefEntry>,
     ref_map: HashMap<ValueRef, u32>,
+    local_var_meta: Vec<PendingLocalVarMeta>,
     next_local_frame_id: u32,
     pou_ids: PouIdMap,
     stdlib_fbs: HashSet<SmolStr>,
@@ -335,6 +336,12 @@ struct LocalScope {
     for_temp_pairs: Vec<(SmolStr, SmolStr)>,
 }
 
+struct PendingLocalVarMeta {
+    name: SmolStr,
+    type_id: TypeId,
+    ref_idx: u32,
+}
+
 #[derive(Clone)]
 enum AccessKind {
     Static(ValueRef),
@@ -359,6 +366,7 @@ impl<'a> BytecodeEncoder<'a> {
             const_pool: Vec::new(),
             ref_entries: Vec::new(),
             ref_map: HashMap::new(),
+            local_var_meta: Vec::new(),
             next_local_frame_id: 0,
             pou_ids: PouIdMap::build(runtime),
             stdlib_fbs,

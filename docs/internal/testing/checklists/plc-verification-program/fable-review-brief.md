@@ -21,6 +21,7 @@ Review this document set as a plan before implementation:
 - README.md
 - policy.md
 - metadata-model.md
+- metadata-evidence-traceability.md
 - test-taxonomy.md
 - verification-areas.md
 - implementation-board.md

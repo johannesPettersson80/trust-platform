@@ -20,24 +20,37 @@ macro_rules! advance_fuse_index {
     }};
 }
 
+#[cfg(test)]
 pub(in crate::runtime::vm::register_ir) fn fuse_register_block_instructions(
     instructions: &[RegisterInstr],
 ) -> Vec<RegisterInstr> {
+    let costs = vec![1; instructions.len()];
+    fuse_register_block_instructions_with_costs(instructions, &costs).0
+}
+
+pub(in crate::runtime::vm::register_ir) fn fuse_register_block_instructions_with_costs(
+    instructions: &[RegisterInstr],
+    instruction_costs: &[usize],
+) -> (Vec<RegisterInstr>, Vec<usize>) {
+    assert_eq!(instructions.len(), instruction_costs.len());
     if instructions.len() < 4 {
-        return instructions.to_vec();
+        return (instructions.to_vec(), instruction_costs.to_vec());
     }
     let mut fused = Vec::with_capacity(instructions.len());
+    let mut fused_costs = Vec::with_capacity(instructions.len());
     let mut index = 0usize;
     while index < instructions.len() {
         if let Some((instruction, consumed)) = try_fuse_instruction_window(instructions, index) {
             fused.push(instruction);
+            fused_costs.push(instruction_costs[index..index + consumed].iter().sum());
             index = advance_fuse_index!(index, consumed, instructions.len());
             continue;
         }
         fused.push(instructions[index].clone());
+        fused_costs.push(instruction_costs[index]);
         index = advance_fuse_index!(index, 1, instructions.len());
     }
-    fused
+    (fused, fused_costs)
 }
 
 fn try_fuse_instruction_window(

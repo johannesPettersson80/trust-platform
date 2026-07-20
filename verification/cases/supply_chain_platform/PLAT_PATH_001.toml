@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_PLAT_PATH_001"
+title = "Platform path contract trace"
+area = "supply_chain_platform"
+owner = "release"
+status = "planned"
+invariant = "PLAT_PATH_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:6bb3bf5938be68b63798ce6e23a4d0f81e1c4066f72c4360ed96d43c0919e18c"
+source_digest = "sha256:287e96138029736b60968e70a1565130a2729937300f40a56fd848bd3647e697"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "PLAT_PATH_001_MATRIX"
+family = "platform_or_filesystem_variation"
+input = { scenario = "PLATFORM_PATH_CONTRACT" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { source = "release_packaging" }, expected = { unix_archives = "tar.gz", windows_archives = "zip", windows_executable_suffix = ".exe", unsupported_named = true }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#platform-support-matrix" }]

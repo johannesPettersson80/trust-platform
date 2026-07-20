@@ -3,8 +3,23 @@ fn parse_hmi_write_value(
     template: &Value,
     string_capacity: Option<usize>,
     subrange_bounds: Option<(i128, i128)>,
-) -> Option<Value> {
-    let parsed = match (value, template) {
+) -> Result<Value, HmiWriteFailure> {
+    if hmi_float_input_is_non_finite(value, template) {
+        return Err(HmiWriteFailure::NonFiniteValue);
+    }
+    let parsed = parse_hmi_write_unbounded(value, template)
+        .ok_or(HmiWriteFailure::TypeMismatch)?;
+    if !hmi_string_value_fits(&parsed, string_capacity) {
+        return Err(HmiWriteFailure::StringCapacityExceeded);
+    }
+    if !hmi_subrange_value_fits(&parsed, subrange_bounds) {
+        return Err(HmiWriteFailure::SubrangeViolation);
+    }
+    Ok(parsed)
+}
+
+fn parse_hmi_write_unbounded(value: &serde_json::Value, template: &Value) -> Option<Value> {
+    match (value, template) {
         (serde_json::Value::Bool(value), Value::Bool(_)) => Some(Value::Bool(*value)),
         (serde_json::Value::Number(value), Value::SInt(_)) => {
             Some(Value::SInt(i8::try_from(value.as_i64()?).ok()?))
@@ -56,13 +71,21 @@ fn parse_hmi_write_value(
         )),
         (serde_json::Value::String(text), _) => parse_hmi_write_from_text(text, template),
         _ => None,
-    }?;
-    if hmi_string_value_fits(&parsed, string_capacity)
-        && hmi_subrange_value_fits(&parsed, subrange_bounds)
-    {
-        Some(parsed)
-    } else {
-        None
+    }
+}
+
+fn hmi_float_input_is_non_finite(value: &serde_json::Value, template: &Value) -> bool {
+    let Some(number) = (match value {
+        serde_json::Value::Number(number) => number.as_f64(),
+        serde_json::Value::String(text) => text.trim().parse::<f64>().ok(),
+        _ => None,
+    }) else {
+        return false;
+    };
+    match template {
+        Value::Real(_) => !(number as f32).is_finite(),
+        Value::LReal(_) => !number.is_finite(),
+        _ => false,
     }
 }
 

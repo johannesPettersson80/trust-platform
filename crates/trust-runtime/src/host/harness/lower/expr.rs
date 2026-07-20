@@ -3,6 +3,7 @@ use smol_str::SmolStr;
 use crate::datetime::{
     days_from_civil, days_to_ticks, nanos_to_ticks, DateTimeCalcError, DivisionMode, NANOS_PER_DAY,
 };
+use crate::harness::initializer::coerce_evaluated_initializer_value;
 use crate::program_model::{ArgValue, BinaryOp, CallArg, Expr, LValue, UnaryOp};
 use crate::value::{
     DateTimeProfile, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -20,5 +21,7 @@ use super::super::{
 
 include!("expr/lowering.rs");
 include!("expr/literals.rs");
+include!("expr/call_context.rs");
+include!("expr/storage_context.rs");
 include!("expr/operators.rs");
 include!("expr/constants.rs");

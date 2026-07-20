@@ -1,0 +1,41 @@
+schema_version = 1
+id = "CASES_VM_SEAM_SUBRANGE_001"
+title = "Generated cases for Subrange writes cannot silently store out-of-range values"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "planned"
+invariant = "VM_SEAM_SUBRANGE_001"
+generator = "gen_cases.py v1"
+generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
+source_digest = "sha256:87232e1b155b5d9e13f28c2725b9672f3eca7077cf0fd1d8e5c32d136c824791"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_MIN_AE132E71"
+family = "boundary_low"
+input = { source_partition = { min = 0, max = 100 }, value = 0 }
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_MAX_AE132E71"
+family = "boundary_high"
+input = { source_partition = { min = 0, max = 100 }, value = 100 }
+expect = { outcome = "accept_value", delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_BELOW_MIN_F2BC55A3"
+family = "below_min"
+input = { source_partition = { below = 0 }, value = -1 }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_ABOVE_MAX_2EDDED03"
+family = "above_max"
+input = { source_partition = { above = 100 }, value = 101 }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }
+
+[[case]]
+id = "VM_SEAM_SUBRANGE_001_WRONG_TYPE_817CB4E0"
+family = "wrong_type_or_shape"
+input = { source_partition = { wrong_type = "REAL" }, shape_descriptor = "REAL" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes" }

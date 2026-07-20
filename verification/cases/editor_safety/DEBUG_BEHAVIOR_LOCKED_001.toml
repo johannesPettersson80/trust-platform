@@ -1,0 +1,17 @@
+schema_version = 1
+id = "CASES_DEBUG_BEHAVIOR_LOCKED_001"
+title = "Debugger behavior-lock mapping trace"
+area = "editor_safety"
+owner = "trust-debug"
+status = "planned"
+invariant = "DEBUG_BEHAVIOR_LOCKED_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:f407e8058310cbf2fd9c2cd40728b22b1887468272568d1d95aafd9e7769fe4e"
+source_digest = "sha256:af8dbae87540b6d429081272a2fb0801d8febba0eb1450ddc8927293d787a9c9"
+last_reviewed = "2026-07-17"
+[[case]]
+id = "DEBUG_BEHAVIOR_LOCKED_001_MAPPING"
+family = "happy_path"
+input = { scenario = "DEBUG_BEHAVIOR_LOCK_MAPPING" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [{ sequence = 0, stimulus = { domain = "debugger" }, expected = { mapped_invariants = true, mapped_tests = true, durable_evidence = true, repository_wide_claim = false }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims" }]

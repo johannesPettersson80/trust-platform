@@ -8,14 +8,16 @@ mod dispatch_sizeof;
 mod errors;
 mod frames;
 mod helpers;
+mod limits;
 mod stack;
 
 pub use const_pool::decode_const_pool_entries;
 pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 pub use dispatch_sizeof::sizeof_type_from_table;
 pub use errors::VmTrap;
-pub use frames::{ensure_global_call_depth, FrameStack, VmFrame, VM_MAX_CALL_DEPTH};
+pub use frames::{ensure_global_call_depth, FrameStack, VmFrame};
 pub use helpers::{materialize_borrowed_value, opcode_operand_len};
+pub use limits::{VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK};
 pub use stack::OperandStack;
 
 #[cfg(test)]
@@ -28,7 +30,7 @@ mod tests {
             ConstEntry, ConstPool, EnumVariant, Field, StringTable, TypeData, TypeEntry, TypeKind,
             TypeTable,
         },
-        error::RuntimeError,
+        error::{RuntimeError, StableErrorCode},
         memory::InstanceId,
         program_model::{BinaryOp, UnaryOp},
         value::{DateTimeProfile, Value},
@@ -62,7 +64,8 @@ mod tests {
         ));
         assert!(matches!(
             VmTrap::InvalidOpcode(0xFF).into_runtime_error(),
-            RuntimeError::InvalidBytecode(message) if message.contains("0xFF")
+            RuntimeError::Bytecode { code: StableErrorCode::BytecodeInvalidOpcode, detail }
+                if detail.contains("0xFF")
         ));
     }
 
@@ -281,7 +284,10 @@ mod tests {
         };
         assert!(matches!(
             super::decode_const_pool_entries(&bad_utf8, &string_types, &strings),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("UTF-8")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("UTF-8")
         ));
 
         let unsupported_types = TypeTable {
@@ -296,7 +302,10 @@ mod tests {
         };
         assert!(matches!(
             super::decode_const_pool_entries(&unsupported, &unsupported_types, &strings),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("unsupported const type kind")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("unsupported const type kind")
         ));
     }
 
@@ -359,11 +368,17 @@ mod tests {
         };
         assert!(matches!(
             super::sizeof_type_from_table(&recursive, 0),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("recursion")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::VmBytecodeDecode,
+                detail,
+            }) if detail.as_str().contains("recursion")
         ));
         assert!(matches!(
             super::sizeof_type_from_table(&types, 99),
-            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("invalid type index")
+            Err(RuntimeError::Bytecode {
+                code: StableErrorCode::BytecodeInvalidIndex,
+                detail,
+            }) if detail.as_str().contains("invalid type index")
         ));
     }
 

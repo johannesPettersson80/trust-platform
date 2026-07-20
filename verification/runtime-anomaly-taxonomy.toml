@@ -1,0 +1,1952 @@
+schema_version = 1
+id = "RUNTIME_ANOMALY_TAXONOMY_V1"
+title = "Runtime anomaly taxonomy v1"
+area = "runtime_safety"
+mapping_basis = "explicit_reviewed_discovery_id_only"
+proof_posture = "association_only"
+fault_interface_status = "governed_test_harness_only"
+production_hook_policy = "source_guard_enforced_design_review_required"
+last_reviewed = "2026-07-19"
+
+[spec_gap_reviews.scan_cycle_allocation_policy]
+outcome = "written_contract_present"
+source_ref = "SPEC_RUNTIME_ENGINE_001"
+source_path = "docs/specs/11-runtime-engine.md"
+required_text = [
+  "dynamic allocation in hot path",
+  "No heap allocation during execution",
+]
+rationale = "The active normative runtime-engine contract already excludes dynamic allocation from the scan hot path and heap allocation from execution. Allocation-failure and OOM testing outside that scope remains unmapped test debt and does not make this written scan-cycle policy absent."
+
+[spec_gap_reviews.restart_timebase]
+outcome = "resolved_source"
+source_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+source_path = "docs/specs/08-standard-function-blocks.md"
+superseded_gap_id = "SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"
+rationale = "The active normative timer source and reviewed decision log now define executed-scan, restart, PT, clock-step, and TIME/LTIME boundaries and supersede the prior gap. This association-only review creates no runnable assertion or adequacy claim."
+
+[[classes]]
+id = "panic"
+title = "Panic containment"
+stimulus = "A scan-cycle, I/O, or resource-thread operation panics."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "Fast deterministic harnesses can verify visible fault state, containment, and safe-output ordering without a production panic hook."
+
+[[classes]]
+id = "timeout"
+title = "Operation timeout"
+stimulus = "A bounded runtime or harness operation exceeds its configured timeout."
+primary_suite = "pr"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Short deterministic child-process and service harnesses belong in PR; broader timeout matrices belong in nightly."
+
+[[classes]]
+id = "deadline"
+title = "Execution deadline expiry"
+stimulus = "Execution begins with an expired deadline or runs beyond a bounded deadline."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "The VM and scheduler expose deterministic test deadlines; release execution remains conditional on delivered-path relevance."
+
+[[classes]]
+id = "watchdog"
+title = "Watchdog expiry"
+stimulus = "A configured execution watchdog expires during runtime work."
+primary_suite = "pr"
+conditional_suites = ["nightly", "release"]
+injection_boundary = "test_harness"
+rationale = "Manual clocks and short watchdog budgets provide deterministic checks without changing production behavior."
+
+[[classes]]
+id = "slow_device"
+title = "Slow device response"
+stimulus = "A protocol or device response is delayed beyond the scan-thread service budget."
+primary_suite = "nightly"
+conditional_suites = ["release", "hardware_lab"]
+injection_boundary = "external_harness"
+rationale = "Loopback delay is suitable for nightly checks; real device timing remains conditional on a hardware-lab run."
+
+[[classes]]
+id = "disconnect"
+title = "Connection loss"
+stimulus = "A protocol session or transport disconnects while runtime state is active."
+primary_suite = "nightly"
+conditional_suites = ["release", "hardware_lab"]
+injection_boundary = "external_harness"
+rationale = "Reconnect and freshness behavior needs repeated loopback stress, with real transport runs reserved for the lab."
+
+[[classes]]
+id = "queue_full"
+title = "Worker queue saturation"
+stimulus = "A scan-facing producer outpaces a bounded worker handoff or queue."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "Saturation is deterministic in controlled workers, while release use remains conditional on the unresolved safe-state handoff contract."
+
+[[classes]]
+id = "stale_data"
+title = "Stale input data"
+stimulus = "A previously valid input snapshot is observed without a fresh device update."
+primary_suite = "pr"
+conditional_suites = ["nightly", "hardware_lab"]
+injection_boundary = "test_harness"
+rationale = "Freshness state machines are fast deterministic tests; prolonged and real-device freshness belongs in deeper lanes."
+
+[[classes]]
+id = "corrupt_retain"
+title = "Corrupt retain image"
+stimulus = "A retained-state image contains trailing, mutated, or integrity-invalid bytes."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Versioned file bytes are ordinary decoder input and can be checked deterministically in PR and release gates."
+
+[[classes]]
+id = "malformed_bytecode"
+title = "Malformed bytecode"
+stimulus = "A bytecode container or instruction stream is structurally malformed."
+primary_suite = "pr"
+conditional_suites = ["nightly"]
+injection_boundary = "ordinary_input"
+rationale = "Malformed encoded bytes are ordinary validator input; extended generated variation remains nightly work."
+
+[[classes]]
+id = "bad_config"
+title = "Invalid runtime configuration"
+stimulus = "Runtime or protocol configuration contains an unknown, out-of-range, or invalid value."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Configuration validation is a deterministic ordinary-input check and is release-relevant."
+
+[[classes]]
+id = "bad_signal"
+title = "Invalid or unexpected process signal"
+stimulus = "The runtime receives a signal outside its reviewed graceful-shutdown signal set."
+primary_suite = "release"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Process signals are platform-facing behavior; current valid-signal tests do not cover this anomaly."
+
+[[classes]]
+id = "partial_web_request"
+title = "Partial web request"
+stimulus = "A client sends headers and only part of a declared request body while keeping the connection open."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "external_harness"
+rationale = "Socket-level partial request behavior needs an orchestrated server/client harness and must not block unrelated control traffic."
+
+[[classes]]
+id = "disk_error"
+title = "Persistent storage error"
+stimulus = "Persistent-state load, write, flush, sync, or rename returns a storage error."
+primary_suite = "release"
+conditional_suites = ["nightly"]
+injection_boundary = "external_harness"
+rationale = "Real filesystem failures are platform-sensitive release checks; injected backend failure remains a narrower association."
+
+[[classes]]
+id = "clock_step"
+title = "Clock step"
+stimulus = "A relevant time source moves discontinuously forward or backward."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "The reviewed monotonic scheduler contract permits deterministic backward and forward step checks through the manual-clock harness."
+
+[[classes]]
+id = "monotonic_wall_clock_divergence"
+title = "Monotonic and wall-clock divergence"
+stimulus = "Monotonic scheduling time and civil wall-clock time diverge materially."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "The reviewed scheduler contract isolates readiness from civil wall time, so a fixed manual clock can exercise the divergence boundary without changing production time sources."
+
+[[classes]]
+id = "suspend_resume"
+title = "Host suspend and resume"
+stimulus = "The host suspends runtime execution and later resumes with elapsed real time."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "test_harness"
+rationale = "A forward manual-clock discontinuity exercises the scheduler-visible elapsed interval after a host pause; platform sleep delivery remains a separate system test."
+
+[[classes]]
+id = "timer_duration_overflow"
+title = "Timer duration overflow"
+stimulus = "Timer elapsed time, preset time, or a time delta reaches an arithmetic duration boundary."
+primary_suite = "pr"
+conditional_suites = ["release"]
+injection_boundary = "ordinary_input"
+rationale = "Extreme duration values can be supplied as ordinary inputs, but no current assertion exercises the overflow condition."
+
+[[classes]]
+id = "allocation_failure_oom"
+title = "Allocation failure or OOM"
+stimulus = "A required allocation fails or the process reaches an out-of-memory condition outside the promised allocation-free scan path."
+primary_suite = "nightly"
+conditional_suites = ["release"]
+injection_boundary = "design_review_required"
+rationale = "Malformed count fields exercise the reviewed reject-before-reservation boundary; a production allocation-failure hook remains prohibited without design review."
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_001"
+class_id = "panic"
+discovery_id = "DISC_30C382889325B64C5854"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_in_io_driver_faults_resource_visibly"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A panicking input driver faults the resource, records a diagnosable panic error, and is contained by the scheduler thread boundary."
+limitations = ["The panic source is a test driver, not every production panic site."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_002"
+class_id = "panic"
+discovery_id = "DISC_E6963439801BFF301755"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_applies_safe_outputs_before_faulting_resource"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A driver panic produces a visible fault and the last recorded physical output is the configured safe value."
+limitations = ["The recording driver is a harness implementation and does not establish hardware delivery."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_003"
+class_id = "panic"
+discovery_id = "DISC_96A8793BF2C3E6F579B4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_execution_panic_faults_resource_visibly"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A contained cycle-execution panic becomes a visible ResourcePanic fault on the scheduler resource."
+limitations = ["This is the scheduler unit seam rather than a delivered runtime process."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_004"
+class_id = "panic"
+discovery_id = "DISC_EEF14FDB800A7590C8F3"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "unexpected_thread_unwind_after_running_faults_control_surface"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An unwind from scheduler sleep faults the control-visible resource with a diagnosable ResourcePanic and remains joinable."
+limitations = ["The unwind is injected through a test clock."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_001"
+class_id = "timeout"
+discovery_id = "DISC_0BD76C389DCA0387316F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "timeout_flag_reports_error_for_infinite_loop_test"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A child test containing an infinite loop exits unsuccessfully and reports the configured one-second timeout."
+limitations = ["This covers the ST test command timeout, not every runtime service timeout."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_002"
+class_id = "timeout"
+discovery_id = "DISC_AD782C3AD1D808D4C4EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/agent_command/workspace_info.rs"
+name = "agent_serve_reports_run_until_timeout_with_stable_code"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The agent runtime run-until path returns a stable timeout code instead of presenting timeout as success."
+limitations = ["This covers the agent command protocol surface only."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_003"
+class_id = "timeout"
+discovery_id = "DISC_17A3C97ED5EF6F1D342D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_snapshot_timeout_is_not_a_successful_empty_snapshot"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires mesh snapshot timeout to remain distinguishable from a successful empty snapshot."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_001"
+class_id = "deadline"
+discovery_id = "DISC_55D5957DD6826E1A6C0F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs"
+name = "vm_enforces_execution_deadline"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An already-expired VM deadline on an infinite loop produces ExecutionTimeout in the cycle errors."
+limitations = ["The deadline is injected before execution rather than expiring from elapsed wall time."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_002"
+class_id = "deadline"
+discovery_id = "DISC_E35FF38A598A52B9A748"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs"
+name = "vm_forward_only_instruction_stream_enforces_execution_deadline"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A long forward-only instruction stream still observes an expired deadline and reports ExecutionTimeout."
+limitations = ["The deadline is injected as expired before the cycle."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_003"
+class_id = "deadline"
+discovery_id = "DISC_4C3F5D7171073A654EA8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_register_deadline_traps_without_fallback_or_commit"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The register backend traps on deadline without interpreter fallback or committing the workload result."
+limitations = ["This is a backend-level parity check, not a scheduler status-surface check."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_001"
+class_id = "watchdog"
+discovery_id = "DISC_C101BBAEC06311987C74"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "watchdog_faults_resource_on_overrun"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A manual-clock overrun triggers watchdog fault state and exposes the runtime error."
+limitations = ["Timing is deterministic manual-clock injection rather than an OS scheduling overrun."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_002"
+class_id = "watchdog"
+discovery_id = "DISC_3EFD5D5E736CB0C47DD6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Watchdog timeout preserves the root fault snapshot while applying the configured safe-state contract."
+limitations = ["Recorded outputs establish only the runtime handoff, not physical device receipt."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_003"
+class_id = "watchdog"
+discovery_id = "DISC_8BAF8461F95A94A773A6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_deadline_breach_before_commit_prevents_output_write"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires a watchdog deadline breach before commit to prevent a physical output write."
+limitations = ["The in-memory recording driver observes runtime write calls, not physical device receipt or state."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_004"
+class_id = "watchdog"
+discovery_id = "DISC_753F27F0D2AE25935D15"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_partial_safe_state_preserves_unconfigured_committed_outputs"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A pre-commit watchdog fault restores the committed output image before applying a partial safe-state map, so unconfigured outputs retain committed values."
+limitations = ["The recording driver establishes runtime write ordering, not physical device receipt."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_001"
+class_id = "slow_device"
+discovery_id = "DISC_7159C3BA77CC33C8F48C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_read_inputs_returns_within_scan_bound_while_response_delayed"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A loopback Modbus server delays its response by 120 ms while read_inputs remains below the scan-thread bound."
+limitations = ["Loopback timing does not establish real-device or hardware-lab latency behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_002"
+class_id = "slow_device"
+discovery_id = "DISC_6C10B5D7ACB21ECE8E9D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_write_outputs_returns_within_scan_bound_while_response_delayed"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A loopback Modbus server delays its response by 120 ms while write_outputs remains below the scan-thread bound."
+limitations = ["Loopback timing does not establish real-device or hardware-lab latency behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_003"
+class_id = "slow_device"
+discovery_id = "DISC_D2A5AD5E1D2E5D50D9E4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_write_outputs_returns_within_scan_bound_while_session_connecting"
+association_kind = "context_only"
+injection_mechanism = "test_harness"
+assertion_summary = "MQTT output handoff remains bounded while session readiness is pending and health becomes degraded."
+limitations = ["Pending connection is adjacent to slow-device behavior but does not inject a delayed device response."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_001"
+class_id = "disconnect"
+discovery_id = "DISC_D0022CD29DB5061F146B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_reconnects_after_session_loss_without_scan_thread_io"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A scripted OPC UA session-loss event moves the bridge to reconnecting, respects backoff, and reconnects without scan-thread I/O."
+limitations = ["The transport is a mock and does not establish live OPC UA server behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_002"
+class_id = "disconnect"
+discovery_id = "DISC_0964F1D88F24D71AD970"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "reconnect_marks_points_stale_until_backoff_allows_connect"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "An ADS disconnect marks points stale and delays reconnection until the configured backoff allows it."
+limitations = ["The transport is a mock and does not establish TwinCAT or hardware behavior."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_003"
+class_id = "disconnect"
+discovery_id = "DISC_C3A91E2860C30B08BED4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "fail_closed_disconnected_read_returns_freshness_error"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires a disconnected MQTT read to return a freshness error rather than silently return current data."
+limitations = ["The test is ignored and its Phase 3 register class is unknown rather than red_protective; current-HEAD protective status has not been established."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_001"
+class_id = "queue_full"
+discovery_id = "DISC_398610728B7609607B57"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_output_handoff_is_bounded_when_scan_outpaces_worker"
+association_kind = "partial"
+injection_mechanism = "external_harness"
+assertion_summary = "Thirty-two scan-side output writes remain bounded while a delayed Modbus worker cannot keep pace."
+limitations = ["The implementation uses latest-value handoff and does not expose an explicit QueueFull result.", "The open safe-state queue-full contract is not resolved by this timing assertion."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_002"
+class_id = "queue_full"
+discovery_id = "DISC_36444246A468C534110A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_output_handoff_is_bounded_when_scan_outpaces_worker"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "Thirty-two scan-side MQTT output writes remain bounded while the worker handoff is backpressured."
+limitations = ["The implementation uses latest-value handoff and does not expose an explicit QueueFull result.", "The open safe-state queue-full contract is not resolved by this timing assertion."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_001"
+class_id = "stale_data"
+discovery_id = "DISC_B3EBD5115E6DBD66F946"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_stale_snapshot_is_returned_when_worker_reconnects"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "After a loopback Modbus connection stops responding, the last snapshot is retained and driver health becomes degraded."
+limitations = ["The assertion is for warn policy and a loopback server."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_002"
+class_id = "stale_data"
+discovery_id = "DISC_ADB41A6325C30D12D0AD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_stale_snapshot_is_returned_without_fresh_payload"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Without a fresh MQTT payload, the last known input image is returned within the scan bound and health becomes degraded."
+limitations = ["The assertion is for warn policy and a mock session."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_003"
+class_id = "stale_data"
+discovery_id = "DISC_5E088D53395CC4F852E5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_read_surfaces_stale_after_bounded_misses_and_spin_limit"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Repeated missed realtime T0 reads reach the bounded spin limit and surface stale state."
+limitations = ["This exercises the shared-memory test seam, not every protocol freshness source."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CORRUPT_RETAIN_001"
+class_id = "corrupt_retain"
+discovery_id = "DISC_6536BD14A5FAEA351CCF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_rejects_trailing_garbage"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Trailing bytes appended to a stored retain image cause load to return a trailing-data or corruption error."
+limitations = ["The test checks file decoding and does not decide startup lifecycle policy."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CORRUPT_RETAIN_002"
+class_id = "corrupt_retain"
+discovery_id = "DISC_D57F0AA703E76450F141"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_rejects_payload_mutation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A bit mutation in a stored retain image causes load to return a checksum or corruption error."
+limitations = ["The test checks file decoding and does not decide startup lifecycle policy."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_001"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_F90D4502D7B68E02847C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_roundtrip.rs"
+name = "corruption_rejected"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A corrupted string length in an encoded bytecode container is rejected as unexpected EOF or an invalid section."
+limitations = ["This is one container-field corruption and is not an exhaustive malformed-bytecode corpus."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_002"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_FB4371C17A9F9FB83CA9"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs"
+name = "vm_malformed_bytecode_fuzz_smoke_budget"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A bounded deterministic malformed-bytecode smoke corpus is rejected without escaping the VM error contract."
+limitations = ["The smoke budget is bounded and is not an extended fuzz run."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_003"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_51482BB47DB5575280CE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_rejects_malformed_operands"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A truncated instruction operand is rejected before VM application with an unexpected-end diagnostic."
+limitations = ["This checks one malformed operand shape."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_001"
+class_id = "bad_config"
+discovery_id = "DISC_78139822FEDCB8E1A379"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/config/tests.rs"
+name = "runtime_schema_rejects_unknown_keys"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "An unknown runtime configuration table is rejected with an unknown-field error."
+limitations = ["This assertion covers unknown runtime keys, not every configuration surface."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_002"
+class_id = "bad_config"
+discovery_id = "DISC_C9AB817C3804CDAD2BAF"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/config/tests.rs"
+name = "runtime_schema_rejects_invalid_ranges"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A zero runtime cycle interval is rejected with the configured minimum-range diagnostic."
+limitations = ["This assertion covers one runtime range boundary."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_003"
+class_id = "bad_config"
+discovery_id = "DISC_7CCA5C983F3BC05339EC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_point_map_rejects_invalid_type_and_scaling_config"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Invalid Modbus point type, scale, and offset configuration values are rejected during driver construction."
+limitations = ["This assertion covers selected Modbus point-map fields."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_004"
+class_id = "bad_config"
+discovery_id = "DISC_86A13C88CFA096648AFB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "typed_point_map_rejects_invalid_config"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Invalid MQTT typed-point configuration is rejected rather than accepted into the worker path."
+limitations = ["This assertion covers the MQTT typed-point map only."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_PARTIAL_WEB_REQUEST_001"
+class_id = "partial_web_request"
+discovery_id = "DISC_A77CDB943FD0784CC65A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
+name = "incomplete_body_does_not_block_unrelated_hmi_request"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "A loopback client holds an incomplete declared POST body open while an unrelated HMI request completes successfully within its bounded timeout."
+limitations = ["The focused socket harness covers one incomplete Content-Length request and the local HTTP HMI route; broader slow-client, TLS, proxy, and malformed-transfer campaigns remain unassessed."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_PARTIAL_WEB_REQUEST_SATURATION_001"
+class_id = "partial_web_request"
+discovery_id = "DISC_7B7DA852E4D9CE86AF04"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_dispatch_hol_probe.rs"
+name = "saturated_body_lane_rejects_promptly_without_blocking_hmi_and_recovers"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "Four held request bodies exhaust the body lane; the next body request receives stable HTTP 503 server_busy, HMI remains responsive, and admission recovers after the held clients disconnect."
+limitations = ["The harness checks the fixed four-request body admission bound on loopback HTTP, not distributed denial-of-service resistance or reverse-proxy policy."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_001"
+class_id = "disk_error"
+discovery_id = "DISC_CAF0750D558B8114BEC6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "requested_stop_retain_save_failure_is_visible"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "A failing RetainStore on requested stop faults the resource and leaves a visible retain-save error."
+limitations = ["The backend returns a generic injected error and does not exercise FileRetainStore ENOSPC, EIO, flush, sync, or rename failures."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_002"
+class_id = "disk_error"
+discovery_id = "DISC_B25F48AA676D50A29BB2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "retain_save_failure_prevents_output_commit_when_due"
+association_kind = "partial"
+injection_mechanism = "test_harness"
+assertion_summary = "The test requires an injected retain-save failure due during a cycle to return an error before any physical output write."
+limitations = ["The backend injects a generic RetainStore error and does not itself exercise a FileRetainStore filesystem stage."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_FILE_MATRIX_001"
+class_id = "disk_error"
+discovery_id = "DISC_A8FA0CAF53A7D6D0134E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_pre_publish_failure_matrix_preserves_last_good_snapshot"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "FileRetainStore returns injected create-directory, create-temp, write, flush, file-sync, and rename failures while preserving the last good snapshot and cleaning the temporary file."
+limitations = ["The private filesystem seam deterministically exercises each production call boundary; it does not reproduce host-specific ENOSPC, quota, permission, or device-loss error codes."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_PARENT_SYNC_001"
+class_id = "disk_error"
+discovery_id = "DISC_55C765213824F6A01A03"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_parent_sync_failure_is_visible_after_publish"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A parent-directory sync failure after rename remains visible and the already-published retain image stays decodable without a temporary-file leak."
+limitations = ["The test checks the post-rename reporting boundary with an injected directory-sync error, not power-loss durability on a specific filesystem."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_READ_001"
+class_id = "disk_error"
+discovery_id = "DISC_402CC51B509F2C268C12"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "file_retain_store_open_and_read_failures_are_visible"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Configured retain-file open and read failures are returned as errors rather than silently converted to an empty snapshot."
+limitations = ["The test injects deterministic I/O errors at the FileRetainStore boundary and does not distinguish host-specific open/read errno values."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_REAL_PATH_001"
+class_id = "disk_error"
+discovery_id = "DISC_32E18E31451D4BF469C6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/retain_integrity.rs"
+name = "retain_store_reports_real_path_failures_without_silent_defaults"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Real directory/file shape conflicts at configured retain paths produce visible load and save errors through the host filesystem."
+limitations = ["The portable path-shape cases exercise real filesystem failures without requiring privileged mounts; disk-full, quota, permission, and device-removal campaigns remain unassessed."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_001"
+class_id = "clock_step"
+discovery_id = "DISC_1F4A6A7E004592367309"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime_cloud/projection.rs"
+name = "presence_projection_contract_does_not_stale_future_heartbeat"
+association_kind = "partial"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A presence projection with now earlier than last_seen does not mark the future heartbeat stale or partitioned."
+limitations = ["This is a pure runtime-cloud projection input, not a scheduler or system-clock step."]
+last_reviewed = "2026-07-11"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_002"
+class_id = "clock_step"
+discovery_id = "DISC_2CC9B67E44CB8284B149"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_restart.rs"
+name = "in_process_restart_preserves_monotonic_time"
+association_kind = "context_only"
+injection_mechanism = "test_harness"
+assertion_summary = "After advancing harness time by five milliseconds, in-process warm and cold restart preserve runtime current_time at five milliseconds."
+limitations = ["This exercises the reviewed restart clock-preservation decision, not an external scheduler or system-clock step, and does not establish clock-step anomaly adequacy."]
+last_reviewed = "2026-07-13"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TON_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_93D5E86E7CF67A1A5AAE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "ton_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TON advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, and performs its threshold transition."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TOF_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_DA4DF0247AD9823BF96F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tof_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TOF advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, clears Q, and retains the expired plateau."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_TP_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_FF77A462527037C6EEA8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "tp_clamps_elapsed_time_at_duration_max"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "TP advances from one nanosecond below the signed-duration maximum by two nanoseconds, clamps ET to PT, and ends the pulse."
+limitations = ["The direct state-machine step does not exercise host-clock arithmetic, restart, PT changes, or skipped calls."]
+last_reviewed = "2026-07-15"
+
+[[mappings]]
+id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001"
+class_id = "timer_duration_overflow"
+discovery_id = "DISC_33E5D40504EBC4C32030"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "simulation_time_advance_saturates_at_duration_limit"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "A simulation time delta at the signed-duration boundary saturates without panic, wraparound, or backward time."
+limitations = ["The deterministic simulation clock does not exercise an operating-system clock or host suspend path."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_QUEUE_FULL_OPCUA_001"
+class_id = "queue_full"
+discovery_id = "DISC_D074D829A8C6B93DAC92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_event_queue_rejects_saturation_and_recovers_after_drain"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The bounded OPC UA event handoff rejects an additional connection event immediately at saturation and accepts a later event after the worker drains the queue."
+limitations = ["The test exercises the in-process OPC UA client event handoff, not protocol-server backpressure or physical safe-state delivery."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_SIGNAL_UNREVIEWED_001"
+class_id = "bad_signal"
+discovery_id = "DISC_57D298DD438F5E6F5975"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "unix_signal_mapping_rejects_unreviewed_shutdown_signals"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The Unix shutdown mapper rejects SIGHUP and SIGUSR1 rather than translating either into an ordinary runtime stop request."
+limitations = ["The test binds the runtime mapping boundary; operating-system default dispositions and delivered process behavior remain outside this assertion."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_CLOCK_STEP_SCHEDULER_003"
+class_id = "clock_step"
+discovery_id = "DISC_F6508FDFBB3BD1D4F440"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "backward_clock_step_does_not_replay_or_overrun_periodic_task"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A backward manual-clock step neither reruns a periodic task nor increments its overrun count, and ordinary scheduling resumes from the preserved prior baseline."
+limitations = ["Production StdClock is monotonic; the backward step is a deterministic scheduler harness input rather than an operating-system clock fault."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_MONOTONIC_WALL_DIVERGENCE_001"
+class_id = "monotonic_wall_clock_divergence"
+discovery_id = "DISC_AC89BA6FAA7BC42ACCBC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "Elapsed civil wall time does not make a periodic task ready while the injected monotonic clock is fixed; advancing that clock makes the task ready."
+limitations = ["The test isolates scheduler readiness and does not alter the host wall clock or assess timestamp-producing subsystems."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_SUSPEND_RESUME_COALESCE_001"
+class_id = "suspend_resume"
+discovery_id = "DISC_891F1D234DBDE29429A4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "resumed_clock_jump_runs_once_and_records_missed_intervals"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "A 55-millisecond scheduler-visible pause on a 10-millisecond task executes the task once and records four missed intervals instead of replaying the backlog."
+limitations = ["The manual-clock discontinuity models the scheduler-visible resume interval; it does not exercise a platform suspend API or hardware clock source."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_BOUNDS_001"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_4BABD0A9C6328EC16A6A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "allocation_pressure_from_declared_counts_fails_before_reservation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "Impossible top-level bytecode counts are rejected as invalid sections before the decoder attempts count-sized reservation."
+limitations = ["The test binds hostile-input allocation prevention; allocator exhaustion outside the promised scan path and operating-system OOM termination remain unassessed."]
+last_reviewed = "2026-07-17"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_REVIEW_38786723"
+class_id = "panic"
+discovery_id = "DISC_92FCECA7163F38786723"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_panic_trace_cases.rs"
+name = "runtime_panic_trace_cases"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test deliberately triggers or replays a contained panic and asserts visible fault or cleanup policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_REVIEW_40F97415"
+class_id = "panic"
+discovery_id = "DISC_D4793CC01E1740F97415"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_in_shared_resource_faults_without_poison_detection"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test deliberately triggers or replays a contained panic and asserts visible fault or cleanup policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_REVIEW_9E4578A3"
+class_id = "panic"
+discovery_id = "DISC_C946B9FD799F9E4578A3"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_does_not_follow_ordinary_restart_policy"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test deliberately triggers or replays a contained panic and asserts visible fault or cleanup policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_PANIC_REVIEW_FA45370D"
+class_id = "panic"
+discovery_id = "DISC_BF01EBAA4B0DFA45370D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_guard_restores_after_runtime_error_and_contained_panic"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test deliberately triggers or replays a contained panic and asserts visible fault or cleanup policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_REVIEW_0FF9C29E"
+class_id = "timeout"
+discovery_id = "DISC_5A83D1A380180FF9C29E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_run_until_supports_success_and_bounded_timeout"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces a bounded operation timeout and asserts explicit failure or timeout classification."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_REVIEW_EB64DFF4"
+class_id = "timeout"
+discovery_id = "DISC_D0A4FCC61D908C1E0CA3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols/tests.rs"
+name = "ads_symbol_upload_timeout_returns_route_missing_response"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces a bounded operation timeout and asserts explicit failure or timeout classification."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_TIMEOUT_REVIEW_4C97001E"
+class_id = "timeout"
+discovery_id = "DISC_3FD9DCA298624C97001E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime_cloud/rollout_policy.rs"
+name = "runtime_cloud_rollout_applying_timeout_transitions_to_failed"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces a bounded operation timeout and asserts explicit failure or timeout classification."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_FFEEE9C4"
+class_id = "deadline"
+discovery_id = "DISC_4E8E4144D9AEFFEEE9C4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
+name = "vm_enforces_instruction_budget"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_F78A6E2D"
+class_id = "deadline"
+discovery_id = "DISC_D74A24E1A5D2F78A6E2D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_13.rs"
+name = "runtime_cloud_dispatch_cancels_fanout_when_query_budget_is_exhausted"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_3605DE35"
+class_id = "deadline"
+discovery_id = "DISC_769ABE73CC183605DE35"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_stack_deadline_traps_before_forward_workload_commits"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_E918297B"
+class_id = "deadline"
+discovery_id = "DISC_7E40E58CEF1BE918297B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_tier1_deadline_traps_in_compiled_block_without_commit"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_A5CEFA4B"
+class_id = "deadline"
+discovery_id = "DISC_1D15CD11714BA5CEFA4B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_03FF4321"
+class_id = "deadline"
+discovery_id = "DISC_8EF2B55E3EBA03FF4321"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/backend_parity_followup.rs"
+name = "vmpar_nested_function_call_shares_the_top_level_instruction_budget"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_F36273CB"
+class_id = "deadline"
+discovery_id = "DISC_FB2DC1C843F8F36273CB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "scheduler_arms_execution_deadline_during_cycle"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_2588D30B"
+class_id = "deadline"
+discovery_id = "DISC_34CD5052A10F2588D30B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_from_zero_timeout_is_immediately_expired"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DEADLINE_REVIEW_F9E7F4D4"
+class_id = "deadline"
+discovery_id = "DISC_4F5DDFB0E5B6F9E7F4D4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_guard_restores_previous_deadlines_after_success"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test exhausts or expires an execution or query deadline and asserts bounded rejection before unchecked continuation."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_DAB2FA44"
+class_id = "watchdog"
+discovery_id = "DISC_D8D92D6082D7DAB2FA44"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "overrun_and_fault"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_D66DF67B"
+class_id = "watchdog"
+discovery_id = "DISC_5408211286BED66DF67B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_events.rs"
+name = "runtime_event_overrun_emitted"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_08B99942"
+class_id = "watchdog"
+discovery_id = "DISC_8B901DEF0D4408B99942"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_restart_action_escalates_to_visible_fault"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_913C5C99"
+class_id = "watchdog"
+discovery_id = "DISC_4E0EFE2F6CE2913C5C99"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_watchdog_output_case.rs"
+name = "watchdog_deadline_before_output_commit_case"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_9102EFEE"
+class_id = "watchdog"
+discovery_id = "DISC_F6F3665F8B379102EFEE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "accelerated_clock_keeps_watchdog_semantics"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_WATCHDOG_REVIEW_C5ABDD0A"
+class_id = "watchdog"
+discovery_id = "DISC_22429344F278C5ABDD0A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/tasks.rs"
+name = "task_overrun_drops_missed_intervals"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test drives a watchdog or overrun boundary and asserts the resulting fault, output, event, or restart policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A"
+class_id = "slow_device"
+discovery_id = "DISC_50F0CBE7F09ADCF6125A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
+name = "hmi_websocket_slow_consumers_do_not_block_control_plane"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test delays a consumer or device response and asserts that the scan-facing control or worker path remains bounded."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_SLOW_DEVICE_REVIEW_9CFB4226"
+class_id = "slow_device"
+discovery_id = "DISC_22FFF435A5C79CFB4226"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_driver_drop_is_bounded_while_worker_waits_for_first_response"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test delays a consumer or device response and asserts that the scan-facing control or worker path remains bounded."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_AB9EB582"
+class_id = "disconnect"
+discovery_id = "DISC_0C0EB84CEED3AB9EB582"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/connectors_status.rs"
+name = "ads_status_report_projects_reconnect_stale_fault_and_failure_details"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_935418D6"
+class_id = "disconnect"
+discovery_id = "DISC_75F421CF89F3935418D6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/device_in_the_loop.rs"
+name = "mqtt_lab_broker_records_auth_tls_reconnect_and_disconnect"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_60892A74"
+class_id = "disconnect"
+discovery_id = "DISC_1F69D92EC8C260892A74"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
+name = "hmi_websocket_reconnect_churn_remains_stable"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_682836D2"
+class_id = "disconnect"
+discovery_id = "DISC_A89C5FA2356D682836D2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_reconnect_backoff_is_bounded_and_non_spinning"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_72DDC249"
+class_id = "disconnect"
+discovery_id = "DISC_FE959E7B21A272DDC249"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_08.rs"
+name = "runtime_cloud_state_marks_fresh_mesh_disconnect_as_stale_before_partitioned"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_6C2E3DC5"
+class_id = "disconnect"
+discovery_id = "DISC_ABF55C65457D6C2E3DC5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "on_error_warn_connect_failure_degrades_without_runtime_error"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_3F7971AD"
+class_id = "disconnect"
+discovery_id = "DISC_2CD8F1025F7B3F7971AD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "reconnection_test_retries_after_connect_failure"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_292EA5BC"
+class_id = "disconnect"
+discovery_id = "DISC_8A42BABA8B61292EA5BC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_reconnect_backoff_is_bounded_and_non_spinning"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISCONNECT_REVIEW_AB7C9A1D"
+class_id = "disconnect"
+discovery_id = "DISC_2A6A13834385AB7C9A1D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "fail_closed_connect_failure_is_observable"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_A536482F"
+class_id = "stale_data"
+discovery_id = "DISC_7ABC26CF210FA536482F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/connectors_status.rs"
+name = "stale_connector_state_and_stale_point_quality_are_distinct_fields"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_168A2FE0"
+class_id = "stale_data"
+discovery_id = "DISC_0CB6E85705D0168A2FE0"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_07.rs"
+name = "hmi_widget_renderers_handle_null_stale_and_good_values"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_E8BE3DB4"
+class_id = "stale_data"
+discovery_id = "DISC_5D87E3264428E8BE3DB4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "publisher_marks_old_snapshot_quality_stale"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_35AC385C"
+class_id = "stale_data"
+discovery_id = "DISC_5F738C6D18E335AC385C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_marks_stale_then_recovers_on_subscription_update"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_C006B362"
+class_id = "stale_data"
+discovery_id = "DISC_7057CE85A02EC006B362"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime_cloud/projection.rs"
+name = "projection_marks_stale_peers_and_creates_warning_timeline"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_088DF038"
+class_id = "stale_data"
+discovery_id = "DISC_F3555CD7ED8E088DF038"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/runtime_cloud/projection.rs"
+name = "presence_projection_transitions_stale_before_partitioned"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_STALE_DATA_REVIEW_6AABCC29"
+class_id = "stale_data"
+discovery_id = "DISC_391F410D2DA36AABCC29"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/web/runtime_cloud_dispatch.rs"
+name = "runtime_cloud_target_status_revalidates_stale_peer_with_live_socket"
+association_kind = "direct"
+injection_mechanism = "test_harness"
+assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_C090BECF"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_A6FCBE2677A8C090BECF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "validator_rejects_unsupported_runtime_opcodes_before_dispatch"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_5F835C5A"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_A324C9FF622A5F835C5A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_verification_cases.rs"
+name = "bytecode_validator_cases_reject_before_partial_apply"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_E22B3380"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_B4A1DBB63C27E22B3380"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs"
+name = "vm_rejects_invalid_call_native_symbol_index"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_C624B037"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_1ACB18866C2FC624B037"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs"
+name = "vm_rejects_invalid_call_native_method_missing_receiver_payload"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_C1EEFB47"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_70C232CD199EC1EEFB47"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs"
+name = "vm_validator_rejects_invalid_ref_field_string_index"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_8CDFEC91"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_06C78E4FD9548CDFEC91"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs"
+name = "vm_validator_rejects_invalid_sizeof_type_index"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_51976E8D"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_547557A88A1751976E8D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs"
+name = "vm_validator_rejects_legacy_call_even_when_target_exists"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_C334ADB8"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_E8BDC2A27F6EC334ADB8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
+name = "vm_rejects_invalid_string_const_utf8_payload"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_23536278"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_3308821824B623536278"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
+name = "vm_rejects_invalid_wstring_const_utf16_payload"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_FC4FC922"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_2017F195D5EEFC4FC922"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_invalid_ref_index_operand"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_65242C35"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_C74FB437C18E65242C35"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_local_ref_outside_pou_local_range"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_60C11C2F"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_3A6CAB92BC8F60C11C2F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_invalid_const_index_operand"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_CC5BF7BC"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_FDE1B5B9C014CC5BF7BC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_duplicate_pou_ids"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_BDA8C505"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_6D15F1D43CA3BDA8C505"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_rejects_invalid_opcode"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_7DAB1239"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_F1F0C6C285477DAB1239"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_rejects_invalid_jump_target"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_68143A94"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_66836DF45D5768143A94"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
+name = "vm_validator_rejects_unsupported_call_method_opcode"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_D7BC4E2B"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_EC610E3917E2D7BC4E2B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_multi_owner_instance_ref_contract"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_CA5C342D"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_0D216C5A37ABCA5C342D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_stack_underflow_store_ref"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_B9539D13"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_1685CC6D1F65B9539D13"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_leftover_stack_at_pou_return"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_DF53A63C"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_1B5448C8DB96DF53A63C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_bool_operands_for_arithmetic_opcode"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_DF0C8754"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_80833EFC8B17DF0C8754"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_const_type_incompatible_with_store_ref_target"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_F1486738"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_F850C3D482F1F1486738"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_invalid_parameter_direction_metadata"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_57B29BDD"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_E8D36E045CD657B29BDD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_inout_parameter_bound_to_literal_argument"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_8E289F44"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_C160AB9422688E289F44"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_legacy_call_opcode_even_when_target_exists"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_MALFORMED_BYTECODE_REVIEW_068CB733"
+class_id = "malformed_bytecode"
+discovery_id = "DISC_36947D824681068CB733"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
+name = "validator_rejects_persistent_frame_local_ref_escape"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies malformed bytecode, metadata, or instruction structure and asserts rejection before execution or partial apply."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_43D27E1F"
+class_id = "bad_config"
+discovery_id = "DISC_D6DAC722D68243D27E1F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/build_unbound_program.rs"
+name = "configuration_without_program_instance_errors_by_default"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_8EAC462B"
+class_id = "bad_config"
+discovery_id = "DISC_6F3F154A1A548EAC462B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_reports_config_error_as_json_issue"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_33175423"
+class_id = "bad_config"
+discovery_id = "DISC_2CE088F1926B33175423"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_rejects_unknown_function_config"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_EB5E79BA"
+class_id = "bad_config"
+discovery_id = "DISC_F6E17543C6E5EB5E79BA"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_01.rs"
+name = "io_config_endpoint_rejects_invalid_driver_params_shape"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_B3AAE6BE"
+class_id = "bad_config"
+discovery_id = "DISC_FB97F87B230CB3AAE6BE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_09.rs"
+name = "runtime_cloud_config_reconcile_surfaces_error_state_for_invalid_desired_payload"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_02F1F150"
+class_id = "bad_config"
+discovery_id = "DISC_22D364962DA502F1F150"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/tests/core.rs"
+name = "config_set_reports_field_level_diagnostics_for_unknown_and_type_errors"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_BAD_CONFIG_REVIEW_17824DB6"
+class_id = "bad_config"
+discovery_id = "DISC_129EF130404117824DB6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/linux_rt.rs"
+name = "realtime_config_rejects_duplicate_affinity_entries"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test supplies invalid runtime or protocol configuration and asserts structured rejection or error state."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_DISK_ERROR_REVIEW_0CA72C3E"
+class_id = "disk_error"
+discovery_id = "DISC_65D98FB688680CA72C3E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/retain/store_tests.rs"
+name = "retain_manager_retries_failed_save_without_a_new_dirty_mark"
+association_kind = "direct"
+injection_mechanism = "external_harness"
+assertion_summary = "The reviewed test forces a persistent-store save failure and asserts bounded retry without losing the pending write."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_5815D217"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_FE665C5DDCC65815D217"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "string_table_count_must_fit_section_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_01A4060E"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_6EDF6218DDBF01A4060E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "type_table_count_must_fit_offset_table_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_A409C1E1"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_4D65BEF6CD15A409C1E1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "fixed_section_entry_counts_must_fit_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_8051C670"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_CF07A66B6BF18051C670"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "nested_type_counts_must_fit_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_67A48271"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_356CDEB0445067A48271"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "nested_reference_counts_must_fit_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_B2E06B11"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_98E387D5D8C3B2E06B11"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "nested_pou_counts_must_fit_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_B5D2ECF1"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_7B56C0BED850B5D2ECF1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "nested_resource_counts_must_fit_before_allocation"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"
+
+[[mappings]]
+id = "ANOM_MAP_ALLOCATION_FAILURE_OOM_REVIEW_5BFE0DC6"
+class_id = "allocation_failure_oom"
+discovery_id = "DISC_B9ACE9B650FE5BFE0DC6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/ethercat_driver.rs"
+name = "ethercat_missing_adapter_post_allocation_failure_is_terminal_until_rebuild"
+association_kind = "direct"
+injection_mechanism = "ordinary_input"
+assertion_summary = "The reviewed test forces a pre-allocation resource-bound or allocation failure and asserts rejection or terminal rebuild policy."
+limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
+last_reviewed = "2026-07-18"

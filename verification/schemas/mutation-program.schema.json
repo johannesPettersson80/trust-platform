@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-platform.invalid/schemas/mutation-program.schema.json",
+  "title": "Focused mutation program",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "owner",
+    "proof_posture",
+    "coverage_posture",
+    "execution_posture",
+    "max_mutants_per_shard",
+    "last_reviewed",
+    "survivor_resolutions",
+    "survivor_policy",
+    "shards"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"const": "MUTATION_PROGRAM_V1"},
+    "title": {"const": "Focused mutation adequacy program"},
+    "status": {"const": "mapped"},
+    "owner": {"const": "verification"},
+    "proof_posture": {"const": "adequacy_only_no_proof"},
+    "coverage_posture": {"const": "adequacy_signal_not_safety_proof"},
+    "execution_posture": {"const": "report_only"},
+    "max_mutants_per_shard": {"const": 2},
+    "last_reviewed": {"const": "2026-07-16"},
+    "survivor_resolutions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/survivor_resolution"}
+    },
+    "survivor_policy": {"$ref": "#/$defs/survivor_policy"},
+    "shards": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/shard"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "survivor_policy": {
+      "type": "object",
+      "required": [
+        "allowed_actions",
+        "resolution_status_required",
+        "durable_resolution_ref_required"
+      ],
+      "properties": {
+        "allowed_actions": {
+          "const": ["add_test", "unreachable_defensive_rationale", "dead_code_removal"]
+        },
+        "resolution_status_required": {"const": "resolved"},
+        "durable_resolution_ref_required": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "survivor_resolution": {
+      "type": "object",
+      "required": [
+        "shard_id",
+        "mutation_id",
+        "owner",
+        "action",
+        "resolution_status",
+        "rationale",
+        "resolution_ref"
+      ],
+      "properties": {
+        "shard_id": {
+          "enum": [
+            "MUTATION_SHARD_BYTECODE_VALIDATOR_001",
+            "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            "MUTATION_SHARD_PARSER_RECOVERY_001",
+            "MUTATION_SHARD_RETAIN_RESTART_001",
+            "MUTATION_SHARD_CONNECTOR_STATUS_PROJECTION_001"
+          ]
+        },
+        "mutation_id": {"type": "string", "pattern": "^MUTANT_[A-Z0-9_]+$"},
+        "owner": {"type": "string", "minLength": 1},
+        "action": {
+          "enum": ["add_test", "unreachable_defensive_rationale", "dead_code_removal"]
+        },
+        "resolution_status": {"const": "resolved"},
+        "rationale": {"type": "string", "minLength": 1},
+        "resolution_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "shard": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "area",
+        "invariant_ids",
+        "execution_status",
+        "association_semantics",
+        "delivered_build_requirement",
+        "owner",
+        "mutations",
+        "associated_tests"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "MUTATION_SHARD_BYTECODE_VALIDATOR_001",
+            "MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001",
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            "MUTATION_SHARD_PARSER_RECOVERY_001",
+            "MUTATION_SHARD_RETAIN_RESTART_001",
+            "MUTATION_SHARD_CONNECTOR_STATUS_PROJECTION_001"
+          ]
+        },
+        "title": {"type": "string", "minLength": 1},
+        "area": {"enum": ["bytecode_vm", "runtime_safety", "compiler_iec", "protocols"]},
+        "invariant_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "execution_status": {"enum": ["measured", "planned"]},
+        "association_semantics": {"const": "association_only_not_execution_claim"},
+        "delivered_build_requirement": {
+          "enum": ["not_applicable_source_mutation", "required_before_execution"]
+        },
+        "owner": {"type": "string", "minLength": 1},
+        "result_artifact_path": {
+          "type": "string",
+          "pattern": "^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\\.json$"
+        },
+        "legacy_catalog_test_id": {"const": "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"},
+        "legacy_report_path": {
+          "const": "docs/internal/testing/evidence/plc-verification-program/2026-07-08/p1b-bytecode-validator-mutation-report.json"
+        },
+        "delivered_binary_path": {"const": "{target_dir}/debug/trust-runtime"},
+        "delivered_confirmation": {
+          "const": ["artifact_sha256", "direct_execution"]
+        },
+        "mutations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/mutation"}
+        },
+        "associated_tests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/associated_test"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "mutation": {
+      "type": "object",
+      "required": [
+        "id",
+        "source_file",
+        "source_digest",
+        "function",
+        "genre",
+        "replacement",
+        "selector_name",
+        "build_command",
+        "test_command",
+        "association_ids"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^MUTANT_[A-Z0-9_]+$"},
+        "source_file": {"type": "string", "pattern": "^crates/[^.].*\\.rs$"},
+        "source_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "function": {"type": "string", "minLength": 1},
+        "genre": {"enum": ["FnValue", "BinaryOperator"]},
+        "replacement": {"type": "string", "minLength": 1},
+        "selector_name": {"type": "string", "minLength": 1},
+        "build_command": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "test_command": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "association_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "additionalProperties": false
+    },
+    "associated_test": {
+      "type": "object",
+      "required": ["id_kind", "id", "source_kind", "path", "name", "ignore_state"],
+      "properties": {
+        "id_kind": {"enum": ["committed_case_id", "scanner_discovery_id"]},
+        "id": {"type": "string", "minLength": 1},
+        "source_kind": {
+          "enum": ["case_table", "rust_integration_test", "rust_unit_test", "conformance_case"]
+        },
+        "path": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "ignore_state": {"enum": ["not_applicable", "not_ignored"]}
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,82 @@
+schema_version = 1
+id = "EDIT_RENAME_001"
+title = "Rename refuses shadow capture"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "implemented"
+owner = "trust-ide"
+last_reviewed = "2026-07-10"
+claim = "Rename must refuse when the resulting name would capture or be captured by another visible symbol."
+proof_level = "G1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-ide/src"]
+tests = [
+  "TEST_EDITOR_RENAME_LOCAL_TRACE_001",
+  "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001",
+  "TEST_EDITOR_RENAME_CASE_INSENSITIVE_SCOPE_001",
+  "TEST_EDITOR_RENAME_CASE_ONLY_001",
+  "TEST_EDITOR_RENAME_FIELD_COLLISION_001",
+  "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001",
+  "TEST_LSP_RENAME_CONFLICT_ERROR_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_EDITOR_RENAME_LOCAL_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_EDITOR_RENAME_LOCAL_TRACE_001_LOCK_COMPARE",
+  "EVID_EDITOR_RENAME_CONFLICT_CLOSEOUT_20260714",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "DECLARING_SCOPE_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A replacement matching a different declaration in the same scope is refused using case-insensitive IEC identifier comparison."
+
+[[behavior]]
+partition = { equals = "CASE_ONLY_SAME_SYMBOL" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Changing only the spelling case of the selected symbol is valid because the candidate still resolves to the same IEC symbol."
+
+[[behavior]]
+partition = { equals = "FIELD_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A structure or union field cannot be renamed to a case-equivalent sibling field."
+
+[[behavior]]
+partition = { equals = "REFERENCE_SITE_REBIND" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The complete candidate edit is refused when any edited reference would become unresolved or bind to a different visible symbol."
+
+[[behavior]]
+partition = { equals = "INVALID_OR_RESERVED_REPLACEMENT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#rename-conflict-safety"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Rename refuses an invalid IEC identifier or reserved keyword before constructing any edit."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Focused scope, field, case-only, and reference-rebinding tests cover the written conflict contract with a current-contract lock comparison; a causal broad gate remains open."

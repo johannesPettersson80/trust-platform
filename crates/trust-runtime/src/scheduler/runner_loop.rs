@@ -41,8 +41,8 @@ fn arm_cycle_deadlines(
     wall_start: std::time::Instant,
 ) -> CycleDeadlineSnapshot {
     let snapshot = CycleDeadlineSnapshot {
-        execution_deadline: runtime.execution_deadline(),
-        output_deadline: runtime.output_commit_deadline(),
+        execution_deadline: runtime.effective_execution_deadline(),
+        output_deadline: runtime.effective_output_commit_deadline(),
     };
     if watchdog.enabled {
         let cycle_deadline = cycle_deadline_from(wall_start, watchdog.timeout);
@@ -187,7 +187,12 @@ fn run_resource_loop_core<C, F>(
         let wall_start = std::time::Instant::now();
         let watchdog = runner.runtime.watchdog_policy();
         let deadline_snapshot = arm_cycle_deadlines(&mut runner.runtime, watchdog, wall_start);
+        let pause_before_cycle = runner.runtime.debug_watchdog_pause_elapsed();
         let result = execute_protected_cycle(&mut runner, now, &mut execute_cycle);
+        let paused_during_cycle = runner
+            .runtime
+            .debug_watchdog_pause_elapsed()
+            .saturating_sub(pause_before_cycle);
         restore_cycle_deadlines(&mut runner.runtime, deadline_snapshot);
         if let Err(err) = result {
             if watchdog.enabled
@@ -235,7 +240,8 @@ fn run_resource_loop_core<C, F>(
             break;
         }
         if watchdog.enabled {
-            let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
+            let active_elapsed = wall_start.elapsed().saturating_sub(paused_during_cycle);
+            let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     let err = RuntimeError::WatchdogTimeout;
@@ -424,8 +430,14 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 }
 
 #[cfg(test)]
+#[path = "runner_loop/restart_storage_trace_cases.rs"]
+mod restart_storage_trace_cases;
+
+#[cfg(test)]
 mod runner_loop_poison_tests {
     use super::*;
+    use crate::harness::TestHarness;
+    use crate::value::Value;
 
     #[derive(Clone, Debug)]
     struct TestClock;
@@ -634,6 +646,59 @@ mod runner_loop_poison_tests {
             error.to_string().contains("VM/program"),
             "panic payload should be diagnosable, got {error}"
         );
+    }
+
+    #[test]
+    fn automatic_fault_restart_uses_warm_storage_semantics() {
+        let source = r#"
+VAR_GLOBAL RETAIN
+    retained_value : DINT := DINT#1;
+END_VAR
+VAR_GLOBAL NON_RETAIN
+    transient_value : DINT := DINT#2;
+END_VAR
+VAR_GLOBAL
+    ordinary_value : DINT := DINT#3;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+        let mut harness = TestHarness::from_source(source).expect("automatic restart fixture");
+        harness.set_input("retained_value", Value::DInt(42));
+        harness.set_input("transient_value", Value::DInt(70));
+        harness.set_input("ordinary_value", Value::DInt(80));
+
+        let mut runner = ResourceRunner::new(
+            harness.into_runtime(),
+            TestClock,
+            Duration::from_millis(1),
+        );
+        let mut limiter = AutomaticRestartLimiter::default();
+        let state = Arc::new(Mutex::new(ResourceState::Running));
+        let last_error = Arc::new(Mutex::new(None));
+
+        assert!(try_automatic_restart(
+            &mut runner,
+            &mut limiter,
+            &RuntimeError::DivisionByZero,
+            &state,
+            &last_error,
+        ));
+        assert_eq!(
+            runner.runtime().storage().get_global("retained_value"),
+            Some(&Value::DInt(42)),
+        );
+        assert_eq!(
+            runner.runtime().storage().get_global("transient_value"),
+            Some(&Value::DInt(2)),
+        );
+        assert_eq!(
+            runner.runtime().storage().get_global("ordinary_value"),
+            Some(&Value::DInt(3)),
+        );
+        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
+        assert!(recover_mutex_lock(last_error.lock()).is_none());
     }
 
     #[test]

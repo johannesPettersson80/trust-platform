@@ -171,6 +171,8 @@ pub(super) struct RegisterBlock {
     pub(super) start_pc: usize,
     pub(super) end_pc: usize,
     pub(super) entry_stack_depth: u32,
+    pub(super) bytecode_instruction_count: usize,
+    pub(super) instruction_costs: Vec<usize>,
     pub(super) instructions: Vec<RegisterInstr>,
 }
 
@@ -332,8 +334,8 @@ use self::lower::lower_pou_to_register_ir;
 #[cfg(test)]
 use self::lower::{
     collect_block_leaders, compute_block_entry_stack_depths, decode_pou,
-    fuse_register_block_instructions, instruction_reads_register, normalize_stack_for_block_exit,
-    verify_register_program,
+    fuse_register_block_instructions, fuse_register_block_instructions_with_costs,
+    instruction_reads_register, normalize_stack_for_block_exit, verify_register_program,
 };
 use self::profile::{CachedRegisterProgram, RegisterLoweringCacheEntry};
 pub(in crate::runtime::vm) use self::profile::{
@@ -699,31 +701,6 @@ fn lowered_uses_complex_local_paths(module: &VmModule, program: &RegisterProgram
         }
     }
     false
-}
-
-fn consume_loop_budget(budget: &mut usize) -> Result<(), RuntimeError> {
-    if *budget == 0 {
-        return Err(VmTrap::BudgetExceeded.into_runtime_error());
-    }
-    *budget = budget.saturating_sub(1);
-    Ok(())
-}
-
-fn consume_loop_budget_for_block_target(
-    program: &RegisterProgram,
-    source_block: &RegisterBlock,
-    target: BlockTarget,
-    budget: &mut usize,
-) -> Result<(), RuntimeError> {
-    let BlockTarget::Block(target_block_id) = target else {
-        return Ok(());
-    };
-    let target_index = block_index_from_id(program, target_block_id)?;
-    let target_block = &program.blocks[target_index];
-    if target_block.start_pc <= source_block.start_pc {
-        consume_loop_budget(budget)?;
-    }
-    Ok(())
 }
 
 fn block_index_from_id(program: &RegisterProgram, block_id: u32) -> Result<usize, RuntimeError> {

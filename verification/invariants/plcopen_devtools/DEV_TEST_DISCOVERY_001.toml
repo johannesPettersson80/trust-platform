@@ -1,0 +1,51 @@
+schema_version = 1
+id = "DEV_TEST_DISCOVERY_001"
+title = "Developer test discovery cannot silently skip supported filename case"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "implemented"
+owner = "trust-dev"
+last_reviewed = "2026-07-17"
+claim = "Developer test discovery must not silently omit a supported source because of extension case."
+proof_level = "G1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-dev/src"]
+tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_DEV_TEST_DISCOVERY_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_DEV_TEST_DISCOVERY_TRACE_001_LOCK_COMPARE",
+  "EVID_DEV_TEST_DISCOVERY_GAP_CLOSEOUT_20260717",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+
+[[behavior]]
+partition = { equals = "SUPPORTED_EXTENSION_CASES" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Recursive discovery includes every ASCII case spelling of .st and .pou under literal Unicode and glob-shaped paths."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_OR_EMPTY_DISCOVERY" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#source-discovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unsupported extensions are excluded and an empty supported-source set is reported as a visible failure rather than a successful empty run."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Extension-case and literal-path discovery rules are covered by a current-contract lock comparison; a causal broad gate remains open."

@@ -327,7 +327,7 @@ async function refreshNetworkCanvasPanelOnce(
       );
       return peers.length > 0
         ? fetchAndMergeFleetTopologiesWithConnectorStatus(peers)
-        : undefined;
+        : { topology: undefined, errors: [] };
     },
   });
   if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {

@@ -51,7 +51,12 @@ pub(super) fn handle_hmi_write(
 
     let queued = match queue_hmi_runtime_write_port(state, target, &params.value) {
         Ok(queued) => queued,
-        Err(err) => return ControlResponse::error(id, err),
+        Err(err) => {
+            return match err.code {
+                Some(code) => ControlResponse::error_with_code(id, err.message, code.as_str()),
+                None => ControlResponse::error(id, err.message),
+            };
+        }
     };
 
     ControlResponse::ok(

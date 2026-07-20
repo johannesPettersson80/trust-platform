@@ -1,0 +1,44 @@
+schema_version = 1
+id = "RT_SAFE_RETAIN_001"
+title = "Retain persistence failures are visible and fail closed"
+area = "runtime_safety"
+risk = "data_loss"
+status = "implemented"
+owner = "trust-runtime"
+last_reviewed = "2026-07-14"
+claim = "Retain load and save failures are visible, and a loaded snapshot with any incompatible entry changes no retained global."
+proof_level = "G2"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
+tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001_RED",
+  "EVID_TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001_GREEN",
+  "EVID_RUNTIME_RETAIN_FAILURE_GAP_CLOSEOUT_20260714",
+  "EVID_BROAD_REMOTE_PR_20260714_9913AD73A11F",
+]
+spec_gap_refs = []
+missing = ["retain_failure_matrix_depth"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001"
+
+[[behavior]]
+partition = { equals = "RETAIN_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The runtime validates every retained entry before committing any value, so a later incompatible entry rejects the snapshot without exposing an earlier compatible entry."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Producer-authentic red and green proof covers atomic rejection when a later retained value fails declared-type migration; broader persistence-fault depth remains explicit invariant debt."

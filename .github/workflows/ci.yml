@@ -538,6 +538,8 @@ jobs:
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           wasm-pack --version
       - run: npm ci
+      - name: Audit VS Code dependency lockfile
+        run: npm audit --audit-level=low
       - run: npm run lint
       - run: npm run compile
       - name: Build VS Code integration test binaries
@@ -680,6 +682,8 @@ jobs:
           fi
           cargo deny --version
           cargo audit --version
+      - name: Validate owned dependency exception lifetimes
+        run: python3 scripts/check_dependency_exceptions.py
       - name: Run cargo-deny
         run: cargo deny check advisories licenses bans sources
       - name: Run cargo-audit with tracked advisory exceptions

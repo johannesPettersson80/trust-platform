@@ -355,3 +355,158 @@ fn dispatch_io_write_accepts_configured_real_and_time_values() {
         RuntimeValue::String("Running".into())
     );
 }
+
+#[test]
+fn dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects() {
+    for command in ["stIoWrite", "stIoForce"] {
+        for value in ["NaN", "inf", "-inf", "1e100"] {
+            let mut runtime = Runtime::new();
+            let address = IoAddress::parse("%ID0").unwrap();
+            runtime
+                .io_mut()
+                .bind_typed("Speed", address.clone(), trust_hir::TypeId::REAL);
+            runtime
+                .io_mut()
+                .write(&address, RuntimeValue::DWord(1.5f32.to_bits()))
+                .unwrap();
+            let session = DebugSession::new(runtime);
+            let mut adapter = DebugAdapter::new(session);
+
+            let request = Request {
+                seq: 1,
+                message_type: MessageType::Request,
+                command: command.to_string(),
+                arguments: Some(
+                    serde_json::to_value(IoWriteArguments {
+                        address: "%ID0".to_string(),
+                        value: value.to_string(),
+                    })
+                    .unwrap(),
+                ),
+            };
+            let outcome = adapter.dispatch_request(request);
+            let response: Response<serde_json::Value> =
+                serde_json::from_value(outcome.responses[0].clone()).unwrap();
+
+            assert!(!response.success, "{command} accepted REAL value {value}");
+            assert!(
+                response
+                    .message
+                    .as_deref()
+                    .is_some_and(|message| message.contains("finite")),
+                "unexpected rejection for {command} REAL value {value}: {response:?}"
+            );
+            assert_eq!(
+                adapter
+                    .session()
+                    .runtime_handle()
+                    .lock()
+                    .unwrap()
+                    .io()
+                    .read(&address)
+                    .unwrap(),
+                RuntimeValue::DWord(1.5f32.to_bits()),
+                "{command} changed the process image for rejected REAL value {value}"
+            );
+            assert!(
+                adapter.forced_io_addresses.lock().unwrap().is_empty(),
+                "{command} changed force state for rejected REAL value {value}"
+            );
+        }
+    }
+}
+
+#[test]
+fn dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values() {
+    for command in ["stIoWrite", "stIoForce"] {
+        for value in [
+            "NaN",
+            "inf",
+            "-inf",
+            "16#7FF0000000000000",
+            "16#7FF8000000000000",
+            "16#FFF0000000000000",
+        ] {
+            let mut runtime = Runtime::new();
+            let address = IoAddress::parse("%IL0").unwrap();
+            runtime
+                .io_mut()
+                .bind_typed("Precise", address.clone(), trust_hir::TypeId::LREAL);
+            runtime
+                .io_mut()
+                .write(&address, RuntimeValue::LWord(1.5f64.to_bits()))
+                .unwrap();
+            let session = DebugSession::new(runtime);
+            let mut adapter = DebugAdapter::new(session);
+
+            let request = Request {
+                seq: 1,
+                message_type: MessageType::Request,
+                command: command.to_string(),
+                arguments: Some(
+                    serde_json::to_value(IoWriteArguments {
+                        address: "%IL0".to_string(),
+                        value: value.to_string(),
+                    })
+                    .unwrap(),
+                ),
+            };
+            let outcome = adapter.dispatch_request(request);
+            let response: Response<serde_json::Value> =
+                serde_json::from_value(outcome.responses[0].clone()).unwrap();
+
+            assert!(
+                !response.success,
+                "{command} accepted non-finite LREAL encoding {value}"
+            );
+            assert_eq!(
+                adapter
+                    .session()
+                    .runtime_handle()
+                    .lock()
+                    .unwrap()
+                    .io()
+                    .read(&address)
+                    .unwrap(),
+                RuntimeValue::LWord(1.5f64.to_bits()),
+                "{command} changed the process image for rejected LREAL value {value}"
+            );
+            assert!(adapter.forced_io_addresses.lock().unwrap().is_empty());
+        }
+
+        let mut runtime = Runtime::new();
+        let address = IoAddress::parse("%IL0").unwrap();
+        runtime
+            .io_mut()
+            .bind_typed("Precise", address.clone(), trust_hir::TypeId::LREAL);
+        let session = DebugSession::new(runtime);
+        let mut adapter = DebugAdapter::new(session);
+        let request = Request {
+            seq: 2,
+            message_type: MessageType::Request,
+            command: command.to_string(),
+            arguments: Some(
+                serde_json::to_value(IoWriteArguments {
+                    address: "%IL0".to_string(),
+                    value: "1.5".to_string(),
+                })
+                .unwrap(),
+            ),
+        };
+        let outcome = adapter.dispatch_request(request);
+        let response: Response<serde_json::Value> =
+            serde_json::from_value(outcome.responses[0].clone()).unwrap();
+        assert!(response.success, "{command} rejected finite LREAL 1.5");
+        assert_eq!(
+            adapter
+                .session()
+                .runtime_handle()
+                .lock()
+                .unwrap()
+                .io()
+                .read(&address)
+                .unwrap(),
+            RuntimeValue::LWord(1.5f64.to_bits())
+        );
+    }
+}

@@ -1,0 +1,222 @@
+schema_version = 1
+id = "IEC_STRING_001"
+title = "STRING bounds remain enforced across binding boundaries"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-hir"
+last_reviewed = "2026-07-15"
+claim = "STRING length bounds must not be silently lost across assignment, call, return, or function-block binding."
+proof_level = "G1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = [
+  "TEST_IEC_STRING_BINDING_TRACE_001",
+  "TEST_IEC_STRING_INOUT_DIAGNOSTIC_001",
+  "TEST_IEC_STRING_INOUT_ALIAS_001",
+  "TEST_IEC_STRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_FUNCTION_OUTPUT_COPYBACK_001",
+  "TEST_IEC_STRING_LOCAL_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_LOCAL_ALIAS_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_WSTRING_FB_OUTPUT_COPYBACK_001",
+  "TEST_IEC_WSTRING_FB_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001",
+  "TEST_IEC_STRING_UNICODE_ASSIGNMENT_001",
+  "TEST_IEC_STRING_FUNCTION_RECEIVER_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_RESULT_BOUND_001",
+  "TEST_IEC_STRING_FUNCTION_INPUT_INOUT_001",
+  "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001",
+  "TEST_IEC_STRING_NESTED_FIELD_COPYBACK_001",
+  "TEST_IEC_STRING_FB_INPUT_INOUT_001",
+  "TEST_IEC_STRING_IMPORTED_CAPACITY_001",
+  "TEST_IEC_STRING_IMPORTED_MISMATCH_001",
+  "TEST_CONFORMANCE_STRING_SLICE_001",
+]
+gates = ["pr"]
+evidence_refs = [
+  "EVID_TEST_IEC_STRING_BINDING_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_IEC_STRING_BINDING_TRACE_001_LOCK_COMPARE",
+  "EVID_IEC_STRING_BINDING_BOUNDS_CLOSEOUT_20260715",
+]
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_DECISIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "HIR_INOUT_EQUAL_ALIAS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Equal-capacity STRING aliases are valid VAR_IN_OUT bindings."
+
+[[behavior]]
+partition = { equals = "HIR_INOUT_MISMATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "VAR_IN_OUT requires the same resolved family and capacity, and a rejected binding cannot mutate caller state."
+
+[[behavior]]
+partition = { equals = "STRING_WSTRING_CROSS_FAMILY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#implicit-conversions"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "STRING and WSTRING are separate implicit-assignment families; crossing the family requires an explicit conversion."
+
+[[behavior]]
+partition = { equals = "FB_OUTPUT_COPYBACK_STRING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function-block STRING output copy-back applies the receiving capacity."
+
+[[behavior]]
+partition = { equals = "FUNCTION_OUTPUT_COPYBACK_STRING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function STRING output copy-back applies the receiving capacity."
+
+[[behavior]]
+partition = { equals = "LOCAL_OUTPUT_COPYBACK_STRING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Nested function output copy-back preserves a local STRING capacity."
+
+[[behavior]]
+partition = { equals = "LOCAL_ALIAS_COPYBACK_WSTRING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Nested function output copy-back preserves an aliased WSTRING capacity."
+
+[[behavior]]
+partition = { equals = "FB_INOUT_MISMATCH_STRING" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Function-block STRING VAR_IN_OUT rejects mismatched capacity."
+
+[[behavior]]
+partition = { equals = "FB_OUTPUT_COPYBACK_WSTRING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function-block WSTRING output copy-back applies the receiving capacity."
+
+[[behavior]]
+partition = { equals = "FB_INOUT_MISMATCH_WSTRING" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Function-block WSTRING VAR_IN_OUT rejects mismatched capacity."
+
+[[behavior]]
+partition = { equals = "UNICODE_LITERAL_BOUND" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Bounded STRING literal capacity is measured in Unicode scalar values."
+
+[[behavior]]
+partition = { equals = "UNICODE_ASSIGNMENT_BOUND" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Bounded assignment truncates only at a Unicode scalar boundary."
+
+[[behavior]]
+partition = { equals = "FUNCTION_RECEIVER_BOUND" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Assignment of a bounded function result applies the receiver capacity."
+
+[[behavior]]
+partition = { equals = "FUNCTION_RESULT_BOUND" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A function result retains its declared STRING capacity."
+
+[[behavior]]
+partition = { equals = "FUNCTION_INPUT_EQUAL_INOUT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function input and equal-width VAR_IN_OUT preserve bounded STRING values."
+
+[[behavior]]
+partition = { equals = "FUNCTION_INOUT_MISMATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Function VAR_IN_OUT rejects mismatched STRING capacity."
+
+[[behavior]]
+partition = { equals = "NESTED_FIELD_COPYBACK" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Output copy-back applies the capacity of a nested STRING field."
+
+[[behavior]]
+partition = { equals = "FB_INPUT_EQUAL_INOUT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Function-block input and equal-width VAR_IN_OUT preserve bounded STRING values."
+
+[[behavior]]
+partition = { equals = "IMPORTED_CAPACITY_EQUAL" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Imported project-constant-derived capacities resolve identically for equal VAR_IN_OUT bindings."
+
+[[behavior]]
+partition = { equals = "IMPORTED_CAPACITY_MISMATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#assignment-and-parameter-binding-bounds"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Imported project-constant-derived capacities reject a genuine VAR_IN_OUT mismatch."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "The committed current-contract proof pair covers capacity, Unicode, copy-back, and VAR_IN_OUT boundaries; a causal broad gate remains open."

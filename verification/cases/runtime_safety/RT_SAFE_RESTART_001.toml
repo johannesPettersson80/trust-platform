@@ -1,0 +1,38 @@
+schema_version = 1
+id = "CASES_RT_SAFE_RESTART_001"
+title = "Restart-label storage state-machine traces"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+invariant = "RT_SAFE_RESTART_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:c9a78cc3540f2a6840168b1d576cdc14802cd190f7a12c8ec94c88996b27e1e3"
+source_digest = "sha256:58eabaa185e7e082e04fe9d66565e548b3afcc72a67a87fe9316912bf89c87c7"
+last_reviewed = "2026-07-17"
+
+[[case]]
+id = "RT_SAFE_RESTART_001_COLD_STORAGE"
+family = "persistence_or_recovery"
+input = { scenario = "COLD_RESTART_STORAGE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { mode = "cold", non_retain = 70, ordinary = 80, retain = 42 }, expected = { last_error = "none", non_retain = 2, ordinary = 3, resource_state = "unchanged", retain = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656" },
+]
+
+[[case]]
+id = "RT_SAFE_RESTART_001_WARM_STORAGE"
+family = "persistence_or_recovery"
+input = { scenario = "WARM_RESTART_STORAGE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { mode = "warm", non_retain = 70, ordinary = 80, retain = 42 }, expected = { last_error = "none", non_retain = 2, ordinary = 3, resource_state = "unchanged", retain = 42 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656" },
+]
+
+[[case]]
+id = "RT_SAFE_RESTART_001_AUTOMATIC_FAULT_STORAGE"
+family = "persistence_or_recovery"
+input = { scenario = "AUTOMATIC_FAULT_RESTART_STORAGE" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling", delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { mode = "automatic_fault", non_retain = 70, ordinary = 80, retain = 42 }, expected = { last_error = "none", non_retain = 2, ordinary = 3, resource_state = "running", retain = 42 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling" },
+]
