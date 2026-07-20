@@ -34,13 +34,10 @@ jobs:
       - name: Validate owned dependency exception lifetimes
         run: python3 scripts/check_dependency_exceptions.py
 
-      - name: Validate tag and CI evidence
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate release tag
         run: |
           python3 scripts/check_release_tag_preflight.py \
-            --tag "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}"
+            --tag "${{ github.ref_name }}"
 
   runtime-vm-validation:
     name: Runtime VM Validation
@@ -72,6 +69,30 @@ jobs:
           TRUST_VM_DETERMINISM_ITERATIONS=3 \
           TRUST_VM_DETERMINISM_TEST_THREADS=1 \
           ./scripts/runtime_vm_determinism_reliability_gate.sh
+
+      - name: Run release conformance suite
+        run: |
+          mkdir -p conformance-artifacts
+          cargo run -p trust-runtime --bin trust-runtime -- \
+            conformance \
+            --suite-root conformance \
+            --output conformance-artifacts/conformance-pass-1.json
+
+      - name: Validate and render conformance result
+        run: |
+          python3 scripts/validate_conformance_summary_schema.py \
+            --schema conformance/schemas/summary-v1.schema.json \
+            --schema conformance/schemas/summary-v2.schema.json \
+            --summary conformance-artifacts/conformance-pass-1.json
+          python3 scripts/render_conformance_summary.py \
+            --input conformance-artifacts/conformance-pass-1.json \
+            --output conformance-artifacts/conformance-pass-1.md
+
+      - name: Upload release conformance result
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-conformance
+          path: conformance-artifacts/
 
       - name: Upload runtime VM validation artifacts
         if: ${{ always() }}
@@ -290,7 +311,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [build, runtime-vm-validation]
+    needs: [release-preflight, build, runtime-vm-validation]
     runs-on: ubuntu-latest
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -318,25 +339,11 @@ jobs:
           pattern: trust-lsp-*
           merge-multiple: true
 
-      - name: Download successful CI conformance artifact
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          ci_run_id="$(gh run list \
-            --workflow ci.yml \
-            --commit "${GITHUB_SHA}" \
-            --status success \
-            --json databaseId \
-            --jq '.[0].databaseId')"
-          if [ -z "${ci_run_id}" ] || [ "${ci_run_id}" = "null" ]; then
-            echo "No successful CI run found for ${GITHUB_SHA}"
-            exit 1
-          fi
-          gh run download "${ci_run_id}" \
-            --name conformance-suite \
-            --dir conformance-artifacts
+      - name: Download release conformance artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-conformance
+          path: conformance-artifacts
 
       - name: Generate result-derived conformance status
         shell: bash

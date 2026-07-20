@@ -4,10 +4,17 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
-import check_version_release_evidence as guard
+try:
+    from scripts import check_release_tag_preflight as tag_preflight
+    from scripts import check_version_release_evidence as guard
+except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    import check_release_tag_preflight as tag_preflight  # type: ignore[no-redef]
+    import check_version_release_evidence as guard  # type: ignore[no-redef]
 
 
 REQUIRED_ARGS = [
@@ -35,24 +42,36 @@ class VersionReleaseEvidenceParserTests(unittest.TestCase):
 
         self.assertEqual(args.run_completion_timeout_seconds, 7200)
 
-    def test_ci_job_budget_exceeds_guard_wait(self) -> None:
-        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text(
-            encoding="utf-8"
-        )
-        job = re.search(
-            r"(?ms)^  version-release-guard:\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
-            workflow,
-        )
+    def test_release_workflow_does_not_wait_on_ci(self) -> None:
+        repo = Path(__file__).resolve().parents[1]
+        release_workflow = (repo / ".github/workflows/release.yml").read_text(encoding="utf-8")
 
-        self.assertIsNotNone(job)
-        timeout = re.search(r"(?m)^    timeout-minutes: (?P<minutes>\d+)$", job["body"])
-        self.assertIsNotNone(timeout)
-        self.assertGreater(
-            int(timeout["minutes"]) * 60,
-            guard.DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS
-            + 2 * guard.DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS
-            + 5 * 60,
-        )
+        self.assertNotIn("ci_run_id", release_workflow)
+        self.assertNotIn("gh run download", release_workflow)
+        self.assertNotRegex(release_workflow, r"(?m)^  release-conformance:$")
+        self.assertIn("name: Runtime VM Validation", release_workflow)
+        self.assertIn("name: release-conformance", release_workflow)
+
+    def test_release_preflight_has_no_ci_api_contract(self) -> None:
+        source = Path(tag_preflight.__file__).read_text(encoding="utf-8")
+
+        self.assertNotIn("ci_green_for_sha", source)
+        self.assertNotIn("GITHUB_TOKEN", source)
+        self.assertNotIn("github_api_get", source)
+
+    def test_release_tag_must_be_on_main(self) -> None:
+        with mock.patch.object(
+            tag_preflight.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, "", ""),
+        ):
+            self.assertTrue(tag_preflight.tag_is_on_main("a" * 40))
+        with mock.patch.object(
+            tag_preflight.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 1, "", ""),
+        ):
+            self.assertFalse(tag_preflight.tag_is_on_main("a" * 40))
 
 
 if __name__ == "__main__":
