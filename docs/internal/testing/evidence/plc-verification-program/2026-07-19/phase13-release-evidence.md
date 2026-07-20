@@ -1,11 +1,11 @@
 # Phase 13 Release Evidence Audit
 
 Generator: `phase13-release-evidence-audit v1`
-Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
+Source revision: `ea78013921d1731b5d808c76adc4621edf396eff`
 Branch label: `plc-verification-program`
-Generated: `2026-07-20T02:55:00+02:00`
+Generated: `2026-07-20T08:40:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `748dca6d170bb159093ce0a4b9f5b49574284c180b72d520459c5955bbf84062`
+Generated JSON SHA-256: `3a1f50a408c7c69bf9f392f30e4f5af309e88c5cf357ba82eafa579eac0d6d47`
 Input SHA-256: `sha256:80a68a1ebfdbbdbe4b496b81e86e092c92c5d91993ad850853077ca5dc7ab036`
 
 ## Candidate

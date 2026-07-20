@@ -1,10 +1,10 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
-Generated: `2026-07-20T02:55:00+02:00`
+Source revision: `ea78013921d1731b5d808c76adc4621edf396eff`
+Generated: `2026-07-20T08:40:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `ed2250f16f6d2517fd0a3b342ac4e23c24a1e0d97c9f81b1285fcd40f731f0ba`
+Generated JSON SHA-256: `1f8eb123bc62d39afeac6057d6da1575337e4df8dbdda597c1cfdd485d563664`
 Input SHA-256: `sha256:67ef7450ee94d28aaf56873fbac99db75c3809420c4b3cbaa68f6a22b42c5a98`
 
 Size is a review signal, not a refactor decision.

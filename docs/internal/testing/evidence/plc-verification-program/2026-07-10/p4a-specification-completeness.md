@@ -1,10 +1,10 @@
 # Specification Completeness Report
 
 Generator: `spec-completeness v1`
-Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
-Generated: `2026-07-20T02:55:00+02:00`
+Source revision: `ea78013921d1731b5d808c76adc4621edf396eff`
+Generated: `2026-07-20T08:40:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `f464c960e04e8d933e8167b43995a6c1c8fb03c0f4851090ef60ed97299b8a9b`
+Generated JSON SHA-256: `57a60ff5c55c7bb75d0987e192b1219ecf7651d0355fa1d97ed65d0fbe931fcf`
 Input SHA-256: `sha256:397079ea0f8f9d669a320456a99884dcb05cc624c2a5fcd09c0b6283974b411b`
 
 `complete` means the committed metadata was exhaustively analyzed under the

@@ -1,7 +1,7 @@
 # PLC Integration Report Rebind
 
-- Source commit: `148d8d2787153a948700ab4249cdf383f092c8cc`
-- Timestamp: `2026-07-20T02:55:00+02:00`
+- Source commit: `ea78013921d1731b5d808c76adc4621edf396eff`
+- Timestamp: `2026-07-20T08:40:00+02:00`
 - Platform: `trust-builder-linux-x86_64`
 
 All 18 report pairs were generated and validated from pristine detached
@@ -10,24 +10,24 @@ Only each command's declared JSON and Markdown outputs were collected.
 
 | Report | JSON SHA-256 | Markdown SHA-256 |
 | --- | --- | --- |
-| Test-class completeness | `4323dd4dec2e4094be951e5819f7a5573eb7c27851638ace803888a07ee8657f` | `01303c61fd6a4036e6ca36a46640c09ce0d7fcc1226f743a14368bd26087e9b6` |
-| Coverage-matrix gaps | `76e8ac03807d63aef82f0e2809ff7ea3b1f94c181729288d61153a61d8801df1` | `ed39df609e628bb292bfd39eed86c174b0d43a52a9354a721a10566f58d15320` |
-| Malformed-input coverage | `3564485397e769aa5dc7739f815ff95f7150fc61754170263a05a0ae8dcf4f12` | `d833ffdb91117b9f1a37def2612710ef14381b55cfcb882c5e8d59f4c9ff0962` |
-| Unmapped-test debt | `693fc8cbe69ae502908111f686be23aca96424a4e0ea17bc09e50df31eb98c34` | `6a373469ca755df3d8dc1f4551e42d48fcc0bdcc190f2bfb98d795bc3b448d42` |
-| Test-refactor assessment | `ed2250f16f6d2517fd0a3b342ac4e23c24a1e0d97c9f81b1285fcd40f731f0ba` | `0cce71ee80e74b11d50343ef7c759ca6008de8fead649dce733d7f25cb16a1e2` |
-| Ignored-test inventory | `c3f1fb279db81ea1d03d1260466def3e9609581340ac2d6c8d7abce4c9a0d774` | `3a08c7a8ef5033684362b0be75e0536c68d5be5f8897629c5404fe93931318a9` |
-| Phase 5 suite audit | `732b9ac954ca2073fceca0c11d8fd8b9f8dbad4109154a91e7d75a5bcb8c3b07` | `7bca0aebf99223b721f7955b63b6f06174b4295c246155c8f865728ea375acf7` |
-| Invariant-seed audit | `d5201a8b962f5caeb620759a3660f4277b8eb6d50d115415932cb5571a21f0d8` | `313ff47a8a6dc433091beed944b69ffe8356acd6fb4abee6f176be4cea2e9fea` |
-| Specification completeness | `f464c960e04e8d933e8167b43995a6c1c8fb03c0f4851090ef60ed97299b8a9b` | `9d191a6c5193b35d4bc252b5dc31cd17c536ddc07e4b7270d0f9c9669ab3a140` |
-| Requirement/oracle audit | `8df2eb73d1b21ff321f9e68cd34fc4283be15f70fe8dad046d0ecb82bfef97f0` | `b3955af5e6904d37c5314711300f6a2fb3e1f648a29e150818cfe8c1e342d9db` |
-| Conformance alignment | `d05c242a3281bfa0a5df041e7b7de0028ee2bd13878893ab2d6b56c2f49a4d75` | `8442f848bb3605c36cf43bd51ab4a463d51e0c734636d622a1fff6e43b482e24` |
-| Runtime-anomaly audit | `5e2b7f6000aa75d4106d503cb357aeee4d9936722ce233b950aeb8eacdc40560` | `cf891e56dd51ecfd32104bceff0b1f8826a2091f45916419606ad87114848370` |
-| Fuzz-program audit | `8c11e70568ff86a76d4087c6cbe9d89fd9a15eb89cb183af11d51bc453582f1e` | `756d3763abab4f44726d6396c685f9849b77fbc41cb8bf1f14bd2b41ab1a3657` |
-| Mutation program | `2fbb0885d3b7edb1aed63b89087fa4afbc444470e0005320e478770776933c85` | `e9dced155bef7796269286e2afd3281470415702297bc25f384ac72681fe93f1` |
-| Specification-source audit | `a5f0d98b7b30c444f6b75f9f3ff5bfc4de653c820dcffeee6b994c970c8d60cc` | `bfe11cbffe339d3c76a56eb78db0b641d3741e2d090bacdc1aa9c3845a1d6b56` |
-| Phase 12 workflow/UI audit | `43f24e8cfa03b6ccf04711ce1cc99cbcc63adc6d57b78b73c29b68cd39eb634b` | `ee48cc6ce774325c855c61017963f230bfc4f5c80edb73dc7f620851a9618611` |
-| Phase 13 release-evidence audit | `748dca6d170bb159093ce0a4b9f5b49574284c180b72d520459c5955bbf84062` | `a821cd559024869f58cd13aa95ed8c6a5b12e6f9c14f080f752ecdabec1f44ad` |
-| Phase 11 hardware-lab program | `c417c1c6cab052c1114c8211e806510b0b5345997c49f2653dd2d67c28164916` | `6417e16a6c6b5365e4adefbb21513a6fb283227fcc90e04682bd625529ad2c24` |
+| Test-class completeness | `1451d56f0e12892890bfd3e17080069ab332cfdf461d922e12a3e60349aec676` | `9643281f5c2485bb76a24634387449ec7f650ea87b37dabdfe5438d57729a269` |
+| Coverage-matrix gaps | `9a535ae010f4d15d571b8df1f9816ad56c1a64ce5b422c638d2a9149a9197003` | `fc3e2c8efef54225457baea851e6094ed7ead200dee8e8bd09e8ae80aaea4b21` |
+| Malformed-input coverage | `d6fba97454d64a7677d47ee1a59fc770710140adf947515f72bee5420c135135` | `fd804f43eae5bc8c629d5f80fd17f160b965bbabccddf01a54e870f103b58988` |
+| Unmapped-test debt | `0b6ecc28b4bcfcbec41f3fe7124f09259385a536b97e95bc2ef624293fa83e01` | `de9f688668cdcdc9c8e73437074c0567b7c4129725c14bed8bd64a0a67314877` |
+| Test-refactor assessment | `1f8eb123bc62d39afeac6057d6da1575337e4df8dbdda597c1cfdd485d563664` | `f431d4e19a0c7b0ee89cf1b3800dfc872b981b2c715f443bc2a0364f744d173e` |
+| Ignored-test inventory | `1c2ad8652afbe56103742faf20929b662cea992ee5027345109f34f4b45120a5` | `c3d931eeee8184203d913a0f89b3d93586c6ddbb1b17ab1646ff9a2e025a83c6` |
+| Phase 5 suite audit | `b64a10c7673c83ad6f603b5168c3039b29802ad8b392ceda3c9d36a298f9cea3` | `75e5c28320f4aa4ca39fc0cb2db5ec8818c31b90e6a03469ddd094acaa055e49` |
+| Invariant-seed audit | `4c254ed0a0c18c6960ba8b462f71dc8eb216988409689188596d8a6f6d197196` | `c6ce472edfea2cf899e3892dff3b24732c30fe3e50487b6b08dd731a71c0df43` |
+| Specification completeness | `57a60ff5c55c7bb75d0987e192b1219ecf7651d0355fa1d97ed65d0fbe931fcf` | `e90e2cc4240b947da481cce243c66ca244dd1d1f6fdf3bfff495cee3355976a1` |
+| Requirement/oracle audit | `129eeea840f43a56b94838b615c9911b0b366f8da70ac71e95d00f2d49bbde08` | `903eca859ef1d3eb677e3104df81b6cd58c2e86a943a3f53cba94b2386fcd8ab` |
+| Conformance alignment | `6a9a28b36b7b9f2b2c7050f686062ee5fb7abe90a82d5f758374bba020e46eeb` | `dbee5dda19e034526f2befca03abb009db6b7b5ef9c988adade91d7e5fcb688a` |
+| Runtime-anomaly audit | `e482cf78c299cd81f65f897b22b3267dcb60e75771ee8636b6935a48a33b3aee` | `fee2d31d73b4f70c821c96c841bb4dd0bd320793b1726ef860f029a088f213ee` |
+| Fuzz-program audit | `872cc465e5a856b0a5732aa53368c41f1b486b5f75e0a4af8408d340ccc9c6c8` | `fbf6f461738e74679011e62bc9c1e24db33bb0239332df9563781bae4f7d639c` |
+| Mutation program | `0603119aaaa380188a32ba7721fe69ac8e39542832a06e060f14dc7e6fb0baef` | `8ce9b48fa778ca743e17280eeba039e1ed401e13fdaf118f2ca5471e2246afb8` |
+| Specification-source audit | `d9c53456ccb24bae98514fb5e1d4e8f90872b9361c83b11a605439039e43e2f9` | `4832b5262c4f1c6bba7dc3556ac7505a19042667edaf030c1cc1460026447b0e` |
+| Phase 12 workflow/UI audit | `5164e373ecd7000f982dcf2b7809cfcae2933b80aafe5081616b34a84a5598b3` | `573cf146d7e8ca0a3b82ed914b8da5f0b99e07a99d017489fe98adc31d96ec5e` |
+| Phase 13 release-evidence audit | `3a1f50a408c7c69bf9f392f30e4f5af309e88c5cf357ba82eafa579eac0d6d47` | `13da6cc980dc7da534a8dcd7ad320f9fc8c0fb74a151f29ea9e28c1789d2e432` |
+| Phase 11 hardware-lab program | `7bdb9cd2e91740552fb3157fc9fa9ae2edd542f4adbe83cbc9c1f4217198a070` | `35f426e7bf5252815c039a1466c47c28bdb36fc7ecc33d27af7c192606932997` |
 
 The rebind changes no product behavior, suite authorization, CI wiring, proof
 level, or board state. It records the refreshed integration census and report

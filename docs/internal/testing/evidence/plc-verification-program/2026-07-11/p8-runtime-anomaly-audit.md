@@ -1,10 +1,10 @@
 # Phase 8 Runtime Anomaly Audit
 
 Generator: `runtime-anomaly-audit v3`
-Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
-Generated: `2026-07-20T02:55:00+02:00`
+Source revision: `ea78013921d1731b5d808c76adc4621edf396eff`
+Generated: `2026-07-20T08:40:00+02:00`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `5e2b7f6000aa75d4106d503cb357aeee4d9936722ce233b950aeb8eacdc40560`
+Generated JSON SHA-256: `e482cf78c299cd81f65f897b22b3267dcb60e75771ee8636b6935a48a33b3aee`
 Input SHA-256: `sha256:7d90b5463c0f13a5314583fb9894c10bc35ad8a563f38b8793459f3e5d91b02b`
 
 This is a report-only audit of the reviewed runtime-anomaly taxonomy,
