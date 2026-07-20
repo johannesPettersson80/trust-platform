@@ -1,11 +1,11 @@
 # Existing-Test Refactor Assessment
 
 Generator: `test-refactor-assessment v1`
-Source revision: `93e644975a9e29063da4461b95871f41774fde59`
-Generated: `2026-07-19T22:50:00+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `fbd67cdb624cdc9f3ef97ceef64896255914156245a9a15ad0c936f72e9bcd95`
-Input SHA-256: `sha256:a89c995b3963ecb9eb290cec901aa0da80983abb4f539360c9aabd6797e441b9`
+Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
+Generated: `2026-07-20T02:55:00+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `ed2250f16f6d2517fd0a3b342ac4e23c24a1e0d97c9f81b1285fcd40f731f0ba`
+Input SHA-256: `sha256:67ef7450ee94d28aaf56873fbac99db75c3809420c4b3cbaa68f6a22b42c5a98`
 
 Size is a review signal, not a refactor decision.
 Mechanical similarity is candidate evidence only; it never authorizes
@@ -74,7 +74,7 @@ a move, split, rename, fixture merge, or behavior change.
 | `crates/trust-runtime/tests/retain_integrity.rs` | 539 | 13 | 3 | `reviewed_mapping_diversity` |
 | `crates/trust-runtime/tests/runtime_safety_fail_closed.rs` | 862 | 18 | 6 | `reviewed_mapping_diversity` |
 | `crates/trust-syntax/tests/parser_error_recovery.rs` | 218 | 12 | 6 | `reviewed_mapping_diversity` |
-| `crates/verification-cases/tests/release_evidence_trace_cases.rs` | 199 | 11 | 11 | `reviewed_mapping_diversity` |
+| `crates/verification-cases/tests/release_evidence_trace_cases.rs` | 207 | 11 | 11 | `reviewed_mapping_diversity` |
 | `editors/vscode/src/test/suite/hmi.integration.test.ts` | 1445 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/ladder-engine.test.ts` | 1093 | 14 | 0 | `large_file` |
 | `editors/vscode/src/test/suite/network-canvas.test.ts` | 2128 | 57 | 1 | `large_file` |

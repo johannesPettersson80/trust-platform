@@ -1,11 +1,11 @@
 # Phase 6 Requirement and Oracle Audit
 
 Generator: `requirement-oracle-audit v2`
-Source revision: `93e644975a9e29063da4461b95871f41774fde59`
-Generated: `2026-07-19T22:50:00+02:00`
-Platform: `linux-aarch64`
-Generated JSON SHA-256: `b576d0d6486ef20861460408147ef729a760583cd29b4d3b7e3314b14eda2e23`
-Input SHA-256: `sha256:cbf768b77153b372e5f649284d960f6b3ae9109539eb4f579106dfb6341444d5`
+Source revision: `148d8d2787153a948700ab4249cdf383f092c8cc`
+Generated: `2026-07-20T02:55:00+02:00`
+Platform: `linux-x86_64`
+Generated JSON SHA-256: `8df2eb73d1b21ff321f9e68cd34fc4283be15f70fe8dad046d0ecb82bfef97f0`
+Input SHA-256: `sha256:dd047ede7b524a7c27798a293b5b63fb07bc01674971efc96f8fbe922792b07f`
 
 This is a requirement/oracle and explicit traceability audit. It creates no
 behavior proof and closes no specification gap. Its invariant denominator is
