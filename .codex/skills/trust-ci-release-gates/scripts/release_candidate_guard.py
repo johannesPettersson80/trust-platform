@@ -496,7 +496,7 @@ def parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--remote-host", default="trust-builder")
     prepare_parser.add_argument("--remote-worktree", required=True)
     prepare_parser.add_argument(
-        "--remote-target", default="$HOME/.cache/codex-targets/trust-platform-gate"
+        "--remote-target", default="/home/johannes/.cache/codex-targets/trust-platform-gate"
     )
     prepare_parser.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
     prepare_parser.set_defaults(handler=prepare_command)

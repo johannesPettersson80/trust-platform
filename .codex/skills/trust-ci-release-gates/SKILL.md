@@ -30,9 +30,10 @@ push-and-repair attempts.
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
 
-   Preparation runs bootstrap parity, complete-diff planning, catalog staleness, the focused
-   verification suite, metadata/self-tests, the exact strict PR gate, and final remote broad
-   gates. Any commit, base movement, missing command, or dirty checkout invalidates the artifact.
+   Preparation runs only cheap bootstrap and planning checks locally. Catalog staleness,
+   metadata/self-tests, the exact strict PR gate, and all broad gates run in the clean exact-SHA
+   `trust-builder` worktree with an absolute `CARGO_TARGET_DIR`. Any commit, base movement,
+   missing command, or dirty checkout invalidates the artifact.
 2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
    without a passing artifact for the exact head and current base.
 3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole

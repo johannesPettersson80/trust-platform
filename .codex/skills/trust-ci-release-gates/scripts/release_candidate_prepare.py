@@ -231,55 +231,31 @@ def prepare(args: Any) -> int:
             log_dir=log_dir,
         )
 
-    local_commands = (
-        ("catalog_staleness", [sys.executable, "scripts/check_test_catalog_staleness.py"]),
-        ("selftests", [sys.executable, "scripts/check_verification_tooling_selftests.py"]),
-    )
-    for command_id, command in local_commands:
-        records.append(command_record(command_id, command, cwd=repo, scope="local", log_dir=log_dir))
-    if not stage_passed(records, tuple(command_id for command_id, _ in local_commands)):
-        return finish_artifact(
-            repo,
-            head=head,
-            base_ref=args.base,
-            base_sha=base_sha,
-            vscode_changed=vscode_changed,
-            records=records,
-            log_dir=log_dir,
-        )
-
-    strict_command = [
-        sys.executable,
-        "scripts/verification_report_gate.py",
-        "--base",
-        base_sha,
-        "--head",
-        head,
-        "--intent",
-        args.intent,
-        "--strict",
-        "--out-dir",
-        "target/gate-artifacts/verification-release-candidate",
-    ]
-    records.append(
-        command_record("strict_gate", strict_command, cwd=repo, scope="local", log_dir=log_dir)
-    )
-    if not stage_passed(records, ("strict_gate",)):
-        return finish_artifact(
-            repo,
-            head=head,
-            base_ref=args.base,
-            base_sha=base_sha,
-            vscode_changed=vscode_changed,
-            records=records,
-            log_dir=log_dir,
-        )
-
     remote_head_check = (
         f'test "$(git rev-parse HEAD)" = {shlex.quote(head)} && '
         'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
     )
-    remote_commands = [("remote_exact_head", remote_head_check)]
+    strict_command = shlex.join(
+        [
+            "python3",
+            "scripts/verification_report_gate.py",
+            "--base",
+            base_sha,
+            "--head",
+            head,
+            "--intent",
+            args.intent,
+            "--strict",
+            "--out-dir",
+            "target/gate-artifacts/verification-release-candidate",
+        ]
+    )
+    remote_commands = [
+        ("remote_exact_head", remote_head_check),
+        ("catalog_staleness", "python3 scripts/check_test_catalog_staleness.py"),
+        ("selftests", "python3 scripts/check_verification_tooling_selftests.py"),
+        ("strict_gate", strict_command),
+    ]
     if vscode_changed:
         remote_commands.append(("remote_vscode", remote_vscode_command()))
     remote_commands.extend(

@@ -143,6 +143,17 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             'xvfb-run -a -s "-screen 0 1920x1080x24" npm test',
         )
 
+    def test_expensive_validation_is_remote_with_absolute_target(self) -> None:
+        source = Path(candidate_prepare.__file__).read_text(encoding="utf-8")
+        guard_source = Path(candidate_prepare.guard.__file__).read_text(encoding="utf-8")
+
+        self.assertNotIn('command_record("strict_gate", strict_command, cwd=repo, scope="local"', source)
+        self.assertNotIn('default="$HOME/.cache/codex-targets/trust-platform-gate"', guard_source)
+        self.assertIn(
+            'default="/home/johannes/.cache/codex-targets/trust-platform-gate"',
+            guard_source,
+        )
+
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()
         artifact["head"] = "1" * 40
