@@ -37,15 +37,32 @@ class MutationProgramReportTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         (ROOT / "target").mkdir(exist_ok=True)
         command_text = mutation_program_live._command_text
+        program = mutation_program_live.load_mutation_program(ROOT)
+        selector_candidates = [
+            {
+                "name": mutation["selector_name"],
+                "function": {"function_name": mutation["function"]},
+                "genre": mutation["genre"],
+                "replacement": mutation["replacement"],
+            }
+            for shard in program["shards"]
+            for mutation in shard["mutations"]
+        ]
 
         def command_text_with_pinned_tool(root: Path, command: tuple[str, ...]) -> str:
             if command == ("cargo", "mutants", "--version"):
                 return TOOL_VERSION
             return command_text(root, command)
 
-        with mock.patch(
-            "scripts.verification.mutation_program_live._command_text",
-            side_effect=command_text_with_pinned_tool,
+        with (
+            mock.patch(
+                "scripts.verification.mutation_program_live._command_text",
+                side_effect=command_text_with_pinned_tool,
+            ),
+            mock.patch(
+                "scripts.verification.mutation_program_live.discover_mutants",
+                return_value=selector_candidates,
+            ),
         ):
             cls.state = build_live_mutation_program_state(
                 ROOT, require_clean_commit=False

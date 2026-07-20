@@ -137,7 +137,7 @@ fn run_release_case(case: &CaseRecord, probe: &mut ReleaseProbe) -> Result<CaseE
         .get("scenario")
         .and_then(toml::Value::as_str)
         .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
-    let output = Command::new("python3")
+    let output = Command::new(python_program())
         .args(["scripts/release_claim_contract.py", "--scenario", scenario])
         .env("TRUST_RELEASE_EVIDENCE_DATE", "2026-07-17")
         .current_dir(workspace_root())
@@ -169,6 +169,14 @@ fn run_release_case(case: &CaseRecord, probe: &mut ReleaseProbe) -> Result<CaseE
         observed_error,
         observed_status: Some("release_contract_checked".to_string()),
     })
+}
+
+fn python_program() -> &'static str {
+    if cfg!(windows) {
+        "python"
+    } else {
+        "python3"
+    }
 }
 
 fn workspace_root() -> PathBuf {
