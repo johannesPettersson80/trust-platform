@@ -7,12 +7,18 @@ import tomllib
 from pathlib import Path
 
 from ..test_catalog_json_schema import validate_json_schema_instance
+from ..code_spec_provenance import (
+    CodeSpecProvenanceError,
+    load_private_input_manifest,
+    validate_private_input_bindings,
+)
 
 
 CODE_SPEC_SCHEMA_FILES = {
     "code-spec-map.schema.json",
     "code-spec-debt-baseline.schema.json",
     "code-spec-coverage-report.schema.json",
+    "code-spec-private-inputs.schema.json",
 }
 
 CODE_SPEC_STATIC_INPUTS = (
@@ -23,6 +29,10 @@ CODE_SPEC_STATIC_INPUTS = (
     (
         Path("verification/code-spec-debt-baseline.toml"),
         Path("verification/schemas/code-spec-debt-baseline.schema.json"),
+    ),
+    (
+        Path("verification/code-spec-private-inputs.toml"),
+        Path("verification/schemas/code-spec-private-inputs.schema.json"),
     ),
 )
 
@@ -58,5 +68,16 @@ def validate_code_spec_metadata_instances(root: Path) -> list[tuple[Path, str]]:
         failures.extend(
             (document_path, failure)
             for failure in validate_json_schema_instance(document, schema)
+        )
+    try:
+        private_inputs = load_private_input_manifest(root)
+    except CodeSpecProvenanceError as error:
+        failures.append(
+            (Path("verification/code-spec-private-inputs.toml"), str(error))
+        )
+    else:
+        failures.extend(
+            (Path("verification/code-spec-private-inputs.toml"), failure)
+            for failure in validate_private_input_bindings(root, private_inputs)
         )
     return failures

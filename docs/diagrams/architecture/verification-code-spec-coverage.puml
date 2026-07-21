@@ -10,6 +10,7 @@ package "Authoritative source denominators" {
   [Verification tooling roots] as ToolUniverse
   [Gate inventory] as GateInventory
   [Fuzz program] as FuzzInventory
+  [private input digest manifest] as PrivateInputs
 }
 
 package "Parser-backed fact extraction" {
@@ -41,6 +42,7 @@ package "Existing enforcement path" {
 RustUniverse --> RustExtractor
 TsUniverse --> TsExtractor
 ToolUniverse --> ToolExtractor
+PrivateInputs --> ToolExtractor : bind ignored hook bytes
 GateInventory --> ToolExtractor : exact join
 FuzzInventory --> ToolExtractor : exact join
 RustExtractor --> Facts
@@ -60,6 +62,7 @@ Gate --> Workflow
 RustExtractor --> SoftwareMap : consume Phase 17 facts
 Map --> MetadataGate : static schema validation
 Debt --> MetadataGate : static schema validation
+PrivateInputs --> MetadataGate : schema + live digest
 
 note bottom of Report
   Mapping reports carry proof_kind = none.

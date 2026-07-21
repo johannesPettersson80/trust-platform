@@ -18,7 +18,9 @@ from .code_spec_gate import blocking_failures, changed_path_outcomes
 from .code_spec_live import build_code_spec_live_state
 from .code_spec_provenance import (
     CodeSpecProvenanceError,
+    PRIVATE_INPUT_MANIFEST_PATH,
     input_closure_digest,
+    load_private_input_manifest,
     validate_clean_source_revision,
 )
 from .code_spec_report import (
@@ -42,6 +44,7 @@ STATIC_REPORT_INPUTS = frozenset(
         "crates/trust-runtime/web/ide-frontend/package-lock.json",
         "crates/trust-runtime/web/ide-frontend/package.json",
         "verification/code-spec-map.toml",
+        PRIVATE_INPUT_MANIFEST_PATH,
         DEBT_PATH,
         "verification/matrix.toml",
         "verification/gate-inventory.toml",
@@ -109,7 +112,23 @@ def validate_frozen_debt_history(root: Path, current: dict[str, Any]) -> list[st
         frozen = tomllib.loads(frozen_bytes.stdout.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         return [f"frozen debt baseline is invalid: {error}"]
-    return validate_delete_only_history(current, frozen)
+    failures: list[str] = []
+    parent_line = subprocess.run(
+        ["git", "-C", str(root), "rev-list", "--parents", "-n", "1", frozen_commit],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    parent_fields = parent_line.stdout.split()
+    if parent_line.returncode != 0 or len(parent_fields) != 2:
+        failures.append("debt baseline frozen origin must be a single-parent commit")
+    elif frozen.get("created_from_commit") != parent_fields[1]:
+        failures.append(
+            "debt baseline created_from_commit does not match its introduction parent: "
+            f"claimed={frozen.get('created_from_commit')} parent={parent_fields[1]}"
+        )
+    failures.extend(validate_delete_only_history(current, frozen))
+    return sorted(set(failures))
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -178,7 +197,17 @@ def main(argv: list[str] | None = None) -> int:
 
     input_paths = collect_report_inputs(root, state)
     commit = _git_text(root, "rev-parse", "HEAD")
-    provenance_failures = validate_clean_source_revision(root, commit, input_paths)
+    try:
+        private_inputs = load_private_input_manifest(root)
+    except CodeSpecProvenanceError as error:
+        print(f"code-spec private input manifest failed: {error}", file=sys.stderr)
+        return 1
+    provenance_failures = validate_clean_source_revision(
+        root,
+        commit,
+        input_paths,
+        allowed_untracked=private_inputs,
+    )
     if provenance_failures:
         print("code-spec report provenance failed:", file=sys.stderr)
         for failure in provenance_failures:

@@ -45,6 +45,9 @@ def fact(symbol: str, *, area: str = "runtime_safety") -> CodeFact:
         body_digest=sha256_digest(f"{signature} {{}}".encode()),
         owner="trust-runtime" if area != "unmapped" else "unmapped",
         area=area,
+        area_candidates=(
+            ("control_security", "editor_safety") if area == "unmapped" else (area,)
+        ),
         line=1,
     )
 
@@ -131,6 +134,11 @@ class CodeSpecReportTests(unittest.TestCase):
             row for row in payload["facts"] if row["code_id"] == payload["digest_rebinds"][0]["code_id"]
         )
         self.assertEqual(["gate:GATE_EXAMPLE"], mapped_row["inventory_bindings"])
+        unmapped_row = next(row for row in payload["facts"] if row["area"] == "unmapped")
+        self.assertEqual(
+            ["control_security", "editor_safety"],
+            unmapped_row["area_candidates"],
+        )
 
     def test_canonical_json_markdown_round_trip_and_tamper_rejection(self) -> None:
         payload = self.report()

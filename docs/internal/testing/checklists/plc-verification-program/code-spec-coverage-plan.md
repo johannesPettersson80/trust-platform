@@ -102,8 +102,18 @@ under these explicit roots:
 
 - Rust tooling under `xtask/src/**/*.rs`,
 - Python and shell under `scripts/` and `scripts/verification/`,
-- tracked agent hooks under `.claude/hooks/`,
+- canonical private agent hooks under `.claude/hooks/`, bound one path at a
+  time by `verification/code-spec-private-inputs.toml`,
 - tracked operational skill scripts under `.codex/skills/**/scripts/`.
+
+The reviewed source-surface list originally called `.claude/hooks/` tracked.
+The repository intentionally ignores `.claude/` and the mandatory worktree
+bootstrap copies its canonical contents outside Git. Phase 17 therefore keeps
+the hook in the denominator and records its exact path, SHA-256 digest, owner,
+rationale, and review date in the tracked private-input manifest. No ignored
+path is accepted without that exact binding; the report input digest still
+includes the live hook bytes. This resolves the source-control contradiction
+without excluding or wildcarding the private surface.
 
 Classify them as verification or operational tooling, not product proof.
 Existing gate-inventory identities remain authoritative for executable gate
@@ -219,7 +229,8 @@ The validator rejects:
 
 - missing and duplicate facts,
 - invented or stale code identities,
-- path traversal, symlink escape, and ignored/untracked inputs,
+- path traversal, symlink escape, and ignored/untracked inputs without an
+  exact reviewed private-input digest binding,
 - signature or body-digest drift,
 - inheritance cycles and forks,
 - inactive/public-claim/non-oracle specification links,
@@ -243,6 +254,8 @@ Keep responsibilities separate:
 - `code_spec_contract.py`: mapping schema and semantic validation.
 - `code_spec_live.py`: complete live join with existing metadata.
 - `code_spec_report.py`: canonical JSON and Markdown rendering.
+- `code_spec_provenance.py`: clean full-SHA, tracked-input, and exact private
+  input-manifest validation.
 - `scripts/code_spec_coverage_gate.py`: thin CLI entrypoint.
 
 The Rust parser decision is frozen: use `syn` in the small xtask extractor and

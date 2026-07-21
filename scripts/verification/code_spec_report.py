@@ -83,6 +83,7 @@ def build_report_payload(
                 "body_digest": code_fact.body_digest,
                 "owner": code_fact.owner,
                 "area": code_fact.area,
+                "area_candidates": list(code_fact.area_candidates),
                 "visibility": code_fact.visibility,
                 "risk_signals": list(code_fact.risk_signals),
                 "cargo_bindings": list(fact_bindings),
@@ -155,6 +156,11 @@ def build_report_payload(
             "unmapped": finding_kinds["unmapped"],
             "findings_total": sum(finding_kinds.values()),
             "by_area": _counts(row["area"] for row in rows),
+            "by_area_candidate_set": _counts(
+                "|".join(row["area_candidates"]) or "none"
+                for row in rows
+                if row["area"] == "unmapped"
+            ),
             "by_owner": _counts(row["owner"] for row in rows),
             "by_disposition": _counts(row["disposition"] for row in rows),
             "by_risk_signal": _counts(signal for row in rows for signal in row["risk_signals"]),
@@ -213,6 +219,9 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
     lines.extend(["", "### Cargo targets", ""])
     for row in payload["denominator"]["cargo_target_counts"]:
         lines.append(f"- `{row['name']}`: {row['count']}")
+    lines.extend(["", "## Unmapped Area Candidate Sets", ""])
+    for row in summary["by_area_candidate_set"]:
+        lines.append(f"- `{row['name']}`: {row['count']}")
     lines.extend(
         [
             "",
@@ -232,15 +241,17 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             "",
             "## Raw Facts",
             "",
-            "| Code ID | Source | Symbol | Kind | Area | Owner | Disposition | Risks | Findings |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Code ID | Source | Symbol | Kind | Area | Candidates | Owner | Disposition | Risks | Findings |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["facts"]:
         lines.append(
             f"| `{_cell(row['code_id'])}` | `{_cell(row['path'])}:{row['line']}` | "
             f"`{_cell(row['qualified_symbol'])}` | `{_cell(row['item_kind'])}` | "
-            f"`{_cell(row['area'])}` | `{_cell(row['owner'])}` | "
+            f"`{_cell(row['area'])}` | "
+            f"`{_cell(', '.join(row['area_candidates']) or 'none')}` | "
+            f"`{_cell(row['owner'])}` | "
             f"`{_cell(row['disposition'])}/{_cell(row['debt_status'])}` | "
             f"`{_cell(', '.join(row['risk_signals']) or 'none')}` | "
             f"`{_cell('; '.join(row['findings']) or 'none')}` |"

@@ -35,6 +35,7 @@ class SchemaContractsTests(unittest.TestCase):
                 "code-spec-map.schema.json",
                 "code-spec-debt-baseline.schema.json",
                 "code-spec-coverage-report.schema.json",
+                "code-spec-private-inputs.schema.json",
             }
             == CODE_SPEC_SCHEMA_FILES
         )

@@ -321,6 +321,7 @@ def invoke_tooling_extractor(
                 body_digest=sha256_digest(source[body_start:body_end]),
                 owner=owner,
                 area=area,
+                area_candidates=tuple(sorted(candidates)),
                 visibility=str(record["visibility"]),
                 risk_signals=_validated_risks(record, path),
                 line=int(record["line"]),

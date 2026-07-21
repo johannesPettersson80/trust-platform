@@ -89,6 +89,9 @@ class TypeScriptAdapterTests(unittest.TestCase):
         self.assertEqual(5, len(inventory.facts))
         self.assertEqual((), inventory.unmapped_code_ids)
         self.assertTrue(all(fact.area == "editor_safety" for fact in inventory.facts.values()))
+        self.assertTrue(
+            all(fact.area_candidates == ("editor_safety",) for fact in inventory.facts.values())
+        )
         self.assertEqual(
             {"javascript_function", "typescript_asset", "typescript_function"},
             {fact.item_kind for fact in inventory.facts.values()},

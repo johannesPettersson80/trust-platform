@@ -89,6 +89,7 @@ class CodeFact:
     body_digest: str
     owner: str
     area: str
+    area_candidates: tuple[str, ...] = ()
     visibility: str = "private"
     risk_signals: tuple[str, ...] = ()
     line: int | None = None

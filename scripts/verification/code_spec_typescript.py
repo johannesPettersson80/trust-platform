@@ -288,6 +288,7 @@ def invoke_typescript_extractor(
                 body_digest=sha256_digest(source_bytes[body_start:body_end]),
                 owner=owner,
                 area=area,
+                area_candidates=tuple(sorted(candidates)),
                 visibility=visibility,
                 risk_signals=risk_signals,
                 line=line,

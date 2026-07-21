@@ -138,6 +138,10 @@ class RustAdapterTests(unittest.TestCase):
             )
             code_id = next(iter(ambiguous.facts))
             self.assertEqual("unmapped", ambiguous.facts[code_id].area)
+            self.assertEqual(
+                ("compiler_iec", "runtime_safety"),
+                ambiguous.facts[code_id].area_candidates,
+            )
             self.assertEqual((code_id,), ambiguous.unmapped_code_ids)
 
             bound = rust_inventory_from_scan(
@@ -147,6 +151,10 @@ class RustAdapterTests(unittest.TestCase):
                 area_bindings={code_id: "compiler_iec"},
             )
             self.assertEqual("compiler_iec", bound.facts[code_id].area)
+            self.assertEqual(
+                ("compiler_iec", "runtime_safety"),
+                bound.facts[code_id].area_candidates,
+            )
             self.assertEqual("language", bound.facts[code_id].owner)
             self.assertEqual((), bound.unmapped_code_ids)
             with self.assertRaisesRegex(CodeSpecRustError, "not permitted by path routing"):
