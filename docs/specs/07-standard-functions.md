@@ -89,6 +89,13 @@ transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary transfers retain
 their exact bit-defined value. The rejection policy is implementer-specific
 under IEC 61131-3 section 6.6.2.5.2 and Table 23; see DEV-053.
 
+For conversion into `SINT`, `INT`, `DINT`, or `LINT`, a representable integer
+value is preserved exactly. A value outside the destination's IEC Table 10
+range returns `RuntimeError::Overflow`; truST does not wrap, saturate,
+truncate, or substitute an integer. This is the reviewed implementer-specific
+conversion fault policy in DEV-054 and the runtime materialization contract in
+`docs/specs/10-runtime-semantics.md#signed-integer-result-materialization`.
+
 ### 2.2 Bit Data Type Conversions (Table 24)
 
 Binary transfer between BYTE/WORD/DWORD/LWORD. If the target is wider, the rightmost bits are preserved and the remaining bits are set to zero. If the target is narrower, only the rightmost bits are kept.

@@ -448,6 +448,10 @@ Target release: `v0.24.54`
   directly for initialized locals, static locals, and function-block local
   member overrides instead of creating a temporary runtime storage frame on the
   native-call path.
+- trust-runtime: documented the stable signed-integer materialization policy:
+  representable `SINT`/`INT`/`DINT`/`LINT` results retain their exact value and
+  destination tag, while range overflow fails before storage instead of
+  wrapping, saturating, truncating, or substituting a value.
 
 ### Fixed
 

@@ -12,6 +12,33 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-21 - Reject signed integer result and conversion overflow
+
+- ID: DEV-054
+- Area: Runtime signed integer arithmetic and numeric conversion
+- IEC reference: IEC 61131-3 Ed.3 section 6.4.2.1, Table 10 defines the signed
+  integer widths and ranges. Section 7.3.2 requires a numerical result outside
+  its result-type range to be treated as an error. Sections 6.6.2.5.2 and
+  6.6.2.5.3 make conversion execution errors and the target value for an
+  out-of-range conversion implementer-specific. This entry chooses the truST
+  fault and no-result policy; it does not weaken the IEC arithmetic-error rule.
+- Deviation/extension:
+  - Materializing a representable result as `SINT`, `INT`, `DINT`, or `LINT`
+    preserves the mathematical value exactly and assigns the destination's
+    runtime value tag.
+  - A result below the destination minimum or above its maximum returns
+    `RuntimeError::Overflow` before storage. The runtime does not wrap,
+    saturate, truncate, or substitute a value.
+  - Passing a non-signed destination category to the signed materialization
+    boundary returns `RuntimeError::TypeMismatch` without a value.
+- Impact:
+  - Signed arithmetic and conversions fail visibly instead of silently
+    changing a safety-relevant integer value.
+- Mitigation:
+  - Select a wider signed destination or range-check before an explicit
+    narrowing conversion, and handle the runtime fault at the owning control
+    boundary.
+
 ## 2026-07-18 - Reject non-finite explicit conversion results
 
 - ID: DEV-053

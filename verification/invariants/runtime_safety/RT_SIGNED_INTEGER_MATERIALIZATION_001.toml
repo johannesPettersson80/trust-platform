@@ -1,0 +1,88 @@
+schema_version = 1
+id = "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+title = "Signed integer result materialization preserves value or fails before storage"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-21"
+claim = "Materializing an integer result as SINT, INT, DINT, or LINT preserves every representable value exactly; a value outside the destination range returns RuntimeError::Overflow before storage, and a non-signed destination returns RuntimeError::TypeMismatch without a value."
+proof_level = "S1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+
+[[behavior]]
+partition = { equals = "SIGNED_DESTINATION_REPRESENTABLE_VALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "For each signed destination, its minimum, zero, and maximum values are returned exactly with the destination runtime tag."
+
+[[behavior]]
+partition = { equals = "SIGNED_DESTINATION_BELOW_MINIMUM" }
+case_family = "below_min"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The first value below each signed destination minimum returns RuntimeError::Overflow and produces no replacement value."
+
+[[behavior]]
+partition = { equals = "SIGNED_DESTINATION_ABOVE_MAXIMUM" }
+case_family = "above_max"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The first value above each signed destination maximum returns RuntimeError::Overflow and produces no replacement value."
+
+[[behavior]]
+partition = { equals = "NON_SIGNED_DESTINATION_CATEGORY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unsigned and floating destination categories return RuntimeError::TypeMismatch rather than being interpreted by the signed boundary."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The representable-value oracle is accepted; P18-006 must add the cataloged executable destination-tag matrix before this cell can close."
+
+[[coverage.cells]]
+dimension = "below_min"
+state = "gap_open"
+rationale = "The below-minimum oracle is accepted; P18-006 must execute the first rejected value for every signed destination."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "gap_open"
+rationale = "The above-maximum oracle is accepted; P18-006 must execute the first rejected value for every signed destination."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The non-signed target rejection contract is accepted; P18-006 must add an executable category matrix before this cell can close."

@@ -1373,12 +1373,13 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-21"
 covers = [
   "process_image_model",
   "scan_cycle_execution",
   "retain_values",
   "runtime_value_model",
+  "signed_integer_result_materialization",
   "vm_instruction_budget",
   "stable_error_code_model",
 ]
