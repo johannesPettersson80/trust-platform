@@ -282,6 +282,13 @@ is closed rather than inferred from this procedure.
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module
   `metadata_validator/ignored_tests.py` is explicitly excluded.
+- `verification/code-spec-risk-acknowledgements.toml` owns Phase 17 high-risk
+  source acknowledgements. Each `RISK_ACK_*` record resolves one exact mapped
+  `CODE_*` fact and repeats its owner, area, body digest, risk signals, review
+  anchor, reviewer role, and expiry. The code-spec validator rejects free-form,
+  duplicate, orphan, invented, stale, expired, or mapping-divergent records;
+  the acknowledgement creates no product proof and closes no specification
+  gap.
 - Run `scripts/report_requirement_oracle_audit.py` with
   `scripts/validate_requirement_oracle_audit_report.py` for the Phase 6 audit.
   The report covers all committed invariants, distinguishes active eligible

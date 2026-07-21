@@ -19,6 +19,7 @@ CODE_SPEC_SCHEMA_FILES = {
     "code-spec-debt-baseline.schema.json",
     "code-spec-coverage-report.schema.json",
     "code-spec-private-inputs.schema.json",
+    "code-spec-risk-acknowledgements.schema.json",
 }
 
 CODE_SPEC_STATIC_INPUTS = (
@@ -33,6 +34,10 @@ CODE_SPEC_STATIC_INPUTS = (
     (
         Path("verification/code-spec-private-inputs.toml"),
         Path("verification/schemas/code-spec-private-inputs.schema.json"),
+    ),
+    (
+        Path("verification/code-spec-risk-acknowledgements.toml"),
+        Path("verification/schemas/code-spec-risk-acknowledgements.schema.json"),
     ),
 )
 

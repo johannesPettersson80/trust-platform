@@ -45,6 +45,7 @@ STATIC_REPORT_INPUTS = frozenset(
         "crates/trust-runtime/web/ide-frontend/package.json",
         "verification/code-spec-map.toml",
         PRIVATE_INPUT_MANIFEST_PATH,
+        "verification/code-spec-risk-acknowledgements.toml",
         DEBT_PATH,
         "verification/matrix.toml",
         "verification/gate-inventory.toml",
@@ -259,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
         debt_baseline=state.metadata.debt_baseline,
         cargo_bindings=state.rust.cargo_bindings,
         inventory_bindings=state.tooling_bindings,
+        risk_acknowledgements=state.metadata.risk_acknowledgements,
         denominator=CodeSpecDenominator(
             source_counts=source_counts,
             cargo_target_counts={

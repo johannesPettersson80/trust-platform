@@ -24,7 +24,12 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "verification/schemas/code-spec-coverage-report.schema.json"
 
 
-def fact(symbol: str, *, area: str = "runtime_safety") -> CodeFact:
+def fact(
+    symbol: str,
+    *,
+    area: str = "runtime_safety",
+    risks: tuple[str, ...] = (),
+) -> CodeFact:
     signature = f"fn {symbol}()"
     path = "crates/example/src/lib.rs"
     code_id = stable_code_id(
@@ -48,6 +53,7 @@ def fact(symbol: str, *, area: str = "runtime_safety") -> CodeFact:
         area_candidates=(
             ("control_security", "editor_safety") if area == "unmapped" else (area,)
         ),
+        risk_signals=risks,
         line=1,
     )
 
@@ -60,8 +66,15 @@ class CodeSpecReportTests(unittest.TestCase):
             "report must receive the Rust scanner's authoritative Cargo joins",
         )
 
+    def test_report_contract_accepts_exact_risk_acknowledgement_ledger(self) -> None:
+        self.assertIn(
+            "risk_acknowledgements",
+            inspect.signature(build_report_payload).parameters,
+            "report must distinguish map references from exact ledger records",
+        )
+
     def report(self) -> dict[str, object]:
-        mapped = fact("mapped")
+        mapped = fact("mapped", risks=("host_time",))
         missing = fact("missing", area="unmapped")
         mapping = {
             "code_id": mapped.code_id,
@@ -69,6 +82,7 @@ class CodeSpecReportTests(unittest.TestCase):
             "reviewed_body_digest": sha256_digest(b"old body"),
             "owner": mapped.owner,
             "area": mapped.area,
+            "owner_ack": "RISK_ACK_" + mapped.code_id.removeprefix("CODE_"),
         }
         return build_report_payload(
             facts={mapped.code_id: mapped, missing.code_id: missing},
@@ -102,6 +116,9 @@ class CodeSpecReportTests(unittest.TestCase):
                 cargo_target_counts={"rust_product": 1},
             ),
             inventory_bindings={mapped.code_id: ("gate:GATE_EXAMPLE",)},
+            risk_acknowledgements={
+                mapping["owner_ack"]: {"code_id": mapped.code_id}
+            },
         )
 
     def test_payload_has_raw_rows_counts_boundaries_and_digest_rebinds(self) -> None:
@@ -113,6 +130,8 @@ class CodeSpecReportTests(unittest.TestCase):
         self.assertEqual(1, payload["summary"]["historical_debt"])
         self.assertEqual(0, payload["summary"]["new_missing_spec"])
         self.assertEqual(1, payload["summary"]["unmapped"])
+        self.assertEqual(1, payload["summary"].get("risk_acknowledgement_refs"))
+        self.assertEqual(1, payload["summary"].get("risk_acknowledgement_records"))
         self.assertEqual(1, len(payload["digest_rebinds"]))
         self.assertEqual("none", payload["boundaries"]["proof_kind"])
         self.assertEqual(
@@ -134,6 +153,11 @@ class CodeSpecReportTests(unittest.TestCase):
             row for row in payload["facts"] if row["code_id"] == payload["digest_rebinds"][0]["code_id"]
         )
         self.assertEqual(["gate:GATE_EXAMPLE"], mapped_row["inventory_bindings"])
+        self.assertEqual(
+            "RISK_ACK_" + mapped_row["code_id"].removeprefix("CODE_"),
+            mapped_row.get("risk_acknowledgement"),
+        )
+        self.assertEqual("exact_record", mapped_row.get("risk_acknowledgement_status"))
         unmapped_row = next(row for row in payload["facts"] if row["area"] == "unmapped")
         self.assertEqual(
             ["control_security", "editor_safety"],

@@ -95,6 +95,10 @@ class CodeSpecSchemaTests(unittest.TestCase):
             sorted(RISK_SIGNALS),
             sorted(record["properties"]["risk_signals"]["items"]["enum"]),
         )
+        self.assertEqual(
+            "^RISK_ACK_[0-9A-F]{64}$",
+            record["properties"]["owner_ack"].get("pattern"),
+        )
 
     def test_schema_rejects_unknown_fields_and_non_anchored_code_ids(self) -> None:
         schema = json.loads(SCHEMA_PATH.read_text())

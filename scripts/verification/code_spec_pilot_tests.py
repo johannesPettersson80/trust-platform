@@ -83,6 +83,7 @@ class TimePilotMetadataTests(unittest.TestCase):
             spec_gaps=metadata.spec_gaps,
             invariants=metadata.invariants,
             tests=metadata.tests,
+            risk_acknowledgements=metadata.risk_acknowledgements,
         )
         self.assertEqual([], failures)
 

@@ -22,6 +22,7 @@ package "Parser-backed fact extraction" {
 
 package "Reviewed verification graph" {
   [code-spec-map.toml] as Map
+  [exact risk acknowledgement ledger] as RiskAcks
   [delete-only debt baseline] as Debt
   [spec sources + open gaps] as Specs
   [invariants + test catalog] as VerificationGraph
@@ -50,6 +51,7 @@ TsExtractor --> Facts
 ToolExtractor --> Facts
 Facts --> Join
 Map --> Join
+RiskAcks --> Join : exact code / digest / owner / expiry
 Debt --> Join
 Specs --> Join
 VerificationGraph --> Join
@@ -61,6 +63,7 @@ Planner --> Gate
 Gate --> Workflow
 RustExtractor --> SoftwareMap : consume Phase 17 facts
 Map --> MetadataGate : static schema validation
+RiskAcks --> MetadataGate : closed schema validation
 Debt --> MetadataGate : static schema validation
 PrivateInputs --> MetadataGate : schema + live digest
 

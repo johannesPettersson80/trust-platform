@@ -11,6 +11,7 @@ from .code_spec_common import CodeFact
 from .code_spec_contract import validate_map_document
 from .code_spec_debt import validate_debt_partition
 from .code_spec_rust import RustInventory, invoke_rust_extractor
+from .code_spec_risk import index_risk_acknowledgements, validate_risk_ack_document
 from .code_spec_tooling import ToolingInventory, invoke_tooling_extractor
 from .code_spec_tooling_join import join_tooling_inventories
 from .code_spec_typescript import TypeScriptInventory, invoke_typescript_extractor
@@ -54,6 +55,8 @@ class CodeSpecMetadata:
     spec_gaps: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     invariants: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     tests: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    risk_ack_document: Mapping[str, Any] = field(default_factory=dict)
+    risk_acknowledgements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     @property
     def area_bindings(self) -> dict[str, str]:
@@ -93,6 +96,14 @@ def load_code_spec_metadata(root: Path) -> CodeSpecMetadata:
     spec_source_document = _load_toml(root / "verification/spec-sources.toml")
     spec_gap_document = _load_toml(root / "verification/spec-gaps.toml")
     catalog_document = _load_toml(root / "verification/test-catalog.toml")
+    risk_ack_document = _load_toml(
+        root / "verification/code-spec-risk-acknowledgements.toml"
+    )
+    risk_acknowledgements, risk_ack_failures = index_risk_acknowledgements(
+        risk_ack_document
+    )
+    if risk_ack_failures:
+        raise CodeSpecLiveError("; ".join(risk_ack_failures))
     invariants: dict[str, Mapping[str, Any]] = {}
     invariant_root = root / "verification/invariants"
     if not invariant_root.is_dir():
@@ -118,6 +129,8 @@ def load_code_spec_metadata(root: Path) -> CodeSpecMetadata:
         spec_gaps=_index_records(spec_gap_document, "spec_gaps", "id", "spec gap"),
         invariants=dict(sorted(invariants.items())),
         tests=_index_records(catalog_document, "tests", "id", "test catalog"),
+        risk_ack_document=risk_ack_document,
+        risk_acknowledgements=risk_acknowledgements,
     )
 
 
@@ -162,6 +175,7 @@ def build_code_spec_live_state(root: Path) -> CodeSpecLiveState:
         spec_gaps=metadata.spec_gaps,
         invariants=metadata.invariants,
         tests=metadata.tests,
+        risk_acknowledgements=metadata.risk_acknowledgements,
     )
     baseline_ids = metadata.debt_code_ids
     failures = [
@@ -181,6 +195,13 @@ def build_code_spec_live_state(root: Path) -> CodeSpecLiveState:
     )
     failures.extend(validate_global_area_bindings(metadata.area_bindings, facts))
     failures.extend(tooling_join.failures)
+    failures.extend(
+        validate_risk_ack_document(
+            metadata.risk_ack_document,
+            live_facts=facts,
+            mappings=metadata.mappings,
+        )
+    )
     failures.extend(f"{code_id}: unmapped" for code_id in rust.unmapped_code_ids)
     failures.extend(f"{code_id}: unmapped" for code_id in typescript.unmapped_code_ids)
     failures.extend(f"{code_id}: unmapped" for code_id in tooling.unmapped_code_ids)

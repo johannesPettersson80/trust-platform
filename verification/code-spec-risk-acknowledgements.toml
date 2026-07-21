@@ -1,0 +1,451 @@
+# Exact Phase 17 risk acknowledgements. Mapping and ledger bindings are one-to-one.
+
+schema_version = 1
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_014435625FD66F5363AAA116EA03185A94059EE69824042B5A2F701F0F13226E"
+code_id = "CODE_014435625FD66F5363AAA116EA03185A94059EE69824042B5A2F701F0F13226E"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:b111479f341a97117d54bea74bcb83069259f987581e36a18441e2e35dca13a6"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_044E61E350BBF709DFE742AA848364749B162D5DA1E6F2DDA3F16D71D576AA3B"
+code_id = "CODE_044E61E350BBF709DFE742AA848364749B162D5DA1E6F2DDA3F16D71D576AA3B"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:271af659d856789943ca30f5a99950e942a65a715faec5140449607ac1d837d0"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_20FBBA428D6449ED0B8878CA302C3BAB95401273D4592C7ADEF0DB23FDCED269"
+code_id = "CODE_20FBBA428D6449ED0B8878CA302C3BAB95401273D4592C7ADEF0DB23FDCED269"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:de4e9d1d430e08ef3c4c50914dbc223b570a324f21d010d50317c28efa6bc91b"
+risk_signals = ["fault_mapping", "host_time"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#current-dt-clock-boundary"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the spec_gap mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_254EEA097F2E8C25B2407FD33B596B187D189E4168D83C02935AF5E2E74DFB8B"
+code_id = "CODE_254EEA097F2E8C25B2407FD33B596B187D189E4168D83C02935AF5E2E74DFB8B"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:39cebfcb4db3470863d9a221d426bc40a8788a25a665b2b7ec3dfee95e986e4e"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_25CB8C3B7C88D8B08D9986FE0A86893D0EA69D079B350B36F1939EDB74078A94"
+code_id = "CODE_25CB8C3B7C88D8B08D9986FE0A86893D0EA69D079B350B36F1939EDB74078A94"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:dcb31f57002feb21c7bc9f6bf83bcfe1b88c9b6394505392319ddc6c8fd9ff49"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_27EEFE7EFB10B4C40CEB081B1482869DBAFF3A1CD5C54AAA611D415930793177"
+code_id = "CODE_27EEFE7EFB10B4C40CEB081B1482869DBAFF3A1CD5C54AAA611D415930793177"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:0800055f6e66379b0339aabeb90e0686b4d7cca4d06f0a58cb3262ed52618246"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_40F0680D14088DEDAF27684641CB0FBE1932343F2386B899444CBF36F40C2633"
+code_id = "CODE_40F0680D14088DEDAF27684641CB0FBE1932343F2386B899444CBF36F40C2633"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:01885c30f4a31741b8232df87540def7c7dce5f90d1bc15308b4b9e7374c3100"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_412BDE68B6247E96399721B87B8CAAB74E66B73312BA97F616CCC330DC1C1E66"
+code_id = "CODE_412BDE68B6247E96399721B87B8CAAB74E66B73312BA97F616CCC330DC1C1E66"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:6267f111e0502115f6f26c32a5e225fac60f425acc98077ce300e43f51cfcc39"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_55766111858E1BD74C6873418333D591FE0159585081047BBF8E7EB62D34969C"
+code_id = "CODE_55766111858E1BD74C6873418333D591FE0159585081047BBF8E7EB62D34969C"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:21d36d8c48a7b935623393f728d264e744e80371c5a07a4e9f20dfe7c44f5cb9"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_57E5EE025283F78B8AF2542EE56D33973CC5A65BC76741545C4F1EF6E405C2F5"
+code_id = "CODE_57E5EE025283F78B8AF2542EE56D33973CC5A65BC76741545C4F1EF6E405C2F5"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:d94c652b1ee394a676ce05e8e12a6cc5055ede48590a0739f6d38b6c5a57c143"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_59281AF478A97D86327D7293441D123CD72F125DF0F8A6DD7F166BA21D35CED6"
+code_id = "CODE_59281AF478A97D86327D7293441D123CD72F125DF0F8A6DD7F166BA21D35CED6"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:4361595b7eb06f5afa5d49925cb02c1a7f5e35045da1d90939adfda95f12c622"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_613FADAD2CA2100C1DE1BC152BA78B84F48814287D28C7604594D66939D54FD5"
+code_id = "CODE_613FADAD2CA2100C1DE1BC152BA78B84F48814287D28C7604594D66939D54FD5"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:af838f7bc22be08b722e2110a1a370fd92eba70027075ccc83808d51c83288a5"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6CC9C91BE098D963EA313C8CD5A9995CB77E13C478F81EAE769C4FF7CB1AF241"
+code_id = "CODE_6CC9C91BE098D963EA313C8CD5A9995CB77E13C478F81EAE769C4FF7CB1AF241"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:9dc3123aa5738ce7937d1d4b97a55e39cc13ac386f8cee84fea1677d69a86969"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6DBBD39612771D5F4AC1D0E272E4756B82912B9422A207D4F2947C616F217045"
+code_id = "CODE_6DBBD39612771D5F4AC1D0E272E4756B82912B9422A207D4F2947C616F217045"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:58178ad1e69da649da6a0c2c22ad501f82078ea501743f62585f6c44f518544a"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4"
+code_id = "CODE_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:92aa8fda3efeb5cb4be407394f22925f15db7de9e1f2308810347fd64d97ef5d"
+risk_signals = ["host_time"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#runtime-clock-dispatch"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the spec_gap mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
+code_id = "CODE_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:5e45bc64043ba1a8f8764227530f295879621e251c69bec0d957197fb97118fc"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_71F6BC7B69C4C764C447AE0A622C92CEC9F3B048E1A15ACB7336283BB4811615"
+code_id = "CODE_71F6BC7B69C4C764C447AE0A622C92CEC9F3B048E1A15ACB7336283BB4811615"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:57c0c6b42e0cb29c4c07f53db3349f0216745420484b46b300e76da0fd53a5be"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8551BB240C20F9F1C4DC9FC29F797800272FF86A4A62E5B88C913C5D0A06EE51"
+code_id = "CODE_8551BB240C20F9F1C4DC9FC29F797800272FF86A4A62E5B88C913C5D0A06EE51"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:213263bf804e87edd321c919e0cbc385fd0be067ad94c8c41713ff44d36f395d"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8D763FCF6800442B2134F5B010A1FE22C1CE00D4FF2989681CF3A368A5BD5E59"
+code_id = "CODE_8D763FCF6800442B2134F5B010A1FE22C1CE00D4FF2989681CF3A368A5BD5E59"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:d327f3f25e690a0d74ae1a17263d9d66f0c457579c0e8d77d598930dfa7627ea"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8FFA4FF07AA69C8509E0B488717D27F77A0DE0DB5A04A73457810C07126C0D04"
+code_id = "CODE_8FFA4FF07AA69C8509E0B488717D27F77A0DE0DB5A04A73457810C07126C0D04"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:ca5964c5e95307eafbe46c279d165b3062b6fe21007b79d188b012d388dd817d"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9AC2FC467A9F9A7F485C971807B34CCE86B38B7E74C28DB227A2E7BDD21CA685"
+code_id = "CODE_9AC2FC467A9F9A7F485C971807B34CCE86B38B7E74C28DB227A2E7BDD21CA685"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:57b75580151c48b3d3463a9fd381da9a057557adaa5a096206242a8b0bde7982"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AC407F2BA6FBB645AC0B845ED8CBF7CBBB1D5E101A8E3657A4791B92B8D983D8"
+code_id = "CODE_AC407F2BA6FBB645AC0B845ED8CBF7CBBB1D5E101A8E3657A4791B92B8D983D8"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:5d3ddd9adbe2a8c828d47736e0484e03d87132dfb12283c859c6a302dc062619"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_ACDEE3FCE5391EE73E61AFA02410D3F49ED02E3053A3A2A30A1A8D599284DD42"
+code_id = "CODE_ACDEE3FCE5391EE73E61AFA02410D3F49ED02E3053A3A2A30A1A8D599284DD42"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:7136578d0f1213ad700cf4b415cb33c929a85ef571f052e1e16191196a68bb7a"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B99BE183DF47B2C0F69E0AC54C15BDB898677400D85FD157398B2F5091CB685E"
+code_id = "CODE_B99BE183DF47B2C0F69E0AC54C15BDB898677400D85FD157398B2F5091CB685E"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:55748d6f6ebea5346aa0e4271e3d9a109aa8b50b4273b3b301952b3b4b8769dc"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CB2DF15B5AE0DFB38942687B6A4D9B0728AF24C6D99D226E1DC744AD80A4962C"
+code_id = "CODE_CB2DF15B5AE0DFB38942687B6A4D9B0728AF24C6D99D226E1DC744AD80A4962C"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:f53f0d8e586cbcf83f605dfc0d1255c073d1514166571c92b96b30020f2f2692"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CF439C15026BD6B0BD8090A76E9AE5BB829E1B23C8D6C22D83BFDE4312BA4995"
+code_id = "CODE_CF439C15026BD6B0BD8090A76E9AE5BB829E1B23C8D6C22D83BFDE4312BA4995"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:30b3251b64d102f09e1706f6aca24b9cbbad17094a2295d5bd22f22b1b74084a"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DB3EC5C2BD20E56447139A6BAB571BB33AC30CBD364CC8479D190F3B18575578"
+code_id = "CODE_DB3EC5C2BD20E56447139A6BAB571BB33AC30CBD364CC8479D190F3B18575578"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:b10ea4f930c5ed8e02160a01f13953de6c8b373a8622fe5277f8f1a70007be76"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DF4F4A233030755ABBECCCA49804963FFF3A30AFD4F1CA00B75470BAECE2AE96"
+code_id = "CODE_DF4F4A233030755ABBECCCA49804963FFF3A30AFD4F1CA00B75470BAECE2AE96"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:8d4fe83cc829a757e13d49e21929897d66dbff647a336dd783ceb7631e24f538"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E05F7DF692F711D35843CCE430B4BD0CB63F970DCF8E8CE316F85386A0D43F31"
+code_id = "CODE_E05F7DF692F711D35843CCE430B4BD0CB63F970DCF8E8CE316F85386A0D43F31"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:8d5724f8152f3e37fdae403a6e3cb912e909343a8928740470d5cc9ad346f0d9"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E791070586AF5C26801ABCA712978F0DAE9D977021ABB32C170D4553F5DEA4E6"
+code_id = "CODE_E791070586AF5C26801ABCA712978F0DAE9D977021ABB32C170D4553F5DEA4E6"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:f1a5b136c9864ae5ab23aa8ef7182411f89f6245d5d40acdfb5fbd70330b4908"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E933EACC75F2EC72A7C2E02F1EE7FBC71BDE0D36646CC7BC3F18B6C74A64B86D"
+code_id = "CODE_E933EACC75F2EC72A7C2E02F1EE7FBC71BDE0D36646CC7BC3F18B6C74A64B86D"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:0f0871cb95003f88f2b316aed2eb80c352f25cb2d9ed504971a8649ef547c48c"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F28234894833C75A7ED0BADBDF1F3DC3AF365688F24D2B50DE3FF53AC2AB92E3"
+code_id = "CODE_F28234894833C75A7ED0BADBDF1F3DC3AF365688F24D2B50DE3FF53AC2AB92E3"
+owner = "language"
+area = "compiler_iec"
+body_digest = "sha256:4267e8f9bea3443944258f569eb22ef43cc432c58808a00fe7b9b1db717bf9a8"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+reviewed_by = "language"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."

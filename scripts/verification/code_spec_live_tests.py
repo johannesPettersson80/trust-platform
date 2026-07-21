@@ -83,6 +83,12 @@ class CodeSpecLiveTests(unittest.TestCase):
                 'captured_on = "2026-07-21"\nenforcement_mode = "changed"\n'
                 'append_policy = "delete_only"\n'
             )
+            (root / "verification/code-spec-risk-acknowledgements.toml").write_text(
+                'schema_version = 1\n[[acknowledgements]]\n'
+                'id = "RISK_ACK_' + "A" * 64 + '"\n'
+                'code_id = "CODE_A"\n',
+                encoding="utf-8",
+            )
             (root / "verification/spec-sources.toml").write_text(
                 '[[spec_sources]]\nid = "SPEC_A"\nsource_status = "active"\n'
             )
@@ -103,6 +109,10 @@ class CodeSpecLiveTests(unittest.TestCase):
         self.assertEqual(["GAP_A"], list(metadata.spec_gaps))
         self.assertEqual(["INV_A"], list(metadata.invariants))
         self.assertEqual(["TEST_A"], list(metadata.tests))
+        self.assertEqual(
+            ["RISK_ACK_" + "A" * 64],
+            list(getattr(metadata, "risk_acknowledgements", {})),
+        )
 
     def test_duplicate_or_missing_ids_and_wrong_roots_are_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

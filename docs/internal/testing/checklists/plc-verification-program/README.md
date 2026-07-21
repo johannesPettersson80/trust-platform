@@ -50,7 +50,8 @@ This is a SQLite-style proof discipline adapted to PLC risk:
   initial high-risk invariant seeds.
 - `implementation-board.md`: staged implementation checklist.
 - `code-spec-coverage-plan.md`: Phase 17 production-code denominator,
-  code-to-spec mapping contract, changed-code ratchet, and enforcement plan.
+  code-to-spec mapping contract, exact risk-acknowledgement ledger,
+  changed-code ratchet, and enforcement plan.
 - `execution-slice-001.md`: Phase 16 readiness and the queued first
   spec-to-green product vertical.
 - `fable-review-brief.md`: prompt and acceptance criteria for external review.

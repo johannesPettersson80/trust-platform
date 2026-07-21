@@ -35,6 +35,7 @@ class CodeSpecCliTests(unittest.TestCase):
             "scripts/check.py",
             "verification/code-spec-map.toml",
             "verification/code-spec-private-inputs.toml",
+            "verification/code-spec-risk-acknowledgements.toml",
             "verification/code-spec-debt-baseline.toml",
             "verification/matrix.toml",
             "scripts/verification/code_spec_live.py",

@@ -38,6 +38,7 @@ def build_report_payload(
     cargo_bindings: Mapping[str, tuple[str, ...]] | None = None,
     denominator: CodeSpecDenominator | None = None,
     inventory_bindings: Mapping[str, tuple[str, ...]] | None = None,
+    risk_acknowledgements: Mapping[str, Mapping[str, Any]] | None = None,
     enforcement_mode: str = "report",
     blocking_findings: tuple[str, ...] = (),
 ) -> dict[str, Any]:
@@ -45,6 +46,7 @@ def build_report_payload(
     cargo_bindings = cargo_bindings or {}
     denominator = denominator or CodeSpecDenominator({}, {})
     inventory_bindings = inventory_bindings or {}
+    risk_acknowledgements = risk_acknowledgements or {}
     baseline_entries = debt_baseline.get("entries", [])
     baseline_by_id = {
         str(entry["code_id"]): entry
@@ -71,6 +73,7 @@ def build_report_payload(
             sorted({binding.split(":", 1)[0] for binding in fact_bindings})
         )
         cargo_target_names.extend(fact_bindings)
+        acknowledgement_ref = mapping.get("owner_ack") if mapping else None
         rows.append(
             {
                 "code_id": code_id,
@@ -86,6 +89,14 @@ def build_report_payload(
                 "area_candidates": list(code_fact.area_candidates),
                 "visibility": code_fact.visibility,
                 "risk_signals": list(code_fact.risk_signals),
+                "risk_acknowledgement": acknowledgement_ref,
+                "risk_acknowledgement_status": (
+                    "exact_record"
+                    if acknowledgement_ref in risk_acknowledgements
+                    else "missing_record"
+                    if acknowledgement_ref is not None
+                    else "none"
+                ),
                 "cargo_bindings": list(fact_bindings),
                 "inventory_bindings": list(
                     sorted(set(inventory_bindings.get(code_id, ())))
@@ -164,6 +175,10 @@ def build_report_payload(
             "by_owner": _counts(row["owner"] for row in rows),
             "by_disposition": _counts(row["disposition"] for row in rows),
             "by_risk_signal": _counts(signal for row in rows for signal in row["risk_signals"]),
+            "risk_acknowledgement_refs": sum(
+                row["risk_acknowledgement"] is not None for row in rows
+            ),
+            "risk_acknowledgement_records": len(risk_acknowledgements),
             "by_crate": _counts(crate_names),
             "by_cargo_target": _counts(cargo_target_names),
         },
@@ -202,6 +217,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
         f"- Mapped facts: {summary['mapped_total']}",
         f"- Missing specification: {summary['missing_spec']}",
         f"- Frozen historical debt: {summary['historical_debt']}",
+        f"- Risk acknowledgement refs: {summary['risk_acknowledgement_refs']}",
+        f"- Risk acknowledgement records: {summary['risk_acknowledgement_records']}",
         f"- New missing specification: {summary['new_missing_spec']}",
         f"- Stale reviews: {summary['stale_spec_review']}",
         f"- Unmapped ownership/area: {summary['unmapped']}",
@@ -241,8 +258,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             "",
             "## Raw Facts",
             "",
-            "| Code ID | Source | Symbol | Kind | Area | Candidates | Owner | Disposition | Risks | Findings |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Code ID | Source | Symbol | Kind | Area | Candidates | Owner | Disposition | Risks | Risk acknowledgement | Ack status | Findings |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in payload["facts"]:
@@ -254,6 +271,8 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
             f"`{_cell(row['owner'])}` | "
             f"`{_cell(row['disposition'])}/{_cell(row['debt_status'])}` | "
             f"`{_cell(', '.join(row['risk_signals']) or 'none')}` | "
+            f"`{_cell(row['risk_acknowledgement'] or 'none')}` | "
+            f"`{_cell(row['risk_acknowledgement_status'])}` | "
             f"`{_cell('; '.join(row['findings']) or 'none')}` |"
         )
     return "\n".join(lines) + "\n"

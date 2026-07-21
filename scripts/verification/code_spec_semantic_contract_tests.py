@@ -6,6 +6,7 @@ import unittest
 
 from scripts.verification.code_spec_common import CodeFact, sha256_digest, stable_code_id
 from scripts.verification.code_spec_contract import validate_map_document
+from scripts.verification.code_spec_risk import risk_ack_id
 
 
 def make_fact(
@@ -271,6 +272,91 @@ class DispositionGuardTests(unittest.TestCase):
         mapping["owner_ack_expires_on"] = "2000-01-01"
         expired = validate([code], [mapping], spec_gaps={"GAP_RUNTIME": gap})
         self.assertTrue(any("owner acknowledgement expired" in item for item in expired), expired)
+
+    def test_high_risk_owner_ack_rejects_free_form_unresolvable_text(self) -> None:
+        code = make_fact("risky_free_form_ack", risks=("host_time",))
+        gap = {
+            "area": "runtime_safety",
+            "resolution_status": "open",
+            "affected_code_ids": [code.code_id],
+        }
+        mapping = base_mapping(
+            code,
+            "spec_gap",
+            spec_gap_ref="GAP_RUNTIME",
+            owner_ack="trust-runtime reviewed this exact digest",
+            owner_ack_expires_on="2099-01-01",
+        )
+
+        failures = validate([code], [mapping], spec_gaps={"GAP_RUNTIME": gap})
+
+        self.assertTrue(
+            any("owner_ack must resolve to an anchored risk acknowledgement" in item for item in failures),
+            failures,
+        )
+
+    def test_high_risk_owner_ack_rejects_unknown_anchored_record(self) -> None:
+        code = make_fact("risky_unknown_ack", risks=("host_time",))
+        gap = {
+            "area": "runtime_safety",
+            "resolution_status": "open",
+            "affected_code_ids": [code.code_id],
+        }
+        mapping = base_mapping(
+            code,
+            "spec_gap",
+            spec_gap_ref="GAP_RUNTIME",
+            owner_ack=risk_ack_id(code.code_id),
+            owner_ack_expires_on="2099-01-01",
+        )
+
+        failures = validate([code], [mapping], spec_gaps={"GAP_RUNTIME": gap})
+
+        self.assertTrue(any("unknown risk acknowledgement" in item for item in failures), failures)
+
+    def test_high_risk_owner_ack_is_bound_to_exact_fact_and_mapping(self) -> None:
+        code = make_fact("risky_stale_ack", risks=("host_time", "fault_mapping"))
+        acknowledgement_id = risk_ack_id(code.code_id)
+        gap = {
+            "area": "runtime_safety",
+            "resolution_status": "open",
+            "affected_code_ids": [code.code_id],
+        }
+        mapping = base_mapping(
+            code,
+            "spec_gap",
+            spec_gap_ref="GAP_RUNTIME",
+            owner_ack=acknowledgement_id,
+            owner_ack_expires_on="2099-01-01",
+        )
+        stale_acknowledgement = {
+            "schema_version": 1,
+            "id": acknowledgement_id,
+            "code_id": code.code_id,
+            "owner": "wrong-owner",
+            "area": code.area,
+            "body_digest": "sha256:" + "0" * 64,
+            "risk_signals": ["host_time"],
+            "review_ref": "docs/review.md#exact-symbol",
+            "reviewed_by": code.owner,
+            "reviewed_on": "2026-07-21",
+            "expires_on": "2099-01-01",
+            "rationale": "Exact fixture acknowledgement.",
+        }
+
+        failures = validate(
+            [code],
+            [mapping],
+            spec_gaps={"GAP_RUNTIME": gap},
+            risk_acknowledgements={acknowledgement_id: stale_acknowledgement},
+        )
+
+        for expected in (
+            "risk acknowledgement owner changed",
+            "risk acknowledgement body digest changed",
+            "risk acknowledgement risk signals changed",
+        ):
+            self.assertTrue(any(expected in item for item in failures), (expected, failures))
 
     def test_generated_requires_governed_generator_and_vendored_requires_provenance(self) -> None:
         generated = make_fact("generated")

@@ -128,6 +128,8 @@
         "by_owner",
         "by_disposition",
         "by_risk_signal",
+        "risk_acknowledgement_refs",
+        "risk_acknowledgement_records",
         "by_crate",
         "by_cargo_target"
       ],
@@ -147,6 +149,8 @@
         "by_owner": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
         "by_disposition": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
         "by_risk_signal": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "risk_acknowledgement_refs": { "type": "integer", "minimum": 0 },
+        "risk_acknowledgement_records": { "type": "integer", "minimum": 0 },
         "by_crate": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
         "by_cargo_target": { "type": "array", "items": { "$ref": "#/$defs/count_row" } }
       }
@@ -181,6 +185,8 @@
         "area_candidates",
         "visibility",
         "risk_signals",
+        "risk_acknowledgement",
+        "risk_acknowledgement_status",
         "cargo_bindings",
         "inventory_bindings",
         "line",
@@ -203,6 +209,13 @@
         "area_candidates": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
         "visibility": { "enum": ["private", "public"] },
         "risk_signals": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "risk_acknowledgement": {
+          "type": ["string", "null"],
+          "pattern": "^RISK_ACK_[0-9A-F]{64}$"
+        },
+        "risk_acknowledgement_status": {
+          "enum": ["exact_record", "missing_record", "none"]
+        },
         "cargo_bindings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
         "inventory_bindings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
         "line": { "type": ["integer", "null"] },

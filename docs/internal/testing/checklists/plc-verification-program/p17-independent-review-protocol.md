@@ -44,8 +44,9 @@ requires all of the following:
 
 - exactly 88 live facts and exactly 88 exact map records for the reviewed file;
 - `runtime_clock_value` and `current_dt` are present as parser-derived facts;
-- all 32 risk-bearing facts have symbol-specific, body-digest-bound,
-  owner-reviewed acknowledgements with a current expiry;
+- all 32 risk-bearing facts have one-to-one `RISK_ACK_*` ledger records bound
+  to the exact code identity, owner, area, body digest, risk signals, review
+  anchor, and current expiry;
 - `CURRENT_DT` resolves to the open
   `SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001` unless an independently reviewed,
   active oracle has superseded that gap;
@@ -75,6 +76,8 @@ Acceptance requires:
 - zero duplicate, invented, stale, overlapping, or out-of-scope identities;
 - zero unresolved area/owner routing decisions;
 - zero stale body digests and zero unacknowledged or expired high-risk facts;
+- zero duplicate, orphan, invented, free-form, or mapping-divergent risk
+  acknowledgement records;
 - an empty frozen debt baseline whose history remains append- and edit-free;
 - every `specified` chain validates in both directions through an active,
   oracle-eligible specification, invariant, executable catalog test, and suite

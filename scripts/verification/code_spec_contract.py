@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from .code_spec_common import DISPOSITIONS, NON_BEHAVIORAL_REASONS, CodeFact
+from .code_spec_risk import owner_ack_is_anchored, validate_risk_acknowledgement
 
 
 BASE_FIELDS = frozenset(
@@ -61,6 +62,7 @@ def validate_map_document(
     spec_gaps: Mapping[str, Mapping[str, Any]] | None = None,
     invariants: Mapping[str, Mapping[str, Any]] | None = None,
     tests: Mapping[str, Mapping[str, Any]] | None = None,
+    risk_acknowledgements: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[str]:
     """Validate the committed mapping against the exact live denominator."""
 
@@ -68,6 +70,7 @@ def validate_map_document(
     spec_gaps = spec_gaps or {}
     invariants = invariants or {}
     tests = tests or {}
+    risk_acknowledgements = risk_acknowledgements or {}
     failures: list[str] = []
     if set(document) != {"schema_version", "mappings"}:
         failures.append("code-spec map root must contain only schema_version and mappings")
@@ -99,7 +102,13 @@ def validate_map_document(
     for code_id in sorted(set(by_id) & set(live_facts)):
         mapping = by_id[code_id]
         fact = live_facts[code_id]
-        failures.extend(_validate_fact_binding(mapping, fact))
+        failures.extend(
+            _validate_fact_binding(
+                mapping,
+                fact,
+                risk_acknowledgements=risk_acknowledgements,
+            )
+        )
         failures.extend(
             _validate_disposition(
                 mapping,
@@ -116,7 +125,12 @@ def validate_map_document(
     return sorted(set(failures))
 
 
-def _validate_fact_binding(mapping: Mapping[str, Any], fact: CodeFact) -> list[str]:
+def _validate_fact_binding(
+    mapping: Mapping[str, Any],
+    fact: CodeFact,
+    *,
+    risk_acknowledgements: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
     failures: list[str] = []
     code_id = fact.code_id
     if mapping.get("schema_version") != 1:
@@ -143,8 +157,23 @@ def _validate_fact_binding(mapping: Mapping[str, Any], fact: CodeFact) -> list[s
         failures.append(f"{code_id}: stale_spec_review body digest changed")
     risk_signals = mapping.get("risk_signals")
     if isinstance(risk_signals, list) and risk_signals:
-        if not mapping.get("owner_ack"):
+        owner_ack = mapping.get("owner_ack")
+        if not owner_ack:
             failures.append(f"{code_id}: high-risk mapping requires owner_ack")
+        elif not owner_ack_is_anchored(owner_ack):
+            failures.append(
+                f"{code_id}: owner_ack must resolve to an anchored risk acknowledgement"
+            )
+        elif owner_ack not in risk_acknowledgements:
+            failures.append(f"{code_id}: unknown risk acknowledgement {owner_ack}")
+        else:
+            failures.extend(
+                validate_risk_acknowledgement(
+                    risk_acknowledgements[owner_ack],
+                    fact=fact,
+                    mapping=mapping,
+                )
+            )
         expiry = mapping.get("owner_ack_expires_on")
         if not isinstance(expiry, str) or not expiry:
             failures.append(

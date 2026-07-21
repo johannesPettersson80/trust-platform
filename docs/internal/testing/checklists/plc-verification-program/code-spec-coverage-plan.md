@@ -203,8 +203,13 @@ generator path plus exact digest, but it is reported as
 
 Every reviewed body-digest change is rendered in a distinct report section
 with code ID, old digest, new digest, owner, and rationale. A high-risk fact
-also requires an explicit `owner_ack` value. Rebinding the digest in the map
-does not remove this review-visible delta from the changed-code gate.
+also requires an anchored `RISK_ACK_*` identity that resolves one-to-one in
+`verification/code-spec-risk-acknowledgements.toml`. The closed acknowledgement
+record repeats the exact code identity, owner, area, reviewed body digest, risk
+signals, review anchor, reviewer role, review date, expiry, and rationale. Any
+duplicate, orphan, invented, stale, free-form, expired, or mapping-divergent
+record fails closed. Rebinding the digest in the map does not remove this
+review-visible delta from the changed-code gate.
 
 ## 5. Semantic Validation
 
@@ -252,6 +257,8 @@ Keep responsibilities separate:
 - `code_spec_tooling.py`: Rust/Python/shell operational-tooling joins when its
   stage opens.
 - `code_spec_contract.py`: mapping schema and semantic validation.
+- `code_spec_risk.py`: closed one-to-one high-risk acknowledgement identity,
+  ledger indexing, and exact live binding validation.
 - `code_spec_live.py`: complete live join with existing metadata.
 - `code_spec_report.py`: canonical JSON and Markdown rendering.
 - `code_spec_provenance.py`: clean full-SHA, tracked-input, and exact private
@@ -390,8 +397,10 @@ is reachable from PLC scan execution. The closed v1 risk-signal enum is:
 - `persistence_retain_reload_restart`.
 
 A risk signal does not invent a defect. It requires an explicit specification
-or open gap and prevents `non_behavioral` suppression. Allowlist entries are
-symbol-specific, owner-reviewed, digest-bound, and expiry-capable.
+or open gap and prevents `non_behavioral` suppression. Acknowledgements are
+symbol-specific, owner-reviewed, digest-bound, expiry-capable, and resolved
+through the closed risk-acknowledgement ledger; prose or a map string alone is
+not acceptance.
 
 ## 10. Validation Cadence
 
