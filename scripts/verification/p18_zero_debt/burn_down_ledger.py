@@ -37,7 +37,7 @@ TEST_INPUT_PATHS = {
 }
 P18_INPUT_PATHS = {
     "verification/p18-proof-budgets.toml",
-    "docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md",
+    "docs/internal/testing/checklists/plc-verification-program/metadata-model.md",
 }
 AREA_ORDER = (
     "runtime_safety",
