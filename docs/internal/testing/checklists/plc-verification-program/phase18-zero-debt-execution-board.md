@@ -3,8 +3,9 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current transition: `VERIF-P17-012`. `VERIF-P18-001` is the first executable
-Phase 18 row after the Phase 17 focused transition checks and stop-gate closure.
+Current row: `VERIF-P18-001`. The Phase 17 focused transition checks and stop
+gates are closed by the clean remote evidence in
+`2026-07-21-p17-to-p18-transition.md`.
 
 ## Objective
 

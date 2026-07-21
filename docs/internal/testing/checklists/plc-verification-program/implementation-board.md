@@ -1864,7 +1864,7 @@ expected behavior from implementation text and does not promote product proof.
   acknowledgement for every mapped risk-bearing fact; historical records stay
   attached to exact registered-backlog gaps and do not claim correctness or
   create an area-wide planner block.
-- [ ] `VERIF-P17-012` Close silent denominator omissions and flip
+- [x] `VERIF-P17-012` Close silent denominator omissions and flip
   full-denominator enforcement only after an independent review accepts exact
   one-to-one partitions for every scoped language and the frozen debt baseline
   is empty. `VERIF-P18-000` must first accept the zero-debt execution contract
@@ -1879,12 +1879,20 @@ expected behavior from implementation text and does not promote product proof.
   not run or claim a second broad completion milestone here.
   Update `AGENTS.md` and `trust-test-authoring` only in this reviewed enforcement
   commit so future feature work cannot bypass the code-to-spec route.
+  Closed on clean detached `trust-builder` HEAD
+  `a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35`: 1,008 focused tests,
+  880-record metadata gate, 33/33 tooling fixtures, 269-to-4,038 catalog
+  staleness join, and full enforcement over 15,229 facts all passed. The first
+  focused run exposed only an unavailable lockfile dependency; after exact
+  TypeScript `5.9.3` installation, the affected 7/7 and complete 1,008/1,008
+  reruns passed. No broad milestone ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-to-p18-transition.md`.
 
-- [ ] `VERIF-STOP-017A` Do not describe Phase 16's closed registered graph as
+- [x] `VERIF-STOP-017A` Do not describe Phase 16's closed registered graph as
   exhaustive production-code specification coverage. Until `VERIF-P17-012`
   closes, use the exact wording `registered verification graph complete;
   production code-to-spec denominator in progress`.
-- [ ] `VERIF-STOP-017B` Do not begin Rust PLC S1 product implementation until
+- [x] `VERIF-STOP-017B` Do not begin Rust PLC S1 product implementation until
   `VERIF-P17-006` closes and changed-code enforcement from `VERIF-P17-010` is
   active for every S1 Rust/runtime path. Planning, specification review, and
   compile-only harness preparation may proceed; observable product behavior
@@ -1900,9 +1908,9 @@ machine-readable substrate, proof budgets, dependency/reopen rules, rows
 `VERIF-STOP-018A` through `VERIF-STOP-018F`.
 
 The commit-bound R3 review accepted `VERIF-P18-000` at exact commit
-`7c08f5a8fd31fb2f4c770d316656f0b78ff62673`. Current transition pointer:
-`VERIF-P17-012`; its focused checks and stop gates must close before
-`VERIF-P18-001` becomes the first executable Phase 18 row.
+`7c08f5a8fd31fb2f4c770d316656f0b78ff62673`, and the clean remote transition
+proof closed `VERIF-P17-012` plus the Phase 17 stop gates at `a74efe09`.
+Current pointer: `VERIF-P18-001`, the first executable Phase 18 row.
 
 Phase 17 is accepted only as the denominator and fail-closed enforcement
 baseline. Its broad milestone is deferred into the single final Phase 18

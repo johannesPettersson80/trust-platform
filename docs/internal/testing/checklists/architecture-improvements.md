@@ -173,7 +173,7 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
    reusable `trust-lsp::document_text` library module so the shipped handler,
    focused tests, and fuzz target share one implementation. The binary handler
    remains responsible for LSP type adaptation and document-state updates.
-- [ ] `ARCH-VERIF-P17-01` Make parser-backed Phase 17 facts the single
+- [x] `ARCH-VERIF-P17-01` Make parser-backed Phase 17 facts the single
   production-code denominator: the software map consumes Rust facts, tooling
   joins the existing gate/fuzz inventories, and the existing metadata,
   planner, report-gate, and verification workflow own validation and
@@ -183,7 +183,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   `verification-code-spec-coverage.puml`, focused
   scanner/join/planner/gate tests, authoritative fuzz target-to-direct-surface
   area and canonical-owner join tests, rendered diagram drift proof, and the
-  final Phase 17 gate milestone.
+  final Phase 17 focused transition milestone. Closed by clean detached remote
+  evidence at `a74efe09`; the broad workspace milestone is intentionally owned
+  only by Phase 18 candidate row `VERIF-P18-016`.
 - [ ] `ARCH-VERIF-P18-01` Eliminate structural verification debt after the
   Phase 17 denominator is enforced: replace every area-wide historical
   code-spec backlog with exact authoritative specification/invariant/test
