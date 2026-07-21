@@ -53,6 +53,30 @@ last_reviewed = "2026-07-21"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DB136E875859CDDFA14A"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/p18_burn_down_ledger_gate.py"
+name = "p18_burn_down_ledger_gate"
+command = "python3 -m unittest scripts.verification.p18_burn_down_ledger_tests && python3 scripts/p18_burn_down_ledger_gate.py"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+expected_result = "The canonical ledger contains every live code and test identity exactly once, preserves all ownership, risk, authority, budget, dependency, environment, and blocker fields, and reconstructs exact per-area and debt totals."
+expected_failure_mode = "A live identity is omitted, duplicated, grouped away, invented, unowned, unbudgeted, silently reclassified, stale, or accepted with weakened blockers or non-reconstructible arithmetic."
+suite_tiers = ["veryquick", "pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001.json"
+last_reviewed = "2026-07-21"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

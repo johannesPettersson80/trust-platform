@@ -14,3 +14,17 @@ open-debt exit. The focused negative fixtures remove or corrupt each catcher,
 including one proof validator, and require rejection. These acknowledgements
 recognize the scanner signals; they do not assert product correctness, waive a
 finding, lower a proof denominator, or close any Phase 18 debt class.
+
+## Burn-down ledger risk boundary
+
+The P18-002 scanner conservatively marks construction of canonical rows and
+summaries, set/collection partition checks, filesystem reads and artifact
+writes, Git subprocess status handling, and CLI fault rendering as risk-bearing
+verification behavior. Each acknowledgement is bound to the exact function
+body digest and scanner signals. The reviewed contract requires a closed
+schema, one slice per authoritative code/test identity, complete proof-budget
+and blocker sets, exact source/input closure, canonical ordering, and fully
+reconstructed counts. Focused negative fixtures remove identities, duplicate
+rows, drift counters, add unknown fields, and weaken budget/environment/blocker
+sets. These acknowledgements do not infer product semantics, close a debt row,
+or permit omission, grouping, waiver, or denominator reduction.

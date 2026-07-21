@@ -12,6 +12,22 @@ package "Reviewed contracts" {
   [closed JSON schemas] as Schemas
 }
 
+package "Authoritative live denominators" {
+  [Phase 17 code scanner\n+ code-spec map] as CodeFacts
+  [existing-test scanner\n+ reviewed denominator] as TestFacts
+  [gap + invariant + test catalog] as Metadata
+  [area matrix + ignored registry] as Routing
+}
+
+package "P18-002 fact-level ownership" {
+  [burn_down_ledger.py\nextract + join] as BurnProducer
+  [closed burn-down schema\n+ arithmetic validator] as BurnValidator
+  [one CODE identity\nper open slice] as CodeSlices
+  [one DISC identity\nper open slice] as TestSlices
+  [canonical burn-down-ledger.json] as BurnArtifact
+  [p18_burn_down_ledger_gate.py] as BurnCLI
+}
+
 package "Focused validation ownership" {
   [semantic chains] as Semantic
   [existing-test mapping] as TestMapping
@@ -39,6 +55,20 @@ Spec --> Claims
 Schemas --> Ledger : validate before join
 Schemas --> Budgets : validate before join
 Schemas --> Claims : validate before join
+
+CodeFacts --> BurnProducer : exact live identities
+TestFacts --> BurnProducer : exact live identities
+Metadata --> BurnProducer : explicit refs only
+Routing --> BurnProducer : ownership candidates only
+Budgets --> BurnProducer : all twelve budget IDs
+Spec --> BurnProducer : no semantic inference
+BurnProducer --> CodeSlices
+BurnProducer --> TestSlices
+CodeSlices --> BurnArtifact
+TestSlices --> BurnArtifact
+BurnArtifact --> BurnValidator : reconstruct every count
+BurnValidator --> BurnCLI
+BurnArtifact --> Ledger : semantic/test raw input
 
 Ledger --> Semantic
 Ledger --> TestMapping
@@ -79,6 +109,12 @@ note bottom of Join
   Every input document uses an independently asserted source SHA
   and a normalized complete-document closure digest.
   A focused validator cannot close another proof class.
+end note
+
+note bottom of BurnArtifact
+  One row never stands for multiple live facts.
+  Ambiguous test areas remain unresolved and blocked.
+  Frozen ownership and ordering do not close debt.
 end note
 
 note bottom of StrictRoute

@@ -34292,6 +34292,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DB136E875859CDDFA14A"
+discovery_source_kind = "gate_script"
+path = "scripts/p18_burn_down_ledger_gate.py"
+name = "p18_burn_down_ledger_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"
+last_reviewed = "2026-07-21"
+
+[[reviews]]
 discovery_id = "DISC_DB2158CD7AE4815BB669"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-syntax/src/syntax/mod.rs"

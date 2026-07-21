@@ -1635,3 +1635,56 @@ per-proof-class semantics, and rendering remain separate responsibilities. A
 proof-class validator cannot close another class, lower another denominator, or
 turn inventory ownership into proof. Phase 18 implementation tests are
 verification-tooling evidence only and do not become product correctness proof.
+
+### Phase 18 Fact-Level Burn-Down Ledger Contract
+
+`VERIF-P18-002` writes the canonical raw semantic/test work ledger to
+`verification/p18/burn-down-ledger.json`; its closed schema is
+`verification/schemas/p18-burn-down-ledger.schema.json`. The thin producer and
+checker is `scripts/p18_burn_down_ledger_gate.py`; responsibility-specific
+extraction, joining, arithmetic, and validation remain in
+`scripts/verification/p18_zero_debt/burn_down_ledger.py`.
+
+The ledger joins, but does not copy or replace, the live Phase 17 code scanner,
+code-spec map, existing-test scanner, reviewed test denominator, test catalog,
+ignored-test registry, area matrix, gap registry, and Phase 18 budgets. It
+records their complete sorted input-path closure and SHA-256 digest and names
+the clean 40-hex producer commit. `--write` is allowed only from a clean Git
+worktree. Check mode reconstructs the complete payload from live inputs and
+requires byte-for-byte canonical JSON; any source, metadata, routing, budget,
+schema, or generator change therefore invalidates the ledger.
+
+There is exactly one code slice per live `CODE_*` identity and one test slice
+per live `DISC_*` identity. No file, path, name, lexical reference, neighboring
+test, current output, implementation text, or area-wide backlog may group
+multiple facts into one semantic slice. A later reviewed requirement may
+authorize grouping only by replacing the affected one-fact rows with an exact
+reviewed relationship that still preserves every identity in the denominator.
+
+Every code slice freezes sequence, code identity, source kind, path, qualified
+symbol, item kind, area, owner, default and scanner risk classes, current
+disposition, authority and decision references, current invariant/test links,
+all Phase 18 budget identities, dependency rows, environment status, blockers,
+and open state. Every test slice freezes the corresponding discovery identity,
+source kind, path, name, ignore state, reviewed disposition, catalog identity
+when present, authority/invariant links, candidate and accounting areas,
+accountable owner, risk classes, all budgets, dependency rows, environment
+status, blockers, and open state.
+
+An exact catalog or ignored-registry binding may supply a test's reviewed area
+and owner. A single matrix route may supply its sole area and owner. Multiple
+or absent candidate areas remain `accounting_area = "unresolved"`, owned by the
+verification team for remediation, and carry an explicit domain-area/owner
+review blocker. Candidate ownership is not a semantic mapping. An ignored,
+conditional, gate-owned, fuzz-owned, or catalog-mapped test remains open until
+its final Phase 18 execution, assertion, and adequacy obligations close.
+
+The validator rejects missing or duplicate code/test identities, invented
+identities, noncontiguous order, a missing owner, empty blocker/environment/
+budget/dependency sets, omission of any of the twelve proof budgets, a closed
+slice, or summary arithmetic that does not reconstruct exactly from raw rows.
+It emits all eleven code-area counts after every generation and keeps
+unresolved test-area counts visible. The immutable Phase 17 baseline remains
+separate from the current live totals. Generating this ledger owns and orders
+the debt; it does not decrement `spec_gap`, `registered_backlog`,
+`reviewed_nonmapping`, ignored/unrun, or unmeasured proof counters.

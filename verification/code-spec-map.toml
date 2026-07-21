@@ -23,6 +23,332 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
+code_id = "CODE_D5D6B528A9584E4E6F9FE1D31B98DE883E78995EEAB8D5D407A071BDCB5A44E5"
+source_kind = "python"
+path = "scripts/p18_burn_down_ledger_gate.py"
+qualified_symbol = "scripts::p18_burn_down_ledger_gate::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_822FA20CCF9E241AECD8DEFC11EA56C3B5E201B1519134BA1833E906770D1C83"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_clean_head"
+item_kind = "python_function"
+signature_digest = "sha256:fa834f22e9beeb0237266bdd11787a206980e9c45c24a22999412a7c9b53d418"
+reviewed_body_digest = "sha256:38a2039e622e70ea1e4b1460737998df698cc840058e3a18297e27885137a1b1"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_822FA20CCF9E241AECD8DEFC11EA56C3B5E201B1519134BA1833E906770D1C83"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_04D71769A7E65C9A99ED3A300926719FACBD0FBB16EDAAAF265561151D2BAE97"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_code_order_key"
+item_kind = "python_function"
+signature_digest = "sha256:fc4b5167c09cbe7ffbe3b5fe61dbe8a607e1e9366f81026cfd3c7890a64037dd"
+reviewed_body_digest = "sha256:11e7416ea01046cbd3219293bc23e89f372f099a1c5c0dd7d877681b710c437a"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_99DEEDFB331F97524B2770DC3EE6CC273787DF7DEEFAEF8777561ABE12F7FDDC"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_code_row"
+item_kind = "python_function"
+signature_digest = "sha256:6ed69e5b8b04986d996c9a2093d97798831b482d24c5a372a3baa0a4fbb377a4"
+reviewed_body_digest = "sha256:f06df73012edb3e697881375ad681db14f716128275a0c12266571e4ec81e12c"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["fault_mapping", "protocol_response_or_status", "state_mutation"]
+owner_ack = "RISK_ACK_99DEEDFB331F97524B2770DC3EE6CC273787DF7DEEFAEF8777561ABE12F7FDDC"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_37A8C839DF49C3CB7EB88A7B8DD76CBF3E4D1F39F22DF0EB17441C9907E1D4B8"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_index"
+item_kind = "python_function"
+signature_digest = "sha256:4afe52962a7e04b30c9ec4edebeaad65422d909d89308080a08a7e48cb7d5f0d"
+reviewed_body_digest = "sha256:47d02da5d13474f0ccb1e8e76d66f6382c533c39bb7036298e3bb8586bd6e033"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_37A8C839DF49C3CB7EB88A7B8DD76CBF3E4D1F39F22DF0EB17441C9907E1D4B8"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D189E5EEA455A70F227564D105DDE250C5CDBB23FE5882F52BD2B76F5083FAC7"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_load_toml"
+item_kind = "python_function"
+signature_digest = "sha256:38fc3724ca44a8b849af81a4523d1b4d73cbdce799ee40546ae7bfc7713eeb64"
+reviewed_body_digest = "sha256:4eecb78d7edf6cc4249bfe15c67db41a15cf6e681fb2e9bc2e03bfe3f079f6c7"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_D189E5EEA455A70F227564D105DDE250C5CDBB23FE5882F52BD2B76F5083FAC7"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_617EDF72FE3EEE521A06E586BA80B1AC720BFFAED50012C3F23B32A19EB0D90D"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_test_order_key"
+item_kind = "python_function"
+signature_digest = "sha256:223de715ef46645e9993b619bf3949ca434ca649f3cf14e10e264cee5c28527b"
+reviewed_body_digest = "sha256:5b1343ea1b257db71867f93ba2c16db66cde53a58bb01bb1ebfc34d66bb93268"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C71B812698E0D95984D9C889796E40983B0AEF407609099F0EB78FE0043B8DFF"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_test_row"
+item_kind = "python_function"
+signature_digest = "sha256:e68b28dbf41772241d8a327a3ab445b13c28fa96bccbf8fa7ab44810527d3904"
+reviewed_body_digest = "sha256:dff8d605e0ed96800aac014db4adf4c0a4b4576292e08417669f9b2ce2d6a209"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_C71B812698E0D95984D9C889796E40983B0AEF407609099F0EB78FE0043B8DFF"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8BBED8207F540A86B7C1642B0C4D71579112446FCFB5C843B945CAE91E858E23"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_validate_partition"
+item_kind = "python_function"
+signature_digest = "sha256:496e15f962b2d57e9f23a6b9e4e0ff841093941e369cc1018d2a77bcf9e25c27"
+reviewed_body_digest = "sha256:51d93f59550621ecccb1c0894f50d1afe8512d4ddb46be40c6bd174ee5b8be69"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_8BBED8207F540A86B7C1642B0C4D71579112446FCFB5C843B945CAE91E858E23"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C36EBBEBE53FE13705BE596A64E01366D89EBEE14D01E13980B7DD2175884633"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_validate_rows"
+item_kind = "python_function"
+signature_digest = "sha256:01a357ab95e63a3a29ac7d012094817c73354e47af8f584378f25b1df4011a1d"
+reviewed_body_digest = "sha256:fc059c4326dddefda4b483c670bf8afce3866fbd719f215a25ccd2118326a997"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_C36EBBEBE53FE13705BE596A64E01366D89EBEE14D01E13980B7DD2175884633"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_161817D4700BC0557DD98B1C2BF02639F0CBC0EE5CB3B75F98EC5365D6B3FA28"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::build_live_payload"
+item_kind = "python_function"
+signature_digest = "sha256:5ca882984a4bcc0bf00482d9123c527a57e3fc785fa44241ae5c0e421f43547a"
+reviewed_body_digest = "sha256:42d9dd44cc7aa09c9fd73e0bdeb16c01271ac97465a7023b45026366e9fedccc"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7B3027D3251326CD0180030DBF9ED87BEBB63AE3C06BAD5C92BD8D81E776EA63"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::build_payload"
+item_kind = "python_function"
+signature_digest = "sha256:e6b900d3857109ba12eb362d4d71b46699d1039c545d487f2eb1aef350db1c23"
+reviewed_body_digest = "sha256:3c7b92a09faccff00e94ca6f6b5677c340932f247483723a57c4fe37b8b0380e"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_7B3027D3251326CD0180030DBF9ED87BEBB63AE3C06BAD5C92BD8D81E776EA63"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_88EDA7BAAF866A661AA79C9A722A9C6E29249336FC1E78E256851D0D878B5170"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::canonical_json"
+item_kind = "python_function"
+signature_digest = "sha256:134d7dd0fda5e6043e4f6ef957ddd37ee0d0c3f6c12040daadfc584f186adb80"
+reviewed_body_digest = "sha256:14df41ecc715dd7c6137da9a918c5561b92ae1dd0ef0f1e87a6be5b64e4dd601"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7CAA65686531383BE94DF1A12A3382BC88BE3DDAB257092BF5EFD7FAC3427879"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::main"
+item_kind = "python_function"
+signature_digest = "sha256:f0a6b65cef4057e8d33663ae46d4151b52064ae49e890a04beaa4d8fb29aa681"
+reviewed_body_digest = "sha256:731665b640596e8bd61ddba85476b0235c39a60393b10204ed33fa9ef285a349"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_7CAA65686531383BE94DF1A12A3382BC88BE3DDAB257092BF5EFD7FAC3427879"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6E479A6596A49EA96C0A89153D8C78A8D3DBCEA0E4C54F4B4F0A9DAD0699A90E"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::_source_commit_failures"
+item_kind = "python_function"
+signature_digest = "sha256:966456621c7972a3fd5b697ae431716d8dc1f314c543cdfd3e39594ad93e76e1"
+reviewed_body_digest = "sha256:d63c535eddbff26bbdb039085823cecee83c62ea0a0c112ace06949fa36202cd"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_6E479A6596A49EA96C0A89153D8C78A8D3DBCEA0E4C54F4B4F0A9DAD0699A90E"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F9A6D54BB87F8E14F46C426B946BCF6548EB15C22A7F2C5AF0F9725F0757751D"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/burn_down_ledger.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::burn_down_ledger::validate_payload"
+item_kind = "python_function"
+signature_digest = "sha256:7b5f7e39bb1b2f716a68ab416672d979e385d2962cd717fbe9db62b2b9856372"
+reviewed_body_digest = "sha256:8013e1cb8ded59e0fa218b78583bb0ddc7f0152bbbb68022c35cc59d4f63b7f1"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+owner_ack = "RISK_ACK_F9A6D54BB87F8E14F46C426B946BCF6548EB15C22A7F2C5AF0F9725F0757751D"
+owner_ack_expires_on = "2026-10-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+invariant_ids = ["VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+test_ids = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
 code_id = "CODE_D2B8AF838861CCC9E5E3CB4D2D9B0E02BB05A4BFDB234AE722F30A34433824A1"
 source_kind = "typescript"
 path = "crates/trust-runtime/web/ide-frontend/vite.monaco.config.ts"

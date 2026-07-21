@@ -46,6 +46,28 @@ rationale = "P18-001 registers the reviewed report-only substrate; strict enforc
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_P18_BURN_DOWN_LEDGER"
+discovery_id = "DISC_DB136E875859CDDFA14A"
+source_kind = "gate_script"
+path = "scripts/p18_burn_down_ledger_gate.py"
+name = "p18_burn_down_ledger_gate"
+command = "python3 scripts/p18_burn_down_ledger_gate.py"
+variant = "Phase 18 exact fact-level debt ownership and slice ordering"
+command_role = "entrypoint"
+disposition = "report_only"
+suite_ids = ["veryquick"]
+owner = "verification"
+duration_class = "medium"
+environment = "trust_builder"
+artifact_kind = "committed_file"
+artifact_paths = ["verification/p18/burn-down-ledger.json"]
+artifact_retention = "committed"
+enforcement = "report_only"
+required_env = []
+rationale = "P18-002 freezes every live code and test identity as an owned open work slice; the gate checks exact canonical bytes but cannot close semantic or adequacy debt."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JUST_VERIFICATION_VERYQUICK"
 source_kind = "just_recipe"
 path = "justfile"

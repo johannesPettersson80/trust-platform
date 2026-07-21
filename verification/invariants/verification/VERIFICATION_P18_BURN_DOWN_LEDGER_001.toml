@@ -1,0 +1,60 @@
+schema_version = 1
+id = "VERIFICATION_P18_BURN_DOWN_LEDGER_001"
+title = "Phase 18 burn-down ledger preserves every code and test fact"
+area = "verification"
+risk = "silent_corruption"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-21"
+claim = "The Phase 18 burn-down ledger must contain exactly one open, owned, budget-bound work slice for every live code and test identity; it must reject omission, duplication, invented identity, hidden grouping, weakened blockers or budgets, stale inputs, and non-reconstructible counts without inferring product semantics."
+proof_level = "T1"
+contract_kind = "security_policy"
+source_refs = [
+  "docs/internal/testing/checklists/plc-verification-program/metadata-model.md#phase-18-fact-level-burn-down-ledger-contract",
+  "verification/schemas/p18-burn-down-ledger.schema.json",
+  "scripts/p18_burn_down_ledger_gate.py",
+  "scripts/verification/p18_zero_debt/burn_down_ledger.py",
+]
+tests = ["TEST_VERIFICATION_P18_BURN_DOWN_LEDGER_001"]
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["clean_remote_frozen_ledger_evidence"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-fact-level-burn-down-ledger-contract"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "A canonical fixture preserves one code slice and one test slice with exact ownership, budget, dependency, environment, and blocker fields."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Closed-schema fixtures reject missing nested fields, and partition fixtures reject an omitted live identity."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "The closed artifact schema rejects an added waiver or any other unknown root or nested field."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Fixtures reject duplicate identities, noncontiguous sequence, a non-open slice, and summary arithmetic drift."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "The live checker binds canonical bytes to the exact complete input closure and a clean producer commit."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "The generator uses one bounded row per scanner identity and reconstructs counts without an unbounded semantic cross-product."

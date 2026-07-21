@@ -80714,6 +80714,160 @@ rationale = "Acknowledges the conservative parser-derived risk signals for this 
 
 [[acknowledgements]]
 schema_version = 1
+id = "RISK_ACK_822FA20CCF9E241AECD8DEFC11EA56C3B5E201B1519134BA1833E906770D1C83"
+code_id = "CODE_822FA20CCF9E241AECD8DEFC11EA56C3B5E201B1519134BA1833E906770D1C83"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:38a2039e622e70ea1e4b1460737998df698cc840058e3a18297e27885137a1b1"
+risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges exact P18-002 Git status and source-identity handling; clean-producer enforcement, exact input closure, and omission/duplication catchers remain mandatory."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_99DEEDFB331F97524B2770DC3EE6CC273787DF7DEEFAEF8777561ABE12F7FDDC"
+code_id = "CODE_99DEEDFB331F97524B2770DC3EE6CC273787DF7DEEFAEF8777561ABE12F7FDDC"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:f06df73012edb3e697881375ad681db14f716128275a0c12266571e4ec81e12c"
+risk_signals = ["fault_mapping", "protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges exact code-slice construction and blocker mapping; every source identity, risk, authority, budget, dependency, and open blocker remains explicit."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_37A8C839DF49C3CB7EB88A7B8DD76CBF3E4D1F39F22DF0EB17441C9907E1D4B8"
+code_id = "CODE_37A8C839DF49C3CB7EB88A7B8DD76CBF3E4D1F39F22DF0EB17441C9907E1D4B8"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:47d02da5d13474f0ccb1e8e76d66f6382c533c39bb7036298e3bb8586bd6e033"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges exact identity indexing; duplicate authoritative identities remain a blocking error and are never overwritten."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D189E5EEA455A70F227564D105DDE250C5CDBB23FE5882F52BD2B76F5083FAC7"
+code_id = "CODE_D189E5EEA455A70F227564D105DDE250C5CDBB23FE5882F52BD2B76F5083FAC7"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:4eecb78d7edf6cc4249bfe15c67db41a15cf6e681fb2e9bc2e03bfe3f079f6c7"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges governed TOML input reads; the complete tracked input closure and live validators remain authoritative."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C71B812698E0D95984D9C889796E40983B0AEF407609099F0EB78FE0043B8DFF"
+code_id = "CODE_C71B812698E0D95984D9C889796E40983B0AEF407609099F0EB78FE0043B8DFF"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:dff8d605e0ed96800aac014db4adf4c0a4b4576292e08417669f9b2ce2d6a209"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges exact test-slice routing; ambiguous domain areas remain unresolved and explicitly blocked rather than inferred."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8BBED8207F540A86B7C1642B0C4D71579112446FCFB5C843B945CAE91E858E23"
+code_id = "CODE_8BBED8207F540A86B7C1642B0C4D71579112446FCFB5C843B945CAE91E858E23"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:51d93f59550621ecccb1c0894f50d1afe8512d4ddb46be40c6bd174ee5b8be69"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges exact set partition checking; missing and invented identities remain separately blocking."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C36EBBEBE53FE13705BE596A64E01366D89EBEE14D01E13980B7DD2175884633"
+code_id = "CODE_C36EBBEBE53FE13705BE596A64E01366D89EBEE14D01E13980B7DD2175884633"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:fc059c4326dddefda4b483c670bf8afce3866fbd719f215a25ccd2118326a997"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges sequence and duplicate checks; canonical one-based ordering remains required for every slice."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7B3027D3251326CD0180030DBF9ED87BEBB63AE3C06BAD5C92BD8D81E776EA63"
+code_id = "CODE_7B3027D3251326CD0180030DBF9ED87BEBB63AE3C06BAD5C92BD8D81E776EA63"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:3c7b92a09faccff00e94ca6f6b5677c340932f247483723a57c4fe37b8b0380e"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges full payload construction; one-fact slices, immutable baseline, all proof budgets, and reconstructed area totals remain enforced."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7CAA65686531383BE94DF1A12A3382BC88BE3DDAB257092BF5EFD7FAC3427879"
+code_id = "CODE_7CAA65686531383BE94DF1A12A3382BC88BE3DDAB257092BF5EFD7FAC3427879"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:731665b640596e8bd61ddba85476b0235c39a60393b10204ed33fa9ef285a349"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges CLI load/write/error behavior; only clean producers may write and check mode must match live canonical bytes exactly."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F9A6D54BB87F8E14F46C426B946BCF6548EB15C22A7F2C5AF0F9725F0757751D"
+code_id = "CODE_F9A6D54BB87F8E14F46C426B946BCF6548EB15C22A7F2C5AF0F9725F0757751D"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:8013e1cb8ded59e0fa218b78583bb0ddc7f0152bbbb68022c35cc59d4f63b7f1"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges validation-state construction; missing fields, omitted budgets, duplicate partitions, and counter drift remain blocking results."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6E479A6596A49EA96C0A89153D8C78A8D3DBCEA0E4C54F4B4F0A9DAD0699A90E"
+code_id = "CODE_6E479A6596A49EA96C0A89153D8C78A8D3DBCEA0E4C54F4B4F0A9DAD0699A90E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:d63c535eddbff26bbdb039085823cecee83c62ea0a0c112ace06949fa36202cd"
+risk_signals = ["protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#burn-down-ledger-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges Git provenance comparison and status handling; only an available ancestor with byte-identical tracked inputs and a clean worktree is accepted."
+
+[[acknowledgements]]
+schema_version = 1
 id = "RISK_ACK_1D197AD609C0D37EB1725BE60D2D326F9B81FCADF27C313CF7BB8FBB55D8680C"
 code_id = "CODE_1D197AD609C0D37EB1725BE60D2D326F9B81FCADF27C313CF7BB8FBB55D8680C"
 owner = "verification"
