@@ -66130,13 +66130,13 @@ id = "RISK_ACK_2047ABF848EF5FF0144439A4538C28D9841A488858F38E4116A398FA0913FF8E"
 code_id = "CODE_2047ABF848EF5FF0144439A4538C28D9841A488858F38E4116A398FA0913FF8E"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:9baf2c3bf691e70bac8a33ab232ce61d966c83de14c32642b6100cc507113d0c"
+body_digest = "sha256:de8454effa30d15d527b8eb7e0fac46048629cc416aa03200ae26b425f03555b"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-planner-routing-repair.md#code-fact-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the exact reviewed Planner.plan body and its protocol/status and state-mutation risk signals after the docs-only routing repair; the fact remains bound to the explicit open historical verification gap, and this acknowledgement neither infers correctness nor suppresses either signal."
 
 [[acknowledgements]]
 schema_version = 1

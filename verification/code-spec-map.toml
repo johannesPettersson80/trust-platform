@@ -237325,16 +237325,16 @@ path = "scripts/verification/planner.py"
 qualified_symbol = "scripts::verification::planner::Planner::plan"
 item_kind = "python_method"
 signature_digest = "sha256:5b4f017e23ca7ddcda33ada0808ed1cfd17c0df80adb5e099d9d78a2b914fe38"
-reviewed_body_digest = "sha256:9baf2c3bf691e70bac8a33ab232ce61d966c83de14c32642b6100cc507113d0c"
+reviewed_body_digest = "sha256:de8454effa30d15d527b8eb7e0fac46048629cc416aa03200ae26b425f03555b"
 owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_2047ABF848EF5FF0144439A4538C28D9841A488858F38E4116A398FA0913FF8E"
-owner_ack_expires_on = "2026-10-21"
+owner_ack_expires_on = "2026-10-22"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
