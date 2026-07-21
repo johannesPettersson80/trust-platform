@@ -1911,8 +1911,10 @@ The commit-bound R3 review accepted `VERIF-P18-000` at exact commit
 `7c08f5a8fd31fb2f4c770d316656f0b78ff62673`, and the clean remote transition
 proof closed `VERIF-P17-012` plus the Phase 17 stop gates at `a74efe09`.
 The clean remote substrate proof closed `VERIF-P18-001` at exact producer
-commit `e23e113d`; current pointer: `VERIF-P18-002`, the deterministic
-fact-level burn-down ledger.
+commit `e23e113d`. The clean remote fact-level ledger proof closed
+`VERIF-P18-002` at exact artifact commit `103a6197`; current pointer:
+`VERIF-P18-003`, starting with exact slice
+`P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`.
 
 Phase 17 is accepted only as the denominator and fail-closed enforcement
 baseline. Its broad milestone is deferred into the single final Phase 18

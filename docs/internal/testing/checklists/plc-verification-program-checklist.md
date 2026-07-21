@@ -27,7 +27,8 @@ Read in this order:
 5. [verification-areas.md](plc-verification-program/verification-areas.md)
 6. [implementation-board.md](plc-verification-program/implementation-board.md)
 7. [phase18-zero-debt-execution-board.md](plc-verification-program/phase18-zero-debt-execution-board.md)
-   (active zero-debt completion board; its pointer is `VERIF-P18-002`)
+   (active zero-debt completion board; its pointer is `VERIF-P18-003`, exact
+   slice `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`)
 8. [fable-review-brief.md](plc-verification-program/fable-review-brief.md)
 9. [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
    (queued: Phase 16 readiness plus the first spec-to-green vertical; product

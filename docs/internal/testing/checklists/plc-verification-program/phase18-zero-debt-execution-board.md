@@ -3,9 +3,10 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-002`. The Phase 18 substrate is accepted only as a
-machine-readable control plane; all reported semantic, mapping, execution, and
-adequacy populations remain debt.
+Current row: `VERIF-P18-003`, starting with exact slice
+`P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`.
+The accepted P18-002 ledger owns and orders every current fact; it does not
+close any semantic, mapping, execution, or adequacy population.
 
 ## Objective
 
@@ -202,12 +203,23 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   `reviewed_nonmapping`, 23 ignored/skipped/filtered/unrun, and 10 unmeasured
   proof-class facts. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate.md`.
-- [ ] `VERIF-P18-002` Replace all eleven area-wide
+- [x] `VERIF-P18-002` Replace all eleven area-wide
   `SPEC_GAP_P17_HISTORICAL_CODE_*` populations with a deterministic fact-level
   semantic burn-down ledger. Group facts only when one reviewed requirement
   genuinely governs every member. Freeze owner, risk, authority, exact code and
   test identities, decisions, tests, environments, budgets, dependency slice,
   and blockers. Keep raw per-area counts visible after every slice.
+  Closed on clean detached `trust-builder` artifact commit
+  `103a619719da3f9cc2de2ce45d0b5b7f337042bc`, generated from exact clean input
+  commit `51e742cfc9dda41ed40d55ed6088f26482dd425f`. The canonical ledger contains
+  one open slice for each of 15,274 code and 4,040 test identities, with zero
+  omission, duplication, or unowned slices. It preserves 15,138 `spec_gap`,
+  15,135 `registered_backlog`, 3,777 `reviewed_nonmapping`, 23 ignored or
+  conditional, 337 unresolved test-area, and every unmeasured proof-class
+  blocker. Exact source/input provenance, 12/12 catchers, 884 metadata records,
+  the 271-to-4,040 test join, diagram drift, and full code-spec accounting all
+  passed. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-fact-level-burn-down-ledger.md`.
 - [ ] `VERIF-P18-003` Resolve every observable-behavior specification gap
   and establish its reviewed invariant authority before mapping or writing
   expected-result tests. Use IEC/PLCopen text, a reviewed product decision, a
