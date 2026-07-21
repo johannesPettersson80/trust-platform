@@ -83,6 +83,8 @@ class SpecifiedMappingTests(unittest.TestCase):
                 "source_status": "active",
                 "oracle_eligible": True,
                 "authority": "normative_product",
+                "locator_kind": "tracked_file",
+                "path": "docs/specs/11-runtime-engine.md",
             }
         }
         self.invariants = {
@@ -106,7 +108,7 @@ class SpecifiedMappingTests(unittest.TestCase):
         return base_mapping(
             self.code,
             "specified",
-            spec_ref="SPEC_RUNTIME#run-contract",
+            spec_ref="SPEC_RUNTIME#1-purpose",
             invariant_ids=["INV_RUNTIME"],
             test_ids=["TEST_RUNTIME"],
         )
@@ -138,6 +140,38 @@ class SpecifiedMappingTests(unittest.TestCase):
             )
             self.assertTrue(any("not active and oracle-eligible" in item for item in failures), failures)
 
+    def test_missing_or_untracked_spec_fragment_is_rejected(self) -> None:
+        for label, source, spec_ref in (
+            ("missing", self.specs["SPEC_RUNTIME"], "SPEC_RUNTIME#invented-fragment"),
+            (
+                "untracked",
+                dict(self.specs["SPEC_RUNTIME"], locator_kind="url"),
+                "SPEC_RUNTIME#1-purpose",
+            ),
+            (
+                "escaping",
+                dict(self.specs["SPEC_RUNTIME"], path="../outside.md"),
+                "SPEC_RUNTIME#1-purpose",
+            ),
+        ):
+            with self.subTest(label=label):
+                mapping = self.mapping()
+                mapping["spec_ref"] = spec_ref
+                failures = validate(
+                    [self.code],
+                    [mapping],
+                    spec_sources={"SPEC_RUNTIME": source},
+                    invariants=self.invariants,
+                    tests=self.tests,
+                )
+                self.assertTrue(
+                    any(
+                        "specified spec_ref fragment does not exist" in item
+                        for item in failures
+                    ),
+                    failures,
+                )
+
     def test_invariant_and_test_must_link_back_to_same_contract(self) -> None:
         invariant = dict(
             self.invariants["INV_RUNTIME"],
@@ -159,7 +193,7 @@ class SpecifiedMappingTests(unittest.TestCase):
 
 
 class GapAndInheritanceTests(unittest.TestCase):
-    def test_open_owning_gap_accepts_and_closed_gap_rejects(self) -> None:
+    def test_unresolved_owning_gap_accepts_and_closed_gap_rejects(self) -> None:
         code = make_fact("gap")
         mapping = base_mapping(code, "spec_gap", spec_gap_ref="GAP_RUNTIME")
         open_gap = {
@@ -189,7 +223,7 @@ class GapAndInheritanceTests(unittest.TestCase):
             base_mapping(
                 parent,
                 "specified",
-                spec_ref="SPEC_RUNTIME#parent",
+                spec_ref="SPEC_RUNTIME#1-purpose",
                 invariant_ids=["INV"],
                 test_ids=["TEST"],
             ),
@@ -200,6 +234,8 @@ class GapAndInheritanceTests(unittest.TestCase):
                 "source_status": "active",
                 "oracle_eligible": True,
                 "authority": "normative_product",
+                "locator_kind": "tracked_file",
+                "path": "docs/specs/11-runtime-engine.md",
             }
         }
         invariants = {
@@ -429,6 +465,25 @@ class DispositionGuardTests(unittest.TestCase):
 
         self.assertTrue(
             any("vendored boundary spec is not active and oracle-eligible" in item for item in failures),
+            failures,
+        )
+
+        mapping["boundary_spec_ref"] = "SPEC_WEB_IDE#invented-fragment"
+        failures = validate(
+            [vendored],
+            [mapping],
+            spec_sources={
+                "SPEC_WEB_IDE": {
+                    "source_status": "active",
+                    "oracle_eligible": True,
+                    "authority": "normative_product",
+                    "locator_kind": "tracked_file",
+                    "path": "docs/internal/runtime/trust-runtime-web-ide-full-specification.md",
+                }
+            },
+        )
+        self.assertTrue(
+            any("vendored boundary spec fragment does not exist" in item for item in failures),
             failures,
         )
 

@@ -6101,12 +6101,12 @@ block_id = "PUBLIC_BLOCK_084DC6E33816CD7D5D62E478"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "1677e2b3ea44f8762e970b71b6c070136cdef0e9439842d0fe8664233c01a633"
+visible_text_sha256 = "b531afbc2ef979bc4e787a7bbd0051a68cd32fa5a0a74e37d2a9103bd406827d"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -12315,12 +12315,12 @@ block_id = "PUBLIC_BLOCK_10E9FF664A1A092A8884475B"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "6c36cf9ef7568c8f2bf05307d19b4c4571d83a3dd8a7f177fd2be0530d2d02c9"
+visible_text_sha256 = "8c3f43d6124500d776bf3cabba550036e5d8a644b279536b4e4e82ec2d2148fb"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -20661,12 +20661,12 @@ block_id = "PUBLIC_BLOCK_1BC8CFC5396DC90061B14F41"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "525a90d6b6b9a784506feb228622553514898fed245411a9a05c2df757d2c73d"
+visible_text_sha256 = "87c7bbb5659debcb2c525f48dd8ee3978e6c85669d52fa0e271e7c23e93b9aef"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -21948,12 +21948,12 @@ block_id = "PUBLIC_BLOCK_1D474209F26C306D85E2ECE4"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "9ca401ef8681def28c09a0c2460afdb89e3f2f4231dd3117f3d30ca38dc1c225"
+visible_text_sha256 = "1775d236abc02fe6825561d6410761082eb78e3e5d3756449ebdb5cf785b5701"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -27733,12 +27733,12 @@ block_id = "PUBLIC_BLOCK_257A82A4BA6824FD2D17ECA7"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "4167000c46807d354580c4a94e694108a93b536b36ba9606bc8886806315c1d3"
+visible_text_sha256 = "dd81b884caf74ef9b87631985fdd2fe9e05b9ee4d9b97054ed43d1d937c802ab"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -29137,12 +29137,12 @@ block_id = "PUBLIC_BLOCK_27584C90F481DD988C89E4E3"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "9d162754f150c8d7bc13a59d2b68a05521fce0b870db96bf153ca0e2ae7d696f"
+visible_text_sha256 = "4a5d2104fd9f3b65a2a4f05a95d98b7706e963f4ed92c772b1afa3b2ba2a0cde"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -30333,12 +30333,12 @@ block_id = "PUBLIC_BLOCK_29019557D195DC3CFF9D3595"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "0258b22a28eb21e5e3ce7e71feef57ae49d94a48512769ce724907e6f340a9ea"
+visible_text_sha256 = "a4ef8f79a005494bfb686c5906797e35c24ddf803b54c2d051e87e7bcac99983"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -31035,12 +31035,12 @@ block_id = "PUBLIC_BLOCK_29D680F3247192E8468FC334"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "0825459823930936ed91462996c45e9689c98aca9c7b97a6bf69d3a7e4b76197"
+visible_text_sha256 = "4167000c46807d354580c4a94e694108a93b536b36ba9606bc8886806315c1d3"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -37886,12 +37886,12 @@ block_id = "PUBLIC_BLOCK_32D9861F6B70A4EA706BA3B0"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "638b3957f64acc65fbd28cde897ca1ff62712be960992f788337b67879ae8151"
+visible_text_sha256 = "5e066a43ba235ce62fd77e2ba2d10ff208e70d7fa73035d5117d919df5aa8e95"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -38016,12 +38016,12 @@ block_id = "PUBLIC_BLOCK_3307C30FB4738F2A73F367BC"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "7e93b86b51e1e6eea77962b08c7fb80abf0b045feeaf8871b820515935b15f3b"
+visible_text_sha256 = "0d6a9dff3873a67df4ab094a9a81ac79d26f231458d774430d57e0dbb8d75e59"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -40161,12 +40161,12 @@ block_id = "PUBLIC_BLOCK_35F541E032DFB326F5A1F49E"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "63902b6ea5e2b0f34172e05a09dd0e84821ddd58a1c586b5b728433e98895e3f"
+visible_text_sha256 = "94748a06871a1a44a0565fd2fdaeaf129c1d4f1367ca6b8819bfb7eb306530ec"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -47805,12 +47805,12 @@ block_id = "PUBLIC_BLOCK_40CE904857F6A4566FCDD476"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "2df813be670bd4a1c4c33a3324ddfe11178ec2406efcfdf9aa35c04dfcef82f1"
+visible_text_sha256 = "9d162754f150c8d7bc13a59d2b68a05521fce0b870db96bf153ca0e2ae7d696f"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -55332,12 +55332,12 @@ block_id = "PUBLIC_BLOCK_4B40E3F6DF7326649D4F0835"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "c8b4d6a564f8eca2e8df172eb514d3d84674b719c97fc5e1e566a533bbfbeb22"
+visible_text_sha256 = "f28aef564e6d22e874b502f778ab928a5ce6b8f2c0476b5be7766e147d8fdb4a"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -61923,12 +61923,12 @@ block_id = "PUBLIC_BLOCK_5410B260D8FA90224EAA4F9E"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "fbf46050369bad3c7f734f666ce308b52e889578677310992dd6dfbf024c2eac"
+visible_text_sha256 = "c8f0474fce2f49f3b6eeba158779c8e80e02388bc9f9a7e60345d010d8280a41"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -71179,12 +71179,12 @@ block_id = "PUBLIC_BLOCK_60EDB9A0DC5E4AFE5B99D919"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "0d6a9dff3873a67df4ab094a9a81ac79d26f231458d774430d57e0dbb8d75e59"
+visible_text_sha256 = "638b3957f64acc65fbd28cde897ca1ff62712be960992f788337b67879ae8151"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -89613,12 +89613,12 @@ block_id = "PUBLIC_BLOCK_7915B64FF8CACF6A1785BA55"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "f28aef564e6d22e874b502f778ab928a5ce6b8f2c0476b5be7766e147d8fdb4a"
+visible_text_sha256 = "20b60596dca5fc2bc827ff556c8bc584a93895a57d7d4a3f7cfe9ec3c2b2d168"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -96373,12 +96373,12 @@ block_id = "PUBLIC_BLOCK_82F7262689CBC0D1114B68B9"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "a99946cd388980804ce836f24cb4753158466592b2f1c13ea687cea60832ccd0"
+visible_text_sha256 = "7938ce5b2587511926c86843f7693300ccfadd0b8b6b4a12749005c5b6a91ac6"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -97231,12 +97231,12 @@ block_id = "PUBLIC_BLOCK_8444BDCB999B677F4627C8D4"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "f00a5da1747eca02775f03791200c96979cc4a5f3398754d4f1b56f7a24e17c1"
+visible_text_sha256 = "a56725661ad6cea9556049c4c5fad3de425ae8f5a6635908dfd7a0f2104bf7f1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -98830,12 +98830,12 @@ block_id = "PUBLIC_BLOCK_86BBC598EE1FC0CBF121F9DD"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "02601b3d4a3cbe39ef18fe82b533acfc22eaa297241823ee96ab4976b57a1643"
+visible_text_sha256 = "f00a5da1747eca02775f03791200c96979cc4a5f3398754d4f1b56f7a24e17c1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -98999,12 +98999,12 @@ block_id = "PUBLIC_BLOCK_86E56A772FFFC2DEF020B84A"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "6401c82d347a70eeaf2aa416ef70fcc1ac9a4accca06512259a9c107f0d9e6fb"
+visible_text_sha256 = "0a5cbb2fcaf4b9ab74806c6167bb0cf6fedd3d2f2b7cdf7603d7b328fc4cf5ff"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -99480,12 +99480,12 @@ block_id = "PUBLIC_BLOCK_8776403F1E34F6487C98CACC"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "b531afbc2ef979bc4e787a7bbd0051a68cd32fa5a0a74e37d2a9103bd406827d"
+visible_text_sha256 = "f43fcc2281104447f5e80ba24cee4e4c3800dec40da511b321c9c127d57cded9"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -99545,12 +99545,12 @@ block_id = "PUBLIC_BLOCK_8796D68B9AFD76C92A75E7DD"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "321fca0b98ab4a18b52320f3fc3446631d925ca6e791b1aed9d956b920248897"
+visible_text_sha256 = "1677e2b3ea44f8762e970b71b6c070136cdef0e9439842d0fe8664233c01a633"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -105408,12 +105408,12 @@ block_id = "PUBLIC_BLOCK_8FE14871B6D8741ED5ADD424"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "c8f0474fce2f49f3b6eeba158779c8e80e02388bc9f9a7e60345d010d8280a41"
+visible_text_sha256 = "6401c82d347a70eeaf2aa416ef70fcc1ac9a4accca06512259a9c107f0d9e6fb"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -116471,12 +116471,12 @@ block_id = "PUBLIC_BLOCK_9E82D22FFF1C70929E183228"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "1775d236abc02fe6825561d6410761082eb78e3e5d3756449ebdb5cf785b5701"
+visible_text_sha256 = "e92cc55c74cae60297e2cad8fa9e73595aaeef94b775cbd8e8d8b51dd08d6eb1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -116809,12 +116809,12 @@ block_id = "PUBLIC_BLOCK_9EFE1EB119017CC1E5A6D361"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "99dca3f159c7f21b716952e3bfa566b62b434298ecd621726c8862e834e1831a"
+visible_text_sha256 = "9bd3f98e35c104ba3271abda6fda8993d1266d6fb9372c814d8efe5daaa7f4c6"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -118538,12 +118538,12 @@ block_id = "PUBLIC_BLOCK_A13B938F039EA584A56BD75A"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "94748a06871a1a44a0565fd2fdaeaf129c1d4f1367ca6b8819bfb7eb306530ec"
+visible_text_sha256 = "2df813be670bd4a1c4c33a3324ddfe11178ec2406efcfdf9aa35c04dfcef82f1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -122932,12 +122932,12 @@ block_id = "PUBLIC_BLOCK_A77CF05EB45A94C1C2E5C5E5"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "4a5d2104fd9f3b65a2a4f05a95d98b7706e963f4ed92c772b1afa3b2ba2a0cde"
+visible_text_sha256 = "a99946cd388980804ce836f24cb4753158466592b2f1c13ea687cea60832ccd0"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -127495,12 +127495,12 @@ block_id = "PUBLIC_BLOCK_ADC51F1A1075957CCCE8788C"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "dd81b884caf74ef9b87631985fdd2fe9e05b9ee4d9b97054ed43d1d937c802ab"
+visible_text_sha256 = "02601b3d4a3cbe39ef18fe82b533acfc22eaa297241823ee96ab4976b57a1643"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -130693,12 +130693,12 @@ block_id = "PUBLIC_BLOCK_B2C49058DA7999204A07A39D"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "7938ce5b2587511926c86843f7693300ccfadd0b8b6b4a12749005c5b6a91ac6"
+visible_text_sha256 = "0258b22a28eb21e5e3ce7e71feef57ae49d94a48512769ce724907e6f340a9ea"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -130901,12 +130901,12 @@ block_id = "PUBLIC_BLOCK_B2F50F82787520732093DF79"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "eb26f794159c25da26b1f7302cc1ceca604fc401f517d4a2bc1fc9b28aa5948b"
+visible_text_sha256 = "fbf46050369bad3c7f734f666ce308b52e889578677310992dd6dfbf024c2eac"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -132064,6 +132064,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_B452C3B3FE33EF04C5B42C42"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "63902b6ea5e2b0f34172e05a09dd0e84821ddd58a1c586b5b728433e98895e3f"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -143680,12 +143693,12 @@ block_id = "PUBLIC_BLOCK_C347A38F1083DF868BD64DB9"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "20b60596dca5fc2bc827ff556c8bc584a93895a57d7d4a3f7cfe9ec3c2b2d168"
+visible_text_sha256 = "99dca3f159c7f21b716952e3bfa566b62b434298ecd621726c8862e834e1831a"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -147268,12 +147281,12 @@ block_id = "PUBLIC_BLOCK_C7D48F9C4173658DF4BA311D"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "8c3f43d6124500d776bf3cabba550036e5d8a644b279536b4e4e82ec2d2148fb"
+visible_text_sha256 = "0825459823930936ed91462996c45e9689c98aca9c7b97a6bf69d3a7e4b76197"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -148529,12 +148542,12 @@ block_id = "PUBLIC_BLOCK_C98787656A7391640F9F2D8F"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "e92cc55c74cae60297e2cad8fa9e73595aaeef94b775cbd8e8d8b51dd08d6eb1"
+visible_text_sha256 = "7e93b86b51e1e6eea77962b08c7fb80abf0b045feeaf8871b820515935b15f3b"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -150648,12 +150661,12 @@ block_id = "PUBLIC_BLOCK_CC4A29C4ABCE1A54D79E27BB"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "6e4cf52ac8faf0711273f25e6faf255737668407a5565f3b200674f376d96518"
+visible_text_sha256 = "9ca401ef8681def28c09a0c2460afdb89e3f2f4231dd3117f3d30ca38dc1c225"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -154301,12 +154314,12 @@ block_id = "PUBLIC_BLOCK_D1830F7CE4B461D58D40C22B"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "0a5cbb2fcaf4b9ab74806c6167bb0cf6fedd3d2f2b7cdf7603d7b328fc4cf5ff"
+visible_text_sha256 = "e4f669f022d3646fb5635087bb1a15cbe57d0d515cb22240db999997f0d777ef"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -156342,12 +156355,12 @@ block_id = "PUBLIC_BLOCK_D44AC49AA5831D32829F5327"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "9bd3f98e35c104ba3271abda6fda8993d1266d6fb9372c814d8efe5daaa7f4c6"
+visible_text_sha256 = "321fca0b98ab4a18b52320f3fc3446631d925ca6e791b1aed9d956b920248897"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -159384,12 +159397,12 @@ block_id = "PUBLIC_BLOCK_D82250F22FDB4848926C5651"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "a4ef8f79a005494bfb686c5906797e35c24ddf803b54c2d051e87e7bcac99983"
+visible_text_sha256 = "eb26f794159c25da26b1f7302cc1ceca604fc401f517d4a2bc1fc9b28aa5948b"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -166053,12 +166066,12 @@ block_id = "PUBLIC_BLOCK_E11EF88172CD16FE8E9D43DC"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "a56725661ad6cea9556049c4c5fad3de425ae8f5a6635908dfd7a0f2104bf7f1"
+visible_text_sha256 = "c8b4d6a564f8eca2e8df172eb514d3d84674b719c97fc5e1e566a533bbfbeb22"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -171916,12 +171929,12 @@ block_id = "PUBLIC_BLOCK_E8A6525DF6CD33ADA254F429"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "5e066a43ba235ce62fd77e2ba2d10ff208e70d7fa73035d5117d919df5aa8e95"
+visible_text_sha256 = "525a90d6b6b9a784506feb228622553514898fed245411a9a05c2df757d2c73d"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -172319,12 +172332,12 @@ block_id = "PUBLIC_BLOCK_E93EA6DFC9FA2E8B29D4009D"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "e4f669f022d3646fb5635087bb1a15cbe57d0d515cb22240db999997f0d777ef"
+visible_text_sha256 = "6e4cf52ac8faf0711273f25e6faf255737668407a5565f3b200674f376d96518"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -182017,12 +182030,12 @@ block_id = "PUBLIC_BLOCK_F72B450855CC04B27217503B"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "f43fcc2281104447f5e80ba24cee4e4c3800dec40da511b321c9c127d57cded9"
+visible_text_sha256 = "c92dc8d581e6ac9e3d5272dc44c5fd3974216636fcc1756817ed627617090a32"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -182342,12 +182355,12 @@ block_id = "PUBLIC_BLOCK_F786AD1C834E6DE82F6560A6"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
-visible_text_sha256 = "87c7bbb5659debcb2c525f48dd8ee3978e6c85669d52fa0e271e7c23e93b9aef"
+visible_text_sha256 = "6c36cf9ef7568c8f2bf05307d19b4c4571d83a3dd8a7f177fd2be0530d2d02c9"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1

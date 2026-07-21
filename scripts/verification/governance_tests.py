@@ -43,7 +43,7 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(
             validate_current_governance(
                 self.document,
-                today=date(2026, 7, 19),
+                today=date(2026, 7, 21),
                 record_groups=self._record_groups(),
                 ignored_tests=self.validator.ignored_tests,
                 invariants=self.validator.invariants,
@@ -88,7 +88,7 @@ class GovernanceTests(unittest.TestCase):
         records = {"OLD": {"last_reviewed": "2026-01-01"}}
         failures = validate_current_governance(
             self.document,
-            today=date(2026, 7, 19),
+            today=date(2026, 7, 21),
             record_groups=(("test", records),),
             ignored_tests={},
         )
@@ -102,7 +102,7 @@ class GovernanceTests(unittest.TestCase):
         }
         failures = validate_current_governance(
             self.document,
-            today=date(2026, 7, 19),
+            today=date(2026, 7, 21),
             record_groups=(),
             ignored_tests=ignored,
         )
@@ -110,7 +110,7 @@ class GovernanceTests(unittest.TestCase):
 
         failures = validate_current_governance(
             self.document,
-            today=date(2026, 7, 19),
+            today=date(2026, 7, 21),
             record_groups=(),
             ignored_tests={},
             invariants={

@@ -18,9 +18,9 @@ gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"]
 missing = [
+  "current_dt_host_clock_contract",
   "exhaustive_ltime_and_ldate_runtime_partitions",
   "overflow_and_invalid_component_boundaries",
-  "current_dt_host_clock_contract",
 ]
 
 [spec]
@@ -42,7 +42,7 @@ rationale = "The direct StandardLibrary test locks representative ADD_TIME and S
 [[behavior]]
 partition = { equals = "REPRESENTATIVE_COMPONENT_CONCATENATION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-time-component-functions"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "The direct StandardLibrary test locks DATE/TOD, DATE, TOD, and DT component composition values."
@@ -50,7 +50,7 @@ rationale = "The direct StandardLibrary test locks DATE/TOD, DATE, TOD, and DT c
 [[behavior]]
 partition = { equals = "REPRESENTATIVE_COMPONENT_SPLIT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-time-component-functions"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "The executed-ST harness test locks SPLIT_DATE, SPLIT_TOD, and SPLIT_DT component outputs."

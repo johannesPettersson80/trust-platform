@@ -4917,9 +4917,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stdlib_numeric_full.rs"
 name = "split_functions"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_STDLIB_TIME_SPLIT_001"
+last_reviewed = "2026-07-21"
 
 [[reviews]]
 discovery_id = "DISC_1EB4B04C7A23D47634E6"
@@ -9442,6 +9442,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3A64FFFF46A027EDF29D"
+discovery_source_kind = "gate_script"
+path = "scripts/code_spec_coverage_gate.py"
+name = "code_spec_coverage_gate"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "gate_inventory_owned"
+last_reviewed = "2026-07-21"
+
+[[reviews]]
 discovery_id = "DISC_3A6CAB92BC8F60C11C2F"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
@@ -11227,9 +11237,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stdlib_numeric_full.rs"
 name = "numeric_full"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"
+last_reviewed = "2026-07-21"
 
 [[reviews]]
 discovery_id = "DISC_4708AAFD6668D62FBB0F"
@@ -24532,6 +24542,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9CD14C4E394B82FB3DC0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/web/ui_routes.rs"
+name = "embedded_hmi_module_fallbacks_match_complete_source_modules"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-21"
+
+[[reviews]]
 discovery_id = "DISC_9CDCE19E230C7B923BF7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/value/types/tests.rs"
@@ -25017,9 +25037,9 @@ discovery_source_kind = "gate_script"
 path = "scripts/verification_metadata_gate.sh"
 name = "verification_metadata_gate"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "gate_inventory_owned"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_METADATA_GATE_001"
+last_reviewed = "2026-07-21"
 
 [[reviews]]
 discovery_id = "DISC_9FBD644A53793A237C50"

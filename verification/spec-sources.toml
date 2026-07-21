@@ -1925,6 +1925,30 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_P17_CODE_SPEC_COVERAGE_001"
+title = "Phase 17 production code-to-spec coverage contract"
+area = "verification"
+owner = "verification"
+status = "mapped"
+authority = "reviewed_decision"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md"
+version = "2026-07-21"
+last_reviewed = "2026-07-21"
+covers = [
+  "code_spec_fragment_resolution",
+  "code_spec_mapping_validation",
+]
+known_limitations = [
+  "This verification-tooling contract creates no product-behavior proof and closes no product specification gap.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_PLCOPEN_IMPORT_DECISION_001"
 title = "truST PLCopen import compatibility contract"
 area = "plcopen_devtools"

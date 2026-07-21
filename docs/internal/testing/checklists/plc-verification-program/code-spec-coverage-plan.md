@@ -11,7 +11,7 @@ behavior:
 
 ```text
 production code unit
-  -> active specification fragment or open specification gap
+  -> active specification fragment or unresolved specification gap
   -> invariant
   -> cataloged test
   -> suite and evidence
@@ -174,7 +174,7 @@ Every live fact has exactly one disposition:
 | Disposition | Required binding | Meaning |
 |---|---|---|
 | `specified` | active oracle-eligible spec fragment, invariant IDs, catalog test IDs | behavior is written and exercised |
-| `spec_gap` | one open spec-gap ID and owner | behavior exists but expected behavior is not yet decided |
+| `spec_gap` | one unresolved spec-gap ID and owner | behavior exists but expected behavior is not yet decided |
 | `inherits_spec` | one exact parent code ID | private mechanical helper inherits a specified parent contract |
 | `non_behavioral` | closed reason code, owner, reviewed rationale | no independent product decision is made here |
 | `generated` | tracked generator code identity and generator/input digest | generated behavior is governed at its scanned source |
@@ -183,6 +183,14 @@ Every live fact has exactly one disposition:
 Omission is `missing_spec`; it is a finding, not an allowed committed
 disposition. There is no wildcard, directory-level blanket, name-derived
 mapping, or generic `reviewed_nonmapping` escape.
+
+An unresolved gap has resolution status `open`, `decision_recorded`,
+`spec_updated`, `test_mapped`, or `registered_backlog`. The first four are
+actionable and may block planner work in their exact area. `registered_backlog`
+is reserved for the exact pre-enforcement fact inventory: it remains unresolved
+for semantic mapping, but the planner must not expand it into an area-wide
+block. It cannot waive a changed-code finding or replace the narrow actionable
+gap required for newly discovered behavior.
 
 `inherits_spec` is allowed only for private helpers with an acyclic, exact
 parent chain. The terminal parent must be `specified` or `spec_gap`; inheritance
@@ -226,9 +234,11 @@ For every `specified` record, validation requires:
    decision.
 6. The reviewed body digest equals the live fact digest.
 
-For every `spec_gap` record, the gap must exist, remain open, own the same area,
-and name the affected code identity. Closing the gap without converting the
-code record to `specified` is a gate failure.
+For every `spec_gap` record, the gap must exist, remain unresolved, own the same
+area, and name the affected code identity. Closing the gap without converting
+the code record to `specified` is a gate failure. Planner routing considers
+only actionable unresolved statuses; `registered_backlog` is checked through
+the exact code identity and is excluded from same-area planner expansion.
 
 The validator rejects:
 
@@ -297,7 +307,7 @@ Write failing fixtures before production implementation for:
 4. missing mapping producing `missing_spec`,
 5. exact `specified` join through spec, invariant, and test,
 6. inactive or non-oracle spec rejection,
-7. open-gap acceptance and closed-gap rejection,
+7. actionable-open and registered-backlog acceptance plus closed-gap rejection,
 8. inheritance success, cycle, cross-owner, and missing-parent rejection,
 9. non-behavioral risk-signal rejection,
 10. generated and vendored provenance validation,
@@ -326,7 +336,7 @@ Implement the Rust scanner and run it first against
 `runtime_clock_value` and `current_dt` without deciding their semantics.
 
 The pilot closes only when each live fact is explicitly mapped to an active
-specification, an open spec gap, an exact inherited parent, or an allowed
+specification, an unresolved spec gap, an exact inherited parent, or an allowed
 non-behavioral disposition. If the `CURRENT_DT` clock contract is missing, the
 expected result is a blocking `missing_spec` or `spec_gap`, not an inferred
 fix.
@@ -397,7 +407,7 @@ is reachable from PLC scan execution. The closed v1 risk-signal enum is:
 - `persistence_retain_reload_restart`.
 
 A risk signal does not invent a defect. It requires an explicit specification
-or open gap and prevents `non_behavioral` suppression. Acknowledgements are
+or unresolved gap and prevents `non_behavioral` suppression. Acknowledgements are
 symbol-specific, owner-reviewed, digest-bound, expiry-capable, and resolved
 through the closed risk-acknowledgement ledger; prose or a map string alone is
 not acceptance.

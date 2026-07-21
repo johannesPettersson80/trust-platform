@@ -24,8 +24,9 @@ package "Reviewed verification graph" {
   [code-spec-map.toml] as Map
   [exact risk acknowledgement ledger] as RiskAcks
   [delete-only debt baseline] as Debt
-  [spec sources + open gaps] as Specs
+  [spec sources + unresolved gaps] as Specs
   [invariants + test catalog] as VerificationGraph
+  [exact Markdown fragment resolver] as FragmentResolver
   [exact semantic join] as Join
 }
 
@@ -53,12 +54,14 @@ Facts --> Join
 Map --> Join
 RiskAcks --> Join : exact code / digest / owner / expiry
 Debt --> Join
-Specs --> Join
+Specs --> FragmentResolver
+FragmentResolver --> Join : exact heading anchors
 VerificationGraph --> Join
 Join --> Report
 Report --> Policy
 Policy --> Gate
 Report --> Planner : reuse one scan
+Specs --> Planner : actionable gaps only
 Planner --> Gate
 Gate --> Workflow
 RustExtractor --> SoftwareMap : consume Phase 17 facts
@@ -71,6 +74,11 @@ note bottom of Report
   Mapping reports carry proof_kind = none.
   Code coverage cannot promote product proof,
   close a specification gap, or replace rendered UI evidence.
+end note
+
+note bottom of Specs
+  registered_backlog remains unresolved for exact fact bindings
+  but is excluded from planner area expansion.
 end note
 
 @enduml

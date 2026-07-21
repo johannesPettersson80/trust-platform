@@ -177,6 +177,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   production-code denominator: the software map consumes Rust facts, tooling
   joins the existing gate/fuzz inventories, and the existing metadata,
   planner, report-gate, and verification workflow own validation and
-  enforcement. Evidence: `verification-code-spec-coverage.puml`, focused
+  enforcement. The semantic join resolves exact Markdown heading fragments in
+  its own module, and the planner expands only actionable gaps rather than the
+  exact `registered_backlog` fact ledger. Evidence:
+  `verification-code-spec-coverage.puml`, focused
   scanner/join/planner/gate tests, rendered diagram drift proof, and the final
   Phase 17 gate milestone.

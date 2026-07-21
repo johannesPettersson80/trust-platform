@@ -21,16 +21,16 @@ document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
 content_sha256 = "bbdfc8928e5fc3f11222fd5d8ae9a71f3b081b49815314218b4da9b0ffcd09c3"
 areas = ["compiler_iec"]
-authority_levels = ["normative_candidate"]
-owners = ["trust-hir"]
+authority_levels = ["normative_product"]
+owners = ["language"]
 freshness = "current"
 visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "potential_conflict_reported"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
-removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -206,7 +206,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
-content_sha256 = "73baa6c28efde25dca621da774ff55eedc12b85108da8780c43c1e88f5ce967e"
+content_sha256 = "058ff036195b2c37b37e094a3eb2f60784f52a86c1a9d74f7e3843e514135643"
 areas = ["release"]
 authority_levels = ["public_claim"]
 owners = ["release"]
@@ -217,7 +217,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -1751,6 +1751,23 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
+document_id = "SPEC_DOC_3DAC0584844F2F32984BA12D"
+path = "docs/internal/testing/checklists/plc-verification-program/p17-independent-review-protocol.md"
+content_sha256 = "9a5155b411d09f4b15ce18cbee1a8e4814f078883854a24e1ac188f7c303293d"
+areas = ["verification"]
+authority_levels = ["internal_governance"]
+owners = ["verification"]
+freshness = "current"
+visibility = "internal"
+oracle_usable = false
+classification_basis = "explicit_review"
+conflict_disposition = "not_oracle_authority"
+checklist_staleness = "active_current"
+removed_behavior_disposition = "not_oracle_authority"
+last_reviewed = "2026-07-21"
+
+[[document_reviews]]
+schema_version = 1
 document_id = "SPEC_DOC_3EE0D3981D21BBBA5F1D2517"
 path = "docs/public/examples/test-and-debug.md"
 content_sha256 = "838f8cb4e7781c190e7c36647519628e7a16ec7a3dc247e19a00a3c510ea63ff"
@@ -1940,7 +1957,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_4447C0D29D282EF1027AFD2D"
 path = "docs/internal/testing/checklists/runtime-connectivity-conformance-remediation-checklist.md"
-content_sha256 = "b984ca6d1df50ccccb038148f9a338beeacec334e49cae44bdcb3b5a050d3b05"
+content_sha256 = "693c07a398e0797afae5904976aa79e748017d8e28a57274bfaa9dfc28dbaaaa"
 areas = ["protocols"]
 authority_levels = ["internal_governance"]
 owners = ["trust-runtime"]
@@ -1951,7 +1968,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "historical_non_authoritative"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -5289,7 +5306,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_BF86BF8725CA2C53779D654A"
 path = "docs/internal/testing/checklists/architecture-improvements.md"
-content_sha256 = "acfac303230ea817a803f1e757363cd02402d82506fc83e4ac9c0e58e3b8029c"
+content_sha256 = "b3cb4dbefc2cb2bce4e25806f1f615ade9ac1f29d16b6f8f60f5686b4e0f7c81"
 areas = ["verification"]
 authority_levels = ["internal_governance"]
 owners = ["verification"]
@@ -5300,7 +5317,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "historical_non_authoritative"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -5357,7 +5374,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_C427866127FC57A60CD77282"
 path = "docs/internal/testing/checklists/plc-verification-program/README.md"
-content_sha256 = "b42c7e55bad9554da29a8152e2ff49c5815d6e1648be8eee867465a64faa3a96"
+content_sha256 = "2498e4bc12765c73afb6500e69de9b31f2d9de45fd9eb91850b1bf168a612cf8"
 areas = ["verification"]
 authority_levels = ["internal_governance"]
 owners = ["verification"]
@@ -5368,7 +5385,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "active_current"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -5850,7 +5867,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_D8C332A0C034D51034D39B6D"
 path = "docs/internal/testing/checklists/plc-verification-program/implementation-board.md"
-content_sha256 = "337a4e7c4c92c41644e00141c2a503f25d756e62cd2c42a013f19d82d7e78270"
+content_sha256 = "ec4264e27ba210e9e5e5b4a5edfd954f313e6ed92354bf36ea61b70088fd8371"
 areas = ["verification"]
 authority_levels = ["internal_governance"]
 owners = ["verification"]
@@ -5861,7 +5878,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "active_current"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -5919,17 +5936,17 @@ schema_version = 1
 document_id = "SPEC_DOC_DB4FB36E7AB7BBD6ECF907F2"
 path = "docs/internal/runtime/trust-runtime-web-ide-full-specification.md"
 content_sha256 = "f31bdd02a1c07a2f2119f97f03cfc4f8812075b04e088cff51016ac9ca1a8cf5"
-areas = ["hmi_ui"]
-authority_levels = ["internal_governance"]
+areas = ["control_security"]
+authority_levels = ["normative_product"]
 owners = ["trust-runtime"]
 freshness = "current"
 visibility = "internal"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
-removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1
@@ -6406,6 +6423,23 @@ conflict_disposition = "not_oracle_authority"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "not_oracle_authority"
 last_reviewed = "2026-07-19"
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_F12D1448A8DD9FF646DDEEDF"
+path = "docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md"
+content_sha256 = "8576fa5c9a0f3dca271395cfd13328aa8f2e21206f84475cabc19546f9b80fb9"
+areas = ["verification"]
+authority_levels = ["reviewed_decision"]
+owners = ["verification"]
+freshness = "current"
+visibility = "internal"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "active_current"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1

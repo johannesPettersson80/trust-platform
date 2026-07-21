@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from .code_spec_common import DISPOSITIONS, NON_BEHAVIORAL_REASONS, CodeFact
+from .code_spec_fragments import source_fragment_exists
 from .code_spec_risk import owner_ack_is_anchored, validate_risk_acknowledgement
 
 
@@ -223,10 +224,12 @@ def _validate_disposition(
         if not isinstance(spec_ref, str) or "#" not in spec_ref:
             failures.append(f"{code_id}: specified mapping requires exact spec_ref fragment")
         else:
-            source_id, _fragment = spec_ref.split("#", 1)
+            source_id, fragment = spec_ref.split("#", 1)
             source = spec_sources.get(source_id)
             if not _oracle_eligible(source):
                 failures.append(f"{code_id}: specified spec_ref is not active and oracle-eligible")
+            elif not source_fragment_exists(source, fragment):
+                failures.append(f"{code_id}: specified spec_ref fragment does not exist")
         if not isinstance(invariant_ids, list) or not invariant_ids:
             failures.append(f"{code_id}: specified mapping requires invariant_ids")
         if not isinstance(test_ids, list) or not test_ids:
@@ -320,10 +323,15 @@ def _validate_disposition(
                     f"{code_id}: vendored boundary requires exact spec fragment"
                 )
             else:
-                source_id, _fragment = boundary_ref.split("#", 1)
-                if not _oracle_eligible(spec_sources.get(source_id)):
+                source_id, fragment = boundary_ref.split("#", 1)
+                source = spec_sources.get(source_id)
+                if not _oracle_eligible(source):
                     failures.append(
                         f"{code_id}: vendored boundary spec is not active and oracle-eligible"
+                    )
+                elif not source_fragment_exists(source, fragment):
+                    failures.append(
+                        f"{code_id}: vendored boundary spec fragment does not exist"
                     )
     return failures
 

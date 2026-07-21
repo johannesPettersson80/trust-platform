@@ -2,7 +2,8 @@
 
 review the complete plan before evaluating any Phase 17 evidence:
 `docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md`.
-Then review the Phase 17 rows and stop rows in
+Then review rows `VERIF-P17-000` through `VERIF-P17-012` and stop rows
+`VERIF-STOP-017A` and `VERIF-STOP-017B` in
 `docs/internal/testing/checklists/plc-verification-program/implementation-board.md`.
 
 This protocol is a review input, not acceptance evidence. Completing its steps
@@ -33,8 +34,8 @@ The first commit that contains
 `verification/code-spec-debt-baseline.toml` must be a single-parent immediate
 child of `FROZEN_IMPLEMENTATION_SHA`, and its `created_from_commit` must equal
 that parent. Later history may only delete complete baseline entries. A dirty
-tree, abbreviated SHA, rebased baseline origin, appended entry, or edited field
-is `BLOCKED`.
+tree, abbreviated SHA, rebased baseline origin, appended entry, or any change
+to any field of an existing baseline entry is `BLOCKED`.
 
 ## P17-006 Pilot Acceptance
 
@@ -82,8 +83,10 @@ Acceptance requires:
 - every `specified` chain validates in both directions through an active,
   oracle-eligible specification, invariant, executable catalog test, and suite
   route;
-- every `spec_gap` resolves to a still-open, same-area gap that names the exact
-  affected code identity;
+- every `spec_gap` resolves to an unresolved, same-area gap that names the exact
+  affected code identity; actionable statuses remain planner-blocking, while
+  `registered_backlog` is accepted only for exact historical fact bindings and
+  is excluded from same-area planner expansion;
 - every inherited, generated, vendored, and non-behavioral disposition passes
   its closed semantic rules without a directory-, crate-, owner-, or
   name-derived blanket decision;
@@ -188,5 +191,6 @@ The verdict must identify the reviewer and independence basis, frozen SHAs,
 bootstrap hashes, exact denominators, command results, every finding, and the
 specific checklist rows it authorizes. It must state that it creates no product
 proof, closes no specification gap, and promotes no invariant. Only a later
-reviewed enforcement commit may update `AGENTS.md`, `trust-test-authoring`, the
-P17 checklist rows, and the two stop rows.
+reviewed enforcement commit may update `AGENTS.md`, `trust-test-authoring`, rows
+`VERIF-P17-006` and `VERIF-P17-012`, and stop rows `VERIF-STOP-017A` and
+`VERIF-STOP-017B`.

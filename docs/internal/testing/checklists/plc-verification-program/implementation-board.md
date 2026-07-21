@@ -1762,7 +1762,8 @@ expected behavior from implementation text and does not promote product proof.
   closed non-behavioral/risk vocabularies, and governed-generator resolution.
 - [x] `VERIF-P17-002` Add tests-first contract fixtures for stable identities,
   line movement, rename/signature/path drift, body-digest staleness, missing and
-  duplicate mappings, exact spec/invariant/test joins, open/closed gaps,
+  duplicate mappings, exact spec/invariant/test joins, exact Markdown-fragment
+  existence, actionable-open/registered-backlog/closed gap distinctions,
   inheritance cycles and cross-owner inheritance, non-behavioral risk-signal
   rejection, generated/vendored provenance, symlink/path escape, canonical
   serialization, Markdown tamper, disabled-catcher detection, per-surface
@@ -1786,7 +1787,8 @@ expected behavior from implementation text and does not promote product proof.
   parallel.
 - [x] `VERIF-P17-004` Implement the complete live join and semantic validator.
   `specified` records resolve active oracle-eligible fragments and bidirectional
-  invariant/test links; `spec_gap` records resolve open owning gaps;
+  invariant/test links; `spec_gap` records resolve unresolved owning gaps while
+  `registered_backlog` remains excluded from planner area expansion;
   inheritance is exact and acyclic; generated/vendored records carry durable
   provenance; broad suppression and name/path/prose-derived mappings are
   forbidden. Changed bodies invalidate reviewed mappings even when the stable
@@ -1813,7 +1815,7 @@ expected behavior from implementation text and does not promote product proof.
   with zero omissions, overlap, invented identities, stale digests, or blanket
   directory/crate dispositions. Report-only historical debt remains visible;
   no generic `reviewed_nonmapping` category is permitted. The exact routing,
-  retained open-gap posture, and per-area counts are recorded in
+  retained unresolved-gap posture, and per-area counts are recorded in
   `2026-07-21-p17-historical-debt-routing-review.md`.
 - [x] `VERIF-P17-008` Add the TypeScript/JavaScript product scanner and close
   the VS Code/browser denominator across `editors/vscode/src`,
@@ -1851,11 +1853,12 @@ expected behavior from implementation text and does not promote product proof.
   wall clock, randomness, filesystem/environment/network/subprocess/thread
   access, unsafe/FFI, output/safe-state commits, authorization, protocol status
   projection, broad exception handling, and retain/reload/restart transitions.
-  A risk signal requires an explicit specification or open gap; it does not
+  A risk signal requires an explicit specification or unresolved gap; it does not
   infer a defect. Allowlist entries are symbol-specific, owner-reviewed,
   digest-bound, and expiry-capable. The complete ledger contains one exact
   acknowledgement for every mapped risk-bearing fact; historical records stay
-  attached to open same-area gaps and do not claim correctness.
+  attached to exact registered-backlog gaps and do not claim correctness or
+  create an area-wide planner block.
 - [ ] `VERIF-P17-012` Close historical code-to-spec debt and flip full-denominator
   enforcement only after an independent review accepts exact one-to-one
   partitions for every scoped language and the frozen debt baseline is empty.

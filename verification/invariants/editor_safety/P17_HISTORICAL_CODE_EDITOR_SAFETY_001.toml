@@ -6,7 +6,7 @@ risk = "false_status"
 status = "spec_gap"
 owner = "trust-ide"
 last_reviewed = "2026-07-21"
-claim = "Every frozen Phase 17 fact in this area must resolve to fact-level expected behavior or remain explicitly attached to its exact open historical code-spec gap."
+claim = "Every frozen Phase 17 fact in this area must resolve to fact-level expected behavior or remain explicitly attached to its exact registered historical code-spec backlog gap."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["verification/code-spec-map.toml", "verification/code-spec-debt-baseline.toml"]
@@ -15,8 +15,8 @@ gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"]
 missing = [
-  "fact_level_expected_behavior",
   "cataloged_behavior_tests",
+  "fact_level_expected_behavior",
   "independent_semantic_review",
 ]
 
