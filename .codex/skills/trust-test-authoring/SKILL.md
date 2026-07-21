@@ -9,6 +9,13 @@ Use this skill before changing behavior or test ownership. Detailed contracts li
 `docs/internal/testing/checklists/plc-verification-program/`; this skill only owns the execution
 route.
 
+The active completion contract is
+`docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md`.
+While Phase 18 is open, follow its current row and stop gates and do not begin unrelated product
+features. A `spec_gap`, `registered_backlog`, `reviewed_nonmapping`, ignored, skipped,
+filtered-out, unrun, or zero-test fact remains blocking debt; ownership, inventory, structural
+mapping, or a passing broad suite is not proof.
+
 ## Required Route
 
 1. Classify the intent and changed paths before writing a test:
@@ -22,6 +29,9 @@ route.
    product decision first. Never invent an expected result in a test.
 3. Bind the behavior to an invariant and an active oracle. Register the test in
    `verification/test-catalog.toml`; an unregistered test is a gate failure.
+   For an active Phase 18 slice, map/remove existing tests and add/execute missing tests only after
+   specification and invariant authority is accepted; then validate the complete bidirectional
+   chain and prove dynamic reachability and assertion strength.
 4. For a bug fix or intentional behavior change, run the smallest focused test to its expected
    assertion failure before editing production code. Compile, harness, dependency, timeout, and
    unrelated failures are not red evidence.
@@ -35,7 +45,8 @@ route.
 6. For a behavior-preserving refactor, establish a green behavior-lock baseline and compare before
    claiming completion. Do not manufacture red behavior for a refactor.
 7. Run focused checks continuously. Run heavy `just fmt`, `just clippy`, and `just test-all` on
-   `trust-builder` only at the final milestone defined by the active checklist.
+   `trust-builder` only at the single final candidate milestone `VERIF-P18-016` while Phase 18 is
+   active.
 8. Before pushing a feature, behavior, or product-test change, rerun the planner with every changed
    path. `missing_tests`, `spec_gap`, and `unmapped` are blocking results even when all implemented
    tests pass:

@@ -1899,9 +1899,10 @@ machine-readable substrate, proof budgets, dependency/reopen rules, rows
 `VERIF-P18-000` through `VERIF-P18-018`, and stop gates
 `VERIF-STOP-018A` through `VERIF-STOP-018F`.
 
-Current pointer: `VERIF-P18-000`; no Phase 18 implementation row is
-authorized until a fresh independent contract review accepts the dedicated
-board.
+The commit-bound R3 review accepted `VERIF-P18-000` at exact commit
+`7c08f5a8fd31fb2f4c770d316656f0b78ff62673`. Current transition pointer:
+`VERIF-P17-012`; its focused checks and stop gates must close before
+`VERIF-P18-001` becomes the first executable Phase 18 row.
 
 Phase 17 is accepted only as the denominator and fail-closed enforcement
 baseline. Its broad milestone is deferred into the single final Phase 18

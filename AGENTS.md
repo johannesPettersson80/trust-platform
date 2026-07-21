@@ -366,6 +366,10 @@ applicable, and lexer/parser tests or snapshots.
 
 - The SQLite-style PLC verification program is active at
   `docs/internal/testing/checklists/plc-verification-program-checklist.md`.
+- Its active zero-debt completion board is
+  `docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md`.
+  Follow its current row, dependency order, invalidation rules, and stop gates;
+  do not start unrelated product-feature work while Phase 18 is open.
 - Use `.codex/skills/trust-test-authoring/SKILL.md` for the mandatory execution route.
 - Run `python3 scripts/plan_tests.py --intent <intent> --changed <every-changed-path>` before new
   feature, behavior, or product-test changes and rerun it against the complete changed-path set
@@ -387,6 +391,13 @@ applicable, and lexer/parser tests or snapshots.
 - The pull-request verification workflow is enforcing. Do not remove `--strict`, weaken its
   read-only permissions, bypass uncataloged-test rejection, or convert planner/spec findings into
   passing proof.
+- A `spec_gap` or `registered_backlog` code fact remains unspecified, and a
+  `reviewed_nonmapping`, ignored, skipped, filtered-out, unrun, or zero-test fact remains unproved.
+  Ownership, inventory, a structural mapping, or a passing broad suite cannot retire that debt.
+- For each Phase 18 slice, establish specification and invariant authority, map/remove existing
+  tests and add/execute missing tests, validate the complete bidirectional chain, then prove dynamic
+  reachability and assertion strength. Run the one final broad candidate milestone only at
+  `VERIF-P18-016` after the preceding zero-debt rows close.
 - Follow the active board and stop gates. Do not move tests before the catalog permits it, implement
   a runner before its checklist row is unblocked, or invent behavior where the specification is
   missing or ambiguous.

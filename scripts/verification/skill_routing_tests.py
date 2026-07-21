@@ -23,6 +23,8 @@ class SkillRoutingTests(unittest.TestCase):
             "behavior-lock",
             "hardware",
             "docs/internal/testing/checklists/plc-verification-program",
+            "phase18-zero-debt-execution-board.md",
+            "reviewed_nonmapping",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
@@ -41,6 +43,9 @@ class SkillRoutingTests(unittest.TestCase):
         for relative, marker in expected.items():
             with self.subTest(path=relative):
                 self.assertIn(marker, (ROOT / relative).read_text())
+        agents = (ROOT / "AGENTS.md").read_text()
+        self.assertIn("phase18-zero-debt-execution-board.md", agents)
+        self.assertIn("reviewed_nonmapping", agents)
 
     def test_skill_metadata_routes_the_eight_reviewed_scenarios(self) -> None:
         text = (ROOT / ".codex/skills/trust-test-authoring/SKILL.md").read_text()

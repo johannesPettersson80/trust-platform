@@ -1,10 +1,10 @@
 # Phase 18 Zero-Debt Execution Board
 
-Status: contract revision after independent review `BLOCKED` findings
-`P18-C01` through `P18-C08`.
+Status: zero-debt contract accepted by commit-bound independent R3 review.
+Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-000`. No Phase 18 implementation row is authorized
-until an independent review accepts this complete contract and its arithmetic.
+Current transition: `VERIF-P17-012`. `VERIF-P18-001` is the first executable
+Phase 18 row after the Phase 17 focused transition checks and stop-gate closure.
 
 ## Objective
 
@@ -173,12 +173,18 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
 
 ## Execution Rows
 
-- [ ] `VERIF-P18-000` Obtain independent acceptance of this complete zero-debt
+- [x] `VERIF-P18-000` Obtain independent acceptance of this complete zero-debt
   contract, exact baseline arithmetic, zero equations, structural disposition
   rules, machine-readable substrate, budgets, dependency order, invalidation
   rules, stop gates, and final proof sequence. No implementation row is
   authorized before a commit-bound `CLEAR` or accepted
   `CLEAR-WITH-FINDINGS` verdict.
+  Commit-bound R3 review returned `CLEAR` for exact contract commit
+  `7c08f5a8fd31fb2f4c770d316656f0b78ff62673`; all reviewed file hashes
+  matched their commit blobs, findings `P18-C01..C08` and `P18-R2-01` were
+  resolved, and the review explicitly authorized the `P17-012` transition and
+  `P18-001` as the next Phase 18 row after that transition. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-contract-r3-review.md`.
 - [ ] `VERIF-P18-001` Implement the canonical schemas, ledgers, claim matrix,
   thin CLI, separate producer/validator modules, canonical artifact indexes,
   and negative fixtures defined above. Known-bad fixtures must fail for every
