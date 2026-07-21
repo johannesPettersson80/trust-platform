@@ -2582,6 +2582,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_0F77A231E09CE5746803"
+discovery_source_kind = "gate_script"
+path = "scripts/p18_zero_debt_gate.py"
+name = "p18_zero_debt_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"
+last_reviewed = "2026-07-21"
+
+[[reviews]]
 discovery_id = "DISC_0F9C3956D0F60788ACBE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/tutorial_examples.rs"

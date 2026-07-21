@@ -24,6 +24,28 @@ rationale = "The existing strict verification workflow runs one live denominator
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_P18_ZERO_DEBT"
+discovery_id = "DISC_0F77A231E09CE5746803"
+source_kind = "gate_script"
+path = "scripts/p18_zero_debt_gate.py"
+name = "p18_zero_debt_gate"
+command = "python3 scripts/p18_zero_debt_gate.py"
+variant = "Phase 18 zero-debt report-only substrate"
+command_role = "entrypoint"
+disposition = "report_only"
+suite_ids = ["veryquick"]
+owner = "verification"
+duration_class = "fast"
+environment = "trust_builder"
+artifact_kind = "ci_artifact"
+artifact_paths = ["target/gate-artifacts/p18-zero-debt/"]
+artifact_retention = "repository_default"
+enforcement = "report_only"
+required_env = []
+rationale = "P18-001 registers the reviewed report-only substrate; strict enforcement remains blocked until the Phase 18 board explicitly reaches its enforcement row."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JUST_VERIFICATION_VERYQUICK"
 source_kind = "just_recipe"
 path = "justfile"

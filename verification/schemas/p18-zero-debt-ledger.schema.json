@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/p18-zero-debt-ledger.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source_sha", "input_closure_sha256", "state", "last_reviewed", "baseline", "current", "proof_classes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"const": "P18_ZERO_DEBT_LEDGER_V1"},
+    "source_sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "input_closure_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "state": {"enum": ["open", "closed"]},
+    "last_reviewed": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code_facts", "spec_gap", "test_facts", "reviewed_nonmapping"],
+      "properties": {
+        "code_facts": {"const": 15229}, "spec_gap": {"const": 15138},
+        "test_facts": {"const": 4038}, "reviewed_nonmapping": {"const": 3777}
+      }
+    },
+    "current": {
+      "type": "object", "additionalProperties": false,
+      "required": ["spec_gap", "registered_backlog", "missing_spec", "missing_tests", "unmapped", "stale", "reviewed_nonmapping", "uncataloged", "unreviewed_tests", "ignored_skipped_filtered_unrun", "zero_test_filters", "unexplained_uncovered", "viable_mutants", "open_findings", "unmeasured_proof_classes"],
+      "properties": {
+        "spec_gap": {"$ref": "#/$defs/count"}, "registered_backlog": {"$ref": "#/$defs/count"},
+        "missing_spec": {"$ref": "#/$defs/count"}, "missing_tests": {"$ref": "#/$defs/count"},
+        "unmapped": {"$ref": "#/$defs/count"}, "stale": {"$ref": "#/$defs/count"},
+        "reviewed_nonmapping": {"$ref": "#/$defs/count"}, "uncataloged": {"$ref": "#/$defs/count"},
+        "unreviewed_tests": {"$ref": "#/$defs/count"}, "ignored_skipped_filtered_unrun": {"$ref": "#/$defs/count"},
+        "zero_test_filters": {"$ref": "#/$defs/count"}, "unexplained_uncovered": {"$ref": "#/$defs/count"},
+        "viable_mutants": {"$ref": "#/$defs/count"}, "open_findings": {"$ref": "#/$defs/count"},
+        "unmeasured_proof_classes": {"$ref": "#/$defs/count"}
+      }
+    },
+    "proof_classes": {"type": "array", "minItems": 12, "maxItems": 12, "items": {"$ref": "#/$defs/proof"}}
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "proof": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "validator_module", "prerequisites", "status", "denominator", "numerator", "debt", "stale", "unowned", "skipped", "filtered", "unrun", "timeouts", "harness_failures", "execution_count", "raw_artifact", "raw_sha256", "producer_command", "producer_exit", "validator_command", "validator_exit", "input_digest"],
+      "properties": {
+        "id": {"enum": ["semantic_chains", "test_mapping", "assertion_reachability", "coverage", "mutation", "fuzz_property", "concurrency_time", "unsafe_ffi", "hardware_endurance", "rendered_ux", "platform_claims", "release_evidence"]},
+        "validator_module": {"type": "string", "minLength": 1},
+        "prerequisites": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "status": {"enum": ["open", "closed"]},
+        "denominator": {"$ref": "#/$defs/count"}, "numerator": {"$ref": "#/$defs/count"}, "debt": {"$ref": "#/$defs/count"},
+        "stale": {"$ref": "#/$defs/count"}, "unowned": {"$ref": "#/$defs/count"}, "skipped": {"$ref": "#/$defs/count"},
+        "filtered": {"$ref": "#/$defs/count"}, "unrun": {"$ref": "#/$defs/count"}, "timeouts": {"$ref": "#/$defs/count"},
+        "harness_failures": {"$ref": "#/$defs/count"}, "execution_count": {"$ref": "#/$defs/count"},
+        "raw_artifact": {"type": "string", "minLength": 1}, "raw_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "producer_command": {"type": "string", "minLength": 1}, "producer_exit": {"$ref": "#/$defs/count"},
+        "validator_command": {"type": "string", "minLength": 1}, "validator_exit": {"$ref": "#/$defs/count"},
+        "input_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

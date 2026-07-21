@@ -920,7 +920,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_1F76EB22F5A58612D93A01D2"
 path = "docs/internal/testing/checklists/plc-verification-program/metadata-model.md"
-content_sha256 = "df91aae7df6b3f16f6ac941dfb6d7c1566a3e589e1000cf19741c36e75c56462"
+content_sha256 = "9b3512e8b2f4543cacd60246921300ed73381cbfcfdc0a140da79a4fd5ef4a09"
 areas = ["verification"]
 authority_levels = ["reviewed_decision"]
 owners = ["verification"]
@@ -931,7 +931,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "active_current"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-21"
 
 [[document_reviews]]
 schema_version = 1

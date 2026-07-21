@@ -1,0 +1,246 @@
+schema_version = 1
+id = "P18_PROOF_BUDGETS_V1"
+source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
+input_closure_sha256 = "sha256:2a2f0b7c3485008cf6a39b8310c013ddc3e24875ca3cba8ab799fadeb93401c4"
+state = "open"
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_SEMANTIC_CHAINS"
+proof_class = "semantic_chains"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_TEST_MAPPING"
+proof_class = "test_mapping"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_ASSERTION_REACHABILITY"
+proof_class = "assertion_reachability"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_COVERAGE"
+proof_class = "coverage"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_MUTATION"
+proof_class = "mutation"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_FUZZ_PROPERTY"
+proof_class = "fuzz_property"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_CONCURRENCY_TIME"
+proof_class = "concurrency_time"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_UNSAFE_FFI"
+proof_class = "unsafe_ffi"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_HARDWARE_ENDURANCE"
+proof_class = "hardware_endurance"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_RENDERED_UX"
+proof_class = "rendered_ux"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_PLATFORM_CLAIMS"
+proof_class = "platform_claims"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"
+
+[[budgets]]
+id = "BUDGET_RELEASE_EVIDENCE"
+proof_class = "release_evidence"
+owner = "verification"
+review_status = "unreviewed"
+tool = "pending"
+tool_version = "pending"
+environment = "pending"
+topology = "pending"
+seed = "pending"
+input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+shards = 0
+baseline_iterations = 0
+current_iterations = 0
+baseline_duration_seconds = 0
+current_duration_seconds = 0
+baseline_obligation = 0
+current_obligation = 0
+last_reviewed = "2026-07-21"

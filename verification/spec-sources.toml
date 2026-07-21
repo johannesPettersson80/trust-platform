@@ -2047,7 +2047,7 @@ visibility = "internal"
 locator_kind = "tracked_file"
 path = "docs/internal/testing/checklists/plc-verification-program/metadata-model.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-21"
 covers = [
   "verification_metadata_contract",
   "case_proof_contract",

@@ -1512,3 +1512,119 @@ Required fields:
 
 Evidence record details, traceability report rules, and verification-tooling
 self-test fixtures live in `metadata-evidence-traceability.md`.
+
+## Phase 18 Zero-Debt Substrate Contract
+
+The Phase 18 substrate is a closed, machine-readable control plane for the
+zero-debt program. Its behavior is governed by this reviewed contract and by
+`phase18-zero-debt-execution-board.md`; it cannot infer product behavior,
+expected results, adequacy, or claim scope from implementation text.
+
+Canonical inputs:
+
+- `verification/p18-zero-debt-ledger.toml` with schema
+  `verification/schemas/p18-zero-debt-ledger.schema.json`;
+- `verification/p18-proof-budgets.toml` with schema
+  `verification/schemas/p18-proof-budgets.schema.json`;
+- `verification/p18-claim-matrix.toml` with schema
+  `verification/schemas/p18-claim-matrix.schema.json`.
+
+Each document is schema-versioned, closed to unknown fields, identity-stable,
+owner-bound, last-reviewed, and bound to the exact source SHA and complete
+input-closure digest it describes. Schema validation precedes semantic joins.
+The closure digest is SHA-256 over canonical sorted-key compact JSON with LF and
+one trailing newline after replacing that document's own
+`input_closure_sha256` value with 64 zeroes. This removes self-reference while
+making every other field part of the binding. The CLI receives the reviewed
+expected source SHA independently through `--expected-source-sha`; it must not
+learn the expected value from the document being checked.
+An absent input, malformed type, unknown field, duplicate identity, missing
+cross-reference, stale source SHA, stale input digest, or noncanonical ordering
+is a blocking contract error.
+
+The ledger records the frozen Phase 17 baselines exactly: 15,229 live code
+facts, including 15,138 `spec_gap`, and 4,038 live test facts, including 3,777
+`reviewed_nonmapping`. Baseline counts are immutable historical inputs, not
+completion claims. Current counters may decrease only from source-derived raw
+identities and must reconstruct exactly from their bound raw artifact. A gap
+lifecycle label, inventory owner, structural mapping, or broad-suite pass never
+decrements semantic or test debt.
+
+The proof-class registry has exactly these independently validated classes:
+
+1. `semantic_chains`;
+2. `test_mapping`;
+3. `assertion_reachability`;
+4. `coverage`;
+5. `mutation`;
+6. `fuzz_property`;
+7. `concurrency_time`;
+8. `unsafe_ffi`;
+9. `hardware_endurance`;
+10. `rendered_ux`;
+11. `platform_claims`;
+12. `release_evidence`.
+
+Each class names one focused validator module and records prerequisite row IDs,
+status, exact numerator and denominator, debt count, raw-artifact path and
+SHA-256, producer command and exit status, validator command and exit status,
+execution count, skip/filtered/timeout/harness-failure counts, and invalidation
+input digests. A class cannot be `closed` unless its debt, skipped, filtered,
+unrun, timeout, harness-failure, stale, and unowned counts are all zero; both
+producer and validator executed successfully; at least one required execution
+occurred when its denominator is nonzero; and its raw artifact exists and
+matches the recorded digest.
+
+The budgets document freezes proof parameters before execution. Every budget
+names its proof class, owner, review state, tool and version, environment or
+hardware topology, fixed seed/corpus/input digest, shards, and predeclared
+duration/iteration/coverage/mutation/soak stop criteria. `unreviewed` budgets
+cannot authorize execution. Once `accepted`, a budget is immutable except
+through a new reviewed identity that invalidates every consuming artifact.
+Observed results cannot lower a denominator, duration, iteration count,
+coverage obligation, mutation obligation, or soak duration. The semantic
+validator must reject a current budget weaker than its accepted baseline.
+
+The claim matrix freezes every supported platform and public/package/config
+claim before platform proof starts. A claim records its exact source identity,
+owner, supported operating system and architecture lanes, feature/profile,
+packaging/install/upgrade obligations, locale/path/encoding variants, evidence
+requirements, and retirement decision when applicable. Tool or runner
+unavailability cannot retire a claim. Retirement requires a reviewed product or
+compatibility decision and consistent removal/deprecation evidence across code,
+package/configuration, documentation, changelog/versioning, and independent
+release verification.
+
+The thin command is:
+
+```text
+python3 scripts/p18_zero_debt_gate.py --mode <report|strict> \
+  --expected-source-sha <reviewed-40-hex-sha> \
+  --out-dir target/gate-artifacts/p18-zero-debt/<full-sha>
+```
+
+It delegates to separate proof-class modules and writes canonical
+`p18-zero-debt.json`, reconstructed `p18-zero-debt.md`, and
+`artifact-index.json`. JSON uses sorted keys, UTF-8, LF, and one trailing
+newline. Markdown is reconstructed from validated JSON only. The artifact index
+records every canonical input and output path, SHA-256, source SHA, producer,
+validator, exit status, and input-closure digest. Report mode exits zero only
+when inputs and artifacts are structurally and semantically valid; it keeps all
+open debt visible. Strict mode additionally exits nonzero while any final zero
+equation, proof class, budget, claim, execution, or finding remains open.
+Contract/input errors use a distinct nonzero exit from ordinary open-debt strict
+failure.
+
+Known-bad fixtures must prove rejection of every missing schema field, unknown
+field, stale source or artifact digest, absent raw artifact, weakened accepted
+budget, skipped or failed producer, skipped or disabled validator, zero-test
+execution, noncanonical ordering, duplicate identity, broken prerequisite, and
+summary/raw arithmetic mismatch. A catcher-removal fixture must fail when any
+one validator is disabled. Known-good fixtures must reconstruct byte-for-byte
+canonical JSON, Markdown, and artifact indexes.
+
+The CLI orchestrates only. Schema loading, contract joins, artifact hashing,
+per-proof-class semantics, and rendering remain separate responsibilities. A
+proof-class validator cannot close another class, lower another denominator, or
+turn inventory ownership into proof. Phase 18 implementation tests are
+verification-tooling evidence only and do not become product correctness proof.

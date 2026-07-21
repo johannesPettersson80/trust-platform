@@ -1,0 +1,89 @@
+@startuml
+title Phase 18 Zero-Debt Verification Control Plane
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Reviewed contracts" {
+  [metadata-model.md\nPhase 18 contract] as Spec
+  [zero-debt ledger] as Ledger
+  [proof budgets] as Budgets
+  [claim matrix] as Claims
+  [closed JSON schemas] as Schemas
+}
+
+package "Focused validation ownership" {
+  [semantic chains] as Semantic
+  [existing-test mapping] as TestMapping
+  [assertion reachability] as Reachability
+  [coverage + mutation] as Adequacy
+  [fuzz + concurrency/time] as Dynamic
+  [unsafe/FFI + hardware/endurance] as Native
+  [rendered UX + platform claims] as Environment
+  [release evidence] as Release
+  [closed semantic join] as Join
+}
+
+package "Thin command boundary" {
+  [p18_zero_debt_gate.py] as CLI
+  [canonical JSON renderer] as Json
+  [Markdown reconstruction] as Markdown
+  [digest-bound artifact index] as Index
+  [report-only suite route] as ReportRoute
+  [strict final route] as StrictRoute
+}
+
+Spec --> Ledger
+Spec --> Budgets
+Spec --> Claims
+Schemas --> Ledger : validate before join
+Schemas --> Budgets : validate before join
+Schemas --> Claims : validate before join
+
+Ledger --> Semantic
+Ledger --> TestMapping
+Ledger --> Reachability
+Ledger --> Adequacy
+Ledger --> Dynamic
+Ledger --> Native
+Ledger --> Environment
+Ledger --> Release
+Budgets --> Semantic
+Budgets --> TestMapping
+Budgets --> Reachability
+Budgets --> Adequacy
+Budgets --> Dynamic
+Budgets --> Native
+Budgets --> Environment
+Budgets --> Release
+Claims --> Environment
+Claims --> Release
+
+Semantic --> Join
+TestMapping --> Join
+Reachability --> Join
+Adequacy --> Join
+Dynamic --> Join
+Native --> Join
+Environment --> Join
+Release --> Join
+Join --> CLI
+CLI --> Json
+Json --> Markdown : reconstruct only
+Json --> Index : exact SHA-256
+Markdown --> Index : exact SHA-256
+CLI --> ReportRoute : open debt remains visible
+CLI --> StrictRoute : any debt/state/finding blocks
+
+note bottom of Join
+  Every input document uses an independently asserted source SHA
+  and a normalized complete-document closure digest.
+  A focused validator cannot close another proof class.
+end note
+
+note bottom of StrictRoute
+  Strict success is unavailable until every Phase 18 zero equation,
+  proof class, budget, claim, and execution obligation is closed.
+end note
+
+@enduml

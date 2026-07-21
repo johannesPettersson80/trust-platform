@@ -80683,3 +80683,185 @@ reviewed_by = "verification"
 reviewed_on = "2026-07-21"
 expires_on = "2026-10-21"
 rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_017900B39E9B91F47DEB470B4938BA889D13E98CC58DCAA190703AF01167C03E"
+code_id = "CODE_017900B39E9B91F47DEB470B4938BA889D13E98CC58DCAA190703AF01167C03E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:ab2218d467f138599e4f217a3c83abaf4a8e508d707b7f1c1b9939074a314622"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1D197AD609C0D37EB1725BE60D2D326F9B81FCADF27C313CF7BB8FBB55D8680C"
+code_id = "CODE_1D197AD609C0D37EB1725BE60D2D326F9B81FCADF27C313CF7BB8FBB55D8680C"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:2efa0feb9cea9f92e5c8252391f2253b42879647ea3564752fe7cefadbec76d1"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_25ACC24206DB3817E62C839600295F6285F9CA8F0F0003E4D5C34A5AC91B6059"
+code_id = "CODE_25ACC24206DB3817E62C839600295F6285F9CA8F0F0003E4D5C34A5AC91B6059"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e4baeb746f943c0366da59c02dc629ec2dcfee162ef13c9821d2c8f7f5996e5e"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2D9F1068AA6B7D76FCE0695F0D22923D36831ADF91ED5744E61E98B1D9EAC1A8"
+code_id = "CODE_2D9F1068AA6B7D76FCE0695F0D22923D36831ADF91ED5744E61E98B1D9EAC1A8"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:931761637f9d8ea21b0665e50b73fdafb66b075edebe5f1b38aa644085eb72b5"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_382395D479EE4D9EDDA2D825E728EB3BF8BFBDAC126BC03B0023D6BBA84027D6"
+code_id = "CODE_382395D479EE4D9EDDA2D825E728EB3BF8BFBDAC126BC03B0023D6BBA84027D6"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1a34950f00b39273eea0f950d77a997374ad215715615f10668302cdee134875"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
+code_id = "CODE_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1fb689eba2c4d296dfcca3d6e9ec38f1798989c91503ca84bb68b5314fc96052"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4FEA0C2D8CAA3B5715344D1E492E2FF926B8168E67D4044F845099D77EF4F8E3"
+code_id = "CODE_4FEA0C2D8CAA3B5715344D1E492E2FF926B8168E67D4044F845099D77EF4F8E3"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b3d21a4fe4474aadbaf63bfbf2c0432fd647ad5ec174edbe7e19b248fad77c78"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6F24BA741A424A03DD843D283A26AC4BDAEF331323B369FD7B0E05DCFE083769"
+code_id = "CODE_6F24BA741A424A03DD843D283A26AC4BDAEF331323B369FD7B0E05DCFE083769"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:7a4b2703accc0f73dc71bf082fa3ba3acca8f655cf42157f44515dd92dc88f9d"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7B8ECD1541672B290D0857765DCB1D9BD7FBFE50CEA4583240697EBAA0CB5EAF"
+code_id = "CODE_7B8ECD1541672B290D0857765DCB1D9BD7FBFE50CEA4583240697EBAA0CB5EAF"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:10d533aebbcdd6912dd9c89ac448ffbe603c2460a70d63c5ca3f1428b407f3e2"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7E7F274F7F22AEBA88A72DB227A5DB22799736B4A74ECCCABC85C6DC5093B212"
+code_id = "CODE_7E7F274F7F22AEBA88A72DB227A5DB22799736B4A74ECCCABC85C6DC5093B212"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:641d356b2dd1eaeccea793f3182161921a1522dd2262abc6bc2d2041459ca30e"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_88AB7A485B3827C2D64004AAB261F39495FFCABEF75FA20203AC29B4270512FE"
+code_id = "CODE_88AB7A485B3827C2D64004AAB261F39495FFCABEF75FA20203AC29B4270512FE"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:855505295119e2ebc9688078b6b2af562b7355afd13b6670b681df92f7b68cd8"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8E5F5E569BA28F4D693DE2B09834CA09A2DDC160B5E8B945D43F2692ADAF9F80"
+code_id = "CODE_8E5F5E569BA28F4D693DE2B09834CA09A2DDC160B5E8B945D43F2692ADAF9F80"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b374995d19a8048d960b3bfe889c2d17fb9919dcd4164298da251ffb27bbce5e"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E1AB711A8EFD9433068093876A9FDC1D07D5197BF653FEBB2E2F5A7E0A571779"
+code_id = "CODE_E1AB711A8EFD9433068093876A9FDC1D07D5197BF653FEBB2E2F5A7E0A571779"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:7c24d7566de84f003d2a57b8469d53413b996fa3aaa159c7af62dcdacc2ad472"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."

@@ -196,3 +196,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   executable acceptance, dependency, invalidation, zero-equation, and stop
   rules live in
   `plc-verification-program/phase18-zero-debt-execution-board.md`.
+- [x] `ARCH-VERIF-P18-02` Establish the Phase 18 control-plane boundary with
+  three closed machine contracts, independent normalized document-closure and
+  source-SHA checks, separate proof-class validator modules, a thin report/
+  strict CLI, and canonical JSON/Markdown/artifact-index ownership. Diagram:
+  `docs/diagrams/architecture/verification-p18-zero-debt.puml`. This closes the
+  substrate architecture only; `ARCH-VERIF-P18-01` remains open until every
+  semantic, test-mapping, adequacy, environment, and release debt row closes.

@@ -29,6 +29,30 @@ last_reviewed = "2026-07-21"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0F77A231E09CE5746803"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/p18_zero_debt_gate.py"
+name = "p18_zero_debt_gate"
+command = "python3 -m unittest scripts.verification.p18_zero_debt_tests && python3 scripts/p18_zero_debt_gate.py --mode report --expected-source-sha a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35 --out-dir target/gate-artifacts/p18-zero-debt/catalog"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+expected_result = "Known-good and known-bad substrate fixtures pass, the live Phase 18 documents validate exactly, report mode preserves every open debt counter, and canonical digest-bound artifacts are emitted."
+expected_failure_mode = "Malformed, stale, weakened, disabled, unexecuted, arithmetically inconsistent, or open evidence is accepted as strict zero-debt proof."
+suite_tiers = ["veryquick", "pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001.json"
+last_reviewed = "2026-07-21"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"
