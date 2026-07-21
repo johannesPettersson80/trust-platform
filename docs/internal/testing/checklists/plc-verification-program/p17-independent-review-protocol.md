@@ -16,7 +16,9 @@ The review request must name all of the following before review begins:
 
 - canonical repository: `/home/johannes/projects/trust-platform`;
 - branch: `plc-verification-program`;
-- one clean, full 40-character implementation SHA, recorded as
+- one clean, full 40-character final review SHA, recorded as
+  `FROZEN_REVIEW_SHA`;
+- the clean, full 40-character pre-baseline implementation SHA, recorded as
   `FROZEN_IMPLEMENTATION_SHA`;
 - the immediate child SHA that first introduces the exhaustive debt baseline,
   recorded as `FROZEN_BASELINE_SHA`;
@@ -131,13 +133,28 @@ python3 scripts/run_verification_focused_tests.py
 scripts/verification_metadata_gate.sh
 python3 scripts/check_verification_tooling_selftests.py
 python3 scripts/check_test_catalog_staleness.py
-python scripts/code_spec_coverage_gate.py --mode report --out-dir /tmp/p17-report
-python scripts/code_spec_coverage_gate.py --mode changed --out-dir /tmp/p17-changed
-python scripts/code_spec_coverage_gate.py --mode full --out-dir /tmp/p17-full
+python scripts/code_spec_coverage_gate.py --mode report \
+  --out-dir target/gate-artifacts/p17-review/report
+python scripts/code_spec_coverage_gate.py --mode full \
+  --out-dir target/gate-artifacts/p17-review/full
 ```
 
 Verify the gate/fuzz join in the canonical report. Do not substitute an ad hoc
-partial list for either registered campaign.
+partial list for either registered campaign. Reproduce changed mode at the
+historical `FROZEN_BASELINE_SHA`, where enforcement is still configured as
+`changed`, and bind its comparison explicitly:
+
+```bash
+python scripts/code_spec_coverage_gate.py --mode changed \
+  --base "$FROZEN_IMPLEMENTATION_SHA" \
+  --head "$FROZEN_BASELINE_SHA" \
+  --out-dir target/gate-artifacts/p17-review/changed
+```
+
+The focused adversarial fixtures must independently demonstrate that changed
+mode rejects a newly absent mapping, signature/body drift, a removed catcher,
+and baseline append or field mutation. A green changed-mode invocation alone is
+not fail-closed evidence.
 
 Only after the focused review is accepted, run the single final broad milestone
 on `trust-builder` from the same frozen source:
