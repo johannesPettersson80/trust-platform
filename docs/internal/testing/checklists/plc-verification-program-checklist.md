@@ -1,8 +1,12 @@
 # truST PLC Verification Program Checklist
 
-Status: reviewed. External review returned `clear-with-edits` (2026-07-08);
-required edits are folded and verified, and the review gate is cleared.
-Implementation follows the board order under the policy stop gates.
+Status: active. The original program contract returned `clear-with-edits`
+(2026-07-08), and those edits are folded. Phase 17 added the exhaustive
+production-code denominator. Phase 18 was added on 2026-07-21 after the frozen
+denominators proved that explicit `registered_backlog` and
+`reviewed_nonmapping` populations were still unresolved semantic/test debt.
+The program is not complete until the Phase 18 zero-debt rows and stop gates
+close through independent acceptance.
 
 Created: 2026-07-07. Split into focused documents: 2026-07-08.
 
@@ -22,8 +26,10 @@ Read in this order:
 4. [test-taxonomy.md](plc-verification-program/test-taxonomy.md)
 5. [verification-areas.md](plc-verification-program/verification-areas.md)
 6. [implementation-board.md](plc-verification-program/implementation-board.md)
-7. [fable-review-brief.md](plc-verification-program/fable-review-brief.md)
-8. [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
+7. [phase18-zero-debt-execution-board.md](plc-verification-program/phase18-zero-debt-execution-board.md)
+   (active zero-debt completion board; its pointer is `VERIF-P18-000`)
+8. [fable-review-brief.md](plc-verification-program/fable-review-brief.md)
+9. [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
    (queued: Phase 16 readiness plus the first spec-to-green vertical; product
    edits remain blocked until the readiness rows close)
 
@@ -66,6 +72,32 @@ execution, and unproven hardware claims are treated as high-risk.
     first product vertical is detailed in
     [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
     (board row `VERIF-P16-001`).
+12. Production-code denominator: inventory every behavior-bearing Rust,
+    TypeScript/JavaScript, Python, shell, and verification-tooling fact; reject
+    silent omissions and stale mappings; keep new/changed code fail-closed
+    (board Phase 17).
+13. Zero-debt semantic and test completion: replace every historical
+    `registered_backlog`/open-gap fact with an authoritative specification and
+    executable invariant/test chain, eliminate every `reviewed_nonmapping`
+    test, and prove assertion strength, coverage, mutation, fuzz/property,
+    concurrency/time, unsafe, real hardware/endurance, rendered UX, and
+    supported-platform behavior (board Phase 18).
+
+Final completion means zero known or hidden debt, not merely zero unclassified
+rows. A code fact mapped to a backlog gap is still unspecified. A discovered
+test assigned `reviewed_nonmapping` still has no accepted proof claim. Passing
+broad suites or structural scanners cannot waive either population.
+
+The final proof chain is:
+
+```text
+specified behavior -> invariant -> code -> executed test -> suite/evidence
+  -> adequacy/environment proof -> frozen candidate -> GitHub/public proof
+  -> independent final verdict
+```
+
+An explicit specification-gap route is interim blocking evidence, never a
+final proof route.
 
 The review gate
 [VERIF-REVIEW-004](plc-verification-program/implementation-board.md) was

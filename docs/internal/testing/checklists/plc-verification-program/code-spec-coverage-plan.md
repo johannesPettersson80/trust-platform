@@ -419,7 +419,11 @@ metadata tests. Before the first full report, freeze the implementation and run
 the cheap complete-diff preflight. Generate the denominator report once from a
 clean detached `trust-builder` worktree.
 
-At the final milestone run on `trust-builder`:
+Phase 17 now supplies the accepted denominator and fail-closed enforcement
+baseline for the mandatory Phase 18 zero-debt program. Do not run a separate
+program-final broad milestone merely to close the denominator. The one final
+broad milestone runs from the frozen Phase 18 zero-debt candidate on
+`trust-builder`:
 
 ```bash
 just fmt
@@ -433,7 +437,7 @@ workspace gates after each mapping edit.
 
 ## 11. Evidence and Definition of Done
 
-Phase 17 is complete only when:
+Phase 17 denominator enforcement is complete only when:
 
 - all scoped production facts are present in a canonical report,
 - the report is an exact one-to-one partition with zero unreviewed facts,
@@ -449,6 +453,26 @@ Phase 17 is complete only when:
 - no product invariant is promoted merely because a code mapping exists,
 - CI remains acyclic and the existing release workflow is unchanged by this
   phase unless a separate reviewed release-tooling change is required.
+
+Phase 17 completion is not PLC verification-program completion. In particular,
+an exact `spec_gap`/`registered_backlog` mapping makes missing semantics visible
+but does not supply a specification, invariant, test oracle, or product proof.
+Likewise, `reviewed_nonmapping` in the test denominator makes an unclaimed test
+visible but does not establish what behavior it proves.
+
+The mandatory dedicated
+`phase18-zero-debt-execution-board.md` owns final zero-debt completion. Before
+the program may be described as fully specified, mapped, or tested, the count
+of live `spec_gap` code facts must be zero regardless of gap lifecycle status;
+every historical backlog must be replaced by an authoritative
+specified/invariant/executed-test chain or an exact structural disposition
+whose terminal boundary has that chain; every discovered test must be mapped to
+an accepted and executed proof or removed with reviewed no-loss evidence; and
+ignored/skipped/filtered/unrun cases remain blocking. Coverage, mutation,
+fuzz/property, concurrency/time, unsafe, hardware/endurance, rendered UX,
+platform, candidate, public-release, and independent-final evidence must all
+close in the dedicated board's dependency order. Neither the empty frozen
+baseline nor full-mode scanner success waives those obligations.
 
 ## 12. Stop Conditions
 

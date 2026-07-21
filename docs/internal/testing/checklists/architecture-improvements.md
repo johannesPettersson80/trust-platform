@@ -184,3 +184,13 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   scanner/join/planner/gate tests, authoritative fuzz target-to-direct-surface
   area and canonical-owner join tests, rendered diagram drift proof, and the
   final Phase 17 gate milestone.
+- [ ] `ARCH-VERIF-P18-01` Eliminate structural verification debt after the
+  Phase 17 denominator is enforced: replace every area-wide historical
+  code-spec backlog with exact authoritative specification/invariant/test
+  chains, eliminate the `reviewed_nonmapping` test disposition, and keep
+  coverage, mutation, fuzz/property, concurrency/time, unsafe, hardware/
+  endurance, rendered UX, and platform evidence owned by separate focused
+  validators and artifact contracts rather than one god gate. The complete
+  executable acceptance, dependency, invalidation, zero-equation, and stop
+  rules live in
+  `plc-verification-program/phase18-zero-debt-execution-board.md`.

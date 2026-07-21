@@ -1803,13 +1803,18 @@ expected behavior from implementation text and does not promote product proof.
   or promote an invariant. The clean canonical report, reconstruction proof,
   exact artifact digests, and input closure are recorded in
   `2026-07-21-p17-baseline-freeze.md`.
-- [ ] `VERIF-P17-006` Run the first Rust pilot on
+- [x] `VERIF-P17-006` Run the first Rust pilot on
   `crates/trust-runtime/src/stdlib/time.rs`. The scanner must enumerate
   `runtime_clock_value` and `current_dt` without inferring their behavior. If
   no active oracle defines the `CURRENT_DT` clock boundary, the pilot must emit
   `missing_spec` or require an explicit open gap. Close the pilot only after
   every fact in the file has an exact allowed disposition and an independent
   review confirms that no current behavior was used as its own oracle.
+  The independent frozen-SHA review accepted this pilot at
+  `ee00258c42cadd98ac70a5c6523957f5ee44fe7c`; its exact denominator,
+  disposition arithmetic, risk acknowledgements, and no-self-oracle findings
+  are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-independent-final-acceptance.md`.
 - [x] `VERIF-P17-007` Produce and review the exhaustive Rust product
   denominator. Every live Rust production fact is partitioned exactly once,
   with zero omissions, overlap, invented identities, stale digests, or blanket
@@ -1859,12 +1864,19 @@ expected behavior from implementation text and does not promote product proof.
   acknowledgement for every mapped risk-bearing fact; historical records stay
   attached to exact registered-backlog gaps and do not claim correctness or
   create an area-wide planner block.
-- [ ] `VERIF-P17-012` Close historical code-to-spec debt and flip full-denominator
-  enforcement only after an independent review accepts exact one-to-one
-  partitions for every scoped language and the frozen debt baseline is empty.
+- [ ] `VERIF-P17-012` Close silent denominator omissions and flip
+  full-denominator enforcement only after an independent review accepts exact
+  one-to-one partitions for every scoped language and the frozen debt baseline
+  is empty. `VERIF-P18-000` must first accept the zero-debt execution contract
+  that consumes this denominator. This row proves only that every fact is
+  accounted for and that new or changed debt fails closed; it does not
+  convert `registered_backlog` or `spec_gap` facts into specifications and does
+  not make `reviewed_nonmapping` tests proof-bearing.
   Run the focused verification suite, metadata gate, tooling self-tests,
-  catalog staleness, and the new checker; then run one final
-  `fmt`/`clippy`/`test-all` milestone on `trust-builder`.
+  catalog staleness, and the new checker for this transition. The formerly
+  named Phase 17 `fmt`/`clippy`/`test-all` milestone is deferred and merged
+  into the single final zero-debt candidate milestone at `VERIF-P18-016`; do
+  not run or claim a second broad completion milestone here.
   Update `AGENTS.md` and `trust-test-authoring` only in this reviewed enforcement
   commit so future feature work cannot bypass the code-to-spec route.
 
@@ -1877,6 +1889,27 @@ expected behavior from implementation text and does not promote product proof.
   active for every S1 Rust/runtime path. Planning, specification review, and
   compile-only harness preparation may proceed; observable product behavior
   may not.
+
+## Phase 18 - Zero-Debt Semantic and Test Completeness
+
+The authoritative executable Phase 18 board is
+`plc-verification-program/phase18-zero-debt-execution-board.md`. It owns the
+frozen 15,229-code-fact and 4,038-test-fact baselines, exact zero equations,
+machine-readable substrate, proof budgets, dependency/reopen rules, rows
+`VERIF-P18-000` through `VERIF-P18-018`, and stop gates
+`VERIF-STOP-018A` through `VERIF-STOP-018F`.
+
+Current pointer: `VERIF-P18-000`; no Phase 18 implementation row is
+authorized until a fresh independent contract review accepts the dedicated
+board.
+
+Phase 17 is accepted only as the denominator and fail-closed enforcement
+baseline. Its broad milestone is deferred into the single final Phase 18
+candidate milestone. The PLC verification program, its product code, and its
+tests may not be described as complete while any dedicated Phase 18 row or
+zero equation remains open. Unrelated product-feature implementation remains
+blocked; only red-green repairs required by an active Phase 18 slice may
+change product behavior.
 
 ## Review Acceptance
 
