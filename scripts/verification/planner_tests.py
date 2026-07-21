@@ -177,6 +177,28 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         self.assertIn("vscode_extension", result.matched_route_ids)
         self.assertEqual(result.required_suites, ["pr"])
 
+    def test_docs_metadata_validation_is_repository_global_not_per_area(self) -> None:
+        catalog = tomllib.loads(
+            (ROOT / "verification/test-catalog.toml").read_text()
+        )["tests"]
+        self.planner.tests = [
+            next(
+                row
+                for row in catalog
+                if row["id"] == "TEST_VERIFICATION_METADATA_GATE_001"
+            )
+        ]
+
+        result = self.planner.plan(
+            "docs",
+            ["CHANGELOG.md", "verification/spec-sources.toml"],
+            None,
+            None,
+        )
+
+        self.assertEqual(result.required_test_classes, ["metadata_validation"])
+        self.assertEqual(result.missing_test_classes, [])
+
     def test_conditional_suites_are_reported_but_not_promoted(self) -> None:
         result = self.planner.plan(
             "bugfix",

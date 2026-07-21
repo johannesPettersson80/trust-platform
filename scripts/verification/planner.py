@@ -193,6 +193,12 @@ class Planner:
         waiver_notes: set[str] = set()
         uninventoried: list[str] = []
         intent_row = self.intent_requirements.get(intent, {})
+        global_intent_classes = (
+            set(intent_row.get("required_test_classes", []))
+            if intent == "docs"
+            else set()
+        )
+        required_classes.update(global_intent_classes)
 
         if unmapped:
             risk_notes.add(
@@ -224,7 +230,11 @@ class Planner:
                         f"{requirement['id']} waived by {requirement.get('decision_ref', '<missing decision_ref>')}"
                     )
 
-            area_required_classes: set[str] = set(intent_row.get("required_test_classes", []))
+            area_required_classes: set[str] = (
+                set()
+                if intent == "docs"
+                else set(intent_row.get("required_test_classes", []))
+            )
             area_required_families: set[str] = set()
             if intent in BEHAVIOR_INTENTS:
                 area_required_classes.update(area_row.get("required_test_classes", []))
@@ -247,6 +257,19 @@ class Planner:
                 existing_tests.add(test["id"])
             covered_classes = {test.get("test_class") for test in runnable_area_tests}
             missing_classes.update(area_required_classes - covered_classes)
+
+        if global_intent_classes:
+            global_intent_tests = [
+                test
+                for test in self.tests
+                if test.get("test_class") in global_intent_classes
+                and test_counts_as_runnable(test)
+            ]
+            existing_tests.update(test["id"] for test in global_intent_tests)
+            missing_classes.update(
+                global_intent_classes
+                - {test.get("test_class") for test in global_intent_tests}
+            )
 
         if spec_gaps:
             missing_classes.clear()

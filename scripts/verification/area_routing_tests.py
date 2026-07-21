@@ -139,6 +139,21 @@ class AreaRoutingTests(unittest.TestCase):
                 self.assertIn("verification_tooling", result.route_ids)
                 self.assertIn("verification", result.area_ids)
 
+    def test_normative_specification_sources_are_routed_through_verification(self) -> None:
+        paths = (
+            "docs/IEC_DEVIATIONS.md",
+            "docs/IEC_DECISIONS.md",
+            "docs/specs/07-standard-functions.md",
+            "docs/specs/10-runtime-semantics.md",
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
+                self.assertFalse(result.unmapped)
+                self.assertIn("verification_tooling", result.route_ids)
+                self.assertIn("verification", result.area_ids)
+
     def test_unmatched_path_is_default_denied(self) -> None:
         result = classify_changed_path(self.matrix, "unmodeled/new_surface.xyz")
 

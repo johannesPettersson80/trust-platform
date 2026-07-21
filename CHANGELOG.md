@@ -28,6 +28,10 @@ Target release: `v0.24.54`
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero
   tests; bounded campaigns also reject any zero-test Cargo filter.
+- verification: normative IEC and product-specification documents now traverse
+  the enforcing metadata route, while docs-only planning recognizes the single
+  repository metadata gate across all changed product areas instead of
+  demanding duplicate area-local metadata validators.
 - trust-ads-server: restored the command-dispatch cargo-fuzz target after the
   symbol snapshot interface moved to shared `Arc` ownership, so all registered
   ADS fuzz targets compile and execute under the bounded campaign.
