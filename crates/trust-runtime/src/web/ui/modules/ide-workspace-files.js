@@ -231,3 +231,188 @@ function removeTabsForPath(path, isDirectory) {
     state.secondaryPath = null;
   }
 }
+async function createPath(kind) {
+  const base = selectedDirectory();
+  const defaultPath = kind === "directory"
+    ? (base ? `${base}/new_folder` : "new_folder")
+    : (base ? `${base}/new_file.st` : "new_file.st");
+  const input = await idePrompt(kind === "directory" ? "Create folder path:" : "Create file path:", defaultPath);
+  if (!input) {
+    return;
+  }
+  const payload = {
+    path: input.trim(),
+    kind,
+  };
+  if (kind === "file") {
+    payload.content = "";
+  }
+  await apiJson("/api/ide/fs/create", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify(payload),
+  });
+  setStatus(`${kind === "directory" ? "Folder" : "File"} created: ${payload.path}`);
+  await bootstrapFiles();
+  if (kind === "file") {
+    selectPath(payload.path);
+    await openFile(payload.path);
+  } else {
+    selectPath(payload.path);
+    state.expandedDirs.add(payload.path);
+    renderFileTree();
+  }
+}
+
+async function renameSelectedPath() {
+  const sourcePath = state.selectedPath || state.activePath;
+  if (!sourcePath) {
+    setStatus("Select a file or folder first.");
+    return;
+  }
+  const nextPath = await idePrompt("Rename/move path to:", sourcePath);
+  if (!nextPath || nextPath.trim() === sourcePath) {
+    return;
+  }
+  const result = await apiJson("/api/ide/fs/rename", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify({
+      path: sourcePath,
+      new_path: nextPath.trim(),
+    }),
+  });
+  const isDirectory = result.kind === "directory";
+  remapOpenTabs(sourcePath, result.path, isDirectory);
+  selectPath(result.path);
+  setStatus(`Renamed: ${sourcePath} -> ${result.path}`);
+  await bootstrapFiles();
+  if (state.activePath && state.openTabs.has(state.activePath)) {
+    await switchTab(state.activePath, {preserveSelection: true});
+  } else if (state.files.length > 0) {
+    await openFile(state.files[0]);
+  }
+}
+
+async function deleteSelectedPath() {
+  const path = state.selectedPath || state.activePath;
+  if (!path) {
+    setStatus("Select a file or folder first.");
+    return;
+  }
+  const confirmed = await ideConfirm("Delete", `Delete ${path}?`);
+  if (!confirmed) {
+    return;
+  }
+  const isDirectory = nodeKindForPath(path) !== "file";
+  await apiJson("/api/ide/fs/delete", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify({path}),
+  });
+  removeTabsForPath(path, isDirectory);
+  selectPath(null);
+  setStatus(`Deleted: ${path}`);
+  await bootstrapFiles();
+  if (!state.activePath && state.files.length > 0) {
+    await openFile(state.files[0]);
+  } else {
+    renderTabs();
+  }
+}
+
+async function openFile(path, {targetPane} = {}) {
+  const pane = targetPane || state.activePane;
+
+  // Ensure the file is loaded into openTabs
+  if (!state.openTabs.has(path)) {
+    setStatus(`Opening ${path}...`);
+    const snapshot = await apiJson(`/api/ide/file?path=${encodeURIComponent(path)}`, {
+      method: "GET",
+      headers: apiHeaders(),
+    });
+    const draft = loadDraft(path);
+    const content = draft ?? snapshot.content;
+    state.openTabs.set(path, {
+      path,
+      version: Number(snapshot.version),
+      savedContent: snapshot.content,
+      content,
+      dirty: draft !== null && draft !== snapshot.content,
+      readOnly: Boolean(snapshot.read_only),
+    });
+    syncDocumentsToWasm();
+  }
+
+  // Route to the correct pane
+  if (state.splitEnabled && pane === "secondary") {
+    const tab = state.openTabs.get(path);
+    openInSecondaryPane(path, tab.content);
+    renderTabs();
+    return;
+  }
+
+  await switchTab(path);
+}
+
+function showWelcomeScreen() {
+  el.editorWelcome.style.display = "";
+  el.editorGrid.style.display = "none";
+}
+
+async function switchTab(path, {preserveSelection = false} = {}) {
+  const tab = state.openTabs.get(path);
+  if (!tab) {
+    return;
+  }
+
+  if (state.activePath && state.editorView) {
+    const previous = state.openTabs.get(state.activePath);
+    if (previous) {
+      previous.content = state.editorView.getValue();
+    }
+  }
+
+  state.activePath = path;
+  state.selectedPath = path;
+  document.dispatchEvent(new CustomEvent("ide-active-path-change", {
+    detail: {
+      path,
+    },
+  }));
+  renderBreadcrumbs(path);
+  el.editorTitle.textContent = `Editor - ${path}`;
+  el.editorWelcome.style.display = "none";
+  el.editorGrid.style.display = "";
+
+  if (!state.editorView) {
+    state.editorView = createEditor(tab.content, tab.path);
+  } else {
+    setEditorContent(tab.content);
+    setModelLanguageForPath(activeModel(), tab.path);
+  }
+  state.editorView.updateOptions({
+    readOnly: !state.writeEnabled || Boolean(tab.readOnly),
+  });
+
+  if (!preserveSelection) {
+    const model = activeModel();
+    const firstColumn = model ? model.getLineFirstNonWhitespaceColumn(1) || 1 : 1;
+    const position = new monaco.Position(1, firstColumn);
+    state.editorView.setPosition(position);
+    state.editorView.revealPositionInCenter(position);
+  }
+
+  state.editorView.focus();
+  renderFileTree();
+  renderTabs();
+  syncSecondaryEditor();
+  updateCursorLabel();
+  scheduleCursorInsights(cursorPosition());
+  updateDraftInfo();
+  updateSaveBadge(tab.dirty ? "warn" : "ok", tab.dirty ? "dirty" : "saved");
+  scheduleDiagnostics({immediate: true});
+  setStatus(`Active file: ${path}`);
+  postPresenceEvent(path);
+  refreshMultiTabCollision();
+}

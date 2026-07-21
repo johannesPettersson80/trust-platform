@@ -92,6 +92,8 @@ def build_report(
     baseline: str | None,
     command_runner: CommandRunner | None = None,
     run_planner: bool = True,
+    run_code_spec: bool = False,
+    code_spec_output_dir: Path | None = None,
     enforcing: bool = False,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
@@ -116,6 +118,20 @@ def build_report(
         *(f"--changed-file={path}" for path in normalized),
     ]
     commands.append(runner(governance_command))
+    code_spec_report_path: Path | None = None
+    if run_code_spec and normalized:
+        code_spec_output_dir = code_spec_output_dir or DEFAULT_OUTPUT_DIR / "code-spec"
+        code_spec_command = [
+            "python3",
+            "scripts/code_spec_coverage_gate.py",
+            "--mode",
+            "changed",
+            "--out-dir",
+            str(code_spec_output_dir),
+            *(f"--changed-file={path}" for path in normalized),
+        ]
+        commands.append(runner(code_spec_command))
+        code_spec_report_path = code_spec_output_dir / "code-spec-coverage.json"
     planner_exit_code: int | None = None
     planner_json: dict[str, object] | None = None
     if run_planner and normalized:
@@ -131,6 +147,8 @@ def build_report(
         ]
         if baseline:
             planner_command.extend(["--baseline", baseline])
+        if code_spec_report_path is not None:
+            planner_command.extend(["--code-spec-report", str(code_spec_report_path)])
         planner_result = runner(planner_command)
         commands.append(planner_result)
         planner_exit_code = planner_result.exit_code
@@ -178,6 +196,8 @@ def command_name(command: list[str]) -> str:
         return "phase16_readiness"
     if command[:3] == ["python3", "-m", "scripts.verification.governance"]:
         return "verification_governance"
+    if len(command) >= 2 and command[1] == "scripts/code_spec_coverage_gate.py":
+        return "code_spec_coverage"
     if len(command) >= 2 and command[1] == "scripts/plan_tests.py":
         return "plan_tests"
     return Path(command[0]).name if command else "unknown"
@@ -304,6 +324,11 @@ def planner_finding_blocks(payload: dict[str, object] | None) -> bool:
     areas = payload.get("areas")
     if not isinstance(missing, list) or not isinstance(areas, list):
         return True
+    code_spec_outcomes = payload.get("code_spec_outcomes", [])
+    if not isinstance(code_spec_outcomes, list):
+        return True
+    if code_spec_outcomes:
+        return True
     return bool(missing and "bytecode_vm" in areas)
 
 
@@ -396,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
             changed_files=changed_files,
             intent=args.intent,
             baseline=args.base,
+            run_code_spec=True,
+            code_spec_output_dir=Path(args.out_dir) / "code-spec",
             enforcing=args.strict,
         )
         write_reports(report, ROOT / args.out_dir)

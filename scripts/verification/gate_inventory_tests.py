@@ -27,13 +27,13 @@ class GateInventoryTests(unittest.TestCase):
         failures = validate_gate_inventory(ROOT, records)
 
         self.assertEqual(failures, [])
-        self.assertEqual(len(records), 62)
+        self.assertEqual(len(records), 63)
         live = [record for record in records.values() if "discovery_id" in record]
         templates = [record for record in records.values() if record["source_kind"] == "workflow_template"]
-        self.assertEqual(len(live), 59)
+        self.assertEqual(len(live), 60)
         self.assertEqual(
             sum(record["source_kind"] == "gate_script" for record in live),
-            29,
+            30,
         )
         self.assertEqual(
             sum(record["source_kind"] == "github_workflow_job" for record in live),

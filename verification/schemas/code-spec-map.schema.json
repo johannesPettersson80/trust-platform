@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/code-spec-map.schema.json",
+  "title": "truST production code-to-spec mapping",
+  "type": "object",
+  "required": ["schema_version", "mappings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapping" }
+    }
+  },
+  "$defs": {
+    "mapping": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "code_id",
+        "source_kind",
+        "path",
+        "qualified_symbol",
+        "item_kind",
+        "signature_digest",
+        "reviewed_body_digest",
+        "owner",
+        "area",
+        "visibility",
+        "disposition",
+        "risk_signals",
+        "last_reviewed"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "source_kind": {
+          "enum": ["javascript", "python", "rust", "shell", "typescript"]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol": { "type": "string", "minLength": 1 },
+        "item_kind": {
+          "enum": [
+            "javascript_export",
+            "javascript_asset",
+            "javascript_function",
+            "javascript_method",
+            "javascript_registration",
+            "python_entrypoint",
+            "python_function",
+            "python_method",
+            "rust_function",
+            "rust_fuzz_target",
+            "rust_method",
+            "rust_public_constant",
+            "rust_public_type",
+            "rust_registration",
+            "rust_trait_method",
+            "rust_unsafe_site",
+            "shell_entrypoint",
+            "typescript_asset",
+            "typescript_export",
+            "typescript_function",
+            "typescript_method",
+            "typescript_registration"
+          ]
+        },
+        "signature_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "reviewed_body_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "owner": { "type": "string", "minLength": 1 },
+        "area": {
+          "enum": [
+            "bytecode_vm",
+            "compiler_iec",
+            "control_security",
+            "editor_safety",
+            "hmi_ui",
+            "plcopen_devtools",
+            "protocols",
+            "release",
+            "runtime_safety",
+            "supply_chain_platform",
+            "verification"
+          ]
+        },
+        "visibility": { "enum": ["private", "public"] },
+        "disposition": {
+          "enum": [
+            "generated",
+            "inherits_spec",
+            "non_behavioral",
+            "spec_gap",
+            "specified",
+            "vendored_external"
+          ]
+        },
+        "risk_signals": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "authorization",
+              "broad_error_suppression",
+              "fault_mapping",
+              "filesystem_or_environment",
+              "host_time",
+              "network_io",
+              "output_or_safe_state_commit",
+              "persistence_retain_reload_restart",
+              "protocol_response_or_status",
+              "randomness",
+              "state_mutation",
+              "subprocess_or_thread",
+              "unsafe_or_ffi"
+            ]
+          }
+        },
+        "last_reviewed": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "spec_ref": { "type": "string", "pattern": "^[A-Z0-9_]+#[A-Za-z0-9._:-]+$" },
+        "invariant_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "test_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "spec_gap_ref": { "type": "string", "minLength": 1 },
+        "parent_code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "inheritance_review_ref": { "type": "string", "minLength": 1 },
+        "cross_area_decision_ref": { "type": "string", "minLength": 1 },
+        "non_behavioral_reason": {
+          "enum": [
+            "build_scaffolding",
+            "mechanical_adapter",
+            "pure_data_access",
+            "serialization_shape",
+            "test_support_in_production_file"
+          ]
+        },
+        "rationale": { "type": "string", "minLength": 1 },
+        "generator_code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "generator_input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "generator_path": { "type": "string", "minLength": 1 },
+        "generator_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "provenance": { "type": "string", "minLength": 1 },
+        "version_revision": { "type": "string", "minLength": 1 },
+        "boundary_spec_ref": { "type": "string", "minLength": 1 },
+        "owner_ack": { "type": "string", "minLength": 1 },
+        "owner_ack_expires_on": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

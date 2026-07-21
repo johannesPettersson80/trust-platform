@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/code-spec-debt-baseline.schema.json",
+  "title": "truST Phase 17 frozen code-to-spec debt baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "created_from_commit",
+    "captured_on",
+    "enforcement_mode",
+    "append_policy",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "created_from_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "captured_on": { "type": "string", "format": "date" },
+    "enforcement_mode": { "enum": ["changed", "full"] },
+    "append_policy": { "const": "delete_only" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code_id",
+        "source_kind",
+        "path",
+        "qualified_symbol",
+        "item_kind",
+        "signature",
+        "signature_digest",
+        "body_digest",
+        "owner",
+        "area",
+        "visibility",
+        "risk_signals",
+        "captured_on"
+      ],
+      "properties": {
+        "code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "source_kind": { "enum": ["rust", "typescript", "javascript", "python", "shell"] },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol": { "type": "string", "minLength": 1 },
+        "item_kind": { "type": "string", "minLength": 1 },
+        "signature": { "type": "string", "minLength": 1 },
+        "signature_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "body_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "owner": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "visibility": { "enum": ["private", "public"] },
+        "risk_signals": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "host_time",
+              "randomness",
+              "filesystem_or_environment",
+              "network_io",
+              "subprocess_or_thread",
+              "unsafe_or_ffi",
+              "state_mutation",
+              "output_or_safe_state_commit",
+              "authorization",
+              "fault_mapping",
+              "protocol_response_or_status",
+              "broad_error_suppression",
+              "persistence_retain_reload_restart"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "captured_on": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

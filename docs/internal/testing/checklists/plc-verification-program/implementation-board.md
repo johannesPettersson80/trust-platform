@@ -1728,6 +1728,140 @@ same commit, with the closure evidence linked.
   board is rebound in the final evidence follow-up from this reviewed source
   commit.
 
+## Phase 17 - Production Code-to-Spec Coverage
+
+Phase 16 closed the registered specification, invariant, test, and evidence
+graph. It did not establish an exhaustive production-code denominator. Phase
+17 adds the missing direction defined in
+`code-spec-coverage-plan.md`:
+
+```text
+production code -> specification or explicit gap -> invariant -> test
+```
+
+This phase detects missing and stale specification bindings. It does not infer
+expected behavior from implementation text and does not promote product proof.
+
+- [x] `VERIF-P17-000` Review and accept the complete code-to-spec coverage
+  contract in `code-spec-coverage-plan.md`. Freeze the scoped source surfaces,
+  fact granularity, stable identity inputs, body-digest semantics, closed
+  dispositions, rollout stages, stop conditions, and definition of done before
+  implementation. Record disagreements as explicit decisions; do not silently
+  weaken the denominator during implementation. The 2026-07-20 independent
+  r19 review returned `CLEAR-WITH-FINDINGS`; its debt-baseline, source-surface,
+  parser, vacuous-pass, digest-rebind, generator-join, identity, and
+  canonicalization findings are folded into the accepted contract.
+- [x] `VERIF-P17-001` Define a closed `verification/code-spec-map.toml` record
+  contract and schema. A record binds exactly one live code identity, path,
+  qualified symbol, item kind, signature digest, reviewed body digest, owner,
+  and canonical area. Its disposition is exactly one of `specified`,
+  `spec_gap`, `inherits_spec`, `non_behavioral`, `generated`, or
+  `vendored_external`; omission derives `missing_spec` and cannot be committed
+  as an accepted disposition. Pin the anchored `CODE_*` grammar, anonymous
+  registration and Rust impl qualification, exact-byte body canonicalization,
+  closed non-behavioral/risk vocabularies, and governed-generator resolution.
+- [x] `VERIF-P17-002` Add tests-first contract fixtures for stable identities,
+  line movement, rename/signature/path drift, body-digest staleness, missing and
+  duplicate mappings, exact spec/invariant/test joins, open/closed gaps,
+  inheritance cycles and cross-owner inheritance, non-behavioral risk-signal
+  rejection, generated/vendored provenance, symlink/path escape, canonical
+  serialization, Markdown tamper, disabled-catcher detection, per-surface
+  nonzero floors, empty parser results, unsupported syntax, anonymous and impl
+  identity disambiguation, digest-rebind visibility, high-risk owner
+  acknowledgement, debt-baseline mutation, and ungoverned generators. Every
+  fixture must route through the production scanner or validator that owns the
+  rule.
+- [x] `VERIF-P17-003` Implement the Rust production scanner as a new
+  single-responsibility module family. Use a small `syn`-based xtask extractor
+  with canonical JSON consumed by Python. Derive the universe from cargo
+  metadata, including build scripts, custom target paths, and reviewed
+  path-patched product crates, with repository-glob cross-checks. Enumerate
+  functions, methods, applicable trait items, public types/constants, product
+  registration macros, and governed unsafe sites. Resolve the complete module
+  graph from cargo target roots, including `#[path]` and `include!`, with
+  blocking unresolved-module diagnostics. Exclude test-only code only from
+  source-derived `cfg(test)` or cargo target geometry, fail visibly on
+  unsupported syntax, and make the existing full-map function inventory
+  consume or defer to the authoritative Phase 17 facts rather than parsing in
+  parallel.
+- [x] `VERIF-P17-004` Implement the complete live join and semantic validator.
+  `specified` records resolve active oracle-eligible fragments and bidirectional
+  invariant/test links; `spec_gap` records resolve open owning gaps;
+  inheritance is exact and acyclic; generated/vendored records carry durable
+  provenance; broad suppression and name/path/prose-derived mappings are
+  forbidden. Changed bodies invalidate reviewed mappings even when the stable
+  code identity remains unchanged. Every digest rebind remains a distinct
+  review-visible delta; high-risk facts require explicit owner acknowledgement.
+- [ ] `VERIF-P17-005` Add canonical JSON and Markdown reporting plus at-rest
+  validation. Reports carry clean full-SHA provenance, complete input closure,
+  exact output-path identity, canonical bytes, exact Markdown reconstruction,
+  schema drift pins, per-area/owner/disposition/risk counts, and a raw row for
+  every live fact. Include separate debt-baseline and digest-rebind sections.
+  Evidence rows use `proof_kind = "none"`; code mapping alone cannot close a gap
+  or promote an invariant.
+- [ ] `VERIF-P17-006` Run the first Rust pilot on
+  `crates/trust-runtime/src/stdlib/time.rs`. The scanner must enumerate
+  `runtime_clock_value` and `current_dt` without inferring their behavior. If
+  no active oracle defines the `CURRENT_DT` clock boundary, the pilot must emit
+  `missing_spec` or require an explicit open gap. Close the pilot only after
+  every fact in the file has an exact allowed disposition and an independent
+  review confirms that no current behavior was used as its own oracle.
+- [ ] `VERIF-P17-007` Produce and review the exhaustive Rust product
+  denominator. Every live Rust production fact is partitioned exactly once,
+  with zero omissions, overlap, invented identities, stale digests, or blanket
+  directory/crate dispositions. Report-only historical debt remains visible;
+  no generic `reviewed_nonmapping` category is permitted.
+- [ ] `VERIF-P17-008` Add the TypeScript/JavaScript product scanner and close
+  the VS Code/browser denominator across `editors/vscode/src`,
+  `crates/trust-runtime/src/web/ui`, and
+  `crates/trust-runtime/web/ide-frontend/src`, with packaging-bound detection of
+  new shipped roots. Use the lockfile-pinned TypeScript compiler API with
+  `allowJs`; inventory functions, methods, command and request registrations,
+  webview message handlers, and exported behavior shapes outside test geometry.
+  Visible workflows join their existing product contract and UI-acceptance
+  records; static source checks do not substitute for rendered evidence.
+- [ ] `VERIF-P17-009` Add the verification-tooling denominator after product
+  scanners are stable. Inventory behavior-bearing Rust/Python/shell entrypoints
+  under `xtask/src`, `scripts`, `scripts/verification`, `.claude/hooks`, and
+  `.codex/skills/**/scripts`; join existing gate and fuzz inventories rather
+  than duplicating them. Tooling mappings resolve tooling contracts and
+  self-tests only and cannot create product proof. Keep explicit, census-bound
+  exclusions for the current declarative Neovim/Zed integration roots.
+- [ ] `VERIF-P17-010` Add the changed-code enforcement ratchet to the existing
+  planner and strict verification workflow. New or body-changed code fails with
+  distinct `missing_spec`, `stale_spec_review`, `spec_gap`, `missing_tests`, or
+  `unmapped` outcomes. Freeze an append-forbidden, field-edit-forbidden,
+  delete-only `verification/code-spec-debt-baseline.toml` containing exact code
+  identities, signatures, and body digests. Newness is absence from both map
+  and baseline; changedness is digest drift, independent of merge-base and
+  branch topology. Broad tests cannot override the result. Do not create a
+  second CI workflow or add a release/CI dependency.
+- [ ] `VERIF-P17-011` Add reviewed high-risk source policies for scan-reachable
+  wall clock, randomness, filesystem/environment/network/subprocess/thread
+  access, unsafe/FFI, output/safe-state commits, authorization, protocol status
+  projection, broad exception handling, and retain/reload/restart transitions.
+  A risk signal requires an explicit specification or open gap; it does not
+  infer a defect. Allowlist entries are symbol-specific, owner-reviewed,
+  digest-bound, and expiry-capable.
+- [ ] `VERIF-P17-012` Close historical code-to-spec debt and flip full-denominator
+  enforcement only after an independent review accepts exact one-to-one
+  partitions for every scoped language and the frozen debt baseline is empty.
+  Run the focused verification suite, metadata gate, tooling self-tests,
+  catalog staleness, and the new checker; then run one final
+  `fmt`/`clippy`/`test-all` milestone on `trust-builder`.
+  Update `AGENTS.md` and `trust-test-authoring` only in this reviewed enforcement
+  commit so future feature work cannot bypass the code-to-spec route.
+
+- [ ] `VERIF-STOP-017A` Do not describe Phase 16's closed registered graph as
+  exhaustive production-code specification coverage. Until `VERIF-P17-012`
+  closes, use the exact wording `registered verification graph complete;
+  production code-to-spec denominator in progress`.
+- [ ] `VERIF-STOP-017B` Do not begin Rust PLC S1 product implementation until
+  `VERIF-P17-006` closes and changed-code enforcement from `VERIF-P17-010` is
+  active for every S1 Rust/runtime path. Planning, specification review, and
+  compile-only harness preparation may proceed; observable product behavior
+  may not.
+
 ## Review Acceptance
 
 - [x] `VERIF-REVIEW-001` Fable review returned `clear-with-edits` (2026-07-08);

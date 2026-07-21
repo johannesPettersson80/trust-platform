@@ -1,0 +1,76 @@
+schema_version = 1
+id = "IEC_STANDARD_TIME_FUNCTIONS_001"
+title = "Standard date/time functions follow the written product contract"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "mapped"
+owner = "language"
+last_reviewed = "2026-07-21"
+claim = "Registered standard date/time arithmetic, concatenation, split, and DAY_OF_WEEK functions preserve their written input, result-type, and value contracts; CURRENT_DT remains outside this invariant until its host-clock boundary is decided."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/stdlib/time.rs"]
+tests = [
+  "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001",
+  "TEST_RUNTIME_STDLIB_TIME_SPLIT_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"]
+missing = [
+  "exhaustive_ltime_and_ldate_runtime_partitions",
+  "overflow_and_invalid_component_boundaries",
+  "current_dt_host_clock_contract",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_TIME_ARITHMETIC" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#time-arithmetic"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The direct StandardLibrary test locks representative ADD_TIME and SUB_DATE_DATE result values and result families."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_COMPONENT_CONCATENATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The direct StandardLibrary test locks DATE/TOD, DATE, TOD, and DT component composition values."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_COMPONENT_SPLIT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The executed-ST harness test locks SPLIT_DATE, SPLIT_TOD, and SPLIT_DT component outputs."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Two cataloged tests cover representative direct-dispatch and executed-ST date/time paths."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The pilot does not claim exhaustive lower-bound calendar, duration, or component coverage."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "The pilot does not claim exhaustive upper-bound or overflow coverage."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "CURRENT_DT host-clock semantics are owned by SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001."

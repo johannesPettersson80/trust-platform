@@ -2,6 +2,28 @@ schema_version = 1
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_CODE_SPEC_COVERAGE"
+discovery_id = "DISC_3A64FFFF46A027EDF29D"
+source_kind = "gate_script"
+path = "scripts/code_spec_coverage_gate.py"
+name = "code_spec_coverage_gate"
+command = "python3 scripts/code_spec_coverage_gate.py"
+variant = "Phase 17 changed/full production code-to-spec enforcement"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "verification"
+duration_class = "medium"
+environment = "github_ubuntu"
+artifact_kind = "ci_artifact"
+artifact_paths = ["target/gate-artifacts/verification/code-spec/"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "The existing strict verification workflow runs one live denominator scan, enforces the frozen changed-code ratchet, and reuses its canonical artifact in the planner."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JUST_VERIFICATION_VERYQUICK"
 source_kind = "just_recipe"
 path = "justfile"

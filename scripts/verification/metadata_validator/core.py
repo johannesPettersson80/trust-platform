@@ -87,6 +87,7 @@ from ..ui_acceptance import (
     validate_ui_acceptance_document,
 )
 from .case_files import validate_case_file
+from .code_spec import validate_code_spec_metadata_instances
 from ..invariant_seed_contract import load_seed_audit, validate_seed_records
 from ..runtime_anomaly_contract import (
     TAXONOMY_PATH as RUNTIME_ANOMALY_TAXONOMY_PATH,
@@ -249,6 +250,8 @@ class Validator:
 
     def load_records(self) -> None:
         self.load_json_schemas()
+        for path, message in validate_code_spec_metadata_instances(ROOT):
+            self.fail(ROOT / path, message)
         try:
             self.gate_inventory = load_gate_inventory(ROOT)
         except GateInventoryError as exc:

@@ -1,0 +1,70 @@
+@startuml
+title Phase 17 Production Code-to-Spec Coverage
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Authoritative source denominators" {
+  [Cargo metadata + Rust module graph] as RustUniverse
+  [Shipped TypeScript/JavaScript roots] as TsUniverse
+  [Verification tooling roots] as ToolUniverse
+  [Gate inventory] as GateInventory
+  [Fuzz program] as FuzzInventory
+}
+
+package "Parser-backed fact extraction" {
+  [syn Rust extractor] as RustExtractor
+  [TypeScript compiler API extractor] as TsExtractor
+  [Python AST + shell entrypoints] as ToolExtractor
+  database "Stable CODE facts\nsignature + body digests\nrisk signals" as Facts
+}
+
+package "Reviewed verification graph" {
+  [code-spec-map.toml] as Map
+  [delete-only debt baseline] as Debt
+  [spec sources + open gaps] as Specs
+  [invariants + test catalog] as VerificationGraph
+  [exact semantic join] as Join
+}
+
+package "Existing enforcement path" {
+  [canonical JSON + Markdown report] as Report
+  [report / changed / full policy] as Policy
+  [verification report gate] as Gate
+  [changed-file planner] as Planner
+  [verification-gate workflow] as Workflow
+}
+
+[full software map] as SoftwareMap
+[primary metadata validator] as MetadataGate
+
+RustUniverse --> RustExtractor
+TsUniverse --> TsExtractor
+ToolUniverse --> ToolExtractor
+GateInventory --> ToolExtractor : exact join
+FuzzInventory --> ToolExtractor : exact join
+RustExtractor --> Facts
+TsExtractor --> Facts
+ToolExtractor --> Facts
+Facts --> Join
+Map --> Join
+Debt --> Join
+Specs --> Join
+VerificationGraph --> Join
+Join --> Report
+Report --> Policy
+Policy --> Gate
+Report --> Planner : reuse one scan
+Planner --> Gate
+Gate --> Workflow
+RustExtractor --> SoftwareMap : consume Phase 17 facts
+Map --> MetadataGate : static schema validation
+Debt --> MetadataGate : static schema validation
+
+note bottom of Report
+  Mapping reports carry proof_kind = none.
+  Code coverage cannot promote product proof,
+  close a specification gap, or replace rendered UI evidence.
+end note
+
+@enduml

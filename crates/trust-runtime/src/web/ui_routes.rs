@@ -564,58 +564,7 @@ fn resolve_ui_module_source(module_name: &str) -> Option<String> {
 
     let modules_root = Path::new(UI_MODULES_FS_ROOT);
     let module_path = modules_root.join(module_name);
-    let mut source = std::fs::read_to_string(module_path).ok()?;
-    if module_name.contains("-part-") {
-        return Some(source);
-    }
-
-    let stem = module_name.strip_suffix(".js")?;
-    let prefix = format!("{stem}-part-");
-    let Ok(entries) = std::fs::read_dir(modules_root) else {
-        return Some(source);
-    };
-
-    let mut parts: Vec<(String, String)> = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let file_name = entry.file_name().to_string_lossy().to_string();
-            if !file_name.starts_with(&prefix) || !file_name.ends_with(".js") {
-                return None;
-            }
-            std::fs::read_to_string(entry.path())
-                .ok()
-                .map(|content| (file_name, content))
-        })
-        .collect();
-
-    parts.sort_by(|(left_name, _), (right_name, _)| {
-        module_part_sort_key(stem, left_name)
-            .cmp(&module_part_sort_key(stem, right_name))
-            .then_with(|| left_name.cmp(right_name))
-    });
-
-    for (_, part_source) in parts {
-        source.push('\n');
-        source.push_str(&part_source);
-    }
-    Some(source)
-}
-
-fn module_part_sort_key(stem: &str, file_name: &str) -> Vec<u32> {
-    let trimmed = file_name.strip_suffix(".js").unwrap_or(file_name);
-    let suffix = trimmed.strip_prefix(stem).unwrap_or(trimmed);
-    let mut key = Vec::new();
-    for segment in suffix.split("-part-").skip(1) {
-        let digits: String = segment
-            .chars()
-            .take_while(|ch| ch.is_ascii_digit())
-            .collect();
-        key.push(digits.parse::<u32>().unwrap_or(u32::MAX));
-    }
-    if key.is_empty() {
-        key.push(u32::MAX);
-    }
-    key
+    std::fs::read_to_string(module_path).ok()
 }
 
 fn wasm_pkg_dir() -> PathBuf {
@@ -629,4 +578,23 @@ fn wasm_pkg_dir() -> PathBuf {
                 .map(|d| PathBuf::from(d).join("../../target/browser-analysis-wasm/pkg"))
         })
         .unwrap_or_else(|| PathBuf::from("target/browser-analysis-wasm/pkg"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_hmi_module_fallbacks_match_complete_source_modules() {
+        for module_name in HMI_MODULE_FILES {
+            let source = resolve_ui_module_source(module_name)
+                .unwrap_or_else(|| panic!("missing source module {module_name}"));
+            let fallback = fallback_hmi_module_source(module_name)
+                .unwrap_or_else(|| panic!("missing embedded fallback {module_name}"));
+            assert_eq!(
+                source, fallback,
+                "embedded fallback omits or changes source fragments for {module_name}"
+            );
+        }
+    }
 }

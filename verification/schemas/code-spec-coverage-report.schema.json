@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/code-spec-coverage-report.schema.json",
+  "title": "truST Phase 17 production code-to-spec coverage report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "report_status",
+    "commit",
+    "timestamp",
+    "platform",
+    "input_paths",
+    "input_digest",
+    "output_paths",
+    "boundaries",
+    "enforcement",
+    "denominator",
+    "summary",
+    "digest_rebinds",
+    "debt_baseline",
+    "findings",
+    "facts",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "code-spec-coverage" },
+    "generator_version": { "const": 1 },
+    "report_status": { "const": "complete" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "input_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_paths": { "$ref": "#/$defs/output_paths" },
+    "boundaries": { "$ref": "#/$defs/boundaries" },
+    "enforcement": { "$ref": "#/$defs/enforcement" },
+    "denominator": { "$ref": "#/$defs/denominator" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "digest_rebinds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/digest_rebind" }
+    },
+    "debt_baseline": { "type": "array", "items": { "type": "object" } },
+    "findings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "facts": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "output_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["json", "markdown"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof_kind",
+        "creates_product_proof",
+        "closes_spec_gaps",
+        "promotes_invariants",
+        "infers_expected_behavior"
+      ],
+      "properties": {
+        "proof_kind": { "const": "none" },
+        "creates_product_proof": { "const": false },
+        "closes_spec_gaps": { "const": false },
+        "promotes_invariants": { "const": false },
+        "infers_expected_behavior": { "const": false }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "blocking_total", "blocking_findings"],
+      "properties": {
+        "mode": { "enum": ["report", "changed", "full"] },
+        "blocking_total": { "type": "integer", "minimum": 0 },
+        "blocking_findings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "count_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "count"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "denominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_counts", "cargo_target_counts"],
+      "properties": {
+        "source_counts": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "cargo_target_counts": { "type": "array", "items": { "$ref": "#/$defs/count_row" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facts_total",
+        "mapped_total",
+        "missing_spec",
+        "historical_debt",
+        "new_missing_spec",
+        "stale_spec_review",
+        "spec_gap",
+        "missing_tests",
+        "unmapped",
+        "findings_total",
+        "by_area",
+        "by_owner",
+        "by_disposition",
+        "by_risk_signal",
+        "by_crate",
+        "by_cargo_target"
+      ],
+      "properties": {
+        "facts_total": { "type": "integer", "minimum": 0 },
+        "mapped_total": { "type": "integer", "minimum": 0 },
+        "missing_spec": { "type": "integer", "minimum": 0 },
+        "historical_debt": { "type": "integer", "minimum": 0 },
+        "new_missing_spec": { "type": "integer", "minimum": 0 },
+        "stale_spec_review": { "type": "integer", "minimum": 0 },
+        "spec_gap": { "type": "integer", "minimum": 0 },
+        "missing_tests": { "type": "integer", "minimum": 0 },
+        "unmapped": { "type": "integer", "minimum": 0 },
+        "findings_total": { "type": "integer", "minimum": 0 },
+        "by_area": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "by_owner": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "by_disposition": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "by_risk_signal": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "by_crate": { "type": "array", "items": { "$ref": "#/$defs/count_row" } },
+        "by_cargo_target": { "type": "array", "items": { "$ref": "#/$defs/count_row" } }
+      }
+    },
+    "digest_rebind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code_id", "old_digest", "new_digest", "owner", "area", "owner_ack"],
+      "properties": {
+        "code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "old_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "new_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "owner": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "owner_ack": { "type": ["string", "null"] }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code_id",
+        "source_kind",
+        "path",
+        "qualified_symbol",
+        "item_kind",
+        "signature",
+        "signature_digest",
+        "body_digest",
+        "owner",
+        "area",
+        "visibility",
+        "risk_signals",
+        "cargo_bindings",
+        "inventory_bindings",
+        "line",
+        "disposition",
+        "disposition_ref",
+        "debt_status",
+        "findings"
+      ],
+      "properties": {
+        "code_id": { "type": "string", "pattern": "^CODE_[0-9A-F]{64}$" },
+        "source_kind": { "enum": ["rust", "typescript", "javascript", "python", "shell"] },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol": { "type": "string", "minLength": 1 },
+        "item_kind": { "type": "string", "minLength": 1 },
+        "signature": { "type": "string", "minLength": 1 },
+        "signature_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "body_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "owner": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "visibility": { "enum": ["private", "public"] },
+        "risk_signals": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "cargo_bindings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "inventory_bindings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "line": { "type": ["integer", "null"] },
+        "disposition": {
+          "enum": [
+            "specified",
+            "spec_gap",
+            "inherits_spec",
+            "non_behavioral",
+            "generated",
+            "vendored_external",
+            "missing_spec"
+          ]
+        },
+        "disposition_ref": { "type": ["string", "null"] },
+        "debt_status": { "enum": ["none", "historical_debt"] },
+        "findings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  }
+}

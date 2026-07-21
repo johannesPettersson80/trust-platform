@@ -6,6 +6,7 @@ use std::process::Command;
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::code_spec_scan::{scan_rust_universe, RustFact};
 use crate::software_map::{
     CliActionSummary, DependencyEdge, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge,
     DiagramFact, FunctionSummary, HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary,
@@ -552,7 +553,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
             .then_with(|| left.path.cmp(&right.path))
     });
     map.largest_files.truncate(50);
-    map.largest_functions = collect_runtime_function_summaries(root)?;
+    map.largest_functions = collect_runtime_function_summaries(root, &metadata)?;
     map.runtime_top_level_modules = collect_runtime_top_level_modules(root)?;
     map.runtime_bin_modules = collect_runtime_bin_modules(root)?;
     let known_import_modules = map
@@ -2979,26 +2980,34 @@ fn count_rs_files_and_lines(path: &Path) -> Result<(usize, usize)> {
     Ok((file_count, line_count))
 }
 
-fn collect_runtime_function_summaries(root: &Path) -> Result<Vec<FunctionSummary>> {
-    let mut functions = Vec::new();
-    for rel in ["crates/trust-runtime/src", "crates/trust-runtime-core/src"] {
-        let path = root.join(rel);
-        if !path.exists() {
+fn collect_runtime_function_summaries(
+    root: &Path,
+    metadata: &serde_json::Value,
+) -> Result<Vec<FunctionSummary>> {
+    let scan = scan_rust_universe(root, metadata);
+    if !scan.diagnostics.is_empty() {
+        bail!(
+            "Phase 17 Rust denominator rejected software-map function inventory:\n{}",
+            scan.diagnostics.join("\n")
+        );
+    }
+    let mut by_identity = BTreeMap::new();
+    for unit in scan.sources {
+        if !unit.path.starts_with("crates/trust-runtime/src/")
+            && !unit.path.starts_with("crates/trust-runtime-core/src/")
+        {
             continue;
         }
-        let mut files = Vec::new();
-        collect_source_files_inner(&path, &mut files)?;
-        for file in files {
-            if file.extension().and_then(|ext| ext.to_str()) != Some("rs") {
-                continue;
-            }
-            let source = fs::read_to_string(&file).unwrap_or_default();
-            functions.extend(function_summaries_from_source(
-                &rel_path(root, &file),
-                &source,
-            ));
+        let source = fs::read_to_string(root.join(&unit.path))
+            .with_context(|| format!("read Phase 17 Rust source {}", unit.path))?;
+        for summary in function_summaries_from_phase17_facts(&unit.path, &source, &unit.facts)? {
+            by_identity.insert(
+                (summary.path.clone(), summary.line, summary.name.clone()),
+                summary,
+            );
         }
     }
+    let mut functions = by_identity.into_values().collect::<Vec<_>>();
     functions.sort_by(|left, right| {
         right
             .line_count
@@ -3010,75 +3019,51 @@ fn collect_runtime_function_summaries(root: &Path) -> Result<Vec<FunctionSummary
     Ok(functions)
 }
 
-fn function_summaries_from_source(path: &str, source: &str) -> Vec<FunctionSummary> {
-    let lines = source.lines().collect::<Vec<_>>();
+fn function_summaries_from_phase17_facts(
+    path: &str,
+    source: &str,
+    facts: &[RustFact],
+) -> Result<Vec<FunctionSummary>> {
     let mut functions = Vec::new();
-    let mut index = 0usize;
-    while index < lines.len() {
-        let line = lines[index];
-        let Some(name) = function_name_from_line(line) else {
-            index += 1;
+    for fact in facts {
+        if !matches!(
+            fact.item_kind.as_str(),
+            "rust_function" | "rust_method" | "rust_trait_method"
+        ) {
             continue;
-        };
-        let start = index;
-        let mut cursor = index;
-        let mut saw_body = false;
-        let mut brace_depth = 0isize;
-        while cursor < lines.len() {
-            let body_line = strip_line_comment(lines[cursor]);
-            for ch in body_line.chars() {
-                match ch {
-                    '{' => {
-                        saw_body = true;
-                        brace_depth += 1;
-                    }
-                    '}' if saw_body => {
-                        brace_depth -= 1;
-                    }
-                    _ => {}
-                }
-            }
-            if saw_body && brace_depth <= 0 {
-                break;
-            }
-            cursor += 1;
         }
-        if saw_body {
-            functions.push(FunctionSummary {
-                path: path.to_string(),
-                line: start + 1,
-                name,
-                line_count: cursor.saturating_sub(start) + 1,
-            });
-            index = cursor.saturating_add(1);
-        } else {
-            index += 1;
+        let body = source.get(fact.body_start..fact.body_end).ok_or_else(|| {
+            anyhow!(
+                "Phase 17 fact {} has invalid source range {}..{} in {path}",
+                fact.qualified_symbol,
+                fact.body_start,
+                fact.body_end
+            )
+        })?;
+        if !body.contains('{') {
+            continue;
         }
+        functions.push(FunctionSummary {
+            path: path.to_string(),
+            line: fact.line,
+            name: fact
+                .qualified_symbol
+                .rsplit("::")
+                .next()
+                .unwrap_or(&fact.qualified_symbol)
+                .to_string(),
+            line_count: body.lines().count(),
+        });
     }
-    functions
+    Ok(functions)
 }
 
-fn function_name_from_line(line: &str) -> Option<String> {
-    let trimmed = line.trim_start();
-    if trimmed.starts_with("//") {
-        return None;
-    }
-    let position = trimmed.find("fn ")?;
-    if position > 0 {
-        let before = &trimmed[..position];
-        let valid_prefix = before
-            .split_whitespace()
-            .all(|token| matches!(token, "pub" | "async" | "const" | "unsafe" | "extern"));
-        if !valid_prefix && !before.contains("pub(") {
-            return None;
-        }
-    }
-    let rest = &trimmed[position + 3..];
-    let name = rest
-        .chars()
-        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-        .collect::<String>();
-    (!name.is_empty()).then_some(name)
+#[cfg(test)]
+fn function_summaries_from_source(path: &str, source: &str) -> Vec<FunctionSummary> {
+    let scan = crate::code_spec_scan::extract_rust_source("software_map_fixture", source)
+        .expect("test Rust source must parse through the Phase 17 extractor");
+    function_summaries_from_phase17_facts(path, source, &scan.facts)
+        .expect("Phase 17 facts must retain valid source byte ranges")
 }
 
 fn collect_import_edges(root: &Path, known_modules: &BTreeSet<String>) -> Result<Vec<ImportEdge>> {
@@ -4342,7 +4327,13 @@ mod tests {
 
     #[test]
     fn function_size_summaries_count_multiline_function_bodies() {
-        let source = r#"
+        let source = r##"
+            const EMBEDDED_EXAMPLE: &str = r#"
+                fn phantom() {
+                    unreachable!();
+                }
+            "#;
+
             pub(crate) fn tiny() {
                 helper();
             }
@@ -4356,7 +4347,7 @@ mod tests {
                     0
                 }
             }
-        "#;
+        "##;
 
         let functions = function_summaries_from_source("crates/trust-runtime/src/demo.rs", source);
 
@@ -4367,6 +4358,7 @@ mod tests {
         assert!(functions.iter().any(|function| {
             function.name == "multiline_signature" && function.line_count == 9
         }));
+        assert!(!functions.iter().any(|function| function.name == "phantom"));
     }
 
     #[test]

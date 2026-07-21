@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import tomllib
 import unittest
+from pathlib import Path
 
 from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.metadata_validator.constants import AREAS
-from scripts.verification.planner import Planner, result_to_json, risk_changes_from_matrices
+from scripts.verification.code_spec_gate import finding_kind
+from scripts.verification.planner import (
+    Planner,
+    code_spec_outcomes_from_report,
+    result_to_json,
+    risk_changes_from_matrices,
+)
 
 
 class PlannerAreaRoutingTests(unittest.TestCase):
@@ -28,6 +36,40 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         planner.spec_sources = {}
         planner.tests = []
         self.planner = planner
+
+    def test_code_spec_report_surfaces_five_distinct_changed_path_outcomes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "code-spec.json"
+            code_ids = ["CODE_" + letter * 64 for letter in "ABCDE"]
+            path.write_text(
+                json.dumps(
+                    {
+                        "facts": [
+                            {
+                                "code_id": code_id,
+                                "path": "crates/example/src/lib.rs",
+                                "disposition": "spec_gap" if index == 2 else "missing_spec",
+                            }
+                            for index, code_id in enumerate(code_ids)
+                        ],
+                        "findings": [
+                            f"{code_ids[0]}: missing_spec new fact",
+                            f"{code_ids[1]}: stale_spec_review body digest changed",
+                            f"{code_ids[3]}: missing_tests no executable test",
+                            f"{code_ids[4]}: unmapped",
+                        ],
+                    }
+                )
+            )
+
+            outcomes = code_spec_outcomes_from_report(
+                path, ["crates/example/src/lib.rs"]
+            )
+
+        self.assertEqual(
+            ["missing_spec", "missing_tests", "spec_gap", "stale_spec_review", "unmapped"],
+            sorted({finding_kind(outcome) for outcome in outcomes}),
+        )
 
     def test_changed_paths_report_union_of_direct_suites_without_expanding_includes(self) -> None:
         result = self.planner.plan(

@@ -118,6 +118,11 @@ Target release: `v0.24.54`
 
 ### Added
 
+- verification: add a parser-backed production code-to-spec denominator for
+  Rust, shipped TypeScript/JavaScript, and verification tooling, with exact
+  reviewed mappings, debt and risk policy, canonical reports, and changed-code
+  enforcement through the existing verification planner and workflow.
+
 - verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
   bytecode containers, runtime configuration, LSP incremental edits, and HMI
   payloads; linked all conformance cases, added direct runtime-anomaly tests,

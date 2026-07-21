@@ -9,8 +9,10 @@ use serde::Serialize;
 use serde_json::json;
 
 mod full_map;
+mod code_spec_scan;
 mod software_map;
 
+use code_spec_scan::{run_rust_extract, run_rust_tooling, run_rust_universe};
 use full_map::architecture_doctor_full_map;
 
 fn main() -> ExitCode {
@@ -36,6 +38,9 @@ fn run() -> Result<()> {
             let mode = args.next().unwrap_or_else(|| "--all".to_string());
             architecture_doctor(&root, &mode)
         }
+        "code-spec-rust" => run_rust_extract(&root, &args.collect::<Vec<_>>()),
+        "code-spec-rust-all" => run_rust_universe(&root),
+        "code-spec-rust-tooling" => run_rust_tooling(&root),
         "-h" | "--help" | "help" => {
             print_usage();
             Ok(())
@@ -49,7 +54,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask code-spec-rust --path <repo-relative.rs> --module <qualified-module>\n  cargo xtask code-spec-rust-all\n  cargo xtask code-spec-rust-tooling"
 }
 
 fn workspace_root() -> Result<PathBuf> {

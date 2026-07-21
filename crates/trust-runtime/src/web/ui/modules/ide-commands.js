@@ -390,3 +390,282 @@ async function renameSymbolAtCursor() {
   scheduleDiagnostics();
   setStatus(`Rename applied across ${changedUris.size} file(s).`);
 }
+async function workspaceSearchFlow() {
+  const query = await idePrompt("Workspace search query:");
+  if (!query || !query.trim()) {
+    return;
+  }
+  const include = await idePrompt("Include glob (optional, e.g. **/*.st):", "**/*.st");
+  const exclude = await idePrompt("Exclude glob (optional):", "");
+  const params = new URLSearchParams({
+    q: query.trim(),
+    limit: "120",
+  });
+  if (include && include.trim()) {
+    params.set("include", include.trim());
+  }
+  if (exclude && exclude.trim()) {
+    params.set("exclude", exclude.trim());
+  }
+  const result = await apiJson(`/api/ide/search?${params.toString()}`, {
+    method: "GET",
+    headers: apiHeaders(),
+  });
+  state.searchHits = Array.isArray(result) ? result : [];
+  renderSearchHits(state.searchHits);
+  setStatus(`Search results: ${state.searchHits.length}`);
+}
+
+async function fetchSymbols(query = "", path = "") {
+  const scoped = path ? `&path=${encodeURIComponent(path)}` : "";
+  const result = await apiJson(`/api/ide/symbols?q=${encodeURIComponent(query)}&limit=120${scoped}`, {
+    method: "GET",
+    headers: apiHeaders(),
+  });
+  return Array.isArray(result) ? result : [];
+}
+
+async function fileSymbolSearchFlow() {
+  const path = activeTab()?.path;
+  if (!path) {
+    setStatus("Open a file first to search file symbols.");
+    return;
+  }
+  if (!isStructuredTextPath(path)) {
+    setStatus("File symbol search is available for .st files.");
+    return;
+  }
+  const query = await idePrompt(`File symbol query (${path}):`, "");
+  if (query === null) {
+    return;
+  }
+  const symbols = await fetchSymbols(query.trim(), path);
+  renderSymbolHits(symbols);
+  setStatus(`File symbols: ${symbols.length}`);
+}
+
+async function workspaceSymbolSearchFlow() {
+  const query = await idePrompt("Workspace symbol query:", "");
+  if (query === null) {
+    return;
+  }
+  const symbols = await fetchSymbols(query.trim(), "");
+  renderSymbolHits(symbols);
+  setStatus(`Workspace symbols: ${symbols.length}`);
+}
+
+async function loadFsAuditLog() {
+  const events = await apiJson("/api/ide/fs/audit?limit=80", {
+    method: "GET",
+    headers: apiHeaders(),
+  });
+  el.searchPanel.innerHTML = "";
+  if (!Array.isArray(events) || events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "No filesystem mutation events.";
+    el.searchPanel.appendChild(empty);
+    return;
+  }
+  for (const event of events) {
+    const row = document.createElement("div");
+    row.className = "muted";
+    row.textContent = `${event.ts_secs || 0}  ${event.action || "event"}  ${event.path || ""}`;
+    el.searchPanel.appendChild(row);
+  }
+  setStatus(`Filesystem audit events: ${events.length}`);
+}
+
+function idePrompt(title, defaultValue = "") {
+  return new Promise((resolve) => {
+    el.inputModalTitle.textContent = title;
+    el.inputModalField.value = defaultValue;
+    el.inputModal.classList.add("open");
+    el.inputModalField.focus();
+    el.inputModalField.select();
+
+    const cleanup = () => {
+      el.inputModal.classList.remove("open");
+      el.inputModalOk.removeEventListener("click", onOk);
+      el.inputModalCancel.removeEventListener("click", onCancel);
+      el.inputModalField.removeEventListener("keydown", onKey);
+      el.inputModal.removeEventListener("click", onBackdrop);
+    };
+    const onOk = () => { cleanup(); resolve(el.inputModalField.value); };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKey = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); onOk(); }
+      if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+    };
+    const onBackdrop = (e) => { if (e.target === el.inputModal) onCancel(); };
+    el.inputModalOk.addEventListener("click", onOk);
+    el.inputModalCancel.addEventListener("click", onCancel);
+    el.inputModalField.addEventListener("keydown", onKey);
+    el.inputModal.addEventListener("click", onBackdrop);
+  });
+}
+
+function ideConfirm(title, message) {
+  return new Promise((resolve) => {
+    el.confirmModalTitle.textContent = title;
+    el.confirmModalMessage.textContent = message;
+    el.confirmModal.classList.add("open");
+    el.confirmModalOk.focus();
+
+    const cleanup = () => {
+      el.confirmModal.classList.remove("open");
+      el.confirmModalOk.removeEventListener("click", onOk);
+      el.confirmModalCancel.removeEventListener("click", onCancel);
+      el.confirmModal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey);
+    };
+    const onOk = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onKey = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); onOk(); }
+      if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+    };
+    const onBackdrop = (e) => { if (e.target === el.confirmModal) onCancel(); };
+    el.confirmModalOk.addEventListener("click", onOk);
+    el.confirmModalCancel.addEventListener("click", onCancel);
+    el.confirmModal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey);
+  });
+}
+
+// ── Command Palette ────────────────────────────────────
+
+function nextTab() {
+  const paths = [...state.openTabs.keys()];
+  if (paths.length <= 1 || !state.activePath) {
+    return;
+  }
+  const index = paths.indexOf(state.activePath);
+  const next = paths[(index + 1) % paths.length];
+  switchTab(next).catch(() => {});
+}
+
+function previousTab() {
+  const paths = [...state.openTabs.keys()];
+  if (paths.length <= 1 || !state.activePath) {
+    return;
+  }
+  const index = paths.indexOf(state.activePath);
+  const prev = paths[(index - 1 + paths.length) % paths.length];
+  switchTab(prev).catch(() => {});
+}
+
+function closePalette() {
+  el.commandPalette.classList.remove("open");
+  el.commandInput.value = "";
+  state.commandFilter = "";
+}
+
+function openQuickOpenPalette() {
+  if (state.files.length === 0) {
+    setStatus("No files available. Open a project folder first.");
+    return;
+  }
+  state.commands = state.files.map((path) => ({
+    id: `open:${path}`,
+    label: `Open ${path}`,
+    run: () => openFile(path),
+  }));
+  state.commandFilter = "";
+  state.selectedCommandIndex = 0;
+  renderCommandList();
+  el.commandPalette.classList.add("open");
+  el.commandInput.focus();
+}
+
+function paletteCommands() {
+  return [
+    {id: "save", label: "Save active file", run: () => saveActiveTab({explicit: true})},
+    {id: "save-all", label: "Save all open files", run: () => flushDirtyTabs()},
+    {id: "new-project", label: "New project", run: () => newProjectFlow()},
+    {id: "open-project", label: "Open project folder", run: () => openProjectFlow()},
+    {id: "format-document", label: "Format document", run: () => formatActiveDocument()},
+    {id: "quick-open", label: "Quick open file", run: () => openQuickOpenPalette()},
+    {id: "file-symbols", label: "File symbols", run: () => fileSymbolSearchFlow()},
+    {id: "workspace-symbols", label: "Workspace symbols", run: () => workspaceSymbolSearchFlow()},
+    {id: "goto-definition", label: "Go to definition", run: () => gotoDefinitionAtCursor()},
+    {id: "find-references", label: "Find references", run: () => findReferencesAtCursor()},
+    {id: "rename-symbol", label: "Rename symbol", run: () => renameSymbolAtCursor()},
+    {id: "workspace-search", label: "Workspace search", run: () => workspaceSearchFlow()},
+    {id: "fs-audit", label: "Filesystem audit log", run: () => loadFsAuditLog()},
+    {id: "validate", label: "Validate project", run: () => startTask("validate")},
+    {id: "build", label: "Build project", run: () => startTask("build")},
+    {id: "test", label: "Run project tests", run: () => startTask("test")},
+    {id: "retry-last", label: "Retry last failed action", run: () => retryLastFailedAction()},
+    {id: "toggle-split", label: "Toggle split editor", run: () => toggleSplitEditor()},
+    {id: "theme", label: "Toggle dark/light mode", run: () => toggleTheme()},
+    {id: "next-tab", label: "Next tab", run: () => nextTab()},
+    {id: "prev-tab", label: "Previous tab", run: () => previousTab()},
+    {id: "refresh-files", label: "Refresh file tree", run: () => bootstrapFiles()},
+    {
+      id: "recover-analysis",
+      label: "Recover analysis mode",
+      run: () => {
+        state.analysis.degraded = false;
+        state.analysis.consecutiveFailures = 0;
+        state.analysis.lastNoticeAtMs = 0;
+        updateLatencyBadge();
+        setStatus("Analysis mode reset.");
+      },
+    },
+    {id: "a11y", label: "Show accessibility baseline path", run: () => setStatus(`Accessibility baseline: ${A11Y_REPORT_LINK}`)},
+    {id: "completion", label: "Trigger completion", run: () => state.editorView && startCompletion(state.editorView)},
+  ];
+}
+
+function renderCommandList() {
+  const filter = state.commandFilter.trim().toLowerCase();
+  const commands = state.commands.filter((cmd) => {
+    if (!filter) return true;
+    return cmd.label.toLowerCase().includes(filter);
+  });
+  if (commands.length === 0) {
+    el.commandList.innerHTML = "<div class='muted'>No matching commands.</div>";
+    return;
+  }
+  state.selectedCommandIndex = Math.min(state.selectedCommandIndex, commands.length - 1);
+  el.commandList.innerHTML = "";
+  commands.forEach((command, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `ide-command${index === state.selectedCommandIndex ? " active" : ""}`;
+    button.textContent = command.label;
+    button.addEventListener("mouseenter", () => {
+      state.selectedCommandIndex = index;
+      renderCommandList();
+    });
+    button.addEventListener("click", async () => {
+      closePalette();
+      await command.run();
+    });
+    el.commandList.appendChild(button);
+  });
+}
+
+function openCommandPalette() {
+  state.commands = paletteCommands();
+  state.commandFilter = "";
+  state.selectedCommandIndex = 0;
+  renderCommandList();
+  el.commandPalette.classList.add("open");
+  el.commandInput.focus();
+}
+
+async function runSelectedCommand() {
+  const filter = state.commandFilter.trim().toLowerCase();
+  const commands = state.commands.filter((cmd) => {
+    if (!filter) return true;
+    return cmd.label.toLowerCase().includes(filter);
+  });
+  if (commands.length === 0) {
+    return;
+  }
+  const selected = commands[state.selectedCommandIndex] || commands[0];
+  closePalette();
+  await selected.run();
+}

@@ -1,0 +1,1765 @@
+# Hand-reviewed Phase 17 production code-to-spec mappings.
+# Omission is a blocking missing_spec finding; no wildcard dispositions are supported.
+
+schema_version = 1
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B852D7AEE502B608D1A6CE1CF231BC207699C82DDE1DCE35AE03535E68E54DAC"
+source_kind = "javascript"
+path = "crates/trust-runtime/src/web/ui/assets/ide-monaco.20260215.js"
+qualified_symbol = "crates::trust_runtime::src::web::ui::assets::ide_monaco.20260215::<asset>"
+item_kind = "javascript_asset"
+signature_digest = "sha256:d59386e0ae435e292fbe0ebcdb954b75ed5fb3922091277cb19f798fc5d50718"
+reviewed_body_digest = "sha256:4f347e5043e7640239a258c5e441b945bb7d3fda580b81a644dcb729d72ef7e4"
+owner = "trust-runtime"
+area = "control_security"
+visibility = "public"
+risk_signals = []
+disposition = "generated"
+generator_code_id = "CODE_D2B8AF838861CCC9E5E3CB4D2D9B0E02BB05A4BFDB234AE722F30A34433824A1"
+generator_input_digest = "sha256:feedb09b5e1f22d4b22e0e39870de602fb751a01acf4d6a1694664d06dc46541"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D2B8AF838861CCC9E5E3CB4D2D9B0E02BB05A4BFDB234AE722F30A34433824A1"
+source_kind = "typescript"
+path = "crates/trust-runtime/web/ide-frontend/vite.monaco.config.ts"
+qualified_symbol = "crates::trust_runtime::web::ide_frontend::vite.monaco.config::<asset>"
+item_kind = "typescript_asset"
+signature_digest = "sha256:d59386e0ae435e292fbe0ebcdb954b75ed5fb3922091277cb19f798fc5d50718"
+reviewed_body_digest = "sha256:feedb09b5e1f22d4b22e0e39870de602fb751a01acf4d6a1694664d06dc46541"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "non_behavioral"
+non_behavioral_reason = "build_scaffolding"
+rationale = "Exact Vite packaging configuration for the reviewed Monaco bundle output; it selects files and bundle mechanics but defines no PLC or Web IDE runtime behavior."
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DA957CE94CE357F3B536BD6019C51DC9F4806D2B21FED946D127687110C45C3B"
+source_kind = "typescript"
+path = "crates/trust-runtime/web/ide-frontend/vite.config.ts"
+qualified_symbol = "crates::trust_runtime::web::ide_frontend::vite.config::<asset>"
+item_kind = "typescript_asset"
+signature_digest = "sha256:d59386e0ae435e292fbe0ebcdb954b75ed5fb3922091277cb19f798fc5d50718"
+reviewed_body_digest = "sha256:72242e67eba2dc84c45078766826b7b50ebcfea3beef43454c3244b9410bceff"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "non_behavioral"
+non_behavioral_reason = "build_scaffolding"
+rationale = "Exact Vite packaging configuration for the reviewed CodeMirror bundle output; it selects files and bundle mechanics but defines no PLC or Web IDE runtime behavior."
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EC2460D619A3B2CABEB2C6EA61BE7D09FBF95C12007AFD1930F82835D6CC5691"
+source_kind = "javascript"
+path = "crates/trust-runtime/src/web/ui/modules/cytoscape.min.js"
+qualified_symbol = "crates::trust_runtime::src::web::ui::modules::cytoscape.min::<asset>"
+item_kind = "javascript_asset"
+signature_digest = "sha256:d59386e0ae435e292fbe0ebcdb954b75ed5fb3922091277cb19f798fc5d50718"
+reviewed_body_digest = "sha256:e7d4c6c286bee0ba346c68ed1c8b8b82b4740b75be5d0c4d6602ee38df55d9c1"
+owner = "trust-runtime"
+area = "control_security"
+visibility = "public"
+risk_signals = []
+disposition = "vendored_external"
+provenance = "Upstream Cytoscape.js 3.31.0 UMD distribution with embedded MIT license header, introduced in repository commit 209bc6ad30cc10e22aa48676e61fdc1db611185e."
+version_revision = "3.31.0"
+boundary_spec_ref = "SPEC_WEB_IDE_FULL_001#frontend"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EF5168520063664CDA04D9C39025527A07FC4A08668416977B58F81E5B3AFEE8"
+source_kind = "javascript"
+path = "crates/trust-runtime/src/web/ui/assets/ide-codemirror.20260215.js"
+qualified_symbol = "crates::trust_runtime::src::web::ui::assets::ide_codemirror.20260215::<asset>"
+item_kind = "javascript_asset"
+signature_digest = "sha256:d59386e0ae435e292fbe0ebcdb954b75ed5fb3922091277cb19f798fc5d50718"
+reviewed_body_digest = "sha256:849309eb6042543f70f85785d53d8e5717c7362a647128643f0cb34ca2258ef8"
+owner = "trust-runtime"
+area = "control_security"
+visibility = "public"
+risk_signals = []
+disposition = "generated"
+generator_code_id = "CODE_DA957CE94CE357F3B536BD6019C51DC9F4806D2B21FED946D127687110C45C3B"
+generator_input_digest = "sha256:72242e67eba2dc84c45078766826b7b50ebcfea3beef43454c3244b9410bceff"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_014435625FD66F5363AAA116EA03185A94059EE69824042B5A2F701F0F13226E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[7:SUB_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:534d7c93208c28a8b2c56db12d95e4d658d6506cc7cbed8d10c582f59ac2bb1c"
+reviewed_body_digest = "sha256:b111479f341a97117d54bea74bcb83069259f987581e36a18441e2e35dca13a6"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_044E61E350BBF709DFE742AA848364749B162D5DA1E6F2DDA3F16D71D576AA3B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[16:SUB_LDT_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:6d7f801c1bd3f0f21ef58e25b4d9955ea5887337e4bf4e6dd5c41af18693bf99"
+reviewed_body_digest = "sha256:271af659d856789943ca30f5a99950e942a65a715faec5140449607ac1d837d0"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0507E7F2763591E87AD245E7DFA0F792A70346B6B850C569EBF8C484D85A6298"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_ldt"
+item_kind = "rust_function"
+signature_digest = "sha256:59f711acee0ac30f08bbc0b4d14c7f8c95fbc9b8d219401ad4f2dba1f5072bbe"
+reviewed_body_digest = "sha256:f868c1f5d8d81eafcc36f51dae5a9e38ea88042878bfe076fddcade030e77dbd"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_079153EA2A7AD2066A7702E5B2C3BEDFCE1EAD065CF72ACDB31E2C7C467C93B7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::mul_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:4b9fa5bc286cb7161e3f9166ebccffc8a4c798867e18b43524b2715f9269a05b"
+reviewed_body_digest = "sha256:01e0d5f6044c8f6094bd51f21821bcab198f6864104450847f011493ebb550f9"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0947B94CF98ABD7AF63352732FD81F2B8ABB5236A4D9E50D19CEE6B9CF10F53E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::is_split_name"
+item_kind = "rust_function"
+signature_digest = "sha256:61aa4d8006b65b8f2b4cf09a5e5b883804bbb0ea8d79e4e5841edd2583f6f70b"
+reviewed_body_digest = "sha256:bc63e715eeb08f23dda0c64094f0b6a3f167b68cfe31723efba73f3035b65082"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0FA9BA82A1F059002EA7FB609E0277653893D3A856CAEC32A628EE85D7D6B357"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_dt_time"
+item_kind = "rust_function"
+signature_digest = "sha256:c115239314664dddda93d6c9daa5439f5cce831fb2f4aaa215e0c1b4d6db9e43"
+reviewed_body_digest = "sha256:50a34efb5dd11e865e4df3010e48d9ac009322d550ac07279bea89ab4a82d268"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_111F0944F5FBDEC42A8EBFEC35F35E5ACD0F53DFA6F3910F63A605777BF6AF3F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_time_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:740b746933b8d15f92294c18289180f65f65e855038fffd58eed04afa8372de4"
+reviewed_body_digest = "sha256:b3de59d29cacd2262dc1099d616f23382266ae06f8afb60d24baf2bcdd8db44e"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_14575E2B45004C124C69DE255F5758F062D4BB00D8FEFA7A6C2CB3CE9016F3BF"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_date_ltod"
+item_kind = "rust_function"
+signature_digest = "sha256:87488ced167b54eefcfa1557a2a69f4af84c3909afa9652e75fc65d9ac0e622c"
+reviewed_body_digest = "sha256:f06b83a064c5b1fb447a68207a40d2afd5e2959b011a7de3cd9c34247dcaa2e3"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_20C6DF09A045E72FDBC47F84EF46F208C0469FB0840A69ADC342ECFF1D97BC88"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_tod_time"
+item_kind = "rust_function"
+signature_digest = "sha256:3ac2717f51db84d846afbe0ac5a653f9ce8ae659554c45774ddb516be9b507e4"
+reviewed_body_digest = "sha256:9f9b3f4047d27580a26df01d86f29fd9c374124e80b6c992ed65583d782c647f"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_20FBBA428D6449ED0B8878CA302C3BAB95401273D4592C7ADEF0DB23FDCED269"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::current_dt"
+item_kind = "rust_function"
+signature_digest = "sha256:0ce31aef8e8278fbc13587609ac0e88be58054f12723d9ec567530e05a0713f6"
+reviewed_body_digest = "sha256:de4e9d1d430e08ef3c4c50914dbc223b570a324f21d010d50317c28efa6bc91b"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["fault_mapping", "host_time"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#current-dt-clock-boundary"
+owner_ack_expires_on = "2026-10-21"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_254EEA097F2E8C25B2407FD33B596B187D189E4168D83C02935AF5E2E74DFB8B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[5:ADD_DT_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:d5a2498f06016a6f0d55e3f6666d999568ffa47ac028f3a16416ca7ec338a266"
+reviewed_body_digest = "sha256:39cebfcb4db3470863d9a221d426bc40a8788a25a665b2b7ec3dfee95e986e4e"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_25CB8C3B7C88D8B08D9986FE0A86893D0EA69D079B350B36F1939EDB74078A94"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[3:ADD_TOD_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:aa6a5354c9f013c87a2b68f0cfb9d3273329abbb6f342a109f57a28bb7cb27ad"
+reviewed_body_digest = "sha256:dcb31f57002feb21c7bc9f6bf83bcfe1b88c9b6394505392319ddc6c8fd9ff49"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_26D3C5916EABBA166B57987CD8DE1AB5C113D56ED55FC646A5DA79700838A2F8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::split_tod"
+item_kind = "rust_function"
+signature_digest = "sha256:d1c567afda1f3bb88b765037b601523692a5aeba3b9fecadcd3497084b58ca63"
+reviewed_body_digest = "sha256:a607160fa3d621e716d529bee69989428aa072382056b8d5d850ba6d444b6e9a"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_26FE7FDF2B97788F93A29EE65074551026E0A2743443DD262764ECA5131849FE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ltime_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:219f3b9378ce47599788063080e3cb4c668546ad14fac5a189e5da9786a00167"
+reviewed_body_digest = "sha256:ea33a3a396dd380c7f6123a357be175e73aa1e3c93e400102241306260cf111c"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_27EEFE7EFB10B4C40CEB081B1482869DBAFF3A1CD5C54AAA611D415930793177"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[13:SUB_TOD_TOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:039aa6847415ede8025f2a5a961788a0a6a760d05c79c17224de215eab5bda07"
+reviewed_body_digest = "sha256:0800055f6e66379b0339aabeb90e0686b4d7cca4d06f0a58cb3262ed52618246"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2E4DE6C97C9517BD82C280D9D93293CA614054601138FD92DAA38FA79BAD72D7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ltod_ltod"
+item_kind = "rust_function"
+signature_digest = "sha256:2944b2556965024aef35b0fab1e768c734837f856b0bbc9a438fac87d6307342"
+reviewed_body_digest = "sha256:2344888875e8ed1fd3c453d912096c27cfece6345a234be6bee8f60d3bf852c4"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3A1C1339ACF117B64EA886619173CB3A18718058619FF177F5A6FF823D213B68"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_dt_time"
+item_kind = "rust_function"
+signature_digest = "sha256:4e6611884a9d04d84dd7bee10f2226dfdb2815cd9a75ea34c0060f7662ef1ff4"
+reviewed_body_digest = "sha256:4afa18bb843af0f78f5383db07cdbaf06552b0eb82292610348687dea7987683"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_40F0680D14088DEDAF27684641CB0FBE1932343F2386B899444CBF36F40C2633"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[27:CONCAT_LTOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:9ed0a0ef9435e623fcc9a52ca50a6153c19f1c10100b41072f5c27e5fe915daf"
+reviewed_body_digest = "sha256:01885c30f4a31741b8232df87540def7c7dce5f90d1bc15308b4b9e7374c3100"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_412BDE68B6247E96399721B87B8CAAB74E66B73312BA97F616CCC330DC1C1E66"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[24:CONCAT_DATE_LTOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:cc14973dc50cffdab5826840f707a7fb2203987fbbe051940dbfdbef7322998a"
+reviewed_body_digest = "sha256:6267f111e0502115f6f26c32a5e225fac60f425acc98077ce300e43f51cfcc39"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_41940D663B77CDA929CC21C3BA31BC5FBCAFD6E76435CC39EF1F4D8E2ECBF46A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_ltod"
+item_kind = "rust_function"
+signature_digest = "sha256:e3614a2392f59145e19bc8c0c58d1d2a3ec624154c8b7d9fd26a330c5d8182cf"
+reviewed_body_digest = "sha256:ae53ecdfd0b5930ef7b98041b1b99a9fd87a96603cf0014c407fea0be487eb8f"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_431056A4D45550A55C79B354545CC56610ECD9C52A63B52AD8D4D56A6C7261F8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ldate_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:63b7908d04ee47c877746abfde6c4b895bc4e7f959308e755311860155eaf45c"
+reviewed_body_digest = "sha256:c124994efedf3f2238530d4e070617975b910778f61c05c2f0d2529741d62d69"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4834D63080A6D8C5227BBC61FDE0607931D807A8686C41D02CFAC26EAF15B5CB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::civil_from_days"
+item_kind = "rust_function"
+signature_digest = "sha256:fa52ad89048e5a7bd603219b9de7caa1af92e5e57de3c262a7865d7921bc1f58"
+reviewed_body_digest = "sha256:5c9ae7f3b9c4ab55b1647435de18f4cbb36a9fb9a9fd65c607b4da5cdd3c4bf1"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4D1F6096E8EB2B791A9F1A6BDC05EA5443EF506459CF9F0E2FF5A70C8F233E35"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_tod_time_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:3b82f23cee21517086bdda7804bae99552a355fe4796d9be9a771166d23e0ed2"
+reviewed_body_digest = "sha256:4d5956894b5105cbe8ff73096714954aaf2defbd95dd47402c1848b1e9ecdefc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4DD3CB1FF7322DB9D62E1DE8858C7A43E21B6CCD04D6097B8988B8D5E3E2D56C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_ldt_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:dddce57f10ebe911fc017ac371751a25d66ed66247c4a79789f5d59dd550e3b3"
+reviewed_body_digest = "sha256:eaff8a02fc81b344223b9e6019f38c005b90a0d8bccda15433c8a32870b76698"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_511CC49D7F750DC3960F4B5066355150D1801CC7A522DBFD1C086BA366846B99"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ltod_ltime_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:b09da16da3950ec716c7756ffd382f2c3a5bed4e7768c4d829518e99d7f98e65"
+reviewed_body_digest = "sha256:561e61ef9ed2c14e1a4a4f17671ecefaa1370e4241f2178bbc737dc63a558f9e"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_52B5F27075F31D0A3AEB79C1C1FE89140736E029CE3E3A3B66B82E33CF90CBFA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::div_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:95eb3677125edf54f06f651edb07e85b6f3e7d1045f84d0d9520230e91806614"
+reviewed_body_digest = "sha256:948fd1e56ddcecb253b1d10f7c402ab62a2c566ae01dd50bfe12c768b98aca9c"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_549080F754A26FE69653F366CA24A42E7D4573F71EF7465F0605B4B66A982CA4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::div_time"
+item_kind = "rust_function"
+signature_digest = "sha256:d035fbb4a33ff405501e994e6e974e4b21a0e52149f2e232b8532935f8910a17"
+reviewed_body_digest = "sha256:02c005cb48f0a80bcb3b085ffb58f9fee38e5e273c9e8ee7f95c3a5cbf8c4e8b"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_55766111858E1BD74C6873418333D591FE0159585081047BBF8E7EB62D34969C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[22:DIV_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:dfc5067b07aa2dd38a597b6d0a95a616f5dc93a74aa7148d868a3541f3a77993"
+reviewed_body_digest = "sha256:21d36d8c48a7b935623393f728d264e744e80371c5a07a4e9f20dfe7c44f5cb9"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_56A45AE1EB6DCD1785C60BDEFCE37F54C8D8F5449C3A4DEAB5408F3C024AB72E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::date_ticks_to_days"
+item_kind = "rust_function"
+signature_digest = "sha256:ad60356568d6caa72c099a7067503e0bc0af1c6c05c0d6d3017a55ef15f0eb63"
+reviewed_body_digest = "sha256:447cfa56db7f43df0a93abe40eb30e89b88152a56573e15f2b9c7e3c8bebe8d9"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_57E5EE025283F78B8AF2542EE56D33973CC5A65BC76741545C4F1EF6E405C2F5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[14:SUB_LTOD_LTOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:ea61233d7c53d1c04ac3c0e08a8b4bb64499dd8366238f674faad783048bcbb1"
+reviewed_body_digest = "sha256:d94c652b1ee394a676ce05e8e12a6cc5055ede48590a0739f6d38b6c5a57c143"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_59281AF478A97D86327D7293441D123CD72F125DF0F8A6DD7F166BA21D35CED6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[17:SUB_DT_DT]"
+item_kind = "rust_registration"
+signature_digest = "sha256:bc88585bbf971aa148b88916452aef5ec4a0520970d16cb8350645d59ece979f"
+reviewed_body_digest = "sha256:4361595b7eb06f5afa5d49925cb02c1a7f5e35045da1d90939adfda95f12c622"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_613FADAD2CA2100C1DE1BC152BA78B84F48814287D28C7604594D66939D54FD5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[18:SUB_LDT_LDT]"
+item_kind = "rust_registration"
+signature_digest = "sha256:a3ed5126eed5d8c16f2722cb589bf64ec4e858cd0d113e86f1b0f31443ad5308"
+reviewed_body_digest = "sha256:af838f7bc22be08b722e2110a1a370fd92eba70027075ccc83808d51c83288a5"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6CAE20CB960027DAC890EDDDB4CACDE3C2EF74FE01ED71915AA94C13A9BF6877"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ltod_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:a5762db412a75d2bd6702fe96a9887d563c9f904792dd0dad5c510d4fe07d61b"
+reviewed_body_digest = "sha256:72e6a68c010a7d07101fb34161410fd6e037858e8375fcc7a8723129f0a30a55"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6CC9C91BE098D963EA313C8CD5A9995CB77E13C478F81EAE769C4FF7CB1AF241"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[12:SUB_LTOD_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:65246ddd7100f79c6bf205c8b0a27b94e5193d102ab0ab3c18f8d8d64f9ae3f8"
+reviewed_body_digest = "sha256:9dc3123aa5738ce7937d1d4b97a55e39cc13ac386f8cee84fea1677d69a86969"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6D7F011656D84D378971EDC556596BA90A3EB8D74A11C5C374293AC41B7CC967"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ldt_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:ce4d34c25af220ee8f9bef3e1cc63b30b0cfab9d59f37822f9ab60ff529500ca"
+reviewed_body_digest = "sha256:72eb4965942180ab8244deda4c1e330c41c55db372063bf60e5bca2a57daef9c"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6DBBD39612771D5F4AC1D0E272E4756B82912B9422A207D4F2947C616F217045"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[10:SUB_LDATE_LDATE]"
+item_kind = "rust_registration"
+signature_digest = "sha256:9c916152536057efd0a5fd68451f78f8be94f69894e59bf06b8a6f996e48b699"
+reviewed_body_digest = "sha256:58178ad1e69da649da6a0c2c22ad501f82078ea501743f62585f6c44f518544a"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::runtime_clock_value"
+item_kind = "rust_function"
+signature_digest = "sha256:238c8b6ede43a84798714b40d39f30f61116e8a332cd3f4f16d53afb6aa3b129"
+reviewed_body_digest = "sha256:92aa8fda3efeb5cb4be407394f22925f15db7de9e1f2308810347fd64d97ef5d"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = ["host_time"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#runtime-clock-dispatch"
+owner_ack_expires_on = "2026-10-21"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[28:CONCAT_DT]"
+item_kind = "rust_registration"
+signature_digest = "sha256:4b9686f5e75c332b5d36069457cee3c2d908cc8a88b7d85752ec97d400b824b8"
+reviewed_body_digest = "sha256:5e45bc64043ba1a8f8764227530f295879621e251c69bec0d957197fb97118fc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_71F6BC7B69C4C764C447AE0A622C92CEC9F3B048E1A15ACB7336283BB4811615"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[20:MUL_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:ae6f73391e0412dc9af03d78ce7890bb00a1897b8781766fda45d9cccb832013"
+reviewed_body_digest = "sha256:57c0c6b42e0cb29c4c07f53db3349f0216745420484b46b300e76da0fd53a5be"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7398F0A405D562A1477DDF649F9FABEC9DC0C179631640B7A9A9AFD50E58FA3C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::split_ltod"
+item_kind = "rust_function"
+signature_digest = "sha256:4b010ad0e0d4dc3776ce8036c8ac3206ded4a84f5ca4b7be0486902f02d4283d"
+reviewed_body_digest = "sha256:70f95e9a0fbd7450693fcf81835a3b4051a7eb886caf1054a091c9728987c0ca"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_74CC51A51FA331019A197A5D2F7816A8DF97E3FEB70B3FCA25F713345B796418"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::tod_components_to_nanos"
+item_kind = "rust_function"
+signature_digest = "sha256:485864a5aaf566e6f25543fa1646a3aaf9b6ad68a368b521e663a4aecfc301c0"
+reviewed_body_digest = "sha256:a1137c8392622342ecf2147fe737286bd1206e5b08592c9d8f28849d5973c63d"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_77D3569B412077069138AD4ABEFCC6145E4D7BCB36C1E64D1C54B3C213BAE4F8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ldt_ltime_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:ed85147be8f30163859c0c35ad9adfa9b7be8446b7ffe5a801191c405606d772"
+reviewed_body_digest = "sha256:c54205cc16ae14813f6c3a15535cda5ef4bcdb656a5518cc6f521cd9f6cad2c5"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_80FA594CA534D9404759026827D55A8FF205C6BCB0767183610D3AAA4AF79210"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_time"
+item_kind = "rust_function"
+signature_digest = "sha256:596242acb27cdcab73f509dae4cddaf7dc214bafb67a63a2ae2f49ea949ff26c"
+reviewed_body_digest = "sha256:0d093faaa1726be6b5884b6cfeafde5deae1a06d4e5583103187334abda645dc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_82D7C9757561D4EAC13BAC402C5E5D138FB7423DF3DFE2CA72FF6153E7340B16"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_dt_time_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:3e4a9234f88d83102b5fbf59ff61d6387e4578d90c26c7cb05174cf231b18945"
+reviewed_body_digest = "sha256:50d257df47ddab3116bcba3ef36371b637010ebbaacf06ded8d4ea53d1e50bb3"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8551BB240C20F9F1C4DC9FC29F797800272FF86A4A62E5B88C913C5D0A06EE51"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[19:MUL_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:169d51aedc8a86d235f563673439053f972b303a1219d00b5250c0a3dddd64f0"
+reviewed_body_digest = "sha256:213263bf804e87edd321c919e0cbc385fd0be067ad94c8c41713ff44d36f395d"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_863752F4F585256F7EEE7AB30AA8FAF33CF9E62354DB0EB122ABD410BA8579AA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_dt"
+item_kind = "rust_function"
+signature_digest = "sha256:ca718f33eb13db49d8565233f983a49f8499986e75ccb5a8db3110c53dcdc648"
+reviewed_body_digest = "sha256:60c324f2f9fa3e2effbbe4019a31bd2bdf9756f022b592a8d0992ebd2784259a"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_87773FDCCE874E19D1D0D340BFF3F36C0B26CFDFBAB88A95B526D328ED7BCFC9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::tod_from_nanos"
+item_kind = "rust_function"
+signature_digest = "sha256:b91588e6b3a02746963d63cd385d948fc8ac263b1076e0443ae9487ac6109618"
+reviewed_body_digest = "sha256:81835198ce100e023a64e482f1fc5eea36d292e46967c5e12e0173ebd5dac572"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8D527D7888515A5DBCC7B3F2F0E79A3DBE820CBAB52459163AFE04A3431121FC"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:6b665d553fae48565d59bd8d64dbb1e1ac15efa713ddaa0cfb3c24c94d3568b7"
+reviewed_body_digest = "sha256:c5f89d90b8733da4b93e443d0d8774a2e40ec18d0d05c97ea20635b4b2f291ff"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8D763FCF6800442B2134F5B010A1FE22C1CE00D4FF2989681CF3A368A5BD5E59"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[23:CONCAT_DATE_TOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:a1673468b0351225f5c0df6a6c946fe59bb1448878680090c772268d03fb6925"
+reviewed_body_digest = "sha256:d327f3f25e690a0d74ae1a17263d9d66f0c457579c0e8d77d598930dfa7627ea"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8E19F745C8435D21776EC32BF5050A33BE6E3BA39B0286F8B978652006B66356"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::is_runtime_clock_name"
+item_kind = "rust_function"
+signature_digest = "sha256:43663464317d252db78e93db42d5cb56ddfa985a2f07cba7077b8c5166b23e26"
+reviewed_body_digest = "sha256:656ad9bf0b5ea55a8a274cbd5312a14ffd2bc373db9c63d33ecd345a7b1b588e"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8FFA4FF07AA69C8509E0B488717D27F77A0DE0DB5A04A73457810C07126C0D04"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[2:ADD_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:9957f7d768c1d932e62d31e04dc1aea2e8f58e1d711dc34c9984b6219ff2537a"
+reviewed_body_digest = "sha256:ca5964c5e95307eafbe46c279d165b3062b6fe21007b79d188b012d388dd817d"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register"
+item_kind = "rust_function"
+signature_digest = "sha256:ae22bebd1f6de0a7a2c2e6cd10bc663e104dbd3fc75fa219a142edc9c8c4dd06"
+reviewed_body_digest = "sha256:94128aaefb154876bd82bd0786e900537f4f2f20d7ad8cf389f6259d24df8502"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001", "TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_90F68982876873F4A32023065F8F044869506EC20A83DBF95156AF588C7720B4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::split_ldt"
+item_kind = "rust_function"
+signature_digest = "sha256:77ef2e6dd2ffec4927e09d431a611121b14718e3de9fd770bd57c25fdd574c38"
+reviewed_body_digest = "sha256:070310f08356ac77a782f29d3b9156e0ce13c55ab72bb67c9a783d35c8804ee2"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_92A830E1D0DE890A24CCF5A840327F77F0EA35D12E47A21C9B90624529308F12"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_date_date"
+item_kind = "rust_function"
+signature_digest = "sha256:4c795bafc86750305dc412e04ee12986e947a4b9c11212b5dbe18cbc77c056a7"
+reviewed_body_digest = "sha256:eec0a35bf5ef5a60df4f928633876e663bc882899b5f31726a898bbbc4f3d2dc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_99BC7D6A03AAF26B62689B1E05231CEA9B706105314F7CF50354898B5A07263D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_ltod_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:2e969951cf24d79ca12ef67ca621041c079aa00748823ab083804cefb4d6b88d"
+reviewed_body_digest = "sha256:4189598902ca9eb33c043935ae114065ebdd3f1da3c7028f42bfcccc254b744b"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9A6C7E483D2F07071F53061F9C85DF3E6D514F7D3618CEF24F25A583D6B122E7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_ldt_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:1b3f48195513f7b0a01b93fc4fff63ad5a7751727f5a987311e937b293e5ef82"
+reviewed_body_digest = "sha256:fd35606d179ca81891828f83a1b687635bdd7184b1130d66488b50909b767384"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9AC2FC467A9F9A7F485C971807B34CCE86B38B7E74C28DB227A2E7BDD21CA685"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[1:ADD_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:0e6d2ebacad506b1440dc65566216f6559f7635ff9d75a37c69b325a49da78c7"
+reviewed_body_digest = "sha256:57b75580151c48b3d3463a9fd381da9a057557adaa5a096206242a8b0bde7982"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9B3F28973829CE4338CA2243EB63A02827E54ED5F1A1E80333B97C62C2E53573"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_tod_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:0a8e961e1985b907c77dba8b11512c1ea962f9c2b3a59d48f48a64f23980cd0b"
+reviewed_body_digest = "sha256:8eed7ba5e875d68607910572a125c1c2362abaf93bacc27b7435254b3bda7ab5"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9BD015C597253C4281DE7B974A5120976092305927C00301351BF518B5FA6B62"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_tod_tod"
+item_kind = "rust_function"
+signature_digest = "sha256:4ab27a273480a3215c07c61713a11cd8e15dfca10a69b79bc7c5308c170f13f0"
+reviewed_body_digest = "sha256:867cd32e6be83808c06f2e1a88a0e5e21f0b9839dc5aac81084d6e7885a2c50a"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9CD74F37629A2E0CF9502CF2A7685B18A9D30B5711E8F0F6253569A8A2ECE1A7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_dt_dt"
+item_kind = "rust_function"
+signature_digest = "sha256:78013b4b2a2ffa0561d148f89d2eeee9a3da40575ae21afa43d8b9df1ed732b7"
+reviewed_body_digest = "sha256:74a6460dbe050ff7df8e1aed2087001daa05fa19be909052d9d8fb405d6234bb"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AB0EAE9DE92EEA982A335FDD72783DA6EB83A6B218CECF2FF48CB17D8FF3F109"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_date_tod"
+item_kind = "rust_function"
+signature_digest = "sha256:aca7032fb9a7420c8e6484e47a7a210d8e9ef26b4a500d8f1dc7a5417df44efb"
+reviewed_body_digest = "sha256:b0b44263320cad7f938ca347ed18e3257e7e7c4a69e374acdd44dba4faa9510e"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AC407F2BA6FBB645AC0B845ED8CBF7CBBB1D5E101A8E3657A4791B92B8D983D8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[21:DIV_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:dca325a4ee3703d356c2797133ac865ba615e118ed4ce7798284b747027b9bb7"
+reviewed_body_digest = "sha256:5d3ddd9adbe2a8c828d47736e0484e03d87132dfb12283c859c6a302dc062619"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_ACDEE3FCE5391EE73E61AFA02410D3F49ED02E3053A3A2A30A1A8D599284DD42"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[8:SUB_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:fe6ca25c3d0c3e3cfede2b87da37b69d0b90ad353b0af6c6381580352f8f32b4"
+reviewed_body_digest = "sha256:7136578d0f1213ad700cf4b415cb33c929a85ef571f052e1e16191196a68bb7a"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AD6E32E12236C5452FC94D37FC4FD6BE123F1540582A9400308F528F34D891F1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_time"
+item_kind = "rust_function"
+signature_digest = "sha256:73338d9468c1428bfdc76a063346f3580ba04dc3adeecd20e02c839aef12c580"
+reviewed_body_digest = "sha256:a1a5b7ae589682c6b2e9d6a6db85f151100a62740fdcf0be6b11e704b14382bc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AEA98437DB17CE207C93F5C0829590038208C47CCE7E015B5075D260DA13E74E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_date"
+item_kind = "rust_function"
+signature_digest = "sha256:a2681f6e28e7cc9da01b57a032f08c077cc54c768df73737a1947d7fe3d1a265"
+reviewed_body_digest = "sha256:da54e5f559d4eda8b418f22364c0cf8e93c3112b2ebb3ab65a96c469d0637545"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B011CC7FACC15CC339AEBCA28395F7BEB9FBFC80809C1B5A426C30F06D94C601"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::concat_tod"
+item_kind = "rust_function"
+signature_digest = "sha256:91ccb9b8fddd09b62263986ab47c15f314c9bec0a77ec9ed5025d1d9b471cab5"
+reviewed_body_digest = "sha256:c6c7487b5792788cdb4b115fc4f3e26b6bf9e962267b5037981e50decda08daa"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B61C081E02F758B97920F19517E54CEB9B4D80FB9F392C0FBC3DEEB35EBFDE6F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::bin_time"
+item_kind = "rust_function"
+signature_digest = "sha256:01b01b917d495257b51f2e225c4213664bc068539573cb8b713d864350267c30"
+reviewed_body_digest = "sha256:3ba2bd95cb0ad518c9f89e9bc269d5ba79239f8c08eeb1e72495593d072c3575"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B99BE183DF47B2C0F69E0AC54C15BDB898677400D85FD157398B2F5091CB685E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[4:ADD_LTOD_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:dd765e80df117ccbce3096a1044d4b8db594b127ad9614bd7217ad675157f66c"
+reviewed_body_digest = "sha256:55748d6f6ebea5346aa0e4271e3d9a109aa8b50b4273b3b301952b3b4b8769dc"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BE245849BD119FE5B34229B6346326355615B7FAA80DC2D2AC4A9B2A8B79B8FF"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::mul_time"
+item_kind = "rust_function"
+signature_digest = "sha256:01dcbd0f41861fd7c72ad4f17487d199bb802591dd4c71f0f63ca022470787c7"
+reviewed_body_digest = "sha256:df27973bd4d489d0fff496d2dd20c104c7cbb2d67e28fe8436aa6b7c78b55952"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C0CA5E9C94F0E1E2254C2A1469D6C00A01E0F85C481F1EAB41E903FAC85C9F53"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::day_of_week"
+item_kind = "rust_function"
+signature_digest = "sha256:6c6a91457b3a607509ca2f54df80533a1aa8214ce9b68ae9fc65a1d175998aa5"
+reviewed_body_digest = "sha256:46f46acb683b49a99415bb35831e3b414904441a653cc5e53b75a1620b7efd39"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C3A4C47EA4A757D868734BAD99D5615D33402D768763A8375627C33DED0E95B7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::date_time_components"
+item_kind = "rust_function"
+signature_digest = "sha256:96d7a306ae57f27e558634efc8d7bbb381ce278568563157b512a2a9d9d6f536"
+reviewed_body_digest = "sha256:530f510f384ab2930af952a960589b19a2331bb71066e07ed2d8539a0f8f2ae6"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C44A66F33B792B42E79C483E0375BF8DEE0A2FBBDD9E005B6CD5174E9DF4CB38"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_tod_time"
+item_kind = "rust_function"
+signature_digest = "sha256:9984a6772256bd8f0cfbcb42783d2e22edea8020f62b019321a4dbed63d53969"
+reviewed_body_digest = "sha256:01961fe13103051f68feb8de9b5edfc6dc00f6e93e663812060883e3f3f9cba1"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CB2DF15B5AE0DFB38942687B6A4D9B0728AF24C6D99D226E1DC744AD80A4962C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[9:SUB_DATE_DATE]"
+item_kind = "rust_registration"
+signature_digest = "sha256:963232436d730accd737424648d9545a6e77eba35fc5b9c060d480df90642e69"
+reviewed_body_digest = "sha256:f53f0d8e586cbcf83f605dfc0d1255c073d1514166571c92b96b30020f2f2692"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CCE64209FAFC191E763E3E9A2A48A506271BA5AB39DB2E9B83C424B956BECC11"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ldt_ldt"
+item_kind = "rust_function"
+signature_digest = "sha256:8a23752f42770878874197a721671a559d7cc33bf9c0fed12a137b1339cc8ef4"
+reviewed_body_digest = "sha256:6d2178922c2a611cb91945c2425cda34de9fd52b48af36872654d12bc8dddaf1"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CF439C15026BD6B0BD8090A76E9AE5BB829E1B23C8D6C22D83BFDE4312BA4995"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[11:SUB_TOD_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:bd227c6d9a7c2a0d8a4a18b9f9d31880fdf2fd01405de6c8da39a3c635b74b5f"
+reviewed_body_digest = "sha256:30b3251b64d102f09e1706f6aca24b9cbbad17094a2295d5bd22f22b1b74084a"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CF9A9EAB5752352F59B7A2CC5E4593DD15EA8481C44C0CB29217E4D4F0ECB46E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_dt_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:7e5eb2afb8317086fe305e977e97f950ddf1d358dc95037b0c16d1188a6d5668"
+reviewed_body_digest = "sha256:852fe25b1eb8a2eb1b707f7f62892d7cb92f397f0afc4a1a1ab02d07f6cd387b"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DB3EC5C2BD20E56447139A6BAB571BB33AC30CBD364CC8479D190F3B18575578"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[26:CONCAT_TOD]"
+item_kind = "rust_registration"
+signature_digest = "sha256:c69cac0270744b5e4bfc85bb060d8bc76075b22d90e4280489036fb66edef8c0"
+reviewed_body_digest = "sha256:b10ea4f930c5ed8e02160a01f13953de6c8b373a8622fe5277f8f1a70007be76"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DF4F4A233030755ABBECCCA49804963FFF3A30AFD4F1CA00B75470BAECE2AE96"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[25:CONCAT_DATE]"
+item_kind = "rust_registration"
+signature_digest = "sha256:dbed3c75217df2481a3aa992477502853744d96096506f69ab78d9c5479bc295"
+reviewed_body_digest = "sha256:8d4fe83cc829a757e13d49e21929897d66dbff647a336dd783ceb7631e24f538"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E05F7DF692F711D35843CCE430B4BD0CB63F970DCF8E8CE316F85386A0D43F31"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[30:DAY_OF_WEEK]"
+item_kind = "rust_registration"
+signature_digest = "sha256:16ca6726bdbd415a5eaf340707141484bf4037d54840694a4222af1e120c04b0"
+reviewed_body_digest = "sha256:8d5724f8152f3e37fdae403a6e3cb912e909343a8928740470d5cc9ad346f0d9"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E2FC69878D290470356D33B7BC27514374AFA6CC2FA8DB9A13153FC71709D2FB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::expect_date_pair"
+item_kind = "rust_function"
+signature_digest = "sha256:c74439e69379b8746c5cb96522aad0ddbe787b57d1412f60f8ace79fe8958434"
+reviewed_body_digest = "sha256:eb22fa485ce2f3242ed74df09827934fd20a07dbca7f7eb75b54123649e4b1e1"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E791070586AF5C26801ABCA712978F0DAE9D977021ABB32C170D4553F5DEA4E6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[6:ADD_LDT_LTIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:cffee6254295e03dca54449030e703279fa09789b861baecfa64a0506a66c829"
+reviewed_body_digest = "sha256:f1a5b136c9864ae5ab23aa8ef7182411f89f6245d5d40acdfb5fbd70330b4908"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E933EACC75F2EC72A7C2E02F1EE7FBC71BDE0D36646CC7BC3F18B6C74A64B86D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[29:CONCAT_LDT]"
+item_kind = "rust_registration"
+signature_digest = "sha256:7c38d38fc28ab06eb6fecd98dd9d8427f51bfd58fa69796259a88c67e0748988"
+reviewed_body_digest = "sha256:0f0871cb95003f88f2b316aed2eb80c352f25cb2d9ed504971a8649ef547c48c"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EE15893CFF7EA432D5F63B272797415629586F73B0C2C9C59CDB55BD92D1DA93"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ltod_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:0467634b840f314f94099112036cf5cd2ffa2c85417adb5fab2074570d9e227e"
+reviewed_body_digest = "sha256:80ee78eca41def8b66af843151d3e34db8b01070153a251193863a7caf3bdb25"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EFE86EAC9F69A92A58E152C842B96531BD89F9E9AAAA69B0F26B217C80919DA9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::split_date"
+item_kind = "rust_function"
+signature_digest = "sha256:4b68cbc5f926f3c54ff2f6a5f59d67c3441f64ee27696a0f0a3c4ecd202ae295"
+reviewed_body_digest = "sha256:30fe0e0d26e1519816814f6a884abee2518e8ff89213c5ce27be6823a3406c25"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F28234894833C75A7ED0BADBDF1F3DC3AF365688F24D2B50DE3FF53AC2AB92E3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::register::register[15:SUB_DT_TIME]"
+item_kind = "rust_registration"
+signature_digest = "sha256:6468695ed1313005ce46fa6a9b72b0684ed64c623b71a2c5316dd6ca966ed175"
+reviewed_body_digest = "sha256:4267e8f9bea3443944258f569eb22ef43cc432c58808a00fe7b9b1db717bf9a8"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-stdlib-time-risk-review.md#stdlib-time-registration"
+owner_ack_expires_on = "2026-10-21"
+disposition = "inherits_spec"
+parent_code_id = "CODE_90328A8C67D815B4EE9E3828109F38F53969E6400BA15AD7881675529C4C3C07"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F7E06635A83162B065DBC0BEF7B44A4F51668F80426FB1EC4A293FED41A09607"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::split_dt"
+item_kind = "rust_function"
+signature_digest = "sha256:97a5331f8df3b4f9441534ac3abf804199a5a5dfcf3cb68d081ba2ef4eab4adf"
+reviewed_body_digest = "sha256:509ef78ee0525fa15883ec002ee01979ee3fefd932b5efd537112ee62a2c94c7"
+owner = "language"
+area = "compiler_iec"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#datetime-component-functions"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F8EE4EC2F7F437BDD2CAA5A74A8E4F57542C1199426DDE6B4A183F7476B94DF0"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::sub_ldate_ldate"
+item_kind = "rust_function"
+signature_digest = "sha256:d315aae8e550aa0f7369579a131d597a8e609ce09650fe13e5496d79e25fcb9f"
+reviewed_body_digest = "sha256:1a8b87ff473deda6f33e35396835fea07ab2d49fe1dcdf3ec6cf48576109129c"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FE2C3E6ABA2E1EB68EECE7D64AEAEACD1EC4CA65D878987E31345EECF5449A5A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::add_ltime"
+item_kind = "rust_function"
+signature_digest = "sha256:bc3344b2a3f2cab36e50e21d68e0beb62465301347486eb264680d9014237680"
+reviewed_body_digest = "sha256:10cd8972e7267dbb14fd44e37a622624ce6279f2492aaeea851db63528845966"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36"
+invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
+last_reviewed = "2026-07-21"

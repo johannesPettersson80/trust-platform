@@ -173,3 +173,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
    reusable `trust-lsp::document_text` library module so the shipped handler,
    focused tests, and fuzz target share one implementation. The binary handler
    remains responsible for LSP type adaptation and document-state updates.
+- [ ] `ARCH-VERIF-P17-01` Make parser-backed Phase 17 facts the single
+  production-code denominator: the software map consumes Rust facts, tooling
+  joins the existing gate/fuzz inventories, and the existing metadata,
+  planner, report-gate, and verification workflow own validation and
+  enforcement. Evidence: `verification-code-spec-coverage.puml`, focused
+  scanner/join/planner/gate tests, rendered diagram drift proof, and the final
+  Phase 17 gate milestone.
