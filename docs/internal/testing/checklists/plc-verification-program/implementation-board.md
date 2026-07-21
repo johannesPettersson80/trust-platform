@@ -1792,13 +1792,15 @@ expected behavior from implementation text and does not promote product proof.
   forbidden. Changed bodies invalidate reviewed mappings even when the stable
   code identity remains unchanged. Every digest rebind remains a distinct
   review-visible delta; high-risk facts require explicit owner acknowledgement.
-- [ ] `VERIF-P17-005` Add canonical JSON and Markdown reporting plus at-rest
+- [x] `VERIF-P17-005` Add canonical JSON and Markdown reporting plus at-rest
   validation. Reports carry clean full-SHA provenance, complete input closure,
   exact output-path identity, canonical bytes, exact Markdown reconstruction,
   schema drift pins, per-area/owner/disposition/risk counts, and a raw row for
   every live fact. Include separate debt-baseline and digest-rebind sections.
   Evidence rows use `proof_kind = "none"`; code mapping alone cannot close a gap
-  or promote an invariant.
+  or promote an invariant. The clean canonical report, reconstruction proof,
+  exact artifact digests, and input closure are recorded in
+  `2026-07-21-p17-baseline-freeze.md`.
 - [ ] `VERIF-P17-006` Run the first Rust pilot on
   `crates/trust-runtime/src/stdlib/time.rs`. The scanner must enumerate
   `runtime_clock_value` and `current_dt` without inferring their behavior. If
@@ -1827,7 +1829,7 @@ expected behavior from implementation text and does not promote product proof.
   than duplicating them. Tooling mappings resolve tooling contracts and
   self-tests only and cannot create product proof. Keep explicit, census-bound
   exclusions for the current declarative Neovim/Zed integration roots.
-- [ ] `VERIF-P17-010` Add the changed-code enforcement ratchet to the existing
+- [x] `VERIF-P17-010` Add the changed-code enforcement ratchet to the existing
   planner and strict verification workflow. New or body-changed code fails with
   distinct `missing_spec`, `stale_spec_review`, `spec_gap`, `missing_tests`, or
   `unmapped` outcomes. Freeze an append-forbidden, field-edit-forbidden,
@@ -1835,7 +1837,10 @@ expected behavior from implementation text and does not promote product proof.
   identities, signatures, and body digests. Newness is absence from both map
   and baseline; changedness is digest drift, independent of merge-base and
   branch topology. Broad tests cannot override the result. Do not create a
-  second CI workflow or add a release/CI dependency.
+  second CI workflow or add a release/CI dependency. The immediate-child
+  baseline origin and clean changed-mode proof are recorded in
+  `2026-07-21-p17-baseline-freeze.md`; historical debt remains visible and
+  full enforcement remains blocked on `VERIF-P17-012`.
 - [ ] `VERIF-P17-011` Add reviewed high-risk source policies for scan-reachable
   wall clock, randomness, filesystem/environment/network/subprocess/thread
   access, unsafe/FFI, output/safe-state commits, authorization, protocol status

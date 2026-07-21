@@ -449,3 +449,17 @@ reviewed_by = "language"
 reviewed_on = "2026-07-21"
 expires_on = "2026-10-21"
 rationale = "Acknowledges the parser-derived risk signals for this exact body digest; the inherits_spec mapping binds behavior to its reviewed contract or explicit gap and does not infer a defect."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
+code_id = "CODE_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:6b2a5a49c71a8a0e66b96b1ae4660e6e4ec1fa348c569988e379c9e1628cf072"
+risk_signals = ["broad_error_suppression"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-risk-gap-review.md#verification-private-hook"
+reviewed_by = "verification"
+reviewed_on = "2026-07-21"
+expires_on = "2026-10-21"
+rationale = "Acknowledges the parser-derived broad catcher risk for this exact private-hook body digest while its behavior remains bound to an explicit open specification gap; it does not infer correctness or suppress the signal."

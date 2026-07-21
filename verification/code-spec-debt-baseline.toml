@@ -111890,21 +111890,6 @@ risk_signals = []
 captured_on = "2026-07-21"
 
 [[entries]]
-code_id = "CODE_7F8E2D92126D526A3D22F2ADEE2AAD39DDFDD84799F603E38B7D9A0550E8AE68"
-source_kind = "python"
-path = ".claude/hooks/pre_tool_use_gate.py"
-qualified_symbol = ".claude::hooks::pre_tool_use_gate::<entrypoint>"
-item_kind = "python_entrypoint"
-signature = "if __name__ == \"__main__\""
-signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
-body_digest = "sha256:85d88cdd4da2412dfa8cfeaedea8c2af5e280c7da58c315ec02ebec27389d2a4"
-owner = "unmapped"
-area = "unmapped"
-visibility = "public"
-risk_signals = []
-captured_on = "2026-07-21"
-
-[[entries]]
 code_id = "CODE_7F90E6E76CD36795F2DE74520957E9D9DA2C8179D14C6BFF2827F2CCAEA9C343"
 source_kind = "rust"
 path = "xtask/src/code_spec_scan/universe.rs"
@@ -113627,21 +113612,6 @@ owner = "unmapped"
 area = "unmapped"
 visibility = "private"
 risk_signals = []
-captured_on = "2026-07-21"
-
-[[entries]]
-code_id = "CODE_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
-source_kind = "python"
-path = ".claude/hooks/pre_tool_use_gate.py"
-qualified_symbol = ".claude::hooks::pre_tool_use_gate::main"
-item_kind = "python_function"
-signature = "def main() -> int"
-signature_digest = "sha256:76bd7920ab4b7c4f631829875b7e9a1013aed35a8d9ffa9d7ea80055ee853240"
-body_digest = "sha256:6b2a5a49c71a8a0e66b96b1ae4660e6e4ec1fa348c569988e379c9e1628cf072"
-owner = "unmapped"
-area = "unmapped"
-visibility = "public"
-risk_signals = ["broad_error_suppression"]
 captured_on = "2026-07-21"
 
 [[entries]]

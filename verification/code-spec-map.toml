@@ -1763,3 +1763,39 @@ spec_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-and-time-functions-tables-35-36
 invariant_ids = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
 test_ids = ["TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001"]
 last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7F8E2D92126D526A3D22F2ADEE2AAD39DDFDD84799F603E38B7D9A0550E8AE68"
+source_kind = "python"
+path = ".claude/hooks/pre_tool_use_gate.py"
+qualified_symbol = ".claude::hooks::pre_tool_use_gate::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:85d88cdd4da2412dfa8cfeaedea8c2af5e280c7da58c315ec02ebec27389d2a4"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"
+last_reviewed = "2026-07-21"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
+source_kind = "python"
+path = ".claude/hooks/pre_tool_use_gate.py"
+qualified_symbol = ".claude::hooks::pre_tool_use_gate::main"
+item_kind = "python_function"
+signature_digest = "sha256:76bd7920ab4b7c4f631829875b7e9a1013aed35a8d9ffa9d7ea80055ee853240"
+reviewed_body_digest = "sha256:6b2a5a49c71a8a0e66b96b1ae4660e6e4ec1fa348c569988e379c9e1628cf072"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
+owner_ack_expires_on = "2026-10-21"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"
+last_reviewed = "2026-07-21"

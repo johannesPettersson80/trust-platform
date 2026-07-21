@@ -127,6 +127,7 @@ class AreaRoutingTests(unittest.TestCase):
     def test_verification_program_control_and_evidence_paths_are_routed(self) -> None:
         paths = (
             "AGENTS.md",
+            ".claude/hooks/pre_tool_use_gate.py",
             ".codex/skills/trust-test-authoring/SKILL.md",
             "docs/internal/testing/checklists/plc-verification-program/implementation-board.md",
             "docs/internal/testing/evidence/plc-verification-program/2026-07-18/evidence.md",

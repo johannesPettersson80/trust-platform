@@ -5,6 +5,30 @@
 
 [[tests]]
 schema_version = 2
+id = "TEST_VERIFICATION_METADATA_GATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9FA85AE5E0326DC399E6"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/verification_metadata_gate.sh"
+name = "verification_metadata_gate"
+command = "scripts/verification_metadata_gate.sh"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_METADATA_INTEGRITY_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+expected_result = "The complete committed verification metadata graph, schemas, self-tests, inventories, and generated cases validate without an integrity finding."
+expected_failure_mode = "A malformed, stale, invented, duplicate, or referentially broken verification record is accepted or a registered verification self-test is skipped."
+suite_tiers = ["veryquick", "pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_METADATA_GATE_001.json"
+last_reviewed = "2026-07-21"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

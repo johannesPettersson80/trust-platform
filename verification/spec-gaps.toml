@@ -1064,3 +1064,24 @@ candidate_spec_sources = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_RUNTIME_ENGIN
 resolution_status = "open"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
+
+[[spec_gaps]]
+schema_version = 1
+id = "SPEC_GAP_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"
+title = "Private pre-tool-use hook fail-closed behavior is not specified"
+area = "verification"
+risk = "silent_corruption"
+owner = "verification"
+status = "spec_gap"
+gap_class = "missing_error_model"
+blocking_question = "Which inputs, failures, bypass attempts, and unavailable-dependency states must the private pre-tool-use hook reject, report, or permit without silently weakening the canonical agent contract?"
+affected_invariants = ["VERIFICATION_PRIVATE_HOOK_001"]
+affected_tests = []
+affected_code_ids = [
+  "CODE_7F8E2D92126D526A3D22F2ADEE2AAD39DDFDD84799F603E38B7D9A0550E8AE68",
+  "CODE_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E",
+]
+candidate_spec_sources = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-07-21"
