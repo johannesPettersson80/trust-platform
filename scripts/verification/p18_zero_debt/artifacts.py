@@ -19,6 +19,8 @@ def render_markdown(payload: Mapping[str, Any]) -> str:
         "# Phase 18 Zero-Debt Report",
         "",
         f"Status: `{payload.get('status', 'unknown')}`",
+        f"Producer source: `{payload.get('source_sha', 'unavailable')}`",
+        f"Contract source: `{payload.get('contract_source_sha', 'unavailable')}`",
         "",
         "## Zero-debt counters",
         "",
@@ -73,7 +75,8 @@ def write_artifacts(
     closure = canonical_json_bytes({"artifacts": rows})
     index = {
         "schema_version": 1,
-        "source_sha": source_sha,
+        "source_sha": str(report.get("source_sha", source_sha)),
+        "contract_source_sha": source_sha,
         "producer": "scripts/p18_zero_debt_gate.py",
         "validator": "scripts.verification.p18_zero_debt.contracts",
         "exit_status": exit_status,

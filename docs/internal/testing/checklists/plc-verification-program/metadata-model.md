@@ -1538,6 +1538,13 @@ one trailing newline after replacing that document's own
 making every other field part of the binding. The CLI receives the reviewed
 expected source SHA independently through `--expected-source-sha`; it must not
 learn the expected value from the document being checked.
+Generated reports and artifact indexes record that frozen contract source as
+`contract_source_sha` and separately record the clean Git commit that executed
+the producer as `source_sha`. Default execution resolves the producer SHA from
+Git and rejects a dirty worktree. The explicit `--producer-source-sha` override
+exists for isolated contract fixtures and must be 40 lower-case hexadecimal
+characters; catalog, CI, candidate, and release proof must use the default
+clean-worktree resolution.
 An absent input, malformed type, unknown field, duplicate identity, missing
 cross-reference, stale source SHA, stale input digest, or noncanonical ordering
 is a blocking contract error.

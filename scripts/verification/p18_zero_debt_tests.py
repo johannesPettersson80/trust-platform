@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .p18_zero_debt.artifacts import canonical_json_bytes, render_markdown, write_artifacts
 from .p18_zero_debt.contracts import document_closure_digest, validate_bundle
-from .p18_zero_debt.cli import main as cli_main
+from .p18_zero_debt.cli import main as cli_main, resolve_producer_source_sha
 from .p18_zero_debt.orchestrator import PROOF_VALIDATORS, evaluate_bundle
 from .test_catalog_json_schema import validate_json_schema_instance
 
@@ -171,6 +171,19 @@ def good_bundle(root: Path) -> tuple[dict, dict, dict]:
 
 
 class P18ZeroDebtSubstrateTests(unittest.TestCase):
+    def test_producer_source_identity_requires_valid_override_or_clean_git_head(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_sha, failures = resolve_producer_source_sha(root, None)
+            self.assertEqual("unavailable", source_sha)
+            self.assertTrue(any("git HEAD" in failure for failure in failures))
+            source_sha, failures = resolve_producer_source_sha(root, "not-a-sha")
+            self.assertEqual("unavailable", source_sha)
+            self.assertTrue(any("40 lower-case hex" in failure for failure in failures))
+            source_sha, failures = resolve_producer_source_sha(root, SOURCE_SHA)
+            self.assertEqual(SOURCE_SHA, source_sha)
+            self.assertEqual([], failures)
+
     def test_closed_schemas_reject_every_missing_required_and_unknown_field(self) -> None:
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as temporary:
@@ -223,7 +236,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as temporary:
             out = Path(temporary)
-            common = ["--root", str(root), "--expected-source-sha", "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"]
+            common = [
+                "--root",
+                str(root),
+                "--expected-source-sha",
+                "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35",
+                "--producer-source-sha",
+                SOURCE_SHA,
+            ]
             report_exit = cli_main([*common, "--mode", "report", "--out-dir", str(out / "report")])
             strict_exit = cli_main([*common, "--mode", "strict", "--out-dir", str(out / "strict")])
             self.assertEqual(0, report_exit)
@@ -235,6 +255,11 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
             self.assertIn("verification/p18/bootstrap/semantic_chains.json", indexed_paths)
+            self.assertEqual(SOURCE_SHA, index["source_sha"])
+            self.assertEqual(
+                "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35",
+                index["contract_source_sha"],
+            )
 
     def test_artifact_writer_emits_digest_bound_canonical_index(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
