@@ -254,7 +254,7 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertEqual(3777, payload["summary"]["reviewed_nonmapping"])
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
-            self.assertIn("verification/p18/bootstrap/semantic_chains.json", indexed_paths)
+            self.assertIn("verification/p18/burn-down-ledger.json", indexed_paths)
             self.assertEqual(SOURCE_SHA, index["source_sha"])
             self.assertEqual(
                 "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35",

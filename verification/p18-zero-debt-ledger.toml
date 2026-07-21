@@ -1,7 +1,7 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:ac5d5fbe1f0b5da8faa620e3bbd817e8e07da735f2594a11b7f9c58db58e6e0f"
+input_closure_sha256 = "sha256:c0b982411ad902ffd4d6dc91970475d19a0bc1d43bb3f05ac6b7736fe2ddb2b9"
 state = "open"
 last_reviewed = "2026-07-21"
 
@@ -33,9 +33,9 @@ id = "semantic_chains"
 validator_module = "scripts.verification.p18_zero_debt.semantic_chains"
 prerequisites = []
 status = "open"
-denominator = 15229
+denominator = 15274
 numerator = 0
-debt = 15229
+debt = 15274
 stale = 0
 unowned = 0
 skipped = 0
@@ -44,21 +44,21 @@ unrun = 0
 timeouts = 0
 harness_failures = 0
 execution_count = 1
-raw_artifact = "verification/p18/bootstrap/semantic_chains.json"
-raw_sha256 = "sha256:d9ed6a730b394ab87d10bfc210a7476605df07823e2a5ad09c8b695d53dc90e3"
-producer_command = "accepted Phase 17 transition baseline"
+raw_artifact = "verification/p18/burn-down-ledger.json"
+raw_sha256 = "sha256:11a5beda50f2d2903c343da90a2abf14deabdd890940edecb46fd0eb37d17992"
+producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
-validator_command = "P18 substrate bootstrap validation"
+validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+input_digest = "sha256:2a22e1ab3787cbbe4bb1259fe38140532806fc790cc37637e8dd63ce81ecad18"
 
 [[proof_classes]]
 id = "test_mapping"
 validator_module = "scripts.verification.p18_zero_debt.existing_test_mapping"
 prerequisites = ["semantic_chains"]
 status = "open"
-denominator = 4038
-numerator = 261
+denominator = 4040
+numerator = 263
 debt = 3777
 stale = 0
 unowned = 0
@@ -69,12 +69,12 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/bootstrap/test_mapping.json"
-raw_sha256 = "sha256:c0954bf4f13c5a13c282d2cc87c96b0e225f2eca275cdb08dcb3c2c5b4a26506"
-producer_command = "accepted Phase 17 test denominator"
+raw_sha256 = "sha256:9fbdaffdbf835eaca9e5e69aa903ebf64b50f71f1b5506ba987ab9c3b4626491"
+producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
-validator_command = "P18 substrate bootstrap validation"
+validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+input_digest = "sha256:2a22e1ab3787cbbe4bb1259fe38140532806fc790cc37637e8dd63ce81ecad18"
 
 [[proof_classes]]
 id = "assertion_reachability"

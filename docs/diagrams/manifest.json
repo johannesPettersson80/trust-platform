@@ -11,7 +11,7 @@
   "docs/diagrams/architecture/system-architecture.puml": "ac19a9d0475db602cbbbcd7a39c91697852b066317a673b013cbd7c380094ae0",
   "docs/diagrams/architecture/verification-code-spec-coverage.puml": "4bfa68363200b4e5623c9cd70148e2e51f85ddaf04dbd5e72bf45b6f431d26a2",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
-  "docs/diagrams/architecture/verification-p18-zero-debt.puml": "8eb0e62712f104a8049d5dfe4991519ad6be03da53826f66b2ecfdd0913f7178",
+  "docs/diagrams/architecture/verification-p18-zero-debt.puml": "50c9f0b1c91d794e2f27d23cb7456498c28a933fe70e7a7610f8a807fed65862",
   "docs/diagrams/debug/debug-architecture.puml": "b7f12a262caf68aa68666e49aedaac03db9deab7c1a2ba50e30233b54f6a83dc",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
   "docs/diagrams/debug/debug-breakpoint-after-launch-intended.puml": "3ad28b011555187f43da1b5bb4a95f4a2d267e55d77daf1f9411008745d9b527",
