@@ -206,7 +206,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
-content_sha256 = "2750ddfdbf99d43199218b54e0b3276ac6be656b20826021950082cda589907a"
+content_sha256 = "075e15c433583887e2574c02ab8f60dc98cdc694209100629a38f44eebc549a7"
 areas = ["release"]
 authority_levels = ["public_claim"]
 owners = ["release"]
@@ -217,7 +217,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1
