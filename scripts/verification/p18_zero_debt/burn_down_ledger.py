@@ -91,7 +91,7 @@ COMMON_TEST_BLOCKERS = (
 
 
 def canonical_json(payload: Mapping[str, Any]) -> str:
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
 
 
 def build_payload(
