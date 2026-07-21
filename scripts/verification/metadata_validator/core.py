@@ -24,7 +24,6 @@ from .constants import (
     GAP_CLASSES,
     HIGH_RISKS,
     INTENTS,
-    RESOLUTION_STATUSES,
     RISKS,
     ROOT,
     SCHEMA_FILES,
@@ -108,6 +107,7 @@ from ..test_catalog_denominator import (
 from ..test_catalog_intent import validate_catalog_intent
 from .evidence_records import validate_evidence_records
 from .integrity import (
+    SPEC_GAP_RESOLUTION_STATUSES,
     test_counts_as_runnable,
     validate_open_spec_gap_references,
     validate_runnable_test_path,
@@ -583,7 +583,7 @@ class Validator:
                 self.fail(path, f"{record['id']} has unknown gap_class {record.get('gap_class')!r}")
             if record.get("risk") not in RISKS:
                 self.fail(path, f"{record['id']} has unknown risk {record.get('risk')!r}")
-            if record.get("resolution_status") not in RESOLUTION_STATUSES:
+            if record.get("resolution_status") not in SPEC_GAP_RESOLUTION_STATUSES:
                 self.fail(path, f"{record['id']} has unknown resolution_status {record.get('resolution_status')!r}")
             for source_id in record.get("candidate_spec_sources", []):
                 if source_id not in self.spec_sources:

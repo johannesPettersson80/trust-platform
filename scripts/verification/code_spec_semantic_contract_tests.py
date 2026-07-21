@@ -168,9 +168,16 @@ class GapAndInheritanceTests(unittest.TestCase):
             "affected_code_ids": [code.code_id],
         }
         self.assertEqual([], validate([code], [mapping], spec_gaps={"GAP_RUNTIME": open_gap}))
+        backlog = dict(open_gap, resolution_status="registered_backlog")
+        self.assertEqual(
+            [], validate([code], [mapping], spec_gaps={"GAP_RUNTIME": backlog})
+        )
         closed = dict(open_gap, resolution_status="closed")
         failures = validate([code], [mapping], spec_gaps={"GAP_RUNTIME": closed})
-        self.assertTrue(any("requires an open owning gap" in item for item in failures), failures)
+        self.assertTrue(
+            any("requires an unresolved owning gap" in item for item in failures),
+            failures,
+        )
         wrong_owner = dict(open_gap, affected_code_ids=[])
         failures = validate([code], [mapping], spec_gaps={"GAP_RUNTIME": wrong_owner})
         self.assertTrue(any("does not name affected code identity" in item for item in failures), failures)

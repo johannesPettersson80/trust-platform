@@ -10,6 +10,11 @@ from .code_spec_common import DISPOSITIONS, NON_BEHAVIORAL_REASONS, CodeFact
 from .code_spec_risk import owner_ack_is_anchored, validate_risk_acknowledgement
 
 
+CODE_SPEC_GAP_RESOLUTIONS = frozenset(
+    {"open", "registered_backlog", "decision_recorded", "spec_updated", "test_mapped"}
+)
+
+
 BASE_FIELDS = frozenset(
     {
         "schema_version",
@@ -266,13 +271,8 @@ def _validate_disposition(
     elif disposition == "spec_gap":
         gap_id = mapping.get("spec_gap_ref")
         gap = spec_gaps.get(gap_id) if isinstance(gap_id, str) else None
-        if not gap or gap.get("resolution_status") not in {
-            "open",
-            "decision_recorded",
-            "spec_updated",
-            "test_mapped",
-        }:
-            failures.append(f"{code_id}: spec_gap mapping requires an open owning gap")
+        if not gap or gap.get("resolution_status") not in CODE_SPEC_GAP_RESOLUTIONS:
+            failures.append(f"{code_id}: spec_gap mapping requires an unresolved owning gap")
         elif gap.get("area") != fact.area:
             failures.append(f"{code_id}: spec gap area does not match code area")
         elif code_id not in gap.get("affected_code_ids", []):

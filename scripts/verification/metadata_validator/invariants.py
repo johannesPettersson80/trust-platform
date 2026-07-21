@@ -27,7 +27,7 @@ from .oracle_refs import (
     validate_oracle_ref,
     validate_partition_contract,
 )
-from .integrity import OPEN_GAP_RESOLUTIONS
+from .integrity import UNRESOLVED_GAP_RESOLUTIONS
 from .promotion_evidence import validate_invariant_promotion_evidence
 
 Fail = Callable[[Path, str], None]
@@ -124,11 +124,14 @@ def validate_invariants(
                 )
             else:
                 gap = spec_gaps.get(oracle.get("ref"))
-                if not gap or gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS:
+                if (
+                    not gap
+                    or gap.get("resolution_status") not in UNRESOLVED_GAP_RESOLUTIONS
+                ):
                     fail(
                         path,
-                        f"{record['id']} spec_gap oracle.ref must name an open "
-                        "actionable spec gap",
+                        f"{record['id']} spec_gap oracle.ref must name an "
+                        "unresolved spec gap",
                     )
         elif oracle.get("ref") in spec_gaps:
             fail(path, f"{record['id']} non-spec-gap oracle.ref cannot name a spec gap")

@@ -1082,7 +1082,7 @@ affected_code_ids = [
   "CODE_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E",
 ]
 candidate_spec_sources = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -2328,7 +2328,7 @@ affected_code_ids = [
   "CODE_FFDB486AD901872A4518BC06E7DC95736A702C029C46F814E1464D9AF08FE495",
 ]
 candidate_spec_sources = ["SPEC_BYTECODE_FORMAT_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -3851,7 +3851,7 @@ affected_code_ids = [
   "CODE_FF58723571289C5C5E1FFD4C24A437A61E17DBB3D349FE95910DAF6A25FC8D0C",
 ]
 candidate_spec_sources = ["SPEC_IEC_DECISIONS_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -6275,7 +6275,7 @@ affected_code_ids = [
   "CODE_FFCD6ACA8A0D8EC91FF9903F019266D19EBE422474C7E043DF8D89314708DF54",
 ]
 candidate_spec_sources = ["SPEC_WEB_IDE_FULL_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -9598,7 +9598,7 @@ affected_code_ids = [
   "CODE_FFEF5BB14448E5F94027C8E424C1F0D2CBB3652E6E14329C9764AD8B66140D2F",
 ]
 candidate_spec_sources = ["SPEC_LSP_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -10381,7 +10381,7 @@ affected_code_ids = [
   "CODE_FFBFFB8F6BBEF1E38379E0A5BD81FEEA3A47EF1B8DDFFA47BE12250CE686EC0B",
 ]
 candidate_spec_sources = ["SPEC_CONNECTOR_STATUS_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -10752,7 +10752,7 @@ affected_code_ids = [
   "CODE_FF6D34AB63E7BF668967013209DD7877A545C0678B30F4E16979C09941E41286",
 ]
 candidate_spec_sources = ["SPEC_DEVELOPER_WORKFLOWS_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -12317,7 +12317,7 @@ affected_code_ids = [
   "CODE_FFF9084C66D0D7D233FFF83BDC7CA1CC6148B1497082E6CBAFC19937CCE5D0EB",
 ]
 candidate_spec_sources = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -12357,7 +12357,7 @@ affected_code_ids = [
   "CODE_FCC097C9C4D716CF440565F0CB0A444FBD53F2A6AC4BCCB0CD4CC5948D2677D1",
 ]
 candidate_spec_sources = ["SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -14043,7 +14043,7 @@ affected_code_ids = [
   "CODE_FFBB9D3F31D6602E1520C217FB791949ADF57927A911E83D8A052677612EA7AF",
 ]
 candidate_spec_sources = ["SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -14299,7 +14299,7 @@ affected_code_ids = [
   "CODE_FCCC1CCBB463F5C477DF4070E6D1A1A3846818279EB71C6656C2FCE3ABC8F1AD",
 ]
 candidate_spec_sources = ["SPEC_PUBLIC_WORKFLOW_11CE18940EA5_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"
 
@@ -16424,6 +16424,6 @@ affected_code_ids = [
   "CODE_FFFF38B2EA5C7471B11D5C8FF490ADA3FF677F343FF3E90B7BB8C0445192D59C",
 ]
 candidate_spec_sources = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
-resolution_status = "open"
+resolution_status = "registered_backlog"
 closeout_evidence = []
 last_reviewed = "2026-07-21"

@@ -5,11 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from .constants import ROOT
+from .constants import RESOLUTION_STATUSES, ROOT
 
 Fail = Callable[[Path, str], None]
 
 OPEN_GAP_RESOLUTIONS = {"open", "decision_recorded", "spec_updated", "test_mapped"}
+# Registered code-coverage backlog stays unresolved and reference-valid, but it
+# must not area-block every planner request the way an actionable open gap does.
+UNRESOLVED_GAP_RESOLUTIONS = OPEN_GAP_RESOLUTIONS | {"registered_backlog"}
+SPEC_GAP_RESOLUTION_STATUSES = RESOLUTION_STATUSES | {"registered_backlog"}
 RUNNABLE_TEST_STATUSES = {"mapped", "test_written", "implemented", "validated"}
 
 
@@ -28,7 +32,7 @@ def validate_open_spec_gap_references(
     for gap in spec_gaps.values():
         if gap.get("status") != "spec_gap":
             continue
-        if gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS:
+        if gap.get("resolution_status") not in UNRESOLVED_GAP_RESOLUTIONS:
             continue
         if gap["id"] not in referenced:
             fail(

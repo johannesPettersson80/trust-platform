@@ -50,6 +50,7 @@ from .constants import (
 )
 from .case_trace_contract import CASE_PROVENANCE_KINDS
 from .evidence_proof import PROOF_CONTRACT_BINDINGS
+from .integrity import SPEC_GAP_RESOLUTION_STATUSES
 from .spec_sources import (
     COMMON_REQUIRED_FIELDS as SPEC_SOURCE_REQUIRED_FIELDS,
     EXTERNAL_REFERENCE_FIELDS,
@@ -93,7 +94,10 @@ SCHEMA_ENUM_EXPECTATIONS = {
         "contract_kind": CONTRACT_KINDS,
         "proof_level": PROOF_LEVELS,
     },
-    "spec-gap.schema.json": {"gap_class": GAP_CLASSES},
+    "spec-gap.schema.json": {
+        "gap_class": GAP_CLASSES,
+        "resolution_status": SPEC_GAP_RESOLUTION_STATUSES,
+    },
     "spec-source.schema.json": {
         "area": AREAS,
         "status": STATUSES,

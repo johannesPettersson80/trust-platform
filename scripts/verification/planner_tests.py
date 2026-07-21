@@ -37,6 +37,48 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         planner.tests = []
         self.planner = planner
 
+    def test_live_registered_code_backlog_does_not_permanently_block_planner(self) -> None:
+        planner = Planner.__new__(Planner)
+        planner.matrix = tomllib.loads((ROOT / "verification/matrix.toml").read_text())
+        planner.areas = {area["id"]: area for area in planner.matrix["areas"]}
+        planner.intent_requirements = {
+            row["intent"]: row for row in planner.matrix["intent_requirements"]
+        }
+        planner.required_specs = tomllib.loads(
+            (ROOT / "verification/spec-matrix.toml").read_text()
+        )["required_specs"]
+        planner.spec_gap_records = tomllib.loads(
+            (ROOT / "verification/spec-gaps.toml").read_text()
+        )["spec_gaps"]
+        planner.spec_sources = {
+            row["id"]: row
+            for row in tomllib.loads(
+                (ROOT / "verification/spec-sources.toml").read_text()
+            )["spec_sources"]
+        }
+        planner.tests = tomllib.loads(
+            (ROOT / "verification/test-catalog.toml").read_text()
+        )["tests"]
+
+        runtime = planner.plan(
+            "bugfix", ["crates/trust-runtime/src/cycle.rs"], None, None
+        )
+        verification = planner.plan(
+            "bugfix", ["verification/spec-gaps.toml"], None, None
+        )
+        compiler = planner.plan(
+            "bugfix", ["crates/trust-hir/src/lib.rs"], None, None
+        )
+
+        self.assertEqual([], runtime.spec_gaps)
+        self.assertNotEqual("spec_gap", runtime.verdict)
+        self.assertEqual([], verification.spec_gaps)
+        self.assertNotEqual("spec_gap", verification.verdict)
+        self.assertEqual("spec_gap", compiler.verdict)
+        self.assertEqual(
+            ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"], compiler.spec_gaps
+        )
+
     def test_code_spec_report_surfaces_five_distinct_changed_path_outcomes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "code-spec.json"
