@@ -1,6 +1,6 @@
 schema_version = 1
 created_from_commit = "1aacc2094e66cc65019eddea14889f78269a2e05"
 captured_on = "2026-07-21"
-enforcement_mode = "changed"
+enforcement_mode = "full"
 append_policy = "delete_only"
 entries = []

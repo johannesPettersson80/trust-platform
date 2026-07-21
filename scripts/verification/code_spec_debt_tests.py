@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 import tomllib
+from pathlib import Path
 
 from scripts.verification.code_spec_common import CodeFact
 from scripts.verification.code_spec_debt import (
@@ -12,6 +13,9 @@ from scripts.verification.code_spec_debt import (
     validate_delete_only_history,
     render_debt_baseline_toml,
 )
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def fact(code_id: str, body: str = "sha256:" + "2" * 64) -> CodeFact:
@@ -31,6 +35,14 @@ def fact(code_id: str, body: str = "sha256:" + "2" * 64) -> CodeFact:
 
 
 class CodeSpecDebtTests(unittest.TestCase):
+    def test_committed_zero_debt_baseline_enables_full_enforcement(self) -> None:
+        document = tomllib.loads(
+            (ROOT / "verification/code-spec-debt-baseline.toml").read_text()
+        )
+
+        self.assertEqual([], document["entries"])
+        self.assertEqual("full", document["enforcement_mode"])
+
     def test_baseline_partitions_only_unmapped_live_facts(self) -> None:
         mapped = fact("CODE_" + "A" * 64)
         debt = fact("CODE_" + "B" * 64)
