@@ -88,6 +88,19 @@ class CodeSpecDebtTests(unittest.TestCase):
         appended = {**frozen, "entries": [*frozen["entries"], {**frozen["entries"][0], "code_id": "CODE_" + "C" * 64}]}
         self.assertTrue(validate_delete_only_history(appended, frozen))
 
+    def test_empty_baseline_round_trips_with_required_entries_array(self) -> None:
+        document = build_debt_baseline(
+            {},
+            {},
+            created_from_commit="c" * 40,
+            captured_on="2026-07-21",
+        )
+
+        rendered = render_debt_baseline_toml(document)
+
+        self.assertIn("entries = []", rendered)
+        self.assertEqual(document, tomllib.loads(rendered))
+
 
 if __name__ == "__main__":
     unittest.main()

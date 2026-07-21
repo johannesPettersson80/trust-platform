@@ -152,7 +152,10 @@ def render_debt_baseline_toml(document: Mapping[str, Any]) -> str:
         f"enforcement_mode = {json.dumps(document['enforcement_mode'])}",
         f"append_policy = {json.dumps(document['append_policy'])}",
     ]
-    for entry in document.get("entries", []):
+    entries = document.get("entries", [])
+    if not entries:
+        lines.append("entries = []")
+    for entry in entries:
         lines.extend(["", "[[entries]]"])
         for field in (
             "code_id",

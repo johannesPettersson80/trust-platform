@@ -1,0 +1,34 @@
+schema_version = 1
+id = "P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
+title = "Historical supply-chain and platform behavior lacks fact-level specification"
+area = "supply_chain_platform"
+risk = "supply_chain"
+status = "spec_gap"
+owner = "release"
+last_reviewed = "2026-07-21"
+claim = "Every frozen Phase 17 fact in this area must resolve to fact-level expected behavior or remain explicitly attached to its exact open historical code-spec gap."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["verification/code-spec-map.toml", "verification/code-spec-debt-baseline.toml"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = ["SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"]
+missing = [
+  "fact_level_expected_behavior",
+  "cataloged_behavior_tests",
+  "independent_semantic_review",
+]
+
+[spec]
+status = "missing"
+source_refs = ["SPEC_PUBLIC_WORKFLOW_11CE18940EA5_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "gap_open"
+rationale = "The exact live facts are identity-, signature-, body-, owner-, and area-bound, but their remaining behavior contracts have not been independently specified or tested."

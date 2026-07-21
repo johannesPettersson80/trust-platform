@@ -1808,12 +1808,14 @@ expected behavior from implementation text and does not promote product proof.
   `missing_spec` or require an explicit open gap. Close the pilot only after
   every fact in the file has an exact allowed disposition and an independent
   review confirms that no current behavior was used as its own oracle.
-- [ ] `VERIF-P17-007` Produce and review the exhaustive Rust product
+- [x] `VERIF-P17-007` Produce and review the exhaustive Rust product
   denominator. Every live Rust production fact is partitioned exactly once,
   with zero omissions, overlap, invented identities, stale digests, or blanket
   directory/crate dispositions. Report-only historical debt remains visible;
-  no generic `reviewed_nonmapping` category is permitted.
-- [ ] `VERIF-P17-008` Add the TypeScript/JavaScript product scanner and close
+  no generic `reviewed_nonmapping` category is permitted. The exact routing,
+  retained open-gap posture, and per-area counts are recorded in
+  `2026-07-21-p17-historical-debt-routing-review.md`.
+- [x] `VERIF-P17-008` Add the TypeScript/JavaScript product scanner and close
   the VS Code/browser denominator across `editors/vscode/src`,
   `crates/trust-runtime/src/web/ui`, and
   `crates/trust-runtime/web/ide-frontend/src`, with packaging-bound detection of
@@ -1821,14 +1823,18 @@ expected behavior from implementation text and does not promote product proof.
   `allowJs`; inventory functions, methods, command and request registrations,
   webview message handlers, and exported behavior shapes outside test geometry.
   Visible workflows join their existing product contract and UI-acceptance
-  records; static source checks do not substitute for rendered evidence.
-- [ ] `VERIF-P17-009` Add the verification-tooling denominator after product
+  records; static source checks do not substitute for rendered evidence. The
+  exact source census and rendered-browser evidence limitations remain bound
+  in the Phase 17 baseline and browser evidence records.
+- [x] `VERIF-P17-009` Add the verification-tooling denominator after product
   scanners are stable. Inventory behavior-bearing Rust/Python/shell entrypoints
   under `xtask/src`, `scripts`, `scripts/verification`, `.claude/hooks`, and
   `.codex/skills/**/scripts`; join existing gate and fuzz inventories rather
   than duplicating them. Tooling mappings resolve tooling contracts and
   self-tests only and cannot create product proof. Keep explicit, census-bound
-  exclusions for the current declarative Neovim/Zed integration roots.
+  exclusions for the current declarative Neovim/Zed integration roots. The
+  private hook is digest-bound and the final tooling partition is included in
+  `2026-07-21-p17-historical-debt-routing-review.md`.
 - [x] `VERIF-P17-010` Add the changed-code enforcement ratchet to the existing
   planner and strict verification workflow. New or body-changed code fails with
   distinct `missing_spec`, `stale_spec_review`, `spec_gap`, `missing_tests`, or
@@ -1841,13 +1847,15 @@ expected behavior from implementation text and does not promote product proof.
   baseline origin and clean changed-mode proof are recorded in
   `2026-07-21-p17-baseline-freeze.md`; historical debt remains visible and
   full enforcement remains blocked on `VERIF-P17-012`.
-- [ ] `VERIF-P17-011` Add reviewed high-risk source policies for scan-reachable
+- [x] `VERIF-P17-011` Add reviewed high-risk source policies for scan-reachable
   wall clock, randomness, filesystem/environment/network/subprocess/thread
   access, unsafe/FFI, output/safe-state commits, authorization, protocol status
   projection, broad exception handling, and retain/reload/restart transitions.
   A risk signal requires an explicit specification or open gap; it does not
   infer a defect. Allowlist entries are symbol-specific, owner-reviewed,
-  digest-bound, and expiry-capable.
+  digest-bound, and expiry-capable. The complete ledger contains one exact
+  acknowledgement for every mapped risk-bearing fact; historical records stay
+  attached to open same-area gaps and do not claim correctness.
 - [ ] `VERIF-P17-012` Close historical code-to-spec debt and flip full-denominator
   enforcement only after an independent review accepts exact one-to-one
   partitions for every scoped language and the frozen debt baseline is empty.
