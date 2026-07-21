@@ -1,7 +1,7 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:f43292b9d578adb03adc103eb105437acc17632e19aee35b335f81371852e556"
+input_closure_sha256 = "sha256:08f690a0a30a917516499499004e6378b9fa0815a83b20cf427b32e9c59fac15"
 state = "open"
 last_reviewed = "2026-07-21"
 
@@ -45,12 +45,12 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/burn-down-ledger.json"
-raw_sha256 = "sha256:b8a5078049d2c09e4b1a3831c9db86cbd3c0a9713409cfa114a47c0b7cdc741c"
+raw_sha256 = "sha256:6080f8c7fb3c4906871aca6bf7081ce7390b2b96627fba7efc55ca7f98b9205e"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:a7e3d1cf9dddb989abfc29ca7d7e9c3ff9560963740c1f56fb207b4d48f7d352"
+input_digest = "sha256:daae7427cccdce9652e040b759049a8535639c3014a0691e6a160ce735c0b094"
 
 [[proof_classes]]
 id = "test_mapping"
