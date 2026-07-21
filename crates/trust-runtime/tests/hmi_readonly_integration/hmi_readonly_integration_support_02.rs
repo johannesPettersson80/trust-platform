@@ -123,11 +123,7 @@ pub(super) fn build_hmi_script_bundle(js_path: &Path) -> PathBuf {
         bundled.push_str(content.as_str());
         bundled.push('\n');
     }
-    bundled.push_str(
-        fs::read_to_string(js_path)
-            .expect("read hmi.js")
-            .as_str(),
-    );
+    bundled.push_str(fs::read_to_string(js_path).expect("read hmi.js").as_str());
 
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

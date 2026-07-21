@@ -161,11 +161,23 @@ def build_code_spec_live_state(root: Path) -> CodeSpecLiveState:
         not isinstance(target, Mapping) for target in fuzz_targets
     ):
         raise CodeSpecLiveError("fuzz program targets must be an array of tables")
+    fuzz_surfaces = fuzz_document.get("surfaces")
+    if not isinstance(fuzz_surfaces, list) or any(
+        not isinstance(surface, Mapping) for surface in fuzz_surfaces
+    ):
+        raise CodeSpecLiveError("fuzz program surfaces must be an array of tables")
+    area_records = matrix.get("areas")
+    if not isinstance(area_records, list) or any(
+        not isinstance(area, Mapping) for area in area_records
+    ):
+        raise CodeSpecLiveError("verification matrix areas must be an array of tables")
     tooling_join = join_tooling_inventories(
         facts=tooling.facts,
         source_paths=tooling.source_paths,
         gate_records=load_gate_inventory(root),
         fuzz_targets=fuzz_targets,
+        fuzz_surfaces=fuzz_surfaces,
+        area_records=area_records,
     )
     facts = merge_fact_sets(rust.facts, typescript.facts, tooling.facts)
     map_failures = validate_map_document(

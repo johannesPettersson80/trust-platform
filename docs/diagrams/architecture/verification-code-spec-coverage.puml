@@ -9,7 +9,8 @@ package "Authoritative source denominators" {
   [Shipped TypeScript/JavaScript roots] as TsUniverse
   [Verification tooling roots] as ToolUniverse
   [Gate inventory] as GateInventory
-  [Fuzz program] as FuzzInventory
+  [Fuzz targets + direct surface areas] as FuzzInventory
+  [Verification matrix area owners] as AreaOwners
   [private input digest manifest] as PrivateInputs
 }
 
@@ -46,7 +47,7 @@ TsUniverse --> TsExtractor
 ToolUniverse --> ToolExtractor
 PrivateInputs --> ToolExtractor : bind ignored hook bytes
 GateInventory --> ToolExtractor : exact join
-FuzzInventory --> ToolExtractor : exact join
+FuzzInventory --> ToolExtractor : exact path / target join
 RustExtractor --> Facts
 TsExtractor --> Facts
 ToolExtractor --> Facts
@@ -57,6 +58,8 @@ Debt --> Join
 Specs --> FragmentResolver
 FragmentResolver --> Join : exact heading anchors
 VerificationGraph --> Join
+FuzzInventory --> Join : direct surface area
+AreaOwners --> Join : canonical owner for area
 Join --> Report
 Report --> Policy
 Policy --> Gate

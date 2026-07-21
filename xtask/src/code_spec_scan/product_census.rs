@@ -14,13 +14,21 @@ pub fn cross_check_product_census(
     let represented_manifests = metadata_manifests(root, metadata);
     let mut files = Vec::new();
     for relative_root in ["crates", "third_party"] {
-        collect_files(root, &root.join(relative_root), &mut files, &mut diagnostics);
+        collect_files(
+            root,
+            &root.join(relative_root),
+            &mut files,
+            &mut diagnostics,
+        );
     }
     files.sort();
     files.dedup();
     for path in files {
         let Ok(relative) = path.strip_prefix(root) else {
-            diagnostics.push(format!("product census path escapes repository: {}", path.display()));
+            diagnostics.push(format!(
+                "product census path escapes repository: {}",
+                path.display()
+            ));
             continue;
         };
         if !is_product_file(relative) {
@@ -50,7 +58,11 @@ fn metadata_manifests(root: &Path, metadata: &serde_json::Value) -> BTreeSet<Str
         .into_iter()
         .flatten()
         .filter(|package| package.get("source").is_none_or(serde_json::Value::is_null))
-        .filter_map(|package| package.get("manifest_path").and_then(serde_json::Value::as_str))
+        .filter_map(|package| {
+            package
+                .get("manifest_path")
+                .and_then(serde_json::Value::as_str)
+        })
         .filter_map(|manifest| Path::new(manifest).strip_prefix(root).ok())
         .filter(|manifest| is_product_manifest(manifest))
         .map(|manifest| manifest.to_string_lossy().replace('\\', "/"))
@@ -67,7 +79,10 @@ fn collect_files(
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
         Err(error) => {
-            diagnostics.push(format!("product census cannot read {}: {error}", directory.display()));
+            diagnostics.push(format!(
+                "product census cannot read {}: {error}",
+                directory.display()
+            ));
             return;
         }
     };
@@ -87,12 +102,18 @@ fn collect_files(
         let file_type = match entry.file_type() {
             Ok(file_type) => file_type,
             Err(error) => {
-                diagnostics.push(format!("product census cannot stat {}: {error}", path.display()));
+                diagnostics.push(format!(
+                    "product census cannot stat {}: {error}",
+                    path.display()
+                ));
                 continue;
             }
         };
         if file_type.is_symlink() {
-            diagnostics.push(format!("product census rejects symlink {}", relative.display()));
+            diagnostics.push(format!(
+                "product census rejects symlink {}",
+                relative.display()
+            ));
         } else if file_type.is_dir() {
             collect_files(root, &path, files, diagnostics);
         } else if file_type.is_file() {

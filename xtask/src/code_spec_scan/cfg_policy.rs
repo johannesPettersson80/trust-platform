@@ -58,7 +58,11 @@ fn parse_children(list: &syn::MetaList) -> Option<Vec<Meta>> {
 fn combine_all(children: &[Meta]) -> u8 {
     let mut result = CAN_BE_TRUE;
     for child in children {
-        result = combine(result, possible_values_without_test(child), |left, right| left && right);
+        result = combine(
+            result,
+            possible_values_without_test(child),
+            |left, right| left && right,
+        );
     }
     result
 }
@@ -66,7 +70,11 @@ fn combine_all(children: &[Meta]) -> u8 {
 fn combine_any(children: &[Meta]) -> u8 {
     let mut result = CAN_BE_FALSE;
     for child in children {
-        result = combine(result, possible_values_without_test(child), |left, right| left || right);
+        result = combine(
+            result,
+            possible_values_without_test(child),
+            |left, right| left || right,
+        );
     }
     result
 }

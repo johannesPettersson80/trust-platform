@@ -87,7 +87,7 @@ fn scan_items(
                         }
                         let owner = trait_name.as_ref().map_or_else(
                             || self_type.clone(),
-                            |trait_name| format!("<{self_type} as {trait_name}>")
+                            |trait_name| format!("<{self_type} as {trait_name}>"),
                         );
                         let symbol = format!("{owner}::{}", method.sig.ident);
                         let fact_index = push_fact(
@@ -164,7 +164,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_struct.attrs,
-                        format!("{} struct {}", item_struct.vis.to_token_stream(), item_struct.ident),
+                        format!(
+                            "{} struct {}",
+                            item_struct.vis.to_token_stream(),
+                            item_struct.ident
+                        ),
                     ),
                     item_struct.span(),
                 );
@@ -179,7 +183,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_enum.attrs,
-                        format!("{} enum {}", item_enum.vis.to_token_stream(), item_enum.ident),
+                        format!(
+                            "{} enum {}",
+                            item_enum.vis.to_token_stream(),
+                            item_enum.ident
+                        ),
                     ),
                     item_enum.span(),
                 );
@@ -194,7 +202,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_union.attrs,
-                        format!("{} union {}", item_union.vis.to_token_stream(), item_union.ident),
+                        format!(
+                            "{} union {}",
+                            item_union.vis.to_token_stream(),
+                            item_union.ident
+                        ),
                     ),
                     item_union.span(),
                 );
@@ -209,7 +221,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_type.attrs,
-                        format!("{} type {}", item_type.vis.to_token_stream(), item_type.ident),
+                        format!(
+                            "{} type {}",
+                            item_type.vis.to_token_stream(),
+                            item_type.ident
+                        ),
                     ),
                     item_type.span(),
                 );
@@ -224,7 +240,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_const.attrs,
-                        format!("{} const {}", item_const.vis.to_token_stream(), item_const.ident),
+                        format!(
+                            "{} const {}",
+                            item_const.vis.to_token_stream(),
+                            item_const.ident
+                        ),
                     ),
                     item_const.span(),
                 );
@@ -239,7 +259,11 @@ fn scan_items(
                     signature_with_cfg(
                         inherited_cfg,
                         &item_static.attrs,
-                        format!("{} static {}", item_static.vis.to_token_stream(), item_static.ident),
+                        format!(
+                            "{} static {}",
+                            item_static.vis.to_token_stream(),
+                            item_static.ident
+                        ),
                     ),
                     item_static.span(),
                 );
@@ -377,17 +401,10 @@ impl<'ast> Visit<'ast> for ExpressionFacts<'_> {
                 ),
                 "rust_registration",
                 "private",
-                signature_with_predicates(
-                    &self.cfg_predicates,
-                    node.to_token_stream().to_string(),
-                ),
+                signature_with_predicates(&self.cfg_predicates, node.to_token_stream().to_string()),
                 node.span(),
             );
-            set_fact_risks(
-                self.facts,
-                index,
-                vec!["state_mutation".to_string()],
-            );
+            set_fact_risks(self.facts, index, vec!["state_mutation".to_string()]);
         }
         visit::visit_expr_method_call(self, node);
     }
@@ -398,10 +415,7 @@ impl<'ast> Visit<'ast> for ExpressionFacts<'_> {
     }
 
     fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
-        add_risks_for_name(
-            &compact_tokens(&node.mac.path),
-            &mut self.risk_signals,
-        );
+        add_risks_for_name(&compact_tokens(&node.mac.path), &mut self.risk_signals);
         visit::visit_expr_macro(self, node);
     }
 
@@ -416,11 +430,7 @@ impl<'ast> Visit<'ast> for ExpressionFacts<'_> {
             signature_with_predicates(&self.cfg_predicates, "unsafe".to_string()),
             node.span(),
         );
-        set_fact_risks(
-            self.facts,
-            index,
-            vec!["unsafe_or_ffi".to_string()],
-        );
+        set_fact_risks(self.facts, index, vec!["unsafe_or_ffi".to_string()]);
         self.risk_signals.insert("unsafe_or_ffi".to_string());
         visit::visit_expr_unsafe(self, node);
     }
@@ -437,27 +447,78 @@ fn set_fact_risks(facts: &mut [RustFact], index: Option<usize>, risks: Vec<Strin
 fn add_risks_for_name(name: &str, signals: &mut BTreeSet<String>) {
     let normalized = name.to_ascii_lowercase();
     let policies: [(&str, &[&str]); 12] = [
-        ("host_time", &["systemtime::now", "utc::now", "local::now", "current_dt"]),
-        ("randomness", &["random", "thread_rng", "osrng", "getrandom"]),
+        (
+            "host_time",
+            &["systemtime::now", "utc::now", "local::now", "current_dt"],
+        ),
+        (
+            "randomness",
+            &["random", "thread_rng", "osrng", "getrandom"],
+        ),
         (
             "filesystem_or_environment",
-            &["std::fs", "tokio::fs", "std::env", "env::var", "read_to_string", "write_all"],
+            &[
+                "std::fs",
+                "tokio::fs",
+                "std::env",
+                "env::var",
+                "read_to_string",
+                "write_all",
+            ],
         ),
         (
             "network_io",
-            &["tcpstream", "tcplistener", "udpsocket", "reqwest", "ureq", "websocket", "zenoh"],
+            &[
+                "tcpstream",
+                "tcplistener",
+                "udpsocket",
+                "reqwest",
+                "ureq",
+                "websocket",
+                "zenoh",
+            ],
         ),
         (
             "subprocess_or_thread",
-            &["command::new", "process::command", "thread::spawn", "tokio::spawn", "spawn_blocking"],
+            &[
+                "command::new",
+                "process::command",
+                "thread::spawn",
+                "tokio::spawn",
+                "spawn_blocking",
+            ],
         ),
-        ("state_mutation", &["insert", "push", "remove", "clear", "store", "set_state", "update"]),
+        (
+            "state_mutation",
+            &[
+                "insert",
+                "push",
+                "remove",
+                "clear",
+                "store",
+                "set_state",
+                "update",
+            ],
+        ),
         (
             "output_or_safe_state_commit",
-            &["commit_output", "safe_state", "force_output", "release_output", "println", "eprintln"],
+            &[
+                "commit_output",
+                "safe_state",
+                "force_output",
+                "release_output",
+                "println",
+                "eprintln",
+            ],
         ),
-        ("authorization", &["authorize", "authorization", "authz", "permission", "role"]),
-        ("fault_mapping", &["map_err", "fault", "error_response", "panic"]),
+        (
+            "authorization",
+            &["authorize", "authorization", "authz", "permission", "role"],
+        ),
+        (
+            "fault_mapping",
+            &["map_err", "fault", "error_response", "panic"],
+        ),
         (
             "protocol_response_or_status",
             &["response", "status", "health", "protocol_result"],
@@ -487,8 +548,7 @@ fn risk_name_matches(normalized: &str, needle: &str) -> bool {
         .filter(|identifier| !identifier.is_empty())
         .any(|identifier| {
             identifier == needle
-                || (!needle.contains('_')
-                    && identifier.split('_').any(|token| token == needle))
+                || (!needle.contains('_') && identifier.split('_').any(|token| token == needle))
         })
 }
 
@@ -510,7 +570,11 @@ fn item_attrs(item: &Item) -> &[Attribute] {
 }
 
 fn visibility(visibility: &Visibility) -> &'static str {
-    if is_public(visibility) { "public" } else { "private" }
+    if is_public(visibility) {
+        "public"
+    } else {
+        "private"
+    }
 }
 
 fn is_public(visibility: &Visibility) -> bool {
@@ -533,7 +597,11 @@ fn qualified_self_type(module: &str, self_type: &Type) -> String {
     let compact = compact_tokens(self_type);
     match self_type {
         Type::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() => {
-            let first = path.path.segments.first().map(|segment| segment.ident.to_string());
+            let first = path
+                .path
+                .segments
+                .first()
+                .map(|segment| segment.ident.to_string());
             if matches!(first.as_deref(), Some("crate" | "self" | "super")) {
                 compact
             } else {
@@ -548,20 +616,18 @@ fn normalize_signature(signature: &str) -> String {
     signature.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn signature_with_cfg(
-    inherited: &[String],
-    attributes: &[Attribute],
-    signature: String,
-) -> String {
+fn signature_with_cfg(inherited: &[String], attributes: &[Attribute], signature: String) -> String {
     signature_with_predicates(&merged_cfg_predicates(inherited, attributes), signature)
 }
 
 fn merged_cfg_predicates(inherited: &[String], attributes: &[Attribute]) -> Vec<String> {
     let mut predicates = inherited.to_vec();
-    predicates.extend(attributes
-        .iter()
-        .filter(|attribute| attribute.path().is_ident("cfg"))
-        .map(|attribute| compact_tokens(&attribute.meta)));
+    predicates.extend(
+        attributes
+            .iter()
+            .filter(|attribute| attribute.path().is_ident("cfg"))
+            .map(|attribute| compact_tokens(&attribute.meta)),
+    );
     predicates.sort();
     predicates.dedup();
     predicates

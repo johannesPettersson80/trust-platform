@@ -62,7 +62,11 @@ fn cargo_universe_includes_product_custom_build_and_example_targets_only() {
     });
 
     let universe = discover_cargo_targets(&root, &metadata);
-    assert!(universe.diagnostics.is_empty(), "{:?}", universe.diagnostics);
+    assert!(
+        universe.diagnostics.is_empty(),
+        "{:?}",
+        universe.diagnostics
+    );
     let paths = universe
         .targets
         .iter()
@@ -91,9 +95,21 @@ fn rust_universe_joins_cargo_targets_module_graphs_and_extracted_facts() {
     let root = fixture_root("rust-universe");
     let package_root = root.join("crates/fixture");
     fs::create_dir_all(package_root.join("src")).unwrap();
-    fs::write(package_root.join("Cargo.toml"), "[package]\nname='fixture'\nversion='0.0.0'\n").unwrap();
-    fs::write(package_root.join("src/lib.rs"), "mod nested;\npub fn root_fn() {}\n").unwrap();
-    fs::write(package_root.join("src/nested.rs"), "pub fn nested_fn() {}\n").unwrap();
+    fs::write(
+        package_root.join("Cargo.toml"),
+        "[package]\nname='fixture'\nversion='0.0.0'\n",
+    )
+    .unwrap();
+    fs::write(
+        package_root.join("src/lib.rs"),
+        "mod nested;\npub fn root_fn() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        package_root.join("src/nested.rs"),
+        "pub fn nested_fn() {}\n",
+    )
+    .unwrap();
     let metadata = serde_json::json!({
         "packages": [{
             "name": "fixture",
@@ -127,13 +143,21 @@ fn rust_universe_reports_unrepresented_product_manifests_sources_and_build_scrip
     let root = fixture_root("rust-census");
     let represented = root.join("crates/represented");
     fs::create_dir_all(represented.join("src")).unwrap();
-    fs::write(represented.join("Cargo.toml"), "[package]\nname='represented'\nversion='0.0.0'\n").unwrap();
+    fs::write(
+        represented.join("Cargo.toml"),
+        "[package]\nname='represented'\nversion='0.0.0'\n",
+    )
+    .unwrap();
     fs::write(represented.join("src/lib.rs"), "pub fn live() {}\n").unwrap();
     fs::write(represented.join("src/orphan.rs"), "pub fn orphan() {}\n").unwrap();
     fs::write(represented.join("build.rs"), "fn main() {}\n").unwrap();
     let missing = root.join("crates/missing");
     fs::create_dir_all(missing.join("src")).unwrap();
-    fs::write(missing.join("Cargo.toml"), "[package]\nname='missing'\nversion='0.0.0'\n").unwrap();
+    fs::write(
+        missing.join("Cargo.toml"),
+        "[package]\nname='missing'\nversion='0.0.0'\n",
+    )
+    .unwrap();
     fs::write(missing.join("src/lib.rs"), "pub fn absent() {}\n").unwrap();
     let metadata = serde_json::json!({
         "packages": [{
@@ -156,11 +180,14 @@ fn rust_universe_reports_unrepresented_product_manifests_sources_and_build_scrip
     assert!(scan
         .diagnostics
         .iter()
-        .any(|item| item.contains("unrepresented product Rust source crates/represented/src/orphan.rs")));
-    assert!(scan
-        .diagnostics
-        .iter()
-        .any(|item| item.contains("unrepresented product Rust source crates/represented/build.rs")));
+        .any(|item| item
+            .contains("unrepresented product Rust source crates/represented/src/orphan.rs")));
+    assert!(
+        scan.diagnostics
+            .iter()
+            .any(|item| item
+                .contains("unrepresented product Rust source crates/represented/build.rs"))
+    );
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -224,12 +251,18 @@ fn unresolved_modules_and_dynamic_includes_are_blocking_diagnostics() {
 
     let graph = scan_module_graph(&root, &root.join("src/lib.rs"), "fixture").unwrap();
     assert!(
-        graph.diagnostics.iter().any(|item| item.contains("unresolved module fixture::missing")),
+        graph
+            .diagnostics
+            .iter()
+            .any(|item| item.contains("unresolved module fixture::missing")),
         "{:?}",
         graph.diagnostics
     );
     assert!(
-        graph.diagnostics.iter().any(|item| item.contains("unsupported include! expression")),
+        graph
+            .diagnostics
+            .iter()
+            .any(|item| item.contains("unsupported include! expression")),
         "{:?}",
         graph.diagnostics
     );
@@ -249,7 +282,9 @@ fn parses_closed_rust_extract_cli_arguments() {
     assert_eq!("trust_runtime::stdlib::time", parsed.module);
 
     let error = parse_rust_extract_args(&["--unknown".to_string()]).unwrap_err();
-    assert!(error.to_string().contains("unknown code-spec-rust argument"));
+    assert!(error
+        .to_string()
+        .contains("unknown code-spec-rust argument"));
 }
 
 #[test]
@@ -279,9 +314,9 @@ pub fn register(lib: &mut Lib) {
     assert!(symbols.contains(&("stdlib::time::Clock::now", "rust_method")));
     assert!(symbols.contains(&("stdlib::time::Clock", "rust_public_type")));
     assert!(symbols.contains(&("stdlib::time::TICKS", "rust_public_constant")));
-    assert!(symbols.iter().any(|(symbol, kind)| {
-        *kind == "rust_registration" && symbol.contains("CURRENT_DT")
-    }));
+    assert!(symbols
+        .iter()
+        .any(|(symbol, kind)| { *kind == "rust_registration" && symbol.contains("CURRENT_DT") }));
 }
 
 #[test]
@@ -328,7 +363,10 @@ fn feature_or_test() {}
         .iter()
         .find(|fact| fact.qualified_symbol == "example::live")
         .unwrap();
-    assert_eq!("fn live() { work(); }", &source[fact.body_start..fact.body_end]);
+    assert_eq!(
+        "fn live() { work(); }",
+        &source[fact.body_start..fact.body_end]
+    );
     assert_eq!(2, fact.line);
     assert!(scan
         .facts
@@ -359,7 +397,10 @@ mod second {
         .filter(|fact| fact.item_kind == "rust_method")
         .map(|fact| fact.qualified_symbol.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(vec!["example::first::Clock::now", "example::second::Clock::now"], methods);
+    assert_eq!(
+        vec!["example::first::Clock::now", "example::second::Clock::now"],
+        methods
+    );
 }
 
 #[test]
@@ -388,7 +429,9 @@ mod imp {
         .collect::<Vec<_>>();
     assert_eq!(2, variants.len());
     assert_ne!(variants[0].signature, variants[1].signature);
-    assert!(variants.iter().any(|fact| fact.signature.contains("cfg(windows)")));
+    assert!(variants
+        .iter()
+        .any(|fact| fact.signature.contains("cfg(windows)")));
     assert!(variants
         .iter()
         .any(|fact| fact.signature.contains("cfg(not(windows))")));
@@ -399,7 +442,9 @@ mod imp {
         .collect::<Vec<_>>();
     assert_eq!(2, methods.len());
     assert_ne!(methods[0].signature, methods[1].signature);
-    assert!(methods.iter().any(|fact| fact.signature.contains("cfg(unix)")));
+    assert!(methods
+        .iter()
+        .any(|fact| fact.signature.contains("cfg(unix)")));
     assert!(methods
         .iter()
         .any(|fact| fact.signature.contains("cfg(not(unix))")));

@@ -113,7 +113,9 @@ fn add_source(
     let extracted = match extract_rust_source(module, &source) {
         Ok(extracted) => extracted,
         Err(error) => {
-            diagnostics.push(format!("unsupported Rust tooling syntax in {path}: {error}"));
+            diagnostics.push(format!(
+                "unsupported Rust tooling syntax in {path}: {error}"
+            ));
             return;
         }
     };

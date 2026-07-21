@@ -181,5 +181,6 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   its own module, and the planner expands only actionable gaps rather than the
   exact `registered_backlog` fact ledger. Evidence:
   `verification-code-spec-coverage.puml`, focused
-  scanner/join/planner/gate tests, rendered diagram drift proof, and the final
-  Phase 17 gate milestone.
+  scanner/join/planner/gate tests, authoritative fuzz target-to-direct-surface
+  area and canonical-owner join tests, rendered diagram drift proof, and the
+  final Phase 17 gate milestone.

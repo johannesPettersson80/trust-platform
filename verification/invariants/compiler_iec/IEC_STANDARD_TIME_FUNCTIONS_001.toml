@@ -19,7 +19,6 @@ evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"]
 missing = [
   "current_dt_host_clock_contract",
-  "exhaustive_ltime_and_ldate_runtime_partitions",
   "overflow_and_invalid_component_boundaries",
 ]
 
@@ -32,33 +31,33 @@ kind = "trust_contract"
 ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
 
 [[behavior]]
-partition = { equals = "REPRESENTATIVE_TIME_ARITHMETIC" }
+partition = { equals = "REGISTERED_TIME_ARITHMETIC" }
 case_family = "happy_path"
 oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#time-arithmetic"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "The direct StandardLibrary test locks representative ADD_TIME and SUB_DATE_DATE result values and result families."
+rationale = "The direct StandardLibrary test calls every registered short- and long-family time arithmetic and scaling function, locking exact values, result families, and registry dispatch bindings."
 
 [[behavior]]
-partition = { equals = "REPRESENTATIVE_COMPONENT_CONCATENATION" }
+partition = { equals = "REGISTERED_COMPONENT_CONCATENATION" }
 case_family = "happy_path"
 oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-time-component-functions"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "The direct StandardLibrary test locks DATE/TOD, DATE, TOD, and DT component composition values."
+rationale = "The direct StandardLibrary test calls every registered short- and long-family component constructor plus DAY_OF_WEEK, locking exact values, result families, and registry dispatch bindings."
 
 [[behavior]]
-partition = { equals = "REPRESENTATIVE_COMPONENT_SPLIT" }
+partition = { equals = "REGISTERED_COMPONENT_SPLIT" }
 case_family = "happy_path"
 oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#date-time-component-functions"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "The executed-ST harness test locks SPLIT_DATE, SPLIT_TOD, and SPLIT_DT component outputs."
+rationale = "The executed-ST harness test locks SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, and SPLIT_LDT component outputs."
 
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Two cataloged tests cover representative direct-dispatch and executed-ST date/time paths."
+rationale = "Two cataloged tests cover every registered non-clock direct-dispatch path and every executed-ST split family for the accepted happy-path partition."
 
 [[coverage.cells]]
 dimension = "boundary_low"

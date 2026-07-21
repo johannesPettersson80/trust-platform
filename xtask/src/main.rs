@@ -8,8 +8,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::Serialize;
 use serde_json::json;
 
-mod full_map;
 mod code_spec_scan;
+mod full_map;
 mod software_map;
 
 use code_spec_scan::{run_rust_extract, run_rust_tooling, run_rust_universe};

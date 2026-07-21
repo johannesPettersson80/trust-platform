@@ -20,9 +20,9 @@ pub fn scan_module_graph(root: &Path, source_root: &Path, module: &str) -> Resul
         diagnostics: Vec::new(),
     };
     scanner.scan_file(source_root, module, None, false);
-    scanner.sources.sort_by(|left, right| {
-        (&left.path, &left.module).cmp(&(&right.path, &right.module))
-    });
+    scanner
+        .sources
+        .sort_by(|left, right| (&left.path, &left.module).cmp(&(&right.path, &right.module)));
     scanner.diagnostics.sort();
     scanner.diagnostics.dedup();
     let production_paths = scanner
@@ -149,13 +149,7 @@ impl ModuleScanner<'_> {
                     }
                 }
                 Item::Macro(item_macro) if item_macro.mac.path.is_ident("include") => {
-                    self.scan_include(
-                        current_file,
-                        module_dir,
-                        module,
-                        item_macro,
-                        item_test_only,
-                    );
+                    self.scan_include(current_file, module_dir, module, item_macro, item_test_only);
                 }
                 _ => {}
             }

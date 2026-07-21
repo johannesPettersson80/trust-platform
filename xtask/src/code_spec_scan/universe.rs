@@ -14,11 +14,16 @@ pub fn scan_rust_universe(root: &Path, metadata: &serde_json::Value) -> RustUniv
     let mut test_only_sources = std::collections::BTreeSet::new();
 
     for target in &cargo.targets {
-        let binding = format!("{}:{}:{}", target.package, target.target, target.target_kind);
+        let binding = format!(
+            "{}:{}:{}",
+            target.package, target.target, target.target_kind
+        );
         let graph = match scan_module_graph(root, &root.join(&target.path), &target.module) {
             Ok(graph) => graph,
             Err(error) => {
-                diagnostics.push(format!("cargo target {binding} module scan failed: {error}"));
+                diagnostics.push(format!(
+                    "cargo target {binding} module scan failed: {error}"
+                ));
                 continue;
             }
         };
@@ -85,10 +90,7 @@ pub fn scan_rust_universe(root: &Path, metadata: &serde_json::Value) -> RustUniv
     if !sources.is_empty() && sources.values().all(|source| source.facts.is_empty()) {
         diagnostics.push("Rust parser returned zero facts for every product source".to_string());
     }
-    let represented_sources = sources
-        .keys()
-        .map(|(path, _module)| path.clone())
-        .collect();
+    let represented_sources = sources.keys().map(|(path, _module)| path.clone()).collect();
     diagnostics.extend(cross_check_product_census(
         root,
         metadata,

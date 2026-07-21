@@ -2,14 +2,18 @@ use std::path::{Component, Path};
 
 use super::model::{CargoTarget, CargoUniverse};
 
-const LIBRARY_TARGET_KINDS: [&str; 6] = ["lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"];
+const LIBRARY_TARGET_KINDS: [&str; 6] =
+    ["lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"];
 
 pub fn discover_cargo_targets(root: &Path, metadata: &serde_json::Value) -> CargoUniverse {
     let mut universe = CargoUniverse {
         targets: Vec::new(),
         diagnostics: Vec::new(),
     };
-    let Some(packages) = metadata.get("packages").and_then(serde_json::Value::as_array) else {
+    let Some(packages) = metadata
+        .get("packages")
+        .and_then(serde_json::Value::as_array)
+    else {
         universe
             .diagnostics
             .push("cargo metadata did not contain packages".to_string());
@@ -58,12 +62,13 @@ pub fn discover_cargo_targets(root: &Path, metadata: &serde_json::Value) -> Carg
                 continue;
             };
             let Some(target_name) = target.get("name").and_then(serde_json::Value::as_str) else {
-                universe
-                    .diagnostics
-                    .push(format!("cargo package {package_name} has a target without a name"));
+                universe.diagnostics.push(format!(
+                    "cargo package {package_name} has a target without a name"
+                ));
                 continue;
             };
-            let Some(source_path) = target.get("src_path").and_then(serde_json::Value::as_str) else {
+            let Some(source_path) = target.get("src_path").and_then(serde_json::Value::as_str)
+            else {
                 universe.diagnostics.push(format!(
                     "cargo target {package_name}/{target_name} has no src_path"
                 ));

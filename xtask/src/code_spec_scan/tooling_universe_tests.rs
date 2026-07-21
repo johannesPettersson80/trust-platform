@@ -1,7 +1,7 @@
 use std::fs;
 
-use super::tooling_universe::scan_tooling_rust_universe;
 use super::tests::fixture_root;
+use super::tooling_universe::scan_tooling_rust_universe;
 
 #[test]
 fn tooling_universe_scans_xtask_graph_and_fuzz_targets_but_not_cfg_test_modules() {

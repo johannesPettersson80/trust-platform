@@ -19,9 +19,9 @@ mod universe;
 pub use cargo_universe::discover_cargo_targets;
 pub use model::{RustFact, RustScan};
 pub use module_graph::scan_module_graph;
-pub use universe::scan_rust_universe;
 pub use rust_extract::extract_rust_source;
 pub use tooling_universe::scan_tooling_rust_universe;
+pub use universe::scan_rust_universe;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RustExtractArgs {

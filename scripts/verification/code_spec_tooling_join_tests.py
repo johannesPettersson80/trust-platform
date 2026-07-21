@@ -8,7 +8,13 @@ from scripts.verification.code_spec_common import CodeFact
 from scripts.verification.code_spec_tooling_join import join_tooling_inventories
 
 
-def fact(code_id: str, path: str) -> CodeFact:
+def fact(
+    code_id: str,
+    path: str,
+    *,
+    owner: str = "verification",
+    area: str = "verification",
+) -> CodeFact:
     return CodeFact(
         code_id=code_id,
         source_kind="python" if path.endswith(".py") else "rust",
@@ -18,8 +24,8 @@ def fact(code_id: str, path: str) -> CodeFact:
         signature="entrypoint",
         signature_digest="sha256:" + "1" * 64,
         body_digest="sha256:" + "2" * 64,
-        owner="verification",
-        area="verification",
+        owner=owner,
+        area=area,
     )
 
 
@@ -42,7 +48,16 @@ class ToolingInventoryJoinTests(unittest.TestCase):
                     "id": "FUZZ_TARGET_SYNTAX_PARSE",
                     "target_kind": "cargo_fuzz",
                     "path": fuzz.path,
+                    "surface_associations": [
+                        {"surface_id": "st_lexer_parser", "strength": "direct"}
+                    ],
                 }
+            ],
+            fuzz_surfaces=[
+                {"id": "st_lexer_parser", "area": "verification"}
+            ],
+            area_records=[
+                {"id": "verification", "owner": "verification"}
             ],
         )
 
@@ -63,10 +78,50 @@ class ToolingInventoryJoinTests(unittest.TestCase):
                 }
             },
             fuzz_targets=[],
+            fuzz_surfaces=[],
+            area_records=[],
         )
 
         self.assertTrue(any("unregistered cargo-fuzz source" in item for item in result.failures))
         self.assertTrue(any("gate inventory path has no tooling fact" in item for item in result.failures))
+
+    def test_cargo_fuzz_fact_must_match_authoritative_surface_area_and_owner(self) -> None:
+        fuzz = fact(
+            "CODE_" + "C" * 64,
+            "fuzz/fuzz_targets/lsp_incremental.rs",
+            owner="language",
+            area="compiler_iec",
+        )
+
+        result = join_tooling_inventories(
+            facts={fuzz.code_id: fuzz},
+            source_paths=(fuzz.path,),
+            gate_records={},
+            fuzz_targets=[
+                {
+                    "id": "FUZZ_TARGET_LSP_INCREMENTAL",
+                    "target_kind": "cargo_fuzz",
+                    "path": fuzz.path,
+                    "surface_associations": [
+                        {"surface_id": "lsp_incremental_edits", "strength": "direct"}
+                    ],
+                }
+            ],
+            fuzz_surfaces=[
+                {"id": "lsp_incremental_edits", "area": "editor_safety"}
+            ],
+            area_records=[
+                {"id": "compiler_iec", "owner": "language"},
+                {"id": "editor_safety", "owner": "editor"},
+            ],
+        )
+
+        self.assertTrue(
+            any("authoritative area editor_safety" in item for item in result.failures)
+        )
+        self.assertTrue(
+            any("authoritative owner editor" in item for item in result.failures)
+        )
 
 
 if __name__ == "__main__":
