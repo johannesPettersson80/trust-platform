@@ -3,9 +3,9 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-001`. The Phase 17 focused transition checks and stop
-gates are closed by the clean remote evidence in
-`2026-07-21-p17-to-p18-transition.md`.
+Current row: `VERIF-P18-002`. The Phase 18 substrate is accepted only as a
+machine-readable control plane; all reported semantic, mapping, execution, and
+adequacy populations remain debt.
 
 ## Objective
 
@@ -186,11 +186,22 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   resolved, and the review explicitly authorized the `P17-012` transition and
   `P18-001` as the next Phase 18 row after that transition. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-contract-r3-review.md`.
-- [ ] `VERIF-P18-001` Implement the canonical schemas, ledgers, claim matrix,
+- [x] `VERIF-P18-001` Implement the canonical schemas, ledgers, claim matrix,
   thin CLI, separate producer/validator modules, canonical artifact indexes,
   and negative fixtures defined above. Known-bad fixtures must fail for every
   missing schema field, stale digest, absent raw artifact, weakened budget,
   skipped producer, zero-test execution, and disabled validator catcher.
+  Closed on clean detached `trust-builder` producer commit
+  `e23e113d6025bdf2767534e77e70d8fc57f46443`: 7/7 focused contract/catcher
+  tests, 882 metadata records, the 270-to-4,039 test-catalog join, diagram
+  drift, and full code-spec accounting over 15,258 facts passed. The canonical
+  report and 20-row artifact index bind the independent frozen contract SHA,
+  exact clean producer SHA, normalized input closure, and raw artifact
+  digests. Report mode remains report-only and strict mode remains open with
+  15,138 `spec_gap`, 15,135 `registered_backlog`, 3,777
+  `reviewed_nonmapping`, 23 ignored/skipped/filtered/unrun, and 10 unmeasured
+  proof-class facts. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate.md`.
 - [ ] `VERIF-P18-002` Replace all eleven area-wide
   `SPEC_GAP_P17_HISTORICAL_CODE_*` populations with a deterministic fact-level
   semantic burn-down ledger. Group facts only when one reviewed requirement

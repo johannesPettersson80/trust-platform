@@ -1910,7 +1910,9 @@ machine-readable substrate, proof budgets, dependency/reopen rules, rows
 The commit-bound R3 review accepted `VERIF-P18-000` at exact commit
 `7c08f5a8fd31fb2f4c770d316656f0b78ff62673`, and the clean remote transition
 proof closed `VERIF-P17-012` plus the Phase 17 stop gates at `a74efe09`.
-Current pointer: `VERIF-P18-001`, the first executable Phase 18 row.
+The clean remote substrate proof closed `VERIF-P18-001` at exact producer
+commit `e23e113d`; current pointer: `VERIF-P18-002`, the deterministic
+fact-level burn-down ledger.
 
 Phase 17 is accepted only as the denominator and fail-closed enforcement
 baseline. Its broad milestone is deferred into the single final Phase 18
