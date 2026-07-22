@@ -326,8 +326,8 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertEqual(1, strict_exit)
             payload = json.loads((out / "strict/p18-zero-debt.json").read_text())
             self.assertEqual("open_debt", payload["status"])
-            self.assertEqual(15132, payload["summary"]["spec_gap"])
-            self.assertEqual(3771, payload["summary"]["reviewed_nonmapping"])
+            self.assertEqual(15131, payload["summary"]["spec_gap"])
+            self.assertEqual(3769, payload["summary"]["reviewed_nonmapping"])
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
             self.assertIn("verification/p18/burn-down-ledger.json", indexed_paths)
@@ -562,6 +562,7 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
         records = build_open_records(root)
         self.assertEqual(
             [
+                "ASSERTION_REACHABILITY_FAULT_POLICY_DECISION_001",
                 "ASSERTION_REACHABILITY_FAULT_STATE_CLEAR_001",
                 "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
                 "ASSERTION_REACHABILITY_RETAIN_SNAPSHOT_INSERT_001",
@@ -573,9 +574,21 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(279, len(records))
+        self.assertEqual(282, len(records))
         by_test = {record["test_id"]: record for record in records}
         expected_bindings = {
+            "TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001": (
+                "CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8",
+                "RT_FAULT_POLICY_DECISION_001",
+            ),
+            "TEST_RUNTIME_FAULT_POLICY_DECISION_HOST_001": (
+                "CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8",
+                "RT_FAULT_POLICY_DECISION_001",
+            ),
+            "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001": (
+                "CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8",
+                "RT_FAULT_POLICY_DECISION_001",
+            ),
             "TEST_RUNTIME_FAULT_STATE_CLEAR_001": (
                 "CODE_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0",
                 "RT_FAULT_STATE_CLEAR_001",
