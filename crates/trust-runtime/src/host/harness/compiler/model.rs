@@ -27,6 +27,7 @@ pub(crate) struct ProgramVars {
 }
 
 pub(crate) struct ConfigModel {
+    pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
     pub(crate) programs: Vec<ProgramInstanceConfig>,

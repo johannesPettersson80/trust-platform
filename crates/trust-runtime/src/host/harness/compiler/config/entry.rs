@@ -23,6 +23,7 @@ pub(crate) fn lower_configuration(
     let mut programs = Vec::new();
     let mut access = Vec::new();
     let mut config_inits = Vec::new();
+    let mut resource_name = None;
 
     for child in config.children() {
         match child.kind() {
@@ -39,6 +40,12 @@ pub(crate) fn lower_configuration(
             }
             SyntaxKind::Resource => {
                 let resource = child;
+                if resource_name.is_none() {
+                    resource_name = resource
+                        .children()
+                        .find(|node| node.kind() == SyntaxKind::Name)
+                        .map(|node| SmolStr::new(node_text(&node)));
+                }
                 for res_child in resource.children() {
                     match res_child.kind() {
                         SyntaxKind::VarBlock => {
@@ -67,6 +74,7 @@ pub(crate) fn lower_configuration(
     }
 
     Ok(Some(ConfigModel {
+        resource_name,
         globals,
         tasks,
         programs,

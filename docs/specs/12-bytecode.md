@@ -504,6 +504,12 @@ struct TaskEntry {
 }
 ```
 
+`ResourceEntry.name_idx` resolves through `STRING_TABLE` to the exact IEC
+`RESOURCE` identifier represented by that entry. Newly encoded bytecode must
+not substitute a generic placeholder when the source declares a resource. A
+source without a `RESOURCE` declaration uses the synthetic name `RESOURCE` for
+the runtime's single implicit execution resource.
+
 #### 6.8 IO_MAP (0x0008)
 
 Direct I/O bindings between the process image and program variables.

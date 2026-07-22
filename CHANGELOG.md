@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: newly encoded bytecode now preserves the declared IEC resource
+  identity, and named bytecode application rejects an unknown resource instead
+  of silently falling back to a different primary resource while retaining the
+  single-resource legacy-placeholder compatibility path.
 - trust-runtime: guided project setup now rebuilds runtime configuration,
   generated ST configuration, and bytecode coherently; wizard source discovery
   treats paths literally and includes project dependencies; generated resource

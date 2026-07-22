@@ -28,10 +28,16 @@ impl Runtime {
         let resource = match resource_name {
             Some(name) => metadata
                 .resource(name)
-                .or_else(|| metadata.primary_resource()),
-            None => metadata.primary_resource(),
-        }
-        .ok_or_else(|| error::RuntimeError::InvalidBytecodeMetadata("resource".into()))?;
+                .or_else(|| legacy_placeholder_resource(metadata))
+                .ok_or_else(|| {
+                    error::RuntimeError::InvalidBytecodeMetadata(
+                        format!("resource '{name}'").into(),
+                    )
+                })?,
+            None => metadata
+                .primary_resource()
+                .ok_or_else(|| error::RuntimeError::InvalidBytecodeMetadata("resource".into()))?,
+        };
         self.apply_resource_metadata(resource)?;
         self.vm_module = None;
         self.vm_local_init_plan_cache.invalidate_all();
@@ -88,6 +94,7 @@ impl Runtime {
         for task in &resource.tasks {
             self.register_task(task.clone());
         }
+        self.resource_name = resource.name.clone();
         let _ = self.ensure_background_thread_id();
         Ok(())
     }
@@ -121,4 +128,12 @@ impl Runtime {
         }
         Ok(())
     }
+}
+
+fn legacy_placeholder_resource(
+    metadata: &crate::bytecode::BytecodeMetadata,
+) -> Option<&crate::bytecode::ResourceMetadata> {
+    let resource = metadata.resources.first()?;
+    (metadata.resources.len() == 1 && resource.name.eq_ignore_ascii_case("RESOURCE"))
+        .then_some(resource)
 }

@@ -15,6 +15,7 @@ title truST Runtime: Bytecode, Scheduler, and Simulation Engine
 package "Runtime Core" as runtimeCore #LightGreen {
 
     class "Runtime" as runtime <<runtime/core.rs:22-44>> {
+        resource_name: SmolStr
         execution_backend: ExecutionBackend
         profile: DateTimeProfile
         storage: VariableStorage
@@ -53,10 +54,16 @@ package "Runtime Core" as runtimeCore #LightGreen {
     }
 
     component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
+    component "harness::lower_configuration\nRESOURCE identity lowering" as resourceLowering
+    component "bytecode::encoder::RESOURCE_META\nexact active resource identity" as resourceEncoder
+    component "runtime::bytecode\nexact named selection + one-entry\nlegacy placeholder compatibility" as resourceSelection
     component "harness/initializer.rs\n(default + aggregate materialization)" as initializerService
     component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
     runtime ..> runtimeOnlineChange : hot-reload contract owner
+    resourceLowering --> runtime : set_resource_name()
+    runtime --> resourceEncoder : resource_name()
+    resourceSelection --> runtime : apply selected identity only after validation
     runtime ..> initializerService : startup/default materialization
     runtime --> runtimeInitCatalog : owns lowered catalog
     hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults

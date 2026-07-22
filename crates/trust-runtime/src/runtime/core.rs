@@ -36,6 +36,7 @@ use super::watchdog_subsystem::WatchdogSubsystem;
 
 /// Minimal runtime entry point (extended later).
 pub struct Runtime {
+    pub(super) resource_name: SmolStr,
     pub(super) execution_backend: ExecutionBackend,
     pub(super) vm_module: Option<Arc<super::vm::VmModule>>,
     pub(super) profile: DateTimeProfile,
@@ -84,6 +85,7 @@ pub struct Runtime {
 impl std::fmt::Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Runtime")
+            .field("resource_name", &self.resource_name)
             .field("execution_backend", &self.execution_backend)
             .field("vm_module_loaded", &self.vm_module.is_some())
             .field("profile", &self.profile)

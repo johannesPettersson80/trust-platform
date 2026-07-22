@@ -640,6 +640,7 @@ mod tests {
         let resource = metadata
             .primary_resource()
             .expect("setup bytecode resource metadata");
+        assert_eq!(resource.name, "setup_web_plc");
         assert_eq!(resource.tasks.len(), 1);
         assert_eq!(resource.tasks[0].interval.as_millis(), 25);
         let _ = std::fs::remove_dir_all(root);

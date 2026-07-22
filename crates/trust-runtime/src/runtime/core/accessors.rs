@@ -8,6 +8,14 @@ type InstanceInitContext<'a> = (
 );
 
 impl Runtime {
+    pub(crate) fn resource_name(&self) -> &SmolStr {
+        &self.resource_name
+    }
+
+    pub(crate) fn set_resource_name(&mut self, resource_name: SmolStr) {
+        self.resource_name = resource_name;
+    }
+
     /// Mutable access to variable storage (temporary API).
     pub fn storage_mut(&mut self) -> &mut VariableStorage {
         &mut self.storage

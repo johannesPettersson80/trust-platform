@@ -784,6 +784,13 @@ needed by the change before replacing live execution state:
 - read, decode, canonicalize, and validate the retained snapshot required by
   the warm-reload policy.
 
+When a caller names a bytecode resource, selection is case-insensitive but
+must resolve that exact resource; an unknown name is an error and must not
+silently select the primary resource. For compatibility with bytecode emitted
+before resource identities were preserved, a module containing exactly one
+resource named by the synthetic legacy placeholder `RESOURCE` may satisfy a
+named selection. The exception does not apply to multi-resource modules.
+
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state

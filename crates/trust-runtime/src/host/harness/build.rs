@@ -292,6 +292,9 @@ pub(super) fn build_runtime_from_source_files(
     }
 
     if let Some(config) = config_model {
+        if let Some(resource_name) = config.resource_name.as_ref() {
+            runtime.set_resource_name(resource_name.clone());
+        }
         globals.extend(config.globals);
         apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
         let mut wildcards = apply_globals(&mut runtime, &globals)?;
