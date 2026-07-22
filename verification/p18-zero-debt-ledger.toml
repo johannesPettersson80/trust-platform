@@ -1,7 +1,7 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:1d7ba3796d193a160635e88bc5b69379c1e643a5970ea4d671aba8cbfc7ad09d"
+input_closure_sha256 = "sha256:8796de6246108ab9e1b252d5ccf599d16d0dfcff1fddfe3d7b6051e6c7c17b24"
 state = "open"
 last_reviewed = "2026-07-22"
 
@@ -12,13 +12,13 @@ test_facts = 4038
 reviewed_nonmapping = 3777
 
 [current]
-spec_gap = 15133
-registered_backlog = 15130
+spec_gap = 15132
+registered_backlog = 15129
 missing_spec = 0
 missing_tests = 0
 unmapped = 0
 stale = 0
-reviewed_nonmapping = 3772
+reviewed_nonmapping = 3771
 uncataloged = 0
 unreviewed_tests = 0
 ignored_skipped_filtered_unrun = 286
@@ -45,21 +45,21 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/burn-down-ledger.json"
-raw_sha256 = "sha256:c9fc0fb4615658b38b7fd4fbd3802939f598596d36fc63aba6206b0ac0dd31f2"
+raw_sha256 = "sha256:8aa84b7703ab4057687a052b2c50c9cc5451cf899eaf1d40bd632c22296bad1c"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:36401f61dd2457752bf87f4ec99ae0733cc91f789542e128a86f4cc98d966669"
+input_digest = "sha256:2e4050c5f9d3f545e5e37d7afbec0337e5a8535b5d5649a0448bdd160a8ea35a"
 
 [[proof_classes]]
 id = "test_mapping"
 validator_module = "scripts.verification.p18_zero_debt.existing_test_mapping"
 prerequisites = ["semantic_chains"]
 status = "open"
-denominator = 4049
-numerator = 277
-debt = 3772
+denominator = 4050
+numerator = 279
+debt = 3771
 stale = 0
 unowned = 0
 skipped = 23
@@ -69,20 +69,20 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/bootstrap/test_mapping.json"
-raw_sha256 = "sha256:21e63bbd2c62fb912bbb2b7499676e9ad863587ac2f57cf8d7b1f68da674a4a1"
+raw_sha256 = "sha256:d131b83ac583143c87f35ebe86d4aebf26493592175f5758e8035cd55507848f"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:36401f61dd2457752bf87f4ec99ae0733cc91f789542e128a86f4cc98d966669"
+input_digest = "sha256:2e4050c5f9d3f545e5e37d7afbec0337e5a8535b5d5649a0448bdd160a8ea35a"
 
 [[proof_classes]]
 id = "assertion_reachability"
 validator_module = "scripts.verification.p18_zero_debt.assertion_reachability"
 prerequisites = ["test_mapping"]
 status = "open"
-denominator = 277
-numerator = 14
+denominator = 279
+numerator = 16
 debt = 263
 stale = 0
 unowned = 0
@@ -91,14 +91,14 @@ filtered = 0
 unrun = 263
 timeouts = 0
 harness_failures = 0
-execution_count = 14
+execution_count = 16
 raw_artifact = "verification/p18/assertion-reachability.json"
-raw_sha256 = "sha256:cc99f094ab9ebbc4a32d11326aed719907fe2b370564186d91c8914e1bc22460"
+raw_sha256 = "sha256:69eb25a7b6e6508bace3ff1d877f987db5fea35807189872046b66bd00da1cff"
 producer_command = "python3 scripts/p18_assertion_reachability.py --write --target-dir $HOME/.cache/codex-targets/trust-platform-gate --scratch-root $PWD/target/tmp-p18"
 producer_exit = 0
 validator_command = "python3 scripts/p18_assertion_reachability.py"
 validator_exit = 0
-input_digest = "sha256:f6f102a16215d8ac1a8a1d3fed3d6d582f8b1635894a75006d99f665139d3e4e"
+input_digest = "sha256:4b514c409b1aa292eb42d5ce61f641101fa1eaea2742e0021a7ed48e40458da1"
 
 [[proof_classes]]
 id = "coverage"
