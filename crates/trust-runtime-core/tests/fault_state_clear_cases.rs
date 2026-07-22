@@ -153,7 +153,7 @@ impl StateProbe for FaultStateClearProbe {
         Ok(StateSnapshot {
             process_image_hash: None,
             retain_hash: Some(self.trace.join("|")),
-            target: self.trace.last().cloned(),
+            target: None,
             siblings: BTreeMap::new(),
             diagnostics: Vec::new(),
         })
