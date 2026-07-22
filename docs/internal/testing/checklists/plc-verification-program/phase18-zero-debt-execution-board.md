@@ -265,8 +265,9 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   and `RT_UNSIGNED_INTEGER_MATERIALIZATION_001`. Its direct boundary matrix
   and generated decision-table runner are catalog-mapped, and a clean
   producer-authentic lock pair promotes the invariant to `G1`. This is slice
-  progress only: assertion reachability, mutation sensitivity, the broad
-  remote gates, and `VERIF-P18-003` globally remain open. Evidence:
+  progress only: this exact slice's assertion-reachability item is now closed,
+  while mutation sensitivity, the broad remote gates, and `VERIF-P18-003`
+  globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-unsigned-integer-materialization.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that

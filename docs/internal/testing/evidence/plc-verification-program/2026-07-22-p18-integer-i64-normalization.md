@@ -82,8 +82,8 @@ the active board reserves them for the one final `VERIF-P18-016` candidate.
 
 ## Assertion reachability
 
-The Phase 18 producer executed both reviewed shards in one isolated run from
-clean source `534a63107fcc7e4fa6df954fd6a616f0427cc149` on
+The Phase 18 producer executed all three reviewed numeric shards in one
+isolated run from clean source `811e94b04463217ef6976e90388c33b467e7b437` on
 `trust-builder-linux-x86_64`. Both integer-normalization commands passed on the
 unmodified source. It then deleted only the generated `Value::ULInt(v)` match
 arm from `to_i64`; the mutant compiled, and each selected test failed at its
@@ -92,9 +92,9 @@ named assertion. The semantic validator reconstructed both results as
 
 Canonical raw artifact:
 `verification/p18/assertion-reachability.json`, SHA-256
-`970f60147aea242c6647f0183d2ec01bca8ca1c4c1887219fd6d292d420da4e8`, input
-closure `sha256:f73f0fe333763d924de39a6bd75ecb7bfd3a07f6afcdad1bbcce6bb8ec0ddeb0`.
-Its report-only summary is 4/267 proven, 263 unrun debt, four caught mutants,
+`20bbf0d59c8dd4e14b272ff3de1f4670f32d3ea019d63f60021c204d956da246`, input
+closure `sha256:3088cfaaec235b2449677fb7b32646fd164cdd72325d7b70b514055cdd46c5ba`.
+Its report-only summary is 6/269 proven, 263 unrun debt, six caught mutants,
 and zero survivors, unviable outcomes, timeouts, or harness failures. This
 closes this invariant's `assertion_reachability` item only. The separate
 `mutation_sensitivity` and formal `VERIF-P18-009` adequacy campaign remain open

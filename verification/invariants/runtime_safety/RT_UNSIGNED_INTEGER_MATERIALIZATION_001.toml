@@ -15,10 +15,10 @@ gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001_LOCK_COMPARE",
+  "EVID_RT_UNSIGNED_INTEGER_MATERIALIZATION_ASSERTION_REACHABILITY_001",
 ]
 spec_gap_refs = []
 missing = [
-  "assertion_reachability",
   "mutation_sensitivity",
   "broad_remote_gate",
 ]
