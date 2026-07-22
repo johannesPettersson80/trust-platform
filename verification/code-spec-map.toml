@@ -213702,9 +213702,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_876FA18EE165465407499DE13EB4E725F53259340599BA82C546B2D9055C918A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
+test_ids = ["TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001", "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214103,9 +214105,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8A1F36F127FE19CAC1F2820F986D73BE170CD0D548DA923856774B68D87905A2"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
+test_ids = ["TEST_RUNTIME_CLI_SUGGEST_CHECK_001", "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001", "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -216845,9 +216849,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_9EDC7719B91DE981E23C9E572A34424D0C96C9FD5B2F5710810A484ADBB630E1"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
+test_ids = ["TEST_RUNTIME_CLI_SUGGEST_CHECK_001", "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001", "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219207,9 +219213,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_B21083831231040B1EDBD0F511F6A2966503BD646FA5D1779ABE402EDDF3D6A8"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
+test_ids = ["TEST_RUNTIME_CLI_SUGGEST_CHECK_001", "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001", "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001", "TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001", "TEST_RUNTIME_CLI_PREVALIDATION_001", "TEST_RUNTIME_CLI_IDE_DISPATCH_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223555,9 +223563,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
+test_ids = ["TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001", "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

@@ -12812,6 +12812,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_51251D0333C6D0B114F7"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "mistyped_check_command_suggests_the_real_subcommand"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_SUGGEST_CHECK_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_51426D3B81C90181EA47"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/discover_tests.rs"
@@ -25332,6 +25342,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A0C11283B6A8E17B5A74"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "play_rejects_invalid_options_before_project_creation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_PREVALIDATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_A0C636EB85EAC33BCC35"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/value/partial_access.rs"
@@ -28482,6 +28502,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B3B81A334DB23743E789"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "distant_unknown_command_is_not_given_a_misleading_suggestion"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_B3C963C8C11F4A16A1C6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/value/types/tests.rs"
@@ -31060,6 +31090,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_C3B54AF3596B012F9D62"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "ci_mode_classifies_an_invalid_validate_project"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_C3BD87557BC4FF520AC2"
@@ -38362,6 +38402,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_F244AF32D4CC886A73CF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "subcommand_suggestion_ignores_global_flags"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_F249C0ED30C6D840D514"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/vm_resource_limit_cases.rs"
@@ -38622,6 +38672,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_F41EEB20812FFDC38762"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "ide_serve_reports_invalid_primary_runtime_before_server_start"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_IDE_DISPATCH_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_F4247FE3896F6E29B9CF"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_01.rs"
@@ -38720,6 +38780,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F4B23B26ED1298DADC01"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "deprecated_bundle_alias_warns_and_missing_project_gets_creation_tip"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F4B46894F7E22B37EC5F"

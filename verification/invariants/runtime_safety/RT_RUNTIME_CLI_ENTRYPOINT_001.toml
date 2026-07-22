@@ -1,0 +1,88 @@
+schema_version = 1
+id = "RT_RUNTIME_CLI_ENTRYPOINT_001"
+title = "Runtime CLI entrypoint routes commands and reports failures deterministically"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "The runtime CLI parses and dispatches one command, bounds typo suggestions, preserves the deprecated project alias contract, and exposes actionable errors with stable ordinary or CI exit status."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime.rs"]
+tests = [
+  "TEST_RUNTIME_CLI_SUGGEST_CHECK_001",
+  "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001",
+  "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001",
+  "TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001",
+  "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001",
+  "TEST_RUNTIME_CLI_PREVALIDATION_001",
+  "TEST_RUNTIME_CLI_IDE_DISPATCH_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+
+[[behavior]]
+partition = { equals = "REGISTERED_COMMAND" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A successfully parsed command enters exactly its corresponding handler, and pre-handler validation remains ordered before project mutation or server startup."
+
+[[behavior]]
+partition = { equals = "NEAR_OR_DISTANT_UNKNOWN_COMMAND" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Only a registered command within edit distance two receives a suggestion; global flags are skipped and distant input receives only the parser error."
+
+[[behavior]]
+partition = { equals = "DEPRECATED_BUNDLE_ALIAS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "A successfully parsed bundle alias emits its deprecation warning before dispatch without changing project validation or creation behavior."
+
+[[behavior]]
+partition = { equals = "HANDLER_FAILURE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "A handler failure produces one actionable error and exits with ordinary status 1 or the command-aware CI classification."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused binary integration tests reach play and IDE handlers and prove validation ordering before mutation or server startup."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused binary integration tests cover close typos, global flags before a typo, and a distant unknown command."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused binary integration tests cover deprecation-warning order, actionable tips, and command-aware CI exit classification."

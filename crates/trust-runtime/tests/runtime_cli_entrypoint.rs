@@ -50,6 +50,64 @@ fn subcommand_suggestion_ignores_global_flags() {
 }
 
 #[test]
+fn distant_unknown_command_is_not_given_a_misleading_suggestion() {
+    let output = run_runtime(&["definitely-not-a-command"]);
+    assert!(!output.status.success());
+    let error = stderr(&output);
+    assert!(
+        !error.contains("Did you mean:"),
+        "distant command must retain the parser error without a suggestion:\n{error}"
+    );
+}
+
+#[test]
+fn deprecated_bundle_alias_warns_and_missing_project_gets_creation_tip() {
+    let project = unique_missing_project("deprecated-bundle");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("run")
+        .arg("--bundle")
+        .arg(&project)
+        .output()
+        .expect("run trust-runtime with deprecated bundle alias");
+
+    assert_eq!(output.status.code(), Some(1));
+    let error = stderr(&output);
+    assert!(
+        error.contains("Warning: --bundle is deprecated. Use --project instead."),
+        "stderr was:\n{error}"
+    );
+    assert!(
+        error.contains("Tip: run `trust-runtime` in an empty folder"),
+        "stderr was:\n{error}"
+    );
+    assert!(
+        !project.exists(),
+        "run must not create the missing project {}",
+        project.display()
+    );
+}
+
+#[test]
+fn ci_mode_classifies_an_invalid_validate_project() {
+    let project = unique_missing_project("ci-validate");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("validate")
+        .arg("--project")
+        .arg(&project)
+        .arg("--ci")
+        .output()
+        .expect("run trust-runtime validate --ci");
+
+    assert_eq!(output.status.code(), Some(10));
+    assert!(
+        stderr(&output).contains("invalid project folder"),
+        "stderr was:\n{}",
+        stderr(&output)
+    );
+    assert!(!project.exists());
+}
+
+#[test]
 fn play_rejects_invalid_options_before_project_creation() {
     let cases: &[(&str, &[&str], &str)] = &[
         (

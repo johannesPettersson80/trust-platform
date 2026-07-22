@@ -834,6 +834,33 @@ This host-side launcher policy is a truST product contract. IEC 61131-3 does
 not define hardware-driver selection or OS-level I/O configuration, so the
 policy is not an IEC deviation.
 
+##### Runtime CLI entrypoint, diagnostics, and dispatch contract
+
+The `trust-runtime` entrypoint parses one optional top-level command. A
+successful parse dispatches that command exactly once to its corresponding
+handler; omitting the command invokes the default runtime workflow. Handler
+errors return to the entrypoint, which prints one error and exits non-zero
+instead of continuing into another command path.
+
+An invalid top-level command may produce one `Did you mean` hint before the
+ordinary parser error. The hint selects the first registered command with the
+smallest case-sensitive edit distance, only when that distance is at most two.
+Global flag tokens are not treated as the mistyped command, surrounding
+whitespace is ignored for comparison, and inputs outside the threshold receive
+no potentially misleading suggestion.
+
+For commands that accept a project folder, deprecated `--bundle` spellings
+remain parser aliases for `--project` during the compatibility window. After a
+successful parse, use of either `--bundle <path>` or `--bundle=<path>` emits one
+deprecation warning before dispatch. It does not change project creation or
+validation semantics.
+
+Ordinary handler failures exit with status 1. When a parsed command enables
+`--ci`, the entrypoint uses the documented CI error classification, including
+command-aware fallback codes. Known configuration and permission failures may
+append one actionable tip to the original error text; the tip does not replace
+or reclassify the underlying error.
+
 ##### Runtime launcher input, validation, and startup contract
 
 `trust-runtime play --project <path>` is the product convenience entry point:
