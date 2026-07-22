@@ -186,7 +186,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 - Periodic scheduling uses `Clock::now()` and the task interval (nanosecond Duration).
 - Task readiness and elapsed-time accounting use only the injected monotonic
   `Clock`; the exact readiness, discontinuity, and overrun contract is defined
-  below. Civil wall-clock changes do not make a task ready. (DEV-058)
+  below. Civil wall-clock changes do not make a task ready.
 - Inputs are latched at the start of each scheduler cycle; outputs are committed after all ready tasks complete.
 - The maximum number of tasks per resource and minimum interval resolution are implementer-specific and are reported by the runtime configuration.
 - The resource loop maintains a `RUNNING/FAULT/STOPPED` state and halts on faults.
@@ -201,8 +201,7 @@ suppresses periodic readiness; a subsequent FALSE sample only rearms the next
 rising edge. A non-positive interval does not schedule periodic work. Valid
 IEC task configuration uses zero for disabled periodic scheduling and a
 positive duration for periodic scheduling; a negative portable metadata value
-is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b;
-DEV-058)
+is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b.)
 
 With `SINGLE` FALSE and a positive interval, a task is not due until `now` is
 at least `last_run + interval`. A backward logical-clock sample does not move
@@ -219,7 +218,8 @@ adds that value with saturation, and `last_run` advances to `now`. Deadline
 addition also saturates at the representable signed-nanosecond bound. Event
 readiness never changes those periodic counters. These due-time and accounting
 rules are truST bookkeeping beyond the IEC task-trigger definition; they make
-host-pause, simulation, and test-clock behavior deterministic. (DEV-058)
+host-pause, simulation, and test-clock behavior deterministic. They are
+specified here as a truST runtime contract, not as an IEC deviation.
 
 On Unix, the runtime's graceful-shutdown signal set is exactly `SIGINT` and
 `SIGTERM`. Signals outside that set are not translated into a runtime stop by
@@ -634,13 +634,14 @@ The portable fault holder clears its current fault as one state transition:
 `faulted` becomes false and the stored last fault becomes absent. Clearing does
 not change the configured `FaultPolicy`. Calling clear while already healthy is
 idempotent and leaves the healthy state, absent last fault, and policy
-unchanged. (DEV-059)
+unchanged.
 
 This clear operation is bookkeeping at the portable holder boundary. It does
 not restart or resume a resource, apply safe outputs, reset program or retained
 storage, prove that the underlying fault was repaired, or authorize a caller to
 recover production execution. Those actions remain owned by the host recovery
-and control boundaries. (DEV-059)
+and control boundaries. This is a truST runtime API contract, not an IEC
+deviation.
 
 ##### Fault-policy decision projection
 
@@ -651,13 +652,14 @@ The portable fault holder projects its configured `FaultPolicy` to a
 `apply_safe_state = false`. The projection reads only the current policy. Its
 result is unchanged by whether the holder is healthy or faulted and by the
 presence or value of the stored last fault. It does not mutate any of those
-observations. (DEV-060)
+observations.
 
 A `FaultDecision` is an instruction to the owning host-control path, not proof
 that its action occurred. Producing it does not itself apply safe outputs, halt
 or restart a resource, clear a fault, reset storage, consume a retry, or
 authorize recovery. Those effects remain governed by the safe-state, automatic
-restart, and recovery-control contracts above. (DEV-060)
+restart, and recovery-control contracts above. This is a truST runtime API
+contract, not an IEC deviation.
 
 ##### Fault recording and policy replacement
 
@@ -665,13 +667,13 @@ Recording a runtime fault sets the portable holder's `faulted` observation to
 true and stores the supplied `RuntimeError` as the exact last fault. A later
 record replaces the earlier last fault. Recording does not change the
 configured `FaultPolicy`, execute that policy, clear state, apply safe outputs,
-or restart a resource. (DEV-061)
+or restart a resource.
 
 Replacing `FaultPolicy` stores the supplied policy exactly. It does not change
 the current faulted flag or stored last error, including when policy is changed
 while the holder is already faulted. Policy replacement returns no evidence
-that the corresponding halt, safe-state, or restart action was executed.
-(DEV-061)
+that the corresponding halt, safe-state, or restart action was executed. These
+are truST runtime API contracts, not IEC deviations.
 
 ##### Watchdog policy normalization and installation
 
@@ -679,13 +681,14 @@ Before an enabled `WatchdogPolicy` is installed, a timeout less than or equal
 to zero is normalized to one millisecond so the scheduler cannot receive an
 always-expired enabled deadline. A positive enabled timeout is preserved.
 Disabled policy timeouts are inert at this boundary and remain unchanged. The
-configured `WatchdogAction` is preserved in every case. (DEV-062)
+configured `WatchdogAction` is preserved in every case.
 
 `WatchdogSubsystem::set_policy` replaces the previous policy with that exact
 normalized value. Installation does not arm a deadline, report a timeout,
 apply safe state, halt, or restart a resource; those effects remain owned by
 the scheduler and host-control paths. The subsystem decision projection reads
-the installed action without mutating the stored policy. (DEV-062)
+the installed action without mutating the stored policy. These are truST
+runtime configuration contracts, not IEC deviations.
 
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
@@ -725,7 +728,7 @@ rejection, serialization, and atomic application remain owned by the retain
 save/load/apply boundaries below. Successful insertion alone does not mean a
 snapshot is valid for persistence or warm reload. IEC 61131-3 Ed.3 section
 6.5.6 defines retentive variable behavior but not this internal container
-policy; the truST choice is recorded by `DEV-057`.
+policy; the truST choice is specified here and is not an IEC deviation.
 
 The runtime loads retained values during resource startup and writes them on shutdown and
 periodically (policy defined in the runtime configuration). The periodic cadence is

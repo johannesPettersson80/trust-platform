@@ -406,7 +406,15 @@ applicable, and lexer/parser tests or snapshots.
 
 - Map behavior to IEC 61131-3 sections/tables and cite in `docs/specs/*.md` when specs are edited.
 - Record standard ambiguities in `docs/IEC_DECISIONS.md`.
-- Record implementer-specific behavior in `docs/IEC_DEVIATIONS.md`.
+- Record a behavior in `docs/IEC_DEVIATIONS.md` only when truST intentionally
+  conflicts with, omits, or relaxes a cited normative IEC 61131-3 requirement.
+  Before adding an entry, cite the exact IEC section/table, state the normative
+  requirement, state truST's behavior, and explain the concrete conflict. If no
+  conflict can be stated, do not add a deviation entry.
+- IEC-silent, out-of-scope, implementation-specific, platform/runtime, or
+  truST-only API behavior belongs in the relevant product specification, not in
+  `docs/IEC_DEVIATIONS.md`. Record genuine IEC ambiguity in
+  `docs/IEC_DECISIONS.md`.
 - For PLCopen Motion profile ambiguities and truST-specific PLCopen choices, use `docs/PLCOPEN_DECISIONS.md` and `docs/PLCOPEN_DEVIATIONS.md`.
 - If standard functions are touched, update `docs/specs/coverage/standard-functions-coverage.md`.
 - IEC source files are not checked into GitHub. If available locally, keep under `docs/internal/standards/`:

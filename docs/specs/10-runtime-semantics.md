@@ -835,7 +835,7 @@ coercion into a signed integer destination. IEC section 7.3.2 requires a
 numerical result outside its result-type range to be treated as an error;
 sections 6.6.2.5.2 and 6.6.2.5.3 leave conversion execution errors and an
 out-of-range conversion result implementer-specific. The stable truST mapping
-is recorded by `DEV-054`.
+is specified by this section; it is not an IEC deviation.
 
 The signed materialization boundary accepts only the four signed integer
 destinations. Supplying `USINT`, `UINT`, `UDINT`, `ULINT`, `REAL`, or `LREAL`
@@ -856,7 +856,7 @@ Every non-integer runtime tag returns `RuntimeError::TypeMismatch` without a
 substitute value. This is an internal operand-normalization contract, not an
 additional source-level implicit conversion. IEC 61131-3 Ed.3 section 6.4.2.1,
 Table 10 supplies the integer ranges; the fail-closed host representation is
-the reviewed truST policy recorded by `DEV-055`.
+the truST runtime contract specified by this section, not an IEC deviation.
 
 #### 6.10 Unsigned integer result materialization
 
@@ -873,7 +873,8 @@ arithmetic materialization and to internal numeric coercion into an unsigned
 integer destination. IEC section 7.3.2 requires a numerical result outside its
 result-type range to be treated as an error; sections 6.6.2.5.2 and 6.6.2.5.3
 leave conversion execution errors and an out-of-range conversion result
-implementer-specific. The stable truST mapping is recorded by `DEV-056`.
+implementer-specific. The stable truST mapping is specified by this section;
+it is not an IEC deviation.
 
 The unsigned materialization boundary accepts only the four unsigned integer
 destinations. Supplying `SINT`, `INT`, `DINT`, `LINT`, `REAL`, or `LREAL` as
