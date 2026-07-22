@@ -32,7 +32,7 @@ name = "signed_integer_materialization_cases"
 command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "signed_integer_materialization_cases", "signed_integer_materialization_cases", "--", "--exact"]
 
 [[shards.mutations]]
-id = "MUTANT_SIGNED_INTEGER_MATERIALIZATION_DEFAULT_VALUE"
-genre = "FnValue"
-replacement = "Ok(Default::default())"
-selector_name = "numeric.rs:130:5: replace signed_from_i128 -> Result<Value, RuntimeError> with Ok(Default::default())"
+id = "MUTANT_SIGNED_INTEGER_MATERIALIZATION_DELETE_SINT"
+genre = "MatchArm"
+replacement = ""
+selector_name = "numeric.rs:131:9: delete match arm NumericKind::SInt in signed_from_i128"
