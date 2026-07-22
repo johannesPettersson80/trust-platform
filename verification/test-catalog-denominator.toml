@@ -7772,6 +7772,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2E40EA38C9FA11516D83"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_reports_source_layout_error_with_invalid_config_exit_code"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_SOURCE_LAYOUT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_2E5202BC6AC2BE6F5745"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -14002,6 +14012,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_5809212F20667E95C56E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_mixed_config_and_compile_errors_uses_config_exit_and_reports_both"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_MIXED_ERRORS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_581958D84F0FCF915D3B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/keyspace.rs"
@@ -17757,9 +17777,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/check_command.rs"
 name = "check_reports_config_error_as_json_issue"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_CONFIG_ERROR_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_6F51ED05AB2DFF692BC6"
@@ -22292,6 +22312,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8C7AE28815C5ED07BE3E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_ci_reports_sources_override_and_local_dependencies"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_CI_DEPENDENCIES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_8C82EC070BB1D560AF3B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_04.rs"
@@ -24630,6 +24660,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9BD2908773E922C2994F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_human_output_reports_success_and_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_HUMAN_OUTPUT_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9C0C2F70A1D215235A23"
@@ -32247,9 +32287,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/check_command.rs"
 name = "check_accepts_project_without_writing_program_stbc"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_SUCCESS_NO_WRITE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_CA34AD06400345CAADED"
@@ -38242,6 +38282,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_F08DDC495E139A51EBA8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/check_command.rs"
+name = "check_aggregates_required_and_optional_config_errors_with_stable_exit_code"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_CONFIG_AGGREGATE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_F0ADB9FC9FDC8BD2EE40"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/openot_authoring.rs"
@@ -39127,9 +39177,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/check_command.rs"
 name = "check_reports_compile_error_as_json_issue"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CHECK_COMPILE_ERROR_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F6508FDFBB3BD1D4F440"

@@ -1,0 +1,76 @@
+schema_version = 1
+id = "RT_CHECK_PROJECT_CONTRACT_001"
+title = "Project checks report complete validation without writing bytecode"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "The runtime check command validates configuration, source and dependency layout, and in-memory compilation; reports the complete versioned result in machine or human form; maps failures to stable exit classes; and never creates or replaces program.stbc."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/check.rs"]
+tests = [
+  "TEST_RUNTIME_CHECK_SUCCESS_NO_WRITE_001",
+  "TEST_RUNTIME_CHECK_COMPILE_ERROR_001",
+  "TEST_RUNTIME_CHECK_CONFIG_ERROR_001",
+  "TEST_RUNTIME_CHECK_CONFIG_AGGREGATE_001",
+  "TEST_RUNTIME_CHECK_SOURCE_LAYOUT_001",
+  "TEST_RUNTIME_CHECK_CI_DEPENDENCIES_001",
+  "TEST_RUNTIME_CHECK_MIXED_ERRORS_001",
+  "TEST_RUNTIME_CHECK_HUMAN_OUTPUT_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1c-runtime-project-check-contract"
+
+[[behavior]]
+partition = { equals = "VALID_PROJECT_AND_OPTIONAL_SOURCE_OVERRIDE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1c-runtime-project-check-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A valid project is compiled in memory, reports exact source and dependency identity, exits successfully, and leaves any program.stbc unchanged."
+
+[[behavior]]
+partition = { equals = "INVALID_CONFIG_SOURCE_LAYOUT_OR_PROGRAM" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1c-runtime-project-check-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Independent findings are accumulated, their stable codes and counts remain visible, and config or source errors take exit class 10 over compile class 11."
+
+[[behavior]]
+partition = { equals = "JSON_CI_OR_HUMAN_OUTPUT" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1c-runtime-project-check-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "JSON and CI emit the versioned response while human success and failure render the same underlying result."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused checks cover valid JSON, CI, source override, local dependencies, and preservation of existing bytecode."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused checks cover missing required config, invalid optional config, missing source layout, compile failure, mixed failures, and stable exit precedence."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "covered"
+rationale = "Focused checks parse response version 1 and exercise both success and failure human rendering."

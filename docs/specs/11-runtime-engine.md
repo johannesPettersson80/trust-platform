@@ -1005,6 +1005,37 @@ configured cycle budget and overruns, throughput, requested watched globals,
 and optional VM/Tier-1 profile data. A missing watched global is explicit JSON
 `null`, not an omitted or fabricated value.
 
+##### 6.8.1c Runtime project-check contract
+
+`trust-runtime check` validates a project without writing `program.stbc` or
+another compiled bytecode artifact. An explicit `--project` selects the
+project root; otherwise the command uses bundle auto-detection and falls back
+to the current directory. A relative `--sources` override is resolved from the
+project root, while the default source root is `<project>/src`.
+
+The command validates required `runtime.toml` and `io.toml` files plus optional
+`ads.toml` and `opcua_client.toml` files, inspects the complete source and local
+dependency layout, and compiles valid layouts in memory. Independent
+configuration and compile findings are accumulated in one response. A
+configuration failure does not suppress an otherwise possible in-memory
+compile, and a compile failure does not discard the source and dependency
+identity already obtained from successful layout inspection.
+
+`--json` and `--ci` emit response version 1. The response identifies the
+command and project; exposes `ok`/`status`, error and warning counts, stable
+issue codes and optional file locations; and reports the exact source count,
+source paths, dependency roots, resolved dependency names, and optional
+in-memory bytecode size. `source_count` equals the number of reported source
+paths. `ok` is true exactly when the error count is zero. Human output is
+derived from the same response and reports either the successful source list
+or every accumulated issue.
+
+Success exits 0. Any configuration or source-layout error exits with the
+invalid-configuration class 10, including a response that also contains a
+compile error. A compile-only failure exits with the build-failure class 11.
+Both successful and failed checks leave an existing `program.stbc` untouched
+and never create one.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the
