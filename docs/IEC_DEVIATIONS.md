@@ -12,6 +12,30 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Fail closed while normalizing integer runtime operands
+
+- ID: DEV-055
+- Area: Runtime integer operand normalization
+- IEC reference: IEC 61131-3 Ed.3 section 6.4.2.1, Table 10 defines the signed
+  and unsigned integer value ranges. The standard does not define truST's
+  internal host-width operand extraction helper. This entry records an
+  implementation safety contract outside the IEC source-language interface;
+  it does not add an implicit source-level signed/unsigned conversion.
+- Deviation/extension:
+  - `SINT`, `INT`, `DINT`, and `LINT` runtime values are represented as `i64`
+    without changing their mathematical value.
+  - `USINT`, `UINT`, `UDINT`, and representable `ULINT` values are represented
+    exactly; a `ULINT` value above `i64::MAX` returns
+    `RuntimeError::Overflow` instead of wrapping or reinterpreting its sign.
+  - Every non-integer runtime tag returns `RuntimeError::TypeMismatch` without
+    a substitute value.
+- Impact:
+  - Internal arithmetic and comparison operand extraction cannot silently
+    change an integer's value or interpret an invalid runtime category.
+- Mitigation:
+  - Route unsigned operations through their owning unsigned boundary and
+    reject oversized values before a signed host-width representation is used.
+
 ## 2026-07-21 - Reject signed integer result and conversion overflow
 
 - ID: DEV-054

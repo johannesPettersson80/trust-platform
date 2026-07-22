@@ -843,6 +843,21 @@ as the destination returns `RuntimeError::TypeMismatch` without producing a
 value. Callers must route those categories through their owning conversion
 boundary.
 
+#### 6.9 Integer runtime normalization to `i64`
+
+The runtime's signed host-width operand boundary accepts only integer `Value`
+tags. `SINT`, `INT`, `DINT`, and `LINT` values are returned as the same
+mathematical value in `i64`. `USINT`, `UINT`, `UDINT`, and `ULINT` are also
+preserved exactly when their value is no greater than `i64::MAX`.
+
+A `ULINT` value above `i64::MAX` returns `RuntimeError::Overflow`; the boundary
+does not wrap, truncate, saturate, or reinterpret the high bit as a sign.
+Every non-integer runtime tag returns `RuntimeError::TypeMismatch` without a
+substitute value. This is an internal operand-normalization contract, not an
+additional source-level implicit conversion. IEC 61131-3 Ed.3 section 6.4.2.1,
+Table 10 supplies the integer ranges; the fail-closed host representation is
+the reviewed truST policy recorded by `DEV-055`.
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION

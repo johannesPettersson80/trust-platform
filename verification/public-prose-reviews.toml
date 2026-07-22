@@ -8684,6 +8684,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_0BCAEF5901D6C2617A880474"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "heading"
+visible_text_sha256 = "0a0d0ddc70ae5ae233c01e8e4b796f87e00001c0f48b57322faab5c4afd99761"
+disposition = "structural_nonclaim"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "document_structure"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_0BCC8CF922B7A2906C596D47"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -124683,6 +124696,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_A9A56BBCB1A43FC14665CBB6"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "paragraph"
+visible_text_sha256 = "e46fc6a4d0753c31473eaef785eca45275842370a3aace08194fb379f927f665"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_INTEGER_I64_NORMALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_A9A723ECE71771CD10B46480"
 document_id = "SPEC_DOC_D79ACCECBE6121B09E023278"
 path = "docs/public/concepts/communication-planes.md"
@@ -140491,6 +140517,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_BF32133D7D43DED2E50A9CC1"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "5f95728cd0aacff18a45b3889635a7ebb1bbca93966eb78b26594e143562fc80"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_INTEGER_I64_NORMALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_BF32B3BDCE447F467CB60BB9"
 document_id = "SPEC_DOC_2EDAF8F6B319000AD4186F54"
 path = "docs/public/concepts/one-project.md"
@@ -150511,6 +150550,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_CBDA81466F6DFFC96B64D6C4"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "paragraph"
+visible_text_sha256 = "ff4b9ac660c443bfb2cb1005e20c315eceabfec0e365a10ae51c98cd44a0b864"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_INTEGER_I64_NORMALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1

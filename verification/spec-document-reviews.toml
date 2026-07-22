@@ -206,7 +206,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
-content_sha256 = "075e15c433583887e2574c02ab8f60dc98cdc694209100629a38f44eebc549a7"
+content_sha256 = "c870843498d32c858957250cb9133204001865b58d4ef3eb6c67084efc76620b"
 areas = ["release"]
 authority_levels = ["public_claim"]
 owners = ["release"]
@@ -4133,7 +4133,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_98D975E462EFED297C87BA27"
 path = "docs/IEC_DEVIATIONS.md"
-content_sha256 = "06fec5f5a683c5dd7c215e979b9276123af9b1615a1e4f1260a998740a654e41"
+content_sha256 = "26c492fef682834da0174713059c08a4cb743f7b7b2070ec60a12103b79ddb96"
 areas = ["compiler_iec"]
 authority_levels = ["reviewed_deviation"]
 owners = ["language"]
@@ -4144,7 +4144,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1
@@ -4490,7 +4490,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
-content_sha256 = "98f7d58d96396759adfa7030f85dea25a92a3a674e24e0e62b9d7bc74a303f79"
+content_sha256 = "42dc8190b6238aea1c6015accd2b92e68c6e50ba8bf1499918eadb3021143cc9"
 areas = ["bytecode_vm", "runtime_safety"]
 authority_levels = ["normative_product"]
 owners = ["trust-runtime", "trust-runtime-core"]
@@ -4501,7 +4501,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1

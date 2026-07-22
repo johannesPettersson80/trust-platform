@@ -1373,8 +1373,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 covers = [
+  "integer_runtime_operand_normalization",
   "process_image_model",
   "scan_cycle_execution",
   "retain_values",
@@ -1402,7 +1403,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-22"
 covers = [
   "vm_value_tag_semantics",
   "runtime_value_tags",
@@ -1503,9 +1504,10 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DEVIATIONS.md"
 version = "current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-22"
 covers = [
   "iec_deviations",
+  "integer_runtime_operand_normalization",
   "vendor_extensions",
   "watchdog_output_commit",
 ]

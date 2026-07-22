@@ -1,0 +1,83 @@
+schema_version = 1
+id = "RT_INTEGER_I64_NORMALIZATION_001"
+title = "Integer runtime normalization preserves value or fails closed"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Normalizing an integer runtime value to i64 preserves every representable signed or unsigned value exactly; ULINT above i64::MAX returns RuntimeError::Overflow, and a non-integer runtime tag returns RuntimeError::TypeMismatch without a value."
+proof_level = "S1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+
+[[behavior]]
+partition = { equals = "SIGNED_INTEGER_RUNTIME_VALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "SINT, INT, DINT, and LINT minimum, zero, and maximum values retain their exact mathematical value in i64."
+
+[[behavior]]
+partition = { equals = "UNSIGNED_REPRESENTABLE_RUNTIME_VALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "USINT, UINT, UDINT, and ULINT values through i64::MAX retain their exact non-negative mathematical value."
+
+[[behavior]]
+partition = { equals = "ULINT_ABOVE_I64_MAXIMUM" }
+case_family = "above_max"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The first ULINT above i64::MAX and u64::MAX return RuntimeError::Overflow without a substitute signed value."
+
+[[behavior]]
+partition = { equals = "NON_INTEGER_RUNTIME_VALUE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Boolean, floating, bit-string, text, temporal, aggregate, reference, and sentinel categories are not interpreted as integers."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The signed and representable unsigned oracles are accepted; P18-006 must add a cataloged executable boundary matrix before this cell can close."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "gap_open"
+rationale = "The ULINT overflow oracle is accepted; P18-006 must execute the first value above i64::MAX and the unsigned maximum."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The non-integer rejection oracle is accepted; P18-006 must add an executable category matrix before this cell can close."

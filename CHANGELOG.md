@@ -119,6 +119,10 @@ Target release: `v0.24.54`
 - trust-runtime: MQTT typed input-point batches now commit their mapped
   process-image snapshot only after every payload validates, preventing values
   from a rejected non-finite batch from leaking into a later successful scan.
+- trust-runtime-core: integer operand normalization now has an explicit
+  fail-closed contract: every integer runtime tag preserves its mathematical
+  value when representable as `i64`, oversized `ULINT` values return overflow,
+  and non-integer tags return a type mismatch.
 
 ### Added
 
