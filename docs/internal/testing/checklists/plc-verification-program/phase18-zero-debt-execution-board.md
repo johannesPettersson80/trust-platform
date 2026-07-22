@@ -273,7 +273,12 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   `signed_from_i128` tests. The shard pins the exact CODE/invariant/source/test
   joins and one cargo-mutants adversarial replacement; no test becomes proven
   until a clean source-SHA-bound baseline and selected-test failure are
-  reconstructed from the raw artifact. This is slice progress only:
+  reconstructed from the raw artifact. Clean remote execution at
+  `9603fff646ddcf568b03d573a00bebac1c98654f` proves both mapped tests against
+  the viable SINT-arm-deletion mutant: two baselines passed, two selected-test
+  failures were caught, and the canonical 265-record artifact retains the
+  other 263 records as unrun debt with zero survivors, unviable outcomes,
+  timeouts, or harness failures. This is slice progress only:
   `VERIF-P18-007` remains globally open and formal mutation adequacy remains
   separately blocked behind `VERIF-P18-009` and its accepted budget.
 - [ ] `VERIF-P18-008` Produce function, line, branch, and condition coverage for

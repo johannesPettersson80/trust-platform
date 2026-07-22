@@ -8504,3 +8504,25 @@ case_file_digest = "sha256:eacff93189df0af63914f4d21801eed3a5ae413e8e9b42270cff2
 per_case_summary = ["RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_REPRESENTABLE_VALUE_EFAD863A:passed", "RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_BELOW_MINIMUM_B41EB653:passed", "RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_ABOVE_MAXIMUM_82D7DC5E:passed", "RT_SIGNED_INTEGER_MATERIALIZATION_001_NON_SIGNED_DESTINATION_CATEGORY_05689D20:passed"]
 case_result_digest = "sha256:7706fae16c008e635f073fb7b32d135d1fb4dbd0055b2faed361649a6f7420d7"
 paired_lock_baseline = "EVID_TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001_LOCK_BASELINE"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_RT_SIGNED_INTEGER_MATERIALIZATION_ASSERTION_REACHABILITY_001"
+title = "Source-bound assertion reachability for signed integer materialization"
+area = "runtime_safety"
+owner = "trust-runtime-core"
+status = "mapped"
+kind = "committed_file"
+path = "verification/p18/assertion-reachability.json"
+command = "python3 scripts/p18_assertion_reachability.py --write --shard-id ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001 --target-dir $HOME/.cache/codex-targets/trust-platform-gate --scratch-root $PWD/target/tmp-p18"
+commit = "9603fff646ddcf568b03d573a00bebac1c98654f"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-22"
+suite_id = "supporting_local"
+producer = "p18-assertion-reachability.py v1"
+generated_report_version = "p18-assertion-reachability-v1"
+proof_kind = "none"
+linked_invariants = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
+linked_tests = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001", "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-22"

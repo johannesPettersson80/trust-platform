@@ -1,7 +1,7 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:c04f98103bbffbf56c6b48ddaaf6da3d5f023a551a645d9366f9713f3de92eb2"
+input_closure_sha256 = "sha256:4693d0143d93cc0ca5a7cf639decb6fbc44ff5dd245bf5b633e4f17f3046e84c"
 state = "open"
 last_reviewed = "2026-07-22"
 
@@ -21,12 +21,12 @@ stale = 0
 reviewed_nonmapping = 3777
 uncataloged = 0
 unreviewed_tests = 0
-ignored_skipped_filtered_unrun = 23
+ignored_skipped_filtered_unrun = 286
 zero_test_filters = 0
 unexplained_uncovered = 0
 viable_mutants = 0
 open_findings = 0
-unmeasured_proof_classes = 10
+unmeasured_proof_classes = 9
 
 [[proof_classes]]
 id = "semantic_chains"
@@ -81,24 +81,24 @@ id = "assertion_reachability"
 validator_module = "scripts.verification.p18_zero_debt.assertion_reachability"
 prerequisites = ["test_mapping"]
 status = "open"
-denominator = 0
-numerator = 0
-debt = 0
+denominator = 265
+numerator = 2
+debt = 263
 stale = 0
 unowned = 0
 skipped = 0
 filtered = 0
-unrun = 0
+unrun = 263
 timeouts = 0
 harness_failures = 0
-execution_count = 0
-raw_artifact = "verification/p18/bootstrap/assertion_reachability.json"
-raw_sha256 = "sha256:48b4a3e7e01c11dc9dbbeccfa511f411dacc21e3eac91242b55ad33c47cb88d7"
-producer_command = "P18 substrate bootstrap"
+execution_count = 2
+raw_artifact = "verification/p18/assertion-reachability.json"
+raw_sha256 = "sha256:97188192bdd4892febc8d1eb376c42dde95314cc3d16710ab90db4d3dee3c279"
+producer_command = "python3 scripts/p18_assertion_reachability.py --write --shard-id ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001 --target-dir $HOME/.cache/codex-targets/trust-platform-gate --scratch-root $PWD/target/tmp-p18"
 producer_exit = 0
-validator_command = "P18 substrate bootstrap validation"
+validator_command = "python3 scripts/p18_assertion_reachability.py"
 validator_exit = 0
-input_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+input_digest = "sha256:19c709b30b38d9a7b6a4f6bbd2e1f43b52b0f5dd29eebf5c4db9e101a80ada4a"
 
 [[proof_classes]]
 id = "coverage"

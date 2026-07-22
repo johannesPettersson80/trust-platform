@@ -100,25 +100,47 @@ remaining `registered_backlog` facts, and 3,777 remaining
 the accepted board reserves those final gates for `VERIF-P18-016` on the one
 eventual zero-debt candidate.
 
+## Assertion reachability
+
+The Phase 18 assertion-reachability producer executed the reviewed
+`ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001` shard from clean
+detached source `9603fff646ddcf568b03d573a00bebac1c98654f` on
+`trust-builder-linux-x86_64`. Both cataloged commands passed on the unmodified
+source. The producer then deleted only the `NumericKind::SInt` match arm from
+`signed_from_i128`; the mutant compiled, and each selected test failed with a
+nonzero exit. The semantic validator reconstructed both results as `caught`.
+
+Canonical raw artifact:
+`verification/p18/assertion-reachability.json`, SHA-256
+`97188192bdd4892febc8d1eb376c42dde95314cc3d16710ab90db4d3dee3c279`, input
+closure `sha256:19c709b30b38d9a7b6a4f6bbd2e1f43b52b0f5dd29eebf5c4db9e101a80ada4a`.
+Its report-only summary is 2/265 proven, 263 unrun debt, two caught mutants,
+and zero survivors, unviable outcomes, timeouts, or harness failures. This
+closes this invariant's `assertion_reachability` item only. The separate
+`mutation_sensitivity` and formal `VERIF-P18-009` adequacy campaign remain open
+and budget-gated.
+
 ## Exact risk acknowledgement
 
 `RISK_ACK_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`
 acknowledges the scanner's `fault_mapping` signal for the exact unchanged body
 digest. The acknowledgement is now bound to this reviewed specification,
 invariant, unit matrix, and producer-authentic lock pair. It does not suppress
-the signal and does not claim assertion reachability, mutation sensitivity, or
-broad-gate proof.
+the signal. The source-bound catcher evidence closes assertion reachability for
+this exact slice but does not claim mutation adequacy or broad-gate proof.
 
 ## Architecture and remaining debt
 
 The implementation reuses the existing `verification-cases` helper and keeps
 the artifact runner isolated in a `trust-runtime-core` integration test. The
 direct unit matrix remains beside the pure numeric helper. No production
-ownership, data flow, execution flow, public API, or diagram changed; this is a
-small test-only dependency and proof binding, so no architecture diagram update
-is applicable. The structure keeps one oracle, one generated decision table,
-and two intentionally different consumers: direct boundary assertions and the
-durable proof-artifact adapter.
+ownership, data flow, execution flow, or public API changed. The Phase 18
+verification-control-plane flow did change, so
+`docs/diagrams/architecture/verification-p18-zero-debt.puml` now shows the
+reviewed plan, isolated producer, canonical raw artifact, and focused semantic
+validator. The product-test structure keeps one oracle, one generated decision
+table, and two intentionally different consumers: direct boundary assertions
+and the durable proof-artifact adapter.
 
 The post-edit planner still reports `missing_tests` when all support files and
 the crate manifest are classified together because the manifest route expands
@@ -129,7 +151,8 @@ used to claim this slice or any global row complete.
 
 Remaining exact debt:
 
-- dynamic reachability and assertion-strength proof under `VERIF-P18-007`;
+- dynamic reachability and assertion-strength proof for the other 263 currently
+  mapped tests and every future mapping under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - causal broad remote evidence, then final frozen-candidate gates under
   `VERIF-P18-016`;
