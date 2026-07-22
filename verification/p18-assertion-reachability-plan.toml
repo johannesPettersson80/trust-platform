@@ -12,7 +12,7 @@ invariant_id = "RT_INTEGER_I64_NORMALIZATION_001"
 invariant_path = "verification/invariants/runtime_safety/RT_INTEGER_I64_NORMALIZATION_001.toml"
 invariant_contract_digest = "sha256:065be8ddb1d50fa817809e14f76248a86df7eb23afaa69092afbd25b6931a8e9"
 source_file = "crates/trust-runtime-core/src/numeric.rs"
-source_digest = "sha256:e21284243925f64903f2b19f0ec3ce00e8eee0e00a7482f181b649c1320af2d7"
+source_digest = "sha256:6ddcc8ec44add8433d1fa75484c8d0975b774b1222017f06ef316577d1eb8519"
 function = "to_i64"
 package = "trust-runtime-core"
 build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
@@ -45,7 +45,7 @@ invariant_id = "RT_SIGNED_INTEGER_MATERIALIZATION_001"
 invariant_path = "verification/invariants/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml"
 invariant_contract_digest = "sha256:d707021ae336a7572912ffbb15cc4c3422dbf38a3378519312db0461d67021e6"
 source_file = "crates/trust-runtime-core/src/numeric.rs"
-source_digest = "sha256:e21284243925f64903f2b19f0ec3ce00e8eee0e00a7482f181b649c1320af2d7"
+source_digest = "sha256:6ddcc8ec44add8433d1fa75484c8d0975b774b1222017f06ef316577d1eb8519"
 function = "signed_from_i128"
 package = "trust-runtime-core"
 build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
@@ -69,3 +69,36 @@ id = "MUTANT_SIGNED_INTEGER_MATERIALIZATION_DELETE_SINT"
 genre = "MatchArm"
 replacement = ""
 selector_name = "numeric.rs:131:9: delete match arm NumericKind::SInt in signed_from_i128"
+
+[[shards]]
+id = "ASSERTION_REACHABILITY_UNSIGNED_INTEGER_MATERIALIZATION_001"
+owner = "trust-runtime-core"
+code_id = "CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99"
+invariant_id = "RT_UNSIGNED_INTEGER_MATERIALIZATION_001"
+invariant_path = "verification/invariants/runtime_safety/RT_UNSIGNED_INTEGER_MATERIALIZATION_001.toml"
+invariant_contract_digest = "sha256:d6480b6eb05593613bf108793137d581a6519caa21be48628113a381ab18a756"
+source_file = "crates/trust-runtime-core/src/numeric.rs"
+source_digest = "sha256:6ddcc8ec44add8433d1fa75484c8d0975b774b1222017f06ef316577d1eb8519"
+function = "unsigned_from_u128"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001"
+discovery_id = "DISC_515CDC7490B537210498"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "unsigned_integer_materialization_preserves_boundaries_and_rejects_invalid_targets"
+command = ["cargo", "test", "-p", "trust-runtime-core", "numeric::tests::unsigned_integer_materialization_preserves_boundaries_and_rejects_invalid_targets", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001"
+discovery_id = "DISC_83069BB55E723A690C01"
+path = "crates/trust-runtime-core/tests/unsigned_integer_materialization_cases.rs"
+name = "unsigned_integer_materialization_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "unsigned_integer_materialization_cases", "unsigned_integer_materialization_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_UNSIGNED_INTEGER_MATERIALIZATION_DELETE_USINT"
+genre = "MatchArm"
+replacement = ""
+selector_name = "numeric.rs:149:9: delete match arm NumericKind::USInt in unsigned_from_u128"

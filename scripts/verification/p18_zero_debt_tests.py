@@ -564,10 +564,11 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             [
                 "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
                 "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001",
+                "ASSERTION_REACHABILITY_UNSIGNED_INTEGER_MATERIALIZATION_001",
             ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(267, len(records))
+        self.assertEqual(269, len(records))
         by_test = {record["test_id"]: record for record in records}
         expected_bindings = {
             "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001": (
@@ -585,6 +586,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001": (
                 "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
                 "RT_SIGNED_INTEGER_MATERIALIZATION_001",
+            ),
+            "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001": (
+                "CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99",
+                "RT_UNSIGNED_INTEGER_MATERIALIZATION_001",
+            ),
+            "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001": (
+                "CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99",
+                "RT_UNSIGNED_INTEGER_MATERIALIZATION_001",
             ),
         }
         for test_id, (code_id, invariant_id) in expected_bindings.items():
