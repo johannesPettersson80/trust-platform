@@ -5,6 +5,39 @@ owner = "verification"
 last_reviewed = "2026-07-22"
 
 [[shards]]
+id = "ASSERTION_REACHABILITY_FAULT_STATE_CLEAR_001"
+owner = "trust-runtime-core"
+code_id = "CODE_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0"
+invariant_id = "RT_FAULT_STATE_CLEAR_001"
+invariant_path = "verification/invariants/runtime_safety/RT_FAULT_STATE_CLEAR_001.toml"
+invariant_contract_digest = "sha256:76cdf6f958089bb0f16e1a68e732592aab070c22069d98079c74138020e826b6"
+source_file = "crates/trust-runtime-core/src/watchdog.rs"
+source_digest = "sha256:06ea11b366037e7ef8bc622891194fd80be388509d6d85a97218eda33247fd6b"
+function = "FaultSubsystem::clear"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_FAULT_STATE_CLEAR_001"
+discovery_id = "DISC_DBFE8331AF87D467BFB3"
+path = "crates/trust-runtime-core/src/watchdog.rs"
+name = "watchdog_and_fault_subsystems_preserve_state_contracts"
+command = ["cargo", "test", "-p", "trust-runtime-core", "watchdog::tests::watchdog_and_fault_subsystems_preserve_state_contracts", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001"
+discovery_id = "DISC_ABF461B986A8F002436E"
+path = "crates/trust-runtime-core/tests/fault_state_clear_cases.rs"
+name = "fault_state_clear_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "fault_state_clear_cases", "fault_state_clear_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_FAULT_STATE_CLEAR_REPLACE_WITH_UNIT"
+genre = "FnValue"
+replacement = "()"
+selector_name = "watchdog.rs:263:9: replace FaultSubsystem::clear with ()"
+
+[[shards]]
 id = "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001"
 owner = "trust-runtime-core"
 code_id = "CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D"
