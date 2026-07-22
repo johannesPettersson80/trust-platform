@@ -312,7 +312,9 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   now catalog-mapped and strengthened, and a generated two-part trace covers
   recorded-fault clearing plus idempotent healthy clearing while preserving
   configured policy. A clean producer-authentic lock pair promotes the
-  invariant to `G1`. This is slice progress only: assertion reachability,
+  invariant to `G1`. Both mapped tests independently catch the reviewed
+  clear-to-no-op mutation, raising the cumulative assertion result to 16/279
+  with zero survivors or harness failures. This is slice progress only:
   mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
   and `VERIF-P18-003` globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-state-clear.md`.

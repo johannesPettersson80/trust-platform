@@ -4,9 +4,9 @@ Date: 2026-07-22
 
 Status: exact authority, mapping, strengthened legacy unit lock, generated
 decision-table trace, and producer-authentic targeted behavior-lock proof
-complete. Source-bound assertion reachability, formal mutation sensitivity,
-fact-ledger refresh, and broad remote proof remain open. No Phase 18 global row
-or stop gate is closed by this slice.
+complete. Source-bound assertion reachability is also complete. Formal mutation
+sensitivity, fact-ledger refresh, and broad remote proof remain open. No Phase
+18 global row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -75,6 +75,33 @@ worktree. Cleaning only that generated helper package removed 16 MiB and
 forced the accepted repository-relative case path. The rejected attempt
 produced no evidence record.
 
+## Source-bound assertion reachability
+
+The cumulative Phase 18 producer ran from clean source commit
+`5a29b349ef545fd7c0f709669bd5d1144c7d99bf` in the isolated builder checkout.
+The reviewed shard applies the exact generated source mutation
+`MUTANT_FAULT_STATE_CLEAR_REPLACE_WITH_UNIT`, which replaces
+`FaultSubsystem::clear` with `()` at `watchdog.rs:263:9`. This is the smallest
+viable adversarial change that preserves the method signature while removing
+both required state updates.
+
+Both the strengthened unit lock and the generated trace pass against the clean
+body and independently fail against that compiled no-op body. They are
+therefore classified `proven` rather than merely executed.
+
+- Evidence: `EVID_RT_FAULT_STATE_CLEAR_ASSERTION_REACHABILITY_001`
+- Canonical artifact: `verification/p18/assertion-reachability.json`
+- Artifact digest:
+  `sha256:69eb25a7b6e6508bace3ff1d877f987db5fea35807189872046b66bd00da1cff`
+- Input-closure digest:
+  `sha256:4b514c409b1aa292eb42d5ce61f641101fa1eaea2742e0021a7ed48e40458da1`
+- Cumulative result: 16/279 catalog assertions proven, sixteen caught mutants,
+  zero survivors, unviable mutants, timeouts, or harness failures.
+
+The remaining 263 assertions stay explicitly open. This slice does not use the
+cumulative result to waive any other test or the separate formal mutation
+budget in `VERIF-P18-009`.
+
 Focused x86_64 Linux proof passed the exact strengthened unit test, the exact
 generated trace command, case regeneration, formatting, and 921-record
 pre-lock metadata validation. Full `clippy` and `test-all` were not run; the
@@ -86,8 +113,9 @@ active board reserves them for the one final `VERIF-P18-016` candidate.
 acknowledges the scanner's `state_mutation` signal for the exact unchanged body
 digest. It is bound to `DEV-059`, the fault-state lifecycle specification, the
 invariant, strengthened unit lock, and producer-authentic generated trace pair.
-It does not suppress the signal or claim the still-open assertion reachability,
-mutation budget, refreshed ledger, or broad-gate proof.
+It is also bound to the source-bound assertion-reachability artifact. It does
+not suppress the signal or claim the still-open mutation budget, refreshed
+ledger, or broad-gate proof.
 
 ## Architecture and remaining debt
 
@@ -100,7 +128,6 @@ unit consumer, and one generated trace at the owning boundary.
 
 Remaining exact debt:
 
-- source-bound assertion reachability under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - refreshed fact-ledger accounting for the exact code and test identities;
 - causal broad evidence and final frozen-candidate gates under
