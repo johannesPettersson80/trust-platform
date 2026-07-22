@@ -387,6 +387,24 @@ is closed rather than inferred from this procedure.
   explicit case or scanner association IDs. Those IDs are traceability labels,
   not claims that a named test killed a mutant. Shards are capped at two
   mutants; broad workspace and `test-all` commands fail validation.
+- Phase 18 assertion reachability is separate from the Phase 10 adequacy-only
+  mutation program. Validate its reviewed plan and canonical raw artifact with
+  `python3 scripts/p18_assertion_reachability.py`. Execute a predeclared shard
+  only from a clean checkout with explicit generated target and scratch roots:
+
+  ```text
+  python3 scripts/p18_assertion_reachability.py --write \
+    --shard-id ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001 \
+    --target-dir /absolute/generated/cargo-target \
+    --scratch-root /absolute/generated/scratch-root
+  ```
+
+  The producer manually bootstraps `AGENTS.md` and `.codex/skills/**` into its
+  isolated archived checkout, runs each exact baseline, applies only the pinned
+  cargo-mutants selector, and retains raw selected-test output. The semantic
+  validator, not the producer label, decides whether a mapped test is proven.
+  This P18-007 evidence does not satisfy the separately budgeted P18-009
+  mutation-adequacy class.
 - The four reviewed source-only shards use one fail-closed executor and one
   closed artifact format. Run each shard from a clean committed checkout and
   write only to the exact `result_artifact_path` reserved by its manifest row:

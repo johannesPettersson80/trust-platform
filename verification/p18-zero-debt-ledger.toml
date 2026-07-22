@@ -1,7 +1,7 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:8af4799d433873dcb786c86a3cc8591ea898fd41fb7ced734dfafbd821360dca"
+input_closure_sha256 = "sha256:c04f98103bbffbf56c6b48ddaaf6da3d5f023a551a645d9366f9713f3de92eb2"
 state = "open"
 last_reviewed = "2026-07-22"
 
@@ -93,7 +93,7 @@ timeouts = 0
 harness_failures = 0
 execution_count = 0
 raw_artifact = "verification/p18/bootstrap/assertion_reachability.json"
-raw_sha256 = "sha256:67e24d1ba65b34c581e2bd0025d4f39cb7913b7e31d2e5fbca00cebde6964a86"
+raw_sha256 = "sha256:48b4a3e7e01c11dc9dbbeccfa511f411dacc21e3eac91242b55ad33c47cb88d7"
 producer_command = "P18 substrate bootstrap"
 producer_exit = 0
 validator_command = "P18 substrate bootstrap validation"

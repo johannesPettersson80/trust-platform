@@ -211,3 +211,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   test areas remain visible and owned rather than inferred. Diagram:
   `docs/diagrams/architecture/verification-p18-zero-debt.puml`. Closed by clean
   detached remote evidence at `103a6197`; `ARCH-VERIF-P18-01` remains open.
+- [ ] `ARCH-VERIF-P18-04` Replace the assertion-reachability placeholder with
+  an exact mapped-test denominator, a reviewed per-slice source/mutant/command
+  plan, an isolated clean-SHA producer, a closed raw-artifact schema, and a
+  focused semantic reconstructor that rejects forged result labels even when
+  the artifact file digest is updated. Preserve open, survived, unviable,
+  timeout, harness, and unmapped states as debt. Diagram:
+  `docs/diagrams/architecture/verification-p18-zero-debt.puml`.

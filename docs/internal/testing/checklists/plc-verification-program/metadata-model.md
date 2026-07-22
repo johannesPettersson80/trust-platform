@@ -1636,6 +1636,22 @@ proof-class validator cannot close another class, lower another denominator, or
 turn inventory ownership into proof. Phase 18 implementation tests are
 verification-tooling evidence only and do not become product correctness proof.
 
+The `assertion_reachability` class uses the reviewed plan at
+`verification/p18-assertion-reachability-plan.toml`, the closed plan and raw
+artifact schemas under `verification/schemas/`, and the canonical raw artifact
+at `verification/p18/assertion-reachability.json`. Its denominator is every
+live `catalog_mapped` scanner identity, not the number of configured shards.
+Each record preserves its exact `DISC_*`, `TEST_*`, `CODE_*`, and invariant
+bindings. A record is `proven` only when its clean baseline command passes and
+every predeclared adversarial mutant is reconstructed as `caught` because that
+same selected test failed. Missing bindings, unexecuted baselines, survivors,
+unviable mutants, timeouts, and harness failures remain open debt. The producer
+records a clean full source SHA, canonical input-path closure, and raw command
+output; the focused validator reconstructs result labels and summary arithmetic
+instead of trusting the ledger row or artifact hash alone. This slice-level
+assertion evidence does not close the separately budgeted Phase 18 mutation
+adequacy class.
+
 ### Phase 18 Fact-Level Burn-Down Ledger Contract
 
 `VERIF-P18-002` writes the canonical raw semantic/test work ledger to

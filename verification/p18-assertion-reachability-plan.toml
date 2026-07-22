@@ -1,0 +1,38 @@
+schema_version = 1
+id = "P18_ASSERTION_REACHABILITY_PLAN_V1"
+status = "open"
+owner = "verification"
+last_reviewed = "2026-07-22"
+
+[[shards]]
+id = "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001"
+owner = "trust-runtime-core"
+code_id = "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"
+invariant_id = "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+invariant_path = "verification/invariants/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml"
+invariant_contract_digest = "sha256:d707021ae336a7572912ffbb15cc4c3422dbf38a3378519312db0461d67021e6"
+source_file = "crates/trust-runtime-core/src/numeric.rs"
+source_digest = "sha256:d5ad69764b4d2f82f85b4ee4a3e6b998258ff6b331c7b2b46cee53b6bb29e63e"
+function = "signed_from_i128"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001"
+discovery_id = "DISC_6B24586F9855E7F43C3D"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets"
+command = ["cargo", "test", "-p", "trust-runtime-core", "numeric::tests::signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"
+discovery_id = "DISC_EF59D3F89B6C090FA842"
+path = "crates/trust-runtime-core/tests/signed_integer_materialization_cases.rs"
+name = "signed_integer_materialization_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "signed_integer_materialization_cases", "signed_integer_materialization_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_SIGNED_INTEGER_MATERIALIZATION_DEFAULT_VALUE"
+genre = "FnValue"
+replacement = "Ok(Default::default())"
+selector_name = "numeric.rs:130:5: replace signed_from_i128 -> Result<Value, RuntimeError> with Ok(Default::default())"

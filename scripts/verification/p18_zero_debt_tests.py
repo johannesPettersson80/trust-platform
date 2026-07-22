@@ -13,6 +13,10 @@ from .p18_zero_debt.artifacts import canonical_json_bytes, render_markdown, writ
 from .p18_zero_debt.contracts import document_closure_digest, validate_bundle
 from .p18_zero_debt.cli import main as cli_main, resolve_producer_source_sha
 from .p18_zero_debt.orchestrator import PROOF_VALIDATORS, evaluate_bundle
+from .p18_zero_debt.assertion_reachability_producer import (
+    build_open_records,
+    load_plan,
+)
 from .test_catalog_json_schema import validate_json_schema_instance
 
 
@@ -37,6 +41,69 @@ def digest_bytes(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def good_assertion_reachability_artifact() -> dict:
+    return {
+        "schema_version": 1,
+        "proof_class": "assertion_reachability",
+        "producer": "p18-assertion-reachability.py v1",
+        "source_sha": SOURCE_SHA,
+        "input_digest": "sha256:" + "f" * 64,
+        "input_paths": ["fixture-input"],
+        "status": "closed",
+        "summary": {
+            "denominator": 1,
+            "proven": 1,
+            "debt": 0,
+            "executed_tests": 1,
+            "caught_mutants": 1,
+            "survived_mutants": 0,
+            "unviable_mutants": 0,
+            "timeouts": 0,
+            "harness_failures": 0,
+        },
+        "records": [
+            {
+                "test_id": "TEST_FIXTURE_001",
+                "discovery_id": "DISC_" + "A" * 20,
+                "status": "proven",
+                "code_ids": ["CODE_" + "B" * 64],
+                "invariant_ids": ["INVARIANT_FIXTURE_001"],
+                "blockers": [],
+                "baseline": {
+                    "command": ["fixture-test"],
+                    "exit_status": 0,
+                    "timed_out": False,
+                    "stdout": "test fixture ... ok\n",
+                    "stderr": "",
+                    "result": "passed",
+                },
+                "mutations": [
+                    {
+                        "id": "MUTANT_FIXTURE_001",
+                        "source_file": "crates/fixture/src/lib.rs",
+                        "function": "fixture",
+                        "genre": "FnValue",
+                        "replacement": "false",
+                        "generated_mutant_name": "replace fixture with false",
+                        "build_command": ["fixture-build"],
+                        "build_exit_status": 0,
+                        "build_timed_out": False,
+                        "build_stdout": "",
+                        "build_stderr": "",
+                        "test_command": ["fixture-test"],
+                        "test_exit_status": 101,
+                        "test_timed_out": False,
+                        "test_stdout": "test fixture ... FAILED\n",
+                        "test_stderr": "",
+                        "selected_test_failed": True,
+                        "result": "caught",
+                    }
+                ],
+            }
+        ],
+    }
+
+
 def good_bundle(root: Path) -> tuple[dict, dict, dict]:
     proof_rows = []
     budget_rows = []
@@ -44,7 +111,12 @@ def good_bundle(root: Path) -> tuple[dict, dict, dict]:
         raw_path = Path("raw") / f"{proof_id}.json"
         absolute = root / raw_path
         absolute.parent.mkdir(parents=True, exist_ok=True)
-        payload = (json.dumps({"proof_class": proof_id}, sort_keys=True) + "\n").encode()
+        raw_payload = (
+            good_assertion_reachability_artifact()
+            if proof_id == "assertion_reachability"
+            else {"proof_class": proof_id}
+        )
+        payload = (json.dumps(raw_payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
         absolute.write_bytes(payload)
         proof_rows.append(
             {
@@ -73,7 +145,11 @@ def good_bundle(root: Path) -> tuple[dict, dict, dict]:
                 "producer_exit": 0,
                 "validator_command": f"validate-{proof_id}",
                 "validator_exit": 0,
-                "input_digest": "sha256:" + "b" * 64,
+                "input_digest": (
+                    raw_payload.get("input_digest")
+                    if proof_id == "assertion_reachability"
+                    else "sha256:" + "b" * 64
+                ),
             }
         )
         budget_rows.append(
@@ -250,7 +326,7 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertEqual(1, strict_exit)
             payload = json.loads((out / "strict/p18-zero-debt.json").read_text())
             self.assertEqual("open_debt", payload["status"])
-            self.assertEqual(15138, payload["summary"]["spec_gap"])
+            self.assertEqual(15137, payload["summary"]["spec_gap"])
             self.assertEqual(3777, payload["summary"]["reviewed_nonmapping"])
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
@@ -448,6 +524,60 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertTrue(
                 any("raw artifact is absent" in failure for failure in missing_failures),
                 missing_failures,
+            )
+
+    def test_assertion_reachability_artifact_is_semantically_reconstructed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger, budgets, claims = good_bundle(root)
+            row = next(
+                item
+                for item in ledger["proof_classes"]
+                if item["id"] == "assertion_reachability"
+            )
+            artifact_path = root / row["raw_artifact"]
+            payload = json.loads(artifact_path.read_text())
+            payload["records"][0]["mutations"][0]["result"] = "survived"
+            artifact_bytes = (
+                json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+            ).encode()
+            artifact_path.write_bytes(artifact_bytes)
+            row["raw_sha256"] = digest_bytes(artifact_bytes)
+            ledger["input_closure_sha256"] = document_closure_digest(ledger)
+            failures = validate_bundle(
+                ledger,
+                budgets,
+                claims,
+                artifact_root=root,
+                expected_source_sha=SOURCE_SHA,
+            )
+            self.assertTrue(
+                any("assertion_reachability" in failure for failure in failures),
+                failures,
+            )
+
+    def test_assertion_reachability_plan_is_closed_and_joins_live_denominator(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        plan = load_plan(root)
+        records = build_open_records(root)
+        self.assertEqual(
+            ["ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001"],
+            [shard["id"] for shard in plan["shards"]],
+        )
+        self.assertEqual(265, len(records))
+        by_test = {record["test_id"]: record for record in records}
+        for test_id in (
+            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001",
+            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001",
+        ):
+            self.assertIn(test_id, by_test)
+            self.assertEqual(
+                ["CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"],
+                by_test[test_id]["code_ids"],
+            )
+            self.assertEqual(
+                ["RT_SIGNED_INTEGER_MATERIALIZATION_001"],
+                by_test[test_id]["invariant_ids"],
             )
 
     def test_removed_validator_and_open_debt_cannot_pass_strict_mode(self) -> None:

@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Any
 
 
-Validator = Callable[[Mapping[str, Any], Mapping[str, Any]], list[str]]
+Validator = Callable[
+    [Mapping[str, Any], Mapping[str, Any], Mapping[str, Any] | None],
+    list[str],
+]
 SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 SOURCE_SHA_RE = re.compile(r"^[a-f0-9]{40}$")
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -165,6 +168,7 @@ def validate_bundle(
         if budget is None:
             failures.append(f"proof class {proof_id} lacks a budget")
         validator = validators.get(proof_id)
+        raw_artifact = _load_artifact(row, artifact_root, failures)
         if not callable(validator):
             failures.append(f"proof class {proof_id} validator is disabled")
         elif budget is not None:
@@ -173,7 +177,7 @@ def validate_bundle(
                 actual_module = "scripts." + actual_module
             if row.get("validator_module") != actual_module:
                 failures.append(f"proof class {proof_id} validator_module is stale")
-            failures.extend(validator(row, budget))
+            failures.extend(validator(row, budget, raw_artifact))
         if row.get("status") == "closed" and isinstance(prerequisites, list):
             for prerequisite in prerequisites:
                 prerequisite_row = proof_by_id.get(prerequisite)
@@ -181,7 +185,6 @@ def validate_bundle(
                     failures.append(
                         f"closed {proof_id} has open prerequisite {prerequisite}"
                     )
-        _validate_artifact(row, artifact_root, failures)
     if set(budget_by_class) != actual_classes:
         failures.append("budget/proof-class partition is not exact")
     if ledger.get("state") == "closed" and isinstance(current, Mapping):
@@ -283,21 +286,31 @@ def _validate_claim(row: Mapping[str, Any], failures: list[str]) -> None:
             failures.append(f"claim {row.get('id')} {field} must be nonempty strings")
 
 
-def _validate_artifact(
+def _load_artifact(
     row: Mapping[str, Any], artifact_root: Path, failures: list[str]
-) -> None:
+) -> Mapping[str, Any] | None:
     raw_path = row.get("raw_artifact")
     if not isinstance(raw_path, str) or not raw_path:
         failures.append(f"proof class {row.get('id')} raw_artifact is invalid")
-        return
+        return None
     relative = Path(raw_path)
     if relative.is_absolute() or ".." in relative.parts:
         failures.append(f"proof class {row.get('id')} raw_artifact escapes root")
-        return
+        return None
     absolute = artifact_root / relative
     if not absolute.is_file():
         failures.append(f"proof class {row.get('id')} raw artifact is absent")
-        return
-    digest = "sha256:" + hashlib.sha256(absolute.read_bytes()).hexdigest()
+        return None
+    raw_bytes = absolute.read_bytes()
+    digest = "sha256:" + hashlib.sha256(raw_bytes).hexdigest()
     if row.get("raw_sha256") != digest:
         failures.append(f"proof class {row.get('id')} raw artifact digest is stale")
+    try:
+        payload = json.loads(raw_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        failures.append(f"proof class {row.get('id')} raw artifact is not valid JSON")
+        return None
+    if not isinstance(payload, Mapping):
+        failures.append(f"proof class {row.get('id')} raw artifact must be a JSON object")
+        return None
+    return payload

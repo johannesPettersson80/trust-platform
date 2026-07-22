@@ -266,6 +266,16 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   invariant is violated. Phase 17 proved semantic linkage, not dynamic
   reachability or mutation sensitivity; Phase 18 must measure both without
   relying on an unsupported historical count.
+
+  Signed-integer reachability progress (2026-07-22): the report-only
+  assertion-reachability substrate now derives all 265 current catalog-mapped
+  scanner identities and has a reviewed first shard for both
+  `signed_from_i128` tests. The shard pins the exact CODE/invariant/source/test
+  joins and one cargo-mutants adversarial replacement; no test becomes proven
+  until a clean source-SHA-bound baseline and selected-test failure are
+  reconstructed from the raw artifact. This is slice progress only:
+  `VERIF-P18-007` remains globally open and formal mutation adequacy remains
+  separately blocked behind `VERIF-P18-009` and its accepted budget.
 - [ ] `VERIF-P18-008` Produce function, line, branch, and condition coverage for
   every behavior-bearing Rust, TypeScript/JavaScript, Python, and shell surface.
   Final unexplained uncovered behavior is zero. Generated, platform, and

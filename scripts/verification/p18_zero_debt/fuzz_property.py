@@ -4,5 +4,9 @@ from typing import Any, Mapping
 from .proof_common import validate_proof_row
 
 
-def validate(row: Mapping[str, Any], budget: Mapping[str, Any]) -> list[str]:
+def validate(
+    row: Mapping[str, Any],
+    budget: Mapping[str, Any],
+    _artifact: Mapping[str, Any] | None,
+) -> list[str]:
     return validate_proof_row(row, budget, "fuzz_property")

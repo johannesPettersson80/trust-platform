@@ -28,6 +28,13 @@ package "P18-002 fact-level ownership" {
   [p18_burn_down_ledger_gate.py] as BurnCLI
 }
 
+package "P18-007 assertion evidence" {
+  [reviewed reachability plan] as ReachPlan
+  [assertion_reachability_producer.py\nisolated execution] as ReachProducer
+  [canonical assertion-reachability.json] as ReachArtifact
+  [closed reachability schema\n+ semantic reconstructor] as ReachValidator
+}
+
 package "Focused validation ownership" {
   [semantic chains] as Semantic
   [existing-test mapping] as TestMapping
@@ -69,6 +76,14 @@ TestSlices --> BurnArtifact
 BurnArtifact --> BurnValidator : reconstruct every count
 BurnValidator --> BurnCLI
 BurnArtifact --> Ledger : semantic/test raw input
+
+CodeFacts --> ReachProducer : exact CODE identities
+TestFacts --> ReachProducer : exact DISC identities
+Metadata --> ReachProducer : invariant + catalog bindings
+ReachPlan --> ReachProducer : pinned source + mutant + commands
+ReachProducer --> ReachArtifact : clean source SHA + raw output
+ReachArtifact --> ReachValidator : reconstruct every result
+ReachValidator --> Reachability : proven/open rows only
 
 Ledger --> Semantic
 Ledger --> TestMapping
@@ -115,6 +130,12 @@ note bottom of BurnArtifact
   One row never stands for multiple live facts.
   Ambiguous test areas remain unresolved and blocked.
   Frozen ownership and ordering do not close debt.
+end note
+
+note bottom of ReachArtifact
+  A record is proven only when its clean baseline passes and the
+  selected mapped test fails under every reviewed adversarial mutant.
+  Open, survived, unviable, timeout, and harness outcomes remain debt.
 end note
 
 note bottom of StrictRoute
