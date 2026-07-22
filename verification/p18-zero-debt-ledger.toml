@@ -33,9 +33,9 @@ id = "semantic_chains"
 validator_module = "scripts.verification.p18_zero_debt.semantic_chains"
 prerequisites = []
 status = "open"
-denominator = 15274
+denominator = 15298
 numerator = 0
-debt = 15274
+debt = 15298
 stale = 0
 unowned = 0
 skipped = 0
@@ -45,12 +45,12 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/burn-down-ledger.json"
-raw_sha256 = "sha256:3ac01c6061e6bf4448fa07ac48d898f495afb2174a6bc3eae6d4b3e2c8c5b327"
+raw_sha256 = "sha256:0c92d87c45db03c84af49f4fe5d525b0432abdd16640d03727049e2f5bd286f0"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:8c687f237996c2baf50593abc6123d92f5e6da2f40754113193b31fbba4585b5"
+input_digest = "sha256:dabd932d254b9ada21e4c6fc846de32eb08bc71230c431d467c0f38df140a213"
 
 [[proof_classes]]
 id = "test_mapping"
@@ -74,7 +74,7 @@ producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:8c687f237996c2baf50593abc6123d92f5e6da2f40754113193b31fbba4585b5"
+input_digest = "sha256:dabd932d254b9ada21e4c6fc846de32eb08bc71230c431d467c0f38df140a213"
 
 [[proof_classes]]
 id = "assertion_reachability"
