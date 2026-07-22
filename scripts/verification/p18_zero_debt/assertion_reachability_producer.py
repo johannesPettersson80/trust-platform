@@ -429,6 +429,9 @@ def isolated_head(root: Path, scratch_root: Path) -> Iterator[Path]:
             archive.extractall(scratch, filter="data")
         archive_path.unlink()
         shutil.copy2(root / "AGENTS.md", scratch / "AGENTS.md")
+        archived_skills = scratch / ".codex/skills"
+        if archived_skills.exists():
+            shutil.rmtree(archived_skills)
         shutil.copytree(root / ".codex/skills", scratch / ".codex/skills")
         if _tree_digest(root / ".codex/skills") != _tree_digest(scratch / ".codex/skills"):
             raise MutationContractError("isolated assertion workspace skills bootstrap drifted")
