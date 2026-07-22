@@ -90,7 +90,7 @@ fn run() -> anyhow::Result<()> {
         Ok(cli) => cli,
         Err(err) => {
             if err.kind() == ErrorKind::InvalidSubcommand {
-                if let Some(input) = raw_args.get(1) {
+                if let Some(input) = raw_args.iter().skip(1).find(|arg| !arg.starts_with('-')) {
                     if let Some(suggestion) = suggest_subcommand(input) {
                         eprintln!("Did you mean: {suggestion}?");
                     }
@@ -285,12 +285,14 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "run",
         "play",
         "setup",
+        "agent",
         "ide",
         "config-ui",
         "wizard",
         "ui",
         "ctl",
         "validate",
+        "check",
         "build",
         "test",
         "docs",

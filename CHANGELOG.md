@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: mistyped top-level commands now receive the correct suggestion
+  when `--verbose` precedes the command, and the suggestion vocabulary includes
+  the shipped `check` and `agent` command families.
 - trust-runtime: pending debug writes and active forces are now cleared at
   runtime fault, stop, and restart boundaries so stale debugger mutations
   cannot cross a lifecycle transition.

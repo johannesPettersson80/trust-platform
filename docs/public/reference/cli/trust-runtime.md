@@ -18,6 +18,7 @@ binary reports them.
 | `run` / `play` | start a runtime instance |
 | `ui` | interactive terminal UI |
 | `ctl` | send control requests to a running runtime |
+| `check` | validate sources/config without writing `program.stbc` |
 | `build` | generate `program.stbc` |
 | `validate` | validate project config + bundle |
 | `test` | deprecated alias for `trust-dev test` |
@@ -33,6 +34,20 @@ binary reports them.
 | `deploy` / `rollback` | versioned deployment and rollback |
 | `bench` | communication/runtime benchmark surfaces |
 | `conformance` | deterministic conformance suite runner |
+
+## Entry-point and Error Contract
+
+The top-level parser accepts `--verbose` before or after a subcommand. When a
+subcommand is not recognized, the CLI computes a bounded edit-distance
+suggestion against every shipped top-level command, ignoring global flags when
+identifying the mistyped command. Suggestions are emitted only when the best
+command is at most two single-character edits away; distant inputs receive the
+normal usage error without an invented recommendation.
+
+Outside `--ci` mode, a dispatched command error exits with status 1 after
+printing the stable `Error:` prefix and any applicable configuration tip. In
+`--ci` mode, the entrypoint uses the documented command-aware CI exit classes
+for configuration, build, test, timeout, and internal failures.
 
 ## Common Commands
 
