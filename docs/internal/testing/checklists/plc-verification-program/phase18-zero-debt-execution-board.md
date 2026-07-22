@@ -293,9 +293,11 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   now catalog-mapped and strengthened, and a generated seven-part trace covers
   event edges, periodic suppression, non-positive intervals, clock steps,
   coalescing, and saturating overruns. A clean producer-authentic lock pair
-  promotes the invariant to `G1`. This is slice progress only: assertion
-  reachability, mutation sensitivity, the refreshed fact ledger, broad remote
-  gates, and `VERIF-P18-003` globally remain open. Evidence:
+  promotes the invariant to `G1`. All six mapped tests independently catch
+  their reviewed source mutations, raising the cumulative assertion result to
+  14/277 with zero survivors or harness failures. This is slice progress only:
+  mutation sensitivity, the refreshed fact ledger, broad remote gates, and
+  `VERIF-P18-003` globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-task-readiness.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that

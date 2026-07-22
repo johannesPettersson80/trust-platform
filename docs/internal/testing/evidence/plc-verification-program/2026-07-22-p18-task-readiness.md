@@ -4,9 +4,9 @@ Date: 2026-07-22
 
 Status: exact authority, mapping, strengthened legacy unit locks, generated
 decision-table trace, and producer-authentic targeted behavior-lock proof
-complete. Source-bound assertion reachability, formal mutation sensitivity,
-fact-ledger refresh, and broad remote proof remain open. No Phase 18 global row
-or stop gate is closed by this slice.
+complete. Source-bound assertion reachability is also complete. Formal mutation
+sensitivity, fact-ledger refresh, and broad remote proof remain open. No Phase
+18 global row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -96,6 +96,39 @@ Cleaning only that helper package removed 16 MiB of generated cache and forced
 the accepted repository-relative artifact path. The rejected attempt produced
 no evidence record.
 
+## Source-bound assertion reachability
+
+The cumulative Phase 18 producer ran from clean source commit
+`161526ad551f82395d13258765df865c873a6c85` in the isolated builder checkout.
+The reviewed plan uses three generated source mutations at exact function
+`evaluate_task_readiness` rather than expanding the production API or repeating
+one unrelated assertion in every test:
+
+- `MUTANT_TASK_READINESS_CLOCK_BOUNDARY_INVERT_DEADLINE` changes the periodic
+  deadline comparison from `>=` to `<`; the backward-clock test catches it.
+- `MUTANT_TASK_READINESS_EVENT_DELETE_RISING_EDGE` removes the negation from
+  the rising-edge predicate; both event unit tests and the generated trace
+  independently catch it.
+- `MUTANT_TASK_READINESS_OVERRUN_REMAINDER` replaces elapsed-period division
+  with remainder; both periodic/forward-coalescing unit tests catch it.
+
+Every selected mutant compiled, every assigned direct or trace test failed
+against the changed production body, and all six task-readiness assertions are
+therefore classified `proven` rather than merely executed.
+
+- Evidence: `EVID_RT_TASK_READINESS_ASSERTION_REACHABILITY_001`
+- Canonical artifact: `verification/p18/assertion-reachability.json`
+- Artifact digest:
+  `sha256:cc99f094ab9ebbc4a32d11326aed719907fe2b370564186d91c8914e1bc22460`
+- Input-closure digest:
+  `sha256:f6f102a16215d8ac1a8a1d3fed3d6d582f8b1635894a75006d99f665139d3e4e`
+- Cumulative result: 14/277 catalog assertions proven, fourteen caught
+  mutants, zero survivors, unviable mutants, timeouts, or harness failures.
+
+The remaining 263 assertions stay explicitly open. This slice does not use the
+cumulative result to waive any other test or the separate formal mutation
+budget in `VERIF-P18-009`.
+
 Focused x86_64 Linux proof also passed all five exact task-readiness unit tests,
 the exact generated trace command, case regeneration, 915-record pre-lock
 metadata validation, and the 285-to-4,049 catalog staleness join. Full `clippy`
@@ -107,9 +140,9 @@ and `test-all` were not run; the active board reserves them for the one final
 `RISK_ACK_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73`
 acknowledges the scanner's `state_mutation` signal for the exact unchanged body
 digest. It is bound to IEC trigger authority, `DEV-058`, the invariant, five
-strengthened unit locks, and the producer-authentic generated trace pair. It
-does not suppress the signal or claim the still-open assertion reachability,
-mutation budget, refreshed ledger, or broad-gate proof.
+strengthened unit locks, the producer-authentic generated trace pair, and the
+source-bound assertion-reachability artifact. It does not suppress the signal
+or claim the still-open mutation budget, refreshed ledger, or broad-gate proof.
 
 ## Architecture and remaining debt
 
@@ -122,7 +155,6 @@ focused consumers, and one generated trace at the owning boundary.
 
 Remaining exact debt:
 
-- source-bound assertion reachability under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - refreshed fact-ledger accounting for the exact code and test identities;
 - causal broad evidence and final frozen-candidate gates under

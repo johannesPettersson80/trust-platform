@@ -58548,7 +58548,7 @@ review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
-rationale = "Acknowledges the state-mutation signal for this exact reviewed body digest after binding the function to the task-readiness specification, invariant, five strengthened unit locks, and producer-authentic generated trace pair; it does not suppress the signal or claim the still-open reachability, mutation, or broad-gate proof."
+rationale = "Acknowledges the state-mutation signal for this exact reviewed body digest after binding the function to the task-readiness specification, invariant, five strengthened unit locks, producer-authentic generated trace pair, and source-bound assertion-reachability artifact; it does not suppress the signal or claim the still-open mutation or broad-gate proof."
 
 [[acknowledgements]]
 schema_version = 1

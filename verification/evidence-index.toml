@@ -8595,6 +8595,28 @@ last_reviewed = "2026-07-22"
 
 [[evidence]]
 schema_version = 1
+id = "EVID_RT_TASK_READINESS_ASSERTION_REACHABILITY_001"
+title = "Source-bound assertion reachability for task readiness"
+area = "runtime_safety"
+owner = "trust-runtime-core"
+status = "mapped"
+kind = "committed_file"
+path = "verification/p18/assertion-reachability.json"
+command = "python3 scripts/p18_assertion_reachability.py --write --target-dir $HOME/.cache/codex-targets/trust-platform-gate --scratch-root $PWD/target/tmp-p18"
+commit = "161526ad551f82395d13258765df865c873a6c85"
+platform = "trust-builder-linux-x86_64"
+date = "2026-07-22"
+suite_id = "supporting_local"
+producer = "p18-assertion-reachability.py v1"
+generated_report_version = "p18-assertion-reachability-v1"
+proof_kind = "none"
+linked_invariants = ["RT_TASK_READINESS_001"]
+linked_tests = ["TEST_RUNTIME_TASK_READINESS_BACKWARD_CLOCK_001", "TEST_RUNTIME_TASK_READINESS_EVENT_EDGE_001", "TEST_RUNTIME_TASK_READINESS_EVENT_SUPPRESSION_001", "TEST_RUNTIME_TASK_READINESS_FORWARD_COALESCING_001", "TEST_RUNTIME_TASK_READINESS_PERIODIC_OVERRUN_001", "TEST_RUNTIME_TASK_READINESS_TRACE_001"]
+linked_spec_gaps = []
+last_reviewed = "2026-07-22"
+
+[[evidence]]
+schema_version = 1
 id = "EVID_TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001_LOCK_BASELINE"
 title = "lock_baseline proof for TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"
 area = "runtime_safety"
