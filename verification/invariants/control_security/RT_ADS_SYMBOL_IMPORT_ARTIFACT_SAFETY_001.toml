@@ -1,0 +1,108 @@
+schema_version = 1
+id = "RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001"
+title = "ADS symbol import confines and preserves generated artifacts"
+area = "control_security"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Server-control ADS symbol import writes only to distinct project-confined non-symlink paths and never overwrites different generated ST content."
+proof_level = "T1"
+contract_kind = "security_policy"
+source_refs = ["crates/trust-runtime/src/control/ads_handlers/import_symbols.rs", "crates/trust-runtime/src/control/ads_handlers/import_symbols/artifacts.rs"]
+tests = [
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_ACCEPTS_IDENTICAL_GENERATED_SOURCE_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_PRESERVES_DIFFERENT_GENERATED_SOURCE_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_ABSOLUTE_OUTPUT_PATH_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_COLLIDING_ARTIFACT_PATHS_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_CONNECTION_NAME_AS_SNAPSHOT_PATH_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_PARENT_PATH_TRAVERSAL_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_SYMLINK_PATH_ESCAPE_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_WRITES_EXACT_SELECTED_SYMBOLS_TO_PROJECT_FILES_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+
+[[behavior]]
+partition = { equals = "VALID_DISTINCT_PROJECT_PATHS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A valid relative-path import writes deterministic configuration, snapshot, and generated ST artifacts."
+
+[[behavior]]
+partition = { equals = "ABSOLUTE_PARENT_PREFIX_OR_CONNECTION_PATH_SYNTAX" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Filesystem syntax that can escape or vary across platforms is rejected before any artifact write."
+
+[[behavior]]
+partition = { equals = "SYMLINK_PATH_COMPONENT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Existing symlink components cannot redirect a project-relative write outside the project."
+
+[[behavior]]
+partition = { equals = "COLLIDING_ARTIFACT_DESTINATIONS" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Configuration, snapshot, and generated-source roles cannot overwrite one another."
+
+[[behavior]]
+partition = { equals = "BYTE_IDENTICAL_GENERATED_SOURCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Byte-identical generated ST is retained while the deterministic configuration and snapshot remain safe to apply."
+
+[[behavior]]
+partition = { equals = "DIFFERENT_GENERATED_SOURCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Different generated ST fails before the configuration or snapshot changes."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests cover exact selected-symbol writes and byte-identical repeat application."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Focused tests cover absolute, parent, connection-derived, and symlink path escapes."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "A focused regression rejects three artifact roles resolving to one path."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Focused tests distinguish byte-identical generated ST from protected different content."

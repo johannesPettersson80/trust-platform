@@ -597,6 +597,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   an IEC decision or deviation. Assertion reachability, mutation sensitivity,
   remaining ADS onboarding subdomains, and the final broad remote gates remain
   open.
+
+  ADS symbol-import artifact-safety coherent-batch progress (2026-07-22): the
+  runtime product specification now confines server-control import outputs to
+  distinct relative paths under the selected project, rejects path syntax in
+  connection-derived snapshot names and existing symlink components, and
+  protects different generated ST content before any sibling artifact write.
+  Six expected-red tests proved that absolute and parent paths wrote outside
+  their intended scope, a connection name became snapshot path syntax, a
+  project symlink redirected generated output, all three artifact roles could
+  overwrite one file, and different generated ST was replaced without an
+  explicit overwrite decision. The apply boundary now completes path and
+  generated-content preflight before mutation; byte-identical repeat imports
+  remain accepted. Remote focused proof passes all 10 server-control import
+  tests and all 5 core symbol-import tests. Deterministic semantic automation
+  binds 8 exact apply/artifact-owner facts and 8 focused tests to
+  `RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001`; the scoped audit reports 644
+  specified code facts, 14,635 remaining `spec_gap` facts, 628 mapped
+  denominator tests, and 3,536 remaining `reviewed_nonmapping` tests. The
+  artifact policy was split into a 185-line focused module, leaving the handler
+  at 790 lines; no broader ownership or execution flow changed, and no diagram
+  update is required. This is a truST product security contract outside IEC
+  61131-3, not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, remaining ADS symbol-import semantics, and the final broad
+  remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

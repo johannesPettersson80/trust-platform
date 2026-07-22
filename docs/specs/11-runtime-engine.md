@@ -1026,6 +1026,23 @@ remove scripts back up each selected `StaticRoutes.xml`, match a route by its
 exact name, preserve unrelated routes, and report an encoding/BOM change.
 Client and server roles retain their distinct operator instructions.
 
+###### ADS symbol-import artifact safety
+
+The server-control symbol-import apply operation writes only inside its selected
+project root. Explicit `ads.toml`, snapshot, and generated-ST destinations must
+be non-empty relative paths without parent-directory, root, or platform-prefix
+components. The default snapshot destination is available only when the
+connection name is a safe single filename component; a connection name must
+never become path syntax. The three resolved artifact destinations must be
+distinct.
+
+Before writing any import artifact, server control checks an existing generated
+ST destination. Byte-identical generated content is safe to retain, but
+different existing content is rejected instead of being overwritten. A
+rejected path or overwrite preflight leaves all three artifacts unchanged.
+These confinement and overwrite rules apply to the server-control authoring
+surface; the explicit filesystem paths of the local CLI remain operator-owned.
+
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
 `trust-runtime bench` validates each workload before measurement: sample,

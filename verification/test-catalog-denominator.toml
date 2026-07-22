@@ -2852,6 +2852,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_10A599C4EEC4F54F3F67"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_rejects_connection_name_as_snapshot_path"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_CONNECTION_NAME_AS_SNAPSHOT_PATH_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_10AF4254EC4ADCF69C33"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/value/defaults.rs"
@@ -16832,6 +16842,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_678CF81F36D657A3163C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_rejects_absolute_output_path"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_ABSOLUTE_OUTPUT_PATH_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_67AFA6F8A2DB5766FF6D"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/connectors_status.rs"
@@ -17820,6 +17840,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_6DBC8E714586FCE709F7"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_rejects_symlink_path_escape"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_SYMLINK_PATH_ESCAPE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_6DBF2D449DC1A9C28F63"
@@ -23822,6 +23852,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_944DF649CB930DE18D78"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_rejects_parent_path_traversal"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_PARENT_PATH_TRAVERSAL_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_9466D8EBC1CB0CF5F987"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_validation.rs"
@@ -24810,6 +24850,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9A253170F80152AEFAC9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_rejects_colliding_artifact_paths"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_COLLIDING_ARTIFACT_PATHS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9A3738DD6DC56822F730"
@@ -26030,6 +26080,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A12DE7F3B6761DBAA24E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_preserves_different_generated_source"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_PRESERVES_DIFFERENT_GENERATED_SOURCE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_A14B32D75DC89BAA53C0"
@@ -36752,6 +36812,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E4B2B99BE19DF564C995"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
+name = "import_symbols_apply_accepts_identical_generated_source"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_ACCEPTS_IDENTICAL_GENERATED_SOURCE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E4F8E0421394E0F9C0ED"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
@@ -36957,9 +37027,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"
 name = "import_symbols_apply_writes_exact_selected_symbols_to_project_files"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_WRITES_EXACT_SELECTED_SYMBOLS_TO_PROJECT_FILES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E618C56EF4F9469EA27E"

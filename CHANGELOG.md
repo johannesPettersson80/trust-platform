@@ -43,6 +43,9 @@ Target release: `v0.24.54`
 - trust-runtime: ADS route planning now encodes generated XML as data before
   embedding it in PowerShell, preventing route-name here-string breakout, and
   rejects blank one-shot credentials before calling the route wire.
+- trust-runtime: ADS server-control symbol import now confines its three
+  outputs to distinct project-relative non-symlink paths and refuses to
+  overwrite different generated ST before writing any import artifact.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.
