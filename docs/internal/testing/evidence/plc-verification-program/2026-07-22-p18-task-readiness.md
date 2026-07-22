@@ -4,9 +4,9 @@ Date: 2026-07-22
 
 Status: exact authority, mapping, strengthened legacy unit locks, generated
 decision-table trace, and producer-authentic targeted behavior-lock proof
-complete. Source-bound assertion reachability is also complete. Formal mutation
-sensitivity, fact-ledger refresh, and broad remote proof remain open. No Phase
-18 global row or stop gate is closed by this slice.
+complete. Source-bound assertion reachability and fact-ledger accounting are
+also complete. Formal mutation sensitivity and broad remote proof remain open.
+No Phase 18 global row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -129,6 +129,33 @@ The remaining 263 assertions stay explicitly open. This slice does not use the
 cumulative result to waive any other test or the separate formal mutation
 budget in `VERIF-P18-009`.
 
+## Refreshed slice accounting
+
+The deterministic fact-ledger producer ran in the isolated builder checkout
+from clean source `7dddde431cfbb8203aadaa45f95dbacc32708f42`. The generated
+artifact was committed as `f322f94f8ed2a1fd1ab779efe8b6066a0a432a22` and
+revalidated from clean descendant
+`20a03dba1399464a9714298fabf071b059088eac`. The canonical ledger contains
+exactly 15,298 code facts and 4,049 test facts with zero duplicate, omitted, or
+unowned identities.
+
+- Burn-down artifact digest:
+  `sha256:c9fc0fb4615658b38b7fd4fbd3802939f598596d36fc63aba6206b0ac0dd31f2`
+- Burn-down input closure:
+  `sha256:36401f61dd2457752bf87f4ec99ae0733cc91f789542e128a86f4cc98d966669`
+- Remaining `spec_gap`: 15,133
+- Remaining `registered_backlog`: 15,130
+- Remaining `reviewed_nonmapping`: 3,772
+- Test mapping: 277/4,049, artifact digest
+  `sha256:21e63bbd2c62fb912bbb2b7499676e9ad863587ac2f57cf8d7b1f68da674a4a1`
+- Top-level ledger closure:
+  `sha256:1d7ba3796d193a160635e88bc5b69379c1e643a5970ea4d671aba8cbfc7ad09d`
+
+The report-only zero-debt gate has zero contract findings. Strict mode
+correctly remains `open_debt`; all remaining populations and unmeasured proof
+classes stay blocking. The nine focused P18 substrate tests pass, including
+the seven-shard assertion-plan join and known-bad strict-mode catchers.
+
 Focused x86_64 Linux proof also passed all five exact task-readiness unit tests,
 the exact generated trace command, case regeneration, 915-record pre-lock
 metadata validation, and the 285-to-4,049 catalog staleness join. Full `clippy`
@@ -156,7 +183,6 @@ focused consumers, and one generated trace at the owning boundary.
 Remaining exact debt:
 
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
-- refreshed fact-ledger accounting for the exact code and test identities;
 - causal broad evidence and final frozen-candidate gates under
   `VERIF-P18-016`;
 - all other code/test facts and every global Phase 18 equation.
