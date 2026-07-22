@@ -1490,6 +1490,35 @@ evidence holds. The ordinary mesh operations edge may remain visible alongside
 the overlay, but it is not a deterministic fallback for T0 and must not be
 reported as one.
 
+##### Runtime Cloud HA lease, split-brain, and replay contract
+
+Runtime Cloud dual-host HA is a truST product safety contract outside IEC
+61131-3. An action that addresses the active namespace, and every
+`cmd_invoke`, requires a nonempty HA group, an external consistent lease
+authority, an available lease, one ACTIVE target whose runtime ID is the lease
+owner, a valid nonempty fencing token, and no ambiguous leadership. Loss of any
+authority or fence condition denies the protected action before side effects
+and requires the affected runtime to remain or become `demoted_safe`.
+
+The supplied `payload.ha.targets` map is the asserted complete authority view
+for the HA group, not merely a description of the action's target subset. If
+more than one entry simultaneously satisfies every ACTIVE lease-owner and
+fencing condition, the group is split-brain. Every protected action is denied
+with `lease_unavailable`, including an action whose `target_runtimes` names
+only one of those candidates. Selecting one candidate in the action must never
+hide another valid ACTIVE owner from the split-brain check.
+
+Dual-host commands use a positive `command_seq` per group and runtime. A
+completed request ID with the same sequence returns its stored result without
+performing the control operation again; reusing that request ID with a
+different sequence or submitting a stale sequence is a conflict. While the
+first dispatch for a request ID is still owned by the current live coordinator,
+another begin attempt is also a conflict and cannot start a second control
+operation. A serialized pending request carries no live-process ownership; on
+recovery, the same request ID and sequence may be resumed once for
+reconciliation and then becomes subject to the ordinary completed-result
+deduplication rule.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:

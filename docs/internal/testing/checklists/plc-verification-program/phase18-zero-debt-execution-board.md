@@ -507,6 +507,28 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   required. This is a truST product contract, not an IEC decision or deviation.
   Assertion reachability, mutation sensitivity, rollout and remaining Runtime
   Cloud subdomains, and the final broad remote gates remain open.
+
+  Runtime Cloud HA fencing/replay coherent-batch progress (2026-07-22): the
+  product specification now owns complete-group split-brain detection,
+  lease-owner/role/fence authority, monotonic completed-command replay, live
+  dispatch ownership, and recovered-pending reconciliation. Expected-red unit
+  and HTTP tests proved that two valid ACTIVE owners were missed whenever the
+  action targeted only one candidate, allowing the protected preflight, and
+  that a duplicate request could receive a second live `Proceed` while its
+  first dispatch remained pending. The HA request now evaluates every supplied
+  group target, and the coordinator keeps non-serialized live ownership that
+  rejects concurrent duplicates while permitting one same-ID/same-sequence
+  resume after state recovery. Generated semantic registration binds all 23 HA
+  owner facts plus the single HA preflight-adapter fact and all 13 focused unit
+  and HTTP tests to `RT_RUNTIME_CLOUD_HA_FENCING_001`. Remote focused proof
+  passes all 8 HA unit tests, all 5 HA HTTP tests, and all 5 Runtime Cloud
+  architecture assertions. The complete HA policy remains transport-free; the
+  broad mixed-responsibility action-dispatch route remains honestly unmapped
+  rather than being overclaimed as purely HA. All touched Rust files remain
+  below the large-file threshold, no ownership or execution flow changed, and
+  no diagram update is required. This is a truST product safety contract, not
+  an IEC decision or deviation. Assertion reachability, mutation sensitivity,
+  rollout and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

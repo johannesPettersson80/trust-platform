@@ -15464,13 +15464,13 @@ id = "RISK_ACK_3BD26E1C218007145C9652343BB1A8DC9FD38C2CF256B91230C921A79A6CBD8D"
 code_id = "CODE_3BD26E1C218007145C9652343BB1A8DC9FD38C2CF256B91230C921A79A6CBD8D"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:81b78b89cfb2714f757be23c1aead26a78586287083401beab7bc41b7dc017e8"
+body_digest = "sha256:d25c12d0748d5b4bae019a1b25c51ab0ab8e49c7481c2767eaecbb0c0404ee8f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -17592,13 +17592,13 @@ id = "RISK_ACK_5E7265A8AF8DFEA6FC906D380F07937876FBD7FEB20372A2A30CB6C22932D5B9"
 code_id = "CODE_5E7265A8AF8DFEA6FC906D380F07937876FBD7FEB20372A2A30CB6C22932D5B9"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:f7558e9f38c0af54eb3d2cb9be040e2bd211b55e75c8afac6195cc3f2fe0b5fe"
+body_digest = "sha256:50cc754d497b23876a2606710b6c163c988eb8c8e6d2c5301675adddf85e796f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -18686,11 +18686,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:1bf495c841afef0e605996acfced96629bdc8bfd5db881acd92710b2faef3ca3"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -19694,11 +19694,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:97ec8ae339d6457407dee858d32ffaa73786149dc3b07b77c2aa043cc51a0c23"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -20786,11 +20786,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:791cb8909e47a506023dcb924fdaf14e0306c5ee61956a850cd1cccea5da185d"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -21078,13 +21078,13 @@ id = "RISK_ACK_9992A626036B38F5B0C77E4BD525BD5200DF96A9441D36F046E8EBFBF3D139FD"
 code_id = "CODE_9992A626036B38F5B0C77E4BD525BD5200DF96A9441D36F046E8EBFBF3D139FD"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:4d9a3be3856ac0daa00dfbcb28a57364ce8c65229a455240b190ddcdf12ad98e"
+body_digest = "sha256:ccd4b29afb5ad244f46b1b5154f9f12190e987121a16ce78245645d598e99afd"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24019,20 +24019,6 @@ code_id = "CODE_C5444B206CE539D43DD0F01CBFD82E614D15DADBB7CF1A5F9421A80FCF1ACA39
 owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:e63c8a5e7b9ff0dc348a0e1953bf463a9486dbb2c0646f4e344c23df2ba1973a"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C548EE78D084D34E6F34E48728A4EDD57D62FCE65C5F61E0ECBF67347956F351"
-code_id = "CODE_C548EE78D084D34E6F34E48728A4EDD57D62FCE65C5F61E0ECBF67347956F351"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:2fa4b951d2f9f301765f6c119033e107886ff240d17731d3a876ad822a497b79"
 risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
 reviewed_by = "trust-runtime"
@@ -81363,3 +81349,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9B5EA5A97953AAD4EEA095E60D634F8A29AA94653C111B451061A061E5EAC258"
+code_id = "CODE_9B5EA5A97953AAD4EEA095E60D634F8A29AA94653C111B451061A061E5EAC258"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:56f5f30347c65acfd4e2f9e7355415bce12dcf9c8f03ae29ded6c675ce0f6ae1"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-ha-lease-split-brain-and-replay-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."

@@ -100,7 +100,32 @@ fn split_brain_candidates_are_detected_and_rejected() {
         dual_host_active_target("runtime-b"),
     );
 
-    let runtimes = request.split_brain_runtimes(["runtime-a", "runtime-b"], "cmd_invoke");
+    let runtimes = request.split_brain_runtimes("cmd_invoke");
+    assert_eq!(runtimes.len(), 2);
+    assert!(runtimes.contains("runtime-a"));
+    assert!(runtimes.contains("runtime-b"));
+}
+
+#[test]
+fn split_brain_detection_uses_complete_group_view_not_action_subset() {
+    let mut request = RuntimeCloudHaRequest {
+        profile: RuntimeCloudHaProfile::DualHost,
+        group_id: "line-c-subset-ha".to_string(),
+        active_namespace: true,
+        command_seq: Some(13),
+        targets: BTreeMap::new(),
+    };
+    request.targets.insert(
+        "runtime-a".to_string(),
+        dual_host_active_target("runtime-a"),
+    );
+    request.targets.insert(
+        "runtime-b".to_string(),
+        dual_host_active_target("runtime-b"),
+    );
+
+    let runtimes = request.split_brain_runtimes("cmd_invoke");
+
     assert_eq!(runtimes.len(), 2);
     assert!(runtimes.contains("runtime-a"));
     assert!(runtimes.contains("runtime-b"));
@@ -207,4 +232,41 @@ fn crash_mid_command_can_retry_after_state_roundtrip() {
         recovered.last_applied_command_seq("line-e-ha", "runtime-a"),
         31
     );
+}
+
+#[test]
+fn live_in_flight_duplicate_is_denied_but_recovery_can_resume_once() {
+    let mut coordinator = RuntimeCloudHaCoordinator::default();
+    let mut request = RuntimeCloudHaRequest {
+        profile: RuntimeCloudHaProfile::DualHost,
+        group_id: "line-f-ha".to_string(),
+        active_namespace: false,
+        command_seq: Some(41),
+        targets: BTreeMap::new(),
+    };
+    request.targets.insert(
+        "runtime-a".to_string(),
+        dual_host_active_target("runtime-a"),
+    );
+
+    let first = coordinator
+        .begin_dispatch("cmd_invoke", "req-in-flight", "runtime-a", &request)
+        .expect("first dispatch gate");
+    assert!(matches!(first, RuntimeCloudHaDispatchGate::Proceed(_)));
+
+    let duplicate = coordinator
+        .begin_dispatch("cmd_invoke", "req-in-flight", "runtime-a", &request)
+        .expect("duplicate dispatch gate");
+    let RuntimeCloudHaDispatchGate::Denied(denial) = duplicate else {
+        panic!("a live in-flight request must not start a second dispatch");
+    };
+    assert_eq!(denial.denial_code, Some(ReasonCode::Conflict));
+
+    let encoded = serde_json::to_string(&coordinator).expect("serialize coordinator");
+    let mut recovered: RuntimeCloudHaCoordinator =
+        serde_json::from_str(&encoded).expect("deserialize coordinator");
+    let resumed = recovered
+        .begin_dispatch("cmd_invoke", "req-in-flight", "runtime-a", &request)
+        .expect("recovery dispatch gate");
+    assert!(matches!(resumed, RuntimeCloudHaDispatchGate::Proceed(_)));
 }

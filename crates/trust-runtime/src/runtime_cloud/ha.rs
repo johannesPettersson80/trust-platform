@@ -64,10 +64,7 @@ pub struct RuntimeCloudHaRequest {
 
 impl RuntimeCloudHaRequest {
     #[must_use]
-    pub fn split_brain_runtimes<'a, I>(&self, runtimes: I, action_type: &str) -> BTreeSet<String>
-    where
-        I: IntoIterator<Item = &'a str>,
-    {
+    pub fn split_brain_runtimes(&self, action_type: &str) -> BTreeSet<String> {
         if self.profile != RuntimeCloudHaProfile::DualHost
             || !requires_active_authority(action_type, self)
         {
@@ -75,10 +72,7 @@ impl RuntimeCloudHaRequest {
         }
 
         let mut active_candidates = Vec::new();
-        for runtime_id in runtimes {
-            let Some(target) = self.targets.get(runtime_id) else {
-                continue;
-            };
+        for (runtime_id, target) in &self.targets {
             if target_can_own_active_namespace(runtime_id, target) {
                 active_candidates.push(runtime_id.to_string());
             }
@@ -143,6 +137,8 @@ pub struct RuntimeCloudHaDispatchTicket {
     command_seq: u64,
 }
 
+type RuntimeCloudHaDispatchKey = (String, String, String);
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeCloudHaDispatchGate {
     Proceed(RuntimeCloudHaDispatchTicket),
@@ -153,6 +149,8 @@ pub enum RuntimeCloudHaDispatchGate {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RuntimeCloudHaCoordinator {
     groups: BTreeMap<String, RuntimeCloudHaGroupLedger>,
+    #[serde(skip)]
+    active_dispatches: BTreeSet<RuntimeCloudHaDispatchKey>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -238,15 +236,22 @@ impl RuntimeCloudHaCoordinator {
                 Some(RuntimeCloudHaDispatchGate::Deduplicated(result))
             }
             RuntimeCloudHaReplayCheck::Proceed => {
-                let runtime = self.runtime_ledger_mut(ha_request.group_id.as_str(), runtime_id);
-                runtime.requests.insert(
-                    request_id.to_string(),
-                    RuntimeCloudHaRequestLedger {
-                        command_seq,
-                        pending: true,
-                        result: None,
-                    },
-                );
+                {
+                    let runtime = self.runtime_ledger_mut(ha_request.group_id.as_str(), runtime_id);
+                    runtime.requests.insert(
+                        request_id.to_string(),
+                        RuntimeCloudHaRequestLedger {
+                            command_seq,
+                            pending: true,
+                            result: None,
+                        },
+                    );
+                }
+                self.active_dispatches.insert(runtime_cloud_ha_dispatch_key(
+                    ha_request.group_id.as_str(),
+                    runtime_id,
+                    request_id,
+                ));
                 Some(RuntimeCloudHaDispatchGate::Proceed(
                     RuntimeCloudHaDispatchTicket {
                         group_id: ha_request.group_id.clone(),
@@ -264,19 +269,28 @@ impl RuntimeCloudHaCoordinator {
         ticket: RuntimeCloudHaDispatchTicket,
         result: RuntimeCloudHaDispatchRecord,
     ) {
-        let runtime = self.runtime_ledger_mut(ticket.group_id.as_str(), ticket.runtime_id.as_str());
-        let Some(record) = runtime.requests.get_mut(ticket.request_id.as_str()) else {
-            return;
-        };
-        if record.command_seq != ticket.command_seq {
-            return;
+        {
+            let runtime =
+                self.runtime_ledger_mut(ticket.group_id.as_str(), ticket.runtime_id.as_str());
+            let Some(record) = runtime.requests.get_mut(ticket.request_id.as_str()) else {
+                return;
+            };
+            if record.command_seq != ticket.command_seq {
+                return;
+            }
+            record.pending = false;
+            record.result = Some(result.clone());
+            if result.ok {
+                runtime.last_applied_command_seq =
+                    runtime.last_applied_command_seq.max(ticket.command_seq);
+            }
         }
-        record.pending = false;
-        record.result = Some(result.clone());
-        if result.ok {
-            runtime.last_applied_command_seq =
-                runtime.last_applied_command_seq.max(ticket.command_seq);
-        }
+        self.active_dispatches
+            .remove(&runtime_cloud_ha_dispatch_key(
+                ticket.group_id.as_str(),
+                ticket.runtime_id.as_str(),
+                ticket.request_id.as_str(),
+            ));
     }
 
     #[must_use]
@@ -333,6 +347,20 @@ impl RuntimeCloudHaCoordinator {
                 ));
             }
             if existing.pending {
+                if self
+                    .active_dispatches
+                    .contains(&runtime_cloud_ha_dispatch_key(
+                        group_id, runtime_id, request_id,
+                    ))
+                {
+                    return RuntimeCloudHaReplayCheck::Denied(RuntimeCloudHaDecision::deny(
+                        ReasonCode::Conflict,
+                        format!(
+                            "request_id '{}' is already dispatching command_seq {} for group '{}' runtime '{}'",
+                            request_id, command_seq, group_id, runtime_id
+                        ),
+                    ));
+                }
                 return RuntimeCloudHaReplayCheck::Proceed;
             }
             if let Some(result) = existing.result.clone() {
@@ -359,6 +387,18 @@ enum RuntimeCloudHaReplayCheck {
     Proceed,
     Denied(RuntimeCloudHaDecision),
     Deduplicated(RuntimeCloudHaDispatchRecord),
+}
+
+fn runtime_cloud_ha_dispatch_key(
+    group_id: &str,
+    runtime_id: &str,
+    request_id: &str,
+) -> RuntimeCloudHaDispatchKey {
+    (
+        group_id.to_string(),
+        runtime_id.to_string(),
+        request_id.to_string(),
+    )
 }
 
 #[cfg(test)]

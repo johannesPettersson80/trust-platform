@@ -237,13 +237,7 @@ fn runtime_cloud_apply_ha_policy(
     };
 
     let mut preflight = preflight;
-    let split_brain = ha_request_ref.split_brain_runtimes(
-        preflight
-            .decisions
-            .iter()
-            .map(|decision| decision.runtime_id.as_str()),
-        action.action_type.as_str(),
-    );
+    let split_brain = ha_request_ref.split_brain_runtimes(action.action_type.as_str());
     let coordinator = match ha_state.lock() {
         Ok(guard) => guard,
         Err(_) => {

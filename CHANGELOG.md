@@ -30,6 +30,10 @@ Target release: `v0.24.54`
   packet-loss values from discovery-only presence, and loopback discovery for
   one peer no longer classifies unrelated peer runtimes as same-host T0
   candidates.
+- trust-runtime: Runtime Cloud dual-host HA now detects split-brain candidates
+  across the complete supplied HA group even when an action targets only one
+  candidate, and rejects a duplicate request while its first dispatch remains
+  in flight instead of starting the protected command twice.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.
