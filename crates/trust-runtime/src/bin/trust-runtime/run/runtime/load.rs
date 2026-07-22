@@ -75,20 +75,28 @@ fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runt
 }
 
 fn load_project_bundle_sources(bundle_root: &Path) -> anyhow::Result<SourceRegistry> {
-    let files = trust_runtime::bundle_builder::collect_project_source_files(bundle_root, None)?
-        .into_iter()
-        .enumerate()
-        .map(|(index, source)| {
-            let path = source
-                .path
-                .map(PathBuf::from)
-                .unwrap_or_else(|| bundle_root.join(format!("__source_{index}.st")));
-            SourceFile {
-                id: u32::try_from(index).unwrap_or(u32::MAX),
-                path,
-                text: source.text,
-            }
-        })
-        .collect();
+    load_source_registry(bundle_root, None)
+}
+
+fn load_source_registry(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<SourceRegistry> {
+    let files =
+        trust_runtime::bundle_builder::collect_project_source_files(bundle_root, sources_root)?
+            .into_iter()
+            .enumerate()
+            .map(|(index, source)| {
+                let path = source
+                    .path
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| bundle_root.join(format!("__source_{index}.st")));
+                SourceFile {
+                    id: u32::try_from(index).unwrap_or(u32::MAX),
+                    path,
+                    text: source.text,
+                }
+            })
+            .collect();
     Ok(SourceRegistry::new(files))
 }

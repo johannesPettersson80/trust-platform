@@ -12,7 +12,7 @@ pub fn run_runtime(
     time_scale: u32,
     execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
-    let restart_mode = parse_restart_mode(&restart)?;
+    let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
     let LoadedRuntime {
         bundle,
         mut runtime,
@@ -316,7 +316,9 @@ pub fn run_runtime(
         hmi_descriptor,
         historian: historian.clone(),
         pairing: pairing.clone(),
-        ads_doctor_jobs: Arc::new(Mutex::new(trust_runtime::control::AdsDoctorJobStore::default())),
+        ads_doctor_jobs: Arc::new(Mutex::new(
+            trust_runtime::control::AdsDoctorJobStore::default(),
+        )),
         ads_client_config,
         opcua_client_config,
         ads_server_config,
@@ -482,6 +484,7 @@ pub fn run_runtime(
     }
 
     if let Some(bundle) = &bundle {
+        let io_drivers = enabled_io_driver_names(bundle);
         if verbose {
             print_startup_summary(
                 bundle,
@@ -505,18 +508,8 @@ pub fn run_runtime(
                 "resource": bundle.runtime.resource_name.to_string(),
                 "restart": format!("{restart_mode:?}"),
                 "cycle_interval_ms": bundle.runtime.cycle_interval.as_millis(),
-                "io_driver": bundle
-                    .io
-                    .drivers
-                    .first()
-                    .map(|driver| driver.name.to_string())
-                    .unwrap_or_default(),
-                "io_drivers": bundle
-                    .io
-                    .drivers
-                    .iter()
-                    .map(|driver| driver.name.to_string())
-                    .collect::<Vec<_>>(),
+                "io_driver": io_drivers.first().cloned().unwrap_or_default(),
+                "io_drivers": io_drivers,
                 "retain_mode": format_retain_mode(bundle.runtime.retain_mode),
                 "retain_path": bundle.runtime.retain_path.as_ref().map(|p| p.display().to_string()),
                 "retain_save_ms": bundle.runtime.retain_save_interval.as_millis(),
@@ -598,7 +591,7 @@ fn resolve_execution_backend_selection(
 ) -> anyhow::Result<(
     trust_runtime::execution_backend::ExecutionBackend,
     trust_runtime::execution_backend::ExecutionBackendSource,
-) > {
+)> {
     if let Some(backend) = cli_override {
         let backend = match backend {
             crate::cli::ExecutionBackendArg::Vm => {

@@ -94,7 +94,7 @@ Each task needs:
 
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `level` | string | yes | Logging level string. Must not be empty. |
+| `level` | string | yes | `error`, `warn` (`warning`), `info`, `debug`, or `trace`, case-insensitively. Empty and unknown values are rejected. |
 
 ### `[runtime.retain]` (retain policy)
 

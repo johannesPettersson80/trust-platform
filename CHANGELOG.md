@@ -10,6 +10,12 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: `play` now validates restart and simulation-scale options
+  before auto-creating a selected project; runtime configuration rejects
+  unknown log levels instead of silently treating them as `info`; legacy
+  runtime-root source discovery treats paths literally and recursively; and
+  validation/startup summaries no longer present disabled I/O drivers as
+  active.
 - trust-runtime: registry publish without `--project` now preserves standard
   bundle-detection failure instead of silently substituting a non-project
   current directory and reporting a later invented-bundle error.

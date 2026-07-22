@@ -19,9 +19,18 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "runtime.control.endpoint must not be empty".into(),
         ));
     }
-    if cfg.runtime.log.level.trim().is_empty() {
+    let log_level = cfg.runtime.log.level.trim().to_ascii_lowercase();
+    if log_level.is_empty() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.log.level must not be empty".into(),
+        ));
+    }
+    if !matches!(
+        log_level.as_str(),
+        "error" | "warn" | "warning" | "info" | "debug" | "trace"
+    ) {
+        return Err(RuntimeError::InvalidConfig(
+            "runtime.log.level must be error, warn, warning, info, debug, or trace".into(),
         ));
     }
     if cfg.runtime.retain.save_interval_ms == 0 {

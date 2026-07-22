@@ -1,5 +1,8 @@
 use std::process::{Command, Output};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn run_runtime(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
@@ -10,6 +13,18 @@ fn run_runtime(args: &[&str]) -> Output {
 
 fn stderr(output: &Output) -> String {
     String::from_utf8(output.stderr.clone()).expect("stderr utf-8")
+}
+
+fn unique_missing_project(name: &str) -> std::path::PathBuf {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time after epoch")
+        .as_nanos();
+    let sequence = TEMP_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "trust-runtime-{name}-{}-{stamp}-{sequence}",
+        std::process::id()
+    ))
 }
 
 #[test]
@@ -32,6 +47,42 @@ fn subcommand_suggestion_ignores_global_flags() {
         "stderr was:\n{}",
         stderr(&output)
     );
+}
+
+#[test]
+fn play_rejects_invalid_options_before_project_creation() {
+    let cases: &[(&str, &[&str], &str)] = &[
+        (
+            "invalid-restart",
+            &["--restart", "invalid"],
+            "Invalid restart mode",
+        ),
+        (
+            "zero-time-scale",
+            &["--time-scale", "0"],
+            "--time-scale must be >= 1",
+        ),
+    ];
+
+    for (name, options, expected_error) in cases {
+        let project = unique_missing_project(name);
+        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+        command.arg("play").arg("--project").arg(&project);
+        command.args(*options).arg("--no-console");
+        let output = command.output().expect("run trust-runtime play");
+
+        assert!(!output.status.success(), "{name} must be rejected");
+        assert!(
+            stderr(&output).contains(expected_error),
+            "unexpected {name} error:\n{}",
+            stderr(&output)
+        );
+        assert!(
+            !project.exists(),
+            "invalid launch options must not create {}",
+            project.display()
+        );
+    }
 }
 
 #[test]

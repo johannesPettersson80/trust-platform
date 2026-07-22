@@ -37,6 +37,7 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
 }
 
 pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Result<()> {
+    validate_runtime_launch_options(&options.restart, options.time_scale)?;
     let mut created = false;
     let project_path = match project {
         Some(path) => {
@@ -126,12 +127,7 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         .resource(bundle.runtime.resource_name.as_str())
         .or_else(|| metadata.primary_resource())
         .ok_or_else(|| anyhow::anyhow!("bytecode metadata missing resource definitions"))?;
-    let io_drivers = bundle
-        .io
-        .drivers
-        .iter()
-        .map(|driver| driver.name.to_string())
-        .collect::<Vec<_>>();
+    let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,
         "command": "validate",

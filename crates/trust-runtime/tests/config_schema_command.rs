@@ -74,6 +74,20 @@ fn run_validate(project: &std::path::Path) -> Output {
         .expect("run trust-runtime validate")
 }
 
+fn run_validate_ci(project: &std::path::Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("validate")
+        .arg("--project")
+        .arg(project)
+        .arg("--ci")
+        .output()
+        .expect("run trust-runtime validate --ci")
+}
+
+fn stderr_text(output: &Output) -> String {
+    String::from_utf8(output.stderr.clone()).expect("stderr utf-8")
+}
+
 #[test]
 fn validate_accepts_canonical_schema_fixture() {
     let project = unique_temp_dir("validate-schema-ok");
@@ -84,6 +98,59 @@ fn validate_accepts_canonical_schema_fixture() {
         "expected validate success, stderr was:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn validate_rejects_unknown_runtime_log_level() {
+    let project = unique_temp_dir("validate-log-level");
+    write_project_fixture(&project, "schema_log_level");
+    let runtime_path = project.join("runtime.toml");
+    let runtime_text = std::fs::read_to_string(&runtime_path)
+        .expect("read runtime.toml")
+        .replace("level = \"info\"", "level = \"verbose\"");
+    std::fs::write(&runtime_path, runtime_text).expect("write runtime.toml");
+
+    let output = run_validate(&project);
+    assert!(
+        !output.status.success(),
+        "unknown log level must fail validation"
+    );
+    assert!(
+        stderr_text(&output)
+            .contains("runtime.log.level must be error, warn, warning, info, debug, or trace"),
+        "unexpected validation error:\n{}",
+        stderr_text(&output)
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn validate_ci_reports_only_enabled_io_drivers() {
+    let project = unique_temp_dir("validate-enabled-drivers");
+    write_project_fixture(&project, "schema_enabled_drivers");
+    std::fs::write(
+        project.join("io.toml"),
+        r#"[io]
+drivers = [
+    { name = "loopback", enabled = true, params = {} },
+    { name = "simulated", enabled = false, params = {} },
+]
+"#,
+    )
+    .expect("write multi-driver io.toml");
+
+    let output = run_validate_ci(&project);
+    assert!(
+        output.status.success(),
+        "validate --ci should succeed:\n{}",
+        stderr_text(&output)
+    );
+    let payload: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("parse validate --ci JSON");
+    assert_eq!(payload["io_driver"], "loopback");
+    assert_eq!(payload["io_drivers"], serde_json::json!(["loopback"]));
+
     let _ = std::fs::remove_dir_all(project);
 }
 

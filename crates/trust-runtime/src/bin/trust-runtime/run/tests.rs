@@ -356,6 +356,25 @@ END_PROGRAM
 }
 
 #[test]
+fn bundle_version_is_rejected_before_runtime_policy_mutation() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let original_watchdog = runtime.watchdog_policy();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.bundle_version = 2;
+    bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_millis(25),
+        action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
+    };
+
+    let error = super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+        .expect_err("unsupported bundle version must fail");
+    assert!(error.to_string().contains("unsupported bundle version 2"));
+    assert_eq!(runtime.watchdog_policy(), original_watchdog);
+}
+
+#[test]
 fn ads_runtime_start_spawns_worker_and_scan_applies_mock_data() {
     let source = r#"
 TYPE
@@ -456,6 +475,109 @@ type = "REAL"
         trust_runtime::ads::diagnostics::AdsConnectionStatusState::Connected
     );
     runtime.shutdown_ads().expect("shutdown ADS worker");
+}
+
+#[cfg(feature = "opcua-wire")]
+#[derive(Default)]
+struct NoopOpcUaTransport;
+
+#[cfg(feature = "opcua-wire")]
+impl trust_runtime::opcua::OpcUaClientTransport for NoopOpcUaTransport {
+    fn connect(
+        &mut self,
+        connection: &trust_runtime::opcua::OpcUaClientConnectionConfig,
+        _sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<
+        trust_runtime::opcua::OpcUaClientSessionInfo,
+        trust_runtime::opcua::OpcUaClientBridgeError,
+    > {
+        Ok(trust_runtime::opcua::OpcUaClientSessionInfo {
+            requested_timeout_ms: connection.timeout_ms,
+            revised_timeout_ms: Some(connection.timeout_ms),
+            recovery_detail: None,
+        })
+    }
+
+    fn subscribe_read_points(
+        &mut self,
+        _points: &[trust_runtime::opcua::OpcUaClientPointConfig],
+        _sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+
+    fn write_values(
+        &mut self,
+        _values: &[(trust_runtime::opcua::OpcUaClientPointConfig, Value)],
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+
+    fn disconnect(&mut self) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+#[test]
+fn opcua_runtime_start_spawns_configured_connection() {
+    let source = r#"
+VAR_GLOBAL
+    opc_value : INT;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let session = CompileSession::from_sources(vec![SourceFile::with_path("src/main.st", source)]);
+    let mut runtime = session.build_runtime().expect("build runtime");
+    let bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    runtime
+        .apply_bytecode_bytes(&bytecode, Some(&smol_str::SmolStr::new("RESOURCE")))
+        .expect("apply bytecode");
+
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.opcua_client.enabled = true;
+    bundle.runtime.opcua_client.poll_interval = Duration::from_millis(10);
+    bundle.opcua_client_config_hash = Some("sha256:test-opcua-config".to_string());
+    bundle.opcua_client = Some(
+        trust_runtime::opcua::parse_opcua_client_toml(
+            r#"
+[[connections]]
+name = "line1"
+endpoint_url = "opc.tcp://127.0.0.1:4840/trust"
+security_policy = "none"
+security_mode = "none"
+auth = "anonymous"
+trust_server_certificate = true
+
+[[connections.points]]
+var = "opc_value"
+node_id = "ns=2;s=Value"
+type = "int"
+access = "read"
+"#,
+        )
+        .expect("parse OPC UA client config"),
+    );
+
+    super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        Ok(NoopOpcUaTransport)
+    })
+    .expect("start OPC UA client runtime");
+
+    assert_eq!(runtime.opcua_client_connection_count(), 1);
+    assert_eq!(
+        runtime
+            .opcua_client_status_report()
+            .deployed_config_hash
+            .as_deref(),
+        Some("sha256:test-opcua-config")
+    );
+    runtime
+        .reset_opcua_client_connections()
+        .expect("shutdown OPC UA client worker");
 }
 
 #[test]
@@ -565,6 +687,98 @@ policy = "halt"
         "dependency source must be included in project run source registry"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn legacy_runtime_root_source_loading_treats_paths_literally() {
+    let root = unique_temp_dir("run-source-[literal]");
+    let nested = root.join("nested");
+    std::fs::create_dir_all(&nested).expect("create nested source directory");
+    std::fs::write(root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").expect("write root source");
+    std::fs::write(
+        nested.join("helper.POU"),
+        "FUNCTION Helper : BOOL\nHelper := TRUE;\nEND_FUNCTION\n",
+    )
+    .expect("write nested source");
+
+    let sources = super::load_sources(&root).expect("load literal runtime root");
+    let paths = sources
+        .files()
+        .iter()
+        .map(|source| source.path.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(paths.len(), 2, "both recursive source files must load");
+    assert!(paths[0] < paths[1], "source order must be deterministic");
+    assert!(paths.iter().any(|path| path.ends_with("main.st")));
+    assert!(paths.iter().any(|path| path.ends_with("helper.POU")));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn simulation_plan_rejects_zero_cli_scale() {
+    let error = super::build_simulation_plan(None, false, 0)
+        .err()
+        .expect("zero time scale must fail");
+    assert!(error.to_string().contains("--time-scale must be >= 1"));
+}
+
+#[test]
+fn simulation_plan_preserves_project_model_when_cli_enables_it() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut config = trust_runtime::simulation::SimulationConfig::default();
+    config.time_scale = 7;
+    config.enabled = false;
+    bundle.simulation = Some(config);
+
+    let plan = super::build_simulation_plan(Some(&bundle), true, 1)
+        .expect("CLI simulation flag should enable project model");
+    assert!(plan.enabled);
+    assert_eq!(plan.time_scale, 7);
+    assert!(plan.controller.is_some());
+}
+
+#[test]
+fn runtime_settings_project_effective_bundle_and_cli_selection() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.log_level = smol_str::SmolStr::new("trace");
+    bundle.runtime.web.enabled = true;
+    bundle.runtime.discovery.enabled = true;
+    bundle.runtime.discovery.service_name = smol_str::SmolStr::new("settings-proof");
+    bundle.runtime.opcua.enabled = true;
+    bundle.runtime.opcua.listen = smol_str::SmolStr::new("127.0.0.1:4841");
+    let simulation = super::SimulationPlan {
+        enabled: true,
+        time_scale: 9,
+        warning: "simulation warning".to_string(),
+        controller: None,
+    };
+
+    let settings = super::build_runtime_settings(
+        Some(&bundle),
+        false,
+        trust_runtime::watchdog::WatchdogPolicy::default(),
+        trust_runtime::watchdog::FaultPolicy::Halt,
+        &simulation,
+        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm,
+        trust_runtime::execution_backend::ExecutionBackendSource::Flag,
+    );
+
+    assert_eq!(settings.log_level, "trace");
+    assert!(settings.web.enabled);
+    assert!(settings.discovery.enabled);
+    assert_eq!(settings.discovery.service_name, "settings-proof");
+    assert!(settings.opcua.enabled);
+    assert_eq!(settings.opcua.listen, "127.0.0.1:4841");
+    assert!(settings.simulation.enabled);
+    assert_eq!(settings.simulation.time_scale, 9);
+    assert_eq!(settings.simulation.warning, "simulation warning");
+    assert_eq!(
+        settings.execution_backend_source,
+        trust_runtime::execution_backend::ExecutionBackendSource::Flag
+    );
 }
 
 fn unique_temp_dir(name: &str) -> std::path::PathBuf {

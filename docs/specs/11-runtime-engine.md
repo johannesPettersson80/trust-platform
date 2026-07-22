@@ -820,6 +820,58 @@ This host-side launcher policy is a truST product contract. IEC 61131-3 does
 not define hardware-driver selection or OS-level I/O configuration, so the
 policy is not an IEC deviation.
 
+##### Runtime launcher input, validation, and startup contract
+
+`trust-runtime play --project <path>` is the product convenience entry point:
+it creates the default project when the selected folder is missing or lacks the
+minimum generated runtime artifacts. All non-filesystem launch arguments,
+including restart mode and simulation time scale, must be validated before that
+creation or any other project mutation. A rejected option therefore leaves a
+previously missing project path missing. `trust-runtime run` consumes an
+existing project and does not provide this creation behavior.
+
+Project-mode startup recursively compiles the `.st` and `.pou` sources beneath
+the project's selected source root, case-insensitively by extension, together
+with sources from resolved local project dependencies. Legacy `--config`
+startup recursively compiles those source types beneath its literal runtime
+root. Source discovery must not interpret project or directory names as glob
+syntax, must use deterministic path ordering, and must propagate directory and
+file-read failures. An empty or invalid source set is a startup error.
+
+Before the first PLC scan, the launcher must successfully complete all startup
+preparation: bundle-version validation; source and bytecode validation; runtime,
+watchdog, fault, safe-state, telemetry, I/O-driver, and retain configuration;
+configured ADS and OPC UA client startup; execution-backend selection; control
+endpoint and TLS validation; and enabled control, protocol, discovery, mesh,
+historian, persistence, and web-service initialization. Failure in any of these
+steps aborts startup; the scan start gate is not opened and the launcher must
+not report the PLC as running. Warm startup loads and validates the configured
+retain snapshot before execution. Cold startup does not read retained values.
+
+Simulation startup rejects a CLI or project time scale of zero. `--simulation`
+enables simulation without discarding the project's simulation model; a CLI
+time scale greater than one enables simulation and overrides the project time
+scale. Otherwise the loaded project simulation configuration remains
+authoritative. The settings exposed to control and status surfaces must reflect
+the effective runtime configuration and this effective simulation/backend
+selection, rather than an independent set of launcher defaults.
+
+`trust-runtime validate --ci` validates the same bundle version, TLS, control
+authentication, enabled I/O-driver configurations, bytecode container, module,
+and selected-resource requirements used by startup. Its versioned JSON success
+payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
+configuration order; disabled configuration entries are not reported as active
+runtime drivers.
+
+Runtime structured logging accepts `error`, `warn` (`warning`), `info`,
+`debug`, and `trace`, case-insensitively. Empty or unknown configured levels are
+configuration errors, not aliases for `info`. Every emitted line is one JSON
+object containing a Unix-epoch millisecond timestamp, canonical level, event
+name, and event data; events below the configured verbosity are omitted.
+SIGINT and SIGTERM request the ordinary bounded runtime stop path so shutdown
+and safe-state behavior completes before the launcher emits `runtime_exit` and
+returns success.
+
 ##### 6.8.0 Deprecated workbench command forwarding
 
 During the documented compatibility window, deprecated `trust-runtime`

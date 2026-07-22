@@ -23,6 +23,24 @@ fn simulation_warning_message(enabled: bool, time_scale: u32) -> Option<String> 
     ))
 }
 
+fn validate_runtime_launch_options(restart: &str, time_scale: u32) -> anyhow::Result<RestartMode> {
+    let restart_mode = parse_restart_mode(restart)?;
+    if time_scale == 0 {
+        anyhow::bail!("--time-scale must be >= 1");
+    }
+    Ok(restart_mode)
+}
+
+fn enabled_io_driver_names(bundle: &RuntimeBundle) -> Vec<String> {
+    bundle
+        .io
+        .drivers
+        .iter()
+        .filter(|driver| driver.enabled)
+        .map(|driver| driver.name.to_string())
+        .collect()
+}
+
 fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
     if !path.exists() {
         return Ok(true);
