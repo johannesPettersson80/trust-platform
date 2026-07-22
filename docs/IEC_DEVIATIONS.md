@@ -12,6 +12,43 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Deterministic task readiness and overrun accounting
+
+- ID: DEV-058
+- Area: Portable runtime task readiness
+- IEC reference: IEC 61131-3 Ed.3 section 6.8.2 a-b requires scheduling on a
+  `SINGLE` rising edge and periodic scheduling for a non-zero `INTERVAL` while
+  `SINGLE` is zero. The standard makes interval resolution and deadline
+  information implementer-specific and does not define truST's due timestamp,
+  skipped-interval counter, or logical-clock discontinuity policy. This entry
+  records those implementation choices without changing the IEC trigger
+  conditions.
+- Deviation/extension:
+  - Each sampled FALSE-to-TRUE `SINGLE` transition produces one event
+    activation at the sampled logical time. Held TRUE does not repeat and
+    suppresses periodic readiness; FALSE rearms the next edge.
+  - A non-positive interval produces no periodic activation at the portable
+    boundary. Valid task configuration uses zero to disable or a positive
+    duration to enable periodic scheduling; negative portable metadata is
+    conservatively disabled.
+  - A backward logical-clock sample leaves the periodic baseline and overrun
+    count unchanged. A later sample must reach the next deadline relative to
+    that unchanged baseline before the task is due.
+  - A forward jump coalesces all elapsed intervals into one activation. The
+    due time is the first nominal deadline, the missed count is the number of
+    additional complete intervals, cumulative overruns add with saturation,
+    and the baseline advances to the sampled time.
+  - Event activation does not advance the periodic baseline or overrun count;
+    nominal-deadline arithmetic saturates rather than wrapping.
+- Impact:
+  - Host pauses, deterministic simulation, and explicit test-clock jumps do
+    not replay an unbounded burst of stale task executions or corrupt task
+    accounting.
+- Mitigation:
+  - Use a positive configured interval for periodic tasks, treat recorded
+    overruns as missed deadlines requiring supervision, and use an injected
+    clock for deterministic simulation or replay.
+
 ## 2026-07-22 - Deterministic retained snapshot insertion
 
 - ID: DEV-057

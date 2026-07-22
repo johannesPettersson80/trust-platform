@@ -1,0 +1,115 @@
+schema_version = 1
+id = "RT_TASK_READINESS_001"
+title = "Task readiness preserves IEC triggers and deterministic overrun accounting"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "A sampled SINGLE rising edge schedules one event without moving the periodic baseline; periodic readiness requires SINGLE false and a positive elapsed interval, coalesces missed periods into one activation, and updates due-time and overrun state without wrap or replay."
+proof_level = "S1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/task.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+
+[[behavior]]
+partition = { equals = "NON_POSITIVE_INTERVAL_SINGLE_LOW" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Zero disables IEC periodic scheduling, and a negative portable metadata interval is conservatively disabled without changing the periodic baseline or counters."
+
+[[behavior]]
+partition = { equals = "SINGLE_RISING_EDGE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A FALSE-to-TRUE sample produces exactly one activation at now and records the high edge state without advancing periodic time or overruns."
+
+[[behavior]]
+partition = { equals = "SINGLE_HELD_HIGH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A held TRUE sample neither retriggers the event nor permits periodic readiness, even after the interval has elapsed."
+
+[[behavior]]
+partition = { equals = "SINGLE_FALLING_REARM" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A FALSE sample records the low edge state so the next rising sample can produce one new activation."
+
+[[behavior]]
+partition = { equals = "BACKWARD_OR_EARLY_PERIODIC_SAMPLE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A sample before the next nominal deadline, including a backward clock step, does not run, advance the baseline, or manufacture an overrun."
+
+[[behavior]]
+partition = { equals = "ONE_PERIOD_DUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "At the next deadline the task is due at that nominal deadline, reports no missed interval, and advances last_run to now."
+
+[[behavior]]
+partition = { equals = "MULTIPLE_PERIODS_DUE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A forward jump emits one activation at the first nominal deadline, reports n-1 missed intervals, saturating-adds them to cumulative overruns, and advances last_run to now."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The one-period readiness oracle is accepted; P18-005 and P18-006 must bind and execute its exact boundary matrix."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The SINGLE rising, held, and rearm oracle is accepted; the existing tests remain reviewed_nonmapping until catalog binding and producer-authentic execution."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "The backward-clock and forward-coalescing oracle is accepted; exact missed, baseline, and saturation cases remain to be executed."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The non-positive portable interval policy is accepted; zero and negative cases remain to be executed at the owning boundary."

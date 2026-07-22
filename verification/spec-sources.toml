@@ -1337,6 +1337,7 @@ covers = [
   "fault_channel",
   "watchdog",
   "safe_halt",
+  "task_readiness_and_overrun_accounting",
   "retain_restart",
   "retain_snapshot_identity_and_order",
   "retain_failure_transactions",

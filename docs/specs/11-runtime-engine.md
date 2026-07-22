@@ -185,16 +185,41 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 - On task registration, the runtime initializes the previous SINGLE value to avoid a spurious edge on the first cycle.
 - Periodic scheduling uses `Clock::now()` and the task interval (nanosecond Duration).
 - Task readiness and elapsed-time accounting use only the injected monotonic
-  `Clock`; civil wall-clock changes do not make a task ready. If a test clock
-  moves backward, the scheduler records no overrun and does not run the task
-  again until the prior task baseline is reached. A forward discontinuity,
-  including the monotonic interval observed after a host pause, makes a due
-  periodic task run at most once in the current cycle and records the skipped
-  intervals as overruns instead of replaying them. `StdClock` is monotonic;
-  backward steps are a deterministic test/simulation boundary. (DEV-045)
+  `Clock`; the exact readiness, discontinuity, and overrun contract is defined
+  below. Civil wall-clock changes do not make a task ready. (DEV-058)
 - Inputs are latched at the start of each scheduler cycle; outputs are committed after all ready tasks complete.
 - The maximum number of tasks per resource and minimum interval resolution are implementer-specific and are reported by the runtime configuration.
 - The resource loop maintains a `RUNNING/FAULT/STOPPED` state and halts on faults.
+
+##### 6.2.1 Task readiness and overrun accounting
+
+For each scheduler sample, the portable readiness boundary observes one
+`SINGLE` value and one logical `now`. A FALSE-to-TRUE `SINGLE` transition makes
+the task due at `now`, updates the saved edge state, and does not advance the
+periodic baseline or overrun count. A held TRUE value does not retrigger and
+suppresses periodic readiness; a subsequent FALSE sample only rearms the next
+rising edge. A non-positive interval does not schedule periodic work. Valid
+IEC task configuration uses zero for disabled periodic scheduling and a
+positive duration for periodic scheduling; a negative portable metadata value
+is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b;
+DEV-058)
+
+With `SINGLE` FALSE and a positive interval, a task is not due until `now` is
+at least `last_run + interval`. A backward logical-clock sample does not move
+`last_run`, create an overrun, or make the task due; periodic readiness resumes
+only when a later sample reaches the next deadline relative to the unchanged
+baseline. When exactly one interval is due, the returned due time is that
+nominal deadline, the missed-interval count is zero, and `last_run` advances to
+the sampled `now`.
+
+If a forward jump spans `n > 1` complete intervals, the scheduler emits one
+activation rather than replaying work. Its due time remains the first nominal
+deadline, the per-sample missed count is `n - 1`, the cumulative overrun count
+adds that value with saturation, and `last_run` advances to `now`. Deadline
+addition also saturates at the representable signed-nanosecond bound. Event
+readiness never changes those periodic counters. These due-time and accounting
+rules are truST bookkeeping beyond the IEC task-trigger definition; they make
+host-pause, simulation, and test-clock behavior deterministic. (DEV-058)
 
 On Unix, the runtime's graceful-shutdown signal set is exactly `SIGINT` and
 `SIGTERM`. Signals outside that set are not translated into a runtime stop by

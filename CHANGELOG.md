@@ -130,6 +130,10 @@ Target release: `v0.24.54`
   deterministic contract: new names append, reinserting the same resolved
   name replaces its value in place, and stored runtime values are preserved
   exactly until the owning persistence or reload boundary validates them.
+- trust-runtime-core: task readiness now has an explicit deterministic
+  contract for SINGLE edge sampling, periodic suppression, backward and
+  forward logical-clock jumps, missed intervals, and saturating overrun
+  accounting.
 
 ### Added
 
