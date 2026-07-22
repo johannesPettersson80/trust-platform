@@ -816,8 +816,29 @@ and control protocol.
 
 If a project folder omits `io.toml`, the launcher loads the system IO config
 
-This behavior is implementer-specific; IEC 61131-3 does not define
-hardware driver selection or OS-level IO configuration (see `docs/IEC_DEVIATIONS.md`).
+This host-side launcher policy is a truST product contract. IEC 61131-3 does
+not define hardware-driver selection or OS-level I/O configuration, so the
+policy is not an IEC deviation.
+
+##### 6.8.1 Scriptable control client
+
+`trust-runtime ctl` exchanges one newline-delimited JSON request and response
+with the selected runtime control endpoint. `--endpoint` overrides the endpoint
+from the project runtime configuration. Credential resolution is independent
+of endpoint resolution and uses this precedence: explicit `--token`, then
+`TRUST_CTL_TOKEN`, then `runtime.control.auth_token` from `--project`. The
+project token remains eligible when `--endpoint` overrides only the endpoint;
+an explicit or environment token does not require loading the project merely
+to resolve credentials.
+
+Each CLI action maps to one control request with numeric `id = 1`, its
+registered control operation name in `type`, the resolved token in `auth`, and
+only the parameters declared by that action. The client accepts exactly one
+JSON response line. An empty or malformed response is a transport/protocol
+failure. A response with `ok = false`, or without a Boolean `ok`, is a command
+failure and must produce a non-zero process exit rather than being printed as
+a successful scripted result. Human-oriented status, health, and task-summary
+rendering happens only after `ok = true`.
 
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
@@ -882,7 +903,7 @@ construction or source-value admission. (DEV-041)
 Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
 admin`; a higher role includes lower-role permissions. Authorization is checked
 before dispatch, so a denied request must not change runtime, debug, I/O, HMI,
-configuration, pairing, or connector state. (DEV-050)
+configuration, pairing, or connector state.
 
 A role denial returns the stable wire error code `insufficient_role` together
 with the required role in the human-readable error. Missing and invalid

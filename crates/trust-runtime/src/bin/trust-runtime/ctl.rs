@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
-use trust_runtime::config::RuntimeBundle;
+use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::ControlAction;
@@ -31,18 +31,25 @@ pub(crate) fn resolve_control_target(
     token: Option<String>,
 ) -> anyhow::Result<ResolvedControlTarget> {
     let mut auth_token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
+    let project_runtime = if let Some(project) = bundle.as_ref() {
+        if endpoint.is_none() || auth_token.is_none() {
+            Some(RuntimeConfig::load(project.join("runtime.toml"))?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    if auth_token.is_none() {
+        auth_token = project_runtime
+            .as_ref()
+            .and_then(|runtime| runtime.control_auth_token.as_ref())
+            .map(ToString::to_string);
+    }
     let endpoint_text = if let Some(endpoint) = endpoint {
         endpoint
-    } else if let Some(bundle_path) = bundle {
-        let bundle = RuntimeBundle::load(bundle_path)?;
-        if auth_token.is_none() {
-            auth_token = bundle
-                .runtime
-                .control_auth_token
-                .as_ref()
-                .map(|value| value.to_string());
-        }
-        bundle.runtime.control_endpoint.to_string()
+    } else if let Some(runtime) = project_runtime {
+        runtime.control_endpoint.to_string()
     } else {
         anyhow::bail!("--endpoint or --project required");
     };
@@ -59,9 +66,27 @@ fn send_control_request(
 ) -> anyhow::Result<()> {
     let request = build_request(action, target.auth_token.as_deref());
     let response = send_control_request_value(&target.endpoint, &request)?;
+    ensure_control_response_ok(&response)?;
     let rendered = serde_json::to_string(&response)?;
     print_control_response(action, rendered.trim_end());
     Ok(())
+}
+
+fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
+    match response.get("ok").and_then(JsonValue::as_bool) {
+        Some(true) => Ok(()),
+        Some(false) => {
+            let message = response
+                .get("error")
+                .and_then(JsonValue::as_str)
+                .unwrap_or("control request failed");
+            if let Some(code) = response.get("error_code").and_then(JsonValue::as_str) {
+                anyhow::bail!("{message} ({code})");
+            }
+            anyhow::bail!("{message}");
+        }
+        None => anyhow::bail!("control response missing boolean 'ok'"),
+    }
 }
 
 pub(crate) fn send_control_request_value(
@@ -263,4 +288,201 @@ fn parse_config_value(value: &str) -> serde_json::Value {
         return serde_json::Value::Number(number.into());
     }
     serde_json::Value::String(trimmed.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn control_actions_map_to_the_registered_wire_contract() {
+        let cases = vec![
+            (
+                ControlAction::Status,
+                json!({"id": 1, "type": "status", "auth": "token"}),
+            ),
+            (
+                ControlAction::Health,
+                json!({"id": 1, "type": "health", "auth": "token"}),
+            ),
+            (
+                ControlAction::Stats,
+                json!({"id": 1, "type": "tasks.stats", "auth": "token"}),
+            ),
+            (
+                ControlAction::Pause,
+                json!({"id": 1, "type": "pause", "auth": "token"}),
+            ),
+            (
+                ControlAction::Resume,
+                json!({"id": 1, "type": "resume", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepIn,
+                json!({"id": 1, "type": "step_in", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOver,
+                json!({"id": 1, "type": "step_over", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOut,
+                json!({"id": 1, "type": "step_out", "auth": "token"}),
+            ),
+            (
+                ControlAction::BreakpointsSet {
+                    source: "main.st".into(),
+                    lines: vec![3, 8],
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.set",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [3, 8] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsClear {
+                    source: "main.st".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.clear",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsList,
+                json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
+            ),
+            (
+                ControlAction::IoRead,
+                json!({"id": 1, "type": "io.read", "auth": "token"}),
+            ),
+            (
+                ControlAction::IoWrite {
+                    address: "%QX0.0".into(),
+                    value: "TRUE".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "io.write",
+                    "auth": "token",
+                    "params": { "address": "%QX0.0", "value": "TRUE" }
+                }),
+            ),
+            (
+                ControlAction::IoForce {
+                    address: "%QX0.1".into(),
+                    value: "FALSE".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "io.force",
+                    "auth": "token",
+                    "params": { "address": "%QX0.1", "value": "FALSE" }
+                }),
+            ),
+            (
+                ControlAction::IoUnforce {
+                    address: "%QX0.1".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "io.unforce",
+                    "auth": "token",
+                    "params": { "address": "%QX0.1" }
+                }),
+            ),
+            (
+                ControlAction::Eval {
+                    expr: "Counter + 1".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "eval",
+                    "auth": "token",
+                    "params": { "expr": "Counter + 1" }
+                }),
+            ),
+            (
+                ControlAction::Set {
+                    target: "Counter".into(),
+                    value: "7".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "set",
+                    "auth": "token",
+                    "params": { "target": "Counter", "value": "7" }
+                }),
+            ),
+            (
+                ControlAction::Restart {
+                    mode: "warm".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "restart",
+                    "auth": "token",
+                    "params": { "mode": "warm" }
+                }),
+            ),
+            (
+                ControlAction::Shutdown,
+                json!({"id": 1, "type": "shutdown", "auth": "token"}),
+            ),
+            (
+                ControlAction::ConfigGet,
+                json!({"id": 1, "type": "config.get", "auth": "token"}),
+            ),
+            (
+                ControlAction::ConfigSet {
+                    key: "discovery.enabled".into(),
+                    value: "true".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "config.set",
+                    "auth": "token",
+                    "params": { "discovery.enabled": true }
+                }),
+            ),
+        ];
+
+        for (action, expected) in cases {
+            assert_eq!(build_request(&action, Some("token")), expected);
+        }
+        assert_eq!(
+            build_request(&ControlAction::Status, None),
+            json!({"id": 1, "type": "status", "auth": null})
+        );
+    }
+
+    #[test]
+    fn control_exchange_uses_one_json_line_and_rejects_invalid_responses() {
+        let request = json!({"id": 1, "type": "status", "auth": null});
+        let mut output = Vec::new();
+        let mut response = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}\n");
+        let parsed = exchange_control_request(&mut output, &mut response, &request)
+            .expect("valid control exchange");
+        assert_eq!(parsed, json!({"id": 1, "ok": true}));
+        assert_eq!(
+            String::from_utf8(output).expect("request is UTF-8"),
+            "{\"auth\":null,\"id\":1,\"type\":\"status\"}\n"
+        );
+
+        let mut output = Vec::new();
+        let mut empty = std::io::Cursor::new(b"");
+        let error = exchange_control_request(&mut output, &mut empty, &request)
+            .expect_err("empty response must fail");
+        assert!(error.to_string().contains("empty control response"));
+
+        let mut output = Vec::new();
+        let mut malformed = std::io::Cursor::new(b"not-json\n");
+        let error = exchange_control_request(&mut output, &mut malformed, &request)
+            .expect_err("malformed response must fail");
+        assert!(error.to_string().contains("parse control response"));
+    }
 }

@@ -79,29 +79,6 @@ against this rule when touched.
   - Rebuild the driver after correcting adapter or topology configuration and
     use the mock adapter only as software evidence, never hardware proof.
 
-## 2026-07-14 - Runtime control and debugger role authorization
-
-- ID: DEV-050
-- Area: Runtime control, debugger, I/O, HMI, configuration, and pairing access
-- IEC reference: IEC 61131-3 does not define truST's host control protocol,
-  pairing tokens, debugger transport, or product role hierarchy. This entry
-  records a truST security extension outside the IEC language model, not an IEC
-  non-conformance.
-- Deviation/extension:
-  - Control roles are ordered Viewer, Operator, Engineer, and Admin, with every
-    supported request assigned an explicit minimum role.
-  - Debug writes, forces, and releases require Engineer; enabling debug or
-    changing control mode requires Admin.
-  - Unclassified future request types use an Admin fail-safe rather than
-    inheriting Viewer authority.
-- Impact:
-  - Lower-role clients cannot activate the debug surface or mutate PLC state;
-    adding a new request without updating the matrix cannot silently expose it
-    to a read-only client.
-- Mitigation:
-  - Commission tokens and pairing roles explicitly, keep production debug
-    disabled, and review the role matrix whenever a control operation is added.
-
 ## 2026-07-14 - Exclude debugger pause dwell from watchdog execution time
 
 - ID: DEV-049

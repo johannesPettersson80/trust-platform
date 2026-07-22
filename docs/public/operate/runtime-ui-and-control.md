@@ -57,6 +57,11 @@ Important command families:
 - `restart`, `shutdown`
 - `config-get`, `config-set`
 
+`--endpoint` overrides only the project's endpoint. Authentication uses
+`--token`, then `TRUST_CTL_TOKEN`, then the token in the selected project's
+`runtime.toml`. A rejected control response makes `ctl` exit non-zero, so shell
+scripts can treat a successful process exit as an accepted runtime command.
+
 ## Capabilities
 
 - manual control
