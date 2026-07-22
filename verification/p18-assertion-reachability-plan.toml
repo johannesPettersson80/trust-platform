@@ -38,6 +38,39 @@ replacement = ""
 selector_name = "numeric.rs:70:9: delete match arm Value::ULInt(v) in to_i64"
 
 [[shards]]
+id = "ASSERTION_REACHABILITY_RETAIN_SNAPSHOT_INSERT_001"
+owner = "trust-runtime-core"
+code_id = "CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53"
+invariant_id = "RT_RETAIN_SNAPSHOT_INSERT_001"
+invariant_path = "verification/invariants/runtime_safety/RT_RETAIN_SNAPSHOT_INSERT_001.toml"
+invariant_contract_digest = "sha256:4f4506c683dd5f9805dc0142b542556d51a444ecd1f3284ca32ea0a7e59475ef"
+source_file = "crates/trust-runtime-core/src/retain.rs"
+source_digest = "sha256:936867b2882942dea834ae3a1c1cacb3ad4fb90a750fdf9375c2eb80a9d06af9"
+function = "RetainSnapshot::insert"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001"
+discovery_id = "DISC_DECD7AFB66FB10F373C0"
+path = "crates/trust-runtime-core/src/retain.rs"
+name = "retain_snapshot_insert_appends_distinct_names_and_replaces_in_place"
+command = ["cargo", "test", "-p", "trust-runtime-core", "retain::tests::retain_snapshot_insert_appends_distinct_names_and_replaces_in_place", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"
+discovery_id = "DISC_4E22986F2396DB8BFAC1"
+path = "crates/trust-runtime-core/tests/retain_snapshot_insert_cases.rs"
+name = "retain_snapshot_insert_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "retain_snapshot_insert_cases", "retain_snapshot_insert_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_RETAIN_SNAPSHOT_INSERT_REPLACE_WITH_UNIT"
+genre = "FnValue"
+replacement = "()"
+selector_name = "retain.rs:46:9: replace RetainSnapshot::insert with ()"
+
+[[shards]]
 id = "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001"
 owner = "trust-runtime-core"
 code_id = "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"
