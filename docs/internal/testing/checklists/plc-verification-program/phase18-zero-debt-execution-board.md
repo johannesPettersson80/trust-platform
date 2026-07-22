@@ -284,6 +284,19 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   globally remain open. The active pointer advances to sequence-five symbol
   `trust_runtime_core::task::evaluate_task_readiness`. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-retain-snapshot-insert.md`.
+
+  Task-readiness slice progress (2026-07-22): exact sequence-five slice
+  `P18-CODE-CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting` and
+  `RT_TASK_READINESS_001`. Five historical `reviewed_nonmapping` unit tests are
+  now catalog-mapped and strengthened, and a generated seven-part trace covers
+  event edges, periodic suppression, non-positive intervals, clock steps,
+  coalescing, and saturating overruns. A clean producer-authentic lock pair
+  promotes the invariant to `G1`. This is slice progress only: assertion
+  reachability, mutation sensitivity, the refreshed fact ledger, broad remote
+  gates, and `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-task-readiness.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

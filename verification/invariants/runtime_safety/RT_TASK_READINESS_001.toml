@@ -3,11 +3,11 @@ id = "RT_TASK_READINESS_001"
 title = "Task readiness preserves IEC triggers and deterministic overrun accounting"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "planned"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-22"
 claim = "A sampled SINGLE rising edge schedules one event without moving the periodic baseline; periodic readiness requires SINGLE false and a positive elapsed interval, coalesces missed periods into one activation, and updates due-time and overrun state without wrap or replay."
-proof_level = "S1"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/task.rs"]
 tests = [
@@ -19,10 +19,12 @@ tests = [
   "TEST_RUNTIME_TASK_READINESS_TRACE_001",
 ]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_RUNTIME_TASK_READINESS_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_TASK_READINESS_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
 missing = [
-  "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",
   "broad_remote_gate",
@@ -101,20 +103,20 @@ rationale = "A forward jump emits one activation at the first nominal deadline, 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The one-period readiness oracle is accepted; P18-005 and P18-006 must bind and execute its exact boundary matrix."
+state = "covered"
+rationale = "The producer-authentic behavior-lock pair executes exact one-period readiness and verifies due time, zero misses, and baseline advancement."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The SINGLE rising, held, and rearm oracle is accepted; the existing tests remain reviewed_nonmapping until catalog binding and producer-authentic execution."
+state = "covered"
+rationale = "Five cataloged unit locks and the generated trace pair execute SINGLE rising, held-high suppression, falling rearm, and the next rising edge."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "The backward-clock and forward-coalescing oracle is accepted; exact missed, baseline, and saturation cases remain to be executed."
+state = "covered"
+rationale = "The producer-authentic behavior-lock pair executes backward and early samples plus forward coalescing with exact missed count, baseline movement, and saturating overrun accumulation."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The non-positive portable interval policy is accepted; zero and negative cases remain to be executed at the owning boundary."
+state = "covered"
+rationale = "The producer-authentic behavior-lock pair executes zero and negative portable intervals and verifies that neither schedules nor mutates periodic state."
