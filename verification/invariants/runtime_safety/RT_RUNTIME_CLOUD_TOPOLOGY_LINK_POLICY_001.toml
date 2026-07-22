@@ -1,0 +1,108 @@
+schema_version = 1
+id = "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001"
+title = "Runtime Cloud topology reports measured truth and gates T0 by same-host evidence"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Runtime Cloud topology never fabricates communication metrics and creates a T0 overlay only from order-independent same-host evidence involving explicit host identity, shared non-loopback address evidence, or the known local runtime and a loopback peer."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime/src/runtime_cloud/projection.rs",
+  "crates/trust-runtime/src/runtime_cloud/link_policy.rs",
+  "crates/trust-runtime/src/web/runtime_cloud_state/links.rs",
+  "crates/trust-runtime/src/web/runtime_cloud_routes/links.rs",
+  "crates/trust-runtime/src/web/runtime_cloud_routes/state.rs",
+]
+tests = [
+  "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_03_RUNTIME_CLOUD_LINK_TRANSPORT_ENDPOINT_SWITCHES_EDGE_MODE_AND_CHECKS_SAME_HOST_001",
+  "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_14_RUNTIME_CLOUD_LINK_TRANSPORT_PREFERENCES_CHANGE_IS_AUDITED_AND_ROUNDTRIPS_001",
+  "TEST_PROJECTION_FEATURE_FLAGS_OMITTED_WHEN_EMPTY_001",
+  "TEST_PROJECTION_FEATURE_FLAGS_ROUNDTRIPS_WHEN_PRESENT_001",
+  "TEST_PROJECTION_HOST_GROUPS_OMITTED_WHEN_EMPTY_001",
+  "TEST_PROJECTION_HOST_GROUPS_ROUNDTRIPS_WHEN_PRESENT_001",
+  "TEST_PROJECTION_MISSING_HOST_GROUPS_DESERIALIZES_TO_EMPTY_001",
+  "TEST_PROJECTION_PRESENCE_PROJECTION_CONTRACT_DOES_NOT_STALE_FUTURE_HEARTBEAT_001",
+  "TEST_PROJECTION_PRESENCE_PROJECTION_TRANSITIONS_STALE_BEFORE_PARTITIONED_001",
+  "TEST_PROJECTION_PROJECTION_MARKS_STALE_PEERS_AND_CREATES_WARNING_TIMELINE_001",
+  "TEST_PROJECTION_PROJECTION_MARKS_UNSEEN_UNREACHABLE_PEER_OFFLINE_001",
+  "TEST_PROJECTION_RUNTIME_CLOUD_PROJECTION_CONTRACT_REPORTS_TOPOLOGY_EDGES_AND_WARNINGS_001",
+  "TEST_STATE_LINKS_APPLY_PREFERENCES_ADDS_T0_OVERLAY_EDGE_WITHOUT_REMOVING_MESH_001",
+  "TEST_STATE_LINKS_APPLY_PREFERENCES_OVERRIDES_CHANNEL_FOR_EXTENDED_TRANSPORTS_001",
+  "TEST_STATE_LINKS_COMPUTE_HOST_GROUPS_DETERMINISTIC_ORDERING_001",
+  "TEST_STATE_LINKS_COMPUTE_HOST_GROUPS_EMPTY_DISCOVERY_001",
+  "TEST_STATE_LINKS_COMPUTE_HOST_GROUPS_THREE_MIXED_001",
+  "TEST_STATE_LINKS_COMPUTE_HOST_GROUPS_TWO_SAME_HOST_001",
+  "TEST_STATE_LINKS_LINK_TRANSPORT_PREFERENCE_ROUNDTRIPS_FROM_STATE_001",
+  "TEST_STATE_LINKS_SAME_HOST_CHECK_DOES_NOT_USE_PEER_LOOPBACK_AS_GLOBAL_HOST_PROOF_001",
+  "TEST_STATE_LINKS_SAME_HOST_CHECK_PREFERS_HOST_GROUP_WHEN_PRESENT_001",
+  "TEST_STATE_LINKS_SAME_HOST_CHECK_USES_DISCOVERY_ADDRESS_OVERLAP_001",
+  "TEST_STATE_LINKS_SEED_LINK_TRANSPORT_PREFERENCES_APPLIES_AND_REMOVES_TOML_ACTOR_ENTRIES_001",
+  "TEST_STATE_LINKS_TOPOLOGY_FEATURE_FLAGS_DEV_ALL_ENABLED_001",
+  "TEST_STATE_LINKS_TOPOLOGY_FEATURE_FLAGS_PLANT_ONLY_HOST_CONTAINERS_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-topology-measurement-and-same-host-contract"
+
+[[behavior]]
+partition = { equals = "DISCOVERY_ONLY_HEALTHY_EDGE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-topology-measurement-and-same-host-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Discovery establishes presence state but supplies no latency or loss sample, so both metrics remain absent."
+
+[[behavior]]
+partition = { equals = "KNOWN_LOCAL_RUNTIME_AND_LOOPBACK_PEER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-topology-measurement-and-same-host-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Loopback is positive colocated evidence only when the other endpoint is the known local runtime."
+
+[[behavior]]
+partition = { equals = "ARBITRARY_PEER_AND_LOOPBACK_PEER" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-topology-measurement-and-same-host-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A loopback address is local to its advertiser and cannot prove another arbitrary peer shares that host."
+
+[[behavior]]
+partition = { equals = "REALTIME_WITHOUT_SAME_HOST_EVIDENCE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-topology-measurement-and-same-host-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "T0 is same-host only and generic mesh is never substituted as deterministic fallback."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Projection tests cover healthy, stale, partitioned, and offline state while keeping unmeasured metrics absent."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Unit and HTTP tests cover host groups, shared non-loopback addresses, local loopback, arbitrary peer loopback, and remote rejection."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused tests cover order-independent host classification plus deterministic lifecycle and T0/mesh projection."

@@ -44,21 +44,21 @@ case_family = "happy_path"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "safe_reported" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "A success for the current desired snapshot makes desired and reported metadata and values identical and in sync."
 
 [[behavior]]
 partition = { equals = "SUPERSEDED_APPLY_SUCCESS" }
-case_family = "ordering_or_precedence"
+case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "safe_reported" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "An older completion records only its captured snapshot and leaves the newer desired revision pending."
 
 [[behavior]]
 partition = { equals = "SUPERSEDED_APPLY_FAILURE" }
-case_family = "fault_or_recovery"
+case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
 outcome = "reject"
 no_partial_apply = true
@@ -71,11 +71,11 @@ state = "covered"
 rationale = "Unit and HTTP tests cover desired merge, current apply, and in-sync reporting."
 
 [[coverage.cells]]
-dimension = "ordering_or_precedence"
+dimension = "ordering_or_lifecycle"
 state = "covered"
 rationale = "Focused expected-red tests cover both success and failure arriving after a superseding desired write."
 
 [[coverage.cells]]
-dimension = "fault_or_recovery"
+dimension = "persistence_or_recovery"
 state = "covered"
 rationale = "HTTP and policy tests cover invalid apply diagnostics, restart recovery, conflicts, and superseded failure retry eligibility."

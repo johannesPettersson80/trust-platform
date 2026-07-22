@@ -26,6 +26,10 @@ Target release: `v0.24.54`
   blank or duplicate field names, zero-sized or overflowing ranges, overlaps,
   and fields inserted before the prior layout end instead of reporting an
   ambiguous memory layout as compatible.
+- trust-runtime: Runtime Cloud topology no longer reports invented latency or
+  packet-loss values from discovery-only presence, and loopback discovery for
+  one peer no longer classifies unrelated peer runtimes as same-host T0
+  candidates.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

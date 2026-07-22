@@ -476,6 +476,37 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   contract, not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, rollout and remaining Runtime Cloud subdomains, and the final
   broad remote gates remain open.
+
+  Runtime Cloud topology/link-policy coherent-batch progress (2026-07-22): the
+  product specification now distinguishes discovery-derived lifecycle truth
+  from measured latency/loss and defines order-independent same-host evidence
+  for the same-host-only T0 overlay. Expected-red tests proved that healthy
+  discovery edges published invented `12 ms`/`0%` metrics and that a loopback
+  address on one peer classified an unrelated peer pair as same-host. The
+  projection now leaves unmeasured metrics absent; ordinary address matching
+  ignores loopback, while a loopback peer is accepted only in a relation with
+  the dashboard's known local runtime. Host-group authority, shared non-loopback
+  addresses, local-loopback T0 acceptance, remote T0 rejection, mesh-edge
+  retention, alternate transport projection, persistence, and audit remain
+  covered. Generated semantic registration binds all 49 live projection,
+  link-policy, state-adapter, and route-adapter facts plus 25 focused unit and
+  HTTP tests to `RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001`; its scoped audit
+  also proves that two architecture tests already owned by earlier Runtime
+  Cloud invariants retained their existing catalog and invariant bindings.
+  The post-batch planner exposed noncanonical taxonomy emitted by the previous
+  config/schema generators; automation normalized their case-family, coverage,
+  status-delta, and test-class vocabulary without changing test identities or
+  proof ownership. Planner and staleness validation now reach only the two
+  already deferred retain/restart mutation-provenance mismatches; no digest was
+  edited manually.
+  Remote focused proof passes all 89 Runtime Cloud unit tests, both
+  link-transport HTTP tests, and all 5 Runtime Cloud architecture assertions.
+  The transport-free policy owners and thin web adapters retain their existing
+  responsibilities, every touched Rust file remains below the large-file
+  threshold, no ownership or execution flow changed, and no diagram update is
+  required. This is a truST product contract, not an IEC decision or deviation.
+  Assertion reachability, mutation sensitivity, rollout and remaining Runtime
+  Cloud subdomains, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

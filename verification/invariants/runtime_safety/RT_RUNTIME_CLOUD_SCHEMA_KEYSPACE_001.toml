@@ -81,6 +81,6 @@ state = "covered"
 rationale = "The focused schema matrix rejects duplicate and blank names, invalid ranges, overlaps, removals, moves, and non-appended fields."
 
 [[coverage.cells]]
-dimension = "authority_or_safety"
+dimension = "auth_or_permission"
 state = "covered"
 rationale = "Focused tests cover active-only publication and forbid retained last values on control paths."

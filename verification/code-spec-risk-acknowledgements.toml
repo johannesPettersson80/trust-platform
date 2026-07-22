@@ -12092,11 +12092,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:498a6fc46bec8c8f40146b4fd568f25bc834152daa3b23f8886e1c264aa3aaed"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -13744,11 +13744,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:2e4cd771b45764b8eff182e0a3b617e858af135dc96abf8264fd846a8982b2bd"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -16488,11 +16488,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:d04f45e5c7fb57df43dd24524428bb4c94cebadd0db4c6ee58b587e603318e5a"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -16530,11 +16530,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:af4ba857413ffaf6ce0f8f087a27449b62b19f6dd959a6b94422af743b2473e4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -19260,11 +19260,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:18a4f48efc971281407aa4ddbf64b5cd4bf269d2878af0e1a8d930ee17045724"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -19722,11 +19722,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:d3a0717a9a733e60889ce11647f9c252ddb4c49d3cc58dc835ded56fc4ef6a7c"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -19792,11 +19792,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:cb0911a24ee90a3bfb53ffaf03061b8333d3c9bfc6f19d23f7231859a4c4d56e"
 risk_signals = ["authorization", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -21598,11 +21598,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:a7be29d72544c351b21a4efc00f85d91925a9fc3eb676507605094fdde976ec5"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -22816,11 +22816,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:44fb65db03bd10143500ae51438cdf7c5bd78d73e0be1d1a7391d9e507c77ec2"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24622,11 +24622,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:affd02ac0bf32efe81af36bec79b170e28c41ae1069b7515d634a307b0214f52"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -25014,11 +25014,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:26657fd8417506a7037831bfdecd7b6e1ca91044d440d1e0018da416293d71dc"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27224,13 +27224,13 @@ id = "RISK_ACK_F74D5FEB0F21A40AF9D84B27109C98D6454BB658E7242C13B40C908C11C6D730"
 code_id = "CODE_F74D5FEB0F21A40AF9D84B27109C98D6454BB658E7242C13B40C908C11C6D730"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:277b862ffc0e329def91d3e40ec9c7b1168244596d4ca3b5427f9c99c0201032"
+body_digest = "sha256:186ad1d49fa0afcdf7d5ab8653b46c6670cd31ac28d6c18549832ffb314e3b7b"
 risk_signals = ["authorization", "protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27308,13 +27308,13 @@ id = "RISK_ACK_F815520C394D5C0A6CF449C53FAA47F5D73926CD7AB6F1C9C4EE24B5F1266985"
 code_id = "CODE_F815520C394D5C0A6CF449C53FAA47F5D73926CD7AB6F1C9C4EE24B5F1266985"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:4f3794507220823f1cf7f6224ff47887039d44de4efd80ff2f7f95a610fed60b"
+body_digest = "sha256:4440791ba9bc92a3100c98558c8f7bd5888f64c88afb9148d2e798ae371540f1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81350,3 +81350,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived version, schema-layout, canonical-key, authority, freshness, and retained-value risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AC49367539BAC990E646B32422E883190AEE6331B002B066F1EB7DF8CD9D3125"
+code_id = "CODE_AC49367539BAC990E646B32422E883190AEE6331B002B066F1EB7DF8CD9D3125"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:5ace7e756efc9e78924f8f01f13699fcab9d33a80a2a82c4cde0271105f12d8e"
+risk_signals = ["broad_error_suppression"]
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-topology-measurement-and-same-host-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived topology, transport-preference, host-classification, persistence, and route-policy risks while binding the complete owner modules to the reviewed product contract and focused executable tests."

@@ -1467,6 +1467,29 @@ site-level and runtime-alias paths defined by the keyspace helpers. Default UI
 and operations staleness is `max(2 * expected_period, 2 seconds)`. A retained
 last value may support UI continuity but never a control path.
 
+##### Runtime Cloud topology measurement and same-host contract
+
+Runtime Cloud topology is a truST product projection, not an IEC decision or
+deviation. Discovery heartbeat and reachability observations may establish a
+node's lifecycle and a communication edge's healthy, stale, degraded, or failed
+state. They are not latency or packet-loss measurements. Unless the projection
+receives an actual measurement for a metric, `latency_ms_p95` and `loss_pct`
+remain absent; it must never manufacture a nominal constant for a healthy edge.
+
+The `T0_HardRt` topology overlay is same-host only. Equal nonempty discovery
+`host_group` values are positive same-host evidence; different explicit groups
+are negative evidence. Without complete host-group evidence, an exact shared
+advertised non-loopback IP address is positive evidence. A loopback address is
+host-local and therefore proves only that the advertising runtime is colocated
+with the dashboard's known local runtime. It must not classify two arbitrary
+peer runtimes as colocated, and the result must not depend on source/target or
+runtime-ID ordering.
+
+A realtime preference creates a `T0_HardRt` overlay only while that same-host
+evidence holds. The ordinary mesh operations edge may remain visible alongside
+the overlay, but it is not a deterministic fallback for T0 and must not be
+reported as one.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:
