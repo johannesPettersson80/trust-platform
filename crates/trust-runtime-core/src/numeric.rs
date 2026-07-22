@@ -262,10 +262,7 @@ mod tests {
             NumericKind::Real,
             NumericKind::LReal,
         ] {
-            assert_eq!(
-                signed_from_i128(target, 0),
-                Err(RuntimeError::TypeMismatch)
-            );
+            assert_eq!(signed_from_i128(target, 0), Err(RuntimeError::TypeMismatch));
         }
     }
 }
