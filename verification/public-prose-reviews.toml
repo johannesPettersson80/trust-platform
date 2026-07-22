@@ -3835,6 +3835,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_052D3ACAD076EE3700E070CA"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "082ea0dea30baefd55251c58aaa38c6cc4dc6d7999b858b3b7cedfd83c0bef6b"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_053086B79FDBFE20E4CA9AB5"
 document_id = "SPEC_DOC_4C2AEDC804BBC251AE1C96B2"
 path = "docs/public/connect/runtime-to-runtime/mesh-zenoh.md"
@@ -19666,6 +19679,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_1A792EF30298DD6BC88A114C"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "paragraph"
+visible_text_sha256 = "e5ff6442345413351162c3ce78c4a621a9b8a315ba97b6699dd9fd4c5e8afb82"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -44941,6 +44967,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_3D046D3879D63CAAF8676C0C"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "paragraph"
+visible_text_sha256 = "532650b3bac0497b1d07fca6cc759951c4e92d3277e6620f2cb81ce4b0d2ffc3"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_3D04D47DCD76F0231769169A"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -50320,6 +50359,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_43EA52E8E6DA9778A2D80F7A"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "paragraph"
+visible_text_sha256 = "2e2e64411758c12636f9d09067f7f28e2520d50b5e686c852ea52156823a8726"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001"]
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -112512,6 +112564,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_99161CAB3FEDCA1400F7F2F3"
+document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
+path = "docs/specs/10-runtime-semantics.md"
+block_kind = "heading"
+visible_text_sha256 = "2278bdb50250e7ec4c50ca3e830613dc0a86f6a4a7faf3ba504ba25a299c3f4d"
+disposition = "structural_nonclaim"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "document_structure"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1

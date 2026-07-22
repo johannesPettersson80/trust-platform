@@ -123,6 +123,9 @@ Target release: `v0.24.54`
   fail-closed contract: every integer runtime tag preserves its mathematical
   value when representable as `i64`, oversized `ULINT` values return overflow,
   and non-integer tags return a type mismatch.
+- trust-runtime-core: unsigned integer result materialization now preserves
+  every representable `USINT`, `UINT`, `UDINT`, and `ULINT` value exactly,
+  rejects destination overflow, and rejects non-unsigned destination tags.
 
 ### Added
 

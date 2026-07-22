@@ -1381,6 +1381,7 @@ covers = [
   "retain_values",
   "runtime_value_model",
   "signed_integer_result_materialization",
+  "unsigned_integer_result_materialization",
   "vm_instruction_budget",
   "stable_error_code_model",
 ]
@@ -1509,6 +1510,7 @@ covers = [
   "iec_deviations",
   "integer_runtime_operand_normalization",
   "vendor_extensions",
+  "unsigned_integer_result_materialization",
   "watchdog_output_commit",
 ]
 known_limitations = [
