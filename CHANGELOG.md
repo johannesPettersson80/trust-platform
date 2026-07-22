@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: registry publish without `--project` now preserves standard
+  bundle-detection failure instead of silently substituting a non-project
+  current directory and reporting a later invented-bundle error.
 - trust-runtime: managed-runtime status no longer reports `stopped` when local
   auth config is invalid or a connected endpoint rejects/mangles the response;
   lifecycle control now checks response IDs and bounds response lines, read-only

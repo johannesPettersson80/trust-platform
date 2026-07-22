@@ -347,3 +347,38 @@ fn registry_private_access_control_requires_token() {
     let _ = std::fs::remove_dir_all(project);
     let _ = std::fs::remove_dir_all(registry);
 }
+
+#[test]
+fn registry_publish_without_project_preserves_detection_failure() {
+    let working = unique_temp_dir("registry-missing-project");
+    let registry = unique_temp_dir("registry-missing-project-root");
+    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["registry", "init", "--root"])
+        .arg(&registry)
+        .args(["--visibility", "public"])
+        .output()
+        .expect("initialize registry");
+    assert!(init.status.success());
+
+    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .current_dir(&working)
+        .args(["registry", "publish", "--registry"])
+        .arg(&registry)
+        .args(["--version", "1.0.0"])
+        .output()
+        .expect("publish without a project");
+
+    assert!(!publish.status.success());
+    let error = String::from_utf8_lossy(&publish.stderr);
+    assert!(
+        error.contains("project folder not found"),
+        "standard project-detection error was discarded:\n{error}"
+    );
+    assert!(
+        !error.contains("invalid bundle"),
+        "current directory must not be substituted as an invented bundle:\n{error}"
+    );
+
+    let _ = std::fs::remove_dir_all(working);
+    let _ = std::fs::remove_dir_all(registry);
+}

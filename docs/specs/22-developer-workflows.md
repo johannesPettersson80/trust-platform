@@ -26,6 +26,21 @@ must not report a successful empty test run. An unreadable supported source or
 an unsupported discovery shape fails visibly rather than disappearing from the
 result.
 
+## Interactive numeric prompts
+
+Numeric wizard/setup prompts accept unsigned base-10 values in the complete
+`u64` range. Negative values, non-decimal text, and overflow are errors that
+name the prompt field; they are not clamped, wrapped, or replaced with the
+default. An empty submitted line selects the displayed default.
+
+## Optional project resolution
+
+Developer commands with an optional `--project` use the explicit path when it
+is present. Otherwise they use standard bundle detection. If detection fails,
+the command preserves that failure and must not substitute the current
+directory as an invented project. This applies to package-registry publish and
+other optional-project workflows.
+
 ## Project-Scoped Commit
 
 `trust-dev commit --project <path>` owns only the selected project path. Before

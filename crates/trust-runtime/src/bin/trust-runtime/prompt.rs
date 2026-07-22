@@ -82,6 +82,10 @@ pub(crate) fn prompt_choice(
 
 pub(crate) fn prompt_u64(label: &str, default: u64) -> anyhow::Result<u64> {
     let input = prompt_string(label, &default.to_string())?;
+    parse_prompt_u64(label, input.as_str())
+}
+
+fn parse_prompt_u64(label: &str, input: &str) -> anyhow::Result<u64> {
     input
         .parse::<u64>()
         .map_err(|err| anyhow::anyhow!("{label} must be a number: {err}"))
@@ -110,5 +114,32 @@ pub(crate) fn prompt_yes_no(label: &str, default: bool) -> anyhow::Result<bool> 
         "y" | "yes" => Ok(true),
         "n" | "no" => Ok(false),
         _ => anyhow::bail!("Please answer yes or no."),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_prompt_u64;
+
+    #[test]
+    fn numeric_prompt_parser_accepts_the_complete_u64_range() {
+        assert_eq!(
+            parse_prompt_u64("Cycle time", "18446744073709551615").expect("parse maximum u64"),
+            u64::MAX
+        );
+    }
+
+    #[test]
+    fn numeric_prompt_parser_rejects_negative_non_numeric_and_overflow_values() {
+        for invalid in ["-1", "1.5", "18446744073709551616"] {
+            let error = parse_prompt_u64("Cycle time", invalid)
+                .expect_err("invalid numeric prompt input must fail");
+            assert!(
+                error
+                    .to_string()
+                    .starts_with("Cycle time must be a number:"),
+                "unexpected error: {error:#}"
+            );
+        }
     }
 }
