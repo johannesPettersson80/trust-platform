@@ -256,6 +256,18 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   sensitivity, the broad remote gates, and `VERIF-P18-003` globally remain
   open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-integer-i64-normalization.md`.
+
+  Unsigned-materialization slice progress (2026-07-22): exact sequence-three
+  slice
+  `P18-CODE-CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_SEMANTICS_001#6-10-unsigned-integer-result-materialization`
+  and `RT_UNSIGNED_INTEGER_MATERIALIZATION_001`. Its direct boundary matrix
+  and generated decision-table runner are catalog-mapped, and a clean
+  producer-authentic lock pair promotes the invariant to `G1`. This is slice
+  progress only: assertion reachability, mutation sensitivity, the broad
+  remote gates, and `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-unsigned-integer-materialization.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
