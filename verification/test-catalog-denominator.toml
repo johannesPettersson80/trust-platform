@@ -242,6 +242,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_01BCC2D31D2CC7EA410B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "active_device_shortcut_requires_the_exact_requested_endpoint"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_01C80D23B3216F63E0A0"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/io_proxy_policy.rs"
@@ -286,16 +296,6 @@ discovery_id = "DISC_01FF4844DCFE49E1E325"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering/fusion_support.rs"
 name = "register_ir_fusion_preserves_original_bytecode_instruction_costs"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_0216063A0BFB7D61C08B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "doctor_job_reports_progress_and_cancellation"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -3152,16 +3152,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_11CC9DCC882AD8C5D6B8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "active_device_read_only_uses_live_status_and_never_opens_wire_connection"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_11CDA813DFA1A9669B98"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/state/mod.rs"
@@ -3426,16 +3416,6 @@ discovery_id = "DISC_13E2B15D33D03714A72A"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
 name = "Live Values mirrors runtime lifecycle without re-polling every I/O event"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_14096880787F2BCF0190"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "mock_failure_scenarios_cover_named_field_failures"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -8482,16 +8462,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_31037757C37203F9D1E7"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "required_doctor_steps_and_timeouts_match_spec"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_310AD2B4269939FFE836"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ads_web_api.rs"
@@ -9210,6 +9180,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_DECLARED_TYPE_TRACE_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_355CA3050E1C7861DFA1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "active_device_read_only_uses_live_status_and_never_opens_wire_connection"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_35641259617B088E7110"
@@ -10232,6 +10212,16 @@ catalog_test_id = "TEST_DEV_PROFILE_ALLOWS_REMOTE_TARGET_WITHOUT_SECURE_TRANSPOR
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_3DB11DB9CED632595C1C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_rejects_invalid_manual_endpoint_before_wire_activity"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_3DBDD721AE2AEA758B75"
 discovery_source_kind = "github_workflow_job"
 path = ".github/workflows/ci.yml"
@@ -10490,6 +10480,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3FEC764FFEFEA08C4885"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_maps_named_failures_to_the_failed_step_and_blocks_dependents"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_3FEF14488929BE4E886D"
@@ -14002,6 +14002,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_555038BC42A815132E1E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "required_doctor_steps_and_timeouts_match_spec"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_5573E9D6196C5D5E2DD2"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
@@ -14820,6 +14830,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_5AE64B766182BC1B1740"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "full_doctor_against_active_device_requires_explicit_pause"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_5AE666AEEC1AE4669071"
@@ -16990,6 +17010,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_6840A292469DF3FDD0AA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "production_ready_requires_pass_evidence_and_live_deployed_status"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_6847FE4C45F88000E0B4"
@@ -19172,16 +19202,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_7411E7C5399A4991C990"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "full_doctor_against_active_device_requires_explicit_pause"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_741FD4E8A9E4647C8426"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/homing/src/tests.st"
@@ -20310,6 +20330,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_7BDA2E9ECB2F05CE1890"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "active_device_batch_read_requires_a_timestamped_good_point"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_7BE54508C5CB5640161D"
@@ -23142,6 +23172,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8E2DC76F965922E5EB95"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_runs_guarded_write_probe_only_when_explicit"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_8E3B875CAED1159162CE"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/db/queries/database/database_tests_part_01.rs"
@@ -24522,6 +24562,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9828C2813EC836FBE81C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_job_reports_progress_and_cancellation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_982B4D691EABE58FD09F"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs"
@@ -24866,16 +24916,6 @@ discovery_id = "DISC_99C2FF0BA7EA7EADF15C"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/modbus_driver.rs"
 name = "modbus_driver_reads_and_writes_default_register_functions"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_99D3658AD50177DF8FD3"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "doctor_runs_guarded_write_probe_only_when_explicit"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -26117,9 +26157,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
 name = "wire_error_classification_keeps_remediation_machine_readable"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_A0A0EB9C09BCA4B8AFC5"
@@ -26652,6 +26692,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A37D87DF0BF09966C9D1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "mock_failure_scenarios_cover_named_field_failures"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_A3B01B7E0984FA55A1DA"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization/src/tests.st"
@@ -27046,16 +27096,6 @@ discovery_id = "DISC_A5EA38429E32754E180A"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_expressions.rs"
 name = "test_sizeof_field_operand_is_expression_not_type_ref"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_A5FD0AFD9167AC6BCEA5"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "production_ready_requires_pass_evidence_and_live_deployed_status"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -28780,6 +28820,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B05FA81AEC3C2A3277EA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_rejects_blank_or_absent_selected_symbol_at_upload_boundary"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_B0616A747435CAE04D2A"
@@ -31322,16 +31372,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_BFD9FB1995656161931F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "doctor_with_manual_target_identity_does_not_require_udp_identify"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_BFF1C613624FE8F8C6F4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ide/src/semantic_tokens.rs"
@@ -33326,16 +33366,6 @@ discovery_id = "DISC_CB317388FEC6A3A731FC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-dev/tests/cli_smoke.rs"
 name = "trust_dev_subcommand_help_is_stable"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_CB3C67B272F0DACF5248"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "doctor_happy_path_runs_required_steps_and_skips_write_probe_by_default"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -36682,6 +36712,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E22190A7D48C621013BB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_happy_path_runs_required_steps_and_skips_write_probe_by_default"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E23C36D7435DB7F2B5D3"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -36806,16 +36846,6 @@ discovery_id = "DISC_E319CED1E00F76CC81E0"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_01.rs"
 name = "test_goto_implementation_interface"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_E31A8CA6D670053A7B8F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
-name = "doctor_maps_named_failures_to_the_failed_step_and_blocks_dependents"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -41690,6 +41720,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_BYTECODE_STRING_TABLE_COUNT_BOUND_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FE7BB8E83EC1AABEDC6B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/tests/doctor_tests.rs"
+name = "doctor_with_manual_target_identity_does_not_require_udp_identify"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_FE959E7B21A272DDC249"

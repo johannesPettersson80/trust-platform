@@ -1,8 +1,3 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use trust_ads_core::{PointStatus, QualityState};
@@ -201,116 +196,10 @@ impl DoctorOptions {
     }
 }
 
-/// Shared cancellation token for doctor jobs.
-#[derive(Debug, Clone, Default)]
-pub struct DoctorCancellation {
-    cancelled: Arc<AtomicBool>,
-}
-
-impl DoctorCancellation {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
-    }
-}
-
-/// Progress snapshot for a doctor job.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DoctorJobProgress {
-    pub total_steps: usize,
-    pub completed_steps: usize,
-    pub current_step: Option<DoctorStepId>,
-}
-
-impl DoctorJobProgress {
-    pub fn new(total_steps: usize) -> Self {
-        Self {
-            total_steps,
-            completed_steps: 0,
-            current_step: None,
-        }
-    }
-}
-
-/// Lifecycle state for a doctor job.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DoctorJobState {
-    Queued,
-    Running,
-    Complete,
-    Cancelled,
-}
-
-/// Minimal engine-owned doctor job runner.
-#[derive(Debug, Clone)]
-pub struct DoctorJob {
-    state: DoctorJobState,
-    progress: DoctorJobProgress,
-    cancellation: DoctorCancellation,
-    report: Option<DoctorReport>,
-}
-
-impl DoctorJob {
-    pub fn new() -> Self {
-        Self {
-            state: DoctorJobState::Queued,
-            progress: DoctorJobProgress::new(REQUIRED_DOCTOR_STEPS.len()),
-            cancellation: DoctorCancellation::new(),
-            report: None,
-        }
-    }
-
-    pub fn state(&self) -> DoctorJobState {
-        self.state
-    }
-
-    pub fn progress(&self) -> &DoctorJobProgress {
-        &self.progress
-    }
-
-    pub fn cancellation(&self) -> DoctorCancellation {
-        self.cancellation.clone()
-    }
-
-    pub fn cancel(&self) {
-        self.cancellation.cancel();
-    }
-
-    pub fn report(&self) -> Option<&DoctorReport> {
-        self.report.as_ref()
-    }
-
-    pub fn run<W: AdsOnboardingWire>(
-        &mut self,
-        wire: &mut W,
-        options: DoctorOptions,
-    ) -> DoctorReport {
-        self.state = DoctorJobState::Running;
-        self.progress = DoctorJobProgress::new(REQUIRED_DOCTOR_STEPS.len());
-        let report =
-            run_doctor_with_progress(wire, options, &self.cancellation, &mut self.progress);
-        self.state = if self.cancellation.is_cancelled() {
-            DoctorJobState::Cancelled
-        } else {
-            DoctorJobState::Complete
-        };
-        self.report = Some(report.clone());
-        report
-    }
-}
-
-impl Default for DoctorJob {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+mod job;
+pub use job::*;
+mod target_validation;
+use target_validation::*;
 
 /// Run the ADS doctor synchronously.
 pub fn run_doctor<W: AdsOnboardingWire>(
@@ -328,15 +217,24 @@ fn run_doctor_with_progress<W: AdsOnboardingWire>(
     cancellation: &DoctorCancellation,
     progress: &mut DoctorJobProgress,
 ) -> DoctorReport {
-    if let Some(active_device) = options.active_device.as_ref() {
+    if let Some(error) = validate_manual_target(&options) {
+        progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
+        return rejected_target_report(options, None, error);
+    }
+
+    if let Some(active_device) = options.active_device.clone() {
+        if let Some(error) = validate_active_target(&options, &active_device) {
+            progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
+            return rejected_target_report(options, Some(active_device), error);
+        }
         match options.active_device_strategy {
             ActiveDeviceStrategy::ReadOnlyViaLiveStatus => {
                 progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
-                return active_device_read_only_report(&options, active_device);
+                return active_device_read_only_report(&options, &active_device);
             }
             ActiveDeviceStrategy::RequiresPause => {
                 progress.completed_steps = REQUIRED_DOCTOR_STEPS.len();
-                return active_device_requires_pause_report(&options, active_device);
+                return active_device_requires_pause_report(&options, &active_device);
             }
             ActiveDeviceStrategy::FullAfterExplicitPause => {}
         }
@@ -535,10 +433,32 @@ fn run_step<W: AdsOnboardingWire>(
                     ),
                 ),
                 Ok(symbols) => {
-                    let selected = options
-                        .selected_symbol
-                        .clone()
-                        .unwrap_or_else(|| symbols[0].name.clone());
+                    let selected = match options.selected_symbol.as_deref() {
+                        Some(symbol) if symbol.trim().is_empty() => {
+                            return failed_step(
+                                step_id,
+                                "TwinCAT symbols",
+                                OnboardingWireError::new(
+                                    OnboardingWireErrorKind::NoSymbols,
+                                    "selected symbol must contain non-whitespace text",
+                                ),
+                            );
+                        }
+                        Some(symbol) if !symbols.iter().any(|item| item.name == symbol) => {
+                            return failed_step(
+                                step_id,
+                                "TwinCAT symbols",
+                                OnboardingWireError::new(
+                                    OnboardingWireErrorKind::NoSymbols,
+                                    format!(
+                                        "selected symbol '{symbol}' was not present in the uploaded symbol table"
+                                    ),
+                                ),
+                            );
+                        }
+                        Some(symbol) => symbol.to_string(),
+                        None => symbols[0].name.clone(),
+                    };
                     context.selected_symbol = Some(selected.clone());
                     pass_step(
                         step_id,
@@ -805,11 +725,19 @@ fn active_read_state_step(active: &ActiveAdsDeviceSnapshot) -> DoctorStep {
 
 fn active_sumup_step(active: &ActiveAdsDeviceSnapshot, degraded_points: usize) -> DoctorStep {
     let point_count = active.point_statuses.len();
-    let status = if degraded_points == 0 {
-        DoctorStepStatus::Pass
-    } else {
-        DoctorStepStatus::Warn
-    };
+    let timestamped_good_points = active
+        .point_statuses
+        .iter()
+        .filter(|point| {
+            point.quality.state == QualityState::Good && point.quality.last_update_ms.is_some()
+        })
+        .count();
+    let status =
+        if point_count > 0 && degraded_points == 0 && timestamped_good_points == point_count {
+            DoctorStepStatus::Pass
+        } else {
+            DoctorStepStatus::Warn
+        };
     DoctorStep::new(
         DoctorStepId::SumupRead,
         "Batch read",
@@ -818,6 +746,7 @@ fn active_sumup_step(active: &ActiveAdsDeviceSnapshot, degraded_points: usize) -
     )
     .with_evidence("point_count", json!(point_count))
     .with_evidence("degraded_points", json!(degraded_points))
+    .with_evidence("timestamped_good_points", json!(timestamped_good_points))
     .with_evidence(
         "last_good_value_ms",
         active

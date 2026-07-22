@@ -48562,11 +48562,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:57e3ba46a3f616a9810e051675ea778489aca311f9a8fd0d3e09bb152111b80d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48814,11 +48814,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:355eb7aa8073c9367de816cee000493e48ac4565acb8a86d669c4a4e81bc0c98"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48982,11 +48982,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:45d373f4e46f5b0c9f3382419df2f7444cfeb03787fc9f8df6bd89eca338e34d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49080,11 +49080,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:59b97a0e64fdfe9768ce38f4d31a45220cf5d452919ee4575ea034b3a0988d8a"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49214,20 +49214,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_3539C5989EC2A86458438E48C689B922176DF8C4307A8D1CF5F7DA20361A89D2"
-code_id = "CODE_3539C5989EC2A86458438E48C689B922176DF8C4307A8D1CF5F7DA20361A89D2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:3b6791fa77ae701b2cf5ec0b8c8d62809035c1af805827d4ea88560d16e3dafb"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_36B81D718C322B9628E20A2E0FBBEA0138CA78E288E954DB3C3A3FABC7374F84"
 code_id = "CODE_36B81D718C322B9628E20A2E0FBBEA0138CA78E288E954DB3C3A3FABC7374F84"
 owner = "trust-runtime"
@@ -49346,11 +49332,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8fbc73a8897650555178efba15d8ca4bb5ff10a6811ee9c84597bd9c193a2b1f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49904,13 +49890,13 @@ id = "RISK_ACK_5A7521C429BAECCFAD8A8A045A03770B3F6E775D352FD379478C66991B003990"
 code_id = "CODE_5A7521C429BAECCFAD8A8A045A03770B3F6E775D352FD379478C66991B003990"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:1c97cb47a0964b352ff48c6615ae0965f57cbcde93800f21aecb97c595700095"
+body_digest = "sha256:ae1ce8ccd570685f7fa4b00fdd3f74b160390ffc28377dff447d382827230f2f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50452,11 +50438,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:f5ccfb75f87c74b931bdc6daf7118d964bfc10d47d4f27894c68056c67b2b73b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50522,11 +50508,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:d14b73d30b264fcdbe99272a127fcf8c6ec4c1d4a5a7100bf99d85fbe4312e8e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51166,11 +51152,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:415bcce3956ddc669116184d15b1bd1e90bd1972f66d5b981af3f3df1bf89106"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51348,11 +51334,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:d622f6ebcd16ec1482b7690564ae8c5d85b6aaa8879bce92f045fe59517e006d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51964,20 +51950,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:4c5a8bf495345c109755506ce047830851e4e0c96ca97079c1215150720b8400"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_B00C6F2ACF5FFC4CCC39DFF16261CFC08CA866E5F3320A3A5E622EC5A00C6825"
-code_id = "CODE_B00C6F2ACF5FFC4CCC39DFF16261CFC08CA866E5F3320A3A5E622EC5A00C6825"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d527d89d297c647745290577ff4c3076ba40f3124c48b0ebba1ba03814993a22"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -53544,13 +53516,13 @@ id = "RISK_ACK_EDBEE8D89165B0EFCDAD1109D28DFB565767A48C3FC0834E45A22BC623B81DF0"
 code_id = "CODE_EDBEE8D89165B0EFCDAD1109D28DFB565767A48C3FC0834E45A22BC623B81DF0"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:1c436062ebac39b38532fa558090997d72f8c6ccf117add0ad72bab9c32537f1"
+body_digest = "sha256:c94b59a95257ecc80a89681268111a114f2d438c27dee9220db018e81adf2e79"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53854,11 +53826,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:678995780a7d5548a9da81b7dd0a2a8c8156e8ec0cbc79ca3f91a45e1710ef17"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81512,3 +81484,58 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_73A73F482D7FBF20316850D893161920799DFA4D9DE2DD1A667C18E3E02BC39D"
+code_id = "CODE_73A73F482D7FBF20316850D893161920799DFA4D9DE2DD1A667C18E3E02BC39D"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d527d89d297c647745290577ff4c3076ba40f3124c48b0ebba1ba03814993a22"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_978C8BE9BC07A6F5B67014F7E883AB2A159B1CFF82B4FD0A3B2E7F7F72D950C1"
+code_id = "CODE_978C8BE9BC07A6F5B67014F7E883AB2A159B1CFF82B4FD0A3B2E7F7F72D950C1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:3b6791fa77ae701b2cf5ec0b8c8d62809035c1af805827d4ea88560d16e3dafb"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_844C4E2A38B78E8D7FAB196F21D5E25EB60F42ACB7A64C0264BC666F96C5E226"
+code_id = "CODE_844C4E2A38B78E8D7FAB196F21D5E25EB60F42ACB7A64C0264BC666F96C5E226"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:bf5bf8caea9908aed7558a6bbd998e2f5d6cbb4ae6107f30b29e9bdc9a967613"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A00688B0FF1CE47216B1583A76B5493A1792A3DA538332BEAA068E421EC769DB"
+code_id = "CODE_A00688B0FF1CE47216B1583A76B5493A1792A3DA538332BEAA068E421EC769DB"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:7377cdd127b14bbcfd0112f35fa9f44e988f2805feb0ee1ea6af62e5a129dcf8"
+risk_signals = ["broad_error_suppression"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-doctor-orchestration-and-active-device-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."

@@ -720,6 +720,26 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Assertion reachability, mutation sensitivity, real TwinCAT value/type and
   recovery proof, the remaining ADS subdomains, and the final broad remote
   gates remain open.
+
+  ADS onboarding Doctor coherent-batch progress (2026-07-22): the runtime
+  product specification now owns ordered fail-closed Doctor orchestration,
+  manual target validation, explicit symbol authority, active-device endpoint
+  matching, and live point-health truth. Four expected-red assertions exposed
+  and fixed malformed manual endpoints reaching the transport, blank or absent
+  selected symbols being accepted, unrelated active-device snapshots
+  substituting for the requested endpoint, and empty or timestamp-less live
+  point sets being reported as a passing batch read. Job orchestration, target
+  validation, and Doctor tests were mechanically separated before expansion;
+  each resulting module remains below the large-file guardrail. Remote focused
+  proof passes all 15 Doctor tests, all 56 onboarding tests without the live
+  wire feature, all 61 onboarding tests with `ads-wire`, and the runtime library
+  compile check. Deterministic semantic automation owns the live code facts,
+  moved and new test identities, invariant, risk acknowledgements, and
+  accounting; the scoped audit passes. The internal module split changes no
+  ownership, data flow, or execution flow and requires no diagram update. This
+  is a truST ADS product contract outside IEC 61131-3, not an IEC decision or
+  deviation. Assertion reachability, mutation sensitivity, real TwinCAT proof,
+  the remaining ADS subdomains, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

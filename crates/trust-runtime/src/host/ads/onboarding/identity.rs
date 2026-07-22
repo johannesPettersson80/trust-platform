@@ -59,6 +59,10 @@ fn canonical_ams_net_id(value: &str) -> Option<String> {
     )
 }
 
+pub(crate) fn is_canonical_ams_net_id(value: &str) -> bool {
+    canonical_ams_net_id(value).as_deref() == Some(value)
+}
+
 /// Resolves the OS-selected local source IP for traffic toward an ADS target.
 pub fn resolve_os_source_ip(target_ip: &str) -> Result<String, OnboardingError> {
     let target: IpAddr = target_ip

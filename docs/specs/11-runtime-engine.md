@@ -1105,6 +1105,32 @@ Automatic route addition continues to use the already validated runtime-host
 AMS identity and one-shot credentials; the transport never enables implicit
 route creation.
 
+###### ADS Doctor orchestration and active-device safety
+
+The client ADS Doctor emits exactly the ordered required-step set owned by the
+runtime engine. A production-blocking failure prevents every later direct
+probe; cancellation marks the first not-yet-started step as cancelled and the
+remaining steps as blocked. Guarded writes are skipped without blocking when
+writes were not explicitly enabled, and enabling writes without a complete
+probe is a blocking configuration failure. Production evidence is attached
+only after every required step passes, from a runtime-host vantage, with live
+deployed status available.
+
+Manual Doctor targets must contain a syntactically valid IP address, a non-zero
+AMS port, and, when supplied, a canonical six-octet AMS Net ID. Those fields
+are rejected before any ADS wire operation. An explicitly selected symbol must
+contain non-whitespace text and must occur in the uploaded symbol table; it is
+never accepted merely because a later transport happens to resolve it.
+
+An active-device shortcut is valid only when its target IP and AMS port, plus
+the expected AMS Net ID when supplied, identify the requested Doctor endpoint.
+A mismatched snapshot fails closed without opening a second ADS connection.
+Read-only active-device reports derive state only from the supplied live
+snapshot: a batch-read step passes only when at least one point has good quality
+with a recorded update timestamp; no points, no timestamped good point, or any
+degraded point produces a warning. The full Doctor for an overlapping active
+device remains blocked until the caller explicitly pauses it.
+
 ###### ADS onboarding route artifact and credential safety
 
 Automatic ADS route addition is available only over a credential-permitted

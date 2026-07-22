@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: the ADS Doctor now rejects malformed manual endpoints before
+  transport activity, rejects blank or absent explicit symbols at the upload
+  boundary, refuses active-device snapshots for another ADS endpoint, and no
+  longer reports empty, timestamp-less, or degraded live point sets as a
+  passing batch read.
 - trust-runtime: ADS diagnostics now fail closed for empty reports and
   non-blocking failed steps, reject incomplete or role-mismatched TwinCAT
   production evidence, and require the declared age, clock, deployed-config,
