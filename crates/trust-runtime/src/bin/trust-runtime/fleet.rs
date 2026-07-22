@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::net::TcpListener;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -12,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use toml_edit::{value, DocumentMut, Item, Table};
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::{FleetAction, FleetRuntimeAction, FleetRuntimeTemplateArg};
 
@@ -171,6 +171,7 @@ fn add_runtime(
     manifest
         .runtime
         .sort_by(|left, right| left.name.cmp(&right.name));
+    validate_manifest(&manifest)?;
     write_manifest(&manifest_path, &manifest)?;
 
     Ok(FleetRuntimeAddResponse {
@@ -191,12 +192,58 @@ fn list_runtimes(fleet_root: &Path) -> anyhow::Result<FleetListResponse> {
 }
 
 pub(super) fn load_manifest(path: &Path) -> anyhow::Result<FleetManifest> {
-    match fs::read_to_string(path) {
+    let manifest = match fs::read_to_string(path) {
         Ok(text) => toml::from_str(text.as_str())
             .with_context(|| format!("failed to parse {}", path.display())),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(FleetManifest::default()),
         Err(error) => Err(error).with_context(|| format!("failed to read {}", path.display())),
+    }?;
+    validate_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+fn validate_manifest(manifest: &FleetManifest) -> anyhow::Result<()> {
+    let mut names = BTreeSet::new();
+    let mut ports = BTreeSet::new();
+    for runtime in &manifest.runtime {
+        let validated_name = validate_runtime_name(runtime.name.as_str())?;
+        if validated_name != runtime.name {
+            anyhow::bail!(
+                "fleet runtime name must not contain leading or trailing whitespace: {:?}",
+                runtime.name
+            );
+        }
+        if !names.insert(runtime.name.as_str()) {
+            anyhow::bail!("duplicate fleet runtime name '{}'", runtime.name);
+        }
+        if runtime.path.trim().is_empty() {
+            anyhow::bail!("fleet runtime '{}' has an empty project path", runtime.name);
+        }
+
+        let endpoint =
+            ControlEndpoint::parse(runtime.control_endpoint.as_str()).map_err(|error| {
+                anyhow::anyhow!(
+                    "fleet runtime '{}' has invalid control endpoint '{}': {error}",
+                    runtime.name,
+                    runtime.control_endpoint
+                )
+            })?;
+        if let ControlEndpoint::Tcp(address) = endpoint {
+            validate_manifest_port(address.port(), &mut ports)?;
+        }
+        validate_manifest_port(runtime.web_port, &mut ports)?;
     }
+    Ok(())
+}
+
+fn validate_manifest_port(port: u16, ports: &mut BTreeSet<u16>) -> anyhow::Result<()> {
+    if port == 0 {
+        anyhow::bail!("fleet TCP ports must be concrete, not 0");
+    }
+    if !ports.insert(port) {
+        anyhow::bail!("fleet TCP port {port} is used more than once");
+    }
+    Ok(())
 }
 
 fn write_manifest(path: &Path, manifest: &FleetManifest) -> anyhow::Result<()> {
@@ -263,7 +310,7 @@ fn runtime_toml_for_runtime(
     let runtime = table_mut(doc.as_table_mut(), "runtime")?;
     let control = table_mut(runtime, "control")?;
     control["endpoint"] = value(format!("tcp://127.0.0.1:{control_port}"));
-    control["auth_token"] = value(generate_control_token());
+    control["auth_token"] = value(generate_control_token()?);
 
     let web = table_mut(runtime, "web")?;
     web["listen"] = value(format!("127.0.0.1:{web_port}"));
@@ -321,10 +368,11 @@ fn validate_requested_port(port: u16, used: &BTreeSet<u16>, label: &str) -> anyh
 }
 
 fn control_port_from_endpoint(endpoint: &str) -> Option<u16> {
-    endpoint
-        .strip_prefix("tcp://")
-        .and_then(|rest| rest.rsplit_once(':').map(|(_, port)| port))
-        .and_then(|port| port.parse::<u16>().ok())
+    match ControlEndpoint::parse(endpoint).ok()? {
+        ControlEndpoint::Tcp(address) => Some(address.port()),
+        #[cfg(unix)]
+        ControlEndpoint::Unix(_) => None,
+    }
 }
 
 fn validate_runtime_name(name: &str) -> anyhow::Result<String> {
@@ -360,18 +408,20 @@ fn resource_name_from_runtime_name(name: &str) -> String {
     }
 }
 
-fn generate_control_token() -> String {
+fn generate_control_token() -> anyhow::Result<String> {
     let mut bytes = [0_u8; 32];
     let mut rng = rand::rngs::SysRng;
-    if rng.try_fill_bytes(&mut bytes).is_err() {
-        let fallback = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-            ^ u128::from(std::process::id());
-        bytes[..16].copy_from_slice(&fallback.to_le_bytes());
-    }
-    URL_SAFE_NO_PAD.encode(bytes)
+    generate_control_token_with_rng(&mut rng, &mut bytes)
+}
+
+fn generate_control_token_with_rng<R: TryRng>(
+    rng: &mut R,
+    bytes: &mut [u8; 32],
+) -> anyhow::Result<String> {
+    rng.try_fill_bytes(bytes).map_err(|error| {
+        anyhow::anyhow!("operating-system secure random source failed: {error}")
+    })?;
+    Ok(URL_SAFE_NO_PAD.encode(bytes))
 }
 
 fn render_main_source() -> &'static str {
@@ -592,6 +642,145 @@ mod tests {
         );
 
         fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn load_manifest_rejects_unsafe_or_duplicate_runtime_names() {
+        let root = temp_dir("fleet-invalid-names");
+        let manifest_path = root.join(FLEET_MANIFEST_FILE);
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = "../escape"
+path = "first"
+control_endpoint = "tcp://127.0.0.1:19920"
+web_port = 19921
+"#,
+        )
+        .expect("write unsafe manifest");
+        let unsafe_error = load_manifest(&manifest_path).expect_err("unsafe name must fail");
+        assert!(
+            unsafe_error.to_string().contains("runtime name"),
+            "unexpected error: {unsafe_error:#}"
+        );
+
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = "cell"
+path = "first"
+control_endpoint = "tcp://127.0.0.1:19920"
+web_port = 19921
+
+[[runtime]]
+name = "cell"
+path = "second"
+control_endpoint = "tcp://127.0.0.1:19922"
+web_port = 19923
+"#,
+        )
+        .expect("write duplicate manifest");
+        let duplicate_error = load_manifest(&manifest_path).expect_err("duplicate name must fail");
+        assert!(
+            duplicate_error
+                .to_string()
+                .contains("duplicate fleet runtime name 'cell'"),
+            "unexpected error: {duplicate_error:#}"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn load_manifest_rejects_invalid_endpoints_and_port_collisions() {
+        let root = temp_dir("fleet-invalid-ports");
+        let manifest_path = root.join(FLEET_MANIFEST_FILE);
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = "first"
+path = "first"
+control_endpoint = "not-an-endpoint"
+web_port = 19931
+"#,
+        )
+        .expect("write invalid endpoint manifest");
+        let endpoint_error =
+            load_manifest(&manifest_path).expect_err("invalid control endpoint must fail");
+        assert!(
+            endpoint_error.to_string().contains("control endpoint"),
+            "unexpected error: {endpoint_error:#}"
+        );
+
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = "first"
+path = "first"
+control_endpoint = "tcp://127.0.0.1:19930"
+web_port = 19931
+
+[[runtime]]
+name = "second"
+path = "second"
+control_endpoint = "tcp://127.0.0.1:19932"
+web_port = 19930
+"#,
+        )
+        .expect("write colliding manifest");
+        let collision_error =
+            load_manifest(&manifest_path).expect_err("cross-role port collision must fail");
+        assert!(
+            collision_error
+                .to_string()
+                .contains("fleet TCP port 19930 is used more than once"),
+            "unexpected error: {collision_error:#}"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn control_token_generation_fails_closed_when_secure_randomness_fails() {
+        #[derive(Debug)]
+        struct FailingRng;
+
+        impl TryRng for FailingRng {
+            type Error = std::io::Error;
+
+            fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+
+            fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+
+            fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+        }
+
+        let mut bytes = [0_u8; 32];
+        let error = generate_control_token_with_rng(&mut FailingRng, &mut bytes)
+            .expect_err("secure random failure must abort token generation");
+
+        assert!(
+            error
+                .to_string()
+                .contains("operating-system secure random source failed"),
+            "unexpected error: {error:#}"
+        );
+        assert_eq!(bytes, [0_u8; 32], "no fallback token may be synthesized");
+    }
+
+    #[test]
+    fn generated_control_token_contains_32_random_bytes() {
+        let token = generate_control_token().expect("generate control token");
+        let decoded = URL_SAFE_NO_PAD.decode(token).expect("decode control token");
+        assert_eq!(decoded.len(), 32);
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {

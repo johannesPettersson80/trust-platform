@@ -897,6 +897,27 @@ deploy command's change summary. They are not deployment pointers and rollback
 does not rewrite them. The `current` symlink is the authoritative active-bundle
 identifier before and after rollback.
 
+##### 6.8.3 Managed local fleet scaffolding
+
+`trust-runtime fleet runtime add` creates one managed local runtime project
+beneath the selected fleet root and registers it in `fleet.toml`. Runtime names
+use the CLI's portable name alphabet and must be unique in a manifest; hand-edited
+manifests are subject to the same validation before list or lifecycle actions.
+Every control endpoint must parse under the runtime control-endpoint contract,
+every web port must be nonzero, and TCP control ports and web ports must be
+unique across roles and runtime entries. Ambiguous or malformed manifests fail
+before filesystem or lifecycle mutation.
+
+Generated control and web listeners use distinct available loopback ports. The
+generated control credential is 32 bytes from the operating-system secure
+random source and is encoded without padding. If secure randomness is
+unavailable, scaffolding fails; it must not substitute timestamps, process IDs,
+zero-filled bytes, or another predictable credential. Resource names are
+derived deterministically from the portable runtime name, with a nonnumeric
+fallback/prefix. Generated runtime and I/O configuration is parsed and
+validated before the manifest is updated, and the source scaffold is emitted
+deterministically.
+
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
 

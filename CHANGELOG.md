@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: managed-fleet manifests now reject unsafe or duplicate runtime
+  names, malformed control endpoints, zero ports, and cross-role TCP port
+  collisions before lifecycle mutation; fleet control-token generation now
+  fails closed when operating-system secure randomness is unavailable.
 - trust-runtime: deprecated workbench-command aliases no longer let a directory
   or non-executable sibling `trust-dev` shadow a usable PATH command, and Unix
   signal termination now retains the conventional `128 + signal` exit status.

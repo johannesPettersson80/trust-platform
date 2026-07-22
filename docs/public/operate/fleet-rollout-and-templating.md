@@ -13,6 +13,20 @@
 - [Deploy And Rollback](deploy-rollback.md)
 - [Upgrade](upgrade.md)
 
+Create and inspect managed local runtime projects before planning a wider
+rollout:
+
+```bash
+trust-runtime fleet runtime add --fleet-root ./fleet --name cell-1 --template simulate --json
+trust-runtime fleet list --fleet-root ./fleet --json
+```
+
+The add command creates `./fleet/cell-1` and registers it in
+`./fleet/fleet.toml`. Runtime names must be portable and unique. The command
+allocates distinct available loopback control/web ports and a secure random
+control credential; malformed hand-edited manifests are rejected before a
+runtime is added or controlled.
+
 ## What Success Looks Like
 
 - each site has one shared base profile plus only the overrides it needs
