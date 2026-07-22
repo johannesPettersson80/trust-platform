@@ -83,7 +83,8 @@ This document is implementation-agnostic but aligns with the DAP definitions in
   deadlines; resume continues with the remaining active-execution budget.
 - No new scan or output commit starts solely because the debugger is waiting.
   Pause does not apply safe state. An independent stop, fault, or active-execution
-  watchdog breach retains its normal runtime semantics. See DEV-049.
+  watchdog breach retains its normal runtime semantics. See
+  `docs/specs/11-runtime-engine.md#debug-and-resource-pause-interaction`.
 
 #### Stop on Entry
 
@@ -131,7 +132,7 @@ and integer encodings that attempt to supply non-finite IEEE bit patterns. A
 rejection returns a failed DAP response before the value is queued, forced, or
 written to the process image; the previous value and force state remain
 unchanged. Attach-mode validation remains governed by the runtime control
-endpoint and is not covered by this managed-session rule. (DEV-040)
+endpoint and is not covered by this managed-session rule.
 
 #### Live Values Mutation Lifetime
 
@@ -148,7 +149,7 @@ endpoint and is not covered by this managed-session rule. (DEV-040)
   clients until release or a clearing boundary.
 
 These are truST debugger/runtime lifecycle rules outside the IEC language
-execution model. See DEV-047.
+execution model, not IEC deviations.
 
 ### Stepping Semantics
 
@@ -207,7 +208,8 @@ rules.
   `VAR` sections, respecting access specifiers. (IEC 61131-3 Ed.3, §6.5.2.3)
 - Access specifiers are not enforced for debugger inspection yet;
   `PRIVATE`/`PROTECTED`/`INTERNAL` members may be visible.
-  (IEC 61131-3 Ed.3, §6.5.2.3; DEV-023)
+  Debugger inspection is a truST tooling surface and does not change
+  source-level IEC access enforcement.
 - Directly represented variables (`AT %I/%Q/%M`) are presented by symbolic
   name; the address may be shown as metadata, not as a separate scope.
   (IEC 61131-3 Ed.3, §6.5.5, Table 16)

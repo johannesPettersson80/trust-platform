@@ -24,7 +24,7 @@ Standard functions are predefined functions available in all IEC 61131-3 impleme
 | `IS_VALID`, `IS_VALID_BCD` | Validate | fixed arity | Table 39 | Implemented |
 | `REF` | Reference | fixed arity | Table 12 | Implemented |
 | `LOWER_BOUND`, `UPPER_BOUND` | Array bound | fixed arity | IEC extension set | Implemented |
-| `ASSERT_*` | Test assertions | fixed arity | non-IEC | Extension; see `docs/IEC_DEVIATIONS.md` DEV-019 |
+| `ASSERT_*` | Test assertions | fixed arity | non-IEC | truST test-workflow extension |
 
 ### Function Characteristics
 
@@ -87,7 +87,8 @@ For every explicit conversion whose target is `REAL` or `LREAL`, truST returns
 includes string parsing, `LREAL_TO_REAL` narrowing, and the IEC Table 25 binary
 transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary transfers retain
 their exact bit-defined value. The rejection policy is implementer-specific
-under IEC 61131-3 section 6.6.2.5.2 and Table 23; see DEV-053.
+under IEC 61131-3 section 6.6.2.5.2 and Table 23; see
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
 
 For conversion into `SINT`, `INT`, `DINT`, or `LINT`, a representable integer
 value is preserved exactly. A value outside the destination's IEC Table 10
@@ -131,7 +132,7 @@ Binary transfer between bit strings and numeric types as listed in Table 25:
 
 Implementer extension note:
 - truST additionally provides `TIME_TO_DWORD` and `DWORD_TO_TIME` as
-  non-IEC conversion helpers; see `docs/IEC_DEVIATIONS.md` (DEV-021).
+  documented non-IEC conversion helpers.
 - These extensions use milliseconds:
   `TIME_TO_DWORD(T#123ms) = DWORD#123`,
   `DWORD_TO_TIME(DWORD#123) = T#123ms`.
@@ -151,8 +152,7 @@ Implementer extension note:
 
 Implementer extension note:
 - truST also accepts direct character-to-bitstring conversions such as
-  `CHAR_TO_BYTE` and `WCHAR_TO_WORD`; see `docs/IEC_DEVIATIONS.md`
-  (DEV-021).
+  `CHAR_TO_BYTE` and `WCHAR_TO_WORD` as documented vendor extensions.
 - Other conversions involving STRING/WSTRING (for example, numeric to string)
   remain implementer-specific. When provided, they shall follow the external
   literal representation rules in 6.3.3.
@@ -221,7 +221,8 @@ result remains finite at IEC basic single width. A result outside that finite
 range raises `RuntimeError::Overflow` before assignment storage and leaves the
 target unchanged. The runtime does not clamp or store infinity or NaN. `LREAL`
 and other exceptional numerical-function behavior remain outside this rule;
-see `docs/specs/10-runtime-semantics.md` and DEV-043.
+see `docs/specs/10-runtime-semantics.md` and
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
 
 ## 4. Bit Shift Functions (Table 30)
 
@@ -538,7 +539,7 @@ The following functions are non-IEC additions for the user-facing ST test framew
 | `ASSERT_NEAR` | `ASSERT_NEAR(EXPECTED: ANY_NUM, ACTUAL: ANY_NUM, DELTA: ANY_NUM) : VOID` | Fails test when `ABS(EXPECTED-ACTUAL) > DELTA` |
 
 Compatibility notes:
-- These assertions are extension-only and not part of IEC 61131-3 Tables 22-36
-  or Table 39 (see `docs/IEC_DEVIATIONS.md`, DEV-019).
+- These assertions are truST test-workflow extensions and are not part of IEC
+  61131-3 Tables 22-36 or Table 39.
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
 - Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).

@@ -15,7 +15,7 @@ Standard function blocks are predefined FBs with internal state. They require in
 | `SR`, `RS` | Bistable | fixed BOOL inputs/outputs | Table 43 | signature only | full stateful behavior | none |
 | `R_TRIG`, `F_TRIG` | Edge detection | fixed BOOL inputs/outputs | Table 44 | signature only | full stateful behavior | none |
 | `CTU`, `CTD`, `CTUD` | Counters | fixed or overloaded counter types | Table 45 | signature only | full stateful behavior | CTUD LD profile in `docs/IEC_DEVIATIONS.md` |
-| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; TP/TOF `ET` exposure in `docs/IEC_DEVIATIONS.md` |
+| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; LD diagnostic `ET` key is a product implementation detail |
 
 ### Common Characteristics
 
@@ -24,9 +24,10 @@ Standard function blocks are predefined FBs with internal state. They require in
 - Can be overloaded for different data types
 - Have standard timing/edge detection behaviors
 
-### Deviation Cross-References
+### Standards Cross-References
 
-- Counter/timer runtime deviations are recorded in `docs/IEC_DEVIATIONS.md`.
+- The CTUD LD pin-model omission is recorded in `docs/IEC_DEVIATIONS.md`.
+- Timer scan/lifecycle choices are recorded in `docs/IEC_DECISIONS.md`.
 - `trust-hir` owns static signatures only; runtime execution owns the stateful behavior described below.
 
 ## 2. Bistable Function Blocks (Table 43)
@@ -542,14 +543,15 @@ Timer accuracy depends on execution rate:
 ## Implementation Notes for trust-hir
 
 trust-hir validates standard FB calls by signature and static types only; it
-does not model internal state or timing behavior. (IEC 61131-3 Ed.3,
-Section 6.6.3.5, Tables 43-46, Figure 15; DEV-010)
+does not model internal state or timing behavior. The stateful behavior is
+owned by `trust-runtime`. (IEC 61131-3 Ed.3, Section 6.6.3.5, Tables 43-46,
+Figure 15.)
 
 The behavioral descriptions above are retained for reference; `trust-runtime`
 executes the stateful timer/counter/trigger behavior for `SR`, `RS`, `R_TRIG`,
-`F_TRIG`, `CTU`, `CTD`, `CTUD`, `TP`, `TON`, and `TOF`. Current runtime
-deviations are documented in `docs/IEC_DEVIATIONS.md`, including the CTUD
-single-input LD profile and TP/TOF ET exposure.
+`F_TRIG`, `CTU`, `CTD`, `CTUD`, `TP`, `TON`, and `TOF`. The CTUD single-input
+LD profile is documented in `docs/IEC_DEVIATIONS.md`; the TP/TOF diagnostic
+`ET` key is an internal product representation rather than an IEC deviation.
 
 ### FB Definitions
 
@@ -559,7 +561,7 @@ trust-hir provides built-in signatures for:
 
 Internal state variables and behavioral specifications are documented above but
 are not modeled in trust-hir. Runtime execution covers that stateful behavior;
-see `docs/IEC_DEVIATIONS.md` and the runtime timer/counter implementations.
+see the runtime timer/counter implementations and the CTUD LD profile deviation.
 
 ### Edge Detection Internal
 

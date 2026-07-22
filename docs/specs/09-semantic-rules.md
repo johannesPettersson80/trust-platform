@@ -298,7 +298,7 @@ declarations. The same checks are applied to function blocks that use `IMPLEMENT
 | Method implementation | Class/FB must implement or declare all interface methods (IEC 61131-3 Ed.3 §6.6.6.4.1) |
 | Signature match | Implementation must match interface signature (name, parameters, return type) |
 | Access specifier | Implementation must be PUBLIC or INTERNAL |
-| Property signatures (extension) | Interface PROPERTY signatures require matching type/accessors (see `docs/IEC_DEVIATIONS.md`) |
+| Property signatures (extension) | Interface PROPERTY signatures require matching type/accessors as a documented truST extension |
 
 Abstract classes may declare required interface methods as ABSTRACT (IEC 61131-3 Ed.3 §6.6.5.8.3).
 

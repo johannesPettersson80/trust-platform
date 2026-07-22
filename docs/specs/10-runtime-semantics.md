@@ -136,9 +136,9 @@ pub enum Value {
 }
 ```
 
-IEC `REF_TO` and the non-IEC `POINTER TO` extension share the same runtime
-reference model. `POINTER TO` supports `ADR(...)`, dereference (`^`), `NULL`,
-and `?=` as a typed vendor extension; see `docs/IEC_DEVIATIONS.md` (DEV-018).
+IEC `REF_TO` and the documented non-IEC `POINTER TO` extension share the same
+runtime reference model. `POINTER TO` supports `ADR(...)`, dereference (`^`),
+`NULL`, and `?=` as a typed vendor extension.
 `Value::Null` remains the runtime sentinel for `NULL` literals and void-like
 results, while uninitialized `REF_TO` / `POINTER TO` storage defaults to
 `Value::Reference(None)` (IEC 61131-3 Ed.3 §6.4.4.10.2).
@@ -743,7 +743,7 @@ pub enum StmtResult {
 - Applying `REF` to temporary variables (VAR_TEMP, function-local temporaries,
   or the implicit result variable of a function or method) is not permitted.
 
-**SIZEOF operator** (vendor extension, see `DEV-016`):
+**SIZEOF operator** (documented vendor extension):
 - `SIZEOF(...)` accepts either an explicit type reference or a storage operand (`name`, field/index access, dereference, `THIS.field`).
 - The operand is not evaluated; `SIZEOF(...)` resolves the operand's static type and returns a `DINT` byte count.
 - Bare names resolve variables before types. Unsupported operands (for example calls or arithmetic expressions) and unsupported/unsized storage types are rejected during analysis.
@@ -796,7 +796,8 @@ assignment store, leaving the target unchanged; the runtime does not clamp or
 store infinity or NaN. This rule does not define `LREAL`, subnormal underflow,
 signed zero, non-finite operands, explicit conversions, or named numerical
 functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
-footnote e; DEV-042)
+footnote e; see
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
 #### 6.6 REAL named numerical-function overflow
 
@@ -807,7 +808,8 @@ store, leaving the target unchanged; the runtime does not clamp or store
 infinity or NaN. This rule does not define `LREAL`, non-finite operands,
 subnormal underflow, signed zero, explicit conversions, or domain behavior for
 other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
-Table 10 footnote e; DEV-043)
+Table 10 footnote e; see
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
 #### 6.7 Non-finite REAL conversion results
 
@@ -816,8 +818,9 @@ Explicit numeric, text, and bit-transfer conversions whose destination is
 representation. Narrowing overflow, non-finite text, and IEEE bit patterns for
 NaN or either infinity return `RuntimeError::Overflow` before the destination
 is stored. Finite values, including signed zero and subnormal values, remain
-valid. This is the reviewed truST safety policy recorded by `DEV-053`; IEC
-61131-3 does not prescribe this runtime fault surface.
+valid. This reviewed policy is recorded in
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`;
+IEC 61131-3 does not prescribe this runtime fault surface.
 
 #### 6.8 Signed integer result materialization
 
@@ -1441,8 +1444,9 @@ fn test_timer() {
 
 - CLASS/INTERFACE/METHOD/PROPERTY support
 - Inheritance (EXTENDS) + interface conformance (IMPLEMENTS)
-- REFERENCE types (REF_TO) + assignment attempt semantics (see `docs/IEC_DEVIATIONS.md`)
-- `VAR_STAT` vendor-extension storage semantics (see `docs/IEC_DEVIATIONS.md`)
+- REFERENCE types (`REF_TO`) plus assignment-attempt semantics; the incomplete
+  static compatibility check is recorded in `docs/IEC_DEVIATIONS.md`
+- `VAR_STAT` documented vendor-extension storage semantics
 - Direct address I/O (%I, %Q, %M)
 
 #### Phase 5: Debugging (Implemented)

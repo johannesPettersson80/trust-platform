@@ -17,8 +17,9 @@ Use the visual-editor workflow for current SFC authoring guidance:
 
 - `docs/public/develop/visual-editors/sfc.md`
 
-The reserved-keyword and extension boundary is tracked in
-`docs/IEC_DEVIATIONS.md` (DEV-020).
+The reserved-keyword and visual-authoring boundary is a documented truST
+product profile. It is outside the ST parser's IEC behavior and is not an IEC
+deviation.
 
 ## Ownership
 

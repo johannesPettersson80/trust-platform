@@ -200133,9 +200133,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0A71C50C9C00B1D0845B25626BA9D62D5B45575A3F31251A5860F06478DF2DAE"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#fault-recording-and-policy-replacement"
+invariant_ids = ["RT_FAULT_RECORD_POLICY_UPDATE_001"]
+test_ids = ["TEST_RUNTIME_FAULT_RECORD_POLICY_UPDATE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205172,9 +205174,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_39998DD4D3E164343FE17AE58A650D18121AFC92118BD78465A7BECF9D829B12"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-normalization-and-installation"
+invariant_ids = ["RT_WATCHDOG_POLICY_INSTALL_001"]
+test_ids = ["TEST_RUNTIME_WATCHDOG_POLICY_INSTALL_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -225668,9 +225672,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_E871C7B2BC2FE532A551AEE2754462423F5846E62DD54227E7481066766BED2A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-normalization-and-installation"
+invariant_ids = ["RT_WATCHDOG_POLICY_INSTALL_001"]
+test_ids = ["TEST_RUNTIME_WATCHDOG_POLICY_INSTALL_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -227275,9 +227281,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_F57B6005E3EF1E4ADFD678BFD3688685815D9657E4C96501B7F345BA1E4C74CC"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#fault-recording-and-policy-replacement"
+invariant_ids = ["RT_FAULT_RECORD_POLICY_UPDATE_001"]
+test_ids = ["TEST_RUNTIME_FAULT_RECORD_POLICY_UPDATE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

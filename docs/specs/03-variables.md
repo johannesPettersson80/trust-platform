@@ -109,7 +109,7 @@ END_VAR
 **Rules**:
 - RETAIN/NON_RETAIN apply to VAR, VAR_INPUT, VAR_OUTPUT, VAR_GLOBAL, and static VAR sections; not VAR_IN_OUT. (IEC 61131-3 Ed.3, 6.5.6.1-6.5.6.2)
 - Only one of CONSTANT, RETAIN, NON_RETAIN, or PERSISTENT may appear per VAR section. (IEC 61131-3 Ed.3, Figure 7)
-- PERSISTENT is accepted as a vendor extension and validated like RETAIN. (DEV-007)
+- PERSISTENT is accepted as a documented vendor extension and validated like RETAIN.
 
 ### Constant Qualifier
 
@@ -354,7 +354,10 @@ truST vendor-parity note:
 ## 9. Declaration Rules Summary
 
 truST vendor-parity note:
-- In addition to the IEC-declared locations below, truST accepts top-level file-scope `VAR_GLOBAL ... END_VAR` and namespaced `VAR_GLOBAL` blocks as vendor-style GVL extensions. See `docs/IEC_DEVIATIONS.md`.
+- In addition to the IEC-declared locations below, truST accepts top-level
+  file-scope `VAR_GLOBAL ... END_VAR` and namespaced `VAR_GLOBAL` blocks as
+  documented vendor-style GVL extensions. Because IEC does not define those
+  forms, they are not IEC deviations.
 
 ### What Can Be Declared Where
 
@@ -377,7 +380,7 @@ truST vendor-parity note:
 | CONSTANT | Yes | - | - | Yes |
 | RETAIN | Yes | Yes | Yes | Yes |
 | NON_RETAIN | Yes | Yes | Yes | Yes |
-| PERSISTENT (DEV-007) | Yes | Yes | Yes | Yes |
+| PERSISTENT (vendor extension) | Yes | Yes | Yes | Yes |
 | R_EDGE | - | Yes | - | - |
 | F_EDGE | - | Yes | - | - |
 

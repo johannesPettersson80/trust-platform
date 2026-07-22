@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- docs: the IEC deviations log now contains only concrete normative conflicts
+  or omissions. IEC-silent runtime/tool/vendor behavior remains in product
+  specifications, IEC-permitted non-finite `REAL` choices are recorded in the
+  decisions log, and the PLCopen LD interchange subset is routed to the
+  PLCopen deviations log.
 - trust-runtime: rejected online changes and restarts now preserve the live
   variable/instance image, scan counter, fault state, telemetry scan state, and
   queued debugger mutations when retained-value migration or restart instance

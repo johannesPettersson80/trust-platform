@@ -17,10 +17,10 @@ Program Organization Units (POUs) are the building blocks of IEC 61131-3 program
 | Interface | `INTERFACE` | N/A | N/A | N/A |
 | Method | `METHOD` | N/A | No | Optional |
 
-### Implementation Extension: Test POUs (DEV-033)
+### Implementation Extension: Test POUs
 
-truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as test-oriented,
-non-IEC declaration forms; see `docs/IEC_DEVIATIONS.md` (DEV-033).
+truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as documented
+test-oriented, non-IEC declaration forms.
 
 ```
 TEST_PROGRAM name
@@ -440,7 +440,7 @@ Controller.Start();            // Call through interface
 
 ### Rules
 
-1. Interfaces contain only method prototypes (no implementation) per IEC 61131-3 Ed.3 §6.6.6.1. Property signatures are accepted as an extension (see `docs/IEC_DEVIATIONS.md`).
+1. Interfaces contain only method prototypes (no implementation) per IEC 61131-3 Ed.3 §6.6.6.1. Property signatures are accepted as a documented truST extension.
 2. All methods are implicitly PUBLIC
 3. Classes implementing interface MUST implement all methods
 4. Interfaces can extend other interfaces

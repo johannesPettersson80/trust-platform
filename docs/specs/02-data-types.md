@@ -332,8 +332,8 @@ refInt^ := 100;  // myInt is now 100
 
 ### 4.2 POINTER TO (Non-IEC Extension)
 
-truST supports `POINTER TO` as a vendor-style extension alongside IEC
-`REF_TO`; see `docs/IEC_DEVIATIONS.md` (DEV-018).
+truST supports `POINTER TO` as a documented vendor-style extension alongside
+IEC `REF_TO`.
 
 ```text
 VAR
@@ -478,7 +478,7 @@ str[3] := 'X';     // str = 'ABXD'
 - Position 1 is the first character
 - Error if accessing beyond string length
 - Error if mixing CHAR/STRING with WCHAR/WSTRING
-- truST runtime note: indexed `STRING` / `WSTRING` access is 1-based and follows the documented runtime element model in `DEV-018`; both VM ref access and the shipped string stdlib operate on Unicode scalar elements rather than raw UTF-8 bytes / raw 16-bit code units.
+- truST runtime note: indexed `STRING` / `WSTRING` access is 1-based and follows the documented runtime element model in `DEV-017`; both VM ref access and the shipped string stdlib operate on Unicode scalar elements rather than raw UTF-8 bytes / raw 16-bit code units.
 
 ## Implementation Notes for trust-hir
 

@@ -105,8 +105,8 @@ statement constructs are allowed, and evaluation must be side-effect free. (IEC 
 **Rules**:
 - Use the same operator precedence and associativity as Table 71. (IEC 61131-3 Ed.3, Table 71)
 - Disallow assignments, control-flow statements, and function block/method invocations.
-- Allow only an explicit whitelist of pure standard functions for evaluation; see
-  `docs/IEC_DEVIATIONS.md` for the permitted set and rationale.
+- Allow only the explicit whitelist of pure standard functions defined by the
+  debugger-evaluation product contract.
 
 ### Rule 6: Type Conversion
 
@@ -214,7 +214,7 @@ TRUE                // Boolean literal
 T#1s500ms           // Duration literal
 MyVar               // Variable reference
 MyEnum#Value        // Enumerated value
-#LocalVar           // Siemens SCL local reference (extension, DEV-034)
+#LocalVar           // Siemens SCL local reference (vendor extension)
 ```
 
 #### 5.2.1 Literal typing (implementer-specific)
@@ -231,7 +231,7 @@ IEC 61131-3 Ed.3 §6.3.3 and Tables 5–9 define literal forms but do not mandat
 #### 5.2.2 Siemens SCL local-reference prefix (extension)
 
 `#identifier` is accepted as a `NameRef` in expression and statement contexts
-for Siemens SCL compatibility; see `docs/IEC_DEVIATIONS.md` DEV-034.
+as a documented Siemens SCL compatibility extension.
 
 ### 5.3 Postfix Expressions
 

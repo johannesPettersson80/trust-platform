@@ -12,7 +12,7 @@ The character set is based on ISO/IEC 10646:2012 (Unicode).
 |-----|-------------|-------|
 | 1 | ISO/IEC 10646 | Standard requires Unicode support; trust-lsp currently supports ASCII only (DEV-013) |
 | 2a | Lower case characters | a-z |
-| 2b | Number sign | `#` (used in typed literals; Siemens SCL also uses `#identifier` local references, DEV-034) |
+| 2b | Number sign | `#` (used in typed literals; truST also accepts Siemens SCL `#identifier` local references as a vendor extension) |
 | 2c | Dollar sign | `$` (used in string escapes) |
 
 **Case Sensitivity Rule**: When lower-case letters are supported, the case of letters shall NOT be significant in language elements, except:
@@ -160,8 +160,8 @@ ACTION, END_ACTION
 > **SFC profile note**: truST reserves the IEC SFC keywords and ships a visual
 > SFC editor, but textual SFC body syntax is not specified in the Structured
 > Text parser. Use the visual-editor documentation for current authoring scope;
-> see `docs/public/develop/visual-editors/sfc.md` and `docs/IEC_DEVIATIONS.md`
-> (DEV-020).
+> see `docs/public/develop/visual-editors/sfc.md`. This is a truST authoring
+> profile boundary, not an IEC deviation in ST behavior.
 
 #### Special
 ```
@@ -172,7 +172,9 @@ READ_ONLY, READ_WRITE
 
 #### Implementation Extensions (Reserved Keywords)
 
-The following keywords are reserved by truST but are **not** part of the IEC 61131-3 keyword list. They are implemented as extensions and documented in `docs/IEC_DEVIATIONS.md`:
+The following keywords are reserved by truST but are **not** part of the IEC
+61131-3 keyword list. They are documented truST/vendor extensions, not IEC
+deviations:
 
 ```
 VAR_STAT
@@ -185,8 +187,8 @@ TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
 ```
 
-`VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are recorded in
-`docs/IEC_DEVIATIONS.md`: function statics persist across calls, method statics persist per
+`VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are defined
+here and in the runtime specification: function statics persist across calls, method statics persist per
 instance and per method, and `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` behaves as ordinary
 instance storage.
 

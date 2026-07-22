@@ -224,7 +224,7 @@ specified here as a truST runtime contract, not as an IEC deviation.
 On Unix, the runtime's graceful-shutdown signal set is exactly `SIGINT` and
 `SIGTERM`. Signals outside that set are not translated into a runtime stop by
 the installed signal source. Their operating-system disposition is outside
-this runtime contract. (DEV-045)
+this runtime contract.
 
 #### 6.3 Timer System
 
@@ -276,7 +276,6 @@ before mutating either process-image area; any rejected value returns an
 prevents the normal driver-output commit. The runtime does not clamp,
 normalize, substitute, or emit non-finite IEEE bits. Configured safe-state
 handling after the resulting cycle fault is a separate policy boundary.
-(DEV-044)
 
 #### 6.5 I/O Drivers
 
@@ -315,7 +314,7 @@ Driver health is exposed via `ctl status` and the TUI.
 
 Ordinary scan-output writes use the configured driver error policy and the
 level/latest-value worker handoff described above. Applying a configured safe
-state has a stronger success boundary (DEV-046):
+state has a stronger success boundary:
 
 - The runtime first applies the configured safe values to the output process
   image and then attempts the resulting output image on every configured I/O
@@ -348,7 +347,7 @@ The OPC UA client transport-to-worker event handoff is bounded. When its
 fixed-capacity queue is full, publishing an additional sample, connection, or
 session event returns failure immediately rather than blocking or allocating
 an unbounded queue. After the worker drains pending events, the same sink can
-accept a later event. A rejected event is not claimed delivered. (DEV-045)
+accept a later event. A rejected event is not claimed delivered.
 
 The runtime's OPC UA server publishes PLC snapshot variables with CurrentRead
 access only. The periodic publisher refreshes those values from runtime
@@ -365,7 +364,7 @@ involving infinity or not-a-number implementer-specific. Section 6.6.2.5.15,
 Table 39 defines `IS_VALID` so program logic can distinguish finite values from
 NaN and infinity. Those provisions do not define how an external host or
 protocol admits a value into a PLC process image. truST therefore applies the
-following fail-closed admission contract (DEV-045):
+following fail-closed product contract:
 
 | Boundary | Typed non-finite input | Required rejection effect |
 |----------|------------------------|---------------------------|
@@ -502,7 +501,7 @@ Protocol roadmap priority after OPC UA baseline:
 Connector reporting is an additive supervisory contract over protocol-owned
 transport loops. It does not replace `IoDriver`, ADS, OPC UA, Modbus, MQTT, or
 EtherCAT execution. Every connector report uses the following closed
-vocabularies (DEV-051):
+vocabularies:
 
 - lifecycle state: `disabled`, `configured`, `starting`, `ready`, `degraded`,
   `reconnecting`, `stale`, `not_ready`, or `faulted`;
@@ -557,7 +556,7 @@ adapter to be present, so project construction and runtime startup remain
 non-blocking. The first operation that needs the wire attempts bounded hardware
 initialization. If the adapter, configuration, or post-allocation hardware
 resource is unavailable, the operation returns an error and the connector is
-faulted rather than healthy (DEV-052).
+faulted rather than healthy.
 
 EtherCrab process-data storage cannot be safely allocated repeatedly after a
 post-allocation initialization failure. Such a failure is therefore terminal
@@ -587,8 +586,10 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
 - If the watchdog timeout elapses, the runtime raises a **FAULT** and halts the resource.
 - The output-commit deadline is checked before any physical driver write. If it
   has elapsed, the pending process-image output is not sent to a driver.
-- Timeout thresholds and fault action are configured per resource (see §6.9) and are
-  **implementer-specific** in IEC 61131-3 (recorded in `docs/IEC_DEVIATIONS.md`).
+- Timeout thresholds, fault actions, debugger interaction, automatic recovery,
+  and the physical driver commit boundary are configured by the truST host
+  runtime (see §6.9). IEC 61131-3 does not define these host mechanisms, so
+  they are product contracts here rather than IEC deviations.
 - Default action is **safe_halt**: outputs are set to configured safe values (if provided),
   then the resource halts. For **halt** and **safe_halt**, safe-state outputs are applied
   before halting. If no safe-state output values are configured, fault handling performs
@@ -614,8 +615,8 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
   timeout before or after the paused interval still follows the configured
   watchdog fault action.
 
-These pause rules are a truST host/debugger extension outside the IEC language
-execution model (DEV-049).
+These pause rules are a truST host/debugger contract outside the IEC language
+execution model, not an IEC deviation.
 
 **Automatic restart policy:**
 - A non-panic cycle fault configured with `FaultPolicy::Restart`, or a watchdog
@@ -698,7 +699,7 @@ startup:
 - **Warm restart**: RETAIN variables restore their retained values; NON_RETAIN are initialized.
 - **Cold restart**: RETAIN and NON_RETAIN variables are initialized.
 - Unqualified variables follow the runtime's retain policy (see `docs/IEC_DECISIONS.md`).
-- `VAR_STAT` follows the documented vendor-extension storage rules from `docs/IEC_DEVIATIONS.md`:
+- `VAR_STAT` follows the documented vendor-extension storage rules:
   function statics persist across calls, method statics persist per instance and per method, and
   `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` uses ordinary instance storage.
 
@@ -774,7 +775,7 @@ Unflushed changes may be lost on sudden power loss (implementer-specific).
 ##### 6.7.1 Online-change transaction
 
 Online change is a truST runtime extension; IEC 61131-3 does not define its
-transport or transaction boundary (DEV-024). A reload request is applied only
+transport or transaction boundary. A reload request is applied only
 at a completed scan boundary. The runtime must prepare every fallible input
 needed by the change before replacing live execution state:
 
@@ -1023,7 +1024,7 @@ declared value, and raw integer encodings of non-finite IEEE bit patterns
 before queueing, forcing, or changing the process image. A rejected request
 returns a failed DAP response and preserves both the previous process-image
 value and the previous force state. Attach-mode requests remain governed by
-the separate runtime control endpoint contract. (DEV-040)
+the separate runtime control endpoint contract.
 
 ##### 6.9.2 Debug mutation lifecycle
 
@@ -1031,7 +1032,7 @@ Debug writes are one-shot requests. An accepted write is applied at the next
 scan boundary and is then consumed. A force is applied at scan boundaries
 until the matching release request or a clearing lifecycle boundary. Release
 removes the force without writing a replacement value; normal program and I/O
-evaluation determine the value at the next scan. (DEV-047)
+evaluation determine the value at the next scan.
 
 Pause and resume preserve queued writes and active forces because neither
 operation creates a new runtime lifecycle. A non-terminating debugger detach or
@@ -1053,7 +1054,7 @@ The file-backed `simulation.toml` loader rejects NaN and positive or negative
 infinity in an optional `[[couplings]].threshold` before returning or
 activating the configuration. It does not normalize, clamp, or substitute a
 threshold. This contract does not govern programmatic coupling-rule
-construction or source-value admission. (DEV-041)
+construction or source-value admission.
 
 ##### 6.9.4 Runtime control authorization
 

@@ -164,9 +164,10 @@ Normative ambiguities and profile differences are tracked here:
 - `docs/IEC_DECISIONS.md`
 - `docs/IEC_DEVIATIONS.md`
 
-At the time of writing, key profile deviations include CTUD pin-model constraints and
-schema-level free-form operand strings (`symbol` and direct-address tokens share the same
-field type).
+At the time of writing, the CTUD pin-model constraint is an IEC deviation. The
+schema-level free-form operand string (`symbol` and direct-address tokens share
+the same field type) is a truST editor/schema constraint documented by this
+product profile, not an IEC deviation.
 
 ## 9. Verification Evidence
 

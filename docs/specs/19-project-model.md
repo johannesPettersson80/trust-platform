@@ -43,7 +43,7 @@ For file-backed `simulation.toml`, each optional
 or negative infinity before returning a configuration; it does not normalize,
 clamp, or substitute a value. This requirement covers TOML loading only and
 does not define programmatic `SignalCouplingRule` construction or source-value
-admission. (DEV-041)
+admission.
 
 ## 4. Lifecycle
 

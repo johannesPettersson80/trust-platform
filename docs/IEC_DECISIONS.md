@@ -6,6 +6,34 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-22 - Non-finite REAL result and explicit-conversion policy
+
+- Area: `REAL` arithmetic, numerical functions, and explicit conversions
+- IEC context:
+  - IEC 61131-3 Ed.3 section 6.4.2.1 and Table 10 footnote e make
+    exceptional basic-single floating-point results implementer-specific.
+  - Sections 6.6.2.5.2-6.6.2.5.3 make conversion accuracy effects,
+    conversion execution errors, and the result of an out-of-range
+    `LREAL_TO_REAL` conversion implementer-specific.
+  - Section 6.6.2.5.5 and Table 25 define `DWORD_TO_REAL` and
+    `LWORD_TO_LREAL` as binary transfers but do not prescribe a stored
+    non-finite-value policy.
+- Decision:
+  - For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` report
+    `RuntimeError::Overflow` when the basic-single result is not finite.
+  - For finite `REAL` operands, `EXP` and `EXPT` report
+    `RuntimeError::Overflow` when the basic-single result is not finite.
+  - Every explicit conversion targeting `REAL` or `LREAL` reports
+    `RuntimeError::Overflow` when parsing, narrowing, or binary transfer would
+    produce NaN, positive infinity, or negative infinity. Finite binary-transfer
+    values preserve their IEC-defined bit transfer.
+  - Each rejection occurs before assignment storage. The target remains
+    unchanged; the runtime does not clamp, normalize, or substitute a value.
+- Reason:
+  - A visible no-write fault prevents an exceptional IEEE value from silently
+    becoming ordinary process state while preserving every finite result and
+    binary transfer required by the standard.
+
 ## 2026-07-15 - Accuracy-preserving implicit conversion matrix
 
 - Area: Assignment, initialization, function results, and POU parameter transfer

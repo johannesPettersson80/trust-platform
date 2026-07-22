@@ -18,12 +18,13 @@ The ST language statements are:
 | Jump | `EXIT`, `CONTINUE`, `JMP` |
 | Empty | `;` |
 
-**Deviation**:
+**Implementation note**:
 - `JMP` statements are parsed and labels are resolved/validated. The current
   diagnostics pass already reports unreachable statements after terminators and
   constant-`IF` branches, but truST does not yet build a full control-flow
-  graph for whole-body reachability analysis. (IEC 61131-3 Ed.3, Table 72;
-  DEV-008)
+  graph for whole-body reachability analysis. IEC 61131-3 Ed.3 Table 72 defines
+  the statement forms but does not require a particular unreachable-code
+  diagnostic algorithm.
 
 ### Statement Termination
 

@@ -2,6 +2,21 @@
 
 This file tracks known, intentional deviations/extensions from strict PLCopen profile behavior.
 
+## 2026-02-25 - PLCopen LD interop subset
+
+- Area: PLCopen XML Ladder Diagram import/export
+- PLCopen reference: PLCopen XML graphical-body interchange profiles
+- Deviation:
+  - LD import/export targets the supported network-body subset implemented by
+    `editors/vscode/src/ladder/plcopenLdInterop.ts`.
+  - Unsupported graphical and vendor constructs are skipped with explicit
+    diagnostics rather than round-tripped.
+- Impact:
+  - Not every graphical or vendor metadata/layout construct is preserved.
+- Mitigation:
+  - Unsupported constructs are reported deterministically and covered by
+    interop tests.
+
 ## 2026-04-11 - PLCopen motion profile extensions and stricter choices
 
 - Area: PLCopen Motion library profile
