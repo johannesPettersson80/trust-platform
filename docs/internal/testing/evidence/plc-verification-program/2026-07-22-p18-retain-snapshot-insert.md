@@ -2,10 +2,10 @@
 
 Date: 2026-07-22
 
-Status: exact authority, mapping, executable transition matrix, and targeted
-behavior-lock proof complete. Dynamic assertion reachability, mutation
-sensitivity, and broad remote proof remain open. No Phase 18 global row or stop
-gate is closed by this slice.
+Status: exact authority, mapping, executable transition matrix, targeted
+behavior-lock proof, and source-bound assertion reachability complete.
+Mutation sensitivity and broad remote proof remain open. No Phase 18 global
+row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -80,6 +80,29 @@ cache forced recompilation at the clean source checkout. The accepted baseline
 and comparison both record the required repository-relative case path; the
 rejected attempt produced no evidence record.
 
+## Source-bound assertion reachability
+
+The cumulative Phase 18 producer ran from clean source commit
+`8e65a3997819cf6cffd56fa21719b2f9b024489f` in the isolated builder checkout.
+It selected generated adversarial mutation
+`MUTANT_RETAIN_SNAPSHOT_INSERT_REPLACE_WITH_UNIT` at exact function
+`RetainSnapshot::insert`. The mutant compiled, and each mapped direct/trace
+test independently failed against the changed production body, so both
+assertions are classified `proven` rather than merely executed.
+
+- Evidence: `EVID_RT_RETAIN_SNAPSHOT_INSERT_ASSERTION_REACHABILITY_001`
+- Canonical artifact: `verification/p18/assertion-reachability.json`
+- Artifact digest:
+  `sha256:5aebc75976607070d52bdb9967504bc35f072b88e90690feb203fd47e2d4c280`
+- Input-closure digest:
+  `sha256:d3d804ff26d0aaccabd026ba200fbfab908ec1b57b92c481af918945607f8eff`
+- Cumulative result: 8/271 catalog assertions proven, eight caught mutants,
+  zero survivors, unviable mutants, timeouts, or harness failures.
+
+The remaining 263 assertions stay explicitly open. This slice does not use
+the cumulative result to waive any other test or the separate formal mutation
+budget in `VERIF-P18-009`.
+
 Focused x86_64 Linux proof at exact source `693306ae...` also passed the exact
 direct unit command and exact case-backed integration command. Static
 validation passed case regeneration, 905-record metadata validation, and the
@@ -92,7 +115,7 @@ the active board reserves them for the one final `VERIF-P18-016` candidate.
 acknowledges the scanner's `state_mutation` signal for the exact unchanged body
 digest. It is bound to the reviewed specification, invariant, direct unit
 matrix, and producer-authentic lock pair. It does not suppress the signal or
-claim the still-open assertion-reachability, mutation, or broad-gate proof.
+claim the still-open mutation-budget or broad-gate proof.
 
 ## Architecture and remaining debt
 
@@ -106,7 +129,6 @@ case table, and two small consumers at the owning method boundary.
 
 Remaining exact debt:
 
-- source-bound assertion reachability under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - causal broad evidence and final frozen-candidate gates under
   `VERIF-P18-016`;
