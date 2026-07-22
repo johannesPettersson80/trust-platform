@@ -93,12 +93,12 @@ timeouts = 0
 harness_failures = 0
 execution_count = 2
 raw_artifact = "verification/p18/assertion-reachability.json"
-raw_sha256 = "sha256:97188192bdd4892febc8d1eb376c42dde95314cc3d16710ab90db4d3dee3c279"
+raw_sha256 = "sha256:b352613b01f6376f71480334b376491e9506e1f47ac50d88bceae03ca4d0d9b9"
 producer_command = "python3 scripts/p18_assertion_reachability.py --write --shard-id ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001 --target-dir $HOME/.cache/codex-targets/trust-platform-gate --scratch-root $PWD/target/tmp-p18"
 producer_exit = 0
 validator_command = "python3 scripts/p18_assertion_reachability.py"
 validator_exit = 0
-input_digest = "sha256:19c709b30b38d9a7b6a4f6bbd2e1f43b52b0f5dd29eebf5c4db9e101a80ada4a"
+input_digest = "sha256:f82d6b74c987ea7d52f78adfb990cd4b1faa020364f0d12f10a85e0d5f40eb3c"
 
 [[proof_classes]]
 id = "coverage"
