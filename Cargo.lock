@@ -5358,6 +5358,7 @@ dependencies = [
  "smol_str",
  "thiserror 2.0.18",
  "trust-hir",
+ "verification-cases",
 ]
 
 [[package]]
