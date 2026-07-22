@@ -1,9 +1,9 @@
 schema_version = 1
 id = "P18_ZERO_DEBT_LEDGER_V1"
 source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:3ada48225c038ac01f42e8bd1067df79afb62a367f0ac8b7d0320af997f83826"
+input_closure_sha256 = "sha256:00a49801c84bd49ababd72271b44111ebdd6e3738eaacaa1641fd3e7bf3b0447"
 state = "open"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [baseline]
 code_facts = 15229
@@ -12,8 +12,8 @@ test_facts = 4038
 reviewed_nonmapping = 3777
 
 [current]
-spec_gap = 15138
-registered_backlog = 15135
+spec_gap = 15137
+registered_backlog = 15134
 missing_spec = 0
 missing_tests = 0
 unmapped = 0
@@ -45,20 +45,20 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/burn-down-ledger.json"
-raw_sha256 = "sha256:58a3ffac8ac146004ec90997abe1291959509dcd90d55958a8718197ea8fea36"
+raw_sha256 = "sha256:55c5c343c5a15b42acef6e8528b62ec3acad9ce225abf1b4b27a25a92de488ff"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:b97cd78d82ff08eb5025ea1a12137fcd4ffd8c616e54b0324bd9a81aaff8850b"
+input_digest = "sha256:8c687f237996c2baf50593abc6123d92f5e6da2f40754113193b31fbba4585b5"
 
 [[proof_classes]]
 id = "test_mapping"
 validator_module = "scripts.verification.p18_zero_debt.existing_test_mapping"
 prerequisites = ["semantic_chains"]
 status = "open"
-denominator = 4040
-numerator = 263
+denominator = 4042
+numerator = 265
 debt = 3777
 stale = 0
 unowned = 0
@@ -69,12 +69,12 @@ timeouts = 0
 harness_failures = 0
 execution_count = 1
 raw_artifact = "verification/p18/bootstrap/test_mapping.json"
-raw_sha256 = "sha256:9fbdaffdbf835eaca9e5e69aa903ebf64b50f71f1b5506ba987ab9c3b4626491"
+raw_sha256 = "sha256:e889eee96e5af30eba6bf1722a20bbdc9399c821700537724893c1c0534ae953"
 producer_command = "python3 scripts/p18_burn_down_ledger_gate.py --write"
 producer_exit = 0
 validator_command = "python3 scripts/p18_burn_down_ledger_gate.py"
 validator_exit = 0
-input_digest = "sha256:a7e3d1cf9dddb989abfc29ca7d7e9c3ff9560963740c1f56fb207b4d48f7d352"
+input_digest = "sha256:8c687f237996c2baf50593abc6123d92f5e6da2f40754113193b31fbba4585b5"
 
 [[proof_classes]]
 id = "assertion_reachability"
