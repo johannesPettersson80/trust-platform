@@ -58547,7 +58547,7 @@ risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-task-readiness.md#exact-risk-acknowledgement"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
-expires_on = "2026-10-22"
+expires_on = "2026-10-21"
 rationale = "Acknowledges the state-mutation signal for this exact reviewed body digest after binding the function to the task-readiness specification, invariant, five strengthened unit locks, producer-authentic generated trace pair, and source-bound assertion-reachability artifact; it does not suppress the signal or claim the still-open mutation or broad-gate proof."
 
 [[acknowledgements]]

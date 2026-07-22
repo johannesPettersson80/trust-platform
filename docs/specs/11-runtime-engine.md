@@ -191,7 +191,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 - The maximum number of tasks per resource and minimum interval resolution are implementer-specific and are reported by the runtime configuration.
 - The resource loop maintains a `RUNNING/FAULT/STOPPED` state and halts on faults.
 
-##### 6.2.1 Task readiness and overrun accounting
+##### Task readiness and overrun accounting
 
 For each scheduler sample, the portable readiness boundary observes one
 `SINGLE` value and one logical `now`. A FALSE-to-TRUE `SINGLE` transition makes
