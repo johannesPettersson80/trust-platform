@@ -311,4 +311,57 @@ mod tests {
             assert_eq!(signed_from_i128(target, 0), Err(RuntimeError::TypeMismatch));
         }
     }
+
+    #[test]
+    fn unsigned_integer_materialization_preserves_boundaries_and_rejects_invalid_targets() {
+        let unsigned_cases = [
+            (
+                NumericKind::USInt,
+                u128::from(u8::MAX),
+                Value::USInt(0),
+                Value::USInt(u8::MAX),
+            ),
+            (
+                NumericKind::UInt,
+                u128::from(u16::MAX),
+                Value::UInt(0),
+                Value::UInt(u16::MAX),
+            ),
+            (
+                NumericKind::UDInt,
+                u128::from(u32::MAX),
+                Value::UDInt(0),
+                Value::UDInt(u32::MAX),
+            ),
+            (
+                NumericKind::ULInt,
+                u128::from(u64::MAX),
+                Value::ULInt(0),
+                Value::ULInt(u64::MAX),
+            ),
+        ];
+
+        for (target, maximum, expected_zero, expected_maximum) in unsigned_cases {
+            assert_eq!(unsigned_from_u128(target, 0), Ok(expected_zero));
+            assert_eq!(unsigned_from_u128(target, maximum), Ok(expected_maximum));
+            assert_eq!(
+                unsigned_from_u128(target, maximum + 1),
+                Err(RuntimeError::Overflow)
+            );
+        }
+
+        for target in [
+            NumericKind::SInt,
+            NumericKind::Int,
+            NumericKind::DInt,
+            NumericKind::LInt,
+            NumericKind::Real,
+            NumericKind::LReal,
+        ] {
+            assert_eq!(
+                unsigned_from_u128(target, 0),
+                Err(RuntimeError::TypeMismatch)
+            );
+        }
+    }
 }

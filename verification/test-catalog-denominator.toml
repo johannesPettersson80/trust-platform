@@ -12802,6 +12802,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_515CDC7490B537210498"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "unsigned_integer_materialization_preserves_boundaries_and_rejects_invalid_targets"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_516BF822DC021E128AF5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/mode_tests.rs"
@@ -20660,6 +20670,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "gate_inventory_owned"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_83069BB55E723A690C01"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/unsigned_integer_materialization_cases.rs"
+name = "unsigned_integer_materialization_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_830B0FCD52472FC05488"

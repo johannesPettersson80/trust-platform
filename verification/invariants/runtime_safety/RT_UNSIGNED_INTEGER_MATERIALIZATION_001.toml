@@ -10,13 +10,11 @@ claim = "Materializing an integer result as USINT, UINT, UDINT, or ULINT preserv
 proof_level = "S1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
-tests = []
+tests = ["TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001", "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_boundary_matrix",
-  "mapped_executable_test",
   "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",

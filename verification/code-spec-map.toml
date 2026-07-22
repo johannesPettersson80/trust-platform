@@ -217698,9 +217698,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#6-10-unsigned-integer-result-materialization"
+invariant_ids = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001"]
+test_ids = ["TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001", "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
