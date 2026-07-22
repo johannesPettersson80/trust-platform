@@ -25,20 +25,29 @@ impl Runtime {
                 minor: version.minor,
             });
         }
-        let resource = match resource_name {
-            Some(name) => metadata
-                .resource(name)
-                .or_else(|| legacy_placeholder_resource(metadata))
-                .ok_or_else(|| {
-                    error::RuntimeError::InvalidBytecodeMetadata(
+        let (resource, legacy_identity) = match resource_name {
+            Some(name) => {
+                if let Some(resource) = metadata.resource(name) {
+                    (resource, None)
+                } else if let Some(resource) = legacy_placeholder_resource(metadata) {
+                    (resource, Some(SmolStr::new(name)))
+                } else {
+                    return Err(error::RuntimeError::InvalidBytecodeMetadata(
                         format!("resource '{name}'").into(),
-                    )
+                    ));
+                }
+            }
+            None => (
+                metadata.primary_resource().ok_or_else(|| {
+                    error::RuntimeError::InvalidBytecodeMetadata("resource".into())
                 })?,
-            None => metadata
-                .primary_resource()
-                .ok_or_else(|| error::RuntimeError::InvalidBytecodeMetadata("resource".into()))?,
+                None,
+            ),
         };
         self.apply_resource_metadata(resource)?;
+        if let Some(resource_name) = legacy_identity {
+            self.resource_name = resource_name;
+        }
         self.vm_module = None;
         self.vm_local_init_plan_cache.invalidate_all();
         self.vm_register_lowering_cache.invalidate_all();

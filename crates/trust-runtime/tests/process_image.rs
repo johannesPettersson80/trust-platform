@@ -103,6 +103,13 @@ fn named_resource_selection_accepts_single_legacy_placeholder() {
     assert_eq!(runtime.io().inputs().len(), 7);
     assert_eq!(runtime.io().outputs().len(), 5);
     assert_eq!(runtime.io().memory().len(), 3);
+    let rebuilt = trust_runtime::bytecode::build_module_from_runtime(&runtime)
+        .expect("re-encode runtime after legacy compatibility load");
+    assert!(rebuilt
+        .metadata()
+        .expect("read rebuilt metadata")
+        .resource("LegacyProjectName")
+        .is_some());
 }
 
 #[test]

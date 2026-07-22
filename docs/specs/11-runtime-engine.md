@@ -789,7 +789,10 @@ must resolve that exact resource; an unknown name is an error and must not
 silently select the primary resource. For compatibility with bytecode emitted
 before resource identities were preserved, a module containing exactly one
 resource named by the synthetic legacy placeholder `RESOURCE` may satisfy a
-named selection. The exception does not apply to multi-resource modules.
+named selection. After that compatibility load, the requested name becomes the
+runtime's active resource identity so subsequent bytecode encoding cannot
+propagate the placeholder. The exception does not apply to multi-resource
+modules.
 
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
