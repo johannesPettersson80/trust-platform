@@ -3,9 +3,9 @@
 Date: 2026-07-22
 
 Status: exact authority, mapping, executable transition matrix, targeted
-behavior-lock proof, and source-bound assertion reachability complete.
-Mutation sensitivity and broad remote proof remain open. No Phase 18 global
-row or stop gate is closed by this slice.
+behavior-lock proof, source-bound assertion reachability, and fact-ledger
+accounting complete. Mutation sensitivity and broad remote proof remain open.
+No Phase 18 global row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -102,6 +102,33 @@ assertions are classified `proven` rather than merely executed.
 The remaining 263 assertions stay explicitly open. This slice does not use
 the cumulative result to waive any other test or the separate formal mutation
 budget in `VERIF-P18-009`.
+
+## Refreshed slice accounting
+
+The deterministic fact-ledger producer ran in the isolated builder checkout
+from clean source `fcbaf8141d699e60d891f8b3f455e0e3434286ee`. The generated
+artifact was committed as `5726d23b359bd427c7f6bdeb6f8e6ae8e4982bed` and
+revalidated from clean descendant
+`2562a416bffc67ae7665d01cc74901df5d188c7c`. The canonical ledger contains
+exactly 15,298 code facts and 4,048 test facts with zero duplicate, omitted, or
+unowned identities.
+
+- Burn-down artifact digest:
+  `sha256:cc877807f4706fc491d566e00930d206c438618c8bc1853f87a57dc9c8529591`
+- Burn-down input closure:
+  `sha256:ece60ff87d80c3f87c0cbe1968dbf904f4bc8a3f80cb19f32a626da3af030a4c`
+- Remaining `spec_gap`: 15,134
+- Remaining `registered_backlog`: 15,131
+- Remaining `reviewed_nonmapping`: 3,777
+- Test mapping: 271/4,048, artifact digest
+  `sha256:fbbe7e15f2aee39053ba8e555a3e6fb9a6163b510f120fd9dc74d409a0314af6`
+- Top-level ledger closure:
+  `sha256:afa5401d966750026fd743783fd696f32a81b285f114c70636997aa31e7bf8f2`
+
+The report-only zero-debt gate has zero contract findings. Strict mode
+correctly remains `open_debt`; all remaining populations and unmeasured proof
+classes stay blocking. The nine focused P18 substrate tests pass, including
+the four-shard assertion-plan join and known-bad strict-mode catchers.
 
 Focused x86_64 Linux proof at exact source `693306ae...` also passed the exact
 direct unit command and exact case-backed integration command. Static

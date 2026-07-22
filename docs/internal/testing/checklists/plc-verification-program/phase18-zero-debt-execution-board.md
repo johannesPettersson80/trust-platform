@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, starting with exact slice
-`P18-CODE-CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53`.
+`P18-CODE-CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73`.
 The accepted P18-002 ledger owns and orders every current fact; it does not
 close any semantic, mapping, execution, or adequacy population.
 
@@ -279,8 +279,10 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   generated decision-table runner are catalog-mapped, and a clean
   producer-authentic lock pair promotes the invariant to `G1`. This is slice
   progress only: this exact slice's assertion-reachability item is now closed,
-  while mutation sensitivity, the broad remote gates, and `VERIF-P18-003`
-  globally remain open. Evidence:
+  and the refreshed fact ledger accounts it as `specified` with both mapped
+  tests. Mutation sensitivity, the broad remote gates, and `VERIF-P18-003`
+  globally remain open. The active pointer advances to sequence-five symbol
+  `trust_runtime_core::task::evaluate_task_readiness`. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-retain-snapshot-insert.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
