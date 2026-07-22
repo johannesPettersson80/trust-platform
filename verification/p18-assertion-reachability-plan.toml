@@ -104,6 +104,105 @@ replacement = ""
 selector_name = "numeric.rs:131:9: delete match arm NumericKind::SInt in signed_from_i128"
 
 [[shards]]
+id = "ASSERTION_REACHABILITY_TASK_READINESS_CLOCK_BOUNDARY_001"
+owner = "trust-runtime-core"
+code_id = "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73"
+invariant_id = "RT_TASK_READINESS_001"
+invariant_path = "verification/invariants/runtime_safety/RT_TASK_READINESS_001.toml"
+invariant_contract_digest = "sha256:3a6b13c3fc29aa6ece6f43962c27e8142938d6990b6dc5038ff330336c1a6983"
+source_file = "crates/trust-runtime-core/src/task.rs"
+source_digest = "sha256:ce6c241b4e056555088bb599acb8017e475fce420bd5b93fbf982521a681288e"
+function = "evaluate_task_readiness"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_BACKWARD_CLOCK_001"
+discovery_id = "DISC_0D4BF89810AFBF92D9ED"
+path = "crates/trust-runtime-core/src/task.rs"
+name = "task_readiness_ignores_backward_clock_step_until_prior_baseline"
+command = ["cargo", "test", "-p", "trust-runtime-core", "task::tests::task_readiness_ignores_backward_clock_step_until_prior_baseline", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_TASK_READINESS_CLOCK_BOUNDARY_INVERT_DEADLINE"
+genre = "BinaryOperator"
+replacement = "<"
+selector_name = "task.rs:67:69: replace >= with < in evaluate_task_readiness"
+
+[[shards]]
+id = "ASSERTION_REACHABILITY_TASK_READINESS_EVENT_001"
+owner = "trust-runtime-core"
+code_id = "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73"
+invariant_id = "RT_TASK_READINESS_001"
+invariant_path = "verification/invariants/runtime_safety/RT_TASK_READINESS_001.toml"
+invariant_contract_digest = "sha256:3a6b13c3fc29aa6ece6f43962c27e8142938d6990b6dc5038ff330336c1a6983"
+source_file = "crates/trust-runtime-core/src/task.rs"
+source_digest = "sha256:ce6c241b4e056555088bb599acb8017e475fce420bd5b93fbf982521a681288e"
+function = "evaluate_task_readiness"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_EVENT_EDGE_001"
+discovery_id = "DISC_F9FC5A9157982659A367"
+path = "crates/trust-runtime-core/src/task.rs"
+name = "task_readiness_tracks_event_edges_without_repeating_high_level"
+command = ["cargo", "test", "-p", "trust-runtime-core", "task::tests::task_readiness_tracks_event_edges_without_repeating_high_level", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_EVENT_SUPPRESSION_001"
+discovery_id = "DISC_A8E6873E91C94109A6C0"
+path = "crates/trust-runtime-core/src/task.rs"
+name = "task_readiness_prefers_earlier_due_time_when_event_and_periodic_overlap"
+command = ["cargo", "test", "-p", "trust-runtime-core", "task::tests::task_readiness_prefers_earlier_due_time_when_event_and_periodic_overlap", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_TRACE_001"
+discovery_id = "DISC_FAE2E483B2B2C80C04A2"
+path = "crates/trust-runtime-core/tests/task_readiness_cases.rs"
+name = "task_readiness_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "task_readiness_cases", "task_readiness_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_TASK_READINESS_EVENT_DELETE_RISING_EDGE"
+genre = "UnaryOperator"
+replacement = ""
+selector_name = "task.rs:64:21: delete ! in evaluate_task_readiness"
+
+[[shards]]
+id = "ASSERTION_REACHABILITY_TASK_READINESS_OVERRUN_001"
+owner = "trust-runtime-core"
+code_id = "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73"
+invariant_id = "RT_TASK_READINESS_001"
+invariant_path = "verification/invariants/runtime_safety/RT_TASK_READINESS_001.toml"
+invariant_contract_digest = "sha256:3a6b13c3fc29aa6ece6f43962c27e8142938d6990b6dc5038ff330336c1a6983"
+source_file = "crates/trust-runtime-core/src/task.rs"
+source_digest = "sha256:ce6c241b4e056555088bb599acb8017e475fce420bd5b93fbf982521a681288e"
+function = "evaluate_task_readiness"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_FORWARD_COALESCING_001"
+discovery_id = "DISC_CD6A594B4D0B29C8C3AD"
+path = "crates/trust-runtime-core/src/task.rs"
+name = "task_readiness_coalesces_forward_jump_after_host_pause"
+command = ["cargo", "test", "-p", "trust-runtime-core", "task::tests::task_readiness_coalesces_forward_jump_after_host_pause", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_TASK_READINESS_PERIODIC_OVERRUN_001"
+discovery_id = "DISC_6F2849AC1484DA9AB8A8"
+path = "crates/trust-runtime-core/src/task.rs"
+name = "task_readiness_tracks_periodic_due_time_and_overrun"
+command = ["cargo", "test", "-p", "trust-runtime-core", "task::tests::task_readiness_tracks_periodic_due_time_and_overrun", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_TASK_READINESS_OVERRUN_REMAINDER"
+genre = "BinaryOperator"
+replacement = "%"
+selector_name = "task.rs:75:33: replace / with % in evaluate_task_readiness"
+
+[[shards]]
 id = "ASSERTION_REACHABILITY_UNSIGNED_INTEGER_MATERIALIZATION_001"
 owner = "trust-runtime-core"
 code_id = "CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99"
