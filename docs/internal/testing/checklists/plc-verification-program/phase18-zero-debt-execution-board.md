@@ -322,6 +322,20 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   sequence-seven symbol `trust_runtime_core::watchdog::FaultSubsystem::decision`.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-state-clear.md`.
+
+  Fault-policy decision slice progress (2026-07-22): exact sequence-seven
+  slice
+  `P18-CODE-CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection` and
+  `RT_FAULT_POLICY_DECISION_001`. The historical core and host
+  `reviewed_nonmapping` tests are now catalog-mapped and strengthened, and a
+  generated three-policy trace executes every projection from both healthy and
+  recorded-fault holders. A clean producer-authentic lock pair promotes the
+  invariant to `G1`. This is slice progress only: assertion reachability,
+  mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
+  and `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-policy-decision.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
