@@ -326,8 +326,8 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertEqual(1, strict_exit)
             payload = json.loads((out / "strict/p18-zero-debt.json").read_text())
             self.assertEqual("open_debt", payload["status"])
-            self.assertEqual(15134, payload["summary"]["spec_gap"])
-            self.assertEqual(3777, payload["summary"]["reviewed_nonmapping"])
+            self.assertEqual(15133, payload["summary"]["spec_gap"])
+            self.assertEqual(3772, payload["summary"]["reviewed_nonmapping"])
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
             self.assertIn("verification/p18/burn-down-ledger.json", indexed_paths)
@@ -565,11 +565,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
                 "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
                 "ASSERTION_REACHABILITY_RETAIN_SNAPSHOT_INSERT_001",
                 "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001",
+                "ASSERTION_REACHABILITY_TASK_READINESS_CLOCK_BOUNDARY_001",
+                "ASSERTION_REACHABILITY_TASK_READINESS_EVENT_001",
+                "ASSERTION_REACHABILITY_TASK_READINESS_OVERRUN_001",
                 "ASSERTION_REACHABILITY_UNSIGNED_INTEGER_MATERIALIZATION_001",
             ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(271, len(records))
+        self.assertEqual(277, len(records))
         by_test = {record["test_id"]: record for record in records}
         expected_bindings = {
             "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001": (
@@ -595,6 +598,30 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001": (
                 "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
                 "RT_SIGNED_INTEGER_MATERIALIZATION_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_BACKWARD_CLOCK_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_EVENT_EDGE_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_EVENT_SUPPRESSION_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_FORWARD_COALESCING_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_PERIODIC_OVERRUN_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
+            ),
+            "TEST_RUNTIME_TASK_READINESS_TRACE_001": (
+                "CODE_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73",
+                "RT_TASK_READINESS_001",
             ),
             "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_001": (
                 "CODE_A438DB9396B2895A5E07F5891D9467E790F822347F344B1F6AF0AB99C342BE99",
