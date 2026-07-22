@@ -2902,6 +2902,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_112BD71350EDF83BBF60"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_accepts_directory_symlink_and_rejects_dangling_symlink"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_SYMLINK_MARKERS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_112C93A691CA5CE18B7B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_sections.rs"
@@ -15622,6 +15632,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_6118DE2BCCDC7A76B888"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_rejects_unsupported_git_filesystem_object"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_UNSUPPORTED_OBJECT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_613C825C95E9BD7589DA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/st_test_cli_command.rs"
@@ -21122,6 +21142,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8519EB98B0B7E580EBDB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_rejects_invalid_worktree_marker_shapes"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_MARKER_SHAPES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_852E381BD310A63FCE71"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/force_lifecycle_boundaries.rs"
@@ -25270,6 +25300,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9F476978D2A502DEDC94"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_rejects_an_invalid_git_file_marker"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_INVALID_FILE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9F5C3B5A29DEB7FCDA89"
@@ -35192,6 +35232,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DEB3674ABD0B71ADC5D8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_creates_repository_and_accepts_existing_git_directory"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_CREATE_IDEMPOTENT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_DEBFC2798C267C9DB3C9"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ads-status-summary.test.ts"
@@ -37000,6 +37050,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E9D7D0D1D0CAD4B4BDFA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
+name = "git_init_accepts_a_valid_worktree_gitdir_marker"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_GIT_WORKTREE_MARKER_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E9DA8651E25B65355F9A"

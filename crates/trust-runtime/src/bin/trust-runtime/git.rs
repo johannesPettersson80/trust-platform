@@ -132,4 +132,76 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
     }
+
+    #[test]
+    fn git_init_creates_repository_and_accepts_existing_git_directory() {
+        let root = temp_dir("create-repository");
+
+        git_init(&root).expect("git init should create repository metadata");
+        assert!(root.join(".git").is_dir());
+        git_init(&root).expect("existing .git directory should be idempotent");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn git_init_rejects_invalid_worktree_marker_shapes() {
+        for (name, marker) in [
+            ("empty-target", "gitdir:   \n"),
+            ("extra-content", "gitdir: metadata\nunexpected\n"),
+            ("missing-target", "gitdir: missing-metadata\n"),
+        ] {
+            let root = temp_dir(name);
+            std::fs::write(root.join(".git"), marker).expect("write invalid worktree marker");
+
+            let error = git_init(&root).expect_err("invalid worktree marker must fail");
+            assert!(
+                error.to_string().contains("invalid .git marker"),
+                "unexpected {name} error: {error:#}"
+            );
+            let _ = std::fs::remove_dir_all(root);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn git_init_accepts_directory_symlink_and_rejects_dangling_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let valid_root = temp_dir("valid-symlink");
+        let metadata = valid_root.join("git-metadata");
+        std::fs::create_dir(&metadata).expect("create Git metadata directory");
+        symlink(&metadata, valid_root.join(".git")).expect("create valid .git symlink");
+        git_init(&valid_root).expect("directory .git symlink should be accepted");
+
+        let dangling_root = temp_dir("dangling-symlink");
+        symlink("missing-metadata", dangling_root.join(".git"))
+            .expect("create dangling .git symlink");
+        let error = git_init(&dangling_root).expect_err("dangling .git symlink must fail");
+        assert!(error.to_string().contains("dangling or non-directory symlink"));
+
+        let _ = std::fs::remove_dir_all(valid_root);
+        let _ = std::fs::remove_dir_all(dangling_root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn git_init_rejects_unsupported_git_filesystem_object() {
+        use std::os::unix::net::UnixListener;
+
+        let root = temp_dir("socket-marker");
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let short_socket = PathBuf::from(format!(
+            "tg-socket-{}-{sequence}",
+            std::process::id()
+        ));
+        let listener = UnixListener::bind(&short_socket).expect("create short Unix socket");
+        std::fs::rename(&short_socket, root.join(".git")).expect("move socket to .git marker");
+
+        let error = git_init(&root).expect_err("socket .git marker must fail");
+        assert!(error.to_string().contains("unsupported file type"));
+
+        drop(listener);
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

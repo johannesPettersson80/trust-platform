@@ -56948,11 +56948,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:d8de666eaea69c7551bab51b7df5182d18cc62a2836a11ed9749ef664f7296d0"
 risk_signals = ["subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, environment, subprocess, and status risks for project Git initialization; the specified mapping binds them to reviewed marker and command-outcome behavior without suppressing the risks."
 
 [[acknowledgements]]
 schema_version = 1
@@ -59312,13 +59312,13 @@ id = "RISK_ACK_A422B8B647E43D5E9E4AC20A97270BC004CC03DB6C05C814E7857EA347F89767"
 code_id = "CODE_A422B8B647E43D5E9E4AC20A97270BC004CC03DB6C05C814E7857EA347F89767"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:75f32b5c67e06002bbc336e609e0e533150746ef14d9a7d19a6984a1297a8b67"
+body_digest = "sha256:6f5ebf97c9a44e437d89ea8e4206dbe678c80ab3ee3718c670ab214bc4bc838e"
 risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, environment, subprocess, and status risks for project Git initialization; the specified mapping binds them to reviewed marker and command-outcome behavior without suppressing the risks."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81298,3 +81298,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_19C46EA7F8474589B37B19FE259F771A5728F7E4BA253D0D2F6E9518D9EAF837"
+code_id = "CODE_19C46EA7F8474589B37B19FE259F771A5728F7E4BA253D0D2F6E9518D9EAF837"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:84171ffb674619d9a234ce144adde0ecb5e174ce9698c0daa0a1b685c0151870"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, environment, subprocess, and status risks for project Git initialization; the specified mapping binds them to reviewed marker and command-outcome behavior without suppressing the risks."

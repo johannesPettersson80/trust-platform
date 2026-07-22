@@ -6,11 +6,14 @@ language semantics.
 
 ## Project initialization
 
-When the product wizard initializes Git, an existing `.git` directory or valid
-worktree `gitdir:` file means the project is already initialized. An ordinary,
-malformed, or dangling `.git` file is an error; the wizard must not silently
-report Git initialization success. Without an existing marker, initialization
-requires an available `git` command and a successful `git init` exit status.
+When the product wizard initializes Git, an existing `.git` directory, a
+symbolic link that resolves to a directory, or a valid worktree `gitdir:` file
+means the project is already initialized. An ordinary or malformed `.git`
+file, a worktree marker whose target is absent or not a directory, a dangling
+or non-directory symbolic link, and any other filesystem object are errors;
+the wizard must not silently report Git initialization success. Without an
+existing marker, initialization requires an available `git` command and a
+successful `git init` exit status.
 
 The guided CLI, browser setup, and automatic first-run wizard must leave a
 coherent runnable project rather than a collection of independently valid

@@ -1,0 +1,74 @@
+schema_version = 1
+id = "RT_GIT_INITIALIZATION_001"
+title = "Project Git initialization validates repository markers"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Project Git initialization accepts only an existing directory, directory symlink, or exact worktree gitdir marker; rejects malformed, dangling, non-directory, and unsupported marker shapes; and otherwise requires a successful git init command."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/git.rs"]
+tests = [
+  "TEST_RUNTIME_GIT_INVALID_FILE_001",
+  "TEST_RUNTIME_GIT_WORKTREE_MARKER_001",
+  "TEST_RUNTIME_GIT_CREATE_IDEMPOTENT_001",
+  "TEST_RUNTIME_GIT_MARKER_SHAPES_001",
+  "TEST_RUNTIME_GIT_SYMLINK_MARKERS_001",
+  "TEST_RUNTIME_GIT_UNSUPPORTED_OBJECT_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["git_unavailable_and_nonzero_exit_injection", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+
+[[behavior]]
+partition = { equals = "NO_MARKER_AND_AVAILABLE_GIT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A successful git init creates repository metadata and a repeated initialization remains idempotent."
+
+[[behavior]]
+partition = { equals = "VALID_DIRECTORY_WORKTREE_OR_DIRECTORY_SYMLINK_MARKER" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Recognized existing marker shapes short-circuit without replacing repository metadata."
+
+[[behavior]]
+partition = { equals = "MALFORMED_MISSING_DANGLING_OR_UNSUPPORTED_MARKER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Invalid marker content, targets, symlinks, and filesystem object kinds fail before Git execution."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "A focused test executes real git init and repeats initialization against the created .git directory."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Focused tests cover worktree files, valid and dangling Unix symlinks, and Unix socket markers."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tests cover ordinary files, empty targets, extra lines, missing target directories, dangling links, and unsupported objects."
