@@ -5,18 +5,16 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "planned"
 owner = "trust-runtime"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 claim = "Materializing an integer result as SINT, INT, DINT, or LINT preserves every representable value exactly; a value outside the destination range returns RuntimeError::Overflow before storage, and a non-signed destination returns RuntimeError::TypeMismatch without a value."
 proof_level = "S1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
-tests = []
+tests = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_boundary_matrix",
-  "mapped_executable_test",
   "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",

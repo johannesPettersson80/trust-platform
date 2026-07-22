@@ -200,4 +200,72 @@ mod tests {
             Err(RuntimeError::Overflow)
         );
     }
+
+    #[test]
+    fn signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets() {
+        let signed_cases = [
+            (
+                NumericKind::SInt,
+                i128::from(i8::MIN),
+                i128::from(i8::MAX),
+                Value::SInt(i8::MIN),
+                Value::SInt(0),
+                Value::SInt(i8::MAX),
+            ),
+            (
+                NumericKind::Int,
+                i128::from(i16::MIN),
+                i128::from(i16::MAX),
+                Value::Int(i16::MIN),
+                Value::Int(0),
+                Value::Int(i16::MAX),
+            ),
+            (
+                NumericKind::DInt,
+                i128::from(i32::MIN),
+                i128::from(i32::MAX),
+                Value::DInt(i32::MIN),
+                Value::DInt(0),
+                Value::DInt(i32::MAX),
+            ),
+            (
+                NumericKind::LInt,
+                i128::from(i64::MIN),
+                i128::from(i64::MAX),
+                Value::LInt(i64::MIN),
+                Value::LInt(0),
+                Value::LInt(i64::MAX),
+            ),
+        ];
+
+        for (target, minimum, maximum, expected_minimum, expected_zero, expected_maximum) in
+            signed_cases
+        {
+            assert_eq!(signed_from_i128(target, minimum), Ok(expected_minimum));
+            assert_eq!(signed_from_i128(target, 0), Ok(expected_zero));
+            assert_eq!(signed_from_i128(target, maximum), Ok(expected_maximum));
+            assert_eq!(
+                signed_from_i128(target, minimum - 1),
+                Err(RuntimeError::Overflow)
+            );
+            assert_eq!(
+                signed_from_i128(target, maximum + 1),
+                Err(RuntimeError::Overflow)
+            );
+        }
+
+        for target in [
+            NumericKind::USInt,
+            NumericKind::UInt,
+            NumericKind::UDInt,
+            NumericKind::ULInt,
+            NumericKind::Real,
+            NumericKind::LReal,
+        ] {
+            assert_eq!(
+                signed_from_i128(target, 0),
+                Err(RuntimeError::TypeMismatch)
+            );
+        }
+    }
 }

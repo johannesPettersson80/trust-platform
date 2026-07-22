@@ -227456,9 +227456,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+invariant_ids = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
+test_ids = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

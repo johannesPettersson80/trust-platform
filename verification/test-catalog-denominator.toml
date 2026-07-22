@@ -16872,6 +16872,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_6B24586F9855E7F43C3D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_6B26ADB3DF20D72F0DB6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_validation.rs"
