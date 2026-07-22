@@ -27132,6 +27132,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_ABF461B986A8F002436E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/fault_state_clear_cases.rs"
+name = "fault_state_clear_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_ABF55C65457D6C2E3DC5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
@@ -34497,9 +34507,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/watchdog.rs"
 name = "watchdog_and_fault_subsystems_preserve_state_contracts"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_FAULT_STATE_CLEAR_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_DC04CC15DC6756C0F0F4"

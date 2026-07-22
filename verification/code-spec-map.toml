@@ -225198,9 +225198,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+invariant_ids = ["RT_FAULT_STATE_CLEAR_001"]
+test_ids = ["TEST_RUNTIME_FAULT_STATE_CLEAR_001", "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

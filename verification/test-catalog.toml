@@ -423,6 +423,56 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_FAULT_STATE_CLEAR_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DBFE8331AF87D467BFB3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/src/watchdog.rs"
+name = "watchdog_and_fault_subsystems_preserve_state_contracts"
+command = "cargo test -p trust-runtime-core watchdog::tests::watchdog_and_fault_subsystems_preserve_state_contracts -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_FAULT_STATE_CLEAR_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+expected_result = "After a recorded WatchdogTimeout, clear removes both fault observations, preserves the configured SafeHalt policy, and a repeated clear remains healthy and policy-stable."
+expected_failure_mode = "Clear leaves the holder faulted, retains a stale last error, changes the configured policy, or a repeated clear manufactures state."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_STATE_CLEAR_001.json"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_ABF461B986A8F002436E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/tests/fault_state_clear_cases.rs"
+name = "fault_state_clear_cases"
+command = "cargo test -p trust-runtime-core --test fault_state_clear_cases fault_state_clear_cases -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_FAULT_STATE_CLEAR_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+expected_result = "Both generated partitions execute exact before/after observations for recorded-fault clearing and repeated healthy clearing, including unchanged SafeHalt or Restart policy."
+expected_failure_mode = "A generated partition is not executed, any fault flag, last-error, or policy observation differs from the reviewed contract, or no same-run case artifact is emitted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001.json"
+case_file = "verification/cases/runtime_safety/RT_FAULT_STATE_CLEAR_001.toml"
+case_file_digest = "sha256:eba7f46c61be3a09205fe289f6de07cf92ebce3953cd849a5b60b66c854e8f0f"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

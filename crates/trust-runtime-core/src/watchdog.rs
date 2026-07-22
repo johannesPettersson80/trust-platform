@@ -427,5 +427,10 @@ mod tests {
         faults.clear();
         assert!(!faults.is_faulted());
         assert!(faults.last_fault().is_none());
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
+        faults.clear();
+        assert!(!faults.is_faulted());
+        assert!(faults.last_fault().is_none());
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
     }
 }
