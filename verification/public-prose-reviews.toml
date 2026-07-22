@@ -4524,6 +4524,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_06145B9CE4D48FED4A5DB72E"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "list_item"
+visible_text_sha256 = "050d2135fa5e292f3129ab8917e50636ac54a1162300f9567e6a6cf172fbf598"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_0616A230DD290B45D6C40FE2"
 document_id = "SPEC_DOC_20CD2693BC9208771AE6D0B7"
 path = "docs/guides/ETHERCAT_BACKEND_V1.md"
@@ -12363,6 +12376,19 @@ last_reviewed = "2026-07-21"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_10EBBBEEA31F1AE4E85FB993"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "list_item"
+visible_text_sha256 = "1db1ced7e0ceb4512ef106f25e15990120c0284653361b334c16eaffea3d3aef"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_10F17FBAB5ADE60AD7BF757A"
 document_id = "SPEC_DOC_138F3378032C664A617B699F"
 path = "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md"
@@ -15415,6 +15441,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_1518CE3DA5CD6CAB7779C1FA"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "ea1d710bec09c9b0f0009473f35aca0b0be839bfad71ee97ddecfa6334575bb4"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -33982,6 +34021,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_2DCE133869822B9E77ED7A0D"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "ec6602dd291e4a55375476678aa409c2412df0f713ebd3e6619fcc4f76008c6b"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_2DD2835D22B9DCD6602153F7"
 document_id = "SPEC_DOC_6A5578653618573163E83D78"
 path = "docs/public/connect/runtime-to-runtime/transport-matrix.md"
@@ -49366,19 +49418,6 @@ document_id = "SPEC_DOC_2EDAF8F6B319000AD4186F54"
 path = "docs/public/concepts/one-project.md"
 block_kind = "list_item"
 visible_text_sha256 = "a4d5c4c602aae9a018940414ca0b32dcd5d8c67247d76bfa1ee7f72342095d9e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_428A4784A1C10A5618D77DE3"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "paragraph"
-visible_text_sha256 = "ec6602dd291e4a55375476678aa409c2412df0f713ebd3e6619fcc4f76008c6b"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -64896,6 +64935,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_57B6381240AFB9CA0585592F"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "54c2e1473fa4fb6ee69db5985a41e309519c42c70f2fed4392a85f4b17829bff"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_57BD4838B33DAD5F6794857E"
 document_id = "SPEC_DOC_0195F6217D13DA219311805A"
 path = "docs/guides/SIEMENS_TIA_SCL_IMPORT_TUTORIAL.md"
@@ -70751,19 +70803,6 @@ document_id = "SPEC_DOC_3CB0A263798CC82602164D0E"
 path = "docs/specs/09-semantic-rules.md"
 block_kind = "paragraph"
 visible_text_sha256 = "05e7eaa568883a50f91414e04e727645b0c01888dd9e2cf1fc227861c02261d7"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_6003C2C72388E72B9795B81E"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "list_item"
-visible_text_sha256 = "b2a9eb5d23c755b5e3e54349a30a02a144daef200ae7cc3869d53d0cc3ec7b7a"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -85280,6 +85319,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_7357354A58FA1D79E48D3DE6"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "339b2aab3a16bb5631cc83b0c7aea5ee5eece198f6de2f357141dbc75065ba3a"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_7358C169B442F174D70E46A8"
 document_id = "SPEC_DOC_847D83FB5370298277BA6CE9"
 path = "docs/guides/PLC_SIMULATION_WORKFLOW.md"
@@ -86693,19 +86745,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_7536F70888356180274702DA"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "paragraph"
-visible_text_sha256 = "ea1d710bec09c9b0f0009473f35aca0b0be839bfad71ee97ddecfa6334575bb4"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -92141,6 +92180,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_7C642A8E64B91494E18D305B"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "list_item"
+visible_text_sha256 = "8145191dc287dac9ba7acda65bd62c848ce88d7f762d83ba44da4784bde8f397"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -119132,19 +119184,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A1BC06E7C0DBCD025E43DF7E"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "list_item"
-visible_text_sha256 = "b8e3b60a6b0480bcbabddfd299379c9422b388d3f4131fd89ae984f7c09a4813"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A1C2B101D0BA901B1ABA6D4E"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -130468,6 +130507,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_B2165CDAC5A1C5F8C1F94716"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "list_item"
+visible_text_sha256 = "b2a9eb5d23c755b5e3e54349a30a02a144daef200ae7cc3869d53d0cc3ec7b7a"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_B2202CB271F81F308180F63B"
 document_id = "SPEC_DOC_94850102FFCC4953B8B275B0"
 path = "docs/public/reference/config/runtime-toml.md"
@@ -132402,6 +132454,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_B46A4242C2499E7B3392C21F"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "list_item"
+visible_text_sha256 = "b8e3b60a6b0480bcbabddfd299379c9422b388d3f4131fd89ae984f7c09a4813"
+disposition = "claim_without_invariant_or_oracle"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "conservative_unbound_public_prose"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -137475,19 +137540,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_BABB01136F71C3DF629AD817"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "list_item"
-visible_text_sha256 = "1db1ced7e0ceb4512ef106f25e15990120c0284653361b334c16eaffea3d3aef"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_BAC448366C8DDB41250D3143"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
@@ -142329,19 +142381,6 @@ document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
 block_kind = "list_item"
 visible_text_sha256 = "a69da62e100d337bf52042f11b66fc62f012ae93ea22b1d7b31b1fbced2c14e6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C166894A8B6BEFCC3574140D"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "list_item"
-visible_text_sha256 = "8145191dc287dac9ba7acda65bd62c848ce88d7f762d83ba44da4784bde8f397"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -169728,19 +169767,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_E593654D60EE75D74DEDC646"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "paragraph"
-visible_text_sha256 = "54c2e1473fa4fb6ee69db5985a41e309519c42c70f2fed4392a85f4b17829bff"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_E599E1243ECE851DD7BBDAAF"
 document_id = "SPEC_DOC_F0A935CEBE089DF23ADCFF8A"
 path = "docs/public/index.md"
@@ -172073,19 +172099,6 @@ document_id = "SPEC_DOC_E17E9C69E66D3404A5D48EAF"
 path = "docs/public/develop/ai-assistance.md"
 block_kind = "list_item"
 visible_text_sha256 = "c9aac561ac7732611ceff418889ef89bf1656e9d3a07f694a615e9e49bc2507d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E88EB0F9EE266ACC00F401A6"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "paragraph"
-visible_text_sha256 = "339b2aab3a16bb5631cc83b0c7aea5ee5eece198f6de2f357141dbc75065ba3a"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -185632,19 +185645,6 @@ document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
 visible_text_sha256 = "bdf3360bfa0ccfffedc18e07525baa091435c2db644cdc5fb3b0aefb296981b8"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_FB710C8020275C1ABC258CAD"
-document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
-path = "docs/specs/11-runtime-engine.md"
-block_kind = "list_item"
-visible_text_sha256 = "050d2135fa5e292f3129ab8917e50636ac54a1162300f9567e6a6cf172fbf598"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []

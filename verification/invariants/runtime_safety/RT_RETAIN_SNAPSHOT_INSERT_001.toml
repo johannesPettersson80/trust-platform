@@ -3,19 +3,21 @@ id = "RT_RETAIN_SNAPSHOT_INSERT_001"
 title = "Retained snapshot insertion preserves deterministic identity, order, and value"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "planned"
+status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-22"
 claim = "Inserting a new resolved retained name appends exactly one exact runtime value; reinserting the same name replaces that value at its original position without changing cardinality, sibling values, or sibling order. Insertion does not claim persistence or reload validity."
-proof_level = "S1"
+proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/retain.rs"]
 tests = ["TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001", "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = [
+  "EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_BASELINE",
+  "EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_COMPARE",
+]
 spec_gap_refs = []
 missing = [
-  "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",
   "broad_remote_gate",
@@ -58,10 +60,10 @@ rationale = "A non-equal supplied key remains distinct and appends after all ear
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact-value append oracle is accepted; P18-006 must add a cataloged executable boundary matrix before this cell can close."
+state = "covered"
+rationale = "The producer-authentic behavior-lock pair inserts a new resolved name and compares the exact key, concrete runtime value, cardinality, and position."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The replacement-in-place and distinct-key ordering oracles are accepted; P18-006 must execute both transitions before this cell can close."
+state = "covered"
+rationale = "The producer-authentic behavior-lock pair replaces an existing key without changing cardinality or sibling order and separately proves that a distinct supplied key appends in call order."

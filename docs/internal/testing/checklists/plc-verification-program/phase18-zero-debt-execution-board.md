@@ -269,6 +269,18 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   while mutation sensitivity, the broad remote gates, and `VERIF-P18-003`
   globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-unsigned-integer-materialization.md`.
+
+  Retain-snapshot insertion slice progress (2026-07-22): exact sequence-four
+  slice
+  `P18-CODE-CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order` and
+  `RT_RETAIN_SNAPSHOT_INSERT_001`. Its direct state-transition matrix and
+  generated decision-table runner are catalog-mapped, and a clean
+  producer-authentic lock pair promotes the invariant to `G1`. This is slice
+  progress only: assertion reachability, mutation sensitivity, the broad
+  remote gates, and `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-retain-snapshot-insert.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
