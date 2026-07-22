@@ -657,6 +657,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   contract, not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, the remaining ADS subdomains, and the final broad remote gates
   remain open.
+
+  ADS server command-dispatch coherent-batch progress (2026-07-22): the runtime
+  product specification now defines policy-before-dispatch authorization,
+  strict request framing, direct/by-name/by-handle and upload wire behavior,
+  non-aliasing bounded handles, capability-gated audited writes, complete
+  aggregate-write preflight, and notification registration/deletion safety.
+  Three expected-red tests exposed and fixed two malformed sum-up paths that
+  queued an earlier runtime write before detecting a truncated later item and
+  notification-handle wrap that replaced a live registration. Additional
+  focused behavior locks cover policy denial, `ReadState`, unsupported control
+  commands, malformed request forms, group-versus-offset errors, missing
+  notification receivers, and invalid notification deletion. Remote focused
+  proof passes the complete command suite. The aggregate command owner and its
+  tests were split from oversized files while leaving `CommandDispatcher` as
+  the component owner, so no architecture flow or diagram claim changed.
+  Deterministic semantic automation owns the dispatcher/request/aggregate/wire
+  code bindings, all command-test identities, invariant synchronization, and
+  live accounting; the scoped audit passes. This is a truST ADS protocol
+  contract, not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, external-client/TwinCAT proof, the remaining ADS subdomains,
+  and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

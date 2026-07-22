@@ -977,6 +977,39 @@ into success. External Doctor proof metadata is accepted only when kind and
 name are supplied together. Human and JSON modes render the same underlying
 successful report or artifact.
 
+###### ADS server command dispatch and resource safety
+
+The ADS server evaluates the client allowlist before decoding or executing a
+command. A rejected client receives `AccessDenied`, emits one policy-rejection
+audit event, and cannot allocate handles, register notifications, read runtime
+values, or enqueue writes. Accepted commands require their exact ADS request
+shape; truncated, extended, or internally inconsistent payloads return the
+corresponding size/data error without guessing missing fields.
+
+Direct, by-name, by-handle, system-symbol, upload, and sum-up reads preserve
+the ADS group/offset distinction and the requested wire length. Symbol handles
+and notification handles are non-zero and unique for the connection. Resource
+limits fail with `NoMemory` or `InvalidSize` before inserting state; numeric
+handle wrap searches for an unused value and must never replace a live handle.
+Release or delete succeeds only for a live handle.
+
+A direct or sum-up write reaches the runtime write port only for a resolved
+symbol with Write capability and emits an accepted or rejected write audit.
+Before a sum-up write or sum-up read/write performs its first item, the server
+validates the complete aggregate header, every declared write-data range, the
+exact aggregate length, the item limit, and the total write-byte limit. A
+malformed later item therefore cannot leave an earlier runtime write queued.
+After framing is valid, item-level address/access failures remain independent
+and are returned in their documented per-item result slots.
+
+Device notifications require a receiver endpoint, a supported cycle or
+on-change mode, a resolvable symbol/system target, and a non-zero watch length
+no larger than that target. Notification time values that are exact ADS
+100-nanosecond multiples of one millisecond are normalized to milliseconds.
+Deletion invalidates only the named live registration. Unsupported
+`WriteControl` and client-sent `DeviceNotification` commands remain
+side-effect-free and return `ServiceNotSupported`.
+
 ###### ADS onboarding identity authority
 
 ADS onboarding identity is a truST product contract outside IEC 61131-3. The

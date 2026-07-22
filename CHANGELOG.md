@@ -52,6 +52,9 @@ Target release: `v0.24.54`
 - trust-runtime: ADS symbol import no longer treats an empty include pattern as
   a wildcard, correctly backtracks `*` matches to anchored suffixes, and uses
   the canonical ST lexer to prevent keywords from becoming generated variables.
+- trust-ads-server: malformed sum-up write and read/write frames are now fully
+  validated before any runtime write is queued, and notification-handle wrap
+  finds a free non-zero handle instead of replacing a live registration.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

@@ -1,0 +1,158 @@
+schema_version = 1
+id = "RT_ADS_SERVER_COMMAND_DISPATCH_001"
+title = "ADS server dispatch is bounded, capability-safe, and wire-compatible"
+area = "protocols"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "ADS command dispatch enforces client policy, exact request framing, unique bounded handles, capability-gated audited writes, aggregate preflight, and compatible read and notification wire results."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-ads-server/src/commands.rs", "crates/trust-ads-server/src/commands/aggregate.rs", "crates/trust-ads-server/src/commands/requests.rs", "crates/trust-ads-server/src/commands/wire.rs"]
+tests = [
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001",
+  "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001",
+  "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001",
+  "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001",
+  "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001",
+  "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001",
+  "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001",
+  "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001",
+  "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001",
+  "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001",
+  "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001",
+  "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001",
+  "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001",
+  "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001",
+  "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001",
+  "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001",
+  "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001",
+  "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001",
+  "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001",
+  "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001",
+  "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001",
+  "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001",
+  "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001",
+  "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001",
+  "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001",
+  "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001",
+  "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001",
+  "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001",
+  "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001",
+  "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001",
+  "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001",
+  "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001",
+  "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001",
+  "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "external_ads_client", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+
+[[behavior]]
+partition = { equals = "POLICY_REJECTED_CLIENT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Policy rejection precedes command parsing, handle allocation, reads, writes, and notifications."
+
+[[behavior]]
+partition = { equals = "VALID_DIRECT_NAME_HANDLE_OR_UPLOAD_READ" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Compatible clients receive deterministic metadata and value bytes at the requested ADS wire length."
+
+[[behavior]]
+partition = { equals = "HANDLE_LIMIT_OR_NUMERIC_WRAP" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Allocation returns a unique non-zero free handle or a stable resource error without replacing live state."
+
+[[behavior]]
+partition = { equals = "WRITABLE_OR_READ_ONLY_SYMBOL" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Only capability-authorized writes reach the runtime queue and every decision crosses the audit boundary."
+
+[[behavior]]
+partition = { equals = "MALFORMED_OR_OVERSIZED_SUMUP_WRITE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "The complete aggregate framing and write-data range set validates before the first item can mutate runtime state."
+
+[[behavior]]
+partition = { equals = "VALID_OR_INVALID_NOTIFICATION_REGISTRATION" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Valid watches receive unique registrations and invalid modes, sizes, targets, limits, or deletes fail without replacing live registrations."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused command tests cover direct, by-name, by-handle, system-symbol, upload, sum-up, and notification success paths."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tests cover malformed aggregate write framing and wire length boundaries."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Focused tests cover requested lengths, resource ceilings, handle wrap, notification watch sizes, and compatibility payloads."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Focused tests cover writable versus read-only symbols and accepted/rejected write audits."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "Focused tests cover handle, notification, aggregate item, and write-byte limits."

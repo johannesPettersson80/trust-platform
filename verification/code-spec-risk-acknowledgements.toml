@@ -48436,11 +48436,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:216de97bf8e6f1d975cf266bd8ff6debd60b3023bc85f857b9203aa87b020999"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48968,11 +48968,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:e1b256527723bb44b38734c15405fa2ff64d4e8f2b58bcc75bcb235d9c4bad2f"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49066,11 +49066,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:07ae77e14600f360e521776a3b1375e819af63b5372508dd55ba2be233d863ef"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49416,11 +49416,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:9f398fd00deb533d6113831b7e593f0c5f1f7b9e36876eb365817b282bf05cda"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49444,11 +49444,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:379f2ced890610c9242d283ee6332c203e107dff5a183abc7372a95a0f8e2adb"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49724,20 +49724,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:7e92e46e9df1d085c57039da5500f0d473a1ff71349a843e192524b31d1ef06e"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_5013DF2F5D1BBA94A86F779B99CFAD93B7CCCAB3F7778AC18EE998A2514018B6"
-code_id = "CODE_5013DF2F5D1BBA94A86F779B99CFAD93B7CCCAB3F7778AC18EE998A2514018B6"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:dfb4758637dbdc3660fd026038ad176a36fde36b2ebef402a5359f8f1cd212ed"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50194,20 +50180,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_64FF7BCA3B00FCB72583D4423003A796C12B0B2298B47AAFC6E38B6AA2464F83"
-code_id = "CODE_64FF7BCA3B00FCB72583D4423003A796C12B0B2298B47AAFC6E38B6AA2464F83"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:2cca21d4192a1bb30846abc33f79ed8b55767385b43031bf4ea9283bc1082cba"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 code_id = "CODE_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 owner = "trust-runtime"
@@ -50298,11 +50270,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:bf42d0ca348880afb3074e19ba663b9e6ceeb5cfc205e7860d60fd1ee8c37afc"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50438,11 +50410,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:36462d5dece09ef006b6b84009c4f2cfda490087c10bb761f4d96f0e3b6087dc"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50494,11 +50466,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:989410624b139d2842875e12a772227e0094d33caebaa4db43d2dc32c7cd2ac0"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50536,11 +50508,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:d4d8fd1e57b6de7653803eb9a94d692f23632445e1251cdc4b382b38df9fb706"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51096,11 +51068,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c46ddff2cbb92111c142e78bc7474730787ea1cd4ac81c387828644c328aead4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51124,20 +51096,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:feba3817eff1e737207a91dfe02bab5584ccd71e77a22ba71f61bf6dfcd619a1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_8D94E3602D8CCDED140BAE157248E2B4053EF5046113CC2DDF379DC7CFE89E7B"
-code_id = "CODE_8D94E3602D8CCDED140BAE157248E2B4053EF5046113CC2DDF379DC7CFE89E7B"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:fdd22c5229b94283efd2f703172d2baa1e4f68614483b8232a8c07e8e6595b48"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -51264,11 +51222,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:ded89f59976ba643318f5feabb6af3fbd21d8f0994e55d49c85e2f07b61b2cfe"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51614,11 +51572,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:9505bb57fe013cde933e558f80101546101e27406b46cb2ec0bea464df5851e6"
 risk_signals = ["fault_mapping", "protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52104,11 +52062,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c091083b28c59976ca651e58ce4dc1257aca3e399bc46c0c55d5be3615e78d6a"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52326,13 +52284,13 @@ id = "RISK_ACK_BC99CD46DDCC13D32F0E3CBF397BC14C16262FA5812C085B96F769AE1E1CBBED"
 code_id = "CODE_BC99CD46DDCC13D32F0E3CBF397BC14C16262FA5812C085B96F769AE1E1CBBED"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:cc3727cc4046f559a204f45307111078183b6d987a561516c674901ec7a6e2f4"
+body_digest = "sha256:8ca0222f43f5b2dcf5c5eaacce30819660c46cbc7f14260dfae042cc5196d06f"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52384,11 +52342,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:fd14f8c88a735fab5666e9b1b08f2bf32e0b74217843830d23b87e13d20f750e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52454,11 +52412,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:3a9d9fb9e132cc94c20946b156f1513ff87889741cf683808d2ba84da7401a67"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52692,11 +52650,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:b34bcb1bfd09ab930d85abab96cc2f5b554f63daca8f461d36dbd63de53c31a1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52944,11 +52902,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:dde2470e3e9bb2349a0250dc37dffc593b11833c7eb2e305218a39b4ed6865f0"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53280,11 +53238,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:97c0b3b9e18178aaaa22fef56428effda6f0089730fc0c4dcada11b2d9e5e50e"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53322,11 +53280,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:e98334d8c8b6df42872f35f2d6133ce36a99ad7b13f56bceb17018d7684bb456"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53686,25 +53644,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:6f277a6cf96ffc245a5d701e5d1b089289aaa8be3b3e28d7795753de142363da"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EFF8894FDB8A9E9123C4E051B5688C251ACF9A9471B569B3138FE4D4D3980CE2"
-code_id = "CODE_EFF8894FDB8A9E9123C4E051B5688C251ACF9A9471B569B3138FE4D4D3980CE2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:6eeb29506357c2cb14bb6c9edd78e8e664f8b8543e7d889635c296850d6efe7b"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53756,11 +53700,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:75ab2aa81ad3f7d65e4b27146f05516a117b17c472c50fbd564aaec5e53de0d6"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53812,11 +53756,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:648367e029bb9ff7e0e7f795a0ee54ca56259a55dc1e1117c1c1a06c3863085c"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81458,3 +81402,86 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived filesystem and mutation risks to the reviewed project-confinement, collision, and generated-output preservation contract."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E6D0B79DAC802D29F5A29E99D512E315B5CBA3BD69C0D47BE4431DF6D926B90A"
+code_id = "CODE_E6D0B79DAC802D29F5A29E99D512E315B5CBA3BD69C0D47BE4431DF6D926B90A"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:0a5935937b12880ff42280d15bbf69fb699b22bc3f4f70e5c7950da1f1d89852"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8A1BE063B14CBC44FCA20F234CD80203A1D824E4B74984F2E58FE78EE9DA344B"
+code_id = "CODE_8A1BE063B14CBC44FCA20F234CD80203A1D824E4B74984F2E58FE78EE9DA344B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:e9389d38b05a1290470b9aace1679254cb95de0c4bd7d1c4035b32232257c0b2"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6828AE8D7D58DD7FCA28B6A44A1CCC4EA111FE732AA2DBB5CC88A7C2EF68F24B"
+code_id = "CODE_6828AE8D7D58DD7FCA28B6A44A1CCC4EA111FE732AA2DBB5CC88A7C2EF68F24B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:7c3069b8c4e836183101a3f287c8e9d66287f83cb869d0c946abba32a171e487"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_81E5F45DE84EC8E5FE5A2B15260A528D6C52E47955230606960FBE6FC7CB9526"
+code_id = "CODE_81E5F45DE84EC8E5FE5A2B15260A528D6C52E47955230606960FBE6FC7CB9526"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d853d73ebe86cccde94f1743cdfa0d1346c56dfc63352d8628c23dd9ffb21133"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1F991B95157F7FFD6FD6A7403B31856AE48A0C7AA98BE39DA4E390C1604DC130"
+code_id = "CODE_1F991B95157F7FFD6FD6A7403B31856AE48A0C7AA98BE39DA4E390C1604DC130"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:ccdca98d8d29f399693abee8f5404615108fb3577d76f0f4975d4c57729e3cf6"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A21A6937695AF45CD1DE437AFD148599AFD7C4EDD60386B06200A94D6B7DBA17"
+code_id = "CODE_A21A6937695AF45CD1DE437AFD148599AFD7C4EDD60386B06200A94D6B7DBA17"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:8908aac9185690e4d1fe12e485daba3cbb55e14d863c42689a6d115da4fa36c6"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-server-command-dispatch-and-resource-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
