@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: rejected online changes and restarts now preserve the live
+  variable/instance image, scan counter, fault state, telemetry scan state, and
+  queued debugger mutations when retained-value migration or restart instance
+  construction fails; warm-restart storage and retained values are staged
+  before the bytecode commit.
 - trust-runtime: newly encoded bytecode now preserves the declared IEC resource
   identity, and named bytecode application rejects an unknown resource instead
   of silently falling back to a different primary resource while retaining the

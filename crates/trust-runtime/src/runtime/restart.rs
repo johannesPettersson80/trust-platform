@@ -20,12 +20,27 @@ use crate::value::{
 use super::core::Runtime;
 use super::types::{GlobalInitValue, RestartMode, RetainPolicy, RetainSnapshot};
 
+pub(super) struct PreparedRestart {
+    storage: VariableStorage,
+}
+
+pub(super) struct PreparedRetainSnapshot {
+    values: Vec<(SmolStr, Value)>,
+    events: Vec<crate::debug::RuntimeEvent>,
+}
+
 impl Runtime {
     /// Restart the runtime in the given mode (cold or warm).
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), error::RuntimeError> {
-        if let Some(debug) = &self.debug {
-            debug.clear_runtime_mutations();
-        }
+        let prepared = self.prepare_restart(mode)?;
+        self.commit_restart(prepared);
+        Ok(())
+    }
+
+    pub(super) fn prepare_restart(
+        &self,
+        mode: RestartMode,
+    ) -> Result<PreparedRestart, error::RuntimeError> {
         let globals = self.globals.clone();
         let mut retained = IndexMap::new();
         let mut retained_program_vars = Vec::new();
@@ -63,20 +78,20 @@ impl Runtime {
         // Compiled runtime metadata keeps ValueRef targets for program/FB instances.
         // Preserve those references across both cold and warm restarts by recreating
         // instances from a stable id sequence before execution resumes.
-        self.storage.reset_runtime_values(true);
-        self.openot_telemetry.reset_scan_state();
+        let mut storage = self.storage.clone();
+        storage.reset_runtime_values(true);
 
         for (name, meta) in globals {
             let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);
             if keep {
                 if let Some(value) = retained.get(&name) {
-                    self.storage.set_global(name.clone(), value.clone());
+                    storage.set_global(name.clone(), value.clone());
                     continue;
                 }
             }
             match meta.init {
                 GlobalInitValue::Value(value) => {
-                    self.storage.set_global(name.clone(), value);
+                    storage.set_global(name.clone(), value);
                 }
                 GlobalInitValue::FunctionBlock { type_name } => {
                     let key = SmolStr::new(type_name.to_ascii_uppercase());
@@ -85,7 +100,7 @@ impl Runtime {
                         .get(&key)
                         .ok_or(error::RuntimeError::UndefinedFunctionBlock(type_name))?;
                     let instance_id = crate::instance::create_fb_instance(
-                        &mut self.storage,
+                        &mut storage,
                         &self.registry,
                         &self.profile,
                         &self.classes,
@@ -95,8 +110,7 @@ impl Runtime {
                         &self.initializer_catalog,
                         fb,
                     )?;
-                    self.storage
-                        .set_global(name.clone(), Value::Instance(instance_id));
+                    storage.set_global(name.clone(), Value::Instance(instance_id));
                 }
                 GlobalInitValue::Class { type_name } => {
                     let key = SmolStr::new(type_name.to_ascii_uppercase());
@@ -105,7 +119,7 @@ impl Runtime {
                         .get(&key)
                         .ok_or(error::RuntimeError::TypeMismatch)?;
                     let instance_id = crate::instance::create_class_instance(
-                        &mut self.storage,
+                        &mut storage,
                         &self.registry,
                         &self.profile,
                         &self.classes,
@@ -115,8 +129,7 @@ impl Runtime {
                         &self.initializer_catalog,
                         class_def,
                     )?;
-                    self.storage
-                        .set_global(name.clone(), Value::Instance(instance_id));
+                    storage.set_global(name.clone(), Value::Instance(instance_id));
                 }
             }
         }
@@ -124,7 +137,7 @@ impl Runtime {
         let programs = self.programs.values().cloned().collect::<Vec<_>>();
         for program in programs {
             let instance_id = crate::instance::create_program_instance(
-                &mut self.storage,
+                &mut storage,
                 &self.registry,
                 &self.profile,
                 &self.classes,
@@ -134,22 +147,29 @@ impl Runtime {
                 &self.initializer_catalog,
                 &program,
             )?;
-            self.storage
-                .set_global(program.name.clone(), Value::Instance(instance_id));
+            storage.set_global(program.name.clone(), Value::Instance(instance_id));
         }
         for (program_name, var_name, value) in retained_program_vars {
-            let Some(Value::Instance(id)) = self.storage.get_global(program_name.as_ref()) else {
+            let Some(Value::Instance(id)) = storage.get_global(program_name.as_ref()) else {
                 continue;
             };
-            self.storage.set_instance_var(*id, var_name, value);
+            storage.set_instance_var(*id, var_name, value);
         }
 
+        Ok(PreparedRestart { storage })
+    }
+
+    pub(super) fn commit_restart(&mut self, prepared: PreparedRestart) {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
+        self.storage = prepared.storage;
+        self.openot_telemetry.reset_scan_state();
         for state in self.task_state.values_mut() {
             *state = TaskState::new(self.current_time);
         }
         self.faults.clear();
         self.cycle_counter = 0;
-        Ok(())
     }
 
     /// Capture retained global values that can be preserved across reloads.
@@ -175,6 +195,24 @@ impl Runtime {
         &mut self,
         snapshot: &RetainSnapshot,
     ) -> Result<(), error::RuntimeError> {
+        let prepared = self.prepare_retain_snapshot(snapshot, &self.storage)?;
+        self.commit_retain_snapshot(prepared);
+        Ok(())
+    }
+
+    pub(super) fn prepare_retain_snapshot_for_restart(
+        &self,
+        snapshot: &RetainSnapshot,
+        restart: &PreparedRestart,
+    ) -> Result<PreparedRetainSnapshot, error::RuntimeError> {
+        self.prepare_retain_snapshot(snapshot, &restart.storage)
+    }
+
+    fn prepare_retain_snapshot(
+        &self,
+        snapshot: &RetainSnapshot,
+        storage: &VariableStorage,
+    ) -> Result<PreparedRetainSnapshot, error::RuntimeError> {
         let mut staged_values = Vec::new();
         let mut staged_events = Vec::new();
         for (name, value) in snapshot.values() {
@@ -190,7 +228,7 @@ impl Runtime {
             if retain_on_warm(retain) && value_is_retainable(value) {
                 let migrated = {
                     let ctx = RetainMigrationContext {
-                        storage: &self.storage,
+                        storage,
                         registry: &self.registry,
                         initializer_catalog: &self.initializer_catalog,
                         profile: &self.profile,
@@ -213,15 +251,21 @@ impl Runtime {
                 staged_values.push((name.clone(), migrated));
             }
         }
-        for (name, value) in staged_values {
+        Ok(PreparedRetainSnapshot {
+            values: staged_values,
+            events: staged_events,
+        })
+    }
+
+    pub(super) fn commit_retain_snapshot(&mut self, prepared: PreparedRetainSnapshot) {
+        for (name, value) in prepared.values {
             self.storage.set_global(name, value);
         }
         if let Some(debug) = &self.debug {
-            for event in staged_events {
+            for event in prepared.events {
                 debug.push_runtime_event(event);
             }
         }
-        Ok(())
     }
 }
 
@@ -699,6 +743,84 @@ fn value_is_retainable(value: &Value) -> bool {
 mod tests {
     use super::*;
     use crate::harness::TestHarness;
+
+    #[test]
+    fn restart_instance_construction_failure_preserves_live_state() {
+        let source = r#"
+FUNCTION_BLOCK CounterFb
+VAR
+    count : INT := INT#0;
+END_VAR
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    g_fb : CounterFb;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+        let mut harness = TestHarness::from_source(source).expect("compile harness");
+        let instance_id = match harness.runtime().storage.get_global("g_fb") {
+            Some(Value::Instance(id)) => *id,
+            other => panic!("expected g_fb instance, got {other:?}"),
+        };
+        harness
+            .runtime_mut()
+            .storage
+            .set_instance_var(instance_id, "count", Value::Int(7));
+        harness.runtime_mut().cycle_counter = 9;
+        let debug = harness.runtime_mut().enable_debug();
+        debug.force_instance(instance_id, "count", Value::Int(99));
+
+        let fb_key = harness
+            .runtime()
+            .function_blocks
+            .keys()
+            .find(|name| name.eq_ignore_ascii_case("CounterFb"))
+            .cloned()
+            .expect("CounterFb definition key");
+        let fb = harness
+            .runtime_mut()
+            .function_blocks
+            .shift_remove(&fb_key)
+            .expect("remove CounterFb definition");
+
+        let error = harness
+            .runtime_mut()
+            .restart(RestartMode::Warm)
+            .expect_err("missing FB definition must reject restart");
+        assert!(
+            matches!(error, error::RuntimeError::UndefinedFunctionBlock(_)),
+            "expected undefined FB restart failure, got {error:?}"
+        );
+        assert_eq!(harness.runtime().cycle_counter, 9);
+        assert_eq!(
+            harness
+                .runtime()
+                .storage
+                .get_instance_var(instance_id, "count"),
+            Some(&Value::Int(7)),
+            "failed restart must preserve live instance storage"
+        );
+
+        harness.runtime_mut().function_blocks.insert(fb_key, fb);
+        let cycle = harness.cycle();
+        assert!(
+            cycle.errors.is_empty(),
+            "old runtime must remain executable"
+        );
+        assert_eq!(
+            harness
+                .runtime()
+                .storage
+                .get_instance_var(instance_id, "count"),
+            Some(&Value::Int(99)),
+            "failed restart must preserve queued debug forces"
+        );
+        assert_eq!(harness.runtime().cycle_counter, 10);
+    }
 
     #[test]
     fn apply_retain_snapshot_canonicalizes_legacy_enum_type_name() {

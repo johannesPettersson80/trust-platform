@@ -5,8 +5,10 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
 use trust_runtime::io::IoDriver;
+use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{ResourceCommand, ResourceRunner, StdClock};
 use trust_runtime::value::{Duration, Value};
+use trust_runtime::RetainSnapshot;
 
 fn vm_harness(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source).expect("compile harness");
@@ -39,6 +41,23 @@ fn numeric_output(harness: &TestHarness, name: &str) -> Option<i64> {
         Value::LInt(v) => v,
         other => panic!("unexpected numeric type for '{name}': {other:?}"),
     })
+}
+
+fn program_numeric_output(harness: &TestHarness, program: &str, name: &str) -> i64 {
+    let instance_id = match harness.runtime().storage().get_global(program) {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected program instance '{program}', got {other:?}"),
+    };
+    match harness
+        .runtime()
+        .storage()
+        .get_instance_var(instance_id, name)
+    {
+        Some(Value::Int(value)) => i64::from(*value),
+        Some(Value::DInt(value)) => i64::from(*value),
+        Some(Value::LInt(value)) => *value,
+        other => panic!("expected numeric '{program}.{name}', got {other:?}"),
+    }
 }
 
 #[derive(Debug)]
@@ -373,6 +392,108 @@ END_PROGRAM
         cycle.errors
     );
     assert_numeric_output(&harness, "count", 10);
+}
+
+#[derive(Debug)]
+struct SnapshotRetainStore {
+    snapshot: RetainSnapshot,
+}
+
+impl RetainStore for SnapshotRetainStore {
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
+        Ok(self.snapshot.clone())
+    }
+
+    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}
+
+#[test]
+fn hot_reload_retain_migration_failure_preserves_live_runtime() {
+    let source_v1 = r#"
+CONFIGURATION Conf
+RESOURCE R ON CPU
+VAR_GLOBAL RETAIN
+    limited : INT(0..10) := INT#0;
+END_VAR
+TASK T (INTERVAL := T#1ms, PRIORITY := 0);
+PROGRAM P1 WITH T : Main;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+VAR
+    marker : DINT := DINT#0;
+END_VAR
+marker := marker + DINT#1;
+END_PROGRAM
+"#;
+
+    let source_v2 = r#"
+CONFIGURATION Conf
+RESOURCE R ON CPU
+VAR_GLOBAL RETAIN
+    limited : INT(0..10) := INT#0;
+END_VAR
+TASK T (INTERVAL := T#1ms, PRIORITY := 0);
+PROGRAM P1 WITH T : Main;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+VAR
+    marker : DINT := DINT#0;
+END_VAR
+marker := marker + DINT#10;
+END_PROGRAM
+"#;
+
+    let mut harness = vm_harness(source_v1);
+    harness.advance_time(Duration::from_millis(1));
+    let first_cycle = harness.cycle();
+    assert!(
+        first_cycle.errors.is_empty(),
+        "initial cycle failed: {first_cycle:?}"
+    );
+    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
+    assert_eq!(harness.runtime().cycle_counter(), 1);
+
+    let mut invalid_snapshot = RetainSnapshot::default();
+    invalid_snapshot.insert("limited", Value::Int(100));
+    harness.runtime_mut().set_retain_store(
+        Some(Box::new(SnapshotRetainStore {
+            snapshot: invalid_snapshot,
+        })),
+        None,
+    );
+
+    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
+    let error = harness
+        .runtime_mut()
+        .apply_online_change_bytes(&bytes_v2, None)
+        .expect_err("invalid retained state must reject the online change");
+    assert!(
+        error
+            .to_string()
+            .contains("outside declared subrange 0..10"),
+        "expected retained migration rejection, got {error}"
+    );
+    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
+    assert_eq!(
+        harness.runtime().cycle_counter(),
+        1,
+        "rejected reload must preserve the scan counter"
+    );
+
+    harness.advance_time(Duration::from_millis(1));
+    let next_cycle = harness.cycle();
+    assert!(
+        next_cycle.errors.is_empty(),
+        "old runtime must remain executable: {next_cycle:?}"
+    );
+    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 2);
+    assert_eq!(harness.runtime().cycle_counter(), 2);
 }
 
 #[test]

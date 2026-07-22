@@ -782,7 +782,10 @@ needed by the change before replacing live execution state:
   module;
 - validate the selected resource, tasks, and process-image sizes; and
 - read, decode, canonicalize, and validate the retained snapshot required by
-  the warm-reload policy.
+  the warm-reload policy; and
+- construct the complete warm-restart variable and instance image in staged
+  storage, including retained program variables and all fallible function-block,
+  class, and program instance initialization.
 
 When a caller names a bytecode resource, selection is case-insensitive but
 must resolve that exact resource; an unknown name is an error and must not

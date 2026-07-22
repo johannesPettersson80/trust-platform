@@ -54,6 +54,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
     }
 
     component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
+    component "restart.rs\nPreparedRestart + PreparedRetainSnapshot\n(fallible staging, infallible commit)" as runtimeRestart
     component "harness::lower_configuration\nRESOURCE identity lowering" as resourceLowering
     component "bytecode::encoder::RESOURCE_META\nexact active resource identity" as resourceEncoder
     component "runtime::bytecode\nexact named selection + one-entry\nlegacy placeholder compatibility" as resourceSelection
@@ -61,6 +62,8 @@ package "Runtime Core" as runtimeCore #LightGreen {
     component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
     runtime ..> runtimeOnlineChange : hot-reload contract owner
+    runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
+    runtimeRestart --> runtime : commit storage, retain, lifecycle resets
     resourceLowering --> runtime : set_resource_name()
     runtime --> resourceEncoder : resource_name()
     resourceSelection --> runtime : apply selected identity only after validation
@@ -265,13 +268,15 @@ package "Lifecycle" as lifecyclePkg #LightGray {
     rectangle "online_change()" as onlineChangeFlow #Wheat {
         card "1. queue ReloadBytecode command" as online1
         card "2. scheduler applies swap at cycle boundary" as online2
-        card "3. apply_online_change_bytes()" as online3
-        card "4. warm restart + retain reload\n(restart-entrypoint IP policy)" as online4
+        card "3. prepare warm-restart storage\n+ validate retained snapshot" as online3
+        card "4. validate/materialize bytecode\n+ apply resource metadata" as online4
+        card "5. infallible commit\nrestart storage + retained values" as online5
     }
 
     online1 --> online2
     online2 --> online3
     online3 --> online4
+    online4 --> online5
 }
 
 ' ============================================================
