@@ -18000,11 +18000,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:69b4a7b8e2aadf4255f0c04973050290c54f35221c8ffd381b5ab3ed8ac279da"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived proxy request validation, correlation, authorization, and action-mapping risks while binding every fact to the reviewed product contract and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24370,11 +24370,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:003adf22623513b2de8f50ea04c7a40672a7dc1ad90d353f3d0450d8317480b9"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived proxy request validation, correlation, authorization, and action-mapping risks while binding every fact to the reviewed product contract and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1

@@ -14,6 +14,10 @@ Target release: `v0.24.54`
   target lists instead of allowing an empty dispatch or repeating a target;
   cross-site writes in `dev` and `plant` profiles no longer incorrectly require
   a WAN allowlist, while `wan` remains explicit-allow only.
+- trust-runtime: Runtime Cloud control and I/O proxy planners now reject blank
+  routing/correlation fields and incompatible I/O proxy API versions before
+  preflight, returning a `400 contract_violation` instead of manufacturing an
+  invalid action request.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

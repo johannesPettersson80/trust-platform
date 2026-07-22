@@ -1414,6 +1414,16 @@ successful target results carry the target audit correlation supplied by the
 control operation. A denied or failed target must remain visibly denied or
 failed and must not be summarized as a successful aggregate action.
 
+The Runtime Cloud control and I/O proxy planners are action-request builders,
+so they must either produce an action that already satisfies this common
+contract or reject the proxy request before preflight and before any local or
+remote side effect. Both planners validate API compatibility and reject a blank
+actor, target runtime, or `connected_via`. A control proxy request may omit its
+request ID, in which case the planner generates one; an explicitly supplied
+blank request ID is a contract violation. The chosen control proxy request ID
+is identical in the action request and forwarded control payload so audit and
+response correlation cannot diverge.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:

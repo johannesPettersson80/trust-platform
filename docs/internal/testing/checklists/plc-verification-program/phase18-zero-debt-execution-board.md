@@ -409,6 +409,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   edited manually. `VERIF-P18-003`, the remaining Runtime Cloud subdomains,
   assertion reachability, mutation sensitivity, and the final broad remote
   gates remain globally open.
+
+  Runtime Cloud proxy-planning coherent-batch progress (2026-07-22): the same
+  product action contract now explicitly requires the control and I/O proxy
+  planners to emit only valid action requests or reject before preflight and
+  side effects. Expected-red unit tests exposed an explicitly blank control
+  request ID being forwarded as the correlation ID, blank `connected_via`
+  values being emitted by both planners, and the I/O planner accepting malformed
+  or breaking-major API versions. The owner-local fixes reject those inputs;
+  the shipped HTTP adapters now return `400 contract_violation`, while valid
+  remote control reads and I/O reads/writes remain green. Deterministic semantic
+  automation binds all 9 live proxy-policy facts and all 15 focused tests to
+  `RT_RUNTIME_CLOUD_PROXY_PLAN_001`; the generator scopes unit test IDs by owner
+  module and the generic audit rejects duplicate generated IDs after its first
+  pass detected a same-name collision. Remote focused proof passes all 66
+  Runtime Cloud unit tests, the 1 control-proxy, 2 I/O-proxy, and 1 malformed-
+  proxy HTTP cases, plus all 5 Runtime Cloud architecture assertions. Both
+  policy files remain small single-responsibility request builders, routes stay
+  policy-first adapters, no ownership or execution flow changed, and no diagram
+  update is required. This is a truST product contract, not an IEC decision or
+  deviation. Assertion reachability, mutation sensitivity, remaining Runtime
+  Cloud subdomains, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
