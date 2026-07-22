@@ -270973,25 +270973,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2771EA60DDBEE50D72478F56D333E6E5B6684B4E708EEC0417DC2C0C61EAE960"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/coverage.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::coverage::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:45b26d81961b48bb809299a1e71699985fb5ea87bb0364cb951daeea933beb29"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2D9F1068AA6B7D76FCE0695F0D22923D36831ADF91ED5744E61E98B1D9EAC1A8"
 source_kind = "python"
 path = "scripts/verification/p18_zero_debt/contracts.py"
@@ -271005,25 +270986,6 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2D9F1068AA6B7D76FCE0695F0D22923D36831ADF91ED5744E61E98B1D9EAC1A8"
 owner_ack_expires_on = "2026-10-21"
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3596815E4111DB0EFCABD02C6A821B13103695C8B6AE60C598CD315B6BD21908"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/semantic_chains.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::semantic_chains::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:b5a9981e31aaf0d05261ff5522389efe3b5a58844532f37b3f6124885e9adc00"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
 disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
 invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
@@ -271072,46 +271034,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_4D1546E75E1EE789EF26EA77AA9CD4247217190997BDD6D1E5A42C2F401393E4"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/rendered_ux.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::rendered_ux::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:8a64f601dcf725e1771de0fe3d82f83c57ef89cd3c0bc6ce3f5b2e06d2cbc190"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/contracts.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::contracts::_validate_artifact"
-item_kind = "python_function"
-signature_digest = "sha256:0c70c76a14a42f19ce749c30f695b724c31090e304c00de2b7fcca124b922927"
-reviewed_body_digest = "sha256:1fb689eba2c4d296dfcca3d6e9ec38f1798989c91503ca84bb68b5314fc96052"
-owner = "verification"
-area = "verification"
-visibility = "private"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
-owner_ack_expires_on = "2026-10-21"
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_4FEA0C2D8CAA3B5715344D1E492E2FF926B8168E67D4044F845099D77EF4F8E3"
 source_kind = "python"
 path = "scripts/verification/p18_zero_debt/contracts.py"
@@ -271140,25 +271062,6 @@ qualified_symbol = "scripts::verification::p18_zero_debt::orchestrator::evaluate
 item_kind = "python_function"
 signature_digest = "sha256:b581ed2038b4a3a75b108c9c0ec1699bff29c84a8163c2e3f8e3bbe294e1ec61"
 reviewed_body_digest = "sha256:57ec707ac98ff0c3085b4cabf31cab2a67db2ac1e3ee56d001bcfeb42ebd86eb"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_6BFF811384FD001433EE195E4C5F12BD11C2436E2111724643552CA0C296F439"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/mutation.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::mutation::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:66deef6ff6ba37739bb2f77d8dc489db866dd0366ea2edebf26dd7413ff14838"
 owner = "verification"
 area = "verification"
 visibility = "public"
@@ -271261,151 +271164,18 @@ path = "scripts/verification/p18_zero_debt/contracts.py"
 qualified_symbol = "scripts::verification::p18_zero_debt::contracts::validate_bundle"
 item_kind = "python_function"
 signature_digest = "sha256:d2ed2ab08b5650bd45023dca90416c04d6ddb75862f18362256541de763373e6"
-reviewed_body_digest = "sha256:b374995d19a8048d960b3bfe889c2d17fb9919dcd4164298da251ffb27bbce5e"
+reviewed_body_digest = "sha256:6bcb0227357da462fdaefdbb23c65031ce28e6eaac90fe772700c244343bc640"
 owner = "verification"
 area = "verification"
 visibility = "public"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
+risk_signals = ["protocol_response_or_status","state_mutation"]
 owner_ack = "RISK_ACK_8E5F5E569BA28F4D693DE2B09834CA09A2DDC160B5E8B945D43F2692ADAF9F80"
-owner_ack_expires_on = "2026-10-21"
+owner_ack_expires_on = "2026-10-22"
 disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
 invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
 test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_96BEABA3164FED7281E08F72F9179688DE27937040999AD3C6C59CC901D5EE39"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/unsafe_ffi.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::unsafe_ffi::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:4ea0c053ea42f8818fc12e9d7ae912f2bbad997d051a46ee91f99587ffd25cb0"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A6F3990C16135DFE918D016F88E32C24C041B3C8E5066AD89FF1CA3C683156B9"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/fuzz_property.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::fuzz_property::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:8bc0b4baba80577d6c7f29ec41fffa2b1ca037949b756e7e55d89b3d06e676a0"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A939786148271E30CF4C5247085539E655342A3DB20BEA568862341678341431"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/hardware_endurance.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::hardware_endurance::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:a0c5f24116fecc9ac1dc160bb26a4145973e7106006b8795621df1af0a361d18"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_B67F7288FBE9B443073740EC94B13A028791BD92936B42D637BB3F0EA4E97DC1"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/platform_claims.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::platform_claims::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:b731484ae0269c47081bcdd3675373949e5941979684ca148b79b2d1fcbc98d0"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_C93E55C483F1F903F0A556292960F8EBB526D0D83F60DB8230A7DA7973B3A8C2"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/existing_test_mapping.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::existing_test_mapping::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:60b57ec080be7f6a30837120cf3d636931a4f4b6f09063bafbe626ee01734e78"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_D7A299557E6A510565EE14C08289A05604F0BEE3268923DF595B5F8A8078A530"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/release_evidence.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::release_evidence::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:9f3cb2923d9775de1c22ff1632be468e0472c52ea041d506dad3fcb699336590"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_D85E985091F214CC08B78C28E623D3A344AD929F7B4249EC549993DF5DB3D4F1"
-source_kind = "python"
-path = "scripts/verification/p18_zero_debt/assertion_reachability.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability::validate"
-item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:14fe6d94650abaace961fa9e2517c407b17e72ea0f6538a2aee7590084647cb2"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
-invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
-test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -271430,13 +271200,13 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_FF68C917A6D2C4888C1110B2E6EAD376B4D70DC54D83E9C56319447486224A8F"
+code_id = "CODE_020E3B1827273CF01B1E8141F295F2C0D49F66DEEF3E70F184E7B0CE7649F62E"
 source_kind = "python"
-path = "scripts/verification/p18_zero_debt/concurrency_time.py"
-qualified_symbol = "scripts::verification::p18_zero_debt::concurrency_time::validate"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::canonical_json"
 item_kind = "python_function"
-signature_digest = "sha256:ed97a1b60cdb74a46b7e40cd4b81d4cee9a90480ad0d4fabc7463ea73a2d2e79"
-reviewed_body_digest = "sha256:cddb0eba7c3a1a994bcd509b2a77a7a35a2f55ca28b5e1d3b3275450079bd9b7"
+signature_digest = "sha256:134d7dd0fda5e6043e4f6ef957ddd37ee0d0c3f6c12040daadfc584f186adb80"
+reviewed_body_digest = "sha256:8706b75eebe30bdd6145f5beb22dd9ad3f91fa130b139df20b44b581f64b12c6"
 owner = "verification"
 area = "verification"
 visibility = "public"
@@ -271445,4 +271215,726 @@ disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
 invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
 test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_025514994624B284157F06045373A34F138D567E46D4370EF59047059566AA37"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/hardware_endurance.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::hardware_endurance::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:aaf92078017d066781ca90299570034e98646166b82a5fa3ee012f395f9aa17e"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0F1C49B65767EDB548978DD3D2207E6BF7DCAA5BF1E9887DE330047225F6B30A"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::validate_plan"
+item_kind = "python_function"
+signature_digest = "sha256:6f909736e3acf79bec099c0cb10e42f204c708336dec03a411753582e545929b"
+reviewed_body_digest = "sha256:0a16ccb6b003092e16eda6a44abd0f5f05863d93b1c655508344c5027253388e"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_0F1C49B65767EDB548978DD3D2207E6BF7DCAA5BF1E9887DE330047225F6B30A"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_14998CFBC7AF9218DB5A72B0C65770EA1A5627ECD1CD5294DCCA165424A1B1AF"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_is_ancestor"
+item_kind = "python_function"
+signature_digest = "sha256:253192bde9de3539223a652a29446af788abe5c941580753cfcaf68295265dbc"
+reviewed_body_digest = "sha256:778ed788d8b96bb4a9558eca4b1e30292bda8f44ce6cd8d5b8b07ff26d5d29b9"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["subprocess_or_thread"]
+owner_ack = "RISK_ACK_14998CFBC7AF9218DB5A72B0C65770EA1A5627ECD1CD5294DCCA165424A1B1AF"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1D36718FBA9091702473263F8ABEE498F736414FA440C1E2C4DC7D974FCA9EEB"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/existing_test_mapping.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::existing_test_mapping::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:18cd8f4b0ad46d0bac398d9b2d096ee9c3373269b6edfd2f388dedd7737c19f5"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_27319819BA60A24F5E80E094E7C0F4FF8CFD7463C08D7E52F53B478AF08FABDF"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::isolated_head"
+item_kind = "python_function"
+signature_digest = "sha256:31df15ea18cb89c4a5832c5db0bf1added9df2f7d807b3299245f10e6240af32"
+reviewed_body_digest = "sha256:b39853996363e659afa10903df6b7fff872b58c91d3885b75dc3d8ce4341caa4"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","subprocess_or_thread"]
+owner_ack = "RISK_ACK_27319819BA60A24F5E80E094E7C0F4FF8CFD7463C08D7E52F53B478AF08FABDF"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_29802AF6DB53779C82658E182880F8F243B91437B5FD9D0DDF4C6E7B29CA5869"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_clean_head"
+item_kind = "python_function"
+signature_digest = "sha256:fa834f22e9beeb0237266bdd11787a206980e9c45c24a22999412a7c9b53d418"
+reviewed_body_digest = "sha256:9ecb77ba68b9f2f622bd145d02925cbc65c768e68027d4685efc97aa68dffc6a"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_29802AF6DB53779C82658E182880F8F243B91437B5FD9D0DDF4C6E7B29CA5869"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_364BA1CDC73B8BC67C64ADAFB4FA395A35A446777272EAE03234FCBF80EB30CD"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/mutation.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::mutation::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:ba587f2993d54cbb2027f2f92a4db94f8c64d6f59474086ee0d9df7c3d931044"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_36F654364147EBA238507DA862EBBDCC40C71F36CFF91B0303FF5E25992016B3"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::load_plan"
+item_kind = "python_function"
+signature_digest = "sha256:770239e684273b5944570a955dd58ac6369db2ee74ba5dfe17c2b90942dcb594"
+reviewed_body_digest = "sha256:190286b9e0b041ebf1cc364117a3cfee5d8532e527c92823fd1aefcabe96d7a3"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_36F654364147EBA238507DA862EBBDCC40C71F36CFF91B0303FF5E25992016B3"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3EB28B1EF2FE27D9CD0C8699AE67DE80B080B0EA667425F361F8EA24E9693A94"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_mutation_record"
+item_kind = "python_function"
+signature_digest = "sha256:8166acda7f146cdf29ecef8f7ebaf9b7364bb868c9150b411b8dbe56537b13ec"
+reviewed_body_digest = "sha256:350c95efc262a9fa9898f7cf7a10f2ae36231688857915fac1582b9b8d836d4b"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4769F17D16A7212F9A6DE201A824F01280E879F19364C61BF54EEC3F52419DB9"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_safe_file"
+item_kind = "python_function"
+signature_digest = "sha256:9328f596af25a69e12fca3f01120dbc76e5e2d3c99f2efa1ac5846ae321cba9f"
+reviewed_body_digest = "sha256:8410bc8b7be0cc6275d99f2f00757bdbdbd4040ad5a6b2754a1332ef6f61d985"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_4769F17D16A7212F9A6DE201A824F01280E879F19364C61BF54EEC3F52419DB9"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_489EC57696999315335C98F0A67EE0F5E0861E151DF2A172933A5A5BBD955FB2"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/coverage.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::coverage::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:dd2d7177bc0f465d9f055671f2c93a6ff4bef667f6edcd8f5cd97515209922cb"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_496B468F5ED0D9668A1C4E966E231B627C4FF0538A75DF75AB5960F4F3BF9153"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::main"
+item_kind = "python_function"
+signature_digest = "sha256:f0a6b65cef4057e8d33663ae46d4151b52064ae49e890a04beaa4d8fb29aa681"
+reviewed_body_digest = "sha256:fbc592e17bfcb0fd9236b8735cdfb47766356859015cee63dce30c42d209ef9c"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping","filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_496B468F5ED0D9668A1C4E966E231B627C4FF0538A75DF75AB5960F4F3BF9153"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4BD8F197884AD7CE328AEAC3A84CB945CF5752C3DF603D4D51A22E99008444E5"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/concurrency_time.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::concurrency_time::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:cf7ab98e1bc91c07e87f893dad887b67842608f1955118963325d2834dc7c609"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4F1C92BD28686082954F7BC0438EA4E5415CB1FB33D91F4982ACA54ACC7327F0"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_index"
+item_kind = "python_function"
+signature_digest = "sha256:21985130825113992473f166da30a999aa3451fe76726ba5a8f753388e293ec6"
+reviewed_body_digest = "sha256:1815c9ff95625edec4d791b6b17e8dd8a2cb485e868f4a5282b73439e51ac0e8"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_4F1C92BD28686082954F7BC0438EA4E5415CB1FB33D91F4982ACA54ACC7327F0"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_56C461E399F3662B1BE032C4A25742D3A6BF22F2607234C98122240C17E5C4AA"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability::validate_artifact"
+item_kind = "python_function"
+signature_digest = "sha256:cc890fc1653d16d5a50b4653f7e606be130dbd457f6d6ed4435834b085ff2081"
+reviewed_body_digest = "sha256:21f5c621355019a4f98131a390d5dac73b2d3d268b9eb90c70f2c52d316bd025"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["persistence_retain_reload_restart","protocol_response_or_status","state_mutation"]
+owner_ack = "RISK_ACK_56C461E399F3662B1BE032C4A25742D3A6BF22F2607234C98122240C17E5C4AA"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5C44E5B454EC8D79427BB2A39BF2CFA6243AC177D8BE4ABBDE29248B2ACF3586"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/release_evidence.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::release_evidence::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:0892d84eb6fd06cd232f71d459bd69b0f02c0c3fe1936253ecb934da55f65388"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_667C92F6EA08C5D895ACE61C8E09585E16ED294A3FA9B96E6AC2A8E9CCFA0FCF"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_baseline_record"
+item_kind = "python_function"
+signature_digest = "sha256:96731319bcfa6be9ecfef022daabf6bdd67c36611ac7a5733d8c34931ffbbd9f"
+reviewed_body_digest = "sha256:d58bbd2bffa0c533d21c121d44d25c2a1f4639f4527872b70b2fee569700074c"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6706E68FA6FD6E6C0BEC7658FB8313C07E7D4AEBEF8B6A44A796DE949593FF79"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::collect_input_paths"
+item_kind = "python_function"
+signature_digest = "sha256:2f45fa258761abcd2a48037b06f946fe15d4a624a57d1c1caf3017e254b1d7b1"
+reviewed_body_digest = "sha256:37043ab7cb8b7a811f5f0a4abaaba566592716633a7eef312f75d49ab2d79f9d"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_697126447C07B9EBCBFEC8AB84DADDE1CF3646C71EF3CB83073197678D009978"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/platform_claims.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::platform_claims::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:26feaf898314d501858e47dfe4c52a06ca446a3a800de4044aa06989aa9f40b2"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6EFF5D49125355D2AA127048D47E2EA2CC7CF12411B57A83CA21B6F20F56F6A3"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_command_output"
+item_kind = "python_function"
+signature_digest = "sha256:537117f6d089528f42d5a517ac2843e85a92f032a9f3755139d62bc669defd2b"
+reviewed_body_digest = "sha256:44a0c8ca2727d7119067f5d13dc5f783f09712861a354f14444ba483fa454440"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["subprocess_or_thread"]
+owner_ack = "RISK_ACK_6EFF5D49125355D2AA127048D47E2EA2CC7CF12411B57A83CA21B6F20F56F6A3"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6F29E9AF5CD56B5A1F02E8FC26FF7BFC4B84D8F98B263432E5755D15D94743D9"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/rendered_ux.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::rendered_ux::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:a51011197a18cd8d3e378dd49f3cc7800d0eead1e3ee2f49d6dfd061de25b026"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9796C6FF4ADED712C30EFCC4B11F05D036D3C3C8C580997CFB20446DFBFBBEAE"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/contracts.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::contracts::_load_artifact"
+item_kind = "python_function"
+signature_digest = "sha256:924df2be2179535d0ab40d418212deb09b517c914b78f3132bbe5aee1f62d4f7"
+reviewed_body_digest = "sha256:e7dea81fcd4fbd44e93eb776457f7db9196e158f448d0c05c1e8f47efa767f73"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_9796C6FF4ADED712C30EFCC4B11F05D036D3C3C8C580997CFB20446DFBFBBEAE"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9BC460DB69D060D2372A4B20D3CF038DD32D86D1AE2FAA6FB1DE752B459FFCD9"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/fuzz_property.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::fuzz_property::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:1c53d1c897ceddd0dfcf1120f2bcc8d30fe6ab702f169eba037dd17688f98d46"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A32CEED086EF36FBBDC13B9872C683AC8D29192D62B65D53E4E3CA8BC12DC635"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::execute"
+item_kind = "python_function"
+signature_digest = "sha256:50ec3599b1c154e3075ae0faaa1c8b62f4755d76360f9151448e0f982c19aabd"
+reviewed_body_digest = "sha256:c4ad57b764ca2f1a18705ed20684bc8f853047bd56a3c9235e45bed9556f587f"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","protocol_response_or_status","state_mutation"]
+owner_ack = "RISK_ACK_A32CEED086EF36FBBDC13B9872C683AC8D29192D62B65D53E4E3CA8BC12DC635"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A4BD39750B85A6473B1D398A46A544531B5DB12BD81AFE2D06832F7BA26CE8B1"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::build_open_records"
+item_kind = "python_function"
+signature_digest = "sha256:4a1b3ab27aecfb866a7bfc8bf9c0a837faeaee8d4c317776349c6ca192420a25"
+reviewed_body_digest = "sha256:fe5f924f616ab703fb2612f7d6fb13a58848a0782271d5d1447f3374e6e5845e"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping","protocol_response_or_status","state_mutation"]
+owner_ack = "RISK_ACK_A4BD39750B85A6473B1D398A46A544531B5DB12BD81AFE2D06832F7BA26CE8B1"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A547D06E28A380EA4A6BB4C585D5383FF5FB48AF907C31EB13DB547D3C421AF5"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_tree_digest"
+item_kind = "python_function"
+signature_digest = "sha256:b0e43b8d1df22f999273af4252682afd18976fdd006128750f3d1a72de5206db"
+reviewed_body_digest = "sha256:ee63e563f8b33e5ad4f887b628d5dbf4c763d4c4959731dc511ca05828cee2b2"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_A547D06E28A380EA4A6BB4C585D5383FF5FB48AF907C31EB13DB547D3C421AF5"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B1F2CB0E49D3F04752721A86C630F288AFDD8FF779B017EC2A4C40065C2019E0"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability::validate"
+item_kind = "python_function"
+signature_digest = "sha256:e3ef61a445a6a19130b991873d4afb5b680f67e3d940a8208fff481e89e73342"
+reviewed_body_digest = "sha256:0f0e28923986991de869d62f1d50414eda62a0ac75ca0a0613d35645ced4ddb4"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+owner_ack = "RISK_ACK_B1F2CB0E49D3F04752721A86C630F288AFDD8FF779B017EC2A4C40065C2019E0"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B3FD42FA826522B612EBD2CB55B34560713A0401C5BDBFF4A78D1A35789A2EF5"
+source_kind = "python"
+path = "scripts/p18_assertion_reachability.py"
+qualified_symbol = "scripts::p18_assertion_reachability::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B474FFB330D45C17B1EF8ECEC507BFC79A2F406C518404B24DDB9C84171EAB6B"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_sha256"
+item_kind = "python_function"
+signature_digest = "sha256:bf148e87e0a6cb12a841e02c2e31433991536959d36088b4b4ba3a7f778e7613"
+reviewed_body_digest = "sha256:de2c439db511a9b48a7cb19b134d8c88b058d2727e05f77be4a1391881cc3146"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B81E3A451E0494983799651613A612A0B6AA9DC7AEE27F90367C57A40D50415C"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_load_toml"
+item_kind = "python_function"
+signature_digest = "sha256:38fc3724ca44a8b849af81a4523d1b4d73cbdce799ee40546ae7bfc7713eeb64"
+reviewed_body_digest = "sha256:4eecb78d7edf6cc4249bfe15c67db41a15cf6e681fb2e9bc2e03bfe3f079f6c7"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_B81E3A451E0494983799651613A612A0B6AA9DC7AEE27F90367C57A40D50415C"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BABCF1F5C5275EE95AA957DBA26F6120FD50403111493886A9634D208C6A0011"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_ECBBA4FED7E6DA5CF59972116FAECFF00C3121CEDE6FD478831777FFD91D21DC"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/semantic_chains.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::semantic_chains::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:16895e643898046f8a86a7ba66ecfbb054203aedca6d39aab625fc84261db910"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_ED0E0E20EEA185A0EF5DF91C95EAE8F6C3DA50BE2DBDD95CBA1A2B3D7D2AEB03"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::_mapping_rows"
+item_kind = "python_function"
+signature_digest = "sha256:8948e7c7e46b152b76a5373a281670137a2e49fb4c7fc2114d466a9d18a5edec"
+reviewed_body_digest = "sha256:49cc5c1ac29a9700c9f64daf8262fb615033d51943d96f0af576491ff789d604"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_ED0E0E20EEA185A0EF5DF91C95EAE8F6C3DA50BE2DBDD95CBA1A2B3D7D2AEB03"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F055F5C2DAE36F897B5FF47933490AA2F0D91FF52576939256329F30A98453F3"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/unsafe_ffi.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::unsafe_ffi::validate"
+item_kind = "python_function"
+signature_digest = "sha256:efd68a8897d94210d81ae94763e0a8fa704b8bae29583eb251e16f65032a30b5"
+reviewed_body_digest = "sha256:32d7b23c1541f028a2b759c009f299954abae2a73bc6a687698da15923b66d10"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F6D84B06D91938942EDF650A3A0D3CDCC09B45A3D10BCADA95A1197DD2080443"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::reconstruct_summary"
+item_kind = "python_function"
+signature_digest = "sha256:00054a836389ecbb93f9ae2f62f54a8bc805320a666ca327fce072f6bde823f2"
+reviewed_body_digest = "sha256:3ab382e55a993f8447ab0d69e56a759b869f0994d2cea80e4c67348b2a4d83f3"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_F6D84B06D91938942EDF650A3A0D3CDCC09B45A3D10BCADA95A1197DD2080443"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FF364162D2EA0CE863F633858D90259C11EC8ECAE6D633BCA6DD61EE04E21F8E"
+source_kind = "python"
+path = "scripts/verification/p18_zero_debt/assertion_reachability_producer.py"
+qualified_symbol = "scripts::verification::p18_zero_debt::assertion_reachability_producer::validate_live_artifact"
+item_kind = "python_function"
+signature_digest = "sha256:5f021df666f4a5029ff1ddd9ba6c02afba784f022aeb84807e8b411740bc264c"
+reviewed_body_digest = "sha256:e966fd715f82aa9cb0bea369684cdeb79abc2d64d497f53777aa1edeaf62bffa"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment","state_mutation","subprocess_or_thread"]
+owner_ack = "RISK_ACK_FF364162D2EA0CE863F633858D90259C11EC8ECAE6D633BCA6DD61EE04E21F8E"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
+invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
+test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"

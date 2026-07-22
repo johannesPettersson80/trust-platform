@@ -80924,20 +80924,6 @@ rationale = "Acknowledges the conservative parser-derived risk signals for this 
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
-code_id = "CODE_4E129C998B141926175E94794C1047690D34E9F4A6B76DBAD8A329B5DFEDF397"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:1fb689eba2c4d296dfcca3d6e9ec38f1798989c91503ca84bb68b5314fc96052"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_4FEA0C2D8CAA3B5715344D1E492E2FF926B8168E67D4044F845099D77EF4F8E3"
 code_id = "CODE_4FEA0C2D8CAA3B5715344D1E492E2FF926B8168E67D4044F845099D77EF4F8E3"
 owner = "verification"
@@ -81012,13 +80998,13 @@ id = "RISK_ACK_8E5F5E569BA28F4D693DE2B09834CA09A2DDC160B5E8B945D43F2692ADAF9F80"
 code_id = "CODE_8E5F5E569BA28F4D693DE2B09834CA09A2DDC160B5E8B945D43F2692ADAF9F80"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:b374995d19a8048d960b3bfe889c2d17fb9919dcd4164298da251ffb27bbce5e"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p18-zero-debt-substrate-risk-review.md#substrate-risk-boundary"
+body_digest = "sha256:6bcb0227357da462fdaefdbb23c65031ce28e6eaac90fe772700c244343bc640"
+risk_signals = ["protocol_response_or_status","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81033,3 +81019,269 @@ reviewed_by = "verification"
 reviewed_on = "2026-07-21"
 expires_on = "2026-10-21"
 rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 substrate body digest; closed inputs, negative fixtures, canonical artifacts, and strict nonzero exits remain enforced without suppressing any debt or product finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0F1C49B65767EDB548978DD3D2207E6BF7DCAA5BF1E9887DE330047225F6B30A"
+code_id = "CODE_0F1C49B65767EDB548978DD3D2207E6BF7DCAA5BF1E9887DE330047225F6B30A"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:0a16ccb6b003092e16eda6a44abd0f5f05863d93b1c655508344c5027253388e"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_14998CFBC7AF9218DB5A72B0C65770EA1A5627ECD1CD5294DCCA165424A1B1AF"
+code_id = "CODE_14998CFBC7AF9218DB5A72B0C65770EA1A5627ECD1CD5294DCCA165424A1B1AF"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:778ed788d8b96bb4a9558eca4b1e30292bda8f44ce6cd8d5b8b07ff26d5d29b9"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_27319819BA60A24F5E80E094E7C0F4FF8CFD7463C08D7E52F53B478AF08FABDF"
+code_id = "CODE_27319819BA60A24F5E80E094E7C0F4FF8CFD7463C08D7E52F53B478AF08FABDF"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b39853996363e659afa10903df6b7fff872b58c91d3885b75dc3d8ce4341caa4"
+risk_signals = ["filesystem_or_environment","subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_29802AF6DB53779C82658E182880F8F243B91437B5FD9D0DDF4C6E7B29CA5869"
+code_id = "CODE_29802AF6DB53779C82658E182880F8F243B91437B5FD9D0DDF4C6E7B29CA5869"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:9ecb77ba68b9f2f622bd145d02925cbc65c768e68027d4685efc97aa68dffc6a"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_36F654364147EBA238507DA862EBBDCC40C71F36CFF91B0303FF5E25992016B3"
+code_id = "CODE_36F654364147EBA238507DA862EBBDCC40C71F36CFF91B0303FF5E25992016B3"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:190286b9e0b041ebf1cc364117a3cfee5d8532e527c92823fd1aefcabe96d7a3"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4769F17D16A7212F9A6DE201A824F01280E879F19364C61BF54EEC3F52419DB9"
+code_id = "CODE_4769F17D16A7212F9A6DE201A824F01280E879F19364C61BF54EEC3F52419DB9"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:8410bc8b7be0cc6275d99f2f00757bdbdbd4040ad5a6b2754a1332ef6f61d985"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_496B468F5ED0D9668A1C4E966E231B627C4FF0538A75DF75AB5960F4F3BF9153"
+code_id = "CODE_496B468F5ED0D9668A1C4E966E231B627C4FF0538A75DF75AB5960F4F3BF9153"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:fbc592e17bfcb0fd9236b8735cdfb47766356859015cee63dce30c42d209ef9c"
+risk_signals = ["fault_mapping","filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4F1C92BD28686082954F7BC0438EA4E5415CB1FB33D91F4982ACA54ACC7327F0"
+code_id = "CODE_4F1C92BD28686082954F7BC0438EA4E5415CB1FB33D91F4982ACA54ACC7327F0"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1815c9ff95625edec4d791b6b17e8dd8a2cb485e868f4a5282b73439e51ac0e8"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_56C461E399F3662B1BE032C4A25742D3A6BF22F2607234C98122240C17E5C4AA"
+code_id = "CODE_56C461E399F3662B1BE032C4A25742D3A6BF22F2607234C98122240C17E5C4AA"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:21f5c621355019a4f98131a390d5dac73b2d3d268b9eb90c70f2c52d316bd025"
+risk_signals = ["persistence_retain_reload_restart","protocol_response_or_status","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6EFF5D49125355D2AA127048D47E2EA2CC7CF12411B57A83CA21B6F20F56F6A3"
+code_id = "CODE_6EFF5D49125355D2AA127048D47E2EA2CC7CF12411B57A83CA21B6F20F56F6A3"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:44a0c8ca2727d7119067f5d13dc5f783f09712861a354f14444ba483fa454440"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9796C6FF4ADED712C30EFCC4B11F05D036D3C3C8C580997CFB20446DFBFBBEAE"
+code_id = "CODE_9796C6FF4ADED712C30EFCC4B11F05D036D3C3C8C580997CFB20446DFBFBBEAE"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e7dea81fcd4fbd44e93eb776457f7db9196e158f448d0c05c1e8f47efa767f73"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A32CEED086EF36FBBDC13B9872C683AC8D29192D62B65D53E4E3CA8BC12DC635"
+code_id = "CODE_A32CEED086EF36FBBDC13B9872C683AC8D29192D62B65D53E4E3CA8BC12DC635"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:c4ad57b764ca2f1a18705ed20684bc8f853047bd56a3c9235e45bed9556f587f"
+risk_signals = ["filesystem_or_environment","protocol_response_or_status","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A4BD39750B85A6473B1D398A46A544531B5DB12BD81AFE2D06832F7BA26CE8B1"
+code_id = "CODE_A4BD39750B85A6473B1D398A46A544531B5DB12BD81AFE2D06832F7BA26CE8B1"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:fe5f924f616ab703fb2612f7d6fb13a58848a0782271d5d1447f3374e6e5845e"
+risk_signals = ["fault_mapping","protocol_response_or_status","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A547D06E28A380EA4A6BB4C585D5383FF5FB48AF907C31EB13DB547D3C421AF5"
+code_id = "CODE_A547D06E28A380EA4A6BB4C585D5383FF5FB48AF907C31EB13DB547D3C421AF5"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:ee63e563f8b33e5ad4f887b628d5dbf4c763d4c4959731dc511ca05828cee2b2"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B1F2CB0E49D3F04752721A86C630F288AFDD8FF779B017EC2A4C40065C2019E0"
+code_id = "CODE_B1F2CB0E49D3F04752721A86C630F288AFDD8FF779B017EC2A4C40065C2019E0"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:0f0e28923986991de869d62f1d50414eda62a0ac75ca0a0613d35645ced4ddb4"
+risk_signals = ["filesystem_or_environment","state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B81E3A451E0494983799651613A612A0B6AA9DC7AEE27F90367C57A40D50415C"
+code_id = "CODE_B81E3A451E0494983799651613A612A0B6AA9DC7AEE27F90367C57A40D50415C"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:4eecb78d7edf6cc4249bfe15c67db41a15cf6e681fb2e9bc2e03bfe3f079f6c7"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_ED0E0E20EEA185A0EF5DF91C95EAE8F6C3DA50BE2DBDD95CBA1A2B3D7D2AEB03"
+code_id = "CODE_ED0E0E20EEA185A0EF5DF91C95EAE8F6C3DA50BE2DBDD95CBA1A2B3D7D2AEB03"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:49cc5c1ac29a9700c9f64daf8262fb615033d51943d96f0af576491ff789d604"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F6D84B06D91938942EDF650A3A0D3CDCC09B45A3D10BCADA95A1197DD2080443"
+code_id = "CODE_F6D84B06D91938942EDF650A3A0D3CDCC09B45A3D10BCADA95A1197DD2080443"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:3ab382e55a993f8447ab0d69e56a759b869f0994d2cea80e4c67348b2a4d83f3"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_FF364162D2EA0CE863F633858D90259C11EC8ECAE6D633BCA6DD61EE04E21F8E"
+code_id = "CODE_FF364162D2EA0CE863F633858D90259C11EC8ECAE6D633BCA6DD61EE04E21F8E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e966fd715f82aa9cb0bea369684cdeb79abc2d64d497f53777aa1edeaf62bffa"
+risk_signals = ["filesystem_or_environment","state_mutation","subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#assertion-reachability"
+reviewed_by = "verification"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
