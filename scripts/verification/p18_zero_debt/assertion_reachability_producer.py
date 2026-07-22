@@ -403,7 +403,9 @@ def collect_input_paths(plan: Mapping[str, Any]) -> list[str]:
         if not isinstance(shard, Mapping):
             continue
         paths.add(str(shard["source_file"]))
-        paths.add(str(shard["invariant_path"]))
+        # The reviewed plan pins the invariant's claim/spec/oracle/behavior
+        # digest. Excluding the whole TOML here lets evidence_refs and missing
+        # bookkeeping change without invalidating the behavior contract.
         for test in shard.get("tests", []):
             if isinstance(test, Mapping):
                 paths.add(str(test["path"]))
