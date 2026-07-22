@@ -628,6 +628,20 @@ execution model (DEV-049).
   same unresolved fault. Exhaustion leaves the resource faulted with a
   diagnosable restart-limit error.
 
+##### Fault-state clear lifecycle
+
+The portable fault holder clears its current fault as one state transition:
+`faulted` becomes false and the stored last fault becomes absent. Clearing does
+not change the configured `FaultPolicy`. Calling clear while already healthy is
+idempotent and leaves the healthy state, absent last fault, and policy
+unchanged. (DEV-059)
+
+This clear operation is bookkeeping at the portable holder boundary. It does
+not restart or resume a resource, apply safe outputs, reset program or retained
+storage, prove that the underlying fault was repaired, or authorize a caller to
+recover production execution. Those actions remain owned by the host recovery
+and control boundaries. (DEV-059)
+
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
 Retentive variables must follow IEC 61131-3 retentive variable rules (§6.5.6, Figure 9). At

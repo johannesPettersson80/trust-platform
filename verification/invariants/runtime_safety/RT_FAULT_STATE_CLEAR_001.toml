@@ -1,0 +1,60 @@
+schema_version = 1
+id = "RT_FAULT_STATE_CLEAR_001"
+title = "Fault-state clearing is atomic, policy-preserving, and recovery-neutral"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Clearing the portable runtime fault holder removes both the faulted flag and stored last error without changing fault policy; clearing an already healthy holder is idempotent and performs no resource recovery side effect."
+proof_level = "S1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime-core/src/watchdog.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+
+[[behavior]]
+partition = { equals = "RECORDED_FAULT_CLEAR" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A recorded fault clears as one observable transition: faulted becomes false, the last error becomes absent, and the configured fault policy remains unchanged."
+
+[[behavior]]
+partition = { equals = "HEALTHY_CLEAR_IDEMPOTENT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Repeated clear calls on a healthy holder preserve the healthy state, absent last error, and configured policy without manufacturing a recovery action."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The recorded-fault clear oracle is accepted; P18-005 and P18-006 must bind and execute its exact state transition."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The idempotent healthy clear and policy-preservation oracle is accepted; the existing test remains reviewed_nonmapping until catalog binding and producer-authentic execution."

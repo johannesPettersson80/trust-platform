@@ -12,6 +12,29 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Deterministic portable fault-state clearing
+
+- ID: DEV-059
+- Area: Portable runtime fault-state lifecycle
+- IEC reference: IEC 61131-3 Ed.3 section 6.8 defines resource and task
+  execution, but it does not define truST's host-side `FaultSubsystem`, stored
+  runtime error, recovery authorization, or clear API. This entry records a
+  truST product extension outside the IEC language model; it does not treat
+  clearing bookkeeping as evidence that a resource may safely resume.
+- Deviation/extension:
+  - Clearing a recorded fault atomically sets the holder to not faulted and
+    removes the stored last error.
+  - Clearing does not alter the configured `FaultPolicy`.
+  - Clearing an already healthy holder is idempotent.
+  - The portable clear operation does not restart or resume a resource, apply
+    safe outputs, reset runtime storage, or authorize recovery.
+- Impact:
+  - Status consumers cannot observe a healthy flag paired with a stale last
+    fault after the clear transition, and recovery policy cannot silently drift.
+- Mitigation:
+  - Invoke clear only from an owning recovery/control path after separately
+    handling safe state, storage transition, authorization, and fault repair.
+
 ## 2026-07-22 - Deterministic task readiness and overrun accounting
 
 - ID: DEV-058

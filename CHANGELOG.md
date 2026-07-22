@@ -134,6 +134,10 @@ Target release: `v0.24.54`
   contract for SINGLE edge sampling, periodic suppression, backward and
   forward logical-clock jumps, missed intervals, and saturating overrun
   accounting.
+- trust-runtime-core: portable fault-state clearing now has an explicit
+  lifecycle contract: it atomically removes the fault flag and stored error,
+  preserves the configured fault policy, remains idempotent while healthy, and
+  does not itself claim resource recovery or safe-state handling.
 
 ### Added
 

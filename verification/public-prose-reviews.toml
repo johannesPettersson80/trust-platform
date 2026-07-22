@@ -52832,6 +52832,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_4794A42EADCDCBF7C4F2C0DE"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "ad08f3269671dae108d7b2ce2380760681d180b67594b96f9d82f8bbb12bdda9"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_STATE_CLEAR_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_4799C9FDF1F5116E4E7771CF"
 document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
 path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
@@ -62634,6 +62647,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_54DA7A8D0A8F9C0F2EA6A19C"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "9c9498a06f5880a0774609ae2ee57639aa04fc76e4cebf00aff950f98f819d72"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_STATE_CLEAR_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_54DEEB9B584CF275E12957CB"
 document_id = "SPEC_DOC_E048F869BB5DAA65EBFD1A38"
 path = "docs/guides/PLC_MULTI_NODE.md"
@@ -63008,6 +63034,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_555E7E2BDD5024BC9405785E"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "heading"
+visible_text_sha256 = "aa95deb976fcb1a0612353f4a77f1a8f6ff8a3f64eb718fa10021562fcf711f9"
+disposition = "structural_nonclaim"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "document_structure"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -186521,6 +186560,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_FCACF53661586E69B35952C2"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "f575b7d7b7eb1ea8dc20ac45f1c860d7b027734a857a1b097ee5229db2af03de"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_STATE_CLEAR_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1

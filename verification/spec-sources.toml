@@ -1335,6 +1335,7 @@ covers = [
   "clock_abstraction",
   "bounded_process_image_io",
   "fault_channel",
+  "fault_state_clear_lifecycle",
   "watchdog",
   "safe_halt",
   "task_readiness_and_overrun_accounting",
