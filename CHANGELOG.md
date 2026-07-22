@@ -40,7 +40,12 @@ Target release: `v0.24.54`
   treats paths literally and includes project dependencies; generated resource
   names are valid non-reserved ST identifiers; dangling project I/O links are
   removed when system I/O is selected; and remote setup fails closed on secure
-  randomness or token-expiry overflow.
+  randomness or token-expiry overflow. Partial browser apply requests now share
+  the advertised safe defaults and cannot write system-wide I/O unless
+  `write_system_io` is explicitly true; interactive browser ports above 65535
+  are rejected instead of wrapping to another port; and CLI setup rejects
+  browser-only access, bind, port, and token-TTL options instead of silently
+  ignoring them, including explicitly supplied default values.
 - trust-runtime: `play` now validates restart and simulation-scale options
   before auto-creating a selected project; runtime configuration rejects
   unknown log levels instead of silently treating them as `info`; legacy

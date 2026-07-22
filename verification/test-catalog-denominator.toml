@@ -642,6 +642,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_043A830912D9F066799D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "selecting_system_io_rejects_project_io_directory"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_043C2FC1EDE569A47229"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs"
@@ -2702,6 +2712,16 @@ reason_code = "gate_inventory_owned"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_0FF42A1AF30FC329849B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_cli_rejects_browser_only_options_without_mutation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_103D43E9BCBFBD54FAFA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -3432,6 +3452,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1567C3A010B85828E1AB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "remote_setup_token_generation_fails_closed_when_secure_randomness_fails"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_RNG_FAILURE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_156940CFF0E479F4765D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/routing.rs"
@@ -3722,6 +3752,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1789CEC56C5E23DC3377"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "remote_setup_ttl_overflow_returns_error_instead_of_panicking"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_178CBF421792D48245C3"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/db/queries/database/database_tests_part_02.rs"
@@ -3897,9 +3937,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
 name = "browser_profile_local_enforces_loopback_and_no_token"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_PROFILE_LOCAL_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_182C09A5F08A014AE5A8"
@@ -4010,6 +4050,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_186B2B80AE52AA60A934"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_cli_prefixes_numeric_project_resource_name"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_187A04A789AD9B0005F5"
@@ -4170,6 +4220,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_19BBB6DE2D0914C78391"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_cli_rejects_explicit_default_browser_options_without_mutation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_19C217D346649BE4C47D"
@@ -4932,6 +4992,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1E6935E42AF8022E739B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "apply_setup_omitted_flags_do_not_write_system_io"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_1E6A2F0D3A7A7A070049"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/eval/tests/errors.rs"
@@ -5617,9 +5687,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_browser_remote_rejects_loopback_bind"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_228754DDEE91A137B538"
@@ -8452,6 +8522,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_31F9C73E8392C7E2BE66"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "wizard_rejects_noninteractive_input_without_mutation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_32089A1392ACCCEAB8FD"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stdlib_split_locals.rs"
@@ -10962,6 +11042,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_44960A4B9D5A746C6B09"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "auto_bundle_migrates_legacy_sources_and_compiles_dependencies"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_44AB2807D5FA842D216A"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/19_signal_processing/tests.st"
@@ -12312,6 +12402,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_4DCF67A1A998B003CE82"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "selecting_system_io_removes_dangling_project_io_link"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_4DF938F54F2FA1306C1E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_expressions.rs"
@@ -12500,6 +12600,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_4F581DA80411BCFA0665"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "setup_query_parsing_preserves_token_parameter"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_QUERY_PARSING_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4F5DDFB0E5B6F9E7F4D4"
@@ -14497,9 +14607,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_browser_remote_dry_run_shows_token_requirements"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_5AE966D7C1D799B3E57B"
@@ -19497,9 +19607,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 name = "apply_setup_persists_runtime_artifacts"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_797A3E52A2E7B2E9149F"
@@ -21922,6 +22032,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_89B6B5E75A732CAE6D20"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_rejects_system_and_guided_flag_mix_without_mutation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_FLAG_MIX_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_89B842645CCF7208661E"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/03_data_types/tests.st"
@@ -22570,6 +22690,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8D386972D66A5E945439"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_cli_treats_project_path_glob_characters_literally"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_LITERAL_PATH_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_8D4C8BB143EC378C8E75"
@@ -23807,9 +23937,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 name = "setup_access_requires_matching_token"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_96EEA4612336ED1EE917"
@@ -24140,6 +24270,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_BYTECODE_NESTED_POU_COUNT_BOUND_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_98F35FC7FD16C7746CFA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "remote_setup_token_contains_exact_secure_random_bytes"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_TOKEN_BYTES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9916C791EAC0CBF928D0"
@@ -24730,6 +24870,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9BB23535C07E0F0A75A0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "interactive_browser_port_rejects_u16_overflow"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9BBDE7C18FAF59882F0F"
@@ -25870,6 +26020,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A2B7354198EF255A0975"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "generated_resource_names_are_valid_for_numeric_and_reserved_folders"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_RESOURCE_NAMES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_A2C9D66B36B454724868"
@@ -27352,6 +27512,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_AB6509B77F9BE74F22AC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_without_mode_rejects_noninteractive_input"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_NONINTERACTIVE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_AB6C7653376755D50F68"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
@@ -28180,6 +28350,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B08F53874A64E4BCD906"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
+name = "remote_setup_token_expiry_uses_checked_minutes"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_TTL_CHECKED_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_B0927C9B0A0ED50D6BB1"
@@ -31232,6 +31412,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_C33B6F89459F5D863970"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "zero_cycle_configuration_is_rejected_before_runtime_file_mutation"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_ZERO_CYCLE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_C34D35743634CEF66F48"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/tests_part_02.rs"
@@ -32677,9 +32867,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 name = "setup_access_allows_when_token_not_required"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_ACCESS_OPEN_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_CC23E54B30499BB0CB0A"
@@ -33377,9 +33567,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 name = "setup_access_enforces_expiry"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_D18EE90064D1E7FF0AF2"
@@ -34367,9 +34557,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
 name = "browser_profile_remote_requires_non_loopback_and_token_ttl"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_PROFILE_REMOTE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_D927C08738A3AED695E3"
@@ -36557,9 +36747,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_cli_mode_writes_artifacts_and_next_steps"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E6963439801BFF301755"
@@ -37142,6 +37332,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E9EEB16FC7F60BB1AAB8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/setup_command.rs"
+name = "setup_cli_dry_run_reports_plan_without_creating_project"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E9FD35EEE9AE946AB5E8"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/shell_modules.rs"
@@ -37500,6 +37700,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EBBA6488CB813EBA26F7"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/tests.rs"
+name = "runtime_generation_preserves_existing_artifacts_when_sources_fail_to_compile"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_EBC7D491061F23BDD8B6"
@@ -40767,9 +40977,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_browser_local_rejects_non_loopback_bind"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_FEC5B699FE0A81B32CDD"
@@ -40817,9 +41027,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
 name = "setup_cancel_mode_exits_successfully"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SETUP_CANCEL_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_FF081237FFA2A8F3966E"

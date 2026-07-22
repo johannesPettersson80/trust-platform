@@ -36,6 +36,9 @@ filesystem names. It includes resolved local project dependencies and
 propagates directory/file-read failures. Selecting system I/O removes an
 existing project `io.toml` regular file or symbolic link, including a dangling
 link, but rejects a directory or unsupported filesystem object at that path.
+Automatic setup migrates a legacy `sources/` tree to `src/` before discovery,
+removes only the exact obsolete generated `io.st` template, and compiles the
+migrated project plus resolved local dependencies into validated bytecode.
 
 Remote browser setup tokens contain 128 bits from the operating-system secure
 random source. If that source fails, setup aborts before binding the server; it
@@ -45,6 +48,24 @@ checked arithmetic. Overflow is a setup error rather than a wrapped or
 effectively unbounded credential lifetime. Local loopback setup remains
 token-free; remote setup accepts the unexpired token from `X-Setup-Token` or
 the `token` query parameter.
+
+Guided setup modes have explicit side-effect boundaries. Browser and CLI dry
+runs report their effective project, access, and device defaults without
+creating project or system files or binding a server. System-I/O setup flags
+cannot be combined with guided project options. A non-interactive invocation
+without an explicit mode fails with guidance rather than waiting for input.
+Browser-only access, bind, port, and token-TTL options are rejected for CLI
+mode instead of being accepted and silently ignored, including when an
+explicit value equals the browser default.
+
+The browser defaults response and a partial apply request use the same safe
+Boolean defaults: use system I/O is true, write system I/O is false, and
+overwrite system I/O is false. Consequently an apply request must explicitly
+set `write_system_io` to true before it can attempt a system-wide I/O write;
+omitting that optional field must never acquire the side effect. Project data
+and apply routes require the configured unexpired setup token in remote mode.
+These setup-mode, HTTP API, and filesystem-side-effect rules are truST product
+contracts, not IEC decisions or deviations.
 
 ## Source Discovery
 

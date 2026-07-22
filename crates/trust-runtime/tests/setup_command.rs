@@ -191,3 +191,131 @@ fn setup_cli_prefixes_numeric_project_resource_name() {
 
     let _ = std::fs::remove_dir_all(parent);
 }
+
+#[test]
+fn setup_cli_rejects_browser_only_options_without_mutation() {
+    let project = unique_temp_dir("setup-cli-browser-options");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .arg("--mode")
+        .arg("cli")
+        .arg("--project")
+        .arg(&project)
+        .arg("--access")
+        .arg("remote")
+        .arg("--bind")
+        .arg("0.0.0.0")
+        .arg("--port")
+        .arg("9000")
+        .arg("--token-ttl-minutes")
+        .arg("30")
+        .arg("--dry-run")
+        .output()
+        .expect("run CLI setup with browser-only options");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("browser-only setup options require --mode browser"));
+    assert!(
+        !project.exists(),
+        "rejected mode options must not create the project"
+    );
+}
+
+#[test]
+fn setup_cli_rejects_explicit_default_browser_options_without_mutation() {
+    for (label, option, value) in [
+        ("explicit-local-access", "--access", "local"),
+        ("explicit-default-port", "--port", "8080"),
+    ] {
+        let project = unique_temp_dir(label);
+        let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+            .arg("setup")
+            .arg("--mode")
+            .arg("cli")
+            .arg("--project")
+            .arg(&project)
+            .arg(option)
+            .arg(value)
+            .arg("--dry-run")
+            .output()
+            .expect("run CLI setup with an explicit default browser option");
+
+        assert!(
+            !output.status.success(),
+            "{option} {value} must not be silently ignored in CLI mode"
+        );
+        assert!(String::from_utf8_lossy(&output.stderr)
+            .contains("browser-only setup options require --mode browser"));
+        assert!(
+            !project.exists(),
+            "rejected mode options must not create the project"
+        );
+    }
+}
+
+#[test]
+fn setup_cli_dry_run_reports_plan_without_creating_project() {
+    let project = unique_temp_dir("setup-cli-dry-run");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .arg("--mode")
+        .arg("cli")
+        .arg("--project")
+        .arg(&project)
+        .arg("--dry-run")
+        .output()
+        .expect("run CLI setup dry run");
+
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Setup dry run"));
+    assert!(!project.exists(), "dry run must not create the project");
+}
+
+#[test]
+fn setup_without_mode_rejects_noninteractive_input() {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .output()
+        .expect("run setup without a terminal");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("setup requires an interactive terminal, or explicit mode"));
+}
+
+#[test]
+fn setup_rejects_system_and_guided_flag_mix_without_mutation() {
+    let project = unique_temp_dir("setup-mixed-flags");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .arg("--driver")
+        .arg("loopback")
+        .arg("--mode")
+        .arg("cli")
+        .arg("--project")
+        .arg(&project)
+        .output()
+        .expect("run mixed system and guided setup");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("system setup flags"));
+    assert!(!project.exists());
+}
+
+#[test]
+fn wizard_rejects_noninteractive_input_without_mutation() {
+    let project = unique_temp_dir("wizard-noninteractive");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("wizard")
+        .arg("--path")
+        .arg(&project)
+        .output()
+        .expect("run wizard without a terminal");
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("wizard requires an interactive terminal")
+    );
+    assert!(!project.exists());
+}

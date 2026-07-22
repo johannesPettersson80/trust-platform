@@ -29,6 +29,10 @@ fn is_loopback_bind(bind: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn setup_port_from_prompt_value(value: u64) -> anyhow::Result<u16> {
+    u16::try_from(value).map_err(|_| anyhow::anyhow!("setup port must be <= 65535"))
+}
+
 fn default_bundle_path() -> PathBuf {
     std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))

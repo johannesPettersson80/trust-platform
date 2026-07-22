@@ -219,8 +219,8 @@ pub enum Command {
         #[arg(long, value_enum)]
         mode: Option<SetupModeArg>,
         /// Browser setup access profile (`local` uses loopback, `remote` requires token).
-        #[arg(long, value_enum, default_value_t = SetupAccessArg::Local)]
-        access: SetupAccessArg,
+        #[arg(long, value_enum)]
+        access: Option<SetupAccessArg>,
         /// Project folder for guided browser/CLI setup.
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
@@ -228,8 +228,8 @@ pub enum Command {
         #[arg(long)]
         bind: Option<String>,
         /// Browser setup HTTP port.
-        #[arg(long, default_value_t = 8080)]
-        port: u16,
+        #[arg(long)]
+        port: Option<u16>,
         /// Browser setup token TTL in minutes (`remote` mode only).
         #[arg(long = "token-ttl-minutes")]
         token_ttl_minutes: Option<u64>,

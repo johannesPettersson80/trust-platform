@@ -1,0 +1,88 @@
+schema_version = 1
+id = "RT_SETUP_MODE_ROUTING_001"
+title = "Setup modes reject ignored options and preserve dry-run boundaries"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Setup dispatch distinguishes browser, CLI, cancel, and system-I/O modes; rejects incompatible option families; requires an explicit mode without a terminal; and keeps dry runs free of project, system, and listener mutation."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/setup/command_entry.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/setup/browser_flows.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/setup/cli_flows.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/setup/helpers.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/setup/models.rs",
+]
+tests = [
+  "TEST_RUNTIME_SETUP_PROFILE_LOCAL_001",
+  "TEST_RUNTIME_SETUP_PROFILE_REMOTE_001",
+  "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001",
+  "TEST_RUNTIME_SETUP_CANCEL_001",
+  "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001",
+  "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001",
+  "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001",
+  "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001",
+  "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001",
+  "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001",
+  "TEST_RUNTIME_SETUP_NONINTERACTIVE_001",
+  "TEST_RUNTIME_SETUP_FLAG_MIX_001",
+  "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["interactive_tty_choice_matrix", "windows_console_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+
+[[behavior]]
+partition = { equals = "EXPLICIT_BROWSER_CLI_CANCEL_OR_SYSTEM_MODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Each explicit mode reaches only its owning setup flow, with local and remote browser profiles selecting their documented bind and token policy."
+
+[[behavior]]
+partition = { equals = "DRY_RUN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Browser and CLI dry runs report effective choices without creating project files, writing system config, or binding the setup server."
+
+[[behavior]]
+partition = { equals = "INCOMPATIBLE_OR_NONINTERACTIVE_OPTIONS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "System/guided flag mixes, browser-only CLI flags, and implicit interactive setup without a terminal reject without mutation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused profile and CLI tests exercise local, remote, cancel, and noninteractive CLI creation routes."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused browser and CLI dry-run tests prove their reported plan and absence of project creation."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Focused process tests prove incompatible option-family rejection, including explicitly supplied default-valued browser flags, no-terminal setup, no-terminal wizard, and wrapping port-value rejection."

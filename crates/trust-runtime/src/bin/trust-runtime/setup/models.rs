@@ -5,10 +5,10 @@ const MAX_REMOTE_TOKEN_TTL_MINUTES: u64 = 24 * 60;
 #[derive(Debug, Clone)]
 pub struct SetupCommandOptions {
     pub mode: Option<SetupModeArg>,
-    pub access: SetupAccessArg,
+    pub access: Option<SetupAccessArg>,
     pub project: Option<PathBuf>,
     pub bind: Option<String>,
-    pub port: u16,
+    pub port: Option<u16>,
     pub token_ttl_minutes: Option<u64>,
     pub dry_run: bool,
     pub driver: Option<String>,

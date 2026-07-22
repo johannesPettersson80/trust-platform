@@ -338,6 +338,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
   and `VERIF-P18-003` globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-policy-decision.md`.
+
+  Runtime/CLI coherent-batch progress (2026-07-22): the harness protocol,
+  runtime entrypoint, ADS fail-closed behavior, watchdog contracts, benchmark
+  surfaces, project check, workbench forwarding, Git initialization,
+  build/CI, and guided setup/wizard subsystems have now been reviewed as
+  specification-first batches. After the setup batch, the live code map has
+  15,301 facts: 331 `specified`, 14,935 `spec_gap`, and 35 reviewed
+  non-gap dispositions. The test denominator has 4,119 facts: 409
+  `catalog_mapped` and 3,710 `reviewed_nonmapping`; the catalog contains 417
+  mapped tests. The setup batch specifically binds 55 scanner-derived code
+  facts to `SPEC_DEVELOPER_WORKFLOWS_001#project-initialization` through
+  `RT_GUIDED_PROJECT_ARTIFACTS_001`, `RT_SETUP_MODE_ROUTING_001`, and
+  `RT_SETUP_BROWSER_SECURITY_001`; maps 11 historical tests; and adds 21
+  focused tests. Remote focused proof passes 19/19 setup binary tests and
+  13/13 setup command tests. Red-green regressions fixed unsafe omitted browser
+  write defaults, interactive port overflow, and silent acceptance of
+  browser-only CLI options, including explicitly supplied default values. The
+  broad `trust_runtime::cli::Command` enum remains an honest `spec_gap` after
+  its scanner identity was refreshed automatically; setup proof does not claim
+  to specify unrelated CLI variants. Metadata, staleness, and planner checks
+  reach only the two deferred retain/restart mutation-digest mismatches.
+  `VERIF-P18-003`, assertion reachability, mutation sensitivity, and the final
+  broad remote gates remain globally open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

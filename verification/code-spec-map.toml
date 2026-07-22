@@ -198982,9 +198982,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -199643,9 +199645,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200077,9 +200081,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200197,22 +200203,24 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_0B5A01AD7ABEB2FC5F3230242D0E4FF5F8FD224805A37B37C4CF238F0D4F84E4"
+code_id = "CODE_18D410A6C73B2C77C4509EB7F1138AF3B741ED675053540F1E87F07EAB781790"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::collect_sources"
 item_kind = "rust_function"
-signature_digest = "sha256:a882a9e64c24065728bc88fce32b468421b30bd0d540b42632095e8889484b5b"
-reviewed_body_digest = "sha256:6013ee7ccb6dabff5361410845dfc317ab3f771f93606eb89bf4cb168b8b6a06"
+signature_digest = "sha256:788051096e1ff227bf44c08feb4855b57f890e9777eb0c26732eb3d0b6bb8646"
+reviewed_body_digest = "sha256:0dd51115191e34b9cadf5b8a4d596452c8e674893150e3f9a55c10c143972876"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_0B5A01AD7ABEB2FC5F3230242D0E4FF5F8FD224805A37B37C4CF238F0D4F84E4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+risk_signals = ["persistence_retain_reload_restart"]
+owner_ack = "RISK_ACK_18D410A6C73B2C77C4509EB7F1138AF3B741ED675053540F1E87F07EAB781790"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200354,9 +200362,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200636,9 +200646,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200932,10 +200944,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["broad_error_suppression", "host_time"]
 owner_ack = "RISK_ACK_116E2565D7D77562538DB45CA18F11C97D838DF1BA8F5DCF61B8FFB8B4A95633"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201536,14 +201550,16 @@ path = "crates/trust-runtime/src/bin/trust-runtime/setup/models.rs"
 qualified_symbol = "trust_runtime::setup::SetupCommandOptions"
 item_kind = "rust_public_type"
 signature_digest = "sha256:0dbcd25a4bf0dd63e51d3feb33f7e87346d5e1e411dc53636c3745502c12b81f"
-reviewed_body_digest = "sha256:8b1d49e37a9eb70036bdd309069247fefddc7e8f8845a93a9e2dc0e7dfa31b72"
+reviewed_body_digest = "sha256:7f2e9e40c56131d0f7cb1de10201b58fb19236ec55f8170a0aee1229ab81f9a2"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201787,9 +201803,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202051,10 +202069,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["authorization"]
 owner_ack = "RISK_ACK_1C58BAE5D75A0564E518F492777F6BBA6251F5DC3B5E02A10944A634689F7E0A"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202363,9 +202383,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001", "RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_PROFILE_LOCAL_001", "TEST_RUNTIME_SETUP_PROFILE_REMOTE_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203398,14 +203420,14 @@ path = "crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs"
 qualified_symbol = "trust_runtime::cli::Command"
 item_kind = "rust_public_type"
 signature_digest = "sha256:ece23504563eb5ed3ecb31126d6297fc6de556aab5d6af7dcac121f00c754b88"
-reviewed_body_digest = "sha256:02c419a37844ea2940c0e1abc90862353f16be5bb69fafe18167187d841dd2e5"
+reviewed_body_digest = "sha256:83dbed473855a5a91ce7a66fb008e9552ba6b7dee997c04ad95895ab44441195"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203888,9 +203910,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203973,9 +203997,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -204594,9 +204620,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -204769,14 +204797,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::write_runtime_toml"
 item_kind = "rust_function"
 signature_digest = "sha256:ad634a5efa79f495152e6b009587005597504871275fb71fe1e927bce5114b07"
-reviewed_body_digest = "sha256:e5f5cd33c4fad594b86ee36f83b2e64d355a134f18a5b961c155700e2d135fb3"
+reviewed_body_digest = "sha256:92a8b31c2435d4647a9cf9af89da6e0cdfcce35914442101a67835e1b9cd4c62"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_35133A18C8CBA47ABCF3342D80CDC7F4FC9C49D3F3598E89654AB59F1D55ECBC"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -204969,9 +205001,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205394,20 +205428,22 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_3A6D3D7829D3948D3F20F9CC068789661181CC0519350E61E5FF97FD493F8CC9"
+code_id = "CODE_4847BC2E7A56C0C8149036C9FBA8B48404953006E21C4A0E7A354D999E87ECE1"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup/command_entry.rs"
 qualified_symbol = "trust_runtime::setup::validate_system_setup_flag_mix"
 item_kind = "rust_function"
-signature_digest = "sha256:31a3dcd7557ed63a122d64dfa2099cfefbc56b91a5da34b32b41374746eac573"
-reviewed_body_digest = "sha256:3f7a56232f75349d218b1bacd47fed4757943589ea3d87794928c228ad797748"
+signature_digest = "sha256:5a94c4635c59a31e4b09997a0844095f094f7f549d3fae049efb0f338ca28419"
+reviewed_body_digest = "sha256:c40e926c7b3a2861d4dc4dd2937af50ae9b58b7af57d1e2d9417a2b6f0bc25a4"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205886,9 +205922,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -206986,9 +207024,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207376,9 +207416,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207655,16 +207697,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::remove_io_toml"
 item_kind = "rust_function"
 signature_digest = "sha256:1b0187f11b20ea8441c57677d6a9744afb6ede82b176691f0a264da4642a8b51"
-reviewed_body_digest = "sha256:f3910cdf63ee37540d30eaf6cc5921135393dbcba4e7ec81f21eedfaa997ee58"
+reviewed_body_digest = "sha256:d0165e14e5c38d1c7caa351dab5a98a6278ae7765af87e10a77a46f5c5a83c9c"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_4F36813E55AC55B2B3CB30D4C744B984E7D38BC7199BDF1F2D098B81B706EC9C"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208502,20 +208546,22 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_554975FE786980232865D3BC3FE546727966A9B6EE06CEBE91EEE39C71319A2C"
+code_id = "CODE_17634EDFB94BAE6830EE2C44525D851B19FBCE9D5544F73066E7246F66D34EF0"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup/command_entry.rs"
 qualified_symbol = "trust_runtime::setup::run_setup_mode"
 item_kind = "rust_function"
-signature_digest = "sha256:6cee93e1a8d7e40a2fadefee02ae1f26d4966d9521f9b73ee7f3fb98629b1c20"
-reviewed_body_digest = "sha256:4ea26357132669634491835116e9fd52e5b01030860001a1bc88024822d48889"
+signature_digest = "sha256:2efd7e48e86cac4f80429a80893c5d4efabaad4103f03936523ae56ae06ff20a"
+reviewed_body_digest = "sha256:1acda743ffb0deae281533fd04cd32b262f2294bb8dc3dc813a225d2b0898847"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208633,16 +208679,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/setup/cli_flows.rs"
 qualified_symbol = "trust_runtime::setup::run_cli_guided_interactive"
 item_kind = "rust_function"
 signature_digest = "sha256:3ba2a69694b8fa2be274cf14d02ad8ca6a6a36b3610209e6a02abaea8029d8a1"
-reviewed_body_digest = "sha256:7ce4086237f6b9a9a69ce9fe1ef04d284e97f8552c3c8f73c067ebcd9659f046"
+reviewed_body_digest = "sha256:423f2afc4dbd64fa58207817e117b57c8e8b71ed61cb445bcc2c1adcd16952b1"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_56E0B2A306911D4D58456D6CEFF4A5A758BF2756857B83A3FCD41A604A1D17B4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -209377,16 +209425,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 qualified_symbol = "trust_runtime::setup::setup_web::apply_setup"
 item_kind = "rust_function"
 signature_digest = "sha256:1f316306419c8ce1ec46cc5c935675862ff7e1053f3e43de95285d5b11895768"
-reviewed_body_digest = "sha256:00a850a339ebb99ffba5352ee7c63f43d74862631c00e09ad821a5581f87d54a"
+reviewed_body_digest = "sha256:26264b89f14828365fb747ce45fc49f72e8b9060f89be6a8ea8c2ba1020d41dd"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_5F29EC72E13C0A754600825F5264DD786F3E04FEACFA3FB789A804A9A27ED9A7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001", "RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -209844,9 +209894,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -209987,10 +210039,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_6306DA73D77392C8C75697DC7E570B9BE2F073F99E244EE1CF851E3DD897DC64"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -211040,9 +211094,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212489,10 +212545,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_7A690EB8C6A7EA9AA36D84A2EB3AB48F25E500FF01736A27866F8CC6D12EA37A"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212594,9 +212652,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -213009,9 +213069,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -213843,14 +213905,16 @@ path = "crates/trust-runtime/src/bin/trust-runtime/setup/browser_flows.rs"
 qualified_symbol = "trust_runtime::setup::run_browser_setup_interactive"
 item_kind = "rust_function"
 signature_digest = "sha256:cf0a3d5bb8ecb47183c97eda28dc017b0c00d088316b90cb356f0939dec2710d"
-reviewed_body_digest = "sha256:a4865b330742c1a26f006b5d7ff000c2253e30bb5df8f23aac853011b486b278"
+reviewed_body_digest = "sha256:551620e06eb0827d048ea766b616d59214fdef4162e6f548a6fe3f9eff0c66d0"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214024,9 +214088,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214328,10 +214394,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8BAF43E8C57738ABBC68011023D9B0276DC9C125086F5820AA95F8779A35CB9B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214677,10 +214745,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_8DC6EF6B4BA058AB7BBCF8E19E78BB6DDF8B3E46048C1D15797CFB3330F55587"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215093,9 +215163,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215317,16 +215389,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::build_io_config"
 item_kind = "rust_function"
 signature_digest = "sha256:89d57aba8f96cce41f29b02b7190f402c87b8b6d3699e4a1efcfeb4194dc35b8"
-reviewed_body_digest = "sha256:e983a13ca5a5ced6e0e97e961297f945ba7d0188ac627aa6c9cc32386306ebca"
+reviewed_body_digest = "sha256:34f3dd2f831594c4e8b0ca78e2396852b817029682ee852a82d5ba7d1d562455"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
-risk_signals = ["state_mutation"]
+risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_92863988E229AE6212C41E896216CD4350A1604B7462EB37797D3DE116D51C70"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215695,9 +215769,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217741,9 +217817,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -220032,16 +220110,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::create_bundle"
 item_kind = "rust_function"
 signature_digest = "sha256:59c9fd24bf9d7b6552dc097bcd595023410903ac5bba16ae72b6ae82795ddb29"
-reviewed_body_digest = "sha256:25b57d81ae72ab66f8c50e00ac13f9b17b115d2157bbf0e13d2eff541fd2f1b1"
+reviewed_body_digest = "sha256:0fbc7493d6d44fb6170a221c96d11792d7cb949a35c46c331b3fe27306031ebe"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_B7658F59CBE857C5305DFFD30D688D578855AE13605798E0CAD4AA2CCD0B444E"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221231,16 +221311,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 qualified_symbol = "trust_runtime::setup::setup_web::run_setup_web"
 item_kind = "rust_function"
 signature_digest = "sha256:a2d5686673095f7708aa72183ffab9a597d178578221a7c68eb1cc14d2453cc2"
-reviewed_body_digest = "sha256:14bcc1948b187466635e4a1460d4825887c984d6e88d9db551707077cef5e1ac"
+reviewed_body_digest = "sha256:c52cfa9fc659d4157ee2305c35919b58d8959ec994c5766c071454feb02a7fe9"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = ["authorization", "broad_error_suppression", "fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_C18DB0591B35A6E38A7AA04A15794E02BF14F1692A746D1B73EE71829D36004F"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221327,9 +221409,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221894,20 +221978,22 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_C99CD287DB4044132132C6D21958E285A67D791AC35489E94C2819958214A36E"
+code_id = "CODE_BD18117CE2FBD4D325CCE9A693F48CDB142E971CF05C46BC43BD17EBB899ED93"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
 qualified_symbol = "trust_runtime::setup::setup_web::generate_token"
 item_kind = "rust_function"
-signature_digest = "sha256:79534ebe231707d3cfe7250c97a65ac8780226ef32b860552e1b87daa762284d"
-reviewed_body_digest = "sha256:5b80352dc024cf9c6742edc6cf2930b5e932de595a9e341ff7be9301a2643083"
+signature_digest = "sha256:b3dd4e6017c06a9cbcfc2d479896f9f9b9bbcd6adc63b5d543b728436145d730"
+reviewed_body_digest = "sha256:eaea4456e984e29e37874711cff85340dd42ed411323842e0518604e96649700"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222972,16 +223058,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::create_bundle_auto"
 item_kind = "rust_function"
 signature_digest = "sha256:944418fcacd0946cdd14a0704c967aa9a0cdfa7b6b0299b1bc6a2fc8c60bfe50"
-reviewed_body_digest = "sha256:8011344bfa24c433ab8954f34f4b245bd5952f9384172a2db8d71fd9e81cdd56"
+reviewed_body_digest = "sha256:f3af503da66f632c59a4edbeacfdc362d370d250b2e2ad07aec3b780ee9dead8"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223229,9 +223317,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223755,16 +223845,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
 qualified_symbol = "trust_runtime::wizard::format_resource_name"
 item_kind = "rust_function"
 signature_digest = "sha256:96fd900b733460e21704881ca7896fe07128af2d034e7e5d62d4680cd1596026"
-reviewed_body_digest = "sha256:29024e004e6c418448ed88eec2a413aa6c2c1bb536ef4233f39065052c365768"
+reviewed_body_digest = "sha256:407fd6e57ab0e08bf706b8cacbd5c3283283ced657eab9c9658ed6e4a00ebfae"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_D85B226A2794EFBF80B32A69C4BEE6B69E23DB31D0D658CC7A5CCBDD0FAC50AA"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224121,10 +224213,12 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_DB298CF1F5E35BA8D48D396196312A7E5FA950446D3F957F41CEC3F5512FA3AD"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224230,9 +224324,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224956,9 +225052,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -225289,9 +225387,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -225776,9 +225876,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226009,9 +226111,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -227276,9 +227380,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -228280,9 +228386,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_GUIDED_PROJECT_ARTIFACTS_001"]
+test_ids = ["TEST_RUNTIME_SETUP_RESOURCE_NAMES_001", "TEST_RUNTIME_SETUP_ZERO_CYCLE_001", "TEST_RUNTIME_SETUP_COMPILE_PRESERVES_001", "TEST_RUNTIME_SETUP_IO_DANGLING_REMOVE_001", "TEST_RUNTIME_SETUP_IO_DIRECTORY_REJECT_001", "TEST_RUNTIME_SETUP_LEGACY_MIGRATION_001", "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001", "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001", "TEST_RUNTIME_SETUP_CLI_ARTIFACTS_001", "TEST_RUNTIME_SETUP_LITERAL_PATH_001", "TEST_RUNTIME_SETUP_NUMERIC_NAME_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -228488,9 +228596,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -272273,4 +272383,24 @@ disposition = "specified"
 spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
 invariant_ids = ["RT_GIT_INITIALIZATION_001"]
 test_ids = ["TEST_RUNTIME_GIT_INVALID_FILE_001", "TEST_RUNTIME_GIT_WORKTREE_MARKER_001", "TEST_RUNTIME_GIT_CREATE_IDEMPOTENT_001", "TEST_RUNTIME_GIT_MARKER_SHAPES_001", "TEST_RUNTIME_GIT_SYMLINK_MARKERS_001", "TEST_RUNTIME_GIT_UNSUPPORTED_OBJECT_001"]
+last_reviewed = "2026-07-22"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C1145BD1B86249E499031FF9978647EF2926821FA4AE30802581F1B17BFE5C8D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/setup/helpers.rs"
+qualified_symbol = "trust_runtime::setup::setup_port_from_prompt_value"
+item_kind = "rust_function"
+signature_digest = "sha256:f4d4172a403c2132c24db6c723548384ba2592b068fc28c4c4bc74fc18f85ef0"
+reviewed_body_digest = "sha256:e8f3ce51262728248329452f05cd73e366572a555c311c34294e1c937041b923"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_C1145BD1B86249E499031FF9978647EF2926821FA4AE30802581F1B17BFE5C8D"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+invariant_ids = ["RT_SETUP_MODE_ROUTING_001"]
+test_ids = ["TEST_RUNTIME_SETUP_CANCEL_001", "TEST_RUNTIME_SETUP_LOCAL_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_BIND_REJECT_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001", "TEST_RUNTIME_SETUP_CLI_BROWSER_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_EXPLICIT_DEFAULT_OPTIONS_001", "TEST_RUNTIME_SETUP_CLI_DRY_RUN_001", "TEST_RUNTIME_SETUP_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_FLAG_MIX_001", "TEST_RUNTIME_WIZARD_NONINTERACTIVE_001", "TEST_RUNTIME_SETUP_PORT_OVERFLOW_001"]
 last_reviewed = "2026-07-22"

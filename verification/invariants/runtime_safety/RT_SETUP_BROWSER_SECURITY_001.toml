@@ -1,0 +1,102 @@
+schema_version = 1
+id = "RT_SETUP_BROWSER_SECURITY_001"
+title = "Browser setup authorization and side effects fail closed"
+area = "runtime_safety"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Remote browser setup uses exactly 128 operating-system random bits, checked token expiry, and header or query authorization; local mode remains loopback-only and token-free; and partial apply requests cannot acquire an omitted system-wide write side effect."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"]
+tests = [
+  "TEST_RUNTIME_SETUP_ACCESS_OPEN_001",
+  "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001",
+  "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001",
+  "TEST_RUNTIME_SETUP_QUERY_PARSING_001",
+  "TEST_RUNTIME_SETUP_TTL_CHECKED_001",
+  "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001",
+  "TEST_RUNTIME_SETUP_RNG_FAILURE_001",
+  "TEST_RUNTIME_SETUP_TOKEN_BYTES_001",
+  "TEST_RUNTIME_SETUP_WEB_SAFE_DEFAULTS_001",
+  "TEST_RUNTIME_SETUP_WEB_ARTIFACTS_001",
+  "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["live_http_authorization_trace", "constant_time_token_comparison_review", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+
+[[behavior]]
+partition = { equals = "LOCAL_LOOPBACK_SETUP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Local setup accepts loopback access without manufacturing or requiring a remote token."
+
+[[behavior]]
+partition = { equals = "REMOTE_TOKEN_HEADER_OR_QUERY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Remote setup accepts the exact generated token from either the authorization header or token query parameter while its checked expiry remains valid."
+
+[[behavior]]
+partition = { equals = "MISSING_INVALID_OR_EXPIRED_REMOTE_TOKEN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Missing, mismatched, or expired tokens reject protected remote setup access without applying project or system changes."
+
+[[behavior]]
+partition = { equals = "REMOTE_TOKEN_TTL_ABOVE_REPRESENTABLE_RANGE" }
+case_family = "above_max"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A token lifetime that cannot be converted to seconds aborts before bind rather than wrapping or panicking."
+
+[[behavior]]
+partition = { equals = "OPERATING_SYSTEM_ENTROPY_UNAVAILABLE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Failure to obtain the full 16 random token bytes aborts remote setup before bind rather than falling back to predictable entropy."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests prove token-free local authorization, coherent browser apply, exact 16-byte token encoding, checked valid TTL conversion, and omitted write_system_io defaulting to false."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Focused tests prove exact header/query token matching, query extraction, and missing, mismatched, or expired token rejection."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "covered"
+rationale = "Focused tests prove token TTL overflow returns a stable error instead of wrapping or panicking."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Focused tests prove operating-system entropy failure aborts token generation; a live HTTP authorization trace remains explicit debt."

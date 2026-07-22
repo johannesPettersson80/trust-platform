@@ -75,10 +75,10 @@ pub fn run_setup_default() -> anyhow::Result<()> {
 
 fn run_setup_mode(
     mode: SetupModeArg,
-    access: SetupAccessArg,
+    access: Option<SetupAccessArg>,
     project: Option<PathBuf>,
     bind: Option<String>,
-    port: u16,
+    port: Option<u16>,
     token_ttl_minutes: Option<u64>,
     dry_run: bool,
 ) -> anyhow::Result<()> {
@@ -88,18 +88,36 @@ fn run_setup_mode(
             Ok(())
         }
         SetupModeArg::Browser => {
-            run_browser_setup_mode(access, project, bind, port, token_ttl_minutes, dry_run)
+            run_browser_setup_mode(
+                access.unwrap_or(SetupAccessArg::Local),
+                project,
+                bind,
+                port.unwrap_or(DEFAULT_SETUP_PORT),
+                token_ttl_minutes,
+                dry_run,
+            )
         }
-        SetupModeArg::Cli => run_cli_guided_noninteractive(project, dry_run),
+        SetupModeArg::Cli => {
+            if access.is_some()
+                || bind.is_some()
+                || port.is_some()
+                || token_ttl_minutes.is_some()
+            {
+                anyhow::bail!(
+                    "browser-only setup options require --mode browser: --access, --bind, --port, --token-ttl-minutes"
+                );
+            }
+            run_cli_guided_noninteractive(project, dry_run)
+        }
     }
 }
 
 fn validate_system_setup_flag_mix(
     mode: Option<SetupModeArg>,
-    access: SetupAccessArg,
+    access: Option<SetupAccessArg>,
     project: Option<&PathBuf>,
     bind: Option<&String>,
-    port: u16,
+    port: Option<u16>,
     token_ttl_minutes: Option<u64>,
     dry_run: bool,
 ) -> anyhow::Result<()> {
@@ -107,8 +125,8 @@ fn validate_system_setup_flag_mix(
         || project.is_some()
         || bind.is_some()
         || token_ttl_minutes.is_some()
-        || !matches!(access, SetupAccessArg::Local)
-        || port != DEFAULT_SETUP_PORT
+        || access.is_some()
+        || port.is_some()
         || dry_run
     {
         anyhow::bail!(

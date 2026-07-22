@@ -54604,20 +54604,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_0B5A01AD7ABEB2FC5F3230242D0E4FF5F8FD224805A37B37C4CF238F0D4F84E4"
-code_id = "CODE_0B5A01AD7ABEB2FC5F3230242D0E4FF5F8FD224805A37B37C4CF238F0D4F84E4"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:6013ee7ccb6dabff5361410845dfc317ab3f771f93606eb89bf4cb168b8b6a06"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_0B7201C58883250915D924EEADDB9555FB19EF39F84CD0067413A666C212687C"
 code_id = "CODE_0B7201C58883250915D924EEADDB9555FB19EF39F84CD0067413A666C212687C"
 owner = "trust-runtime"
@@ -54764,11 +54750,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:8b3beb0474f814ad40015245f42aca64b8cf4dab20bf180452480d0f646b6dc9"
 risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -55030,11 +55016,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:8bcf35aba016a80fbc896a2d9144bf8cf00a8853bff2541465c49f1cd821a275"
 risk_signals = ["authorization"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -56540,13 +56526,13 @@ id = "RISK_ACK_4F36813E55AC55B2B3CB30D4C744B984E7D38BC7199BDF1F2D098B81B706EC9C"
 code_id = "CODE_4F36813E55AC55B2B3CB30D4C744B984E7D38BC7199BDF1F2D098B81B706EC9C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:f3910cdf63ee37540d30eaf6cc5921135393dbcba4e7ec81f21eedfaa997ee58"
+body_digest = "sha256:d0165e14e5c38d1c7caa351dab5a98a6278ae7765af87e10a77a46f5c5a83c9c"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -56904,13 +56890,13 @@ id = "RISK_ACK_56E0B2A306911D4D58456D6CEFF4A5A758BF2756857B83A3FCD41A604A1D17B4"
 code_id = "CODE_56E0B2A306911D4D58456D6CEFF4A5A758BF2756857B83A3FCD41A604A1D17B4"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:7ce4086237f6b9a9a69ce9fe1ef04d284e97f8552c3c8f73c067ebcd9659f046"
+body_digest = "sha256:423f2afc4dbd64fa58207817e117b57c8e8b71ed61cb445bcc2c1adcd16952b1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -57086,13 +57072,13 @@ id = "RISK_ACK_5F29EC72E13C0A754600825F5264DD786F3E04FEACFA3FB789A804A9A27ED9A7"
 code_id = "CODE_5F29EC72E13C0A754600825F5264DD786F3E04FEACFA3FB789A804A9A27ED9A7"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:00a850a339ebb99ffba5352ee7c63f43d74862631c00e09ad821a5581f87d54a"
+body_digest = "sha256:26264b89f14828365fb747ce45fc49f72e8b9060f89be6a8ea8c2ba1020d41dd"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -57242,11 +57228,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:570536abf4c1b21fd5cb5fd5466c7cdbf96529e23567cce5517423ce9328049e"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -57802,11 +57788,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:cb9ebaa51b42de1842a4773dd246d548a4e57baf16c191cf04312b33af82355e"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58278,11 +58264,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:899ae1b3726add54b2ac06fb3e7f370685c6a8745078e83cf0bf2f2c763e91bf"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58432,11 +58418,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:7e17e7ffce7715e1ab4aed7d684023b2fba1a5351e456fdd35ffef40a92cd257"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58612,13 +58598,13 @@ id = "RISK_ACK_92863988E229AE6212C41E896216CD4350A1604B7462EB37797D3DE116D51C70"
 code_id = "CODE_92863988E229AE6212C41E896216CD4350A1604B7462EB37797D3DE116D51C70"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:e983a13ca5a5ced6e0e97e961297f945ba7d0188ac627aa6c9cc32386306ebca"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+body_digest = "sha256:34f3dd2f831594c4e8b0ca78e2396852b817029682ee852a82d5ba7d1d562455"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -59900,13 +59886,13 @@ id = "RISK_ACK_B7658F59CBE857C5305DFFD30D688D578855AE13605798E0CAD4AA2CCD0B444E"
 code_id = "CODE_B7658F59CBE857C5305DFFD30D688D578855AE13605798E0CAD4AA2CCD0B444E"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:25b57d81ae72ab66f8c50e00ac13f9b17b115d2157bbf0e13d2eff541fd2f1b1"
+body_digest = "sha256:0fbc7493d6d44fb6170a221c96d11792d7cb949a35c46c331b3fe27306031ebe"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -60306,13 +60292,13 @@ id = "RISK_ACK_C18DB0591B35A6E38A7AA04A15794E02BF14F1692A746D1B73EE71829D36004F"
 code_id = "CODE_C18DB0591B35A6E38A7AA04A15794E02BF14F1692A746D1B73EE71829D36004F"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:14bcc1948b187466635e4a1460d4825887c984d6e88d9db551707077cef5e1ac"
+body_digest = "sha256:c52cfa9fc659d4157ee2305c35919b58d8959ec994c5766c071454feb02a7fe9"
 risk_signals = ["authorization", "broad_error_suppression", "fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -60782,13 +60768,13 @@ id = "RISK_ACK_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
 code_id = "CODE_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:8011344bfa24c433ab8954f34f4b245bd5952f9384172a2db8d71fd9e81cdd56"
+body_digest = "sha256:f3af503da66f632c59a4edbeacfdc362d370d250b2e2ad07aec3b780ee9dead8"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -61090,13 +61076,13 @@ id = "RISK_ACK_D85B226A2794EFBF80B32A69C4BEE6B69E23DB31D0D658CC7A5CCBDD0FAC50AA"
 code_id = "CODE_D85B226A2794EFBF80B32A69C4BEE6B69E23DB31D0D658CC7A5CCBDD0FAC50AA"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:29024e004e6c418448ed88eec2a413aa6c2c1bb536ef4233f39065052c365768"
+body_digest = "sha256:407fd6e57ab0e08bf706b8cacbd5c3283283ced657eab9c9658ed6e4a00ebfae"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -61204,11 +61190,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:fe482a9fde051cca590e332230482f784e513e1bb3b7eee5a344820e9ae90a70"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81311,3 +81297,44 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges exact scanner-derived filesystem, environment, subprocess, and status risks for project Git initialization; the specified mapping binds them to reviewed marker and command-outcome behavior without suppressing the risks."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_18D410A6C73B2C77C4509EB7F1138AF3B741ED675053540F1E87F07EAB781790"
+code_id = "CODE_18D410A6C73B2C77C4509EB7F1138AF3B741ED675053540F1E87F07EAB781790"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:0dd51115191e34b9cadf5b8a4d596452c8e674893150e3f9a55c10c143972876"
+risk_signals = ["persistence_retain_reload_restart"]
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_35133A18C8CBA47ABCF3342D80CDC7F4FC9C49D3F3598E89654AB59F1D55ECBC"
+code_id = "CODE_35133A18C8CBA47ABCF3342D80CDC7F4FC9C49D3F3598E89654AB59F1D55ECBC"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:92a8b31c2435d4647a9cf9af89da6e0cdfcce35914442101a67835e1b9cd4c62"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C1145BD1B86249E499031FF9978647EF2926821FA4AE30802581F1B17BFE5C8D"
+code_id = "CODE_C1145BD1B86249E499031FF9978647EF2926821FA4AE30802581F1B17BFE5C8D"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e8f3ce51262728248329452f05cd73e366572a555c311c34294e1c937041b923"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/specs/22-developer-workflows.md#project-initialization"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."

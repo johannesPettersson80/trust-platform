@@ -311,7 +311,7 @@ fn apply_setup(
         .driver
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| guard.options.defaults.driver.clone());
-    let write_system_io = payload.write_system_io.unwrap_or(true);
+    let write_system_io = payload.write_system_io.unwrap_or(false);
     let overwrite_system_io = payload.overwrite_system_io.unwrap_or(false);
     let use_system_io = payload.use_system_io.unwrap_or(true);
     drop(guard);
@@ -537,6 +537,28 @@ mod tests {
     }
 
     #[test]
+    fn setup_query_parsing_preserves_token_parameter() {
+        assert_eq!(
+            split_query("/api/setup/defaults?other=1&token=secret"),
+            (
+                "/api/setup/defaults".to_string(),
+                Some("other=1&token=secret".to_string())
+            )
+        );
+        assert_eq!(
+            extract_query_param("other=1&token=secret", "token"),
+            Some("secret".to_string())
+        );
+        assert_eq!(extract_query_param("token", "token"), None);
+    }
+
+    #[test]
+    fn remote_setup_token_expiry_uses_checked_minutes() {
+        assert_eq!(token_expiry(1_000, 15).expect("normal TTL"), 1_900);
+        assert!(token_expiry(u64::MAX - 30, 1).is_err());
+    }
+
+    #[test]
     fn remote_setup_ttl_overflow_returns_error_instead_of_panicking() {
         let root = unique_temp_dir("setup-web-ttl-overflow");
         let defaults = SetupDefaults::from_bundle(&root);
@@ -588,6 +610,38 @@ mod tests {
             "unexpected error: {error:#}"
         );
         assert_eq!(bytes, [0_u8; 16], "no fallback token may be synthesized");
+    }
+
+    #[test]
+    fn remote_setup_token_contains_exact_secure_random_bytes() {
+        #[derive(Debug)]
+        struct FixedRng;
+
+        impl rand::TryRng for FixedRng {
+            type Error = std::io::Error;
+
+            fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+                unreachable!("token generation uses try_fill_bytes")
+            }
+
+            fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+                unreachable!("token generation uses try_fill_bytes")
+            }
+
+            fn try_fill_bytes(&mut self, destination: &mut [u8]) -> Result<(), Self::Error> {
+                for (index, byte) in destination.iter_mut().enumerate() {
+                    *byte = index as u8;
+                }
+                Ok(())
+            }
+        }
+
+        let mut bytes = [0_u8; 16];
+        let token = generate_token_with_rng(&mut FixedRng, &mut bytes)
+            .expect("encode deterministic secure bytes");
+
+        assert_eq!(token, "000102030405060708090a0b0c0d0e0f");
+        assert_eq!(token.len(), 32, "16 random bytes require 32 hex digits");
     }
 
     #[test]
@@ -643,6 +697,47 @@ mod tests {
         assert_eq!(resource.name, "setup_web_plc");
         assert_eq!(resource.tasks.len(), 1);
         assert_eq!(resource.tasks[0].interval.as_millis(), 25);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn apply_setup_omitted_flags_do_not_write_system_io() {
+        let root = unique_temp_dir("setup-web-safe-defaults");
+        std::fs::create_dir_all(&root).expect("create root");
+        let defaults = SetupDefaults::from_bundle(&root);
+        let state = Arc::new(Mutex::new(SetupState {
+            options: SetupWebOptions {
+                bundle_root: root.clone(),
+                bind: "127.0.0.1".to_string(),
+                port: 8080,
+                token_required: false,
+                token_ttl_minutes: 0,
+                defaults,
+            },
+            token: None,
+            expires_at: None,
+            done: false,
+        }));
+        let payload = SetupApplyRequest {
+            project_path: None,
+            resource_name: Some("SafeDefaults".to_string()),
+            cycle_ms: Some(20),
+            driver: Some("definitely-not-a-system-driver".to_string()),
+            write_system_io: None,
+            overwrite_system_io: None,
+            use_system_io: None,
+        };
+
+        let message = apply_setup(&state, payload)
+            .expect("omitted write flag must retain the advertised false default");
+
+        assert!(message.contains("Setup complete"));
+        assert!(root.join("runtime.toml").is_file());
+        assert!(root.join("program.stbc").is_file());
+        assert!(
+            !root.join("io.toml").exists(),
+            "default use_system_io must remove project io.toml"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 }
