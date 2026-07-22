@@ -659,6 +659,34 @@ or restart a resource, clear a fault, reset storage, consume a retry, or
 authorize recovery. Those effects remain governed by the safe-state, automatic
 restart, and recovery-control contracts above. (DEV-060)
 
+##### Fault recording and policy replacement
+
+Recording a runtime fault sets the portable holder's `faulted` observation to
+true and stores the supplied `RuntimeError` as the exact last fault. A later
+record replaces the earlier last fault. Recording does not change the
+configured `FaultPolicy`, execute that policy, clear state, apply safe outputs,
+or restart a resource. (DEV-061)
+
+Replacing `FaultPolicy` stores the supplied policy exactly. It does not change
+the current faulted flag or stored last error, including when policy is changed
+while the holder is already faulted. Policy replacement returns no evidence
+that the corresponding halt, safe-state, or restart action was executed.
+(DEV-061)
+
+##### Watchdog policy normalization and installation
+
+Before an enabled `WatchdogPolicy` is installed, a timeout less than or equal
+to zero is normalized to one millisecond so the scheduler cannot receive an
+always-expired enabled deadline. A positive enabled timeout is preserved.
+Disabled policy timeouts are inert at this boundary and remain unchanged. The
+configured `WatchdogAction` is preserved in every case. (DEV-062)
+
+`WatchdogSubsystem::set_policy` replaces the previous policy with that exact
+normalized value. Installation does not arm a deadline, report a timeout,
+apply safe state, halt, or restart a resource; those effects remain owned by
+the scheduler and host-control paths. The subsystem decision projection reads
+the installed action without mutating the stored policy. (DEV-062)
+
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
 Retentive variables must follow IEC 61131-3 retentive variable rules (§6.5.6, Figure 9). At

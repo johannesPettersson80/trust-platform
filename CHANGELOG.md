@@ -142,6 +142,13 @@ Target release: `v0.24.54`
   projection contract for halt, safe-halt, and restart, including the exact
   safe-state flag and the boundary between returning a decision and executing
   recovery actions.
+- trust-runtime-core: fault recording and fault-policy replacement now have an
+  explicit state-preservation contract, including latest-error replacement and
+  changing policy while faulted without erasing the current fault.
+- trust-runtime-core: watchdog policy installation now has an explicit
+  normalization contract: enabled non-positive timeouts floor to one
+  millisecond, valid and disabled timeouts retain their values, and installing
+  policy does not itself execute a watchdog action.
 
 ### Added
 

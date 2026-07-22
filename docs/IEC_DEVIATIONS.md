@@ -12,6 +12,49 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Enabled watchdog policy normalization
+
+- ID: DEV-062
+- Area: Portable watchdog policy installation
+- IEC reference: IEC 61131-3 Ed.3 section 6.8 defines resource and task
+  execution but leaves watchdog thresholds and host-control actions
+  implementer-specific. This entry records truST's portable policy boundary;
+  it does not claim that installing a value starts a watchdog deadline.
+- Deviation/extension:
+  - An enabled non-positive timeout normalizes to one millisecond.
+  - An enabled positive timeout is preserved.
+  - A disabled timeout is inert and remains unchanged.
+  - The configured watchdog action is always preserved.
+  - Installing policy stores the normalized value without executing a timeout
+    action or mutating resource state.
+- Impact:
+  - The scheduler cannot receive an enabled always-expired deadline from this
+    boundary, while disabled and already-valid policies retain their values.
+- Mitigation:
+  - Configuration validation should still reject operator mistakes; the
+    one-millisecond floor is a fail-safe runtime boundary, not silent approval
+    of an invalid production configuration.
+
+## 2026-07-22 - Portable fault recording and policy replacement
+
+- ID: DEV-061
+- Area: Portable runtime fault-holder mutation
+- IEC reference: IEC 61131-3 Ed.3 section 6.8 defines resource and task
+  execution but does not define truST's host-side fault holder, stored runtime
+  error, or policy setter. This is a product extension outside the IEC language
+  model.
+- Deviation/extension:
+  - Recording sets the fault flag and stores the supplied error exactly.
+  - A later recording replaces the prior last error and preserves policy.
+  - Replacing policy preserves the fault flag and stored error.
+  - Neither mutation executes halt, safe-state, restart, clear, or recovery.
+- Impact:
+  - Status surfaces observe the latest fault without policy drift, and control
+    paths can change future handling without erasing the current fault record.
+- Mitigation:
+  - Owning host-control code must separately execute policy actions and enforce
+    authorization, safe-state, restart, and recovery contracts.
+
 ## 2026-07-22 - Deterministic portable fault-policy decisions
 
 - ID: DEV-060

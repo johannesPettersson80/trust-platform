@@ -430,6 +430,90 @@ mod tests {
     }
 
     #[test]
+    fn watchdog_policy_normalization_and_installation_cover_boundaries() {
+        for (input, expected) in [
+            (
+                WatchdogPolicy {
+                    enabled: false,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Halt,
+                },
+                WatchdogPolicy {
+                    enabled: false,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Halt,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Restart,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(1),
+                    action: WatchdogAction::Restart,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::ZERO,
+                    action: WatchdogAction::Halt,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(1),
+                    action: WatchdogAction::Halt,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(7),
+                    action: WatchdogAction::SafeHalt,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(7),
+                    action: WatchdogAction::SafeHalt,
+                },
+            ),
+        ] {
+            assert_eq!(input.normalized_for_runtime(), expected);
+
+            let mut watchdog = WatchdogSubsystem::new();
+            watchdog.set_policy(input);
+            assert_eq!(watchdog.policy(), expected);
+            assert_eq!(
+                watchdog.decision(),
+                FaultDecision::from_watchdog(expected.action)
+            );
+        }
+    }
+
+    #[test]
+    fn fault_record_and_policy_updates_preserve_independent_state() {
+        let mut faults = FaultSubsystem::new();
+        faults.set_policy(FaultPolicy::SafeHalt);
+        faults.record(RuntimeError::WatchdogTimeout);
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+
+        faults.set_policy(FaultPolicy::Restart);
+        assert_eq!(faults.policy(), FaultPolicy::Restart);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+
+        faults.record(RuntimeError::DivisionByZero);
+        assert_eq!(faults.policy(), FaultPolicy::Restart);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::DivisionByZero));
+    }
+
+    #[test]
     fn watchdog_and_fault_subsystems_preserve_state_contracts() {
         let mut watchdog = WatchdogSubsystem::new();
         assert_eq!(watchdog.policy(), WatchdogPolicy::default());
