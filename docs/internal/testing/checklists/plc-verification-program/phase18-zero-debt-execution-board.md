@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, starting with exact slice
-`P18-CODE-CODE_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0`.
+`P18-CODE-CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8`.
 The accepted P18-002 ledger owns and orders every current fact; it does not
 close any semantic, mapping, execution, or adequacy population.
 
@@ -315,8 +315,12 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   invariant to `G1`. Both mapped tests independently catch the reviewed
   clear-to-no-op mutation, raising the cumulative assertion result to 16/279
   with zero survivors or harness failures. This is slice progress only:
-  mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
-  and `VERIF-P18-003` globally remain open. Evidence:
+  the refreshed fact ledger now accounts the code fact as `specified`, moves
+  the historical unit test out of `reviewed_nonmapping`, and accounts the
+  generated trace as mapped. Mutation sensitivity, broad remote gates, and
+  `VERIF-P18-003` globally remain open. The active pointer advances to
+  sequence-seven symbol `trust_runtime_core::watchdog::FaultSubsystem::decision`.
+  Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-state-clear.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
