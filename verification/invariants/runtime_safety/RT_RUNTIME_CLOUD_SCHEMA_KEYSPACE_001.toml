@@ -1,0 +1,86 @@
+schema_version = 1
+id = "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001"
+title = "Runtime Cloud schema evolution and canonical keyspace remain unambiguous"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Runtime Cloud accepts only unambiguous forward-appended schema layouts and produces stable canonical key paths and authority decisions for validated identity segments."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime/src/runtime_cloud/contracts.rs",
+  "crates/trust-runtime/src/runtime_cloud/keyspace.rs",
+]
+tests = [
+  "TEST_CONTRACTS_API_VERSION_PARSING_AND_COMPATIBILITY_FOLLOW_CONTRACT_RULES_001",
+  "TEST_CONTRACTS_CATALOG_EPOCH_CACHE_REQUESTS_REFRESH_ONLY_ON_MONOTONIC_INCREASE_001",
+  "TEST_CONTRACTS_CLOUD_CONTRACT_PAYLOADS_ROUND_TRIP_WITH_REASON_CODES_001",
+  "TEST_CONTRACTS_SCHEMA_LAYOUT_ACCEPTS_FORWARD_ADDITIVE_CHANGES_AND_REJECTS_BREAKING_CHANGES_001",
+  "TEST_CONTRACTS_SCHEMA_LAYOUT_REJECTS_AMBIGUOUS_OR_NON_APPENDED_FIELDS_001",
+  "TEST_KEYSPACE_ACTIVE_NAMESPACE_PUBLISH_REQUIRES_ACTIVE_ROLE_001",
+  "TEST_KEYSPACE_CANONICAL_KEY_LAYOUT_MATCHES_RUNTIME_SITE_SHAPE_001",
+  "TEST_KEYSPACE_CONFIG_HIERARCHY_AND_ALIAS_PATHS_ARE_CANONICAL_001",
+  "TEST_KEYSPACE_DEFAULT_STALE_TIMEOUT_IS_MAX_OF_TWICE_PERIOD_AND_TWO_SECONDS_001",
+  "TEST_KEYSPACE_EVERY_RUNTIME_ZONE_AND_ACTIVE_PREFIX_HAS_THE_CANONICAL_SHAPE_001",
+  "TEST_KEYSPACE_META_KEY_HELPERS_COVER_IDENTITY_CATALOG_SHM_AND_CONFIG_SCHEMA_001",
+  "TEST_KEYSPACE_RESERVED_ZONE_CONTRACT_IS_META_SVC_AND_DIAG_001",
+  "TEST_KEYSPACE_RETAINED_LAST_VALUE_IS_UI_ONLY_NOT_CONTROL_001",
+  "TEST_KEYSPACE_SVC_KEY_HELPERS_COVER_LIVELINESS_ROLE_AND_LEASE_STATE_001",
+  "TEST_RUNTIME_CLOUD_CORE_MODULES_DO_NOT_IMPORT_TRANSPORT_LAYERS_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-contract-schema-and-canonical-keyspace"
+
+[[behavior]]
+partition = { equals = "VALID_FORWARD_APPEND" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-contract-schema-and-canonical-keyspace"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A uniquely named, non-overlapping field after the prior layout end is additive-compatible."
+
+[[behavior]]
+partition = { equals = "AMBIGUOUS_OR_NON_APPENDED_LAYOUT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-contract-schema-and-canonical-keyspace"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Duplicate identities, invalid ranges, overlaps, or insertion before the prior end cannot be called forward-additive."
+
+[[behavior]]
+partition = { equals = "VALIDATED_CANONICAL_KEY_SEGMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-contract-schema-and-canonical-keyspace"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Already validated segments map to one stable root, zone, config, metadata, service, or active-authority key."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests cover API compatibility, valid schema append, every keyspace zone, config aliases, metadata, service keys, and stale policy."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "The focused schema matrix rejects duplicate and blank names, invalid ranges, overlaps, removals, moves, and non-appended fields."
+
+[[coverage.cells]]
+dimension = "authority_or_safety"
+state = "covered"
+rationale = "Focused tests cover active-only publication and forbid retained last values on control paths."

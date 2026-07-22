@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::str::FromStr;
 
@@ -175,6 +176,22 @@ pub struct SchemaLayout {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SchemaCompatibilityError {
+    EmptyFieldName,
+    DuplicateField(String),
+    InvalidFieldRange {
+        field: String,
+        offset: u32,
+        size: u32,
+    },
+    OverlappingFields {
+        first: String,
+        second: String,
+    },
+    NewFieldNotAppended {
+        field: String,
+        minimum_offset: u32,
+        actual: u32,
+    },
     MissingField(String),
     OffsetChanged {
         field: String,
@@ -200,6 +217,9 @@ pub fn validate_forward_additive_schema(
     previous: &SchemaLayout,
     candidate: &SchemaLayout,
 ) -> Result<(), SchemaCompatibilityError> {
+    let previous_end = validate_schema_layout_shape(previous)?;
+    validate_schema_layout_shape(candidate)?;
+
     for prior in &previous.fields {
         let Some(next) = candidate
             .fields
@@ -230,7 +250,57 @@ pub fn validate_forward_additive_schema(
             });
         }
     }
+    for field in &candidate.fields {
+        let existed = previous.fields.iter().any(|prior| prior.name == field.name);
+        if !existed && field.offset < previous_end {
+            return Err(SchemaCompatibilityError::NewFieldNotAppended {
+                field: field.name.clone(),
+                minimum_offset: previous_end,
+                actual: field.offset,
+            });
+        }
+    }
     Ok(())
+}
+
+fn validate_schema_layout_shape(layout: &SchemaLayout) -> Result<u32, SchemaCompatibilityError> {
+    let mut names = BTreeSet::new();
+    let mut ranges = Vec::with_capacity(layout.fields.len());
+    for field in &layout.fields {
+        if field.name.trim().is_empty() {
+            return Err(SchemaCompatibilityError::EmptyFieldName);
+        }
+        if !names.insert(field.name.as_str()) {
+            return Err(SchemaCompatibilityError::DuplicateField(field.name.clone()));
+        }
+        let Some(end) = field.offset.checked_add(field.size) else {
+            return Err(SchemaCompatibilityError::InvalidFieldRange {
+                field: field.name.clone(),
+                offset: field.offset,
+                size: field.size,
+            });
+        };
+        if field.size == 0 {
+            return Err(SchemaCompatibilityError::InvalidFieldRange {
+                field: field.name.clone(),
+                offset: field.offset,
+                size: field.size,
+            });
+        }
+        ranges.push((field.offset, end, field.name.as_str()));
+    }
+    ranges.sort_unstable();
+    for adjacent in ranges.windows(2) {
+        let (_first_start, first_end, first_name) = adjacent[0];
+        let (second_start, _second_end, second_name) = adjacent[1];
+        if second_start < first_end {
+            return Err(SchemaCompatibilityError::OverlappingFields {
+                first: first_name.to_string(),
+                second: second_name.to_string(),
+            });
+        }
+    }
+    Ok(ranges.iter().map(|(_, end, _)| *end).max().unwrap_or(0))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -474,6 +544,90 @@ mod tests {
             validate_forward_additive_schema(&previous, &offset_changed),
             Err(SchemaCompatibilityError::OffsetChanged { .. })
         ));
+    }
+
+    #[test]
+    fn schema_layout_rejects_ambiguous_or_non_appended_fields() {
+        let previous = SchemaLayout {
+            fields: vec![SchemaFieldLayout {
+                name: "a".to_string(),
+                offset: 0,
+                size: 4,
+                type_name: "DINT".to_string(),
+            }],
+        };
+
+        for candidate in [
+            SchemaLayout {
+                fields: vec![previous.fields[0].clone(), previous.fields[0].clone()],
+            },
+            SchemaLayout {
+                fields: vec![
+                    previous.fields[0].clone(),
+                    SchemaFieldLayout {
+                        name: "over_existing".to_string(),
+                        offset: 2,
+                        size: 4,
+                        type_name: "DINT".to_string(),
+                    },
+                ],
+            },
+            SchemaLayout {
+                fields: vec![
+                    previous.fields[0].clone(),
+                    SchemaFieldLayout {
+                        name: "new_a".to_string(),
+                        offset: 4,
+                        size: 4,
+                        type_name: "DINT".to_string(),
+                    },
+                    SchemaFieldLayout {
+                        name: "new_b".to_string(),
+                        offset: 6,
+                        size: 4,
+                        type_name: "DINT".to_string(),
+                    },
+                ],
+            },
+            SchemaLayout {
+                fields: vec![
+                    previous.fields[0].clone(),
+                    SchemaFieldLayout {
+                        name: " ".to_string(),
+                        offset: 4,
+                        size: 1,
+                        type_name: "BYTE".to_string(),
+                    },
+                ],
+            },
+            SchemaLayout {
+                fields: vec![
+                    previous.fields[0].clone(),
+                    SchemaFieldLayout {
+                        name: "empty".to_string(),
+                        offset: 4,
+                        size: 0,
+                        type_name: "BYTE".to_string(),
+                    },
+                ],
+            },
+            SchemaLayout {
+                fields: vec![
+                    previous.fields[0].clone(),
+                    SchemaFieldLayout {
+                        name: "overflow".to_string(),
+                        offset: u32::MAX,
+                        size: 2,
+                        type_name: "INT".to_string(),
+                    },
+                ],
+            },
+        ] {
+            assert!(
+                validate_forward_additive_schema(&previous, &candidate).is_err(),
+                "ambiguous, overlapping, zero-sized, or overflowing fields must not be compatible: {candidate:?}"
+            );
+        }
     }
 
     #[test]

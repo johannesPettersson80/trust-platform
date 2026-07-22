@@ -22,6 +22,10 @@ Target release: `v0.24.54`
   the immutable desired snapshot actually applied; a newer desired revision
   accepted during an in-flight success or failure remains pending instead of
   being falsely reported in sync or stranded.
+- trust-runtime: Runtime Cloud forward-additive schema validation now rejects
+  blank or duplicate field names, zero-sized or overflowing ranges, overlaps,
+  and fields inserted before the prior layout end instead of reporting an
+  ambiguous memory layout as compatible.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

@@ -1446,6 +1446,27 @@ control failure. If that failure belongs to a superseded snapshot, its
 diagnostic remains visible but the newer desired revision stays pending and
 eligible for the next reconciliation attempt.
 
+##### Runtime Cloud contract schema and canonical keyspace
+
+Runtime Cloud API versions use the decimal `<major>.<minor>` form. Equal
+versions are exact, versions with the same major are additive-compatible, and
+different majors are breaking. Mesh schema evolution is forward-additive only:
+field names are nonempty and unique, every field has a nonzero representable
+`offset + size` range, and field ranges do not overlap. Every previous field
+must remain present with exactly the same offset, size, and type. New fields may
+start only at or after the end of the complete previous layout; inserting one
+into an existing field or padding range is not an additive append.
+
+Canonical Runtime Cloud keys are assembled from already validated nonempty
+site, runtime, group, and identity segments. The root is
+`truST/<site>/<runtime>`. Runtime-local zones are `_meta`, `io`, `cmd`, `cfg`,
+`diag`, and `svc`; `_meta`, `diag`, and `svc` are reserved. The site-level
+`active` slot may be published only by the current Active authority. Desired,
+reported, status, and metadata configuration documents use the authoritative
+site-level and runtime-alias paths defined by the keyspace helpers. Default UI
+and operations staleness is `max(2 * expected_period, 2 seconds)`. A retained
+last value may support UI continuity but never a control path.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:

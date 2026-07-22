@@ -453,6 +453,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   contract is not an IEC decision or deviation. Assertion reachability,
   mutation sensitivity, rollout and remaining Runtime Cloud subdomains, and the
   final broad remote gates remain open.
+
+  Runtime Cloud schema/keyspace coherent-batch progress (2026-07-22): the
+  product specification now owns API-version compatibility, forward-additive
+  schema layout, canonical key zones/config aliases, active-authority
+  publication, UI/operations stale timeout, and retained-value safety. The
+  expected-red schema matrix proved that duplicate field names, a new field
+  overlapping the existing layout, overlapping appended fields, zero-sized
+  ranges, and overflowing ranges were all reported compatible. The contracts
+  owner now validates nonempty unique names, checked nonzero ranges, global
+  non-overlap, stable previous fields, and true append-only placement. A
+  behavior-lock matrix covers every runtime and active zone prefix without
+  claiming that the key constructors validate arbitrary external segments;
+  their contract begins with already validated identity segments. Generated
+  semantic registration binds all 50 live contracts/keyspace facts and all 15
+  focused unit and architecture tests to
+  `RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001`. Remote focused proof passes 5 contract
+  tests, 9 keyspace tests, and all 5 Runtime Cloud architecture assertions. The
+  shape validator remains inside the contract owner, both modules remain below
+  the large-file threshold and transport-independent, no ownership or execution
+  flow changed, and no diagram update is required. This is a truST product
+  contract, not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, rollout and remaining Runtime Cloud subdomains, and the final
+  broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

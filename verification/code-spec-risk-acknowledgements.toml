@@ -13954,11 +13954,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:d509936c5c3f88caba9367630d0093370b681e0cee59e2222b3da4688f335ed8"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-contract-schema-and-canonical-keyspace"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived version, schema-layout, canonical-key, authority, freshness, and retained-value risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -23348,11 +23348,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:a16ee737bd1cf1a14e423c43008f6ac36ff9373d6a74fcdd7929dbcaf7caba32"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-contract-schema-and-canonical-keyspace"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived version, schema-layout, canonical-key, authority, freshness, and retained-value risks while binding the complete owner modules to the reviewed product contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81337,3 +81337,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C7A18779F9FC4D03F749C21FDF146CAD345A0445B12FA1398120E38A4B12064C"
+code_id = "CODE_C7A18779F9FC4D03F749C21FDF146CAD345A0445B12FA1398120E38A4B12064C"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:fc4ba12820e93eca923718ee2df4ab34b09a4696f14a1d731793d3597be8900d"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-contract-schema-and-canonical-keyspace"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived version, schema-layout, canonical-key, authority, freshness, and retained-value risks while binding the complete owner modules to the reviewed product contract and focused executable tests."

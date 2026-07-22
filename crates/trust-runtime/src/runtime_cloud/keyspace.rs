@@ -198,6 +198,27 @@ mod tests {
     }
 
     #[test]
+    fn every_runtime_zone_and_active_prefix_has_the_canonical_shape() {
+        for (zone, segment) in [
+            (RuntimeZone::Meta, "_meta"),
+            (RuntimeZone::Io, "io"),
+            (RuntimeZone::Cmd, "cmd"),
+            (RuntimeZone::Cfg, "cfg"),
+            (RuntimeZone::Diag, "diag"),
+            (RuntimeZone::Svc, "svc"),
+        ] {
+            assert_eq!(
+                canonical_runtime_zone_prefix("site-a", "rt-1", zone),
+                format!("truST/site-a/rt-1/{segment}")
+            );
+            assert_eq!(
+                canonical_active_zone_prefix("site-a", zone),
+                format!("truST/site-a/active/{segment}")
+            );
+        }
+    }
+
+    #[test]
     fn reserved_zone_contract_is_meta_svc_and_diag() {
         assert!(is_reserved_zone(RuntimeZone::Meta));
         assert!(is_reserved_zone(RuntimeZone::Svc));
