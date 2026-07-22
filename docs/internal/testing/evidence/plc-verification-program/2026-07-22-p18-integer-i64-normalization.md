@@ -100,6 +100,25 @@ closes this invariant's `assertion_reachability` item only. The separate
 `mutation_sensitivity` and formal `VERIF-P18-009` adequacy campaign remain open
 and budget-gated.
 
+## Refreshed slice accounting
+
+The canonical fact ledger was regenerated on the isolated builder from clean
+source `b58dfe73e5f3dda7bda12234cd59b9ae1a49eebf`, then committed and revalidated
+from clean descendant `605919e0`. It contains exactly 15,298 code facts and
+4,044 test facts with zero duplicate or omitted identities. The canonical
+artifact SHA-256 is
+`eb16de61807c386c1289844d683ba9d080b6d0a44988000340f56a52c3153aa3`
+and its input closure is
+`sha256:d5e748460eb17480df40b30a5c3c13299593ce8f80d79da511f5aa304ff4f7e9`.
+
+The exact `to_i64` slice is now `specified` with both test IDs and the reviewed
+invariant. Repository totals are 15,136 remaining `spec_gap` facts, 15,133
+remaining `registered_backlog` facts, and 3,777 remaining
+`reviewed_nonmapping` tests. The rebound report-only zero-debt gate has zero
+contract findings; strict mode correctly remains `open_debt`. All nine focused
+P18 substrate self-tests and 896-record metadata validation pass. No broad
+`clippy` or `test-all` milestone ran.
+
 ## Exact risk acknowledgement
 
 `RISK_ACK_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D`
