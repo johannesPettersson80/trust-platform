@@ -227459,7 +227459,7 @@ owner_ack_expires_on = "2026-10-21"
 disposition = "specified"
 spec_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 invariant_ids = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
-test_ids = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001"]
+test_ids = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001", "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"]
 last_reviewed = "2026-07-22"
 
 [[mappings]]

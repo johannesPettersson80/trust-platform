@@ -101,6 +101,32 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EF59D3F89B6C090FA842"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/tests/signed_integer_materialization_cases.rs"
+name = "signed_integer_materialization_cases"
+command = "cargo test -p trust-runtime-core --test signed_integer_materialization_cases signed_integer_materialization_cases -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
+expected_result = "The generated decision-table partitions execute the complete signed destination boundary matrix: exact SINT, INT, DINT, and LINT minimum, zero, and maximum values; adjacent overflow rejection; and every unsigned or floating target category rejection."
+expected_failure_mode = "A generated partition is not executed, a representable value changes value or destination tag, an adjacent overflow is accepted, a non-signed target is accepted, or no same-run case artifact is emitted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001.json"
+case_file = "verification/cases/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml"
+case_file_digest = "sha256:eacff93189df0af63914f4d21801eed3a5ae413e8e9b42270cff2120796e6053"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

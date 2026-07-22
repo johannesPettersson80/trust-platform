@@ -37712,6 +37712,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EF59D3F89B6C090FA842"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/signed_integer_materialization_cases.rs"
+name = "signed_integer_materialization_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_EF7733E7E189B8A906F5"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
