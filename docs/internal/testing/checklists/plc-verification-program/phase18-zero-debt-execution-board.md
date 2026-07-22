@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, starting with exact slice
-`P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`.
+`P18-CODE-CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D`.
 The accepted P18-002 ledger owns and orders every current fact; it does not
 close any semantic, mapping, execution, or adequacy population.
 
@@ -243,6 +243,18 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Phase 18 rows.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md`.
+
+  Integer-normalization slice progress (2026-07-22): exact sequence-two
+  slice
+  `P18-CODE-CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64` and
+  `RT_INTEGER_I64_NORMALIZATION_001`. Its direct boundary matrix and generated
+  decision-table runner are catalog-mapped, and a clean producer-authentic
+  lock pair promotes the invariant to `G1`. This is slice progress only:
+  assertion reachability, mutation sensitivity, the broad remote gates, and
+  `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-integer-i64-normalization.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
