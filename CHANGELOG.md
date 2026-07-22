@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: standalone `ide serve` now prioritizes an explicitly selected
+  root runtime, reports malformed primary runtime configuration before binding
+  the web server, and loads the selected workspace runtime's recursive,
+  deterministic build-source set instead of looking only in `<workspace>/src`.
 - trust-runtime: benchmark jitter summaries now report zero observations when
   fewer than two latency samples exist instead of inventing a zero-valued
   jitter measurement.

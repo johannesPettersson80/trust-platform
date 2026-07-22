@@ -387,6 +387,24 @@ CLI contract agents and wrappers should target first.
 trust-runtime ide serve --project ./my-plc --listen 127.0.0.1:18080
 ```
 
+`--project` defaults to the current directory and may name either one runtime
+project or a workspace whose direct child directories are runtime projects. A
+root-level `runtime.toml` is the primary runtime when present; otherwise the
+first direct-child `runtime.toml` in lexical path order is primary. A malformed
+selected runtime configuration stops startup. A directory with no runtime
+configuration still starts with the neutral `config-ui` identity so the IDE's
+Open Folder flow remains available.
+
+The standalone control state loads the primary project's sources with the same
+recursive, case-insensitive `.st`/`.pou` discovery and deterministic ordering
+used by project builds, including configured local package dependencies. It
+serves the IDE in `standalone-ide` mode with local authentication and does not
+start a PLC scan cycle, discovery advertisement, or mesh transport. Runtime
+operations that require an executing resource remain unsupported.
+
+`trust-runtime config-ui serve` forwards to the same implementation and prints
+a deprecation warning directing callers to `ide serve`.
+
 ## Related
 
 - [Build, Validate, Test](../../operate/build-validate-test.md)
