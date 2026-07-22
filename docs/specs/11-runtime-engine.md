@@ -820,6 +820,20 @@ This host-side launcher policy is a truST product contract. IEC 61131-3 does
 not define hardware-driver selection or OS-level I/O configuration, so the
 policy is not an IEC deviation.
 
+##### 6.8.0 Deprecated workbench command forwarding
+
+During the documented compatibility window, deprecated `trust-runtime`
+workbench aliases forward their complete argument vector to `trust-dev` after
+printing the removal-not-before warning. Binary resolution uses an explicit
+`TRUST_DEV_BIN` value first, then an executable regular file named `trust-dev`
+beside the running `trust-runtime` binary, then normal `PATH` lookup. A directory
+or non-executable sibling must not shadow a usable PATH command.
+
+The forwarding process preserves a normal child exit code. On Unix, when the
+child terminates from signal `n`, the alias exits with the conventional shell
+status `128 + n` instead of flattening the failure to generic status 1. Spawn
+failures remain normal CLI errors with installation guidance.
+
 ##### 6.8.1 Scriptable control client
 
 `trust-runtime ctl` exchanges one newline-delimited JSON request and response

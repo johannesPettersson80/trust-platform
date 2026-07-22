@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: deprecated workbench-command aliases no longer let a directory
+  or non-executable sibling `trust-dev` shadow a usable PATH command, and Unix
+  signal termination now retains the conventional `128 + signal` exit status.
 - trust-runtime: deploy labels can no longer escape the bundle store, automatic
   labels remain unique within the same second, relative deployment roots and
   dangling pointers are handled correctly, ordinary files are not overwritten

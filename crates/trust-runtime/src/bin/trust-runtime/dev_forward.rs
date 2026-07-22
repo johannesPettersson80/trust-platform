@@ -1,7 +1,7 @@
 //! Compatibility forwarding for workbench commands moving to `trust-dev`.
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::Context;
@@ -35,6 +35,14 @@ pub(crate) fn run_trust_dev_with_warning(
     if let Some(code) = status.code() {
         std::process::exit(code);
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+
+        if let Some(signal) = status.signal() {
+            std::process::exit(128 + signal);
+        }
+    }
     anyhow::bail!("{} terminated by signal", trust_dev.display());
 }
 
@@ -46,10 +54,29 @@ fn resolve_trust_dev_binary() -> PathBuf {
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(parent) = current_exe.parent() {
             let sibling = parent.join(&file_name);
-            if sibling.exists() {
+            if is_executable_regular_file(&sibling) {
                 return sibling;
             }
         }
     }
     PathBuf::from(file_name)
+}
+
+fn is_executable_regular_file(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
