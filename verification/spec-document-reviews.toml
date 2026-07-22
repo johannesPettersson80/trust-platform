@@ -920,7 +920,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_1F76EB22F5A58612D93A01D2"
 path = "docs/internal/testing/checklists/plc-verification-program/metadata-model.md"
-content_sha256 = "2cd7f95b936507fa4c7a9d210b8902d9d0a6ebf4c02805ebe536b0335f736896"
+content_sha256 = "19e4e016e8fb4b5b4b3b9cc15f73594218bd6cd4f83317ee91d5a85737829df6"
 areas = ["verification"]
 authority_levels = ["reviewed_decision"]
 owners = ["verification"]
@@ -931,7 +931,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "active_current"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1
@@ -3691,7 +3691,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_88D2FB60F5E30F249CB938AB"
 path = "docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md"
-content_sha256 = "13f6ad3b5d2d10a0d4d081a1c21e776b964242fb8ebb566a0c085f0d380ef45c"
+content_sha256 = "7f637b70c9549fb90f770e6217a2eee3d9cbee0626c05cb1edaf4ca794d12d6b"
 areas = ["verification"]
 authority_levels = ["internal_governance"]
 owners = ["verification"]
@@ -5323,7 +5323,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_BF86BF8725CA2C53779D654A"
 path = "docs/internal/testing/checklists/architecture-improvements.md"
-content_sha256 = "072c30d357828e5293febbf66838471588f59de898d53f8d9e1a31c27cb9a1e3"
+content_sha256 = "bb16aa269716da0b09d75d4b21cc3182c432de7ed1819179ca0996a05ef78aff"
 areas = ["verification"]
 authority_levels = ["internal_governance"]
 owners = ["verification"]
@@ -5334,7 +5334,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "historical_non_authoritative"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1

@@ -237,9 +237,10 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   `RT_SIGNED_INTEGER_MATERIALIZATION_001`. Its direct boundary matrix and
   generated decision-table runner are catalog-mapped, and a clean
   producer-authentic lock pair promotes the invariant to `G1`. This is slice
-  progress only: `VERIF-P18-003` remains globally open, and this exact slice
-  still carries explicit assertion-reachability, mutation-sensitivity, and
-  broad-remote-gate debt before it can satisfy the downstream Phase 18 rows.
+  progress only: `VERIF-P18-003` remains globally open. This exact slice's
+  assertion-reachability item is now closed; mutation-sensitivity and the
+  broad remote gates remain explicit debt before it can satisfy all downstream
+  Phase 18 rows.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
@@ -274,11 +275,15 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   joins and one cargo-mutants adversarial replacement; no test becomes proven
   until a clean source-SHA-bound baseline and selected-test failure are
   reconstructed from the raw artifact. Clean remote execution at
-  `9603fff646ddcf568b03d573a00bebac1c98654f` proves both mapped tests against
+  `992e87348e91f7614e8276e078617de122413624` proves both mapped tests against
   the viable SINT-arm-deletion mutant: two baselines passed, two selected-test
   failures were caught, and the canonical 265-record artifact retains the
   other 263 records as unrun debt with zero survivors, unviable outcomes,
-  timeouts, or harness failures. This is slice progress only:
+  timeouts, or harness failures. The committed artifact is
+  `sha256:b352613b01f6376f71480334b376491e9506e1f47ac50d88bceae03ca4d0d9b9`
+  with authenticated input closure
+  `sha256:f82d6b74c987ea7d52f78adfb990cd4b1faa020364f0d12f10a85e0d5f40eb3c`.
+  This is slice progress only:
   `VERIF-P18-007` remains globally open and formal mutation adequacy remains
   separately blocked behind `VERIF-P18-009` and its accepted budget.
 - [ ] `VERIF-P18-008` Produce function, line, branch, and condition coverage for
