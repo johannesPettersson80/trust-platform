@@ -326,7 +326,7 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertEqual(1, strict_exit)
             payload = json.loads((out / "strict/p18-zero-debt.json").read_text())
             self.assertEqual("open_debt", payload["status"])
-            self.assertEqual(15135, payload["summary"]["spec_gap"])
+            self.assertEqual(15134, payload["summary"]["spec_gap"])
             self.assertEqual(3777, payload["summary"]["reviewed_nonmapping"])
             index = json.loads((out / "report/artifact-index.json").read_text())
             indexed_paths = {row["path"] for row in index["artifacts"]}
@@ -563,12 +563,13 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
         self.assertEqual(
             [
                 "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
+                "ASSERTION_REACHABILITY_RETAIN_SNAPSHOT_INSERT_001",
                 "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001",
                 "ASSERTION_REACHABILITY_UNSIGNED_INTEGER_MATERIALIZATION_001",
             ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(269, len(records))
+        self.assertEqual(271, len(records))
         by_test = {record["test_id"]: record for record in records}
         expected_bindings = {
             "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001": (
@@ -578,6 +579,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001": (
                 "CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D",
                 "RT_INTEGER_I64_NORMALIZATION_001",
+            ),
+            "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001": (
+                "CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53",
+                "RT_RETAIN_SNAPSHOT_INSERT_001",
+            ),
+            "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001": (
+                "CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53",
+                "RT_RETAIN_SNAPSHOT_INSERT_001",
             ),
             "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001": (
                 "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
