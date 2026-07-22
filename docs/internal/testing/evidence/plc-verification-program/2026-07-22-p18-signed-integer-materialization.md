@@ -104,8 +104,9 @@ eventual zero-debt candidate.
 ## Assertion reachability
 
 The Phase 18 assertion-reachability producer executed the reviewed
-`ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001` shard from clean
-detached source `992e87348e91f7614e8276e078617de122413624` on
+`ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001` shard together with
+the integer-normalization shard from clean detached source
+`534a63107fcc7e4fa6df954fd6a616f0427cc149` on
 `trust-builder-linux-x86_64`. Both cataloged commands passed on the unmodified
 source. The producer then deleted only the `NumericKind::SInt` match arm from
 `signed_from_i128`; the mutant compiled, and each selected test failed with a
@@ -113,9 +114,9 @@ nonzero exit. The semantic validator reconstructed both results as `caught`.
 
 Canonical raw artifact:
 `verification/p18/assertion-reachability.json`, SHA-256
-`b352613b01f6376f71480334b376491e9506e1f47ac50d88bceae03ca4d0d9b9`, input
-closure `sha256:f82d6b74c987ea7d52f78adfb990cd4b1faa020364f0d12f10a85e0d5f40eb3c`.
-Its report-only summary is 2/265 proven, 263 unrun debt, two caught mutants,
+`970f60147aea242c6647f0183d2ec01bca8ca1c4c1887219fd6d292d420da4e8`, input
+closure `sha256:f73f0fe333763d924de39a6bd75ecb7bfd3a07f6afcdad1bbcce6bb8ec0ddeb0`.
+Its report-only summary is 4/267 proven, 263 unrun debt, four caught mutants,
 and zero survivors, unviable outcomes, timeouts, or harness failures. This
 closes this invariant's `assertion_reachability` item only. The separate
 `mutation_sensitivity` and formal `VERIF-P18-009` adequacy campaign remain open

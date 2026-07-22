@@ -3,8 +3,8 @@
 Date: 2026-07-22
 
 Status: exact authority, mapping, executable boundary matrix, and targeted
-behavior-lock proof complete. Dynamic assertion reachability, mutation
-sensitivity, and broad remote proof remain open. No Phase 18 global row or stop
+behavior-lock and source-bound assertion-reachability proof complete. Mutation
+sensitivity and broad remote proof remain open. No Phase 18 global row or stop
 gate is closed by this slice.
 
 ## Scope and authority
@@ -80,13 +80,34 @@ validation passed case regeneration, 893-record metadata validation, and the
 275-to-4,044 catalog staleness join. Full `clippy` and `test-all` were not run;
 the active board reserves them for the one final `VERIF-P18-016` candidate.
 
+## Assertion reachability
+
+The Phase 18 producer executed both reviewed shards in one isolated run from
+clean source `534a63107fcc7e4fa6df954fd6a616f0427cc149` on
+`trust-builder-linux-x86_64`. Both integer-normalization commands passed on the
+unmodified source. It then deleted only the generated `Value::ULInt(v)` match
+arm from `to_i64`; the mutant compiled, and each selected test failed at its
+named assertion. The semantic validator reconstructed both results as
+`caught`.
+
+Canonical raw artifact:
+`verification/p18/assertion-reachability.json`, SHA-256
+`970f60147aea242c6647f0183d2ec01bca8ca1c4c1887219fd6d292d420da4e8`, input
+closure `sha256:f73f0fe333763d924de39a6bd75ecb7bfd3a07f6afcdad1bbcce6bb8ec0ddeb0`.
+Its report-only summary is 4/267 proven, 263 unrun debt, four caught mutants,
+and zero survivors, unviable outcomes, timeouts, or harness failures. This
+closes this invariant's `assertion_reachability` item only. The separate
+`mutation_sensitivity` and formal `VERIF-P18-009` adequacy campaign remain open
+and budget-gated.
+
 ## Exact risk acknowledgement
 
 `RISK_ACK_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D`
 acknowledges the scanner's `fault_mapping` signal for the exact unchanged body
 digest. It is bound to this reviewed specification, invariant, direct unit
 matrix, and producer-authentic lock pair. It does not suppress the signal or
-claim the still-open assertion-reachability, mutation, or broad-gate proof.
+claim mutation adequacy or broad-gate proof; the source-bound catcher evidence
+closes only assertion reachability for this exact slice.
 
 ## Architecture and remaining debt
 
@@ -100,7 +121,6 @@ table, and two small consumers at the owning numeric boundary.
 
 Remaining exact debt:
 
-- source-bound assertion reachability under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - causal broad evidence and final frozen-candidate gates under
   `VERIF-P18-016`;
