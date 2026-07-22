@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
 use indicatif::{ProgressBar, ProgressStyle};
 use trust_runtime::config::{IoConfig, RuntimeBundle, RuntimeConfig};
-use trust_runtime::io::{IoAddress, IoDriverRegistry};
+use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::watchdog::WatchdogPolicy;
 
 use crate::style;

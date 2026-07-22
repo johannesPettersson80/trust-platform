@@ -1,7 +1,8 @@
 fn write_summary(dir: &Path, name: &str, summary: &BundleChangeSummary) -> anyhow::Result<()> {
     let path = dir.join(format!("{name}.txt"));
-    fs::write(&path, summary.render())?;
-    fs::write(dir.join("last.txt"), summary.render())?;
+    let rendered = summary.render();
+    fs::write(&path, &rendered)?;
+    fs::write(dir.join("last.txt"), rendered)?;
     Ok(())
 }
 
@@ -114,9 +115,9 @@ fn diff_io(previous: Option<&IoConfig>, next: &IoConfig) -> Vec<String> {
     changes
 }
 
-fn diff_sources(previous_root: Option<&Path>, next_root: &Path) -> SourceDiff {
-    let prev = previous_root.and_then(|root| collect_sources(root).ok());
-    let next = collect_sources(next_root).unwrap_or_default();
+fn diff_sources(previous_root: Option<&Path>, next_root: &Path) -> anyhow::Result<SourceDiff> {
+    let prev = previous_root.map(collect_sources).transpose()?;
+    let next = collect_sources(next_root)?;
     let mut added = Vec::new();
     let mut removed = Vec::new();
     let mut modified = Vec::new();
@@ -136,9 +137,9 @@ fn diff_sources(previous_root: Option<&Path>, next_root: &Path) -> SourceDiff {
         }
     }
 
-    SourceDiff {
+    Ok(SourceDiff {
         added,
         removed,
         modified,
-    }
+    })
 }

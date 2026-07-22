@@ -867,6 +867,22 @@ removes older directories only from the deployment root's own `bundles/`
 directory. It must not delete the new rollback target. `rollback` swaps the two
 valid pointers without copying or rebuilding either bundle.
 
+Before deployment pointers change, the command writes a deterministic change
+summary that identifies both the bundle being deployed and the previous bundle,
+when one exists. The `runtime.toml` and `io.toml` status is based on the complete
+file content, so a change outside the selected operator-friendly detail bullets
+must still be reported as an update rather than as `unchanged`. Safe-state
+comparison uses the structured I/O address and value, not a potentially lossy
+display form. Source comparison recursively covers `.st` and `.pou` files
+case-insensitively beneath `src/`, with stable relative-path ordering. A source
+directory traversal or file-read failure aborts summary construction and the
+deployment; it is not converted into an empty source set.
+
+`deployments/<label>.txt` and `deployments/last.txt` contain the last successful
+deploy command's change summary. They are not deployment pointers and rollback
+does not rewrite them. The `current` symlink is the authoritative active-bundle
+identifier before and after rollback.
+
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
 

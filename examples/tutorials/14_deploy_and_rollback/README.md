@@ -67,16 +67,17 @@ cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
 
 Expected result:
 - summary file exists
-- summary points to the active deployment entry
+- summary names the newly deployed bundle
 
 ## Step 4: Run active deployment once
 
 Why: post-deploy smoke test proves the deployed artifact is runnable.
 
-Use the active deployment project path shown in `last.txt`:
+Resolve the authoritative active deployment pointer:
 
 ```bash
-trust-runtime --project <active-deployment-project-path>
+readlink -f /tmp/trust-tutorial-14-deploy/current
+trust-runtime --project "$(readlink -f /tmp/trust-tutorial-14-deploy/current)"
 ```
 
 Expected result:
@@ -120,7 +121,7 @@ Why: rollback is your safety action when the latest deployment misbehaves.
 
 ```bash
 trust-runtime rollback --root /tmp/trust-tutorial-14-deploy
-cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
+readlink -f /tmp/trust-tutorial-14-deploy/current
 ```
 
 Expected result:
@@ -153,4 +154,4 @@ Run from the now-active deployment path and test `%IX0.0` -> `%QX0.0` logic.
 - [ ] revision A deployed and verified
 - [ ] revision B deployed and verified
 - [ ] rollback executed and verified
-- [ ] active deployment confirmed via `deployments/last.txt`
+- [ ] active deployment confirmed via the `current` symlink

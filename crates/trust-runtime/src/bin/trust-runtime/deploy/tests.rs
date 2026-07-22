@@ -123,3 +123,56 @@ fn update_symlink_does_not_overwrite_an_ordinary_file() {
     );
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn safe_state_comparison_uses_structural_addresses() {
+    let byte_address = trust_runtime::io::IoAddress::parse("%QB0").expect("parse byte address");
+    let mut byte_array_address = byte_address.clone();
+    byte_array_address.size = trust_runtime::io::IoSize::Bytes(2);
+    let previous = trust_runtime::io::IoSafeState {
+        outputs: vec![(byte_address, trust_runtime::value::Value::Byte(0))],
+    };
+    let next = trust_runtime::io::IoSafeState {
+        outputs: vec![(byte_array_address, trust_runtime::value::Value::Byte(0))],
+    };
+
+    assert!(
+        safe_state_changed(&previous, &next),
+        "different address sizes must not collapse to the same display string"
+    );
+}
+
+#[test]
+fn source_collection_handles_glob_metacharacters_in_project_paths() {
+    let root = temp_dir("sources-[literal]");
+    let nested = root.join("src/nested");
+    fs::create_dir_all(&nested).expect("create nested source directory");
+    fs::write(root.join("src/Main.st"), "PROGRAM Main END_PROGRAM\n").expect("write root source");
+    fs::write(
+        nested.join("Helper.POU"),
+        "FUNCTION Helper : BOOL END_FUNCTION\n",
+    )
+    .expect("write nested source");
+
+    let sources = collect_sources(&root).expect("collect sources from literal path");
+
+    assert_eq!(
+        sources.keys().cloned().collect::<Vec<_>>(),
+        vec!["Main.st".to_string(), "nested/Helper.POU".to_string()]
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn source_diff_propagates_invalid_source_directory_errors() {
+    let root = temp_dir("sources-not-directory");
+    fs::write(root.join("src"), "not a directory\n").expect("write invalid source path");
+
+    let error = diff_sources(None, &root).expect_err("invalid source directory must fail");
+
+    assert!(
+        error.to_string().contains("source path is not a directory"),
+        "unexpected error: {error:#}"
+    );
+    let _ = fs::remove_dir_all(root);
+}

@@ -36,8 +36,9 @@ pub fn run_deploy(
 
     let previous_bundle = current_target
         .as_ref()
-        .and_then(|path| RuntimeBundle::load(path).ok());
-    let summary = BundleChangeSummary::new(previous_bundle.as_ref(), &dest_bundle);
+        .map(RuntimeBundle::load)
+        .transpose()?;
+    let summary = BundleChangeSummary::new(previous_bundle.as_ref(), &dest_bundle)?;
 
     summary.print();
     write_summary(&deployments_dir, &bundle_name, &summary)?;

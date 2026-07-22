@@ -204,3 +204,41 @@ fn deploy_rejects_a_current_pointer_outside_its_bundle_store() {
     assert!(!deploy_root.join("bundles/version-1").exists());
     let _ = std::fs::remove_dir_all(working_dir);
 }
+
+#[test]
+fn deployment_summary_reports_current_bundle_and_any_runtime_file_change() {
+    let working_dir = unique_temp_dir("deploy-summary");
+    let project = working_dir.join("source-project");
+    let deploy_root = working_dir.join("deploy-root");
+    write_bundle(&project);
+
+    let first = run_deploy(&working_dir, &project, "deploy-root", "version-1");
+    assert_success(&first, "deploy version-1");
+
+    let runtime_path = project.join("runtime.toml");
+    let runtime = std::fs::read_to_string(&runtime_path).expect("read runtime.toml");
+    assert!(runtime.contains("listen = \"0.0.0.0:8080\""));
+    std::fs::write(
+        &runtime_path,
+        runtime.replacen("listen = \"0.0.0.0:8080\"", "listen = \"0.0.0.0:8081\"", 1),
+    )
+    .expect("change an untracked runtime setting");
+
+    let second = run_deploy(&working_dir, &project, "deploy-root", "version-2");
+    assert_success(&second, "deploy version-2");
+
+    let summary = std::fs::read_to_string(deploy_root.join("deployments/version-2.txt"))
+        .expect("read deployment summary");
+    let deployed = std::fs::canonicalize(deploy_root.join("bundles/version-2"))
+        .expect("canonical deployed bundle");
+    assert!(
+        summary.contains(&format!("current project version: {}", deployed.display())),
+        "summary must identify the deployed bundle:\n{summary}"
+    );
+    assert!(
+        summary.contains("runtime.toml changes:") && !summary.contains("runtime.toml: unchanged"),
+        "every runtime.toml content change must be visible:\n{summary}"
+    );
+
+    let _ = std::fs::remove_dir_all(working_dir);
+}

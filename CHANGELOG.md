@@ -14,7 +14,10 @@ Target release: `v0.24.54`
   labels remain unique within the same second, relative deployment roots and
   dangling pointers are handled correctly, ordinary files are not overwritten
   as pointers, external pointers are rejected, and pruning preserves the
-  actual immediate rollback bundle.
+  actual immediate rollback bundle. Deployment summaries now identify the new
+  bundle, detect every runtime and I/O configuration-file change, compare safe
+  states structurally, traverse source paths without glob interpretation, and
+  fail instead of silently discarding source-read errors.
 - trust-runtime: `ctl` now keeps the selected project's control token when an
   explicit endpoint overrides only the endpoint, and exits non-zero for
   rejected or malformed control responses instead of reporting script success.

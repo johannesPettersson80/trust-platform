@@ -10,6 +10,14 @@ trust-runtime rollback --root ./deploy-root
 `deploy` writes a versioned deployment entry. `rollback` moves the active
 deployment pointer back to the previous version.
 
+Each successful deploy writes its change summary to
+`deployments/<label>.txt` and copies that summary to `deployments/last.txt`.
+The summary names the newly deployed bundle and the prior bundle and reports
+changes to runtime configuration, I/O configuration, bytecode, and sources.
+`last.txt` records the last deploy operation; it is not the active pointer and
+is not rewritten by rollback. Inspect the `current` symlink to identify the
+active bundle.
+
 Deployment labels are single names, not paths; values containing path
 separators, `.`/`..`, or absolute paths are rejected. The deployment root keeps
 the newly active bundle and the immediately previous bundle. This remains true
