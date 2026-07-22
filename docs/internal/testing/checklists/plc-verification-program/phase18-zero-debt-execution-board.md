@@ -303,6 +303,19 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   sequence-six symbol `trust_runtime_core::watchdog::FaultSubsystem::clear`.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-task-readiness.md`.
+
+  Fault-state clear slice progress (2026-07-22): exact sequence-six slice
+  `P18-CODE-CODE_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle` and
+  `RT_FAULT_STATE_CLEAR_001`. The historical `reviewed_nonmapping` unit test is
+  now catalog-mapped and strengthened, and a generated two-part trace covers
+  recorded-fault clearing plus idempotent healthy clearing while preserving
+  configured policy. A clean producer-authentic lock pair promotes the
+  invariant to `G1`. This is slice progress only: assertion reachability,
+  mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
+  and `VERIF-P18-003` globally remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-state-clear.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
