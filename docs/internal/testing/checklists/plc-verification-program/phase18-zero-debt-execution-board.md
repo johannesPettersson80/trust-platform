@@ -332,7 +332,9 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   `reviewed_nonmapping` tests are now catalog-mapped and strengthened, and a
   generated three-policy trace executes every projection from both healthy and
   recorded-fault holders. A clean producer-authentic lock pair promotes the
-  invariant to `G1`. This is slice progress only: assertion reachability,
+  invariant to `G1`. All three mapped tests independently catch the reviewed
+  configured-policy no-op mutation, raising the cumulative assertion result to
+  19/282 with zero survivors or harness failures. This is slice progress only:
   mutation sensitivity, refreshed fact-ledger accounting, broad remote gates,
   and `VERIF-P18-003` globally remain open. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-fault-policy-decision.md`.

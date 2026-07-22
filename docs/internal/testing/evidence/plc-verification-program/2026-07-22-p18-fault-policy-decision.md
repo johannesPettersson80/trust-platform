@@ -4,9 +4,9 @@ Date: 2026-07-22
 
 Status: exact authority, mapping, strengthened core and host locks, generated
 decision-table trace, and producer-authentic targeted behavior-lock proof
-complete. Source-bound assertion reachability, formal mutation sensitivity,
-fact-ledger refresh, and broad remote proof remain open. No Phase 18 global row
-or stop gate is closed by this slice.
+complete. Source-bound assertion reachability is also complete. Formal mutation
+sensitivity, fact-ledger refresh, and broad remote proof remain open. No Phase
+18 global row or stop gate is closed by this slice.
 
 ## Scope and authority
 
@@ -85,14 +85,47 @@ pre-lock metadata validation, and catalog staleness against all 4,051 scanner
 facts. Full `clippy` and `test-all` were not run; the active board reserves them
 for the one final `VERIF-P18-016` candidate.
 
+## Source-bound assertion reachability
+
+The cumulative Phase 18 producer ran from clean source commit
+`34aaaa93c3e0793765db681b766a0d3025e218dc` in the isolated builder checkout.
+The direct cargo-mutants candidate for `FaultSubsystem::decision` replaces its
+return with `Default::default()`, but `FaultDecision` deliberately has no
+`Default`; that candidate cannot compile and was not misrepresented as an
+executed adversarial proof. The reviewed viable shard instead applies the exact
+generated mutation `MUTANT_FAULT_POLICY_DECISION_SET_POLICY_REPLACE_WITH_UNIT`,
+which replaces adjacent `FaultSubsystem::set_policy` with `()` at
+`watchdog.rs:246:9`. This preserves signatures while violating the invariant's
+configured-policy input to `decision()`.
+
+The core, host, and generated trace locks each pass against the clean source
+and independently fail against that compiled no-op setter. They are therefore
+classified `proven`. This is assertion reachability for the complete invariant
+chain; it is not claimed as a direct body mutation of the sequence-seven
+method.
+
+- Evidence: `EVID_RT_FAULT_POLICY_DECISION_ASSERTION_REACHABILITY_001`
+- Canonical artifact: `verification/p18/assertion-reachability.json`
+- Artifact digest:
+  `sha256:6782bcf7b8b32f0d0fe5ca89a29d0ac3e2a7485c94862296ee2d2e80927313bc`
+- Input-closure digest:
+  `sha256:23f2d6df866703663921b591ba82ae090f7d9c0cd2e3896a38b027d4e5fd2c56`
+- Cumulative result: 19/282 catalog assertions proven, nineteen caught
+  mutants, zero survivors, unviable mutants, timeouts, or harness failures.
+
+The remaining 263 assertions stay explicitly open. This slice does not use the
+cumulative result to waive any other test or the separate formal mutation
+budget in `VERIF-P18-009`.
+
 ## Exact risk acknowledgement
 
 `RISK_ACK_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8`
 acknowledges the scanner's `fault_mapping` signal for the exact unchanged body
 digest. It is bound to `DEV-060`, the fault-policy projection specification,
 the invariant, strengthened core and host locks, and producer-authentic
-generated trace pair. It does not suppress the signal or claim the still-open
-assertion reachability, mutation budget, refreshed ledger, or broad-gate proof.
+generated trace pair. It is also bound to the source-bound assertion-
+reachability artifact. It does not suppress the signal or claim the still-open
+mutation budget, refreshed ledger, or broad-gate proof.
 
 ## Architecture and remaining debt
 
@@ -106,7 +139,6 @@ portable owner.
 
 Remaining exact debt:
 
-- source-bound assertion reachability under global `VERIF-P18-007`;
 - mutation sensitivity and zero viable survivors under `VERIF-P18-009`;
 - refreshed fact-ledger accounting for the exact code and test identities;
 - causal broad evidence and final frozen-candidate gates under
