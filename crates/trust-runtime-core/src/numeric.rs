@@ -202,6 +202,52 @@ mod tests {
     }
 
     #[test]
+    fn integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs() {
+        let representable = [
+            (Value::SInt(i8::MIN), i64::from(i8::MIN)),
+            (Value::SInt(i8::MAX), i64::from(i8::MAX)),
+            (Value::Int(i16::MIN), i64::from(i16::MIN)),
+            (Value::Int(i16::MAX), i64::from(i16::MAX)),
+            (Value::DInt(i32::MIN), i64::from(i32::MIN)),
+            (Value::DInt(i32::MAX), i64::from(i32::MAX)),
+            (Value::LInt(i64::MIN), i64::MIN),
+            (Value::LInt(i64::MAX), i64::MAX),
+            (Value::USInt(u8::MAX), i64::from(u8::MAX)),
+            (Value::UInt(u16::MAX), i64::from(u16::MAX)),
+            (Value::UDInt(u32::MAX), i64::from(u32::MAX)),
+            (Value::ULInt(i64::MAX as u64), i64::MAX),
+        ];
+
+        for (value, expected) in representable {
+            assert_eq!(to_i64(&value), Ok(expected));
+        }
+
+        assert_eq!(
+            to_i64(&Value::ULInt(i64::MAX as u64 + 1)),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(to_i64(&Value::ULInt(u64::MAX)), Err(RuntimeError::Overflow));
+
+        for value in [
+            Value::Bool(false),
+            Value::Real(0.0),
+            Value::LReal(0.0),
+            Value::Byte(0),
+            Value::Word(0),
+            Value::DWord(0),
+            Value::LWord(0),
+            Value::String("0".into()),
+            Value::WString("0".into()),
+            Value::Char(b'0'),
+            Value::WChar(u16::from(b'0')),
+            Value::Reference(None),
+            Value::Null,
+        ] {
+            assert_eq!(to_i64(&value), Err(RuntimeError::TypeMismatch));
+        }
+    }
+
+    #[test]
     fn signed_integer_materialization_preserves_boundaries_and_rejects_invalid_targets() {
         let signed_cases = [
             (

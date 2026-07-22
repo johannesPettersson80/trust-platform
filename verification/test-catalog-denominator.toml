@@ -11852,6 +11852,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_4BCDECA148555EE6800D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/integer_i64_normalization_cases.rs"
+name = "integer_i64_normalization_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_4BE9B46DC6CFA5C3B12D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/tests_part_02.rs"
@@ -16690,6 +16700,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_69CC0C415ACEA7836310"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_69D26B173E1254C6CC59"

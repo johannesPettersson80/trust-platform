@@ -127,6 +127,56 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_69CC0C415ACEA7836310"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs"
+command = "cargo test -p trust-runtime-core numeric::tests::integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_INTEGER_I64_NORMALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+expected_result = "SINT, INT, DINT, and LINT boundaries and every representable unsigned maximum retain their exact i64 value; ULINT above i64::MAX returns RuntimeError::Overflow, and every exercised non-integer runtime category returns RuntimeError::TypeMismatch."
+expected_failure_mode = "A representable integer changes sign or value, ULINT overflow wraps, saturates, truncates, or returns a value, or a non-integer runtime category is interpreted as an integer."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001.json"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4BCDECA148555EE6800D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/tests/integer_i64_normalization_cases.rs"
+name = "integer_i64_normalization_cases"
+command = "cargo test -p trust-runtime-core --test integer_i64_normalization_cases integer_i64_normalization_cases -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_INTEGER_I64_NORMALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+expected_result = "The generated decision-table partitions execute signed and representable unsigned normalization, the ULINT overflow boundary, and non-integer category rejection with exact RuntimeError outcomes."
+expected_failure_mode = "A generated partition is not executed, an integer changes value, overflow or type mismatch returns a substitute value, or no same-run case artifact is emitted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001.json"
+case_file = "verification/cases/runtime_safety/RT_INTEGER_I64_NORMALIZATION_001.toml"
+case_file_digest = "sha256:76a97c9098d244c7305fdc620e304fdfa96dc1406282001718d0a041fcead2c4"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

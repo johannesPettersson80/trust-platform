@@ -206925,9 +206925,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64"
+invariant_ids = ["RT_INTEGER_I64_NORMALIZATION_001"]
+test_ids = ["TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001", "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
