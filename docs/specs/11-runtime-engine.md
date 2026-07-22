@@ -991,6 +991,22 @@ rejected before an onboarding identity is returned and before any ADS wire or
 route side effect. Public and NAT-suspect identities remain ineligible for
 automatic route creation.
 
+###### ADS onboarding discovery endpoint identity
+
+ADS onboarding discovery accepts a manual target, directed UDP identify, and
+optional directed-broadcast results. Manual identity does not depend on UDP
+when an AMS Net ID is supplied; without one, directed identify supplies the
+target identity. A failed broadcast candidate does not erase successful manual
+or other broadcast results.
+
+Discovery uniqueness is the ADS endpoint identity `(AMS Net ID, AMS port)`,
+not the host IP address alone. Multiple PLC runtimes may share one host IP and
+must remain separate results when their AMS Net ID or AMS port differs.
+Repeated observations of the same ADS endpoint are reported once even if its
+IP or discovery provenance differs. Directed-broadcast targets are derived
+only from usable non-loopback, non-link-local IPv4 interface candidates and
+are themselves deduplicated.
+
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
 `trust-runtime bench` validates each workload before measurement: sample,

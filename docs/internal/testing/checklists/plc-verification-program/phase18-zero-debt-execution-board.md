@@ -551,6 +551,28 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   product contract outside IEC 61131-3, not an IEC decision or deviation.
   Assertion reachability, mutation sensitivity, remaining ADS onboarding
   subdomains, and the final broad remote gates remain open.
+
+  ADS onboarding discovery coherent-batch progress (2026-07-22): the runtime
+  product specification now defines manual, directed-identify, and optional
+  directed-broadcast discovery, partial-success isolation, usable interface
+  candidates, and ADS endpoint uniqueness by `(AMS Net ID, AMS port)` rather
+  than host IP. The expected-red regression proved that discovery dropped a
+  second valid PLC runtime whenever it shared the first runtime's host IP. The
+  discovery owner now preserves distinct same-host AMS identities and ports
+  while deduplicating repeated observations of one endpoint. A focused
+  behavior lock also proves that a failed broadcast cannot erase an already
+  valid manual identity. Remote focused proof passes the exact regression,
+  the broadcast-failure lock, and all 29 existing ADS onboarding tests.
+  Deterministic semantic automation binds all 10 live discovery-owner facts
+  and 6 exact discovery tests to `RT_ADS_ONBOARDING_DISCOVERY_001`; the scoped
+  audit reports 615 specified code facts, 14,659 remaining `spec_gap` facts,
+  611 mapped denominator tests, and 3,544 remaining `reviewed_nonmapping`
+  tests. The wire boundary and existing ownership remain unchanged, every
+  touched Rust file remains below the large-file threshold, and no diagram
+  update is required. This is a truST product contract outside IEC 61131-3,
+  not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, remaining ADS onboarding subdomains, and the final broad remote
+  gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

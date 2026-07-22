@@ -37,6 +37,9 @@ Target release: `v0.24.54`
 - trust-runtime: ADS onboarding now rejects malformed runtime-host and target
   IP addresses and blank or malformed local AMS Net ID overrides before
   constructing route authority, and canonicalizes valid six-octet overrides.
+- trust-runtime: ADS discovery now preserves distinct PLC runtime endpoints
+  that share one host IP while still deduplicating repeated observations of
+  the same AMS Net ID and AMS port.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

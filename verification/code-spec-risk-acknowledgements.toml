@@ -51768,11 +51768,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c18c82843aa79e6b1fd42ce34f745ca1ca1c593b77d8c9c84a260d37c29973ad"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-discovery-endpoint-identity"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network discovery and endpoint-identity risks while binding the ADS discovery owner to the reviewed product contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53210,11 +53210,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:fa1460f9ceb4a84681ebe35480b69556764858d98efb89a523805358f031b933"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-discovery-endpoint-identity"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network discovery and endpoint-identity risks while binding the ADS discovery owner to the reviewed product contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53784,11 +53784,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:d8f9eed55754b0879a3ffb7373842e3fd9a4141aa81d37017c6faea7f64d5e68"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-discovery-endpoint-identity"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network discovery and endpoint-identity risks while binding the ADS discovery owner to the reviewed product contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53880,13 +53880,13 @@ id = "RISK_ACK_F8BD6882438CBE37657BD0C44339CA428B232175451D0F272E9594B08218C9A2"
 code_id = "CODE_F8BD6882438CBE37657BD0C44339CA428B232175451D0F272E9594B08218C9A2"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:a28177a4c10a506ca3d69f49827e9de8b47ab9319c832d64099360a0356b2a0c"
+body_digest = "sha256:57911e12eef3cc845c41b5023cc92f88147ef1d164f7ec5d9b3609c2f445aa4d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-discovery-endpoint-identity"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network discovery and endpoint-identity risks while binding the ADS discovery owner to the reviewed product contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
