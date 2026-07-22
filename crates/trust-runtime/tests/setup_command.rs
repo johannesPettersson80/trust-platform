@@ -1,13 +1,17 @@
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time before unix epoch")
         .as_nanos();
+    let sequence = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "trust-runtime-{prefix}-{}-{nanos}",
+        "trust-runtime-{prefix}-{}-{nanos}-{sequence}",
         std::process::id()
     ))
 }
@@ -138,4 +142,52 @@ fn setup_cli_mode_writes_artifacts_and_next_steps() {
     assert!(stdout.contains("trust-runtime --project"));
 
     let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn setup_cli_treats_project_path_glob_characters_literally() {
+    let project = unique_temp_dir("setup-cli-[literal]");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .arg("--mode")
+        .arg("cli")
+        .arg("--project")
+        .arg(&project)
+        .output()
+        .expect("run setup CLI with literal path");
+
+    assert!(
+        output.status.success(),
+        "literal project path setup failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(project.join("program.stbc").is_file());
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn setup_cli_prefixes_numeric_project_resource_name() {
+    let parent = unique_temp_dir("setup-cli-numeric-parent");
+    std::fs::create_dir(&parent).expect("create numeric project parent");
+    let project = parent.join("123");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("setup")
+        .arg("--mode")
+        .arg("cli")
+        .arg("--project")
+        .arg(&project)
+        .output()
+        .expect("run setup CLI for numeric project");
+
+    assert!(
+        output.status.success(),
+        "numeric project setup failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let runtime =
+        std::fs::read_to_string(project.join("runtime.toml")).expect("read generated runtime.toml");
+    assert!(runtime.contains("name = \"Res123\""), "{runtime}");
+
+    let _ = std::fs::remove_dir_all(parent);
 }

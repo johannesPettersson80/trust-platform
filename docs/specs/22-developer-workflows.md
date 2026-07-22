@@ -12,6 +12,37 @@ malformed, or dangling `.git` file is an error; the wizard must not silently
 report Git initialization success. Without an existing marker, initialization
 requires an available `git` command and a successful `git init` exit status.
 
+The guided CLI, browser setup, and automatic first-run wizard must leave a
+coherent runnable project rather than a collection of independently valid
+files. A selected resource name and cycle interval are applied to
+`runtime.toml`, the setup-owned `src/config.st`, and the rebuilt `program.stbc`
+as one prepared change. The complete source set must compile before these
+artifacts are replaced. A cycle interval of zero, an invalid or reserved IEC
+identifier, or a source/build failure rejects the setup instead of writing a
+known-invalid runtime configuration.
+
+Names derived from a project folder are deterministic valid, non-reserved
+Structured Text identifiers under `docs/specs/01-lexical-elements.md`. Empty or
+punctuation-only names use `Res`; a leading digit or reserved keyword is
+prefixed with `Res`. This generation rule is product scaffolding that consumes
+the IEC identifier contract; it is not an IEC decision or deviation.
+
+Wizard bytecode generation recursively discovers `.st` and `.pou` files using
+ASCII case-insensitive extensions, deterministic path order, and literal
+filesystem names. It includes resolved local project dependencies and
+propagates directory/file-read failures. Selecting system I/O removes an
+existing project `io.toml` regular file or symbolic link, including a dangling
+link, but rejects a directory or unsupported filesystem object at that path.
+
+Remote browser setup tokens contain 128 bits from the operating-system secure
+random source. If that source fails, setup aborts before binding the server; it
+must not use zero bytes, timestamps, process IDs, or another fallback token.
+The configured minute TTL is converted and added to the current Unix time with
+checked arithmetic. Overflow is a setup error rather than a wrapped or
+effectively unbounded credential lifetime. Local loopback setup remains
+token-free; remote setup accepts the unexpired token from `X-Setup-Token` or
+the `token` query parameter.
+
 ## Source Discovery
 
 `trust-dev test` recursively discovers regular files below the selected project

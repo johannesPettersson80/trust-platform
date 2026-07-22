@@ -10,6 +10,12 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: guided project setup now rebuilds runtime configuration,
+  generated ST configuration, and bytecode coherently; wizard source discovery
+  treats paths literally and includes project dependencies; generated resource
+  names are valid non-reserved ST identifiers; dangling project I/O links are
+  removed when system I/O is selected; and remote setup fails closed on secure
+  randomness or token-expiry overflow.
 - trust-runtime: `play` now validates restart and simulation-scale options
   before auto-creating a selected project; runtime configuration rejects
   unknown log levels instead of silently treating them as `info`; legacy

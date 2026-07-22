@@ -76,12 +76,11 @@ pub fn create_bundle(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
     let project_name = prompt_string("Project name", "trust-plc")?;
     if prompt_yes_no("Initialize git repository?", true)? {
-        if let Err(err) = git_init(&root) {
-            eprintln!("{err}; continuing without a repository.");
-        }
+        git_init(&root)?;
     }
     let resource_name = SmolStr::new(format_resource_name(&project_name));
     let cycle_ms = prompt_u64("Cycle time (ms)", 100)?;
+    validate_runtime_generation_inputs(&resource_name, cycle_ms)?;
     let driver_default = default_driver();
     let driver = prompt_choice(
         "I/O driver",
@@ -167,10 +166,10 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
     if !program_path.exists() {
         remove_legacy_global_io(&src_dir)?;
-        let sources = collect_sources(&src_dir)?;
+        let sources = collect_sources(&root, &src_dir)?;
         let sources = if sources.is_empty() {
             write_default_sources(&src_dir, &resource_name, cycle_ms)?;
-            collect_sources(&src_dir)?
+            collect_sources(&root, &src_dir)?
         } else {
             sources
         };
@@ -195,8 +194,67 @@ pub(crate) fn write_runtime_toml(
     resource_name: &SmolStr,
     cycle_ms: u64,
 ) -> anyhow::Result<()> {
+    validate_runtime_generation_inputs(resource_name, cycle_ms)?;
+    let bundle_root = runtime_path.parent().ok_or_else(|| {
+        anyhow::anyhow!(
+            "runtime configuration path has no project parent: {}",
+            runtime_path.display()
+        )
+    })?;
     let runtime_text = render_runtime_toml(resource_name, cycle_ms);
+    trust_runtime::config::validate_runtime_toml_text(&runtime_text)?;
+
+    let src_dir = bundle_root.join("src");
+    let config_path = src_dir.join("config.st");
+    let config_text = render_config_source(resource_name, cycle_ms);
+    let mut sources = collect_sources(bundle_root, &src_dir)?;
+    let canonical_config = config_path
+        .canonicalize()
+        .unwrap_or_else(|_| config_path.clone());
+    let mut replaced_config = false;
+    for source in &mut sources {
+        let is_project_config = source.path.as_deref().is_some_and(|path| {
+            let path = Path::new(path);
+            path == config_path
+                || path
+                    .canonicalize()
+                    .map(|resolved| resolved == canonical_config)
+                    .unwrap_or(false)
+        });
+        if is_project_config {
+            source.text.clone_from(&config_text);
+            replaced_config = true;
+        }
+    }
+    if !replaced_config {
+        sources.push(SourceFile::with_path(
+            config_path.display().to_string(),
+            config_text.clone(),
+        ));
+    }
+    sources.sort_by(|left, right| left.path.cmp(&right.path));
+
+    let session = CompileSession::from_sources(sources);
+    let bytecode = session.build_bytecode_bytes()?;
+
+    fs::create_dir_all(&src_dir)?;
+    fs::write(&config_path, config_text)?;
+    fs::write(bundle_root.join("program.stbc"), bytecode)?;
     fs::write(runtime_path, runtime_text)?;
+    Ok(())
+}
+
+pub(crate) fn validate_runtime_generation_inputs(
+    resource_name: &SmolStr,
+    cycle_ms: u64,
+) -> anyhow::Result<()> {
+    if cycle_ms == 0 {
+        anyhow::bail!("cycle interval must be >= 1 ms");
+    }
+    let name = resource_name.as_str();
+    if !trust_hir::is_valid_identifier(name) || trust_hir::is_reserved_keyword(name) {
+        anyhow::bail!("resource name must be a valid non-reserved Structured Text identifier");
+    }
     Ok(())
 }
 
@@ -208,8 +266,16 @@ pub(crate) fn write_io_toml_with_driver(io_path: &Path, driver: &str) -> anyhow:
 }
 
 pub(crate) fn remove_io_toml(io_path: &Path) -> anyhow::Result<()> {
-    if io_path.exists() {
-        fs::remove_file(io_path)?;
+    match fs::symlink_metadata(io_path) {
+        Ok(metadata) if metadata.is_file() || metadata.file_type().is_symlink() => {
+            fs::remove_file(io_path)?;
+        }
+        Ok(_) => anyhow::bail!(
+            "project I/O path is not a removable file: {}",
+            io_path.display()
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
     }
     Ok(())
 }
@@ -243,8 +309,10 @@ fn ensure_gitignore(root: &Path) -> anyhow::Result<()> {
 fn build_io_config(driver: &str) -> anyhow::Result<IoConfigTemplate> {
     if driver.eq_ignore_ascii_case("gpio") {
         let safe_state = vec![("%QX0.0".to_string(), "FALSE".to_string())];
-        let input_line = prompt_u64("GPIO input line for %IX0.0", 17)?;
-        let output_line = prompt_u64("GPIO output line for %QX0.0", 27)?;
+        let input_line = i64::try_from(prompt_u64("GPIO input line for %IX0.0", 17)?)
+            .map_err(|_| anyhow::anyhow!("GPIO input line exceeds the supported i64 range"))?;
+        let output_line = i64::try_from(prompt_u64("GPIO output line for %QX0.0", 27)?)
+            .map_err(|_| anyhow::anyhow!("GPIO output line exceeds the supported i64 range"))?;
         let mut params = toml::map::Map::new();
         params.insert(
             "backend".into(),
@@ -256,11 +324,11 @@ fn build_io_config(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         );
         let inputs = toml::Value::Array(vec![toml::Value::Table(toml::map::Map::from_iter([
             ("address".into(), toml::Value::String("%IX0.0".to_string())),
-            ("line".into(), toml::Value::Integer(input_line as i64)),
+            ("line".into(), toml::Value::Integer(input_line)),
         ]))]);
         let outputs = toml::Value::Array(vec![toml::Value::Table(toml::map::Map::from_iter([
             ("address".into(), toml::Value::String("%QX0.0".to_string())),
-            ("line".into(), toml::Value::Integer(output_line as i64)),
+            ("line".into(), toml::Value::Integer(output_line)),
         ]))]);
         params.insert("inputs".into(), inputs);
         params.insert("outputs".into(), outputs);
@@ -388,27 +456,17 @@ fn upgrade_legacy_sources(
     Ok(())
 }
 
-fn collect_sources(root: &Path) -> anyhow::Result<Vec<SourceFile>> {
-    let mut files = Vec::new();
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
-    for pattern in patterns {
-        for entry in glob::glob(&format!("{}/{}", root.display(), pattern))? {
-            let path = entry?;
-            let path_string = path.display().to_string();
-            if files
-                .iter()
-                .any(|file: &SourceFile| file.path.as_deref() == Some(path_string.as_str()))
-            {
-                continue;
-            }
-            let text = std::fs::read_to_string(&path)?;
-            if is_legacy_global_io(&path_string, &text) {
-                continue;
-            }
-            files.push(SourceFile::with_path(path_string, text));
-        }
-    }
-    files.sort_by(|a, b| a.path.cmp(&b.path));
+fn collect_sources(bundle_root: &Path, sources_root: &Path) -> anyhow::Result<Vec<SourceFile>> {
+    let mut files = trust_runtime::bundle_builder::collect_project_source_files(
+        bundle_root,
+        Some(sources_root),
+    )?;
+    files.retain(|file| {
+        !file
+            .path
+            .as_deref()
+            .is_some_and(|path| is_legacy_global_io(path, &file.text))
+    });
     Ok(files)
 }
 
@@ -451,7 +509,12 @@ fn format_resource_name(project: &str) -> String {
         }
     }
     if out.is_empty() {
-        "Res".to_string()
+        return "Res".to_string();
+    }
+    if out.chars().next().is_some_and(|ch| ch.is_ascii_digit())
+        || trust_hir::is_reserved_keyword(&out)
+    {
+        format!("Res{out}")
     } else {
         out
     }
