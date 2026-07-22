@@ -67,9 +67,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
 name = "build_import_response_honors_explicit_symbol_list"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_00AB9CCB602C92B09A3C"
@@ -2840,6 +2840,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_10922F802CCFD8F0322F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
+name = "build_import_response_prefixes_all_reserved_st_keywords"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_109FAAD8AC081F2B6D69"
@@ -12990,6 +13000,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_504C3E273A3F2B029E92"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
+name = "build_import_response_glob_backtracks_to_anchored_suffix"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_505636BB434FBF01DA6D"
@@ -31030,6 +31050,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BF604FD1F4AB637FB890"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
+name = "build_import_response_empty_pattern_selects_nothing"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_BF68B6908A5FA1711EF0"

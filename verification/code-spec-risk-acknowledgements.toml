@@ -48294,13 +48294,13 @@ id = "RISK_ACK_0A67581F522F291078F6E052DE0B449078D6C494D8B463FD783CC0310E0CD994"
 code_id = "CODE_0A67581F522F291078F6E052DE0B449078D6C494D8B463FD783CC0310E0CD994"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:639cd4fc9903ef041461f101e5f566e882c2baf78100f8cce4556d5b6a323344"
+body_digest = "sha256:227cf219ca8f51ffc32f1693885a46267ee8d2bf6326a2527bca74aabb96b62b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-selection-and-generated-identifiers"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived selection and name-normalization behavior to exact precedence, glob, empty-filter, and canonical ST lexer contracts."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48352,11 +48352,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:414cd75e8edabe45c2184380d81cfce1e563d6e68eef2d1913c93594aa0ad2cb"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-selection-and-generated-identifiers"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived selection and name-normalization behavior to exact precedence, glob, empty-filter, and canonical ST lexer contracts."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50088,11 +50088,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:f7960667b9855d529e5e91293b35119c9cd34b0c4835ddc53e29b26c31e2ec27"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-selection-and-generated-identifiers"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived selection and name-normalization behavior to exact precedence, glob, empty-filter, and canonical ST lexer contracts."
 
 [[acknowledgements]]
 schema_version = 1

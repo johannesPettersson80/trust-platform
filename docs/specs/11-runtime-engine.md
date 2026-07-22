@@ -1043,6 +1043,23 @@ rejected path or overwrite preflight leaves all three artifacts unchanged.
 These confinement and overwrite rules apply to the server-control authoring
 surface; the explicit filesystem paths of the local CLI remain operator-owned.
 
+###### ADS symbol-import selection and generated identifiers
+
+ADS symbol selection is deterministic. A non-empty exact-symbol list has
+exclusive precedence over include patterns. Otherwise include patterns are
+ASCII-case-insensitive; `*` matches any sequence, anchored prefixes and suffixes
+must be honored across the complete symbol, and a pattern without `*` performs
+the documented substring search. An explicitly empty pattern matches nothing
+rather than broadening the import to every uploaded symbol. With neither exact
+symbols nor include patterns, all candidates remain selected by default.
+
+Generated local variable names normalize symbol text to lowercase letters,
+digits, and single embedded underscores, receive a stable suffix on collision,
+and must lex as one Structured Text identifier rather than a keyword or other
+token. A normalized keyword receives the `ads_` prefix. This follows IEC
+61131-3:2013 6.1.2 and Table 2 for identifier form and 6.1.3 for the
+case-insensitive prohibition on using keywords as variable names.
+
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
 `trust-runtime bench` validates each workload before measurement: sample,

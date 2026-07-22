@@ -171949,9 +171949,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -172663,16 +172665,18 @@ path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
 qualified_symbol = "trust_runtime::ads::onboarding::import::wildcard_match"
 item_kind = "rust_function"
 signature_digest = "sha256:eb9f4b24c55ad649a26be6d99ecaab0b28477296f866c8a8ed2e558cfe75d2dc"
-reviewed_body_digest = "sha256:639cd4fc9903ef041461f101e5f566e882c2baf78100f8cce4556d5b6a323344"
+reviewed_body_digest = "sha256:227cf219ca8f51ffc32f1693885a46267ee8d2bf6326a2527bca74aabb96b62b"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0A67581F522F291078F6E052DE0B449078D6C494D8B463FD783CC0310E0CD994"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -173121,10 +173125,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0E2F179B9E59A7631C450809964C8E8040FDC74F8AFBE1527FAFECAA3FF9FACA"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177385,9 +177391,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180824,9 +180832,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -181757,9 +181767,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -182460,10 +182472,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_627903010A62BF5D4926A0C15FF1E67071C70F26F6CEBC56C17A82812FBD2BEE"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -184356,9 +184370,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -185400,9 +185416,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -187106,14 +187124,16 @@ path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
 qualified_symbol = "trust_runtime::ads::onboarding::import::is_reserved_identifier"
 item_kind = "rust_function"
 signature_digest = "sha256:e90e17d7652ddb29c9e5fee5137173e57208bdd2c0d9b2504acd687eb2750c12"
-reviewed_body_digest = "sha256:aec2cc9542c3cc4c0c78d1325e4462413dedd1d679e0e85e6432b77cfc970ea0"
+reviewed_body_digest = "sha256:69f48a80e6c2448a0efd07f527ac37d95218ba3c47d0b31e2ba88ecd2a758c6d"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188764,9 +188784,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -195673,9 +195695,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+invariant_ids = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001"]
+test_ids = ["TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001", "TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

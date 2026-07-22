@@ -621,6 +621,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   61131-3, not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, remaining ADS symbol-import semantics, and the final broad
   remote gates remain open.
+
+  ADS symbol-import selection coherent-batch progress (2026-07-22): the runtime
+  product specification now defines exact-list precedence, ASCII-insensitive
+  `*` selection, empty-pattern behavior, deterministic collision suffixes, and
+  generated identifiers that remain valid under IEC 61131-3:2013 6.1.2,
+  Table 2, and 6.1.3. Three expected-red tests proved that an empty include
+  pattern selected every uploaded symbol, an anchored glob stopped at an
+  earlier suffix fragment instead of backtracking, and valid ST keywords not
+  present in a copied partial list became generated variable names. The
+  selection owner now uses a complete star matcher and the canonical ST lexer
+  for keyword truth. Remote focused proof passes all 4 response-selection tests
+  and all 8 core symbol-import tests. Deterministic semantic automation binds
+  12 exact selection/name facts and 4 focused tests to
+  `RT_ADS_SYMBOL_IMPORT_SELECTION_001`; the scoped audit reports 656 specified
+  code facts, 14,623 remaining `spec_gap` facts, 632 mapped denominator tests,
+  and 3,535 remaining `reviewed_nonmapping` tests. The import owner is 897
+  lines, reuses the existing syntax dependency instead of duplicating keyword
+  ownership, and needs no diagram update. This is a truST selection contract
+  aligned with IEC identifier syntax, not an IEC decision or deviation.
+  Assertion reachability, mutation sensitivity, remaining ADS import apply
+  semantics, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
