@@ -90,6 +90,65 @@ fn ads_validate_cli_returns_nonzero_with_first_diff_for_generated_drift() {
 }
 
 #[test]
+fn ads_import_cli_writes_idempotently_and_requires_force_for_drift() {
+    let root = unique_temp_dir("ads-cli-import-output");
+    let config = write_ads_config(&root);
+    let snapshot = write_snapshot(
+        &root,
+        "line1",
+        vec![SymbolDescriptor::new(
+            "MAIN.Temperature",
+            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+            0x4020,
+            0,
+            4,
+        )
+        .with_flag(SymbolFlag::Read)],
+    );
+    let generated = root.join("nested/generated/ads_generated.st");
+
+    let run_import = |force: bool| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+        command.args([
+            "ads",
+            "import",
+            "--config",
+            config.to_str().expect("config path"),
+            "--snapshot",
+            snapshot.to_str().expect("snapshot path"),
+            "--output",
+            generated.to_str().expect("generated path"),
+            "--json",
+        ]);
+        if force {
+            command.arg("--force");
+        }
+        command.output().expect("run trust-runtime ads import")
+    };
+
+    let first = run_import(false);
+    assert_success(&first);
+    assert!(String::from_utf8_lossy(&first.stdout).contains("\"changed\": true"));
+    assert!(std::fs::read_to_string(&generated)
+        .expect("generated source")
+        .contains("line1_temp : REAL;"));
+
+    let unchanged = run_import(false);
+    assert_success(&unchanged);
+    assert!(String::from_utf8_lossy(&unchanged.stdout).contains("\"changed\": false"));
+
+    std::fs::write(&generated, "manually edited\n").expect("edit generated source");
+    assert_failure_contains(&run_import(false), "--force");
+    let forced = run_import(true);
+    assert_success(&forced);
+    assert!(std::fs::read_to_string(&generated)
+        .expect("forced generated source")
+        .contains("line1_temp : REAL;"));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn ads_route_script_cli_emits_static_routes_json() {
     let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args([

@@ -209,6 +209,20 @@ Live runtime ADS I/O is not started by these CLI commands. It is enabled by
 `[runtime.ads]` in `runtime.toml` and requires a runtime built with feature
 `ads-wire`.
 
+Offline `ads import` and `ads validate --offline` read `ads.toml` and cached
+symbol snapshots without opening a PLC connection. Snapshot arrays are
+canonicalized before generation so output is deterministic. Import creates
+missing parent directories, reports `changed: false` when the generated file
+already matches byte-for-byte, and refuses to replace different content unless
+`--force` is present. Offline validation requires at least one snapshot and
+reports generated-source drift with the first differing line.
+
+Live discovery, browse, Doctor, guarded AddRoute, symbol import, and live
+validation fail closed when the binary lacks the `ads-wire` feature; they do
+not synthesize discovery or hardware results and do not write generated files.
+Human output summarizes the same report objects emitted by `--json`; machine
+consumers should use `--json` rather than parse styled terminal text.
+
 ADS server mode is enabled separately by `[runtime.ads_server]` and requires a
 runtime built with feature `ads-server`. Common server workflow:
 
