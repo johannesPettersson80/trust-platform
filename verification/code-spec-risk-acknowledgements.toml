@@ -49822,11 +49822,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:dcb07700652fbfce8bba869912fc45bd12361eed1391678c748f3dfecf840567"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-route-artifact-and-credential-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived credential, generated-script, and route-mutation risks while binding the route owner to the reviewed product security contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51250,11 +51250,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:f6a335781b409d2512057c54d78d8d72bf5a7294185e6cca392d2a44d7621a33"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-route-artifact-and-credential-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived credential, generated-script, and route-mutation risks while binding the route owner to the reviewed product security contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53308,11 +53308,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:4d68e58cfb7c062af160414a2f1be19ce2364bf04930b623a56ebce13af11bc1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-route-artifact-and-credential-safety"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived credential, generated-script, and route-mutation risks while binding the route owner to the reviewed product security contract and focused tests."
 
 [[acknowledgements]]
 schema_version = 1

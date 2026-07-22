@@ -573,6 +573,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, remaining ADS onboarding subdomains, and the final broad remote
   gates remain open.
+
+  ADS onboarding route-security coherent-batch progress (2026-07-22): the
+  runtime product specification now owns credential-channel eligibility,
+  nonblank one-shot credentials, credential-free deterministic artifacts, XML
+  escaping, PowerShell data/code separation, safe filenames, exact-name route
+  replacement/removal, backup and encoding reporting, and client/server role
+  guidance. Two expected-red tests proved that blank usernames/passwords
+  reached the automatic route wire and that a crafted route name could
+  terminate the generated raw PowerShell XML here-string. Trusted eligible
+  route addition now rejects blank credentials before the wire, and generated
+  PowerShell carries escaped UTF-8 route XML as base64 data before decoding it
+  for `DocumentFragment.InnerXml`. The injection regression decodes the payload
+  and proves hostile text remains escaped XML. Remote focused proof passes both
+  new security tests and all 29 existing ADS onboarding tests. Deterministic
+  semantic automation binds all 21 live route-owner facts and 9 exact
+  route/security tests to `RT_ADS_ONBOARDING_ROUTE_SECURITY_001`; the scoped
+  audit reports 636 specified code facts, 14,638 remaining `spec_gap` facts,
+  620 mapped denominator tests, and 3,537 remaining `reviewed_nonmapping`
+  tests. The route owner and wire boundary retain their responsibilities, the
+  Rust file remains below the large-file threshold, and no diagram update is
+  required. This is a truST product security contract outside IEC 61131-3, not
+  an IEC decision or deviation. Assertion reachability, mutation sensitivity,
+  remaining ADS onboarding subdomains, and the final broad remote gates remain
+  open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

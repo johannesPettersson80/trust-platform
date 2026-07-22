@@ -1007,6 +1007,25 @@ IP or discovery provenance differs. Directed-broadcast targets are derived
 only from usable non-loopback, non-link-local IPv4 interface candidates and
 are themselves deduplicated.
 
+###### ADS onboarding route artifact and credential safety
+
+Automatic ADS route addition is available only over a credential-permitted
+channel and never for a public or NAT-suspect runtime-host identity. Both the
+one-shot username and password must contain non-whitespace text before the wire
+operation is called. Credentials are neither serializable nor present in route
+plans, generated artifacts, reports, logs, or error detail.
+
+Route-plan and route-removal artifacts are deterministic and credential-free.
+XML content escapes every user-controlled field. Generated PowerShell treats
+that XML only as data: it transports the UTF-8 XML payload through a non-
+executable encoding and decodes it before assigning `DocumentFragment.InnerXml`;
+user-controlled text must never be able to terminate a PowerShell here-string
+or introduce a command. PowerShell single-quoted values escape embedded quote
+characters, and generated filenames use a filesystem-safe slug. Apply and
+remove scripts back up each selected `StaticRoutes.xml`, match a route by its
+exact name, preserve unrelated routes, and report an encoding/BOM change.
+Client and server roles retain their distinct operator instructions.
+
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
 `trust-runtime bench` validates each workload before measurement: sample,

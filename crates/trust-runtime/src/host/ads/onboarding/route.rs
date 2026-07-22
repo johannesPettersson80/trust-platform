@@ -1,3 +1,5 @@
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::ads::diagnostics::{
@@ -107,6 +109,14 @@ pub fn add_route_with_channel_policy<W: AdsOnboardingWire>(
         return Err(OnboardingWireError::new(
             OnboardingWireErrorKind::UnsupportedOperation,
             "automatic ADS route-add is disabled for this credential channel",
+        ));
+    }
+    if request.credentials.username.trim().is_empty()
+        || request.credentials.password.trim().is_empty()
+    {
+        return Err(OnboardingWireError::new(
+            OnboardingWireErrorKind::CredentialsRejected,
+            "automatic ADS route-add requires non-empty one-shot credentials",
         ));
     }
     if matches!(
@@ -260,6 +270,7 @@ fn powershell_route_script(request: &RoutePlanRequest) -> String {
         request.local.chosen_ip.as_str(),
         request.local.ams_net_id.as_str(),
     );
+    let snippet_base64 = BASE64_STANDARD.encode(snippet.as_bytes());
     let role_comment = match request.role {
         RoutePlanRole::Client => {
             "# Run this on the TwinCAT PLC/runtime that the truST ADS client connects to."
@@ -286,8 +297,9 @@ function Get-TrustRouteEncodingLabel([string]$Path) {{
 $RouteName = '{route_name}'
 $RouteAddress = '{address}'
 $RouteNetId = '{net_id}'
-$RouteXml = @'
-{snippet}'@
+# The decoded route XML uses the static route flag <Flags>0</Flags>.
+$RouteXmlBase64 = '{snippet_base64}'
+$RouteXml = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($RouteXmlBase64))
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {{
@@ -351,7 +363,7 @@ Write-Host 'Restart the TwinCAT router or Usermode Runtime if the route is not p
         route_name = powershell_single_quote(request.route_name.as_str()),
         address = powershell_single_quote(request.local.chosen_ip.as_str()),
         net_id = powershell_single_quote(request.local.ams_net_id.as_str()),
-        snippet = snippet,
+        snippet_base64 = snippet_base64,
         role_comment = role_comment,
     )
 }
@@ -440,5 +452,92 @@ fn slug(value: &str) -> String {
         "route".to_string()
     } else {
         trimmed.to_string()
+    }
+}
+
+#[cfg(test)]
+mod security_tests {
+    use super::*;
+    use crate::ads::onboarding::wire::MockAdsOnboardingWire;
+
+    fn target_identity() -> TargetIdentity {
+        TargetIdentity {
+            name: Some("CX-1234".to_string()),
+            ip: "192.168.10.5".to_string(),
+            ams_net_id: "5.23.91.12.1.1".to_string(),
+            ams_port: 851,
+            tc_version: Some("3.1.4024".to_string()),
+        }
+    }
+
+    fn local_identity() -> LocalIdentity {
+        LocalIdentity {
+            host_name: Some("line-controller-1".to_string()),
+            chosen_ip: "192.168.10.20".to_string(),
+            ams_net_id: "192.168.10.20.1.1".to_string(),
+            nic: Some("eth0".to_string()),
+            candidates: Vec::new(),
+            classification: LocalNetworkClassification::Lan,
+        }
+    }
+
+    #[test]
+    fn route_powershell_encodes_xml_against_here_string_breakout() {
+        let route_name = "line-a\n'@\nWrite-Output 'PWNED'";
+        let plan = build_route_plan(RoutePlanRequest {
+            role: RoutePlanRole::Client,
+            route_name: route_name.to_string(),
+            target: target_identity(),
+            local: local_identity(),
+            channel: CredentialChannelClassification::TrustedSameHost,
+        });
+        let script = plan
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.kind == RouteArtifactKind::Powershell)
+            .expect("PowerShell artifact")
+            .content
+            .as_str();
+
+        assert!(script.contains("FromBase64String"));
+        assert!(!script.contains("$RouteXml = @'"));
+        assert!(!script.contains("\n'@\nWrite-Output 'PWNED'"));
+        let encoded = script
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("$RouteXmlBase64 = '")
+                    .and_then(|value| value.strip_suffix('\''))
+            })
+            .expect("encoded XML payload");
+        let decoded = BASE64_STANDARD
+            .decode(encoded)
+            .expect("valid base64 route XML");
+        let decoded = String::from_utf8(decoded).expect("UTF-8 route XML");
+        assert!(decoded.contains("<Name>line-a\n&apos;@\nWrite-Output &apos;PWNED&apos;</Name>"));
+    }
+
+    #[test]
+    fn automatic_route_add_rejects_blank_credentials_before_wire() {
+        for (username, password) in [("", "secret"), ("operator", ""), ("  ", "\t")] {
+            let request = RouteAddRequest {
+                route_name: "line-a".to_string(),
+                target: target_identity(),
+                local: local_identity(),
+                credentials: RouteCredentials {
+                    username: username.to_string(),
+                    password: password.to_string(),
+                },
+            };
+            let mut wire = MockAdsOnboardingWire::default();
+
+            let error = add_route_with_channel_policy(
+                &mut wire,
+                &request,
+                CredentialChannelClassification::TrustedSameHost,
+            )
+            .expect_err("blank credentials must fail before route addition");
+
+            assert_eq!(error.kind, OnboardingWireErrorKind::CredentialsRejected);
+        }
     }
 }
