@@ -1312,6 +1312,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_08142292C0352D756DB8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_readiness_requires_matching_deployed_status"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_REQUIRES_MATCHING_DEPLOYED_STATUS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_08261C6721F17E842D4A"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_interfaces.rs"
@@ -2670,6 +2680,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"
 last_reviewed = "2026-07-21"
+
+[[reviews]]
+discovery_id = "DISC_0F8EA51F62503047BC23"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_readiness_is_not_ready_without_evidence"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_IS_NOT_READY_WITHOUT_EVIDENCE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_0F9C3956D0F60788ACBE"
@@ -5002,6 +5022,16 @@ catalog_test_id = "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_H
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_1DAA609AE621910112D9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "doctor_overall_keeps_nonblocking_failure_partial"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_KEEPS_NONBLOCKING_FAILURE_PARTIAL_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_1DB21BB00B8CD33534B6"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/oop_single_axis/src/tests.st"
@@ -6702,6 +6732,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_281E97F6EFC40AB12F1B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_readiness_needs_recheck_on_mismatch_fault_or_expiry"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_NEEDS_RECHECK_ON_MISMATCH_FAULT_OR_EXPIRY_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_28297EEF6C889EF7ED14"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1/calls_failures_cache.rs"
@@ -8017,9 +8057,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "reports_contain_no_secret_fields_by_construction"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_REPORTS_CONTAIN_NO_SECRET_FIELDS_BY_CONSTRUCTION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_2E9172DF9B9DA9975F9C"
@@ -8347,9 +8387,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "serializes_documented_missing_route_shape_deterministically"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SERIALIZES_DOCUMENTED_MISSING_ROUTE_SHAPE_DETERMINISTICALLY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_30BF7A25E82D62C835F3"
@@ -8962,6 +9002,16 @@ catalog_test_id = "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_33EAE59AB49A9ADB2726"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_readiness_honors_age_status_hash_and_clock_warning"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_HONORS_AGE_STATUS_HASH_AND_CLOCK_WARNING_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_3418DE949E799427C04E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/verification-cases/src/lib.rs"
@@ -9136,16 +9186,6 @@ discovery_id = "DISC_35641259617B088E7110"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs"
 name = "test_program_bare_missing_name_is_rejected"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_35686A92EB060E3C3E53"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "production_readiness_needs_recheck_on_mismatch_fault_or_expiry"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -10982,16 +11022,6 @@ catalog_test_id = "TEST_STATE_LINKS_SEED_LINK_TRANSPORT_PREFERENCES_APPLIES_AND_
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_43A10D51EBCF1E560953"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "production_readiness_requires_matching_deployed_status"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_43A1951229C19A1BB4B5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/call/tests/argument_binding.rs"
@@ -12497,9 +12527,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "committed_golden_fixtures_match_rust_schema"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_COMMITTED_GOLDEN_FIXTURES_MATCH_RUST_SCHEMA_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4DC9E89EBC56F7B8B9D8"
@@ -12930,6 +12960,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_501B44448E93AF538542"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_ready_requires_pass_and_evidence"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_READY_REQUIRES_PASS_AND_EVIDENCE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_5031BE2120B0629487DF"
@@ -13556,16 +13596,6 @@ discovery_id = "DISC_536B258421ADD8E350A4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hot_reload.rs"
 name = "hot_reload_invalid_module_reports_deterministic_error"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_53701DB3E65A41F5CC42"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "production_ready_requires_pass_and_evidence"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -14462,16 +14492,6 @@ catalog_test_id = "TEST_RUNTIME_FORCE_RELEASE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_5870F66F23B67BE26C7C"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "server_production_ready_requires_independent_client_evidence"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_587C054C1B4FEFCC83B7"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/07_complex_mathematics/tests.st"
@@ -14556,16 +14576,6 @@ discovery_id = "DISC_591D1F80D69EE11A5354"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_scope.rs"
 name = "test_test_program_scope_resolution"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_592E9E21356943F44CDA"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "production_evidence_builder_hashes_declared_inputs"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -15276,16 +15286,6 @@ discovery_id = "DISC_5D5805D749354AFB4996"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_fails_for_version_mismatch"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_5D62DC5218997E909928"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "production_readiness_is_not_ready_without_evidence"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -16170,6 +16170,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_629E800AF4EE8CD50B0F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "server_evidence_reports_allowed_client_serialization_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SERVER_EVIDENCE_REPORTS_ALLOWED_CLIENT_SERIALIZATION_FAILURE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_62C419221630F8B20B48"
@@ -19002,6 +19012,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_737FA9868F2DC166B79B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "server_production_ready_requires_independent_client_evidence"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REQUIRES_INDEPENDENT_CLIENT_EVIDENCE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_738D769BA80FB78B8554"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/homing/src/tests.st"
@@ -21002,16 +21022,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_8158660BFF570618628B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "v1_client_evidence_json_still_deserializes_with_server_defaults"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_815A8962E2B241E7D833"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
@@ -21117,9 +21127,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "skip_reasons_match_contract_names"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SKIP_REASONS_MATCH_CONTRACT_NAMES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_82104467EBE44E6F96C1"
@@ -21200,6 +21210,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_829F04A79A1024AE0A42"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/schema_tests.rs"
+name = "diagnostic_wire_enums_keep_the_version_two_contract_names"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_WIRE_ENUMS_KEEP_THE_VERSION_TWO_CONTRACT_NAMES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_82B225A6A2EEF8FEE8BD"
@@ -21797,9 +21817,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "credential_channel_classification_enforces_secret_boundary"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_CREDENTIAL_CHANNEL_CLASSIFICATION_ENFORCES_SECRET_BOUNDARY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_866F15B7F36E0FD00D03"
@@ -24627,9 +24647,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "error_classifier_maps_common_failures_to_remediation_and_actions"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_ERROR_CLASSIFIER_MAPS_COMMON_FAILURES_TO_REMEDIATION_AND_ACTIONS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9920F3AF6490E2A85EFA"
@@ -25117,9 +25137,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "server_step_ids_match_contract_names"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SERVER_STEP_IDS_MATCH_CONTRACT_NAMES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_9B2B2CFFDB0CAE77D5D9"
@@ -25319,6 +25339,16 @@ name = "add_notification_accepts_smaller_watch_and_rejects_too_large_watch"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
+discovery_id = "DISC_9C5E7C995786003163FB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "server_production_ready_rejects_incomplete_or_client_role_evidence"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REJECTS_INCOMPLETE_OR_CLIENT_ROLE_EVIDENCE_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
@@ -31002,6 +31032,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_BE58790A5ED87567FEBA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_evidence_builder_hashes_declared_inputs"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_BUILDER_HASHES_DECLARED_INPUTS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_BE5DA848938B7233D91D"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/connector-status-contract.test.ts"
@@ -34272,6 +34312,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_D2918AB76E4C1176BCD2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "production_evidence_hashes_snapshot_sets_independent_of_connection_order"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_HASHES_SNAPSHOT_SETS_INDEPENDENT_OF_CONNECTION_ORDER_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_D29DC78389C9E7C836E9"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts"
@@ -35942,6 +35992,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DE8D22B093D18533F35D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "evidence_hash_inputs_are_stable_and_complete"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_EVIDENCE_HASH_INPUTS_ARE_STABLE_AND_COMPLETE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_DE976A1A8F7E4DBB441D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ads-server/src/listener.rs"
@@ -36922,6 +36982,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E478F01AD6E37430FC5F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "v1_client_evidence_json_still_deserializes_with_server_defaults"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_V1_CLIENT_EVIDENCE_JSON_STILL_DESERIALIZES_WITH_SERVER_DEFAULTS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E48865AC746B285034BC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bounded_value_semantics.rs"
@@ -37297,9 +37367,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "schema_reserves_server_role_without_server_modules"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_SCHEMA_RESERVES_SERVER_ROLE_WITHOUT_SERVER_MODULES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E6C75C05D60B64CA90BD"
@@ -39647,9 +39717,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
 name = "next_action_kinds_match_contract_names"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_NEXT_ACTION_KINDS_MATCH_CONTRACT_NAMES_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F3555CD7ED8E088DF038"
@@ -39812,16 +39882,6 @@ catalog_test_id = "TEST_RUNTIME_PAUSE_WATCHDOG_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_F49BF2C6ED0365258046"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/diagnostics/tests.rs"
-name = "evidence_hash_inputs_are_stable_and_complete"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_F49C57548B9263F3DA63"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs"
@@ -39900,6 +39960,16 @@ ignore_state = "ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "ignored_test_registry_owned"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F50DB3FDFCF58A055753"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/readiness_tests.rs"
+name = "doctor_overall_fails_closed_for_empty_steps"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_FAILS_CLOSED_FOR_EMPTY_STEPS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F510A67ED09C71BA2B67"
@@ -41680,6 +41750,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FF3064BED9A1C8998224"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/diagnostics/tests/schema_tests.rs"
+name = "diagnostic_maps_and_action_builders_serialize_deterministically"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_MAPS_AND_ACTION_BUILDERS_SERIALIZE_DETERMINISTICALLY_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_FF389AFB0C0F656C2142"

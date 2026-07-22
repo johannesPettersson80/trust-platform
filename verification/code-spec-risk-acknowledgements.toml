@@ -48310,11 +48310,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:ba972d8a81a684077c4c75bcb66a8eee470ffd57143b0ebf565e53a2a6ebb67b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48448,13 +48448,13 @@ id = "RISK_ACK_1153A08EFC3E7005AE572B3B790C2F5837CEF3A4750C1AEF6D3AF371F42F7CDB"
 code_id = "CODE_1153A08EFC3E7005AE572B3B790C2F5837CEF3A4750C1AEF6D3AF371F42F7CDB"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:28a1d466f0e480633efc68101dd74a51d977dca7e1494ce9754e22da49e7f4cc"
+body_digest = "sha256:21576885462379cca3d45ea87576fab093423b68eb76696c32e8d83df2ef4380"
 risk_signals = ["authorization", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48842,11 +48842,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:1b4d106dfa3b87e1a0e1b8ba8fccd172034d828af28917e37ac71ab7e2a0ce0f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49192,11 +49192,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:494c2ead5cf77e14605b71b7d2b5602f760c2bb02689d9f90a6b61838fe2396b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49248,11 +49248,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:4fb59e743267f58096bc53bed3d0c00f2712c2a66b205ce6d95c59d202a09b3b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49556,11 +49556,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:70308a3acad392592e9c700c20cc22a1e5878dd1b4a7e3e4bbe4d107dc2bd2e8"
 risk_signals = ["authorization"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50100,13 +50100,13 @@ id = "RISK_ACK_63104F245F10856F308ADFABEF77F5C994AB4D90B2072AB86361B42C2B25311A"
 code_id = "CODE_63104F245F10856F308ADFABEF77F5C994AB4D90B2072AB86361B42C2B25311A"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:211d71ba5d61750335bf65b53bb29a75691b8e3a9998ebd65ad671ff5a9d1d81"
+body_digest = "sha256:380c4f67c794fdeb672b1bdf8ad50a0884d937abbb8ad1717f0c81abe4e89572"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50130,11 +50130,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:da1c5889fa85717b34a99ba5c94c2066eaae14a922640ca0b10b881d058aff34"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50326,11 +50326,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:e5c54b40e9f50521bf5399dd37737f3f399caad1dc86d052f1fe487501ec3c1e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50900,11 +50900,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:ed41bd69fc6a7d9b5e627ce5fe79335c06094cdee424195ef5f5a917f862985e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51642,11 +51642,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:db3f2ce736854235021cb3462ebdc3613d38cc5ede99aa782b3848663a5262ff"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52006,11 +52006,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:fed9cb45131c09872adbff3c45fbd5044425244f27792f45284d0d07ec82a9df"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52398,11 +52398,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:844e938b3b4f06046248edb8b520c62659b8192a8f3406683600cdfb222eab22"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52468,11 +52468,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:ef8e141c0cc78dc841da6d2a16c71f05cf33c1d263758b65043d035dc2e60659"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52720,11 +52720,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c501b036b004f73a835574b655232d01fd888a685f6dbd2987de57d7ffde2f6d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53042,11 +53042,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:a82d621de59600745cd65719edb6f195932bded440f0cf90090fb12d1a1b10f4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53126,11 +53126,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c1391147135ef2da6f8c063d03380d91f3ace56aa8732d29f3168a3d5a556065"
 risk_signals = ["authorization", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53896,11 +53896,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:a8525e5483eaf6d9b61ad91103cb8a9cd07d464ca2047b5efbed018b7bc93db5"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-diagnostic-report-and-production-readiness-truth"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
 
 [[acknowledgements]]
 schema_version = 1

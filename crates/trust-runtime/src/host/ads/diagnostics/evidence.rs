@@ -83,12 +83,19 @@ pub fn evaluate_production_readiness(
     };
 
     let mut reasons = Vec::new();
-    if evidence
+    let age_expiry = evidence
+        .doctor_timestamp_ms
+        .checked_add(evidence.freshness.stale_after_ms)
+        .unwrap_or(evidence.doctor_timestamp_ms);
+    let effective_expiry = evidence
         .freshness
         .expires_at_ms
-        .is_some_and(|expires_at| now_ms > expires_at)
-    {
+        .map_or(age_expiry, |explicit| explicit.min(age_expiry));
+    if now_ms > effective_expiry {
         reasons.push(ProductionReadinessReason::EvidenceExpired);
+    }
+    if evidence.freshness.runtime_clock_warning.is_some() {
+        reasons.push(ProductionReadinessReason::RuntimeClockWarning);
     }
     match (
         evidence.deployed_ads_config_hash.as_deref(),
@@ -105,6 +112,8 @@ pub fn evaluate_production_readiness(
         if actual_status_hash != expected_status_hash {
             reasons.push(ProductionReadinessReason::RuntimeAdsStatusChanged);
         }
+    } else {
+        reasons.push(ProductionReadinessReason::MissingRuntimeStatus);
     }
     match status.overall {
         AdsStatusOverall::Faulted => reasons.push(ProductionReadinessReason::RuntimeAdsFaulted),

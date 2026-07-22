@@ -678,6 +678,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   contract, not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, external-client/TwinCAT proof, the remaining ADS subdomains,
   and the final broad remote gates remain open.
+
+  ADS diagnostic-report coherent-batch progress (2026-07-22): the runtime
+  product specification now defines the version-two secret-free report schema,
+  fail-closed overall aggregation, role-shaped production evidence, and current
+  deployment/status/freshness requirements. Four expected-red tests exposed
+  and fixed empty reports and non-blocking failed steps being promoted to
+  `pass`, declared evidence age and live-status binding being ignored, and
+  incomplete or client-shaped TwinCAT evidence granting server production
+  readiness. The diagnostics tests were split by readiness and schema concern
+  before expansion; systematic wire-name, deterministic hash, serialization
+  failure, clock, expiry-overflow, and legacy-evidence behavior locks now keep
+  every focused module below the large-file guardrail. Remote focused proof
+  passes the complete diagnostic suite and the complete ADS library slice, and
+  the shipped runtime binary compiles. Deterministic semantic automation owns
+  the exact report/evidence code bindings, moved and new test identities,
+  invariant synchronization, and live accounting; the scoped audit passes.
+  No production ownership or execution flow changed, so no architecture
+  diagram update is required. This is a truST ADS product contract outside IEC
+  61131-3, not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, independent external-client/TwinCAT lab proof, the remaining
+  ADS subdomains, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

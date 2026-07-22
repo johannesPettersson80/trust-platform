@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: ADS diagnostics now fail closed for empty reports and
+  non-blocking failed steps, reject incomplete or role-mismatched TwinCAT
+  production evidence, and require the declared age, clock, deployed-config,
+  and live-status evidence to remain current before reporting readiness.
 - trust-runtime: Runtime Cloud preflight now rejects empty, blank, or duplicate
   target lists instead of allowing an empty dispatch or repeating a target;
   cross-site writes in `dev` and `plant` profiles no longer incorrectly require

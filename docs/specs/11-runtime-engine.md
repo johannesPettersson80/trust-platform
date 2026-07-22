@@ -1010,6 +1010,41 @@ Deletion invalidates only the named live registration. Unsupported
 `WriteControl` and client-sent `DeviceNotification` commands remain
 side-effect-free and return `ServiceNotSupported`.
 
+###### ADS diagnostic report and production-readiness truth
+
+ADS Doctor reports use diagnostics schema version 2 and retain the documented
+snake-case or kebab-case wire names for roles, vantages, transports, steps,
+statuses, skip reasons, actions, connection states, and readiness reasons.
+Evidence and action maps serialize in deterministic key order. The report and
+route-plan schemas contain no credential, username, password, token, or other
+secret-bearing field; remediation may identify a credential channel but must
+not echo its contents.
+
+A Doctor report is `fail` when it has no steps or any production-blocking step
+is not `pass`. Otherwise any warning, skip, or explicitly non-blocking failed
+step makes the report `partial`; only a non-empty set of passing steps makes it
+`pass`. A report is never production-ready without both an overall `pass` and
+role-appropriate production evidence. Client evidence binds the runtime and
+target identities. Server evidence binds the runtime identity and allowed
+clients, and additionally requires independent external-client proof marked as
+verified with kind `twincat` (ASCII-case-insensitive), a non-empty client name,
+and a client timestamp. Loopback self-test or pyads evidence remains useful
+diagnostic proof but cannot establish TwinCAT production readiness.
+
+Production evidence hashes the canonical runtime identity, target identity or
+allowed-client set, ADS configuration, symbol snapshot set, optional generated
+ST, deployed ADS configuration, and the live ADS status used by the Doctor.
+Symbol-snapshot hashing is independent of connection ordering. A later
+readiness evaluation is `not_ready` when Doctor evidence is absent. With
+evidence present it is `needs_recheck` when live runtime status is absent, the
+Doctor did not bind a live-status hash, deployed configuration evidence is
+missing or mismatched, the current status hash changed, runtime ADS is not
+healthy, the runtime clock was reported unreliable, or the evidence is older
+than its declared freshness bound. The effective expiry is the earlier of an
+explicit expiry and `doctor_timestamp_ms + stale_after_ms`; arithmetic overflow
+must not extend evidence lifetime. Only evidence with none of those conditions
+is `ready`.
+
 ###### ADS onboarding identity authority
 
 ADS onboarding identity is a truST product contract outside IEC 61131-3. The
