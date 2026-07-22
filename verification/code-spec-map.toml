@@ -172824,9 +172824,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -172913,9 +172915,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -172981,9 +172985,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -173398,9 +173404,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -174214,10 +174222,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_1729051890A09A6EF68C3FCA688EF8D685DAA7F1C54B4F7402C6562C363087CB"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -174517,10 +174527,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_1A12D9EAD12BD4D4BA932162D3A8ED8F66763E6A391FCBFCB70222F64264EDFE"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -174984,9 +174996,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -175147,9 +175161,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -176494,9 +176510,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -176819,14 +176837,16 @@ path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
 qualified_symbol = "trust_runtime::ads::backend_ads_rs::AdsRsTransport::target_addr"
 item_kind = "rust_method"
 signature_digest = "sha256:b85532f7eb3b80fa2951e5fc7afc504bc9c7e16e8c0bf13388c5fe75343645b2"
-reviewed_body_digest = "sha256:d46aead51a6a73b1d918263165e3776ada2afa2a26a71642c58527f8aee646d8"
+reviewed_body_digest = "sha256:01845c363e9eb180b8ec0dfaa3d4326a4c5d94fd20021d07f3b5e484b9264e12"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177208,9 +177228,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177513,9 +177535,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177694,10 +177718,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_381E7C4F3CF8C44A0C96D3B1CCF6EBDEC34A467CDC3D93BFA8233433B5EB1F14"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177763,9 +177789,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179844,10 +179872,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_4B6C0D485F19EC904AFE92FB54A96E69D61E29744EAB4EAA41D55C2EB1F4AC77"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179896,9 +179926,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180129,9 +180161,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180447,9 +180481,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -181477,9 +181513,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -182586,25 +182624,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_64465F332D020C51B021A39A8493651AF826B32EF8F0AD04570630E066897ADE"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-qualified_symbol = "trust_runtime::ads::backend_ads_rs::parse_ams_net_id"
-item_kind = "rust_function"
-signature_digest = "sha256:319e33181f93663b90b898ff2c296d8210ff328541d5a1941cf832a1b44c0e18"
-reviewed_body_digest = "sha256:6b53e0c1c36739f9753770bd44ceb11199b81e698e13765505c9d82dc5a12c58"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_64465F332D020C51B021A39A8493651AF826B32EF8F0AD04570630E066897ADE"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_645398777B1B874FF6BDAA3EF3D9BD3A58431A0DD76AF942826F445D5255C78E"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/generate.rs"
@@ -182662,7 +182681,7 @@ path = "crates/trust-runtime/src/host/ads/onboarding/identity.rs"
 qualified_symbol = "trust_runtime::ads::onboarding::identity::derive_runtime_identity_from_source"
 item_kind = "rust_function"
 signature_digest = "sha256:d9410a2243a2dc165f65e2f3fbedcece7d6434eab2e24061a1e56f9b4b1071a3"
-reviewed_body_digest = "sha256:97c313b44721ab234596efb8620918db906b5836256798d459a1e524abdcfb39"
+reviewed_body_digest = "sha256:a3ba549e62fc84042391f204e374abb991e8d5d23397f4b167b51242e8772580"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
@@ -186117,9 +186136,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188212,10 +188233,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_97DC426B66FE2617B18E0BBAD9873A814F7397DDEB26CF7076E16D034596911F"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188520,9 +188543,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188791,9 +188816,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188970,10 +188997,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_9FEF2116A92C5E8AB9898A8843CC9041279920E196EF49013FD2BF0917EDC635"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -189115,9 +189144,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -189866,10 +189897,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_A7C0C3DE2A3056EFF40AE24948770D964063DA9DC0CDE6D30D7C994E5C7CB1F9"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -190721,9 +190754,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -191694,10 +191729,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_BAA1A6198EEE8A644FB74D8ADF6C62501F01FBF3B100E5ECDB3C855135848574"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -191825,10 +191862,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["host_time"]
 owner_ack = "RISK_ACK_BBA07B1BCE59761EF3EBD730CEE142D86B027C1F06559BB12881F1DFDC1DE059"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -192970,9 +193009,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193172,10 +193213,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_C6332B144D7DA95E0493A65F84D75187A0730E4682360BB626D09798E6A437B9"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193797,10 +193840,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_CC4FE487B1121B694124D3931B0DA63501A3091B36004E942CF3FC1D62E06E0D"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193815,9 +193860,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -194145,9 +194192,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -194505,9 +194554,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -194705,10 +194756,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_D71CC79AFDAEA9F87C723B7A0685705CE9086144B0325E8022D132FBE69BFD12"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -194972,16 +195025,18 @@ path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
 qualified_symbol = "<trust_runtime::ads::backend_ads_rs::AdsRsTransport as AdsTransport>::connect"
 item_kind = "rust_method"
 signature_digest = "sha256:43f5abb325c236e1569474bd4baabda74a9721b15e16b53709881fecddf542f6"
-reviewed_body_digest = "sha256:e7f387d78ba12651591bbddf05d95afd795f18cc1cec06ac1e103d705e27adbf"
+reviewed_body_digest = "sha256:20249350c5713f6d589665f6895e0d1f863232337d884593dfd578cd3eb1097e"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = ["fault_mapping", "state_mutation"]
+risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_D9007FFBFFBD1EBDF3DB0C471EB7317A6A6EE53813D34A94A69C9113F7F44D37"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -195600,10 +195655,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_E01165EA1F037639BC4259F131AD001F4273204ECEA228EDA68FE92CB258B319"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -195875,10 +195932,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_E23E06723FC2030282F9129FBBC3AAA13B7279878BCE3F60D0A23E4B33CD1D74"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -196323,9 +196382,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -196860,10 +196921,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_EBBEC1AE86511AC254B3C1836A4E166B0C69E7A44966DD3E5CDBCC6975239680"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -196929,9 +196992,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -197205,10 +197270,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_EE839AAF5E79EB701EC9E74986660A8A3AD9C24264A1269A79E073887DA693A4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -198585,9 +198652,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -272949,26 +273018,6 @@ test_ids = ["TEST_HA_CRASH_MID_COMMAND_CAN_RETRY_AFTER_STATE_ROUNDTRIP_001", "TE
 last_reviewed = "2026-07-22"
 [[mappings]]
 schema_version = 1
-code_id = "CODE_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/identity.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::identity::canonical_ams_net_id"
-item_kind = "rust_function"
-signature_digest = "sha256:983bfdf650593c9f4a72912996ff378cf11f43b053adfaad97dc4d89c752f8ef"
-reviewed_body_digest = "sha256:2ebb0e5219c76df5e1e880be3fbd19ca1889c83ce4dc0268b109340fbd9bd808"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
-owner_ack_expires_on = "2026-10-22"
-disposition = "specified"
-spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
-invariant_ids = ["RT_ADS_ONBOARDING_IDENTITY_001"]
-test_ids = ["TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_AMS_NET_ID_REJECTS_NONCANONICAL_IPV4_TEXT_001", "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_LOCAL_AMS_NET_ID_USES_SELECTED_IPV4_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_CANONICALIZES_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_SOURCE_EVEN_WITH_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_TARGET_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_SELECTS_RUNTIME_HOST_SOURCE_AND_CANDIDATES_001", "TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001", "TEST_ADS_ONBOARDING_IDENTITY_SOURCE_PROBE_REJECTS_INVALID_TARGET_IP_WITHOUT_NETWORK_IO_001"]
-last_reviewed = "2026-07-22"
-[[mappings]]
-schema_version = 1
 code_id = "CODE_D807CE0EFC10657E9E2955A7770667B1348E702D9DCC5EB58DBD012BB47244F7"
 source_kind = "rust"
 path = "crates/trust-runtime/src/control/ads_handlers/import_symbols/artifacts.rs"
@@ -274159,25 +274208,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_BDAA371A3A791D49D0F5DEA7BAB579CBB09211F1DE41BB21C6C65EAAFBBE436B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/identity.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::identity::is_canonical_ams_net_id"
-item_kind = "rust_function"
-signature_digest = "sha256:322237d24eb07606c481d97b93541d26db97969bbe80d188955a16f8876eccf8"
-reviewed_body_digest = "sha256:074eab7a6bd69bb2d9c8941c68ed908b83a8addee3b6f850514ae98e79b3d31f"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
-invariant_ids = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001"]
-test_ids = ["TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001", "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001", "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001", "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001", "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001", "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"]
-last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_3BE7079FCF357055DE163B16DAE483B6CA9937AB8F142A151EA0E9E2C3A00A13"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/doctor/target_validation.rs"
@@ -274193,4 +274223,140 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
 invariant_ids = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001"]
 test_ids = ["TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001", "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001", "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001", "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001", "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001", "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"]
+last_reviewed = "2026-07-22"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EB0DAFDBCC6ADBEFFBE382F8F1A383295CA3D5D959845E04B350BE92107FC9B4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
+qualified_symbol = "trust_runtime::ads::backend_ads_rs::AdsRsTransport::connect_with"
+item_kind = "rust_method"
+signature_digest = "sha256:3635c574d36d9c32a0dd4ec23b4b7aa58c27edf0cdb63fd9bbd41d1e22dfc77b"
+reviewed_body_digest = "sha256:36a8df9eedbeb043f1d7defccc58d71e0594b45ffa215533baf1cabdfe9db8ae"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_EB0DAFDBCC6ADBEFFBE382F8F1A383295CA3D5D959845E04B350BE92107FC9B4"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7F9D1BA634D6B93EE385852F92A20B5E4A67AC6B8F2A45AB32467DCB9CD2942C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
+qualified_symbol = "trust_runtime::ads::backend_ads_rs::AdsRsTransport::connection_source"
+item_kind = "rust_method"
+signature_digest = "sha256:97abf794899b82cf4c76038a6718eebb4be25737ba760f173bdf4ff392b7a611"
+reviewed_body_digest = "sha256:f62c89630f48e1dbee190a999742093e551f19dea07b75b5f20f2029d550dc22"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D5D76AEE9E3FAF0FCB47950DC0FB735B419EC94B1B54AD497F39CB4A5509620F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/identity.rs"
+qualified_symbol = "trust_runtime::ads::identity::canonical_text"
+item_kind = "rust_function"
+signature_digest = "sha256:7d03cba2db3155447026def17d1732ed52d71cdecf6bee4eb53574263765bcec"
+reviewed_body_digest = "sha256:f241d45e6ac7a930d11db2cb4d0e7d545c54ee259aca6628b8f0deaaae7d4951"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+invariant_ids = ["RT_ADS_ONBOARDING_IDENTITY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_AMS_NET_ID_REJECTS_NONCANONICAL_IPV4_TEXT_001", "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_LOCAL_AMS_NET_ID_USES_SELECTED_IPV4_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_CANONICALIZES_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_SOURCE_EVEN_WITH_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_TARGET_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_SELECTS_RUNTIME_HOST_SOURCE_AND_CANDIDATES_001", "TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001", "TEST_ADS_ONBOARDING_IDENTITY_SOURCE_PROBE_REJECTS_INVALID_TARGET_IP_WITHOUT_NETWORK_IO_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E3F53B78BA6B59B385B09249F5A7ED0FE623565996BD4D159C67102B2D41FE59"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/identity.rs"
+qualified_symbol = "trust_runtime::ads::identity::canonicalize_ams_net_id"
+item_kind = "rust_function"
+signature_digest = "sha256:f361ff981058cbfce502b80f871875f8e5013c633f99e8d96c197554ad84295c"
+reviewed_body_digest = "sha256:03e6978cd40a2e76b3fdecb0c5526d04185b19f5ab42e9803ab76d4eff517611"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+invariant_ids = ["RT_ADS_ONBOARDING_IDENTITY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_AMS_NET_ID_REJECTS_NONCANONICAL_IPV4_TEXT_001", "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_LOCAL_AMS_NET_ID_USES_SELECTED_IPV4_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_CANONICALIZES_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_SOURCE_EVEN_WITH_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_TARGET_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_SELECTS_RUNTIME_HOST_SOURCE_AND_CANDIDATES_001", "TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001", "TEST_ADS_ONBOARDING_IDENTITY_SOURCE_PROBE_REJECTS_INVALID_TARGET_IP_WITHOUT_NETWORK_IO_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8D894EA6F350846967D20739E5B6A3EC51C049ED269369F8AF97A04BBA62A9E5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/identity.rs"
+qualified_symbol = "trust_runtime::ads::identity::decimal_ams_net_id_octets"
+item_kind = "rust_function"
+signature_digest = "sha256:6aaf8e7515d09ed3cec46280f0e637905829e719d50f0bc91b9d56d2adf28f2f"
+reviewed_body_digest = "sha256:ef94cb5f47a1f7fc89c87997fba962c9adb1f4f0ca0367a42b0744b4f353733c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+owner_ack = "RISK_ACK_8D894EA6F350846967D20739E5B6A3EC51C049ED269369F8AF97A04BBA62A9E5"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+invariant_ids = ["RT_ADS_ONBOARDING_IDENTITY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_AMS_NET_ID_REJECTS_NONCANONICAL_IPV4_TEXT_001", "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_LOCAL_AMS_NET_ID_USES_SELECTED_IPV4_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_CANONICALIZES_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_EXPLICIT_AMS_NET_ID_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_SOURCE_EVEN_WITH_OVERRIDE_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_TARGET_ADDRESS_001", "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_SELECTS_RUNTIME_HOST_SOURCE_AND_CANDIDATES_001", "TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001", "TEST_ADS_ONBOARDING_IDENTITY_SOURCE_PROBE_REJECTS_INVALID_TARGET_IP_WITHOUT_NETWORK_IO_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A8B0556B0D2FFBF7E023277460BF4EF0B39EF7A7F94288EA9AE70D1F98E03956"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/identity.rs"
+qualified_symbol = "trust_runtime::ads::identity::is_canonical_ams_net_id"
+item_kind = "rust_function"
+signature_digest = "sha256:322237d24eb07606c481d97b93541d26db97969bbe80d188955a16f8876eccf8"
+reviewed_body_digest = "sha256:bd2bb448dc359e589ed192ea1f6818b53e338c14c992b0fdbcaaf98ddc943d88"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+invariant_ids = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001"]
+test_ids = ["TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001", "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001", "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001", "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001", "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001", "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F99B4BC9C8C5A609CC82C21ACBED370136BB9EC5CE41E4B8CC71DCD41D954DEE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/identity.rs"
+qualified_symbol = "trust_runtime::ads::identity::parse_canonical_ams_net_id"
+item_kind = "rust_function"
+signature_digest = "sha256:7b9fc00d7e6089e3488974fbf315e000d5fadeeb856e19c5677c4ec5d26989b4"
+reviewed_body_digest = "sha256:8570f98f17ae7c1cb97f1595284751ac1ef1cc134a422da27d203c35159f625c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
+test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
 last_reviewed = "2026-07-22"

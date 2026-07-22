@@ -48590,11 +48590,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:07d782a7f5138cdd2b71cbd3795efc4726116a7fcef693eaad6e05c8a1e7c300"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48632,11 +48632,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:008b88083f041986f7abcb3251bba6bb845874fbf6a75d5d38ee9a7df65b7e95"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49248,11 +49248,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:6a3e8aeab882b74b99b8597773240c8f8a4905a0846e10fa2a43f18e2a94f59c"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49640,11 +49640,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:42c4d4faebc086204705d13abb031350e08a2d19bf4aeed26d3a3f0dd2faadd9"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50152,31 +50152,17 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_64465F332D020C51B021A39A8493651AF826B32EF8F0AD04570630E066897ADE"
-code_id = "CODE_64465F332D020C51B021A39A8493651AF826B32EF8F0AD04570630E066897ADE"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:6b53e0c1c36739f9753770bd44ceb11199b81e698e13765505c9d82dc5a12c58"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 code_id = "CODE_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:97c313b44721ab234596efb8620918db906b5836256798d459a1e524abdcfb39"
+body_digest = "sha256:a3ba549e62fc84042391f204e374abb991e8d5d23397f4b167b51242e8772580"
 risk_signals = ["broad_error_suppression", "fault_mapping", "state_mutation"]
 review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
-rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
+rationale = "Moves shared AMS identity helpers without changing the accepted onboarding identity and Doctor ownership contracts."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51418,11 +51404,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:dc56900a8388ddebfe86ffa6ac670958e4a5f443d2d5d24098a00150ff555bc6"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51614,11 +51600,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c70fb1aafa417cb17452d39538dad340a6973e70c9b14c1a83aecccdb3b5ed86"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51768,11 +51754,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:0a9839aa582019c8368b867dc24eafe37663ad5d296000fdcfa97188967d80eb"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52160,11 +52146,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c42eb2eddb6d4088e86ecc082b1a203cff82ae6bdc2f80eed908fd10e3d0fe02"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52216,11 +52202,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:093dcf8f452a0abfdbfe42dc45aef07f79a64e2acdbf5b680cc0fcb461b85af8"
 risk_signals = ["host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52482,11 +52468,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:508431320d29f8fd9d04323268a0f6d6535f572c1a488b97f0c454d841249e25"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52608,11 +52594,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:aec1a1f80eb84e691b2fb6d860c70a1c75c2271e0283df25dbe45a9625434586"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52860,11 +52846,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:73d0a84a594739352cc0f386c69207f64942cfd99f700356872c7d482a8153b3"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52956,13 +52942,13 @@ id = "RISK_ACK_D9007FFBFFBD1EBDF3DB0C471EB7317A6A6EE53813D34A94A69C9113F7F44D37"
 code_id = "CODE_D9007FFBFFBD1EBDF3DB0C471EB7317A6A6EE53813D34A94A69C9113F7F44D37"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:e7f387d78ba12651591bbddf05d95afd795f18cc1cec06ac1e103d705e27adbf"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+body_digest = "sha256:20249350c5713f6d589665f6895e0d1f863232337d884593dfd578cd3eb1097e"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53182,11 +53168,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:4cc4ce95f980076781d1016229522075ccb472f0d2ff664929566dd11d78a2df"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53266,11 +53252,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:dcf49d5c3c48e32ab5c243352c75619ba8844ac5aa2a408b4b0e8d89226ca37e"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53476,11 +53462,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c33073445437928de4d0d5a5458a4d1517731331914b2aa6e6f9a3ae5717fa45"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53588,11 +53574,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:41f2fc519b5b0ed61924b637d5b0cee08b657002a43e0bfbcb3b25a59c06a223"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81280,19 +81266,6 @@ rationale = "Acknowledges scanner-derived network and route-authority risks whil
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
-code_id = "CODE_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:2ebb0e5219c76df5e1e880be3fbd19ca1889c83ce4dc0268b109340fbd9bd808"
-risk_signals = ["broad_error_suppression"]
-review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-22"
-expires_on = "2026-10-22"
-rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_AA4AF302EBA5AE01B919AF65CE940C46D96DF4F284C68543DFCF737C636A0191"
 code_id = "CODE_AA4AF302EBA5AE01B919AF65CE940C46D96DF4F284C68543DFCF737C636A0191"
 owner = "trust-runtime"
@@ -81539,3 +81512,30 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and canonical target facts to the fail-closed product contract."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EB0DAFDBCC6ADBEFFBE382F8F1A383295CA3D5D959845E04B350BE92107FC9B4"
+code_id = "CODE_EB0DAFDBCC6ADBEFFBE382F8F1A383295CA3D5D959845E04B350BE92107FC9B4"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:36a8df9eedbeb043f1d7defccc58d71e0594b45ffa215533baf1cabdfe9db8ae"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8D894EA6F350846967D20739E5B6A3EC51C049ED269369F8AF97A04BBA62A9E5"
+code_id = "CODE_8D894EA6F350846967D20739E5B6A3EC51C049ED269369F8AF97A04BBA62A9E5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:ef94cb5f47a1f7fc89c87997fba962c9adb1f4f0ca0367a42b0744b4f353733c"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Moves shared AMS identity helpers without changing the accepted onboarding identity and Doctor ownership contracts."

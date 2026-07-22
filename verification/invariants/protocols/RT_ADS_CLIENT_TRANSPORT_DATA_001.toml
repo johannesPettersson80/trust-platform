@@ -1,0 +1,77 @@
+schema_version = 1
+id = "RT_ADS_CLIENT_TRANSPORT_DATA_001"
+title = "ADS client metadata and values preserve remote meaning"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "The ADS client projects only supported consistent metadata, preserves capability and retain flags, routes poll points away from notifications, and must preserve result order, quality, and opaque symbol-version equality without fabricated success or values."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/backend_ads_rs.rs"]
+tests = [
+  "TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001",
+  "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001",
+  "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001",
+  "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["sumup_order_and_cardinality_behavior_locks", "notification_decode_behavior_locks", "symbol_version_equality_behavior_lock", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "external_ads_target", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+
+[[behavior]]
+partition = { equals = "SUPPORTED_CONSISTENT_METADATA" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Supported remote metadata projects exact type, size, access, persistence, retain, and notification meaning."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_OR_INCONSISTENT_METADATA" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Unsupported metadata may be omitted, while inconsistent or unrepresentable metadata cannot become a bindable descriptor."
+
+[[behavior]]
+partition = { equals = "POLL_MODE_SUBSCRIPTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Poll-mode points use sum-up reads and never advance to ADS notification registration."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused locks cover persistent and read-only scalar projection."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused locks reject unsupported compound metadata as a bindable descriptor."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "A focused lock rejects poll-mode notification registration locally."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Per-position sum-up errors, malformed notifications, and live symbol-version changes still require dedicated hermetic and external-target proof."

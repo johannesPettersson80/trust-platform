@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: ADS client connections now reject noncanonical target or local
+  AMS Net IDs and target AMS port zero before invoking the connector or opening
+  TCP, while preserving cached symbol-handle and subscription state when
+  validation fails.
 - trust-runtime: the ADS Doctor now rejects malformed manual endpoints before
   transport activity, rejects blank or absent explicit symbols at the upload
   boundary, refuses active-device snapshots for another ADS endpoint, and no

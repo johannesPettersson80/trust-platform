@@ -9,6 +9,7 @@ pub mod contracts;
 mod descriptors;
 pub mod diagnostics;
 pub mod generate;
+mod identity;
 pub mod mock;
 pub mod onboarding;
 pub mod server;

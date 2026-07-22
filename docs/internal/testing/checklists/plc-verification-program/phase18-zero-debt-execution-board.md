@@ -740,6 +740,36 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   is a truST ADS product contract outside IEC 61131-3, not an IEC decision or
   deviation. Assertion reachability, mutation sensitivity, real TwinCAT proof,
   the remaining ADS subdomains, and the final broad remote gates remain open.
+  <!-- generated:ads-client-transport:start -->
+  ADS client transport coherent-batch progress (2026-07-22): the runtime
+  product specification now defines canonical target and optional local AMS
+  identity authority, non-zero target ports, plain-only security, explicit
+  route ownership, local lifecycle cleanup, device-state mapping, supported
+  symbol projection, exact handle sizes, sum-up position truth, notification
+  decoding, and opaque symbol-version equality. Strengthened expected-red
+  tables proved that shortened target and local AMS identities reached the
+  connector under the old backend semantics; the target table also locks zero
+  ports and other malformed canonical forms before connector or state cleanup.
+  A private hermetic connector seam now proves both rejection and the positive
+  canonical path without TCP or fixed ports. Shared AMS identity parsing keeps
+  the existing onboarding and Doctor specification owners, while the backend
+  tests were mechanically split from the production owner. Remote focused
+  proof passes all 9 backend tests (5 lifecycle/security
+  and 4 data/value). Deterministic semantic automation binds
+  51 live transport/shared-identity facts and 9 focused tests
+  to `RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001` and
+  `RT_ADS_CLIENT_TRANSPORT_DATA_001`; the scoped audit reports
+  1,019 specified code facts,
+  14,280 remaining `spec_gap` facts,
+  760 catalog-mapped tests, and
+  3,451 remaining
+  `reviewed_nonmapping` tests. The shared identity ownership and connector
+  flow are reflected in the ADS client architecture diagram and architecture
+  checklist. This is a truST ADS product contract outside IEC 61131-3, not an
+  IEC decision or deviation. Remaining operation-specific behavior locks,
+  assertion reachability, mutation sensitivity, external ADS/TwinCAT proof,
+  the remaining ADS subdomains, and the final broad remote gates remain open.
+  <!-- generated:ads-client-transport:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

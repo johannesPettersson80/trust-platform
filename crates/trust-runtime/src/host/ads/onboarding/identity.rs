@@ -4,6 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use crate::ads::diagnostics::{
     LocalAddressCandidate, LocalIdentity, LocalNetworkClassification, RouteActionAvailability,
 };
+use crate::ads::identity::canonicalize_ams_net_id;
 use crate::ads::onboarding::errors::OnboardingError;
 
 /// Request to derive this host's ADS identity toward a target.
@@ -35,32 +36,6 @@ pub struct RuntimeAddressCandidate {
 pub fn derive_default_ams_net_id(ip: &str) -> Option<String> {
     let ip = ip.parse::<Ipv4Addr>().ok()?;
     Some(format!("{ip}.1.1"))
-}
-
-fn canonical_ams_net_id(value: &str) -> Option<String> {
-    let parts = value.trim().split('.').collect::<Vec<_>>();
-    if parts.len() != 6
-        || parts
-            .iter()
-            .any(|part| part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()))
-    {
-        return None;
-    }
-    let octets = parts
-        .iter()
-        .map(|part| part.parse::<u8>().ok())
-        .collect::<Option<Vec<_>>>()?;
-    Some(
-        octets
-            .iter()
-            .map(u8::to_string)
-            .collect::<Vec<_>>()
-            .join("."),
-    )
-}
-
-pub(crate) fn is_canonical_ams_net_id(value: &str) -> bool {
-    canonical_ams_net_id(value).as_deref() == Some(value)
 }
 
 /// Resolves the OS-selected local source IP for traffic toward an ADS target.
@@ -130,7 +105,7 @@ pub fn derive_runtime_identity_from_source(
         })?
         .to_string();
     let ams_net_id = match request.local_net_id_override.as_ref() {
-        Some(override_id) => canonical_ams_net_id(override_id).ok_or_else(|| {
+        Some(override_id) => canonicalize_ams_net_id(override_id).ok_or_else(|| {
             OnboardingError::new(format!(
                 "invalid local AMS Net ID '{override_id}'; expected six decimal octets"
             ))

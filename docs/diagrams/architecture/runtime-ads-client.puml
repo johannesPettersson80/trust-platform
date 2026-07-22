@@ -23,6 +23,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
     component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
+    component "onboarding/doctor/target_validation.rs\nmanual + active target guard" as doctorTargetValidation
 }
 
 package "Authoring Artifacts" as authoring #LightYellow {
@@ -47,7 +48,9 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "client/worker.rs\nbackground transport owner" as worker
     component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
+    component "identity.rs\ncanonical AMS Net ID owner\ncanonicalize + strict parse" as adsIdentity
     component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
+    component "backend_ads_rs::connect_with\nprivate client-construction seam" as backendConnector
     component "mock.rs\nCI transport" as mock
 }
 
@@ -74,6 +77,7 @@ adsControl --> diagnosticsSchema
 adsWebRoutes --> diagnosticsSchema
 onboardingEngine --> diagnosticsSchema
 adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
+onboardingEngine --> doctorTargetValidation : Doctor target admission
 adsCli --> onboardingEngine : scriptable backend
 onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
 onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
@@ -106,6 +110,9 @@ worker --> coreQuality
 transport --> coreSymbols
 transport --> coreMapping
 transport --> coreQuality
+onboardingEngine --> adsIdentity : canonicalize local AMS identity
+doctorTargetValidation --> adsIdentity : strict target identity check
+backend --> adsIdentity : strict target + local authority
 
 bridge --> globals : declared global lookup\nCompileError if missing
 bridge --> cache : scan-facing bridge
@@ -116,6 +123,8 @@ worker --> cache : updates reads/notifications\nand drains writes
 worker --> transport : owns network calls
 backend ..|> transport
 mock ..|> transport
+backend --> backendConnector : validated connect request
+backendConnector --> twincat : ads::Client::new only
 backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
 
 scan --> adsSubsystem : apply_inputs / capture_outputs
@@ -144,7 +153,16 @@ note right of backend
     External ads crate is confined to
     backend_ads_rs.rs behind ads-wire.
     AdsTransport signatures expose only
-    trust-owned domain types.
+    trust-owned domain types. connect_with
+    is a private construction seam, not
+    another transport adapter.
+end note
+
+note right of adsIdentity
+    Onboarding may canonicalize reviewed
+    user input. Doctor and the live backend
+    require already-canonical six-octet
+    runtime authority.
 end note
 
 note bottom of core

@@ -1105,6 +1105,61 @@ Automatic route addition continues to use the already validated runtime-host
 AMS identity and one-shot credentials; the transport never enables implicit
 route creation.
 
+###### ADS client transport boundary
+
+The ADS client transport is a truST product contract outside IEC 61131-3. It
+must validate the required target AMS Net ID and an optional local AMS Net ID
+as exactly six decimal octets in canonical form, and validate the non-zero
+target AMS port, before opening TCP 48898 or performing any other wire
+operation. The runtime transport supports plain ADS only and must reject
+reserved secure transport or implicit route creation before the wire; route
+authoring remains an explicit onboarding operation outside this transport.
+
+After connection authority validates and before replacing a client, the
+transport attempts best-effort remote release of active notifications and
+symbol handles. Remote release failure does not make remote cleanup
+deterministic; the deterministic guarantee is that replacement, disconnect,
+and drop tear down the transport's local handle maps, notification receiver,
+and client ownership. ADS device state maps `Run` to runtime run, `Stop`,
+`Idle`, and `Config` to runtime stop, `Error` and `Exception` to runtime fault,
+and every other state to runtime unknown.
+
+Symbol upload projects only supported scalar, array, and STRING metadata into
+the runtime descriptor model. Every projected symbol is readable; the ADS
+read-only flag withholds write access, and the persistent flag also establishes
+the runtime retain guardrail. Array dimensions, STRING capacity, and byte size
+must agree with the projected type. Unsupported metadata may be omitted, but
+inconsistent, overflowing, or otherwise unrepresentable metadata fails closed
+instead of producing a bindable descriptor.
+
+By-name handle resolution first verifies that the remote symbol byte size
+exactly equals the requested type size and then acquires a remote symbol
+handle. Index-group/index-offset resolution verifies that its declared byte
+size exactly equals the requested type size and does not manufacture a remote
+handle. Replacing or removing a cached by-name handle releases the old remote
+handle.
+
+Sum-up reads and writes preserve input order and cardinality. Each item retains
+its own conversion or ADS error as non-good quality; failed reads have no value,
+and failed writes are never reported as successful. The transport must not
+shift results between points, discard failed positions, or manufacture values
+to fill missing or malformed results. Subscriptions accept notify-mode points
+only, preserve the requested on-change or cyclic notification mode, and reject
+poll-mode points before subscription. Unknown notification handles and samples
+whose bytes do not decode as the resolved type fail closed with no manufactured
+value. The ADS symbol-version byte is an opaque equality token: a changed token
+invalidates symbol-derived state, but ordering, monotonicity, and wraparound
+must never be inferred from its numeric representation.
+
+The lifecycle/security invariant is that every connection attempt validates
+all wire authority first and performs no implicit route mutation; after
+successful validation, replacement, disconnect, and drop attempt best-effort
+remote release and deterministically tear down transport-owned local resources.
+The data/value invariant is that supported metadata, handles, sum-up positions,
+qualities, notifications, and symbol-version equality preserve the remote
+meaning exactly, while inconsistent or undecodable data fails closed without a
+fabricated descriptor, success, or value.
+
 ###### ADS Doctor orchestration and active-device safety
 
 The client ADS Doctor emits exactly the ordered required-step set owned by the

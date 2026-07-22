@@ -372,16 +372,6 @@ catalog_test_id = "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATAT
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_02981F393856BA51831F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "readonly_ads_symbol_does_not_get_write_flag"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_02A9C126BCBCA60B89FC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs"
@@ -4852,6 +4842,16 @@ catalog_test_id = "TEST_RELEASE_VERSION_CHAIN_TRACE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1C8B9FA3E37A9411827C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "unsupported_compound_symbol_is_not_a_bindable_descriptor"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_1C8BA0F4F27F6656997F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/formatting/tests.rs"
@@ -6372,6 +6372,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_25F6E114FFCD53217A5F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "persistent_ads_symbol_sets_retain_guardrail_flag"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_260C548E20CAA6F8A4C3"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_interfaces.rs"
@@ -6526,16 +6536,6 @@ discovery_id = "DISC_26A2975F509DF0307EA1"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/sfc-engine.test.ts"
 name = "rejects join with missing/invalid continuation"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_26B2B95CF2D4AA13215E"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "unsupported_compound_symbol_is_not_a_bindable_descriptor"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -8302,6 +8302,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2FC096E27253688AE2E7"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "connect_rejects_auto_add_route_before_network"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_2FDB6B44C3ADF33D8F12"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/network-canvas.test.ts"
@@ -9340,6 +9350,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_369637AA5647CE4BA491"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "connect_accepts_canonical_authority_and_reaches_connector"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_36DB8F61C1B0BF3590BA"
@@ -16152,16 +16172,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_62643936BD9A3CA2B2D8"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "connect_rejects_secure_transport_before_network"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_627DBD026621561D0A46"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
@@ -20652,16 +20662,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_7E2D1AE394089750241B"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "subscribe_rejects_poll_mode_before_connection"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_7E3FC94CFB5AD97A01BA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs"
@@ -21800,6 +21800,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_86141A045FF9D5EF37A2"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "subscribe_rejects_poll_mode_before_connection"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_8630EBEA6FFFB7EEFE8A"
@@ -26502,16 +26512,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_A2A783E87EAC3F28B5B7"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "connect_rejects_auto_add_route_before_network"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_A2B372EFAFFC18A26346"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/eval/tests/pou_function.rs"
@@ -26699,6 +26699,16 @@ name = "mock_failure_scenarios_cover_named_field_failures"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
+discovery_id = "DISC_A3AA0519DFB899757042"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "connect_rejects_secure_transport_before_network"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
@@ -35772,16 +35782,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_DC7BB67BE6A01029EF15"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
-name = "persistent_ads_symbol_sets_retain_guardrail_flag"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_DC8050B0CDE74CE80FC6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/projection.rs"
@@ -37422,6 +37422,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E6894BB71E7576228488"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "connect_rejects_invalid_local_identity_before_connector_or_state_cleanup"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E69573B752C8306A05AE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/setup_command.rs"
@@ -37572,6 +37582,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E76D06ECEBE12720B077"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "connect_rejects_invalid_target_or_zero_port_before_connector_or_state_cleanup"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_E77A750D7CCA1DF62C00"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ads-core/src/quality.rs"
@@ -37660,6 +37680,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E83C9072DC2FD6850615"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/backend_ads_rs/tests.rs"
+name = "readonly_ads_symbol_does_not_get_write_flag"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E83EC71DE72AA46334D6"

@@ -1,0 +1,78 @@
+schema_version = 1
+id = "RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"
+title = "ADS client authority and local lifecycle fail closed"
+area = "protocols"
+risk = "safety_critical"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "The ADS client validates canonical target and optional local authority plus a non-zero target port before wire activity or state replacement, rejects unsupported security and implicit route mutation, and tears down transport-owned local state deterministically."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/backend_ads_rs.rs", "crates/trust-runtime/src/host/ads/identity.rs"]
+tests = [
+  "TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001",
+  "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001",
+  "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001",
+  "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001",
+  "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["remaining_operation_behavior_locks", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "external_ads_target", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+
+[[behavior]]
+partition = { equals = "CANONICAL_AUTHORITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Canonical target authority and either automatic or canonical explicit local authority may reach connector dispatch."
+
+[[behavior]]
+partition = { equals = "INVALID_TARGET_OR_LOCAL_AUTHORITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Noncanonical AMS identity text and a zero target port fail before connector dispatch or local-state cleanup."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_SECURITY_OR_ROUTE_MUTATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "The runtime backend supports plain ADS only and never performs implicit AMS route creation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "A hermetic connector seam proves canonical automatic and explicit-local authority reaches dispatch."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tables cover short, blank, nondigit, extra-octet, overflowing, leading-zero, and zero-port authority before side effects."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Existing locks reject secure transport and implicit route mutation before network activity."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused authority tests prove pre-validation state preservation; complete remote-release and teardown fault proof remains open."

@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use super::*;
-use crate::ads::onboarding::identity::is_canonical_ams_net_id;
+use crate::ads::identity::is_canonical_ams_net_id;
 
 pub(super) fn validate_manual_target(options: &DoctorOptions) -> Option<OnboardingWireError> {
     if options.target_ip.parse::<IpAddr>().is_err() {
