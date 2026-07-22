@@ -229,6 +229,19 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   range, failure, simulation, and replay boundary. Add a negative fixture
   proving a gap marked closed while live facts still use `spec_gap` fails the
   strict gate.
+
+  Signed-integer slice progress (2026-07-22): exact slice
+  `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`
+  is rebound from the historical runtime-safety gap to
+  `SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization` and
+  `RT_SIGNED_INTEGER_MATERIALIZATION_001`. Its direct boundary matrix and
+  generated decision-table runner are catalog-mapped, and a clean
+  producer-authentic lock pair promotes the invariant to `G1`. This is slice
+  progress only: `VERIF-P18-003` remains globally open, and this exact slice
+  still carries explicit assertion-reachability, mutation-sensitivity, and
+  broad-remote-gate debt before it can satisfy the downstream Phase 18 rows.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md`.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

@@ -62212,11 +62212,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:a46696e724d430be4d6a2f50f477a60811b4aa2fc22372dd0473afa3abf03168"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-signed-integer-materialization.md#exact-risk-acknowledgement"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the fault-mapping signal for this exact reviewed body digest after binding the function to the signed-integer materialization specification, invariant, direct unit matrix, and producer-authentic behavior-lock pair; it does not suppress the signal or claim the still-open reachability, mutation, or broad-gate proof."
 
 [[acknowledgements]]
 schema_version = 1
