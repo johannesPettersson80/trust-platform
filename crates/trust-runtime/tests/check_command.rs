@@ -171,3 +171,35 @@ END_PROGRAM
         .any(|issue| issue["code"] == "config.runtime"));
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn check_aggregates_required_and_optional_config_errors_with_stable_exit_code() {
+    let project = unique_temp_dir("check-config-aggregate");
+    write_project_fixture(
+        &project,
+        r#"
+PROGRAM Main
+END_PROGRAM
+"#,
+    );
+    std::fs::remove_file(project.join("io.toml")).expect("remove required io.toml");
+    std::fs::write(project.join("ads.toml"), "connections = [").expect("write invalid ads.toml");
+    std::fs::write(project.join("opcua_client.toml"), "connections = [")
+        .expect("write invalid opcua_client.toml");
+
+    let output = run_check(&project);
+    assert_eq!(output.status.code(), Some(10));
+    let payload = json_stdout(&output);
+    let issues = payload["issues"].as_array().expect("issues array");
+    for expected in ["config.io", "config.ads", "config.opcua_client"] {
+        assert!(
+            issues.iter().any(|issue| issue["code"] == expected),
+            "missing {expected} in {issues:?}"
+        );
+    }
+    assert_eq!(payload["errors"].as_u64(), Some(3));
+    assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
+    assert!(!project.join("program.stbc").exists());
+
+    let _ = std::fs::remove_dir_all(project);
+}

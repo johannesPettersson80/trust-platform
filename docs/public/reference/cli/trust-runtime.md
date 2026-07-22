@@ -44,12 +44,31 @@ identifying the mistyped command. Suggestions are emitted only when the best
 command is at most two single-character edits away; distant inputs receive the
 normal usage error without an invented recommendation.
 
-Outside `--ci` mode, a dispatched command error exits with status 1 after
-printing the stable `Error:` prefix and any applicable configuration tip. In
-`--ci` mode, the entrypoint uses the documented command-aware CI exit classes
-for configuration, build, test, timeout, and internal failures.
+Errors returned to the top-level entrypoint exit with status 1 outside `--ci`
+mode after printing the stable `Error:` prefix and any applicable configuration
+tip. Commands with a documented machine contract, including `check`, may exit
+directly with their stable command-specific status. In `--ci` mode, returned
+errors use the documented command-aware CI exit classes for configuration,
+build, test, timeout, and internal failures.
 
 ## Common Commands
+
+### Check
+
+```text
+Usage: trust-runtime check [OPTIONS]
+```
+
+`check` validates required `runtime.toml` and `io.toml`, optional `ads.toml`
+and `opcua_client.toml`, the source/dependency layout, and compilation without
+writing `program.stbc`. It aggregates independent configuration and compile
+issues in one response instead of stopping at the first failure.
+
+`--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
+stable issue codes, source/dependency lists, and the in-memory bytecode size
+when compilation succeeded. Configuration or source-layout errors exit 10;
+compile errors exit 11. A successful check exits 0 and never writes the
+compiled bytecode artifact.
 
 ### Build
 
