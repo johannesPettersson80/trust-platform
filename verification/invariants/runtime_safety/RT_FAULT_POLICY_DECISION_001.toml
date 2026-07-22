@@ -1,0 +1,74 @@
+schema_version = 1
+id = "RT_FAULT_POLICY_DECISION_001"
+title = "Fault policy projection is deterministic and side-effect free"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "The portable fault holder projects Halt, SafeHalt, and Restart to their exact action and safe-state instruction using only the configured policy, without mutating fault observations or executing recovery effects."
+proof_level = "S1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime-core/src/watchdog.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+
+[[behavior]]
+partition = { equals = "HALT_POLICY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Halt projects to action Halt with apply_safe_state false and leaves policy, faulted state, and the stored last fault unchanged."
+
+[[behavior]]
+partition = { equals = "SAFE_HALT_POLICY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "SafeHalt projects to action SafeHalt with apply_safe_state true without applying outputs or mutating the holder."
+
+[[behavior]]
+partition = { equals = "RESTART_POLICY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Restart projects to action Restart with apply_safe_state false without restarting, clearing, or changing storage at this boundary."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The Halt projection oracle is accepted; P18-005 and P18-006 must bind and execute its exact action, flag, and unchanged-holder observations."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The SafeHalt projection and side-effect boundary are accepted; exact executable coverage remains to be bound and run."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "The Restart projection is accepted as an instruction only; exact proof must show that projection does not clear, restart, or mutate stored fault state."

@@ -8099,6 +8099,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_0AFDDA87B91FE112901680BF"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "heading"
+visible_text_sha256 = "5838466cc665a094ff01877d5a187b170fb41690adfd2abb3e2ab8826c156d12"
+disposition = "structural_nonclaim"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "document_structure"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_0AFF7A8B405B1E099C1B797C"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -116857,6 +116870,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_9EA15479190483861731AF85"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "9059c3878454d2fc69a81701a7fcc64143816325e3535f36ffbbb5986d60919c"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_9EA35B89739EE13750EA1115"
 document_id = "SPEC_DOC_E17E9C69E66D3404A5D48EAF"
 path = "docs/public/develop/ai-assistance.md"
@@ -141219,6 +141245,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_BFD6B605BF2A21B9F7C3102B"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "890830d2f85db031ada22a21099a23e8f92e348e27c2b14721701fd179c16b6a"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_BFD7EB1EA3DAB7A183D96CE3"
 document_id = "SPEC_DOC_A02088379A554A8A7334C397"
 path = "docs/specs/13-debug-adapter.md"
@@ -151694,6 +151733,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_CD76E1324438F12D20CD21BE"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "f01f415fa0b1024de222815a99750aa6a822f3518940be80d47edf482aa27095"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1

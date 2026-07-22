@@ -12,6 +12,30 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Deterministic portable fault-policy decisions
+
+- ID: DEV-060
+- Area: Portable runtime fault-policy projection
+- IEC reference: IEC 61131-3 Ed.3 section 6.8 defines resource and task
+  execution but does not define truST's host-side `FaultPolicy`,
+  `FaultDecision`, safe-state instruction flag, or restart-control API. This
+  entry records a truST product extension outside the IEC language model; it
+  does not claim that returning a decision executes a resource transition.
+- Deviation/extension:
+  - `Halt` projects to action `Halt` without requesting safe-state application.
+  - `SafeHalt` projects to action `SafeHalt` and requests safe-state
+    application.
+  - `Restart` projects to action `Restart` without requesting safe-state
+    application.
+  - Projection reads only the configured policy, does not depend on the current
+    fault flag or stored error, and does not mutate the fault holder.
+- Impact:
+  - Callers receive one deterministic instruction for each configured policy
+    without accidentally executing recovery at the portable value boundary.
+- Mitigation:
+  - The owning host-control path must separately apply safe outputs, halt or
+    restart the resource, enforce restart bounds, and report any failed action.
+
 ## 2026-07-22 - Deterministic portable fault-state clearing
 
 - ID: DEV-059

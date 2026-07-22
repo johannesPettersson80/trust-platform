@@ -138,6 +138,10 @@ Target release: `v0.24.54`
   lifecycle contract: it atomically removes the fault flag and stored error,
   preserves the configured fault policy, remains idempotent while healthy, and
   does not itself claim resource recovery or safe-state handling.
+- trust-runtime-core: portable fault-policy decisions now have an explicit
+  projection contract for halt, safe-halt, and restart, including the exact
+  safe-state flag and the boundary between returning a decision and executing
+  recovery actions.
 
 ### Added
 

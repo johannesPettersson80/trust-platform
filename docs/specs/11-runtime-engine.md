@@ -642,6 +642,23 @@ storage, prove that the underlying fault was repaired, or authorize a caller to
 recover production execution. Those actions remain owned by the host recovery
 and control boundaries. (DEV-059)
 
+##### Fault-policy decision projection
+
+The portable fault holder projects its configured `FaultPolicy` to a
+`FaultDecision` using this closed table: `Halt` returns action `Halt` with
+`apply_safe_state = false`; `SafeHalt` returns action `SafeHalt` with
+`apply_safe_state = true`; and `Restart` returns action `Restart` with
+`apply_safe_state = false`. The projection reads only the current policy. Its
+result is unchanged by whether the holder is healthy or faulted and by the
+presence or value of the stored last fault. It does not mutate any of those
+observations. (DEV-060)
+
+A `FaultDecision` is an instruction to the owning host-control path, not proof
+that its action occurred. Producing it does not itself apply safe outputs, halt
+or restart a resource, clear a fault, reset storage, consume a retry, or
+authorize recovery. Those effects remain governed by the safe-state, automatic
+restart, and recovery-control contracts above. (DEV-060)
+
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
 Retentive variables must follow IEC 61131-3 retentive variable rules (§6.5.6, Figure 9). At
