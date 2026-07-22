@@ -12212,6 +12212,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_4E22986F2396DB8BFAC1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/retain_snapshot_insert_cases.rs"
+name = "retain_snapshot_insert_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_4E33E17E561F4F8DCF87"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/initializer_architecture.rs"
@@ -34890,6 +34900,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_DECD7AFB66FB10F373C0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/retain.rs"
+name = "retain_snapshot_insert_appends_distinct_names_and_replaces_in_place"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_DED48E736E3A27E72CF8"

@@ -85,4 +85,27 @@ mod tests {
         assert_eq!(entries[1].0.as_str(), "SECOND");
         assert_eq!(entries[1].1, &Value::Bool(true));
     }
+
+    #[test]
+    fn retain_snapshot_insert_appends_distinct_names_and_replaces_in_place() {
+        let mut snapshot = RetainSnapshot::default();
+        snapshot.insert("Motor", Value::DInt(1));
+        snapshot.insert("SIBLING", Value::Bool(true));
+        snapshot.insert("Motor", Value::String("replacement".into()));
+
+        let entries = snapshot.values().iter().collect::<Vec<_>>();
+        assert_eq!(entries.len(), 2, "replacement must not append a duplicate");
+        assert_eq!(entries[0].0.as_str(), "Motor");
+        assert_eq!(entries[0].1, &Value::String("replacement".into()));
+        assert_eq!(entries[1].0.as_str(), "SIBLING");
+        assert_eq!(entries[1].1, &Value::Bool(true));
+
+        snapshot.insert("MOTOR", Value::UDInt(7));
+        let entries = snapshot.values().iter().collect::<Vec<_>>();
+        assert_eq!(entries.len(), 3, "a distinct resolved key must append");
+        assert_eq!(entries[0].0.as_str(), "Motor");
+        assert_eq!(entries[1].0.as_str(), "SIBLING");
+        assert_eq!(entries[2].0.as_str(), "MOTOR");
+        assert_eq!(entries[2].1, &Value::UDInt(7));
+    }
 }

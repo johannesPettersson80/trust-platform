@@ -227,6 +227,56 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DECD7AFB66FB10F373C0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/src/retain.rs"
+name = "retain_snapshot_insert_appends_distinct_names_and_replaces_in_place"
+command = "cargo test -p trust-runtime-core retain::tests::retain_snapshot_insert_appends_distinct_names_and_replaces_in_place -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_RETAIN_SNAPSHOT_INSERT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+expected_result = "A new resolved name appends its exact runtime value, reinserting the same name replaces that value at its original position without changing cardinality or siblings, and a distinct supplied key appends as a separate entry."
+expected_failure_mode = "Insertion reorders or changes a sibling, appends a duplicate for the same key, changes the concrete runtime value, or canonicalizes a distinct supplied key into an existing entry."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001.json"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4E22986F2396DB8BFAC1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/tests/retain_snapshot_insert_cases.rs"
+name = "retain_snapshot_insert_cases"
+command = "cargo test -p trust-runtime-core --test retain_snapshot_insert_cases retain_snapshot_insert_cases -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_RETAIN_SNAPSHOT_INSERT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+expected_result = "The generated decision-table partitions execute exact-value append, same-key replacement in place, and distinct-key append while recording the observable retained snapshot transition."
+expected_failure_mode = "A generated partition is not executed, the observed key/value sequence differs from the reviewed contract, replacement changes cardinality or order, distinct keys collapse, or no same-run case artifact is emitted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001.json"
+case_file = "verification/cases/runtime_safety/RT_RETAIN_SNAPSHOT_INSERT_001.toml"
+case_file_digest = "sha256:d49c380eed600a367208997ef2b31482526eaa802e121e14a63cbd185fad014d"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

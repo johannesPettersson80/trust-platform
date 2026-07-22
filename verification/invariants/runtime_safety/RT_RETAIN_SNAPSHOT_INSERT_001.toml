@@ -8,15 +8,13 @@ owner = "trust-runtime"
 last_reviewed = "2026-07-22"
 claim = "Inserting a new resolved retained name appends exactly one exact runtime value; reinserting the same name replaces that value at its original position without changing cardinality, sibling values, or sibling order. Insertion does not claim persistence or reload validity."
 proof_level = "S1"
-contract_kind = "state_machine"
+contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/retain.rs"]
-tests = []
+tests = ["TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001", "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_boundary_matrix",
-  "mapped_executable_test",
   "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",
