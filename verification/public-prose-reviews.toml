@@ -35936,12 +35936,12 @@ block_id = "PUBLIC_BLOCK_302C6FEA942B05CA7728552C"
 document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
 block_kind = "paragraph"
-visible_text_sha256 = "7ca35b093d081aea766930be4f6f93ffcda33a667aa6cb0508775b436c7c6f32"
+visible_text_sha256 = "e37fb6843416d5b74574e66e53e11de14cad7bacb6ce52313f7ab53272e6f7b2"
 disposition = "claim_with_mapping"
 invariant_ids = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
 oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
 rationale_code = "explicit_invariant_or_oracle_binding"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1

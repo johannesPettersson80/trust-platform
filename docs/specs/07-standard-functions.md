@@ -94,7 +94,7 @@ value is preserved exactly. A value outside the destination's IEC Table 10
 range returns `RuntimeError::Overflow`; truST does not wrap, saturate,
 truncate, or substitute an integer. This is the reviewed implementer-specific
 conversion fault policy in DEV-054 and the runtime materialization contract in
-`docs/specs/10-runtime-semantics.md#signed-integer-result-materialization`.
+`docs/specs/10-runtime-semantics.md#6-8-signed-integer-result-materialization`.
 
 ### 2.2 Bit Data Type Conversions (Table 24)
 

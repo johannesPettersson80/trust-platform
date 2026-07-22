@@ -19,7 +19,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
-content_sha256 = "c34a200b6bab55cfb4852dbc1fececc78ed13019bf506e1b98716b4dc11c5018"
+content_sha256 = "7097edf0b3a729cee6ab795a9e593de941710564a48f0e2c24a6189396b14c51"
 areas = ["compiler_iec"]
 authority_levels = ["normative_product"]
 owners = ["language"]
@@ -30,7 +30,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-22"
 
 [[document_reviews]]
 schema_version = 1

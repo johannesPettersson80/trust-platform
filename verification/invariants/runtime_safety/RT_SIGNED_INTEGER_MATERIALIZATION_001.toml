@@ -27,12 +27,12 @@ source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 
 [[behavior]]
 partition = { equals = "SIGNED_DESTINATION_REPRESENTABLE_VALUE" }
 case_family = "happy_path"
-oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -41,7 +41,7 @@ rationale = "For each signed destination, its minimum, zero, and maximum values 
 [[behavior]]
 partition = { equals = "SIGNED_DESTINATION_BELOW_MINIMUM" }
 case_family = "below_min"
-oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
@@ -50,7 +50,7 @@ rationale = "The first value below each signed destination minimum returns Runti
 [[behavior]]
 partition = { equals = "SIGNED_DESTINATION_ABOVE_MAXIMUM" }
 case_family = "above_max"
-oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
@@ -59,7 +59,7 @@ rationale = "The first value above each signed destination maximum returns Runti
 [[behavior]]
 partition = { equals = "NON_SIGNED_DESTINATION_CATEGORY" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#signed-integer-result-materialization"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
