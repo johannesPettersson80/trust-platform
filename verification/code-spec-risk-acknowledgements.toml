@@ -48464,11 +48464,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8f693034476295ab065e8f67f9f6c35dfd845a90f146495547556aa90e32fffa"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48604,11 +48604,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:0ea245b1d2746205871cf4b482bac47cf299c453b8463ea7b19635952026a40f"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48730,11 +48730,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:143a92a10685d2ce545b46ce207a6e9e7cc3a60d701ecae2f9c991892f605430"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49024,11 +49024,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:4fef7994efa3cebc0d3ee57961ee60031eb7401f1e76ca43fb4b721d72067bb4"
 risk_signals = ["fault_mapping", "network_io"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49164,11 +49164,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:811d166f75d35a264d1ec0985e1b329379fc421988fbc250b22fa4689bb132ee"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49234,11 +49234,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c91b7cdb4aa7c10c91a22d593b5e2543fd09d9e9ecc452f196deb414552f23ba"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49626,11 +49626,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8b1ac56a4d87c99b914b0a00dfda929a7d2fb40c192787ef153e359a0169f122"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49724,11 +49724,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:7e92e46e9df1d085c57039da5500f0d473a1ff71349a843e192524b31d1ef06e"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49738,11 +49738,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:0222e0287e11b60931fdaa89662367efd5394712c56371d69ed896687ac35476"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50746,11 +50746,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:3c422c84d9c89ff6707065267b951beac40e79d914b86343624da6ee3448815c"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50940,13 +50940,13 @@ id = "RISK_ACK_853B20CEBB4C4FCE6E334EF7E62673EDA9CA58FF46EE4465EEDA77C5259DC06B"
 code_id = "CODE_853B20CEBB4C4FCE6E334EF7E62673EDA9CA58FF46EE4465EEDA77C5259DC06B"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:504f4e2af1c669583850b5be6dece10bb4961b9cb6ea4facf2dfad78f8791fdb"
+body_digest = "sha256:e325bdadcb9723c2cef2ef89d6961718fbb34370eb3293679ce9612975b52169"
 risk_signals = ["fault_mapping", "network_io", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50998,11 +50998,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8613fc8bb3d43678f7d9a96d4a5a597869bd99e2ad5b1be5f9a4c95703699e2c"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51306,11 +51306,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c3cc9b1c956e0a1ac9fe1e8ac6dd8151f33c3483ec598f9e92aaf7f9de352090"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51656,11 +51656,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:a9a65979a5a78202c6d30a3b2c8552204c62a83f525c90002421773f61d3e57b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52076,11 +52076,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:db19aa2d68adb684e453779389921220116d6b722dbcb6b4ddaeab029ee60ced"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52384,11 +52384,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:89e0438e399b875cf74c3a6b79900f23f86a5d8a3e3b3f908a68954e18f4b77b"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53322,11 +53322,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:60c2ac3e9a034294eb2185cb11fe120a511d88b4c3e81279adc3418465d9174d"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81485,3 +81485,30 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6E343038D7167A67D96FFF34A0B95F72F3E79F39713813EA470D6AAA495A9AAF"
+code_id = "CODE_6E343038D7167A67D96FFF34A0B95F72F3E79F39713813EA470D6AAA495A9AAF"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:cd4244e88ef1dc95cd376032980ee1ffdbcfd18af9f088fd1eca058c310eca2c"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_FC7452A3DC05C5F526F38E7F191565D5F85FA37EB72D8C835D534A9847512261"
+code_id = "CODE_FC7452A3DC05C5F526F38E7F191565D5F85FA37EB72D8C835D534A9847512261"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:9ad3904087bff785e85f411b04393859fcbc272a9181bcef2fb6a2aef5fc8e6e"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."

@@ -171974,23 +171974,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_021399B45C08A334AB71C790CD05634AFB19EE317A7807E8F0DDFEDA93CE32CD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::sumup_read"
-item_kind = "rust_method"
-signature_digest = "sha256:327b47cef9595b40d51eaf094c63ac58706466c074d071d8f4a62facf83927e8"
-reviewed_body_digest = "sha256:d58cfab732210eca33879ca2adcf7dbf7a4acfb28d59d8d016c36d9dec2a50ed"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_022CE5EAA731463DBE7FFEC5E35A42F671592238945DF9C6CE7C2B7B599C4BE5"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/types.rs"
@@ -172627,26 +172610,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_09FFB69A8BA9D24DD55D53F1752ADF35A3BCF7F38B7F9C4EAE7653649E18A50B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::check_route"
-item_kind = "rust_method"
-signature_digest = "sha256:f495fd0e6fadc46e60150e8a6168727c08c33d93756ecc3d6129901e20364197"
-reviewed_body_digest = "sha256:c7674be949d93a0b7c582c19753710bf7678cb2767a567eddea70ec1fedeabe5"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -173685,10 +173653,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_1220A1B19D579E4B38C3CFB91971EA4ACF5C219EEF1896DC7BF39A555B311DEE"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -174486,10 +174456,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_1945A6E83EF67300F97BE7F5F4631A4972448696F25FAF8CA20019A024732499"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -175075,10 +175047,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_1DE1E121B7C75AA22786F06E3A7938984F853F0C6CA431E10E31494AF900D3A0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -175491,9 +175465,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -175720,9 +175696,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -175736,23 +175714,6 @@ reviewed_body_digest = "sha256:b546b67863bb858d6c7addb038a2c989154858404341d4c7c
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_247D9DF18BE5CD80F5A4CCA0FC25C0CF3AAE19B2B755918300A7C133035EE5FD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::symbol_version"
-item_kind = "rust_method"
-signature_digest = "sha256:53d5bb58475c26bfac6b51f0f16acc9a7bf0c3a5f736f3f77a4136810bc2bb20"
-reviewed_body_digest = "sha256:9df20749e131fe2271dfd5ce8abf739ab9af6e18d0e1f11ec85699ed8fc850bf"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -176378,10 +176339,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "network_io"]
 owner_ack = "RISK_ACK_2A5CE0AC6D5E42E5480DF5CD4BF8D5EDD59FC8FCA6E79DAFD6255428C34217FF"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177003,10 +176966,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_2FD4D6C7A5B70B43D09E344C70468BC7F13FE9310CD3041C008F7C1754B0134B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177320,23 +177285,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_33EBAE88820A4C1AE215CB454BAAD1BD900D518BB25DEC02985BE348B3D8402D"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire::fail"
-item_kind = "rust_method"
-signature_digest = "sha256:b1058557eb8f86bcc9b0c58a8fa519e8a9b027bd1a1d02fac558e72ebec94890"
-reviewed_body_digest = "sha256:e5747e5dc8e04935a55e6dd4c23e1471c9493532253bdfaf70ca1dd99247d54c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_343E40406F62C7E10493B2B1783C8E4285810D09FA3A6BFCB42455E7A69536D5"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/diagnostics/report.rs"
@@ -177439,9 +177387,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177555,40 +177505,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_35806C6E95A8F40CEBF0453900EB2E5938FD33645740E077667DECB15A063BC2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as Default>::default"
-item_kind = "rust_method"
-signature_digest = "sha256:191f23e774f83556ce3f86c5c69b7e3d87b87ffbb017d825ccb31b06521cbbbd"
-reviewed_body_digest = "sha256:256452c7385ebbe8cc655b1f044e1149fde3115c64fb194024cee4098f7b01bd"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3580E586DBA4ED128DBEBBB4824769A19DDE50E92B184D7D492864993709C90E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::subscribe_notification"
-item_kind = "rust_method"
-signature_digest = "sha256:07903cddc4e76529d64c945b80318271ccd6742e36e76f9e683bab275a502d61"
-reviewed_body_digest = "sha256:e4779839cbdc25c78045345fd299f07c7ad60704d86e49fcdea39905fe05597b"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_35AE6D7BD461640171D99357B1AF37C89BCAAC7C772463C2D5041E9CA9A4D926"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/modbus/point_map.rs"
@@ -177670,9 +177586,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177722,10 +177640,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_36B81D718C322B9628E20A2E0FBBEA0138CA78E288E954DB3C3A3FABC7374F84"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -177916,9 +177836,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -178235,14 +178157,16 @@ path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
 qualified_symbol = "<trust_runtime::ads::onboarding::wire::AdsRsOnboardingWire as AdsOnboardingWire>::guarded_write_probe"
 item_kind = "rust_method"
 signature_digest = "sha256:618171e94ebaffe9532b49cbf5abbf14fa2d9c86daeb3610b47c6334cfc1ea5e"
-reviewed_body_digest = "sha256:5b005711a82303b4b83670255b616a4a2b21243c9aaac98dbca2de8b6e7893ce"
+reviewed_body_digest = "sha256:6a08ac1b47c1b5c6608e1ee9c47c5cfc77e1c37769d95b32d76d42632afa7d45"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -178963,9 +178887,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179249,9 +179175,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179567,9 +179495,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179713,9 +179643,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179803,10 +179735,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_493A1B63B49D3580C68F8CFFFFDB0BB81C233AEC9256C6AFC368338AD2A2EA26"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179874,9 +179808,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -179904,23 +179840,6 @@ qualified_symbol = "trust_runtime::io::registry::is_none_driver"
 item_kind = "rust_function"
 signature_digest = "sha256:43f0e4fb3b744c1d25c2370db2ccf1cbb2ddece57abb3c0604113846dcf7f75a"
 reviewed_body_digest = "sha256:765d7bf1495ca28cfb912dbd112b7e9c0a086d4abd2f26926388dca7f0d219d4"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_4A99AE73FF7EF323346262508D2F074DA106BA2EEB200ADEE67BEB02AF118FDE"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::read_state"
-item_kind = "rust_method"
-signature_digest = "sha256:dfc70a50661f2eabedf3087c561572753b76e2088c7c175042d7b88031db5ed2"
-reviewed_body_digest = "sha256:e016cf548154dab571c616635f2e27e6d5b4e640f5832a487be0d787a1e49246"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -180253,23 +180172,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_4D7BCCF971484F32BB0FACA351117158D68090EB96B7E115D5F4129BB9EBB235"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::tcp_probe_48898"
-item_kind = "rust_method"
-signature_digest = "sha256:197030930b3345819fd5d0a1a85e29998d0616c5b01a46ce846f15f8379e8226"
-reviewed_body_digest = "sha256:67a3c8c9dc6cfd6fe0905b64c83f734a81ccc381d782d1bb0de7eee3b7d69307"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_4D9D98BE1EE44C53EBB24BD93A7F478676DE25377586CC232BE4A44373DD84E7"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/errors.rs"
@@ -180542,9 +180444,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180594,10 +180498,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_4FBD83863C88F1958712784882FD3E0ED552958D2D36E2EEC1E99665F1D56DC4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180751,10 +180657,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_51B6E58F19FDB60237E3111B54464318C0C1C15921520CA83AA379FBC99E0AF7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -180961,23 +180869,6 @@ reviewed_body_digest = "sha256:f451acffb698d22e9685a15f9cdeecf2ef811fa659746f7af
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_53C1A2DD02FB7192FC33C1624DAC9428EF4F70CB44696068FAE6CAD31F933E68"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire::sample_symbol"
-item_kind = "rust_method"
-signature_digest = "sha256:271d873114f018b047c2e12eb60eee504d237d5411e8bfff09e3ab89b1315518"
-reviewed_body_digest = "sha256:49db75472847b984750198340a3415c828af793637cc69200c6ffff35d054f78"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -182536,23 +182427,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_6194E4FA26775EB1CA991A1D898D43DB7CE138E3440F730623983EF565BB7AA0"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire::new"
-item_kind = "rust_method"
-signature_digest = "sha256:2b32794dd88243a3f207705e74e5a2c4b485fdc950b992a50ec237278ea00543"
-reviewed_body_digest = "sha256:c725abd050653c50ab78122bdaa7f2b41c6b7c5d19316a36f00e755d0f400ed8"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_61CBF69B05A9AA9CA4AB3D3349E68E1421CEA27241C33858F6BB319303E9F11A"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/mqtt/point_map.rs"
@@ -182674,9 +182548,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -184014,9 +183890,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -184832,9 +184710,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -185692,10 +185572,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_7EA9237D879EC2A9AE4D7A88854E45A24A4A80491A7C70B645CF00CB663E7B5E"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -185781,23 +185663,6 @@ reviewed_body_digest = "sha256:8fdfb556d09d9f496e15ab2757096d2f1b8579ef3183b0065
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7F311FE291E5251C0853F31A3FE395B99F491905B35A10E83F7E49862FFB33BA"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::wire::MockAdsOnboardingScenario"
-item_kind = "rust_public_type"
-signature_digest = "sha256:6ab866f6872395063e15d12ae49080e6478e477ac0a498ac45c22381c8525077"
-reviewed_body_digest = "sha256:d732d38a50c6eb7cb0f9e1a050b927ffa77401251dd5183234dee3f5cc465209"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -186468,16 +186333,18 @@ path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
 qualified_symbol = "trust_runtime::ads::onboarding::wire::udp_identify_all"
 item_kind = "rust_function"
 signature_digest = "sha256:1c8dd02a022b6a1789d460120bb267ecf7cca319dce5c4ea477c7e96a110e733"
-reviewed_body_digest = "sha256:504f4e2af1c669583850b5be6dece10bb4961b9cb6ea4facf2dfad78f8791fdb"
+reviewed_body_digest = "sha256:e325bdadcb9723c2cef2ef89d6961718fbb34370eb3293679ce9612975b52169"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "network_io", "state_mutation"]
 owner_ack = "RISK_ACK_853B20CEBB4C4FCE6E334EF7E62673EDA9CA58FF46EE4465EEDA77C5259DC06B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -186759,23 +186626,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_89CFBFE42FB96E95EC5C25D50D53310DC995D0DF8ECD6625939F87E6BC3E0831"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::upload_symbols"
-item_kind = "rust_method"
-signature_digest = "sha256:77ac198daa9b8b5ef4e52de154ced4b53f2b17edd775c0699ef487843c6436be"
-reviewed_body_digest = "sha256:11097adfd41b9300cd7ca0eaa9960105a6dbe30dffc72f2674d8ab9f2c388c3d"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_89D9F724C53F1E5DA3EF40A9BE24917F9D734FD3770DF1887FA3EADA91E81B07"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/system_symbols.rs"
@@ -186890,10 +186740,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8A8BD256C8BBC075ED7348AB62E3E96CD93353D2DD593A666C4E12315B2CA720"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -187484,9 +187336,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -187791,23 +187645,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_92701BB5AE19ADB8851CD624AA1B65F3059668321B65881B852631360C314556"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::remove_route"
-item_kind = "rust_method"
-signature_digest = "sha256:b992d4f86e66ca2d1d8dd27bb6ff01924c449351909e9b70fa95b949ffb83c29"
-reviewed_body_digest = "sha256:cfdd282a9430574dff917ae38ea2c05ac5f9add917c940554be3edc0f630af1e"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_92C571B9E4F83825DADB4F30DDCE5566CA9AD9FCFDB61F7637A9D8E377EF8867"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/client_cache.rs"
@@ -188061,10 +187898,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_93FB084CEC78C180CA90F873CC62F2A9763F6448A939617644C00A59D0933556"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188767,9 +188606,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -188856,23 +188697,6 @@ visibility = "private"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_9B53A3DBFDE2A3A2750655826F049E2903B6734CECEC794FE16F54C4C888911B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_9B54A2B424578DD236AE527D3303A68A2EEFC9ADCF12E05D9CB984FA510E9029"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::guarded_write_probe"
-item_kind = "rust_method"
-signature_digest = "sha256:494ce0a6291a7bc0d18d88cea9b23a0a007cd5f44a94643adc155879eb889f3b"
-reviewed_body_digest = "sha256:2bb6e4e32508a15211c5ed783fc904883fc46bbb60353ef7a11dc3b17aa47305"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -189412,10 +189236,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_A1E33007B0246F06E3279919503039BD4F27DA9EDB8501DD29F58CFBBD3D6582"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -189642,9 +189468,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -189678,9 +189506,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -190184,23 +190014,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_A7E79D12BB471F0C6A2BA472BFA8775C8D39A739E70E2EC92C6D70CAC4EC77EF"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::udp_identify"
-item_kind = "rust_method"
-signature_digest = "sha256:5f80408ff7622b2c8845a3c63d4e7037488c15adc3dcea333a56d1b6a82c6cc9"
-reviewed_body_digest = "sha256:2b88aa4652c13558aa6d0a231ad4922f81fc570b3d0654959466fb80680ab7ee"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_A857E7EC73424698B795A86F7D50EF9236666AF0AD3C67D83CF4D7CFB7AAAE9E"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/system_symbols.rs"
@@ -190589,9 +190402,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -191187,9 +191002,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -191756,10 +191573,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_B7354160916E24789F64C003C75184BFB99062869948CAEB6204221AD8DB0204"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -192650,23 +192469,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_C01D339CEA4D0D53058D3BCA7F367AA852A0D7F48484C487CFD980AA23C8BEA7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::resolve_handle"
-item_kind = "rust_method"
-signature_digest = "sha256:9322305b18e4115fa5f5986678dffdf7b0dfb1bb43abe8eba6a8589e82d5bfd1"
-reviewed_body_digest = "sha256:0b5cd0ef63e94e57ef46edfe23f9230a534df8f0d11707dab1823662929f4a81"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_C03C13AC787B1DFCBCC690DAA756FC82F74C5BE49C5D9EC3E4BA033AF8B19631"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/server/lifecycle.rs"
@@ -192872,10 +192674,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_C145B2130B45C27ABED4908E776088EF76DCC99F1B918C865BF58074E36C9A16"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193106,9 +192910,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193928,9 +193734,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -193981,9 +193789,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -194391,23 +194201,6 @@ reviewed_body_digest = "sha256:e19ac1760f54dcba65165dbf954851f424845b6f1856bc94f
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_CF387A23DAB88D7A41F90676D1EBD34F45A5DCD84DCB2F4DBDE9A97D1EDD901B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire"
-item_kind = "rust_public_type"
-signature_digest = "sha256:0506b6c20203a5258e411eee6ca99aeb553931e4b65fdbbfc6b692fa89728e2f"
-reviewed_body_digest = "sha256:d60a70bc27c7e941503eb85a81ac22ba1d8443b3d2cf9be265462930ce9fff61"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -195093,9 +194886,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -195188,9 +194983,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -196334,10 +196131,12 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_E36F408DE7817D2695B7A57B8D95A78D9DD725FA164C629258F9BB22020142E3"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -196583,9 +196382,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -197236,9 +197037,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -197801,23 +197604,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_F0F5412FCEB697CE15187FCE1546F8775783B0B71218A1DAD6442CAB9FED0491"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::udp_identify_all"
-item_kind = "rust_method"
-signature_digest = "sha256:514baabaaa94abb3e6568a17199aeb27d13e46e40bdf05ca30403c106c1ea38e"
-reviewed_body_digest = "sha256:c939c29ab7f0ff69f56176cbbe06d96c5674aba9cd937db1738b3cb47efe6406"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_F1148ABA9D34F88A789F46955DC40AEB218F5D1135598A18A7E3B054171C9CDF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/generate.rs"
@@ -198079,9 +197865,11 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -198528,23 +198316,6 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_F757394391972EBE2E5A9F5F8021FA75BCAEC8B6A90785D94FB83C9DE13CC2C2"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F75EDD7E2775418487A2CCFCE61031E5675A8C4D1140218237F43AF49B5AB799"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::add_route"
-item_kind = "rust_method"
-signature_digest = "sha256:3d01505d33245d8077be1907dd0fd2f4370d66aceb51d5b412699b019de65ed1"
-reviewed_body_digest = "sha256:2f4a300cb75638835d2802686551720751fa77b03d9fd62c3b7c111ffd6bbc43"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -199338,23 +199109,6 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_FFEED91C22CA4660405367C5384D3D6C23D31E83E59EBF645DE9B91E22922DB0"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_FFF07A9C1D1FD2311963BF17806E1203568611D5AFB5321C27B58A5F01B61473"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
-qualified_symbol = "<trust_runtime::ads::onboarding::wire::MockAdsOnboardingWire as AdsOnboardingWire>::verify_ams_target"
-item_kind = "rust_method"
-signature_digest = "sha256:c11e1d0d736658647425f4a4e6854283412aca663e0b9e663e5e68c0960c0a38"
-reviewed_body_digest = "sha256:d5be1ebfd418c41c2f685ab2e3a589c9889e257aba96c31d80a1abb11d746a60"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -273763,4 +273517,482 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-diagnostic-report-and-production-readiness-truth"
 invariant_ids = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001"]
 test_ids = ["TEST_ADS_DIAGNOSTIC_COMMITTED_GOLDEN_FIXTURES_MATCH_RUST_SCHEMA_001", "TEST_ADS_DIAGNOSTIC_CREDENTIAL_CHANNEL_CLASSIFICATION_ENFORCES_SECRET_BOUNDARY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_MAPS_AND_ACTION_BUILDERS_SERIALIZE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_WIRE_ENUMS_KEEP_THE_VERSION_TWO_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_FAILS_CLOSED_FOR_EMPTY_STEPS_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_KEEPS_NONBLOCKING_FAILURE_PARTIAL_001", "TEST_ADS_DIAGNOSTIC_ERROR_CLASSIFIER_MAPS_COMMON_FAILURES_TO_REMEDIATION_AND_ACTIONS_001", "TEST_ADS_DIAGNOSTIC_EVIDENCE_HASH_INPUTS_ARE_STABLE_AND_COMPLETE_001", "TEST_ADS_DIAGNOSTIC_NEXT_ACTION_KINDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_BUILDER_HASHES_DECLARED_INPUTS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_HASHES_SNAPSHOT_SETS_INDEPENDENT_OF_CONNECTION_ORDER_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_HONORS_AGE_STATUS_HASH_AND_CLOCK_WARNING_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_IS_NOT_READY_WITHOUT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_NEEDS_RECHECK_ON_MISMATCH_FAULT_OR_EXPIRY_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_REQUIRES_MATCHING_DEPLOYED_STATUS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READY_REQUIRES_PASS_AND_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_REPORTS_CONTAIN_NO_SECRET_FIELDS_BY_CONSTRUCTION_001", "TEST_ADS_DIAGNOSTIC_SCHEMA_RESERVES_SERVER_ROLE_WITHOUT_SERVER_MODULES_001", "TEST_ADS_DIAGNOSTIC_SERIALIZES_DOCUMENTED_MISSING_ROUTE_SHAPE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_SERVER_EVIDENCE_REPORTS_ALLOWED_CLIENT_SERIALIZATION_FAILURE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REJECTS_INCOMPLETE_OR_CLIENT_ROLE_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REQUIRES_INDEPENDENT_CLIENT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_STEP_IDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_SKIP_REASONS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_V1_CLIENT_EVIDENCE_JSON_STILL_DESERIALIZES_WITH_SERVER_DEFAULTS_001"]
+last_reviewed = "2026-07-22"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_67A0B9B75084BE7C05BF4CA9DD9B9F1E0A496AABD08ED101BBD60181AE73CD32"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::AdsRsOnboardingWire::restore_original_value"
+item_kind = "rust_method"
+signature_digest = "sha256:96fdb3afad4674dbef599e3778c606a924d0e1666ae446a0bcffe85e7609b496"
+reviewed_body_digest = "sha256:8495314eef343290404998d597bafec93e7b5faab8a466d0cc2df380a52bd0b5"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6E343038D7167A67D96FFF34A0B95F72F3E79F39713813EA470D6AAA495A9AAF"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::push_unique_target_identity"
+item_kind = "rust_function"
+signature_digest = "sha256:f94ef5103c8b5fc75236dece8c4f66b00882d383c86dc0ba764f06e017beb729"
+reviewed_body_digest = "sha256:cd4244e88ef1dc95cd376032980ee1ffdbcfd18af9f088fd1eca058c310eca2c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_6E343038D7167A67D96FFF34A0B95F72F3E79F39713813EA470D6AAA495A9AAF"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_04641C806EDF8A7B9127CE63329C5BEC1732732EF2DF7532AFA4018514DBDC02"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::require_expected_probe_readback"
+item_kind = "rust_function"
+signature_digest = "sha256:d3a1ee9f4e9cd6239b7f2eb0c5e3fc981374c6bd1a3938cbca4b93a0152c5e3a"
+reviewed_body_digest = "sha256:799f28964bbdd49dda02a4ec3fb3483535299a4496d1fd11908b588b579dcb58"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_748C6274CC773E77ACCC983AD7C21667D25B4EA4B56138CFE98B8BC76AE6209A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::require_probe_write"
+item_kind = "rust_function"
+signature_digest = "sha256:47748a502e299ebb0e8207b98fd9a8607f84bdce36b1037584b37037a32f2b15"
+reviewed_body_digest = "sha256:1f23603b7042b91032209373388a5b68080d57f8c9c2ea1cbfaab40e1882d8d6"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FC7452A3DC05C5F526F38E7F191565D5F85FA37EB72D8C835D534A9847512261"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::restore_after_probe_failure"
+item_kind = "rust_function"
+signature_digest = "sha256:6e79806b9665636a08fc63b0a9462873a4d6d4fe065f03a26aa8f1097bdd626c"
+reviewed_body_digest = "sha256:9ad3904087bff785e85f411b04393859fcbc272a9181bcef2fb6a2aef5fc8e6e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_FC7452A3DC05C5F526F38E7F191565D5F85FA37EB72D8C835D534A9847512261"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A1EBBF4ADCCAFFD2B57EBA6C99C9F669839901D885A720E2EAAEA564DFC899CE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::add_route"
+item_kind = "rust_method"
+signature_digest = "sha256:3d01505d33245d8077be1907dd0fd2f4370d66aceb51d5b412699b019de65ed1"
+reviewed_body_digest = "sha256:2f4a300cb75638835d2802686551720751fa77b03d9fd62c3b7c111ffd6bbc43"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1CC8A350E363AE56B689A5A9D41CBDAC42C15426E1A39513CD91183593C5DF62"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::check_route"
+item_kind = "rust_method"
+signature_digest = "sha256:f495fd0e6fadc46e60150e8a6168727c08c33d93756ecc3d6129901e20364197"
+reviewed_body_digest = "sha256:c7674be949d93a0b7c582c19753710bf7678cb2767a567eddea70ec1fedeabe5"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E2C87A5EAA86B50173DC52EB37C146DB164C184BF8580ED24D64B140F941AAF6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::guarded_write_probe"
+item_kind = "rust_method"
+signature_digest = "sha256:494ce0a6291a7bc0d18d88cea9b23a0a007cd5f44a94643adc155879eb889f3b"
+reviewed_body_digest = "sha256:2bb6e4e32508a15211c5ed783fc904883fc46bbb60353ef7a11dc3b17aa47305"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0BD3A12848F72F041C4811E090B5B925645E64188D698FF024E9D49A6B1B5A99"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::read_state"
+item_kind = "rust_method"
+signature_digest = "sha256:dfc70a50661f2eabedf3087c561572753b76e2088c7c175042d7b88031db5ed2"
+reviewed_body_digest = "sha256:e016cf548154dab571c616635f2e27e6d5b4e640f5832a487be0d787a1e49246"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_88CC3AE27EF6899088A56CEBB7704ECAFBC7A5134775D8A05FFE2776D7C6214F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::remove_route"
+item_kind = "rust_method"
+signature_digest = "sha256:b992d4f86e66ca2d1d8dd27bb6ff01924c449351909e9b70fa95b949ffb83c29"
+reviewed_body_digest = "sha256:cfdd282a9430574dff917ae38ea2c05ac5f9add917c940554be3edc0f630af1e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D5DE4F674CA4E1312FB399F784A8D70C81FD0CD85A73CF0E6001A00AF7499B9E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::resolve_handle"
+item_kind = "rust_method"
+signature_digest = "sha256:9322305b18e4115fa5f5986678dffdf7b0dfb1bb43abe8eba6a8589e82d5bfd1"
+reviewed_body_digest = "sha256:0b5cd0ef63e94e57ef46edfe23f9230a534df8f0d11707dab1823662929f4a81"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F8AFFAD99454617BD9B48F2607E5A734D5FC72B0FEAB9771479086D696200A97"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::subscribe_notification"
+item_kind = "rust_method"
+signature_digest = "sha256:07903cddc4e76529d64c945b80318271ccd6742e36e76f9e683bab275a502d61"
+reviewed_body_digest = "sha256:e4779839cbdc25c78045345fd299f07c7ad60704d86e49fcdea39905fe05597b"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6397FFA413DFED0861DFD4ADEAD6FC4BCA995E8344EF534BEA0AD9B3905D4C49"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::sumup_read"
+item_kind = "rust_method"
+signature_digest = "sha256:327b47cef9595b40d51eaf094c63ac58706466c074d071d8f4a62facf83927e8"
+reviewed_body_digest = "sha256:d58cfab732210eca33879ca2adcf7dbf7a4acfb28d59d8d016c36d9dec2a50ed"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_63728DDD7EEAA48A62100A63757FA45DB3920318E711DA7FF2E87259DE42EEAA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::symbol_version"
+item_kind = "rust_method"
+signature_digest = "sha256:53d5bb58475c26bfac6b51f0f16acc9a7bf0c3a5f736f3f77a4136810bc2bb20"
+reviewed_body_digest = "sha256:9df20749e131fe2271dfd5ce8abf739ab9af6e18d0e1f11ec85699ed8fc850bf"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5207743EEE5B08F0FD3C04FC122B6EB550D2DB2BC8CA7B37CCDAEAD7D63C0110"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::tcp_probe_48898"
+item_kind = "rust_method"
+signature_digest = "sha256:197030930b3345819fd5d0a1a85e29998d0616c5b01a46ce846f15f8379e8226"
+reviewed_body_digest = "sha256:67a3c8c9dc6cfd6fe0905b64c83f734a81ccc381d782d1bb0de7eee3b7d69307"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_50011C63025E8F292A2E9DC12749D87BF9D471B08A1D03A78B02693E0E1851E4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::udp_identify"
+item_kind = "rust_method"
+signature_digest = "sha256:5f80408ff7622b2c8845a3c63d4e7037488c15adc3dcea333a56d1b6a82c6cc9"
+reviewed_body_digest = "sha256:2b88aa4652c13558aa6d0a231ad4922f81fc570b3d0654959466fb80680ab7ee"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1F31EC35D1B31274103318031FEE3719A092978DAC15F75B5DE68D6588E6300C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::udp_identify_all"
+item_kind = "rust_method"
+signature_digest = "sha256:514baabaaa94abb3e6568a17199aeb27d13e46e40bdf05ca30403c106c1ea38e"
+reviewed_body_digest = "sha256:c939c29ab7f0ff69f56176cbbe06d96c5674aba9cd937db1738b3cb47efe6406"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F924590B7ADF3E64F5CABE9FBA8436613D56444E7C140EAD08B64BB742324BBE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::upload_symbols"
+item_kind = "rust_method"
+signature_digest = "sha256:77ac198daa9b8b5ef4e52de154ced4b53f2b17edd775c0699ef487843c6436be"
+reviewed_body_digest = "sha256:11097adfd41b9300cd7ca0eaa9960105a6dbe30dffc72f2674d8ab9f2c388c3d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_719B678BC3388F54095C7022C08E6CFB152AE9AFD4F2599A0D23040D1515352E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as AdsOnboardingWire>::verify_ams_target"
+item_kind = "rust_method"
+signature_digest = "sha256:c11e1d0d736658647425f4a4e6854283412aca663e0b9e663e5e68c0960c0a38"
+reviewed_body_digest = "sha256:d5be1ebfd418c41c2f685ab2e3a589c9889e257aba96c31d80a1abb11d746a60"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CCF679706A438CE1BA2B375466FC1BD85F42565AC4C1CBB32C5720CD8DA7EB5A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "<trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire as Default>::default"
+item_kind = "rust_method"
+signature_digest = "sha256:191f23e774f83556ce3f86c5c69b7e3d87b87ffbb017d825ccb31b06521cbbbd"
+reviewed_body_digest = "sha256:256452c7385ebbe8cc655b1f044e1149fde3115c64fb194024cee4098f7b01bd"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BD2FD261895328FD2EE99832627D28B9F1F7765A87EACD755A238F7AFF19D4C5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingScenario"
+item_kind = "rust_public_type"
+signature_digest = "sha256:6ab866f6872395063e15d12ae49080e6478e477ac0a498ac45c22381c8525077"
+reviewed_body_digest = "sha256:d732d38a50c6eb7cb0f9e1a050b927ffa77401251dd5183234dee3f5cc465209"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B4938DC87678C1E2D89C838D59C935B238A68526537134E02C841EAFDD7A934C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire"
+item_kind = "rust_public_type"
+signature_digest = "sha256:0506b6c20203a5258e411eee6ca99aeb553931e4b65fdbbfc6b692fa89728e2f"
+reviewed_body_digest = "sha256:d60a70bc27c7e941503eb85a81ac22ba1d8443b3d2cf9be265462930ce9fff61"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7D1F5D845BDFF05D20E81AB7BD50D6A30D9678C5724EDB9DC7366B71934F609D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire::fail"
+item_kind = "rust_method"
+signature_digest = "sha256:b1058557eb8f86bcc9b0c58a8fa519e8a9b027bd1a1d02fac558e72ebec94890"
+reviewed_body_digest = "sha256:e5747e5dc8e04935a55e6dd4c23e1471c9493532253bdfaf70ca1dd99247d54c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_04CE8A2E6B9FB3FA128A102EBA0E952C0328C4264BCA9E2243840997F773B4D5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire::new"
+item_kind = "rust_method"
+signature_digest = "sha256:2b32794dd88243a3f207705e74e5a2c4b485fdc950b992a50ec237278ea00543"
+reviewed_body_digest = "sha256:c725abd050653c50ab78122bdaa7f2b41c6b7c5d19316a36f00e755d0f400ed8"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
+last_reviewed = "2026-07-22"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_54B94FBB950C4FEF85EB9173C3BC9266313BDF46474A1910104A745906D3BFC3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/mock.rs"
+qualified_symbol = "trust_runtime::ads::onboarding::wire::mock::MockAdsOnboardingWire::sample_symbol"
+item_kind = "rust_method"
+signature_digest = "sha256:271d873114f018b047c2e12eb60eee504d237d5411e8bfff09e3ab89b1315518"
+reviewed_body_digest = "sha256:49db75472847b984750198340a3415c828af793637cc69200c6ffff35d054f78"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
 last_reviewed = "2026-07-22"

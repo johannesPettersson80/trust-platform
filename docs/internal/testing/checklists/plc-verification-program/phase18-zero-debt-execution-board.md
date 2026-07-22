@@ -699,6 +699,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   61131-3, not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, independent external-client/TwinCAT lab proof, the remaining
   ADS subdomains, and the final broad remote gates remain open.
+
+  ADS onboarding live-wire coherent-batch progress (2026-07-22): the runtime
+  product specification now defines the raw-ADS boundary, endpoint identity,
+  target/local-scoped connection cache, fail-closed symbol/value handling, and
+  guarded-write recovery contract. Four expected-red assertions exposed and
+  fixed the real UDP path dropping distinct runtimes that shared one IP and
+  guarded probe write/read-back failures returning without a verified restore
+  or discarding the restore failure. Once a probe write is attempted, the wire
+  now attempts and verifies the original value on every failure path and keeps
+  both errors when recovery also fails. The deterministic mock was mechanically
+  split from the production owner before expansion, leaving focused production,
+  mock, and regression-test modules below the large-file guardrail. Remote
+  focused proof passes the complete wire regressions and the complete onboarding
+  slice. Deterministic semantic automation owns the live code identities,
+  moved mock facts, selected existing tests, new regression tests, invariant,
+  and accounting; the scoped audit passes. This internal module split changes
+  no ownership or execution flow and requires no diagram update. It is a truST
+  ADS product contract outside IEC 61131-3, not an IEC decision or deviation.
+  Assertion reachability, mutation sensitivity, real TwinCAT value/type and
+  recovery proof, the remaining ADS subdomains, and the final broad remote
+  gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

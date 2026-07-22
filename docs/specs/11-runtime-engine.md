@@ -1075,6 +1075,36 @@ IP or discovery provenance differs. Directed-broadcast targets are derived
 only from usable non-loopback, non-link-local IPv4 interface candidates and
 are themselves deduplicated.
 
+###### ADS onboarding live-wire and guarded-write recovery
+
+The `ads-wire` onboarding boundary performs real UDP identify, TCP 48898,
+route-back, AMS target, state, symbol, handle, sum-up, notification, guarded
+write, and route-add operations without exposing raw ADS types in the public
+Doctor schema. UDP identify collection ignores malformed replies but retains
+every distinct `(AMS Net ID, AMS port)` endpoint even when multiple runtimes
+share one host IP. Repeated observations of that same endpoint are emitted
+once, and a receive window with no valid reply fails explicitly.
+
+The live ADS transport cache is scoped to target IP, target AMS Net ID, target
+AMS port, and selected local AMS Net ID. Changing any component discards the
+transport plus cached symbols and handles before reconnecting. Symbol upload
+replaces the name cache; handle resolution may refresh that cache but must fail
+for an absent symbol. Sum-up reads reject unknown local handles, non-good
+quality, missing values, unknown returned point names, and value/type encoding
+failure instead of manufacturing bytes. Notification setup resolves the named
+symbol and subscribes in on-change mode.
+
+A guarded write probe first requires a writable remote symbol whose complete
+type descriptor matches the requested descriptor, resolves its handle, and
+reads the original value. Once the probe write has been attempted, every write
+error, read-back error, or read-back mismatch must attempt to write and verify
+the original value before returning failure. A restore failure is retained in
+the returned diagnostic alongside the initiating failure. A successful probe
+is complete only after both probe read-back and restored-value read-back match.
+Automatic route addition continues to use the already validated runtime-host
+AMS identity and one-shot credentials; the transport never enables implicit
+route creation.
+
 ###### ADS onboarding route artifact and credential safety
 
 Automatic ADS route addition is available only over a credential-permitted

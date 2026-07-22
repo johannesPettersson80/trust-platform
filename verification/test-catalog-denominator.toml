@@ -632,6 +632,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_0428114A7C63C70B7AC8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "guarded_probe_read_error_attempts_and_reports_restore_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_042D4F35C060424831AE"
 discovery_source_kind = "rust_unit_test"
 path = "crates/verification-cases/src/lib.rs"
@@ -847,9 +857,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
 name = "onboarding_boundary_keeps_raw_ads_types_out_of_public_schema"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_0580026649DA618B6D8B"
@@ -1779,6 +1789,16 @@ name = "identity_derivation_honors_advanced_local_net_id_override"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
+discovery_id = "DISC_0AB5D5FDD3643B444E0A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "guarded_probe_matching_readback_defers_normal_restore"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
@@ -3737,9 +3757,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/tests.rs"
 name = "mock_wire_happy_path_covers_required_operations"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_1691B3B84A0BBDCA3614"
@@ -8030,6 +8050,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_2E6667F2224E0B264666"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "udp_wire_deduplicates_by_ads_endpoint_not_host_ip"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_2E72F9869B8235838DD5"
@@ -20562,6 +20592,16 @@ catalog_test_id = "TEST_ADS_ONBOARDING_ROUTE_ROUTE_PLAN_DISABLES_AUTOMATIC_ROUTE
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_7DF91EF9ACB91637822D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "guarded_probe_write_failure_attempts_and_reports_restore_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_7E1297E7B0ECD808A43A"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/docs_command.rs"
@@ -26320,6 +26360,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A24345C6BA88DC27D991"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "guarded_probe_mismatch_reports_restore_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_A24D196C0A5E43F2BAC6"

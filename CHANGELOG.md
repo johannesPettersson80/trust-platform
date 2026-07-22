@@ -14,6 +14,10 @@ Target release: `v0.24.54`
   non-blocking failed steps, reject incomplete or role-mismatched TwinCAT
   production evidence, and require the declared age, clock, deployed-config,
   and live-status evidence to remain current before reporting readiness.
+- trust-runtime: live ADS onboarding discovery now retains distinct runtime
+  endpoints that share one host IP, and guarded write probes attempt and verify
+  restoration after probe-write or read-back failure while preserving any
+  restore failure in the returned diagnostic.
 - trust-runtime: Runtime Cloud preflight now rejects empty, blank, or duplicate
   target lists instead of allowing an empty dispatch or repeating a target;
   cross-site writes in `dev` and `plant` profiles no longer incorrectly require
