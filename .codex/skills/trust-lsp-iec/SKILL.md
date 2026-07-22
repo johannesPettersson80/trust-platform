@@ -1,6 +1,6 @@
 ---
 name: trust-lsp-iec
-description: IEC 61131-3 Structured Text LSP workflow for standard compliance, spec updates, and implementation checks in truST LSP.
+description: IEC 61131-3 Structured Text workflow for compliance, language behavior, spec updates, and IEC decision/deviation classification in truST. Use whenever editing docs/IEC_DECISIONS.md or docs/IEC_DEVIATIONS.md; reject IEC-deviation entries for IEC-silent, product-specific, platform, runtime, CLI, or truST-only behavior.
 ---
 
 # truST LSP (IEC 61131-3) Workflow
@@ -23,6 +23,10 @@ Use this skill when implementing or reviewing ST language features, validating s
    - `editors/vscode/README.md` for client UX surfaces and test pointers
 4. **Cross-check**: Verify behavior against the IEC table/section. Cite the section/table in spec edits.
 5. **Classify before recording**:
+   - Treat every proposed `docs/IEC_DEVIATIONS.md` edit as blocked until the
+     normative conflict is proven. Never use that file as a general behavior,
+     compatibility, implementation-note, or product-choice registry, and never
+     treat an existing entry as precedent for classification.
    - Add an entry to `docs/IEC_DEVIATIONS.md` only when truST intentionally
      conflicts with, omits, or relaxes a normative IEC requirement.
    - Before editing that file, cite the exact IEC section/table, quote or
@@ -32,6 +36,9 @@ Use this skill when implementing or reviewing ST language features, validating s
    - IEC-silent, out-of-scope, implementation-specific, platform/runtime, and
      truST-only API behavior belongs in the relevant product specification. It
      is not an IEC deviation.
+   - For example, a runtime API default, CLI compatibility rule, file format,
+     protocol version, or tool-specific limit that IEC does not govern belongs
+     in its product spec, even when the behavior is intentional and tested.
    - If the IEC text genuinely permits multiple readings, record the selected
      interpretation in `docs/IEC_DECISIONS.md` with the IEC citation.
 6. **Coverage updates**: If standard functions are touched, update `docs/specs/coverage/standard-functions-coverage.md`.
