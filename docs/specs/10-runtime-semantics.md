@@ -1341,7 +1341,49 @@ impl TestHarness {
 }
 ```
 
-#### 11.2 Example Tests
+#### 11.2 Harness automation JSON-line contract
+
+`trust-harness` exposes the deterministic test harness as newline-delimited
+JSON. Each non-empty input line produces exactly one response line. Malformed
+JSON and command failures are isolated to that request; the process continues
+with the same session. Protocol version 2 is the default, version 1 preserves
+the legacy watch-value shape, and every response includes the selected version.
+
+Source selection and replacement are transactional:
+
+- `sources` is authoritative when both `source` and `sources` are present;
+- an explicitly empty `sources` list is a semantic `invalid_argument` error,
+  while omitting both source fields is a structural `invalid_request` error;
+- successful `load` builds a fresh harness and completes its initial cycle
+  before replacing the session;
+- failed compilation or initial execution leaves the previously loaded session
+  unchanged, or leaves the session unloaded when there was no previous load;
+- `reload` requires a loaded session and preserves supported retained values,
+  virtual time, and cycle count; compilation or retained-state migration
+  failure leaves the complete old harness unchanged.
+
+Cycle/time commands use deterministic, explicit boundaries. `cycle` defaults to
+one cycle, zero time advancement, and no watched values. Each requested time
+increment occurs immediately before its corresponding cycle. `advance_time`
+executes no cycle; `duration_ms` is authoritative over its legacy `dt_ms` alias.
+`snapshot` executes no cycle and advances no time. `run_until` checks the
+current value before its first cycle, so an already-matching value succeeds with
+`cycles_ran = 0`; otherwise it executes at most `max_cycles` and reports
+`run_until_timeout` after that budget. Prior completed cycles and time advances
+remain committed when a later cycle or bounded run reports an error.
+
+Missing command fields, unsupported commands, and unsupported restart modes are
+structural `invalid_request` errors. Typed-value, source-list, and non-negative
+duration validation failures are `invalid_argument`. Compile, runtime,
+runtime-cycle, timeout, and boundary failures retain their stable protocol error
+kinds and data. Version 2 represents each watch failure independently; version
+1 promotes a watch failure to the complete request because its legacy value map
+cannot encode per-entry errors.
+
+The detailed wire examples and stable error vocabulary are in
+`docs/guides/TRUST_HARNESS_PROTOCOL.md`.
+
+#### 11.3 Example Tests
 
 ```rust
 #[test]

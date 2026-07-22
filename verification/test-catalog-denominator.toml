@@ -157,9 +157,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_rejects_negative_dt_ms"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_NEGATIVE_TIME_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_011E6BF892E89DBE3DBD"
@@ -430,6 +430,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_033CC0BAE8FE76C5CAE5"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_snapshot_is_passive_and_restart_modes_are_explicit"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_SNAPSHOT_RESTART_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_0351A3A7E8B935E780AB"
@@ -3100,6 +3110,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_126AAEE2245A56174E55"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_cli_protocol_selection_overrides_environment_and_rejects_bad_arguments"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_12717D8B241409AF09E2"
@@ -6187,9 +6207,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_advance_time_then_cycle_exposes_timer_progress"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_ADVANCE_TIME_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_265444021E11E0C2B452"
@@ -11697,9 +11717,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_set_input_then_get_output_roundtrips"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4AB7155B7181CF058808"
@@ -13722,6 +13742,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_5680CE40CD80EFABC010"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_error_kinds_separate_structure_values_runtime_and_boundaries"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_568746B1EBFDBEB42545"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs"
@@ -14297,9 +14327,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_run_until_supports_success_and_bounded_timeout"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_RUN_UNTIL_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_5A83F98038D22DC3CF2D"
@@ -16540,6 +16570,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_689E1C6B2201A7620D59"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_reports_line_errors_and_continues_the_session"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_LINE_ISOLATION_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_689F5DBBBF50BEDD7DDF"
@@ -21547,9 +21587,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_reload_preserves_retain_state"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_RELOAD_RETAIN_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_88B391164A19B06E9C4D"
@@ -22060,6 +22100,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8B9EB935920DE64BA12C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_time_alias_precedence_and_prechecked_run_until_are_deterministic"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_TIME_PRECEDENCE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_8BAF8461F95A94A773A6"
@@ -26872,6 +26922,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_AA5E2D60166B2FEF4D16"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_failed_load_and_reload_preserve_the_live_session"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_LOAD_RELOAD_TRANSACTION_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_AA62E0EB2E654D81531D"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/fb_edges.rs"
@@ -28927,9 +28987,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_cycle_dt_ms_advances_virtual_time"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_CYCLE_TIME_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_B7198EDB89BA61543797"
@@ -29627,9 +29687,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
 name = "trust_harness_protocol_version_1_keeps_legacy_watch_shape"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_V1_WATCH_SHAPE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_BC0A3822943D6722F48D"
@@ -31220,6 +31280,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_C4F1CE173F0E550A418B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_var_access_and_direct_io_commands_roundtrip"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_C500D12A19DEBBF19F9A"
@@ -37000,6 +37070,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_EB03D1E8BD57511A5428"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/trust_harness_command.rs"
+name = "trust_harness_protocol_v1_promotes_watch_errors_to_request_errors"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HARNESS_V1_WATCH_FAILURE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_EB106B12C640EB64DFF4"

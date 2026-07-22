@@ -103,8 +103,16 @@ errors.
 `reload` uses the same `source` / `sources` parameters.
 
 `sources` must contain at least one source. When both `source` and `sources`
-are present, `sources` is authoritative. A successful `load` replaces the
-session with a fresh harness; a failed load leaves no newly loaded harness.
+are present, `sources` is authoritative. An explicitly empty authoritative
+`sources` list is an `invalid_argument` error; omitting both fields is an
+`invalid_request` error. A successful `load` replaces the session with a fresh
+harness only after compilation and its initial cycle succeed. A failed load
+preserves the previous loaded session, or leaves the session unloaded if none
+existed.
+
+`reload` requires a loaded session. It preserves supported retained values,
+virtual time, and cycle count. A compilation or retained-state migration
+failure preserves the complete previous session.
 
 ## Cycle Control
 
@@ -129,8 +137,10 @@ Take a passive snapshot:
 `cycle` defaults to `count: 1`, `dt_ms: 0`, and an empty watch list.
 `advance_time` accepts `duration_ms`; the legacy `dt_ms` spelling remains an
 alias, and `duration_ms` wins when both are present. `snapshot` does not run a
-cycle or advance virtual time. Negative time increments return
-`invalid_argument`.
+cycle or advance virtual time. `run_until` checks the current value before its
+first cycle, so an already-matching value reports `cycles_ran: 0`. Earlier
+completed cycles and time advances remain committed if a later requested cycle
+or bounded run fails. Negative time increments return `invalid_argument`.
 
 ## I/O Manipulation
 

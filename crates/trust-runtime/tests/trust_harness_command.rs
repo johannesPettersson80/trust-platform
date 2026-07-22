@@ -336,6 +336,113 @@ fn trust_harness_reload_preserves_retain_state() {
 }
 
 #[test]
+fn trust_harness_failed_load_and_reload_preserve_the_live_session() {
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": latch_program()}),
+        json!({
+            "cmd": "set_input",
+            "name": "start",
+            "value": {"type": "BOOL", "value": true},
+        }),
+        json!({"cmd": "cycle"}),
+        json!({
+            "cmd": "load",
+            "source": timer_program(),
+            "sources": [],
+        }),
+        json!({"cmd": "get_output", "name": "latched"}),
+        json!({
+            "cmd": "load",
+            "source": timer_program(),
+            "sources": ["THIS IS NOT STRUCTURED TEXT"],
+        }),
+        json!({"cmd": "get_output", "name": "latched"}),
+        json!({"cmd": "reload", "source": "THIS IS NOT STRUCTURED TEXT"}),
+        json!({"cmd": "get_output", "name": "latched"}),
+    ]);
+
+    assert_eq!(responses.len(), 9, "stderr was:\n{stderr}");
+    assert_eq!(responses[3]["error"]["kind"], json!("invalid_argument"));
+    assert_eq!(responses[5]["error"]["kind"], json!("compile_error"));
+    assert_eq!(responses[7]["error"]["kind"], json!("compile_error"));
+    for index in [4, 6, 8] {
+        assert_eq!(
+            responses[index]["data"]["value"],
+            json!({"type": "BOOL", "value": true}),
+            "failed source replacement changed the live session at response {index}"
+        );
+    }
+}
+
+#[test]
+fn trust_harness_time_alias_precedence_and_prechecked_run_until_are_deterministic() {
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": latch_program()}),
+        json!({"cmd": "advance_time", "duration_ms": 5, "dt_ms": 99}),
+        json!({
+            "cmd": "run_until",
+            "name": "latched",
+            "equals": {"type": "BOOL", "value": false},
+            "dt_ms": 10,
+            "max_cycles": 0,
+            "watch": ["latched"],
+        }),
+        json!({"cmd": "advance_time", "dt_ms": 3}),
+        json!({"cmd": "snapshot", "watch": ["latched"]}),
+    ]);
+
+    assert_eq!(responses.len(), 5, "stderr was:\n{stderr}");
+    assert_eq!(responses[1]["data"]["cycle_count"], json!(1));
+    assert_eq!(responses[1]["data"]["elapsed_ms"], json!(5));
+    assert_eq!(responses[2]["data"]["cycles_ran"], json!(0));
+    assert_eq!(responses[2]["data"]["cycle_count"], json!(1));
+    assert_eq!(responses[2]["data"]["elapsed_ms"], json!(5));
+    assert_eq!(responses[3]["data"]["cycle_count"], json!(1));
+    assert_eq!(responses[3]["data"]["elapsed_ms"], json!(8));
+    assert_eq!(responses[4]["data"]["cycle_count"], json!(1));
+    assert_eq!(responses[4]["data"]["elapsed_ms"], json!(8));
+}
+
+#[test]
+fn trust_harness_error_kinds_separate_structure_values_runtime_and_boundaries() {
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": latch_program()}),
+        json!({"cmd": "set_input", "value": {"type": "BOOL", "value": true}}),
+        json!({
+            "cmd": "set_input",
+            "name": "start",
+            "value": {"type": "BOOL", "value": 1},
+        }),
+        json!({"cmd": "restart", "mode": "invalid"}),
+        json!({
+            "cmd": "set_direct_input",
+            "address": "not-an-io-address",
+            "value": {"type": "BOOL", "value": true},
+        }),
+        json!({"cmd": "get_output", "name": "missing"}),
+    ]);
+
+    assert_eq!(responses.len(), 6, "stderr was:\n{stderr}");
+    let kinds = responses[1..]
+        .iter()
+        .map(|response| response["error"]["kind"].as_str().expect("error kind"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        kinds,
+        [
+            "invalid_request",
+            "invalid_argument",
+            "invalid_request",
+            "runtime_error",
+            "unresolved_name",
+        ]
+    );
+    assert!(responses
+        .iter()
+        .all(|response| response["protocol_version"] == json!(2)));
+}
+
+#[test]
 fn trust_harness_rejects_negative_dt_ms() {
     let (responses, stderr) = run_harness(&[
         json!({

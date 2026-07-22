@@ -1,0 +1,70 @@
+schema_version = 1
+id = "RT_HARNESS_BOUNDARY_IO_001"
+title = "Harness boundary I/O commands preserve typed values and stable failures"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Symbolic, VAR_ACCESS, and direct-address harness commands round-trip typed values through the correct boundary and report invalid or unresolved operations without corrupting session state."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-harness.rs"]
+tests = [
+  "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001",
+  "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001",
+  "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+
+[[behavior]]
+partition = { equals = "SYMBOLIC_OR_ACCESS_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "Symbolic and VAR_ACCESS commands write and read the requested typed value through their documented boundary."
+
+[[behavior]]
+partition = { equals = "DIRECT_ADDRESS_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "A bound direct input accepts typed writes and a direct output returns its current boundary value."
+
+[[behavior]]
+partition = { equals = "INVALID_OR_UNRESOLVED_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Invalid typed values, invalid direct addresses, and missing names retain distinct error kinds and do not partially apply."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused integration tests round-trip symbolic, VAR_ACCESS, and direct-address values."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused integration tests distinguish semantic, runtime boundary, and unresolved-name failures."

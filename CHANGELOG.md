@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-harness: an explicitly empty authoritative `sources` list now reports
+  `invalid_argument`; failed load/reload attempts preserve the live session,
+  and focused protocol tests lock source precedence, time-alias precedence,
+  zero-cycle `run_until`, and stable structural/runtime/boundary error kinds.
 - docs: the IEC deviations log now contains only concrete normative conflicts
   or omissions. IEC-silent runtime/tool/vendor behavior remains in product
   specifications, IEC-permitted non-finite `REAL` choices are recorded in the

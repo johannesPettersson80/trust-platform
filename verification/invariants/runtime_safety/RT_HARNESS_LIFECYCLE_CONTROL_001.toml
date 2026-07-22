@@ -1,0 +1,80 @@
+schema_version = 1
+id = "RT_HARNESS_LIFECYCLE_CONTROL_001"
+title = "Harness lifecycle commands preserve deterministic transactional state"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Load and reload replace a session only after successful preparation, while cycle, time, run-until, restart, and snapshot commands apply their documented deterministic state transitions."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/bin/trust-harness.rs"]
+tests = [
+  "TEST_RUNTIME_HARNESS_CYCLE_TIME_001",
+  "TEST_RUNTIME_HARNESS_NEGATIVE_TIME_001",
+  "TEST_RUNTIME_HARNESS_ADVANCE_TIME_001",
+  "TEST_RUNTIME_HARNESS_LOAD_RELOAD_TRANSACTION_001",
+  "TEST_RUNTIME_HARNESS_RELOAD_RETAIN_001",
+  "TEST_RUNTIME_HARNESS_RUN_UNTIL_001",
+  "TEST_RUNTIME_HARNESS_SNAPSHOT_RESTART_001",
+  "TEST_RUNTIME_HARNESS_TIME_PRECEDENCE_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+
+[[behavior]]
+partition = { equals = "LOAD_OR_RELOAD_FAILURE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Compilation, initial execution, or retained-state migration must complete before the live session is replaced."
+
+[[behavior]]
+partition = { equals = "DETERMINISTIC_TIME_AND_CYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "Time increments occur before their corresponding cycles, duration_ms takes precedence over dt_ms, and run-until checks current state before cycling."
+
+[[behavior]]
+partition = { equals = "SNAPSHOT_OR_RESTART" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "Snapshot is passive and restart mode explicitly determines the lifecycle transition and retained-state behavior."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Focused integration tests prove failed load and reload preserve the live session and successful reload preserves retained state."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused integration tests cover cycle/time ordering, alias precedence, bounded run-until, passive snapshot, and explicit restart modes."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused integration tests reject negative time without changing the session."

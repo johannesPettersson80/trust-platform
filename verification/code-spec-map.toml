@@ -199283,9 +199283,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_0353F88E6F6561144DB01136B59053D5770D2F1320C400EEE3866E14621EB44B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202605,9 +202607,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_20BE77FF56413EAACB871F9E3F5166E5269D7422647E930B984F22C53F1EEC18"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203495,9 +203499,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "protocol_response_or_status"]
 owner_ack = "RISK_ACK_2903CCAE43021EA3EDC33FB2EA88CC6F1068A8E74F32B114C388FBCA792D67DF"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LINE_ISOLATION_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -206772,9 +206778,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_46ED913AA9F16EF50872595506D237148CA3621DA94A71CFAC7FF0DBDE0BD008"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_CYCLE_TIME_001", "TEST_RUNTIME_HARNESS_NEGATIVE_TIME_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208031,9 +208039,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_52D4500CC39CD99B41D8952BBFC0EB4FFAD3FE5461CE8D906045567342BF603F"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001", "TEST_RUNTIME_HARNESS_V1_WATCH_SHAPE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -210639,9 +210649,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_6A9C3E97CB40E4C3EC3BBACFFE62776379A409498DD803D81283802778CB4341"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_SNAPSHOT_RESTART_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -213139,9 +213151,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_824519B436121CD24D0CD1C5E94B679DBB235BFF2F87728B3F05D4AAE4811E0C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_RUN_UNTIL_001", "TEST_RUNTIME_HARNESS_TIME_PRECEDENCE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214760,9 +214774,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8F1C7FFD496BA9E9BB12B0083CD5F903E79D718CBD10C804CD33AFA1398A1C75"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_V1_WATCH_FAILURE_001", "TEST_RUNTIME_HARNESS_V1_WATCH_SHAPE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215502,9 +215518,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_94B15E0F12BA2A7A55EBB06B83A577ED785E186C0C68E8B5F1A15C5BA0507134"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LOAD_RELOAD_TRANSACTION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217060,9 +217078,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_SNAPSHOT_RESTART_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217344,9 +217364,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_A1BFC69F630CFEDDA59E90D255856B67984024D1E09F6D58533F6D9B6902626E"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217630,9 +217652,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_A3D6140248CC26175CBA27B818D178F04DE247337C89275E6B3FA86450426BED"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -218300,9 +218324,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -218692,9 +218718,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "protocol_response_or_status"]
 owner_ack = "RISK_ACK_AD19C448C0FBD76828DFC18C741813F3F0119FFC2CCF88713E53D7A435536005"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001", "RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -218980,9 +219008,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_B084FCF1DCB6ADA67895ABF0B2276C98BDA4FE0DD044AAE869E6640A4989CC24"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221557,9 +221587,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "persistence_retain_reload_restart"]
 owner_ack = "RISK_ACK_C86DB27D2CD2A809409D453CC186C81612243B06F7922AA3E9B2DD56B78E4C66"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_SNAPSHOT_RESTART_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221644,9 +221676,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LINE_ISOLATION_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221850,9 +221884,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_CAC4C91E8992BC1A7B0FF41E5E4DC44EF80BD0B85EC103EFFC150543B29AF19A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222210,9 +222246,11 @@ visibility = "private"
 risk_signals = ["persistence_retain_reload_restart"]
 owner_ack = "RISK_ACK_CD7C211C3686379061E5C98327CF74147D7C636886908954F95430E626BC1DD5"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LINE_ISOLATION_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222299,9 +222337,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "protocol_response_or_status"]
 owner_ack = "RISK_ACK_CDF3F33E426ECEB06D6ACFB02A6B6761C8A494AC3C02363EF931171EC36CCBC4"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001", "TEST_RUNTIME_HARNESS_LINE_ISOLATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222333,9 +222373,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LOAD_RELOAD_TRANSACTION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223587,9 +223629,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "persistence_retain_reload_restart"]
 owner_ack = "RISK_ACK_D8A72928DE25013E2B6253F15F9EE1F71504DA6FEB7C981323733806E0964F2F"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LOAD_RELOAD_TRANSACTION_001", "TEST_RUNTIME_HARNESS_RELOAD_RETAIN_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224445,9 +224489,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_DEAA1ED6C7859410E0A809118BF5974C9DC121822246E62A43962C47E7FD46C0"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -225183,9 +225229,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_E587E3DAB6A0590828E2299DEC4D012C07191E34212097595347A1A8F7FA9D3B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ADVANCE_TIME_001", "TEST_RUNTIME_HARNESS_TIME_PRECEDENCE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -225490,9 +225538,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "protocol_response_or_status"]
 owner_ack = "RISK_ACK_E71398349F49E0F81D6FBCAA82E0C0AD6917BDD7908FC970E08B674938C84205"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_TRANSPORT_PROTOCOL_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_LINE_ISOLATION_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226304,9 +226354,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226959,9 +227011,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_F2FAA96638BBD0877DD57ED934C61B998449A418397CC880700814CC40C05514"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
+test_ids = ["TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

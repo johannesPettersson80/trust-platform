@@ -351,7 +351,9 @@ fn handle_snapshot(
 fn source_list(request: &Request) -> anyhow::Result<Vec<String>> {
     if let Some(sources) = request.sources.as_ref() {
         if sources.is_empty() {
-            return Err(anyhow!("'sources' must not be empty"));
+            return Err(anyhow::Error::from(
+                HarnessAutomationError::InvalidArgument("'sources' must not be empty".to_string()),
+            ));
         }
         return Ok(sources.clone());
     }
