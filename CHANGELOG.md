@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: managed-runtime status no longer reports `stopped` when local
+  auth config is invalid or a connected endpoint rejects/mangles the response;
+  lifecycle control now checks response IDs and bounds response lines, read-only
+  status/log calls do not create state, log tailing is memory-bounded by the
+  requested line count, and early child/PID persistence failures are cleaned up.
 - trust-runtime: HMI scaffolding now discovers compiler project sources and
   local dependency sources recursively with literal filesystem paths, so glob
   metacharacters in project names no longer produce a false empty project;

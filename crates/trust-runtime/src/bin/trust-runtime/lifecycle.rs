@@ -1,9 +1,10 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -16,6 +17,8 @@ use trust_runtime::control::ControlEndpoint;
 use super::{
     load_manifest, FleetManifestRuntime, FLEET_MANIFEST_FILE, FLEET_MANIFEST_SCHEMA_VERSION,
 };
+
+const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 pub(super) struct FleetRuntimeLifecycleResponse {
@@ -44,7 +47,7 @@ pub(super) fn start_runtime(
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    let current = status_runtime_entry(fleet_root, &runtime, &project_path);
+    let current = status_runtime_entry(fleet_root, &runtime, &project_path)?;
     if current.status == "running" {
         return Ok(FleetRuntimeLifecycleResponse {
             message: "Runtime is already running.".to_string(),
@@ -55,7 +58,9 @@ pub(super) fn start_runtime(
     build_program_stbc(&project_path, None)
         .with_context(|| format!("failed to build {}", project_path.display()))?;
 
-    let paths = lifecycle_paths(fleet_root, runtime.name.as_str())?;
+    let paths = lifecycle_paths(fleet_root, runtime.name.as_str());
+    fs::create_dir_all(&paths.dir)
+        .with_context(|| format!("failed to create {}", paths.dir.display()))?;
     let log = OpenOptions::new()
         .create(true)
         .append(true)
@@ -64,20 +69,47 @@ pub(super) fn start_runtime(
     let stdout = log
         .try_clone()
         .with_context(|| format!("failed to clone {}", paths.log.display()))?;
-    let child = Command::new(std::env::current_exe().context("failed to locate trust-runtime")?)
-        .arg("run")
-        .arg("--project")
-        .arg(&project_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(log))
-        .spawn()
-        .with_context(|| format!("failed to start runtime '{}'", runtime.name))?;
-    fs::write(&paths.pid, child.id().to_string())
-        .with_context(|| format!("failed to write {}", paths.pid.display()))?;
+    let mut child =
+        Command::new(std::env::current_exe().context("failed to locate trust-runtime")?)
+            .arg("run")
+            .arg("--project")
+            .arg(&project_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(stdout))
+            .stderr(Stdio::from(log))
+            .spawn()
+            .with_context(|| format!("failed to start runtime '{}'", runtime.name))?;
+    if let Err(error) = fs::write(&paths.pid, child.id().to_string()) {
+        terminate_started_child(&mut child, &paths.pid);
+        return Err(error).with_context(|| format!("failed to write {}", paths.pid.display()));
+    }
 
-    let mut last = status_runtime_entry(fleet_root, &runtime, &project_path);
+    let mut last = current;
     for _ in 0..30 {
+        let exit_status = match child.try_wait() {
+            Ok(exit_status) => exit_status,
+            Err(error) => {
+                terminate_started_child(&mut child, &paths.pid);
+                return Err(error)
+                    .with_context(|| format!("failed to inspect runtime '{}'", runtime.name));
+            }
+        };
+        if let Some(exit_status) = exit_status {
+            remove_pid_file(fleet_root, runtime.name.as_str());
+            anyhow::bail!(
+                "runtime '{}' exited before its control endpoint became ready: {exit_status}",
+                runtime.name
+            );
+        }
+        last = match status_runtime_entry(fleet_root, &runtime, &project_path) {
+            Ok(status) => status,
+            Err(error) => {
+                terminate_started_child(&mut child, &paths.pid);
+                return Err(error).with_context(|| {
+                    format!("failed to verify runtime '{}' startup", runtime.name)
+                });
+            }
+        };
         if last.status == "running" {
             return Ok(FleetRuntimeLifecycleResponse {
                 message: "Runtime started.".to_string(),
@@ -85,7 +117,6 @@ pub(super) fn start_runtime(
             });
         }
         thread::sleep(Duration::from_millis(200));
-        last = status_runtime_entry(fleet_root, &runtime, &project_path);
     }
     Ok(FleetRuntimeLifecycleResponse {
         status: "starting".to_string(),
@@ -95,12 +126,18 @@ pub(super) fn start_runtime(
     })
 }
 
+fn terminate_started_child(child: &mut Child, pid_path: &Path) {
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = fs::remove_file(pid_path);
+}
+
 pub(super) fn stop_runtime(
     fleet_root: &Path,
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    let current = status_runtime_entry(fleet_root, &runtime, &project_path);
+    let current = status_runtime_entry(fleet_root, &runtime, &project_path)?;
     if current.status != "running" {
         remove_pid_file(fleet_root, runtime.name.as_str());
         return Ok(FleetRuntimeLifecycleResponse {
@@ -118,7 +155,7 @@ pub(super) fn stop_runtime(
     )
     .with_context(|| format!("failed to stop runtime '{}'", runtime.name))?;
 
-    let mut last = status_runtime_entry(fleet_root, &runtime, &project_path);
+    let mut last = status_runtime_entry(fleet_root, &runtime, &project_path)?;
     for _ in 0..30 {
         if last.status != "running" {
             remove_pid_file(fleet_root, runtime.name.as_str());
@@ -129,7 +166,7 @@ pub(super) fn stop_runtime(
             });
         }
         thread::sleep(Duration::from_millis(200));
-        last = status_runtime_entry(fleet_root, &runtime, &project_path);
+        last = status_runtime_entry(fleet_root, &runtime, &project_path)?;
     }
 
     Ok(FleetRuntimeLifecycleResponse {
@@ -144,7 +181,7 @@ pub(super) fn status_runtime(
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    Ok(status_runtime_entry(fleet_root, &runtime, &project_path))
+    status_runtime_entry(fleet_root, &runtime, &project_path)
 }
 
 pub(super) fn runtime_logs(
@@ -153,37 +190,53 @@ pub(super) fn runtime_logs(
     lines: usize,
 ) -> anyhow::Result<FleetRuntimeLogsResponse> {
     let (runtime, _project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    let paths = lifecycle_paths(fleet_root, runtime.name.as_str())?;
-    let text = match fs::read_to_string(&paths.log) {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+    let paths = lifecycle_paths(fleet_root, runtime.name.as_str());
+    if lines == 0 {
+        return Ok(FleetRuntimeLogsResponse {
+            schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
+            name: runtime.name,
+            log_path: paths.log.display().to_string(),
+            lines: Vec::new(),
+        });
+    }
+    let file = match fs::File::open(&paths.log) {
+        Ok(file) => Some(file),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => {
             return Err(error).with_context(|| format!("failed to read {}", paths.log.display()))
         }
     };
-    let all = text.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
-    let keep = lines.min(all.len());
-    let start = all.len().saturating_sub(keep);
+    let mut tail = VecDeque::new();
+    if let Some(file) = file {
+        for line in BufReader::new(file).lines() {
+            let line = line.with_context(|| format!("failed to read {}", paths.log.display()))?;
+            if tail.len() == lines {
+                tail.pop_front();
+            }
+            tail.push_back(line);
+        }
+    }
     Ok(FleetRuntimeLogsResponse {
         schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
         name: runtime.name,
         log_path: paths.log.display().to_string(),
-        lines: all[start..].to_vec(),
+        lines: tail.into_iter().collect(),
     })
 }
 
 struct RuntimeLifecyclePaths {
+    dir: PathBuf,
     pid: PathBuf,
     log: PathBuf,
 }
 
-fn lifecycle_paths(fleet_root: &Path, name: &str) -> anyhow::Result<RuntimeLifecyclePaths> {
+fn lifecycle_paths(fleet_root: &Path, name: &str) -> RuntimeLifecyclePaths {
     let dir = fleet_root.join(".trust-runtime");
-    fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
-    Ok(RuntimeLifecyclePaths {
+    RuntimeLifecyclePaths {
+        dir: dir.clone(),
         pid: dir.join(format!("{name}.pid")),
         log: dir.join(format!("{name}.log")),
-    })
+    }
 }
 
 fn resolve_manifest_runtime(
@@ -213,16 +266,13 @@ fn status_runtime_entry(
     fleet_root: &Path,
     runtime: &FleetManifestRuntime,
     project_path: &Path,
-) -> FleetRuntimeLifecycleResponse {
-    let paths = lifecycle_paths(fleet_root, runtime.name.as_str()).ok();
-    let pid = paths.as_ref().and_then(|paths| read_pid(&paths.pid).ok());
-    let log_path = paths
-        .as_ref()
-        .map(|paths| paths.log.display().to_string())
-        .unwrap_or_default();
-    let auth = read_control_auth_token(project_path).ok().flatten();
-    match request_control(runtime.control_endpoint.as_str(), auth.as_deref(), "status") {
-        Ok(result) => FleetRuntimeLifecycleResponse {
+) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
+    let paths = lifecycle_paths(fleet_root, runtime.name.as_str());
+    let pid = read_pid(&paths.pid).ok();
+    let log_path = paths.log.display().to_string();
+    let auth = read_control_auth_token(project_path)?;
+    match exchange_control(runtime.control_endpoint.as_str(), auth.as_deref(), "status")? {
+        ControlExchange::Response(result) => Ok(FleetRuntimeLifecycleResponse {
             schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
             name: runtime.name.clone(),
             path: project_path.display().to_string(),
@@ -232,8 +282,8 @@ fn status_runtime_entry(
             log_path,
             message: "Runtime is reachable.".to_string(),
             control_status: Some(result),
-        },
-        Err(error) => FleetRuntimeLifecycleResponse {
+        }),
+        ControlExchange::Unreachable(error) => Ok(FleetRuntimeLifecycleResponse {
             schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
             name: runtime.name.clone(),
             path: project_path.display().to_string(),
@@ -243,7 +293,7 @@ fn status_runtime_entry(
             log_path,
             message: format!("Runtime is not reachable: {error}"),
             control_status: None,
-        },
+        }),
     }
 }
 
@@ -255,9 +305,8 @@ fn read_pid(path: &Path) -> anyhow::Result<u32> {
 }
 
 fn remove_pid_file(fleet_root: &Path, name: &str) {
-    if let Ok(paths) = lifecycle_paths(fleet_root, name) {
-        let _ = fs::remove_file(paths.pid);
-    }
+    let paths = lifecycle_paths(fleet_root, name);
+    let _ = fs::remove_file(paths.pid);
 }
 
 fn read_control_auth_token(project_path: &Path) -> anyhow::Result<Option<String>> {
@@ -267,15 +316,30 @@ fn read_control_auth_token(project_path: &Path) -> anyhow::Result<Option<String>
     let doc = text
         .parse::<DocumentMut>()
         .with_context(|| format!("failed to parse {}", runtime_toml.display()))?;
-    Ok(doc
+    let token = doc
         .get("runtime")
         .and_then(Item::as_table)
         .and_then(|runtime| runtime.get("control"))
         .and_then(Item::as_table)
         .and_then(|control| control.get("auth_token"))
-        .and_then(Item::as_value)
-        .and_then(toml_edit::Value::as_str)
-        .map(ToOwned::to_owned))
+        .and_then(Item::as_value);
+    match token {
+        Some(value) => value
+            .as_str()
+            .map(|token| Some(token.to_owned()))
+            .with_context(|| {
+                format!(
+                    "runtime.control.auth_token must be a string in {}",
+                    runtime_toml.display()
+                )
+            }),
+        None => Ok(None),
+    }
+}
+
+enum ControlExchange {
+    Response(serde_json::Value),
+    Unreachable(String),
 }
 
 fn request_control(
@@ -283,6 +347,17 @@ fn request_control(
     auth_token: Option<&str>,
     request_type: &str,
 ) -> anyhow::Result<serde_json::Value> {
+    match exchange_control(endpoint, auth_token, request_type)? {
+        ControlExchange::Response(response) => Ok(response),
+        ControlExchange::Unreachable(error) => anyhow::bail!("{error}"),
+    }
+}
+
+fn exchange_control(
+    endpoint: &str,
+    auth_token: Option<&str>,
+    request_type: &str,
+) -> anyhow::Result<ControlExchange> {
     let endpoint = ControlEndpoint::parse(endpoint).map_err(anyhow::Error::msg)?;
     let payload = serde_json::json!({
         "id": 1,
@@ -291,8 +366,14 @@ fn request_control(
     });
     let response = match endpoint {
         ControlEndpoint::Tcp(addr) => {
-            let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(500))
-                .with_context(|| format!("failed to connect to tcp://{addr}"))?;
+            let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    return Ok(ControlExchange::Unreachable(format!(
+                        "failed to connect to tcp://{addr}: {error}"
+                    )))
+                }
+            };
             stream
                 .set_read_timeout(Some(Duration::from_millis(750)))
                 .ok();
@@ -301,16 +382,19 @@ fn request_control(
                 .ok();
             writeln!(stream, "{payload}").context("failed to send control request")?;
             let mut reader = BufReader::new(stream);
-            let mut line = String::new();
-            reader
-                .read_line(&mut line)
-                .context("failed to read control response")?;
-            line
+            read_control_response(&mut reader)?
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            let mut stream = std::os::unix::net::UnixStream::connect(&path)
-                .with_context(|| format!("failed to connect to unix://{}", path.display()))?;
+            let mut stream = match std::os::unix::net::UnixStream::connect(&path) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    return Ok(ControlExchange::Unreachable(format!(
+                        "failed to connect to unix://{}: {error}",
+                        path.display()
+                    )))
+                }
+            };
             stream
                 .set_read_timeout(Some(Duration::from_millis(750)))
                 .ok();
@@ -319,30 +403,48 @@ fn request_control(
                 .ok();
             writeln!(stream, "{payload}").context("failed to send control request")?;
             let mut reader = BufReader::new(stream);
-            let mut line = String::new();
-            reader
-                .read_line(&mut line)
-                .context("failed to read control response")?;
-            line
+            read_control_response(&mut reader)?
         }
     };
     let response: serde_json::Value =
         serde_json::from_str(response.trim()).context("control response was not JSON")?;
+    if response.get("id").and_then(serde_json::Value::as_u64) != Some(1) {
+        anyhow::bail!("control response id is missing or does not match request id 1");
+    }
     if response
         .get("ok")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false)
     {
-        return Ok(response
-            .get("result")
-            .cloned()
-            .unwrap_or_else(|| serde_json::json!({})));
+        return Ok(ControlExchange::Response(
+            response
+                .get("result")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({})),
+        ));
     }
     let message = response
         .get("error")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("control request failed");
     anyhow::bail!("{message}");
+}
+
+fn read_control_response(reader: &mut impl BufRead) -> anyhow::Result<String> {
+    let mut line = String::new();
+    let bytes = reader
+        .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
+        .read_line(&mut line)
+        .context("failed to read control response")?;
+    if bytes == 0 {
+        anyhow::bail!("control response was empty");
+    }
+    if bytes > MAX_CONTROL_RESPONSE_BYTES {
+        anyhow::bail!(
+            "control response exceeded {MAX_CONTROL_RESPONSE_BYTES} bytes without a complete line"
+        );
+    }
+    Ok(line)
 }
 
 #[cfg(test)]
@@ -375,8 +477,119 @@ mod tests {
             "status should explain stopped/unreachable state: {}",
             status.message
         );
+        assert!(
+            !root.join(".trust-runtime").exists(),
+            "read-only status must not create lifecycle state"
+        );
 
         fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn fleet_runtime_status_rejects_malformed_runtime_auth_config() {
+        let root = temp_dir("fleet-runtime-status-invalid-auth");
+        add_runtime(
+            &root,
+            "cell",
+            FleetRuntimeTemplateArg::Simulate,
+            Some(19918),
+            Some(19988),
+        )
+        .expect("add runtime");
+        fs::write(root.join("cell/runtime.toml"), "not valid TOML = [")
+            .expect("corrupt runtime config");
+
+        let error = status_runtime(&root, "cell")
+            .expect_err("invalid runtime auth config must not report stopped");
+
+        assert!(
+            error.to_string().contains("failed to parse"),
+            "unexpected error: {error:#}"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn fleet_runtime_status_rejects_a_connected_control_error() {
+        let root = temp_dir("fleet-runtime-status-control-error");
+        let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve control port");
+        let port = probe.local_addr().expect("control listener address").port();
+        drop(probe);
+        add_runtime(
+            &root,
+            "cell",
+            FleetRuntimeTemplateArg::Simulate,
+            Some(port),
+            Some(19989),
+        )
+        .expect("add runtime");
+        let listener =
+            std::net::TcpListener::bind(("127.0.0.1", port)).expect("bind fake control endpoint");
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept status request");
+            let mut request = String::new();
+            BufReader::new(stream.try_clone().expect("clone fake stream"))
+                .read_line(&mut request)
+                .expect("read status request");
+            writeln!(
+                stream,
+                "{}",
+                serde_json::json!({"id": 1, "ok": false, "error": "unauthorized"})
+            )
+            .expect("write rejected response");
+        });
+
+        let error = status_runtime(&root, "cell")
+            .expect_err("connected rejection must not be flattened to stopped");
+        server.join().expect("join fake control server");
+
+        assert!(
+            error.to_string().contains("unauthorized"),
+            "unexpected error: {error:#}"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn control_request_rejects_a_mismatched_response_id() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind control listener");
+        let address = listener.local_addr().expect("control listener address");
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept control request");
+            let mut request = String::new();
+            BufReader::new(stream.try_clone().expect("clone fake stream"))
+                .read_line(&mut request)
+                .expect("read control request");
+            writeln!(
+                stream,
+                "{}",
+                serde_json::json!({"id": 99, "ok": true, "result": {}})
+            )
+            .expect("write mismatched response");
+        });
+
+        let error = request_control(format!("tcp://{address}").as_str(), Some("token"), "status")
+            .expect_err("mismatched response id must fail");
+        server.join().expect("join fake control server");
+
+        assert!(
+            error.to_string().contains("response id"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn control_response_reader_rejects_an_oversized_line() {
+        let bytes = vec![b'x'; MAX_CONTROL_RESPONSE_BYTES + 1];
+        let mut reader = std::io::Cursor::new(bytes);
+
+        let error = read_control_response(&mut reader)
+            .expect_err("oversized control response must be rejected");
+
+        assert!(
+            error.to_string().contains("exceeded"),
+            "unexpected error: {error:#}"
+        );
     }
 
     #[test]
@@ -390,12 +603,35 @@ mod tests {
             Some(19987),
         )
         .expect("add runtime");
-        let paths = lifecycle_paths(&root, "cell").expect("lifecycle paths");
+        let paths = lifecycle_paths(&root, "cell");
+        fs::create_dir_all(&paths.dir).expect("create lifecycle state directory");
         fs::write(&paths.log, "one\ntwo\nthree\n").expect("write log");
 
         let logs = runtime_logs(&root, "cell", 2).expect("runtime logs");
         assert_eq!(logs.lines, vec!["two".to_string(), "three".to_string()]);
 
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn missing_runtime_logs_are_empty_without_creating_state() {
+        let root = temp_dir("fleet-runtime-logs-missing");
+        add_runtime(
+            &root,
+            "cell",
+            FleetRuntimeTemplateArg::Simulate,
+            Some(19919),
+            Some(19990),
+        )
+        .expect("add runtime");
+
+        let logs = runtime_logs(&root, "cell", 10).expect("read absent logs");
+
+        assert!(logs.lines.is_empty());
+        assert!(
+            !root.join(".trust-runtime").exists(),
+            "read-only logs must not create lifecycle state"
+        );
         fs::remove_dir_all(root).ok();
     }
 

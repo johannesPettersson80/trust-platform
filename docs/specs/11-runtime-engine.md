@@ -918,6 +918,20 @@ fallback/prefix. Generated runtime and I/O configuration is parsed and
 validated before the manifest is updated, and the source scaffold is emitted
 deterministically.
 
+Fleet lifecycle status is control-endpoint evidence, not PID-file inference.
+Failure to connect means `stopped`; once an endpoint accepts a connection, an
+authentication rejection, malformed envelope, oversized response, mismatched
+response ID, or missing Boolean `ok` is a command error and must not be
+flattened to `stopped`. Failure to read or parse the managed project's control
+credential is likewise an error. The PID file is advisory process metadata.
+
+`status` and `logs` are read-only and do not create `.trust-runtime` state when
+it is absent. Log tailing retains only the requested final lines in memory
+rather than loading the complete log file. A start operation writes lifecycle
+state only after spawning the process; if PID persistence fails, it terminates
+and reaps that child, and if the child exits before the control endpoint becomes
+ready, start fails and removes the stale PID file.
+
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
 
