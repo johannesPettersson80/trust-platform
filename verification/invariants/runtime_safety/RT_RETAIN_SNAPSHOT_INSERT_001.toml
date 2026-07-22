@@ -1,0 +1,69 @@
+schema_version = 1
+id = "RT_RETAIN_SNAPSHOT_INSERT_001"
+title = "Retained snapshot insertion preserves deterministic identity, order, and value"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Inserting a new resolved retained name appends exactly one exact runtime value; reinserting the same name replaces that value at its original position without changing cardinality, sibling values, or sibling order. Insertion does not claim persistence or reload validity."
+proof_level = "S1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime-core/src/retain.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_boundary_matrix",
+  "mapped_executable_test",
+  "red_green_or_behavior_lock_evidence",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+
+[[behavior]]
+partition = { equals = "NEW_RESOLVED_RETAINED_NAME" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The first insertion appends one entry after existing entries and preserves the supplied runtime value exactly."
+
+[[behavior]]
+partition = { equals = "EXISTING_RESOLVED_RETAINED_NAME" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reinsertion replaces only the matching entry at its original position without changing cardinality or sibling order."
+
+[[behavior]]
+partition = { equals = "DISTINCT_RESOLVED_RETAINED_NAME" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-snapshot-identity-and-order"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A non-equal supplied key remains distinct and appends after all earlier entries; insertion performs no hidden name normalization."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The exact-value append oracle is accepted; P18-006 must add a cataloged executable boundary matrix before this cell can close."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The replacement-in-place and distinct-key ordering oracles are accepted; P18-006 must execute both transitions before this cell can close."

@@ -126,6 +126,10 @@ Target release: `v0.24.54`
 - trust-runtime-core: unsigned integer result materialization now preserves
   every representable `USINT`, `UINT`, `UDINT`, and `ULINT` value exactly,
   rejects destination overflow, and rejects non-unsigned destination tags.
+- trust-runtime-core: retained snapshot insertion now has an explicit
+  deterministic contract: new names append, reinserting the same resolved
+  name replaces its value in place, and stored runtime values are preserved
+  exactly until the owning persistence or reload boundary validates them.
 
 ### Added
 

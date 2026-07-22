@@ -624,6 +624,25 @@ pub trait RetainStore: Send {
 }
 ```
 
+##### Retain snapshot identity and order
+
+The portable retained snapshot receives already-resolved logical names. It
+does not canonicalize, case-fold, or otherwise reinterpret a supplied key.
+The first insertion of a name appends one entry after all existing entries.
+Inserting the same resolved name again replaces only that entry's value at its
+original position: snapshot cardinality, sibling values, and sibling order do
+not change. A different name remains a distinct entry and appends in call
+order.
+
+Insertion stores the complete runtime `Value` without changing its concrete
+variant or nested contents. This is a deterministic snapshot-construction
+contract, not a validation bypass: declared-type migration, non-finite value
+rejection, serialization, and atomic application remain owned by the retain
+save/load/apply boundaries below. Successful insertion alone does not mean a
+snapshot is valid for persistence or warm reload. IEC 61131-3 Ed.3 section
+6.5.6 defines retentive variable behavior but not this internal container
+policy; the truST choice is recorded by `DEV-057`.
+
 The runtime loads retained values during resource startup and writes them on shutdown and
 periodically (policy defined in the runtime configuration). The periodic cadence is
 rate-limited and only writes when retained values have changed.

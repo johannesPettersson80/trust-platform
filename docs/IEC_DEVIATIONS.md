@@ -12,6 +12,33 @@ behavior that IEC explicitly leaves implementer-specific and truST product
 extensions outside IEC's scope. Each entry must state which category applies
 in its IEC reference.
 
+## 2026-07-22 - Deterministic retained snapshot insertion
+
+- ID: DEV-057
+- Area: Portable retained snapshot construction
+- IEC reference: IEC 61131-3 Ed.3 section 6.5.6 and Figure 9 define which
+  variable classes retain values across restart. They do not define the
+  ordering, duplicate-key, or validation semantics of an implementation's
+  internal retained snapshot container. This entry records a truST product
+  policy at that internal boundary; it does not change source-level IEC
+  identifier matching or retentive-variable qualification.
+- Deviation/extension:
+  - Callers pass an already-resolved retained snapshot name. The insertion
+    boundary does not canonicalize or reinterpret that name.
+  - The first insertion of a name appends one entry. Inserting the same
+    resolved name again replaces only its value at the original position;
+    it does not append a duplicate or reorder sibling entries.
+  - Insertion preserves the complete runtime `Value`, including its concrete
+    variant and nested contents. Declared-type, finiteness, migration, and
+    persistence validation remain owned by the later retain save/load/apply
+    boundaries; successful insertion alone is not acceptance evidence.
+- Impact:
+  - Snapshot serialization, comparison, and replay observe deterministic
+    entry order and one current value per resolved retained name.
+- Mitigation:
+  - Resolve names before insertion and continue to use the owning retain
+    persistence or reload transaction for validation and fail-closed apply.
+
 ## 2026-07-22 - Reject unsigned integer result and conversion overflow
 
 - ID: DEV-056

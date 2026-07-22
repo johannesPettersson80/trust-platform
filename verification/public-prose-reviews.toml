@@ -5096,6 +5096,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_06FE5C447D345082E9EF7DBF"
+document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
+path = "CHANGELOG.md"
+block_kind = "list_item"
+visible_text_sha256 = "b98b9800722d1fe9a8d880a661ec9c29e6f7629a4a16835d8fc95799ddc16e99"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_RETAIN_SNAPSHOT_INSERT_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_0715D6613C99A5C129EA0FAC"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -73278,6 +73291,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_63998553B9A3C67E5888601B"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "b9d59980e1ef00016f42204c87b86ebb1bef45349223ff01c58a8ee455441689"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_RETAIN_SNAPSHOT_INSERT_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -148083,6 +148109,19 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
+block_id = "PUBLIC_BLOCK_C8B824D4C10F93DC5C4CAE5E"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "heading"
+visible_text_sha256 = "01938a30df1016fb1866166e41230147c390892868b0a9957857bd73408c3136"
+disposition = "structural_nonclaim"
+invariant_ids = []
+oracle_refs = []
+rationale_code = "document_structure"
+last_reviewed = "2026-07-22"
+
+[[public_block_reviews]]
+schema_version = 1
 block_id = "PUBLIC_BLOCK_C8B9E59E0230786E10A66DE6"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -156738,6 +156777,19 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
+
+[[public_block_reviews]]
+schema_version = 1
+block_id = "PUBLIC_BLOCK_D473B5142181929A36114436"
+document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
+path = "docs/specs/11-runtime-engine.md"
+block_kind = "paragraph"
+visible_text_sha256 = "b87487df40dda828996472f0b3eb85294a951ba354c6381dbcf7c2af837caeb6"
+disposition = "claim_with_mapping"
+invariant_ids = ["RT_RETAIN_SNAPSHOT_INSERT_001"]
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+rationale_code = "explicit_invariant_or_oracle_binding"
+last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
