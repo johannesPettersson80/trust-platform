@@ -840,6 +840,33 @@ failure and must produce a non-zero process exit rather than being printed as
 a successful scripted result. Human-oriented status, health, and task-summary
 rendering happens only after `ok = true`.
 
+##### 6.8.2 Versioned deployment and rollback
+
+`trust-runtime deploy` validates the source bundle before installation and the
+copied bundle before changing deployment pointers. A custom deployment label
+must be one non-empty filesystem component: absolute paths, `.`/`..`, path
+separators, and platform prefixes are rejected. Automatically generated labels
+must be unique across consecutive deployments from one process, including
+deployments started within the same second.
+
+The deployment root contains `bundles/`, `current`, and optionally `previous`.
+The pointer targets are resolved relative to the link location when an older
+relative link is read; newly written links target the canonical absolute bundle
+directory so a relative `--root` cannot create a broken pointer. Replacing a
+pointer must also replace a dangling symlink instead of treating it as absent.
+An ordinary file or directory at a pointer path is an error and is not deleted
+or overwritten.
+An existing pointer is eligible for retention or rollback only when it resolves
+to a direct child directory of that deployment root's `bundles/`; a pointer to
+another filesystem location is rejected rather than adopted.
+
+After a successful deployment, `current` identifies the newly validated bundle
+and `previous` identifies the bundle that was current immediately before the
+deployment. Pruning retains exactly those existing bundle directories and
+removes older directories only from the deployment root's own `bundles/`
+directory. It must not delete the new rollback target. `rollback` swaps the two
+valid pointers without copying or rebuilding either bundle.
+
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
 

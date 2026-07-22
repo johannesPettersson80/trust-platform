@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: deploy labels can no longer escape the bundle store, automatic
+  labels remain unique within the same second, relative deployment roots and
+  dangling pointers are handled correctly, ordinary files are not overwritten
+  as pointers, external pointers are rejected, and pruning preserves the
+  actual immediate rollback bundle.
 - trust-runtime: `ctl` now keeps the selected project's control token when an
   explicit endpoint overrides only the endpoint, and exits non-zero for
   rejected or malformed control responses instead of reporting script success.

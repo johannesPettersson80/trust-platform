@@ -10,6 +10,12 @@ trust-runtime rollback --root ./deploy-root
 `deploy` writes a versioned deployment entry. `rollback` moves the active
 deployment pointer back to the previous version.
 
+Deployment labels are single names, not paths; values containing path
+separators, `.`/`..`, or absolute paths are rejected. The deployment root keeps
+the newly active bundle and the immediately previous bundle. This remains true
+when `--root` is relative, and a dangling `current` or `previous` symlink does
+not block replacement when that pointer is updated.
+
 ![Deploy CLI surface](../assets/images/terminal/deploy.gif)
 
 *Figure:* The `deploy` command surface and required flags. Use this to confirm

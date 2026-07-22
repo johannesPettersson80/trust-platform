@@ -1,3 +1,5 @@
+static BUNDLE_LABEL_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
 fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
     let registry = IoDriverRegistry::default_registry();
     for driver in &bundle.io.drivers {
@@ -56,28 +58,105 @@ fn copy_dir(source: &Path, dest: &Path) -> anyhow::Result<()> {
 }
 
 fn default_bundle_label() -> String {
-    let secs = SystemTime::now()
+    let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    format!("project-{secs}")
+        .unwrap_or_default();
+    let sequence = BUNDLE_LABEL_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!(
+        "project-{}-{:09}-{}-{sequence}",
+        elapsed.as_secs(),
+        elapsed.subsec_nanos(),
+        std::process::id()
+    )
+}
+
+fn validate_bundle_label(label: &str) -> anyhow::Result<()> {
+    let mut components = Path::new(label).components();
+    let is_single_normal_component = matches!(
+        (components.next(), components.next()),
+        (Some(std::path::Component::Normal(component)), None)
+            if component == std::ffi::OsStr::new(label)
+    );
+    if label.is_empty()
+        || label.contains('/')
+        || label.contains('\\')
+        || label.contains(':')
+        || !is_single_normal_component
+    {
+        anyhow::bail!(
+            "deployment label must be one non-empty filesystem name, not a path: {label:?}"
+        );
+    }
+    Ok(())
 }
 
 fn read_link_target(path: &Path) -> Option<PathBuf> {
-    fs::read_link(path).ok()
+    let target = fs::read_link(path).ok()?;
+    if target.is_absolute() {
+        return Some(target);
+    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    Some(parent.join(target))
+}
+
+fn resolve_existing_bundle_link(
+    bundles_dir: &Path,
+    link: &Path,
+) -> anyhow::Result<Option<PathBuf>> {
+    let Some(target) = read_link_target(link) else {
+        return Ok(None);
+    };
+    let target = match target.canonicalize() {
+        Ok(target) => target,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("resolve deployment pointer '{}'", link.display()));
+        }
+    };
+    let bundle_store = bundles_dir.canonicalize().with_context(|| {
+        format!(
+            "resolve deployment bundle store '{}'",
+            bundles_dir.display()
+        )
+    })?;
+    if !target.is_dir() || target.parent() != Some(bundle_store.as_path()) {
+        anyhow::bail!(
+            "deployment pointer '{}' resolves outside deployment bundle store '{}': {}",
+            link.display(),
+            bundle_store.display(),
+            target.display()
+        );
+    }
+    Ok(Some(target))
 }
 
 fn update_symlink(link: &Path, target: &Path) -> anyhow::Result<()> {
-    if link.exists() {
-        fs::remove_file(link)?;
+    let target = target
+        .canonicalize()
+        .with_context(|| format!("resolve deployment target '{}'", target.display()))?;
+    match fs::symlink_metadata(link) {
+        Ok(metadata) if !metadata.file_type().is_symlink() => {
+            anyhow::bail!(
+                "deployment pointer '{}' exists and is not a symbolic link",
+                link.display()
+            );
+        }
+        Ok(_) => fs::remove_file(link)
+            .with_context(|| format!("remove deployment pointer '{}'", link.display()))?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).with_context(|| format!("inspect '{}'", link.display())),
     }
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(target, link)?;
+        std::os::unix::fs::symlink(&target, link)?;
     }
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_dir(target, link)?;
+        std::os::windows::fs::symlink_dir(&target, link)?;
     }
     Ok(())
 }
@@ -92,7 +171,7 @@ fn prune_bundles(bundles_dir: &Path, keep: &[PathBuf]) -> anyhow::Result<()> {
         .collect::<HashSet<_>>();
     for entry in fs::read_dir(bundles_dir)? {
         let entry = entry?;
-        if !entry.path().is_dir() {
+        if !entry.file_type()?.is_dir() {
             continue;
         }
         let path = entry.path();
