@@ -7212,6 +7212,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2B7B12B45FB715DB29C1"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/build_command.rs"
+name = "build_compile_failure_preserves_existing_program_and_exits_11"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_2B7F7617315F5D2755DC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime_cloud/ha/tests.rs"
@@ -12457,9 +12467,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_test_failure_code"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_TEST_CLASS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4EC5E972D8211E2A93A1"
@@ -12547,9 +12557,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_internal_code"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_INTERNAL_CLASS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4FA43D135F60B1489A44"
@@ -19702,6 +19712,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7ACC8C1A86FA2A588E06"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/build_command.rs"
+name = "build_ci_reports_sources_override_and_local_dependencies"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_7AEACE8EA3B2E1BCCAAE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs"
@@ -20770,6 +20790,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8247B34DA360E1B82D56"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
+name = "command_context_does_not_override_recognized_error"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_825048A5CCB4563DE83C"
@@ -23007,9 +23037,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_timeout_code"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_TIMEOUT_CLASS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_915E6425BF889A9A806C"
@@ -29252,6 +29282,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B77AF512C3E5DC6FC3A8"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/build_command.rs"
+name = "build_human_mode_discovers_current_project_and_summarizes_sources"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_B77EDB8B58E3538E9B59"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_06.rs"
@@ -34277,9 +34317,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_invalid_config_code"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_CONFIG_CLASS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_D8D92D6082D7DAB2FA44"
@@ -36167,9 +36207,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_build_failure_code"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_BUILD_CLASS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E476A7F8409929D5BA63"
@@ -36910,6 +36950,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E90A449C9AE5990E9070"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
+name = "recognized_error_precedence_is_stable"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_PRECEDENCE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_E915ED28BCAE9AFEB821"
@@ -39477,9 +39527,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/ci.rs"
 name = "classify_with_command_falls_back_for_internal"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CI_COMMAND_FALLBACK_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F7ADB2E6CC8FFFDEC287"

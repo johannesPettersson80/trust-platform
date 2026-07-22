@@ -1036,6 +1036,39 @@ compile error. A compile-only failure exits with the build-failure class 11.
 Both successful and failed checks leave an existing `program.stbc` untouched
 and never create one.
 
+##### 6.8.1d Runtime build and CI failure contract
+
+`trust-runtime build` compiles the selected project and writes
+`<project>/program.stbc`. An explicit `--project` selects the project root;
+otherwise ordinary bundle discovery is used and the current directory is the
+final fallback. The default source root is `<project>/src`. A relative
+`--sources` override is resolved from the project root, including when the
+command is launched from another working directory. Local package dependencies
+are resolved and compiled with the selected project sources.
+
+Compilation completes before `program.stbc` is opened for writing. A source,
+dependency, or compile failure therefore neither creates the artifact nor
+replaces bytes from an earlier successful build. A successful build writes the
+new bytecode and reports the exact collected source paths, including dependency
+sources.
+
+`--ci` emits response version 1 with command `build`, status `ok`, the selected
+project and output paths, `source_count`, the complete source list, dependency
+roots, and resolved dependency names. `source_count` equals the number of
+reported source paths. Human mode reports the written path and source count,
+shows at most the first five collected paths, and reports the number omitted.
+
+CI failures use stable process classes: invalid project or configuration input
+is 10, build or compile failure is 11, test assertion or runtime-test failure is
+12, timeout is 13, and an unclassified internal failure is 20. A recognized
+failure class is preserved regardless of command context. Timeout takes
+precedence when a message contains multiple recognized classes; otherwise test,
+build, and configuration classes are considered in that order. Only an
+unclassified message uses the parsed command as a fallback: `build` and `check`
+map to 11, `test` to 12, `validate` to 10, and other or absent commands to 20.
+This CLI and process-exit policy is a truST product contract rather than IEC
+61131-3 language behavior.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the

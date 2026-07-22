@@ -200617,9 +200617,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202787,9 +202789,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -206043,9 +206047,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207529,9 +207535,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208149,9 +208157,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221624,9 +221634,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226686,9 +226698,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_CI_EXIT_CLASSIFICATION_001"]
+test_ids = ["TEST_RUNTIME_CI_TEST_CLASS_001", "TEST_RUNTIME_CI_BUILD_CLASS_001", "TEST_RUNTIME_CI_CONFIG_CLASS_001", "TEST_RUNTIME_CI_INTERNAL_CLASS_001", "TEST_RUNTIME_CI_TIMEOUT_CLASS_001", "TEST_RUNTIME_CI_COMMAND_FALLBACK_001", "TEST_RUNTIME_CI_PRECEDENCE_001", "TEST_RUNTIME_CI_RECOGNIZED_PRESERVED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -231324,9 +231338,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -232155,10 +232171,12 @@ area = "supply_chain_platform"
 visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_D0BE6456AD86AB04B768CAD3C419AA8294B708A2FC62CCB8C5CA9B06E5210643"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

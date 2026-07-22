@@ -1,0 +1,71 @@
+schema_version = 1
+id = "RT_BUILD_COMMAND_001"
+title = "Runtime builds preserve artifact and report identity"
+area = "supply_chain_platform"
+risk = "supply_chain"
+status = "mapped"
+owner = "release"
+last_reviewed = "2026-07-22"
+claim = "The runtime build command resolves project, source, and dependency inputs deterministically; writes program.stbc only after successful compilation; preserves an existing artifact on compile failure; and reports exact build identity in CI or human output."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/build.rs"]
+tests = [
+  "TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001",
+  "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001",
+  "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "windows_path_evidence", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+
+[[behavior]]
+partition = { equals = "VALID_PROJECT_SOURCE_OVERRIDE_AND_DEPENDENCIES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A valid build writes bytecode and CI output binds the artifact to the complete selected source and dependency identity."
+
+[[behavior]]
+partition = { equals = "SOURCE_DEPENDENCY_OR_COMPILE_FAILURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Compilation must succeed before program.stbc is opened, so a failed build reports exit 11 without replacing prior bytecode."
+
+[[behavior]]
+partition = { equals = "CURRENT_DIRECTORY_HUMAN_OUTPUT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Bundle discovery can select the current project and human output reports the artifact, count, bounded source list, and omitted count."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "A focused CLI test compiles a relative source override plus a local dependency and validates every versioned identity field."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "A focused CLI test proves parser failure exit 11 and byte-for-byte preservation of an existing artifact."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "A focused native test proves current-directory discovery and bounded human source output; Windows path execution remains explicit debt."

@@ -63878,11 +63878,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 body_digest = "sha256:21d62e3fbdecb8d516dc73ca6f252f24e75f562e403d5231e0baa017f887716c"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#supply-chain-platform-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#6-8-1d-runtime-build-and-ci-failure-contract"
 reviewed_by = "release-engineering"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived filesystem and state-mutation risks for the build command; the reviewed mapping binds artifact writes and failure preservation to focused CLI tests without suppressing those risks."
 
 [[acknowledgements]]
 schema_version = 1

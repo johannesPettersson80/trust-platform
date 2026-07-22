@@ -84,6 +84,12 @@ Primary options:
 - `--sources`
 - `--ci`
 
+The default source root is `<project>/src`; relative `--sources` values are
+resolved from the project. A successful build writes `program.stbc`. A failed
+source, dependency, or compile step preserves any existing artifact. `--ci`
+emits response version 1 with the output path and complete source/dependency
+identity; build failures exit 11.
+
 ### Validate
 
 ```text
