@@ -31,6 +31,29 @@ fn histogram_includes_overflow_bucket() {
     assert_eq!(histogram[histogram.len() - 1].count, 1);
 }
 
+#[test]
+fn jitter_samples_require_two_latency_observations() {
+    assert!(jitter_samples_ns(&[]).is_empty());
+    assert!(jitter_samples_ns(&[1_000]).is_empty());
+    assert_eq!(
+        jitter_samples_ns(&[1_000, 400, 700, 700]),
+        vec![600, 300, 0]
+    );
+}
+
+#[test]
+fn benchmark_prng_is_deterministic_and_uses_a_nonzero_fallback_seed() {
+    let mut first = Lcg::new(42);
+    let mut second = Lcg::new(42);
+    for _ in 0..8 {
+        assert_eq!(first.next_u64(), second.next_u64());
+    }
+
+    let mut zero = Lcg::new(0);
+    let mut fallback = Lcg::new(0xD00D_F00D_BAAD_F00D);
+    assert_eq!(zero.next_u64(), fallback.next_u64());
+}
+
 fn write_project_bench_fixture(project: &std::path::Path) {
     let sources = project.join("src");
     fs::create_dir_all(&sources).expect("create src");

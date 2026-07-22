@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: benchmark jitter summaries now report zero observations when
+  fewer than two latency samples exist instead of inventing a zero-valued
+  jitter measurement.
 - trust-runtime: mistyped top-level commands now receive the correct suggestion
   when `--verbose` precedes the command, and the suggestion vocabulary includes
   the shipped `check` and `agent` command families.

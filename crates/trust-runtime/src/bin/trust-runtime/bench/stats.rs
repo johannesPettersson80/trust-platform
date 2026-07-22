@@ -52,7 +52,7 @@ fn summarize_ns(samples_ns: &[u64]) -> LatencySummary {
 
 fn jitter_samples_ns(samples_ns: &[u64]) -> Vec<u64> {
     if samples_ns.len() < 2 {
-        return vec![0];
+        return Vec::new();
     }
     let mut jitter = Vec::with_capacity(samples_ns.len() - 1);
     let mut last = samples_ns[0];
