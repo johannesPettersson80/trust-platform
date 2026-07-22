@@ -5,6 +5,46 @@ owner = "verification"
 last_reviewed = "2026-07-22"
 
 [[shards]]
+id = "ASSERTION_REACHABILITY_FAULT_POLICY_DECISION_001"
+owner = "trust-runtime-core"
+code_id = "CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8"
+invariant_id = "RT_FAULT_POLICY_DECISION_001"
+invariant_path = "verification/invariants/runtime_safety/RT_FAULT_POLICY_DECISION_001.toml"
+invariant_contract_digest = "sha256:0c65bdd43eae5472d8db396e1f22bced7d2cff126e5d130e1b508c59afe033f1"
+source_file = "crates/trust-runtime-core/src/watchdog.rs"
+source_digest = "sha256:f3f1fe1758d791da188233cd472d628a8151804016e331c29f878eb88bbe9700"
+function = "FaultSubsystem::set_policy"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001"
+discovery_id = "DISC_4C7C595026E1FD708546"
+path = "crates/trust-runtime-core/src/watchdog.rs"
+name = "watchdog_and_fault_policy_decisions_are_stable"
+command = ["cargo", "test", "-p", "trust-runtime-core", "watchdog::tests::watchdog_and_fault_policy_decisions_are_stable", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_HOST_001"
+discovery_id = "DISC_04CF6B406AB66EB7B40B"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "watchdog_and_fault_policy_decisions_are_stable"
+command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_core_behavior_lock", "watchdog_and_fault_policy_decisions_are_stable", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001"
+discovery_id = "DISC_42530353D93187E17303"
+path = "crates/trust-runtime-core/tests/fault_policy_decision_cases.rs"
+name = "fault_policy_decision_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "fault_policy_decision_cases", "fault_policy_decision_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_FAULT_POLICY_DECISION_SET_POLICY_REPLACE_WITH_UNIT"
+genre = "FnValue"
+replacement = "()"
+selector_name = "watchdog.rs:246:9: replace FaultSubsystem::set_policy with ()"
+
+[[shards]]
 id = "ASSERTION_REACHABILITY_FAULT_STATE_CLEAR_001"
 owner = "trust-runtime-core"
 code_id = "CODE_E58D6E19401CE00AC50751C139562696AB92E09720F9EBA17F89934B01312CC0"
@@ -12,7 +52,7 @@ invariant_id = "RT_FAULT_STATE_CLEAR_001"
 invariant_path = "verification/invariants/runtime_safety/RT_FAULT_STATE_CLEAR_001.toml"
 invariant_contract_digest = "sha256:76cdf6f958089bb0f16e1a68e732592aab070c22069d98079c74138020e826b6"
 source_file = "crates/trust-runtime-core/src/watchdog.rs"
-source_digest = "sha256:06ea11b366037e7ef8bc622891194fd80be388509d6d85a97218eda33247fd6b"
+source_digest = "sha256:f3f1fe1758d791da188233cd472d628a8151804016e331c29f878eb88bbe9700"
 function = "FaultSubsystem::clear"
 package = "trust-runtime-core"
 build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
