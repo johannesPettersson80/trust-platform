@@ -198927,9 +198927,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -199137,9 +199139,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_023A1912B112011F40F9EC06417E359E849A8A1BA4F780FEDCCA9DDA3E18EEF6"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001", "RT_ADS_CLI_FAIL_CLOSED_001", "RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001", "TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -199404,9 +199408,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -199794,9 +199800,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200930,9 +200938,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201409,9 +201419,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201634,9 +201646,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202079,9 +202093,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "host_time"]
 owner_ack = "RISK_ACK_1CC6A067E7543E01C18F9DC4BCA763C3E7C9BA3DBB97EACEC3E353F7747F7276"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202276,9 +202292,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_1E1CE7A1045B515FC0D7EFC095C051A3627F6007B166481C185BA5AD9B397D95"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202346,9 +202364,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_1E8E4DDD6450D8F0A06ADA3AB9C71B7B5831EBD2D5B80B29B2229340F5DB9D58"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202730,9 +202750,11 @@ visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_21F975EB33FD8020F94D5D7A4E356E6D86DD83C6217B4A1D064CDDA07DA8F73C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202963,9 +202985,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203090,9 +203114,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2462D9B30B7557D92C51BE397B73A45CFA34FFEC811CA6167707939CD707A634"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203389,9 +203415,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203425,9 +203453,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -203537,9 +203567,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_292F1D4B3C6DFB9D3B207EC840D0AC50A926E2861192C65B5A3E10F88B195CD5"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -204381,9 +204413,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_313A2B538B786B33C8897210C0DB6796E45CBAB3B12CE014A164FB5094A82BE1"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205290,9 +205324,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_3A016B23A7AD72320AEF1D89F39A96359DA39728B2F69D4CCE9DE344699193C1"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -206456,9 +206492,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207077,9 +207115,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207533,9 +207573,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_4EC5070F511F20AAC97B8B1CB62BA65ACC7A98DE2380B95CAB9081EA851EE7FF"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001", "RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208681,9 +208723,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -209372,9 +209416,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_5F8AB609D44A29A7CA5026816ADD5BF1052BC89F515A68E4AB9417F4B5B30705"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001", "RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001", "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -211436,9 +211482,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001", "RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001", "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212428,9 +212476,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001", "RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212659,9 +212709,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_7D97B02F55833BEA2FB0F59D6C433C40CE6D786BBAE4D2EF2C0F3DA6FCD9B819"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214507,9 +214559,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214666,9 +214720,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215363,9 +215419,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001", "RT_ADS_CLI_FAIL_CLOSED_001", "RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001", "TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215683,9 +215741,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment"]
 owner_ack = "RISK_ACK_95B78BC1E5B577B16BD6EE6A3EFD066C36420510359A072DBC0622C02847626E"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215804,9 +215864,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215878,9 +215940,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_9717C3E29F4DC744130789B02093E1449AA1485791C844E713BF519BEA2B4FAA"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -216132,9 +216196,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_98C9876BCF4C9564B1705B354ACDC4C670D6BEA1AAC4F38E414F2FF66760B01A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -216357,9 +216423,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_9B1581351BB98BD8B4103635DA39F903AD996A22F35A16FB9AF7D4AE8A250C01"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -216618,9 +216686,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217893,9 +217963,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -218118,9 +218190,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -218296,9 +218370,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_A7F6917AE9263457764E5AA9729B4AE4777CE3675405A81DF1BBCA44151996FC"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219461,9 +219537,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222576,9 +222654,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -222612,9 +222692,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
 owner_ack = "RISK_ACK_CF7D543DA836C0EF7C91B45D5CAC2B0A9C2159A0AF1B6F944E07ED46EFD36814"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223387,9 +223469,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_D5E44739B1E07731321D86C0D1400282EE538E25344FDF9996343603C5221949"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_FAIL_CLOSED_001"]
+test_ids = ["TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223421,9 +223505,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -223675,9 +223761,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226856,9 +226944,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
 owner_ack = "RISK_ACK_F1DE81049078169F87730950C173A49147A1ED381F5354FCD525A52EEF0D8779"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
+test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -227752,9 +227842,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+invariant_ids = ["RT_ADS_CLI_ROUTE_SECURITY_001"]
+test_ids = ["TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

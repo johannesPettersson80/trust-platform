@@ -1,0 +1,79 @@
+schema_version = 1
+id = "RT_ADS_CLI_AUTHORING_001"
+title = "ADS CLI authoring and validation preserve deterministic reviewed artifacts"
+area = "runtime_safety"
+risk = "data_loss"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Offline ADS import and validation canonicalize snapshots, generate deterministic ST, avoid unnecessary rewrites, protect changed output, and fail visibly on incompatible or drifting inputs."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
+tests = [
+  "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001",
+  "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001",
+  "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001",
+  "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001",
+  "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001",
+  "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "live_target_validation",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+
+[[behavior]]
+partition = { equals = "BYTE_IDENTICAL_OR_CHANGED_OUTPUT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Import creates missing parents, reports byte-identical output unchanged, and overwrites different generated content only with explicit force."
+
+[[behavior]]
+partition = { equals = "INCOMPATIBLE_SNAPSHOT_OR_GENERATED_SOURCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Missing symbols, type mismatches, and generated-source drift fail before accepted artifact status is reported."
+
+[[behavior]]
+partition = { equals = "LIVE_AUTHORING_WITHOUT_WIRE_FEATURE" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Live validation and live symbol import fail before file reads or generated-file writes when ads-wire is unavailable."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Focused integration tests cover first write, byte-identical rerun, changed-output rejection, and forced replacement."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused integration tests cover missing symbols, type mismatch, and first-difference source drift."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "No live TwinCAT target is used in the focused batch; live target validation remains explicit missing proof."

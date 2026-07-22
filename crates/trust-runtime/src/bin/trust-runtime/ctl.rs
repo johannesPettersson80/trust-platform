@@ -72,7 +72,7 @@ fn send_control_request(
     Ok(())
 }
 
-fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
+pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
     match response.get("ok").and_then(JsonValue::as_bool) {
         Some(true) => Ok(()),
         Some(false) => {

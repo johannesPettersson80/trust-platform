@@ -1,0 +1,88 @@
+schema_version = 1
+id = "RT_ADS_CLI_ROUTE_SECURITY_001"
+title = "ADS CLI route and Doctor operations preserve credential and proof boundaries"
+area = "runtime_safety"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "ADS route artifacts are deterministic and credential-free, direct route addition accepts credentials only through non-empty standard input without echo, and Doctor proof or write-probe option groups are complete before use."
+proof_level = "T1"
+contract_kind = "security_policy"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
+tests = [
+  "TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001",
+  "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001",
+  "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001",
+  "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001",
+  "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001",
+  "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001",
+  "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001",
+  "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001",
+  "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "hardware_route_add_proof",
+  "guarded_write_restore_hardware_proof",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+
+[[behavior]]
+partition = { equals = "ROUTE_ARTIFACT_GENERATION_OR_REMOVAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Client, server, and removal route commands generate the selected deterministic artifact without credentials or fabricated runtime errors."
+
+[[behavior]]
+partition = { equals = "DIRECT_ROUTE_CREDENTIAL_CHANNEL" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Password argv is unsupported, standard input must be explicit and non-empty, and credential contents are never echoed."
+
+[[behavior]]
+partition = { equals = "DOCTOR_PROOF_OR_WRITE_PROBE_OPTIONS" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "External proof kind/name and guarded write symbol/type/value are complete groups, and malformed scalar input is rejected before network use."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused integration tests cover client, server, human, JSON, and removal artifact rendering."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Focused integration tests reject password argv and prove a standard-input password is absent from output on the unavailable-feature path."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused integration tests reject partial external proof, partial write-probe options, and a malformed scalar value before network use."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Direct AddRoute and guarded write/read-back/restore still require dedicated hardware proof."

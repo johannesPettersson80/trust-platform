@@ -947,6 +947,36 @@ failure and must produce a non-zero process exit rather than being printed as
 a successful scripted result. Human-oriented status, health, and task-summary
 rendering happens only after `ok = true`.
 
+##### 6.8.1a ADS CLI authoring and server-control contract
+
+`trust-runtime ads` is the scriptable ADS authoring, validation, route, and
+server-control surface. Offline import canonicalizes cached symbol snapshots,
+generates deterministic ST, creates missing parent directories, reports an
+unchanged byte-identical output without rewriting it, and refuses to replace
+different generated content unless `--force` is explicit. Offline validation
+requires a snapshot and fails visibly for missing symbols, type mismatches, or
+generated-source drift. Live validation rejects cached snapshots and obtains
+fresh symbols from every configured connection before applying the same
+compatibility check.
+
+Discovery, browse, Doctor, guarded route addition, live symbol import, and live
+validation require the `ads-wire` feature. A build without that feature fails
+before synthesizing hardware results or writing generated files. Doctor write
+probe options are all-or-none, accept only the documented scalar types, and do
+not weaken the guarded write/read-back/restore policy. Route-add credentials
+are accepted only through non-empty standard input and are never echoed in
+reports or failures. Route-script and route-remove remain credential-free,
+deterministic artifact generation.
+
+ADS server status, symbols, and Doctor commands use the same versioned control
+response rule as `trust-runtime ctl`: the response must contain Boolean
+`ok = true` before either human or `--json` output is treated as success.
+`ok = false` and a missing Boolean `ok` return non-zero and preserve the server
+error text; choosing JSON output must never turn a rejected control request
+into success. External Doctor proof metadata is accepted only when kind and
+name are supplied together. Human and JSON modes render the same underlying
+successful report or artifact.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the

@@ -1,0 +1,71 @@
+schema_version = 1
+id = "RT_ADS_CLI_FAIL_CLOSED_001"
+title = "ADS CLI live and server-control paths fail closed without proof"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Live ADS commands never synthesize hardware success when wire support is absent, and ADS server control accepts neither rejected nor malformed envelopes as successful human or JSON output."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
+tests = [
+  "TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001",
+  "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001",
+  "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001",
+  "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001",
+  "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001",
+  "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "assertion_reachability",
+  "live_target_validation",
+  "hardware_target_proof",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+
+[[behavior]]
+partition = { equals = "ADS_WIRE_FEATURE_ABSENT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Discovery, browse, Doctor, live validation, and symbol import return a feature error instead of fabricated results or filesystem mutation."
+
+[[behavior]]
+partition = { equals = "SERVER_CONTROL_REJECTED_OR_MALFORMED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Both JSON and human modes require Boolean ok true before rendering a successful ADS server control result."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "The no-default-features integration suite locks every wire-dependent CLI command to an explicit fail-closed response."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "A loopback control server proves that an ok-false JSON response exits non-zero and preserves the error while the request remains correctly authenticated."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The focused batch proves loopback envelope handling and feature absence, not live TwinCAT behavior."

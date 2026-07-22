@@ -1,11 +1,13 @@
-#[cfg(not(feature = "ads-wire"))]
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 #[cfg(not(feature = "ads-wire"))]
 use std::process::Stdio;
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::mpsc::{self, Receiver};
+use std::thread::JoinHandle;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, SymbolDescriptor, SymbolFlag, SymbolSnapshot,
@@ -249,6 +251,91 @@ fn ads_server_doctor_cli_requires_external_proof_pair() {
     );
 }
 
+#[cfg(feature = "ads-wire")]
+#[test]
+fn ads_doctor_write_probe_requires_the_complete_option_triplet() {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "ads",
+            "doctor",
+            "--target",
+            "192.0.2.1",
+            "--write-symbol",
+            "MAIN.SafeProbe",
+        ])
+        .output()
+        .expect("run trust-runtime ads doctor with incomplete write probe");
+
+    assert_failure_contains(
+        &output,
+        "requires --write-symbol, --write-type, and --write-value together",
+    );
+}
+
+#[cfg(feature = "ads-wire")]
+#[test]
+fn ads_doctor_write_probe_rejects_an_invalid_scalar_before_network_use() {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "ads",
+            "doctor",
+            "--target",
+            "192.0.2.1",
+            "--write-symbol",
+            "MAIN.SafeProbe",
+            "--write-type",
+            "DINT",
+            "--write-value",
+            "not-an-integer",
+        ])
+        .output()
+        .expect("run trust-runtime ads doctor with invalid write value");
+
+    assert_failure_contains(&output, "invalid DINT write value");
+}
+
+#[test]
+fn ads_server_json_rejection_exits_nonzero_and_preserves_error() {
+    let (endpoint, request_rx, server) = spawn_control_server(serde_json::json!({
+        "id": 1,
+        "ok": false,
+        "error": "ADS server is disabled",
+        "error_code": "ads_server_disabled",
+    }));
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "ads",
+            "server",
+            "status",
+            "--endpoint",
+            &endpoint,
+            "--token",
+            "ads-test-token",
+            "--json",
+        ])
+        .output()
+        .expect("run trust-runtime ads server status --json");
+    let request = request_rx.recv().expect("captured ADS server request");
+    server.join().expect("ADS control test server");
+
+    assert!(!output.status.success(), "rejected JSON response must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ADS server is disabled"),
+        "stderr was:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        request,
+        serde_json::json!({
+            "id": 1,
+            "type": "ads.server.status",
+            "auth": "ads-test-token",
+            "params": {},
+        })
+    );
+}
+
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_discover_cli_requires_ads_wire_feature_without_faking_results() {
@@ -458,6 +545,34 @@ fn ads_add_route_cli_does_not_echo_stdin_password_when_wire_feature_is_absent() 
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(!combined.contains("super-secret-password"));
+}
+
+fn spawn_control_server(
+    response: serde_json::Value,
+) -> (String, Receiver<serde_json::Value>, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind ADS control test server");
+    let endpoint = format!(
+        "tcp://{}",
+        listener.local_addr().expect("ADS control server address")
+    );
+    let (request_tx, request_rx) = mpsc::channel();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept ADS control client");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("set ADS control read timeout");
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .expect("set ADS control write timeout");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone ADS control stream"));
+        let mut line = String::new();
+        reader.read_line(&mut line).expect("read ADS control request");
+        let request = serde_json::from_str(line.trim_end()).expect("parse ADS control request");
+        request_tx.send(request).expect("send captured ADS request");
+        writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
+            .expect("write ADS control response");
+    });
+    (endpoint, request_rx, server)
 }
 
 fn run_ads_validate(config: &Path, snapshot: &Path, generated: &Path) -> Output {

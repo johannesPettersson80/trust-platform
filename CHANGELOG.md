@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- ADS CLI: `ads server ... --json` now rejects control responses with
+  `ok = false` or a missing Boolean `ok` instead of printing them and exiting
+  successfully; JSON and human output now share the control-envelope check.
 - trust-harness: an explicitly empty authoritative `sources` list now reports
   `invalid_argument`; failed load/reload attempts preserve the live session,
   and focused protocol tests lock source precedence, time-alias precedence,
