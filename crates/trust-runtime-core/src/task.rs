@@ -121,6 +121,19 @@ mod tests {
 
     #[test]
     fn task_readiness_tracks_periodic_due_time_and_overrun() {
+        let mut one_period = TaskState::new(Duration::ZERO);
+        let exact = evaluate_task_readiness(
+            &mut one_period,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(10),
+        );
+
+        assert_eq!(exact.due_at, Some(Duration::from_millis(10)));
+        assert_eq!(exact.missed_intervals, 0);
+        assert_eq!(one_period.overrun_count, 0);
+        assert_eq!(one_period.last_run, Duration::from_millis(10));
+
         let mut state = TaskState::new(Duration::ZERO);
 
         let readiness = evaluate_task_readiness(
@@ -134,6 +147,20 @@ mod tests {
         assert_eq!(readiness.missed_intervals, 2);
         assert_eq!(state.overrun_count, 2);
         assert_eq!(state.last_run, Duration::from_millis(35));
+
+        let mut disabled = TaskState {
+            last_single: false,
+            last_run: Duration::from_millis(5),
+            overrun_count: 7,
+        };
+        for interval in [Duration::ZERO, Duration::from_nanos(-1)] {
+            let readiness =
+                evaluate_task_readiness(&mut disabled, interval, false, Duration::from_millis(100));
+            assert_eq!(readiness.due_at, None);
+            assert_eq!(readiness.missed_intervals, 0);
+            assert_eq!(disabled.last_run, Duration::from_millis(5));
+            assert_eq!(disabled.overrun_count, 7);
+        }
     }
 
     #[test]
@@ -169,6 +196,19 @@ mod tests {
         assert_eq!(readiness.due_at, Some(Duration::from_millis(10)));
         assert_eq!(readiness.missed_intervals, 0);
         assert_eq!(state.last_run, Duration::ZERO);
+        assert_eq!(state.overrun_count, 0);
+        assert!(state.last_single);
+
+        let held_high = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            true,
+            Duration::from_millis(30),
+        );
+        assert_eq!(held_high.due_at, None);
+        assert_eq!(held_high.missed_intervals, 0);
+        assert_eq!(state.last_run, Duration::ZERO);
+        assert_eq!(state.overrun_count, 0);
     }
 
     #[test]
@@ -187,11 +227,26 @@ mod tests {
             false,
             Duration::from_millis(100),
         );
+        let before_deadline = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(109),
+        );
+        let deadline = evaluate_task_readiness(
+            &mut state,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(110),
+        );
 
         assert_eq!(backward.due_at, None);
         assert_eq!(backward.missed_intervals, 0);
         assert_eq!(baseline.due_at, None);
-        assert_eq!(state.last_run, Duration::from_millis(100));
+        assert_eq!(before_deadline.due_at, None);
+        assert_eq!(deadline.due_at, Some(Duration::from_millis(110)));
+        assert_eq!(deadline.missed_intervals, 0);
+        assert_eq!(state.last_run, Duration::from_millis(110));
         assert_eq!(state.overrun_count, 0);
     }
 
@@ -210,5 +265,21 @@ mod tests {
         assert_eq!(resumed.missed_intervals, 4);
         assert_eq!(state.overrun_count, 4);
         assert_eq!(state.last_run, Duration::from_millis(55));
+
+        let mut saturating = TaskState {
+            last_single: false,
+            last_run: Duration::ZERO,
+            overrun_count: u64::MAX - 1,
+        };
+        let saturated = evaluate_task_readiness(
+            &mut saturating,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(35),
+        );
+        assert_eq!(saturated.due_at, Some(Duration::from_millis(10)));
+        assert_eq!(saturated.missed_intervals, 2);
+        assert_eq!(saturating.overrun_count, u64::MAX);
+        assert_eq!(saturating.last_run, Duration::from_millis(35));
     }
 }

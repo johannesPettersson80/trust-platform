@@ -214932,9 +214932,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_9081A7CEC84BFEF134E282B9DE3838334C15CBA557479C25AF9F230C205C2A73"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"
+invariant_ids = ["RT_TASK_READINESS_001"]
+test_ids = ["TEST_RUNTIME_TASK_READINESS_BACKWARD_CLOCK_001", "TEST_RUNTIME_TASK_READINESS_EVENT_EDGE_001", "TEST_RUNTIME_TASK_READINESS_EVENT_SUPPRESSION_001", "TEST_RUNTIME_TASK_READINESS_FORWARD_COALESCING_001", "TEST_RUNTIME_TASK_READINESS_PERIODIC_OVERRUN_001", "TEST_RUNTIME_TASK_READINESS_TRACE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

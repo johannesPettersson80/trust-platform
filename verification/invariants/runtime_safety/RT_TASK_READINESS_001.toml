@@ -10,13 +10,18 @@ claim = "A sampled SINGLE rising edge schedules one event without moving the per
 proof_level = "S1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/task.rs"]
-tests = []
+tests = [
+  "TEST_RUNTIME_TASK_READINESS_BACKWARD_CLOCK_001",
+  "TEST_RUNTIME_TASK_READINESS_EVENT_EDGE_001",
+  "TEST_RUNTIME_TASK_READINESS_EVENT_SUPPRESSION_001",
+  "TEST_RUNTIME_TASK_READINESS_FORWARD_COALESCING_001",
+  "TEST_RUNTIME_TASK_READINESS_PERIODIC_OVERRUN_001",
+  "TEST_RUNTIME_TASK_READINESS_TRACE_001",
+]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_boundary_matrix",
-  "mapped_executable_test",
   "red_green_or_behavior_lock_evidence",
   "assertion_reachability",
   "mutation_sensitivity",
