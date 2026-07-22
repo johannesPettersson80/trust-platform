@@ -74,7 +74,7 @@ fn run_mesh_zenoh_bench(workload: MeshBenchWorkload) -> anyhow::Result<BenchRepo
         let query_started = Instant::now();
         let query = SyntheticQuery {
             id: idx as u64,
-            payload: vec![0xAB_u8; workload.base.payload_bytes.min(256)],
+            payload: vec![0xAB_u8; workload.base.payload_bytes],
         };
         let query_wire = serde_json::to_vec(&query).context("encode synthetic query")?;
         let decoded_query: SyntheticQuery =
@@ -101,6 +101,8 @@ fn run_mesh_zenoh_bench(workload: MeshBenchWorkload) -> anyhow::Result<BenchRepo
 
     let report = MeshZenohBenchReport {
         scenario: "mesh-zenoh",
+        payload_bytes: workload.base.payload_bytes,
+        query_payload_bytes: workload.base.payload_bytes,
         pub_sub_latency: summarize_ns(pub_sub_latency_ns.as_slice()),
         pub_sub_jitter: summarize_ns(jitter_samples_ns(pub_sub_latency_ns.as_slice()).as_slice()),
         query_reply_latency: summarize_ns(query_reply_latency_ns.as_slice()),

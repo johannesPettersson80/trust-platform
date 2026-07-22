@@ -977,6 +977,34 @@ into success. External Doctor proof metadata is accepted only when kind and
 name are supplied together. Human and JSON modes render the same underlying
 successful report or artifact.
 
+##### 6.8.1b Runtime benchmark measurement and output contract
+
+`trust-runtime bench` validates each workload before measurement: sample,
+payload, and dispatch-fanout counts are non-zero; project paths exist; and
+synthetic loss and reorder rates are within the closed interval from zero to
+one. Requested warmup cycles are executed before measured project cycles and
+are excluded from latency samples.
+
+For T0, mesh, and dispatch workloads, `--payload-bytes` is the exact payload
+length exercised by every applicable measured path. Implementations must not
+silently cap large requested payloads. Mesh pub/sub and query/reply both use
+the requested length; dispatch embeds the requested length in its mapped
+control payload. Their reports expose the effective payload length so evidence
+cannot claim one workload size while measuring another.
+
+Latency summaries use sorted nanosecond samples and nearest-rank p50, p95, and
+p99 selection. Histogram classification rounds each sample up to a whole
+microsecond and retains an overflow bucket. Jitter contains the absolute delta
+between consecutive observations, so fewer than two observations produce no
+invented jitter sample. Synthetic loss and reorder decisions use a fixed seed
+for reproducible workload selection.
+
+JSON output serializes the benchmark kind and its typed report; table output
+renders the same contract fields. Project reports separate measured cycles,
+configured cycle budget and overruns, throughput, requested watched globals,
+and optional VM/Tier-1 profile data. A missing watched global is explicit JSON
+`null`, not an omitted or fabricated value.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the

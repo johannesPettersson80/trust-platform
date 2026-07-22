@@ -68,6 +68,7 @@ fn run_t0_shm_bench(workload: BenchWorkload) -> anyhow::Result<BenchReport> {
 
     let report = T0ShmBenchReport {
         scenario: "t0-shm",
+        payload_bytes: workload.payload_bytes,
         one_way_latency: summarize_ns(one_way_ns.as_slice()),
         round_trip_latency: summarize_ns(round_trip_ns.as_slice()),
         jitter: summarize_ns(jitter_samples_ns(round_trip_ns.as_slice()).as_slice()),

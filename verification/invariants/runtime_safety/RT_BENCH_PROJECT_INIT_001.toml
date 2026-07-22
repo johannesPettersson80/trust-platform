@@ -1,0 +1,75 @@
+schema_version = 1
+id = "RT_BENCH_PROJECT_INIT_001"
+title = "Project and initialization benchmarks measure configured runtime work"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Project and initialization benchmarks validate their project workload, exclude warmup from measured samples, report configured budget and runtime identity, preserve missing watched values as null, and expose optional VM/Tier-1 evidence truthfully."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/bench"]
+tests = [
+  "TEST_RUNTIME_BENCH_INIT_JSON_001",
+  "TEST_RUNTIME_BENCH_PROJECT_JSON_001",
+  "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001",
+  "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001",
+  "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001",
+  "TEST_RUNTIME_BENCH_PROJECT_MISSING_001",
+  "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "release_mode_performance_evidence", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+
+[[behavior]]
+partition = { equals = "VALID_PROJECT_WORKLOAD" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The configured sources and backend execute warmup and measured work while the report retains resource, budget, throughput, watched-global, and profile observations."
+
+[[behavior]]
+partition = { equals = "MISSING_PROJECT_OR_ZERO_SAMPLES" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Invalid project paths and empty measurement sets fail before benchmark execution or evidence output."
+
+[[behavior]]
+partition = { equals = "TIER1_DISABLED_ENABLED_OR_COMPILE_FAILURE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Tier-1 evidence is absent by default, present when enabled, and retains explicit compile-failure reasons."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused fixture tests exercise initialization phases, project cycles, budget fields, watched globals, VM profile, and both output formats."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused workload tests reject a missing project and zero samples."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused tests cover Tier-1 default omission, enabled output, and compile-failure reason reporting."

@@ -1,0 +1,74 @@
+schema_version = 1
+id = "RT_BENCH_TRANSPORT_DISPATCH_001"
+title = "Transport and dispatch benchmarks measure the requested synthetic workload"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "T0, mesh, and dispatch benchmarks validate non-empty workloads, exercise exact requested payload sizes, retain deterministic loss and reorder choices, and expose latency, overrun, fanout, and audit metrics without hidden workload caps."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/bench"]
+tests = [
+  "TEST_RUNTIME_BENCH_T0_JSON_001",
+  "TEST_RUNTIME_BENCH_MESH_JSON_001",
+  "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001",
+  "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001",
+  "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001",
+  "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "representative_host_performance_evidence", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+
+[[behavior]]
+partition = { equals = "REQUESTED_PAYLOAD_ABOVE_256_BYTES" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Mesh pub/sub and query/reply plus dispatch mapping exercise and report the full requested payload rather than silently capping it."
+
+[[behavior]]
+partition = { equals = "VALID_T0_MESH_OR_DISPATCH_WORKLOAD" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Each synthetic workload emits its named latency and operational counters for the normalized sample, payload, and fanout configuration."
+
+[[behavior]]
+partition = { equals = "LOSS_OR_REORDER_RATE_OUTSIDE_CLOSED_UNIT_INTERVAL" }
+case_family = "below_min"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Synthetic rate parameters outside zero through one fail before samples are generated."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Focused regressions use 513-byte mesh and dispatch payloads and assert both effective sizes in JSON reports."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests exercise T0 counters, mesh loss/reorder fields, and dispatch fanout/audit fields."
+
+[[coverage.cells]]
+dimension = "below_min"
+state = "covered"
+rationale = "Focused workload tests reject negative loss and above-one reorder rates."

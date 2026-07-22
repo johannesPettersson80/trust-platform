@@ -198946,9 +198946,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -199427,9 +199429,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -200183,9 +200187,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0B176A79349E5016A8420457ACE6C423941216BA63554801ACC12D7FEE56EF40"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201720,9 +201726,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_1961B150BB070ED9267D48240EC0385D07C23791904D6B0976D6973065DDBB1D"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202218,9 +202226,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -202663,9 +202673,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205449,9 +205461,11 @@ visibility = "private"
 risk_signals = ["network_io"]
 owner_ack = "RISK_ACK_3AC2EDE30ED34832BF0D8D1E1C139A44DAE0D180A9B1C05C6517BAEAA6B99F49"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001", "RT_BENCH_PROJECT_INIT_001", "RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -207045,9 +207059,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -208045,9 +208061,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_524ABD534DACBFD130891C8CD063934A3FCD33A0A70A72CCD2F581955DDFA5F0"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -209577,9 +209595,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -210799,9 +210819,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212243,9 +212265,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212616,9 +212640,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_7CF868CD31F06B738E99E034EEE569BB92B5C1F665F58FC9AED4A56AA66A43EE"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212671,9 +212697,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "persistence_retain_reload_restart", "state_mutation"]
 owner_ack = "RISK_ACK_7D7A473AD3F0C320D4A628CBD33F262E030AA02C69636C311566D2DB5C6A5038"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -212885,9 +212913,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -213258,9 +213288,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214599,9 +214631,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8DC5642265C875D9BEEF8764F3EBB33D5CFCB012234C97EAF7D0252C6B67EC02"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -214703,9 +214737,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -217825,9 +217861,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_A45512A661DB2AB97D6082B904BA57E455EFF45EE4B42A5A48C12087487FA67C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219200,9 +219238,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_B110523A37CD0DA7EA6DF2CC8850BCA452BF68E68819C3A636D61599351375FC"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219325,9 +219365,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001", "RT_BENCH_PROJECT_INIT_001", "RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219868,9 +219910,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221404,9 +221448,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_C460590BAE320B251B7B375AB80D679E022CC1D9354CFD205C9E41FD13DF94C7"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221440,9 +221486,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -221493,9 +221541,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_PROJECT_INIT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_INIT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_TABLE_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_DEFAULT_001", "TEST_RUNTIME_BENCH_PROJECT_TIER1_FAILURE_001", "TEST_RUNTIME_BENCH_PROJECT_MISSING_001", "TEST_RUNTIME_BENCH_PROJECT_ZERO_SAMPLES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224155,9 +224205,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224462,9 +224514,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_DDA4DC4520E2F7AA346969BB049F3B06A7CC99124E758361D1E847EE5A0F4198"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224661,9 +224715,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_DF589BB50D59211DACE78EE637CEB618F2A49D628B68B56286958734286EF9EB"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -224837,9 +224893,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226134,9 +226192,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_EB5574A1465D6CCB729D790C83B8C4C1CB88796C88D3785AA6D59DDFA9D978A4"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_TRANSPORT_DISPATCH_001"]
+test_ids = ["TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_MESH_PAYLOAD_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001", "TEST_RUNTIME_BENCH_DISPATCH_PAYLOAD_001", "TEST_RUNTIME_BENCH_MESH_RATE_BOUNDS_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -226747,9 +226807,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+invariant_ids = ["RT_BENCH_STATISTICS_OUTPUT_001"]
+test_ids = ["TEST_RUNTIME_BENCH_QUANTILES_001", "TEST_RUNTIME_BENCH_HISTOGRAM_001", "TEST_RUNTIME_BENCH_JITTER_001", "TEST_RUNTIME_BENCH_PRNG_001", "TEST_RUNTIME_BENCH_PROJECT_JSON_001", "TEST_RUNTIME_BENCH_T0_JSON_001", "TEST_RUNTIME_BENCH_MESH_JSON_001", "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1

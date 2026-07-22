@@ -423,6 +423,12 @@ fn t0_shm_bench_json_output_contains_latency_and_overrun_fields() {
         value.get("benchmark").and_then(serde_json::Value::as_str),
         Some("t0-shm")
     );
+    assert_eq!(
+        value
+            .pointer("/report/payload_bytes")
+            .and_then(serde_json::Value::as_u64),
+        Some(16)
+    );
     assert!(value
         .pointer("/report/round_trip_latency/p95_us")
         .and_then(serde_json::Value::as_f64)
@@ -460,6 +466,32 @@ fn mesh_zenoh_bench_json_output_contains_loss_and_reorder_fields() {
 }
 
 #[test]
+fn mesh_bench_reports_requested_pubsub_and_query_payload_sizes() {
+    let (report, format) = execute_bench(BenchAction::MeshZenoh {
+        samples: 2,
+        payload_bytes: 513,
+        loss_rate: 0.0,
+        reorder_rate: 0.0,
+        output: BenchOutputFormat::Json,
+    })
+    .expect("run large-payload mesh benchmark");
+    let rendered = render_bench_output(&report, format).expect("render mesh json");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("parse mesh json");
+    assert_eq!(
+        value
+            .pointer("/report/payload_bytes")
+            .and_then(serde_json::Value::as_u64),
+        Some(513)
+    );
+    assert_eq!(
+        value
+            .pointer("/report/query_payload_bytes")
+            .and_then(serde_json::Value::as_u64),
+        Some(513)
+    );
+}
+
+#[test]
 fn dispatch_bench_table_output_contains_fanout_and_audit_metrics() {
     let (report, format) = execute_bench(BenchAction::Dispatch {
         samples: 12,
@@ -471,6 +503,25 @@ fn dispatch_bench_table_output_contains_fanout_and_audit_metrics() {
     let rendered = render_bench_output(&report, format).expect("render table");
     assert!(rendered.contains("fanout=3"));
     assert!(rendered.contains("audit-correlation latency"));
+}
+
+#[test]
+fn dispatch_bench_reports_requested_payload_size_without_a_hidden_cap() {
+    let (report, format) = execute_bench(BenchAction::Dispatch {
+        samples: 2,
+        payload_bytes: 513,
+        fanout: 1,
+        output: BenchOutputFormat::Json,
+    })
+    .expect("run large-payload dispatch benchmark");
+    let rendered = render_bench_output(&report, format).expect("render dispatch json");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("parse dispatch json");
+    assert_eq!(
+        value
+            .pointer("/report/payload_bytes")
+            .and_then(serde_json::Value::as_u64),
+        Some(513)
+    );
 }
 
 #[test]

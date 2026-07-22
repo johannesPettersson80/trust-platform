@@ -39,6 +39,11 @@ observation produces zero jitter samples and must not invent a zero-valued
 measurement. Synthetic mesh loss/reordering uses a deterministic seeded
 generator so identical workload parameters exercise the same decision stream.
 
+For T0, mesh, and dispatch benchmarks, `--payload-bytes` is the exact payload
+length exercised by each applicable measured path. Mesh pub/sub and
+query/reply use the same requested length, dispatch does not apply a hidden
+size cap, and reports include the effective payload length.
+
 `--output json` serializes the benchmark name plus its typed report object.
 Table output presents the same report fields for humans. Project benchmarks
 capture requested globals after the measured cycles, encode missing watched

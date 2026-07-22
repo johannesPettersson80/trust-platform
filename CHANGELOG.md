@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
+  exact `--payload-bytes` requested instead of silently capping at 256 bytes;
+  T0, mesh, and dispatch reports expose the effective payload length.
 - ADS CLI: `ads server ... --json` now rejects control responses with
   `ok = false` or a missing Boolean `ok` instead of printing them and exiting
   successfully; JSON and human output now share the control-envelope check.

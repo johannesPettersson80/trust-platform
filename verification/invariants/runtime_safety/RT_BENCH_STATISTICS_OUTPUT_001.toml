@@ -1,0 +1,76 @@
+schema_version = 1
+id = "RT_BENCH_STATISTICS_OUTPUT_001"
+title = "Benchmark statistics and output preserve measured evidence"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Benchmark summaries, jitter, histograms, deterministic synthetic decisions, and human or JSON rendering preserve the documented sample set without inventing or hiding measurements."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/bench"]
+tests = [
+  "TEST_RUNTIME_BENCH_QUANTILES_001",
+  "TEST_RUNTIME_BENCH_HISTOGRAM_001",
+  "TEST_RUNTIME_BENCH_JITTER_001",
+  "TEST_RUNTIME_BENCH_PRNG_001",
+  "TEST_RUNTIME_BENCH_PROJECT_JSON_001",
+  "TEST_RUNTIME_BENCH_T0_JSON_001",
+  "TEST_RUNTIME_BENCH_MESH_JSON_001",
+  "TEST_RUNTIME_BENCH_DISPATCH_TABLE_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+
+[[behavior]]
+partition = { equals = "NONEMPTY_LATENCY_SAMPLE_SET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Sorted samples produce nearest-rank quantiles and complete histogram membership without changing the observations."
+
+[[behavior]]
+partition = { equals = "ZERO_OR_ONE_JITTER_OBSERVATION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Fewer than two latency observations produce no jitter sample rather than an invented zero measurement."
+
+[[behavior]]
+partition = { equals = "JSON_OR_TABLE_OUTPUT" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Both formats expose the benchmark kind and typed contract fields derived from the same report."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused unit tests cover quantiles, histogram overflow, deterministic PRNG behavior, and typed output fields."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "covered"
+rationale = "Focused unit tests cover empty, singleton, and repeated-equal jitter inputs."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "covered"
+rationale = "Focused benchmark tests parse JSON and inspect table fields across every benchmark family."

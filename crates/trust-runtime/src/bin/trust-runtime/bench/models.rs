@@ -17,6 +17,7 @@ struct LatencySummary {
 #[derive(Debug, Clone, Serialize)]
 struct T0ShmBenchReport {
     scenario: &'static str,
+    payload_bytes: usize,
     one_way_latency: LatencySummary,
     round_trip_latency: LatencySummary,
     jitter: LatencySummary,
@@ -30,6 +31,8 @@ struct T0ShmBenchReport {
 #[derive(Debug, Clone, Serialize)]
 struct MeshZenohBenchReport {
     scenario: &'static str,
+    payload_bytes: usize,
+    query_payload_bytes: usize,
     pub_sub_latency: LatencySummary,
     pub_sub_jitter: LatencySummary,
     query_reply_latency: LatencySummary,
@@ -43,6 +46,7 @@ struct MeshZenohBenchReport {
 #[derive(Debug, Clone, Serialize)]
 struct DispatchBenchReport {
     scenario: &'static str,
+    payload_bytes: usize,
     fanout: usize,
     preflight_latency: LatencySummary,
     dispatch_latency: LatencySummary,
