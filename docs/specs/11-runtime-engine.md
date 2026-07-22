@@ -977,6 +977,20 @@ into success. External Doctor proof metadata is accepted only when kind and
 name are supplied together. Human and JSON modes render the same underlying
 successful report or artifact.
 
+###### ADS onboarding identity authority
+
+ADS onboarding identity is a truST product contract outside IEC 61131-3. The
+selected runtime-host source address and the selected target address must each
+be a syntactically valid IP address before they can become route, Doctor, or
+symbol-import authority. An omitted local AMS Net ID is derived only from a
+canonical IPv4 source as `<ipv4>.1.1`; IPv6 requires an explicit override. An
+explicit override, including an explicitly blank value, must contain exactly
+six decimal octets in the range 0 through 255 and is stored in canonical
+decimal form. A malformed source address, target address, or override is
+rejected before an onboarding identity is returned and before any ADS wire or
+route side effect. Public and NAT-suspect identities remain ineligible for
+automatic route creation.
+
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
 `trust-runtime bench` validates each workload before measurement: sample,

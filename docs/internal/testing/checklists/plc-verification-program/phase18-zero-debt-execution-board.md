@@ -529,6 +529,28 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   no diagram update is required. This is a truST product safety contract, not
   an IEC decision or deviation. Assertion reachability, mutation sensitivity,
   rollout and the final broad remote gates remain open.
+
+  ADS onboarding identity coherent-batch progress (2026-07-22): the runtime
+  product specification now requires valid canonical runtime-host, target, and
+  AMS identities before route, Doctor, or symbol-import authority exists, and
+  keeps public/NAT-suspect identities ineligible for automatic route creation.
+  Five expected-red tests proved that noncanonical IPv4 text produced an AMS
+  identity, blank or malformed explicit AMS overrides were accepted or
+  silently treated as omission, malformed runtime-host sources became valid
+  when an override was present, malformed targets became identity authority,
+  and valid equivalent AMS octets retained noncanonical text. The identity
+  owner now parses and canonicalizes IP and six-octet AMS values before
+  constructing `LocalIdentity`. Remote focused proof passes all 5 new
+  validation tests and all 29 existing ADS onboarding tests. Deterministic
+  semantic automation binds all 14 live identity-owner facts and 10 exact
+  identity/classification tests to `RT_ADS_ONBOARDING_IDENTITY_001`; the scoped
+  audit reports 605 specified code facts, 14,669 remaining `spec_gap` facts,
+  605 mapped denominator tests, and 3,548 remaining `reviewed_nonmapping`
+  tests. The owner remains transport-independent, no runtime ownership or
+  execution flow changed, and no diagram update is required. This is a truST
+  product contract outside IEC 61131-3, not an IEC decision or deviation.
+  Assertion reachability, mutation sensitivity, remaining ADS onboarding
+  subdomains, and the final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

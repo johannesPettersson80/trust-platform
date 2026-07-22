@@ -1,0 +1,85 @@
+schema_version = 1
+id = "RT_ADS_ONBOARDING_IDENTITY_001"
+title = "ADS onboarding identity authority is canonical and fail-closed"
+area = "runtime_safety"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "ADS onboarding returns route authority only from valid canonical source, target, and AMS identities, and public or NAT-suspect paths remain ineligible for automatic routing."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/onboarding/identity.rs"]
+tests = [
+  "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_AMS_NET_ID_REJECTS_NONCANONICAL_IPV4_TEXT_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_DEFAULT_LOCAL_AMS_NET_ID_USES_SELECTED_IPV4_ADDRESS_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_CANONICALIZES_EXPLICIT_AMS_NET_ID_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_HONORS_ADVANCED_LOCAL_NET_ID_OVERRIDE_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_EXPLICIT_AMS_NET_ID_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_SOURCE_EVEN_WITH_OVERRIDE_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_REJECTS_INVALID_TARGET_ADDRESS_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_IDENTITY_DERIVATION_SELECTS_RUNTIME_HOST_SOURCE_AND_CANDIDATES_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001",
+  "TEST_ADS_ONBOARDING_IDENTITY_SOURCE_PROBE_REJECTS_INVALID_TARGET_IP_WITHOUT_NETWORK_IO_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+
+[[behavior]]
+partition = { equals = "VALID_IPV4_OR_EXPLICIT_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Valid addresses and valid derived or explicit AMS identity produce one canonical authority record."
+
+[[behavior]]
+partition = { malformed = "SOURCE_OR_TARGET_IP" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Malformed IP text is rejected before identity construction or network I/O."
+
+[[behavior]]
+partition = { malformed = "LOCAL_AMS_NET_ID" }
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "An explicit override must contain exactly six unsigned decimal octets."
+
+[[behavior]]
+partition = { equals = "PUBLIC_OR_NAT_SUSPECT_AUTO_ROUTE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "Public and NAT-suspect identities remain visible but automatic route authority is disabled."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests cover derived IPv4 identity, explicit override, canonicalization, source selection, and candidates."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused regressions reject malformed source, target, and AMS identity text."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Classification tests prove public and NAT-suspect paths disable automatic route authority."

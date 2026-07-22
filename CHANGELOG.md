@@ -34,6 +34,9 @@ Target release: `v0.24.54`
   across the complete supplied HA group even when an action targets only one
   candidate, and rejects a duplicate request while its first dispatch remains
   in flight instead of starting the protected command twice.
+- trust-runtime: ADS onboarding now rejects malformed runtime-host and target
+  IP addresses and blank or malformed local AMS Net ID overrides before
+  constructing route authority, and canonicalizes valid six-octet overrides.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

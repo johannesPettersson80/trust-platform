@@ -50226,13 +50226,13 @@ id = "RISK_ACK_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 code_id = "CODE_6566AF941EB805D5728E23A86BCE85BD7A20814CB6B1E9E2B50DC43C2A4C367C"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:4c97394ee5b3b879ffacd5beb6975c83ab3f2f91095aba39aace9217f1bb2021"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+body_digest = "sha256:97c313b44721ab234596efb8620918db906b5836256798d459a1e524abdcfb39"
+risk_signals = ["broad_error_suppression", "fault_mapping", "state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50886,11 +50886,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:b28d4863287a2a467c335794fc376f00daac3908c0ab065e542b5b5c4525b66c"
 risk_signals = ["fault_mapping", "network_io"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51306,11 +51306,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:62cbc99684c2caf975bdedaae8147b9ada5367b92ffa56d4e72dab44273ce7f4"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81362,3 +81362,30 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived dual-host authority, fencing, split-brain, replay, persistence, and preflight risks while binding the HA owners to the reviewed product contract and focused executable tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0E953E02FF72D0BDD7394B3F204093C2B8FF27C017663B5D26A1A604DA1732C1"
+code_id = "CODE_0E953E02FF72D0BDD7394B3F204093C2B8FF27C017663B5D26A1A604DA1732C1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:b56f87998e32b9a8330c8bbd05fe5c151e8a25f8d1b6990c2a3884e3be8d1108"
+risk_signals = ["broad_error_suppression"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
+code_id = "CODE_570F56BF132D82E11A30BFF51169F85EAF694E97D401DD884FAEA43F688A33D5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:2ebb0e5219c76df5e1e880be3fbd19ca1889c83ce4dc0268b109340fbd9bd808"
+risk_signals = ["broad_error_suppression"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-identity-authority"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
