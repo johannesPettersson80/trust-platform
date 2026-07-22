@@ -4,6 +4,14 @@ This document defines normative truST behavior for developer-facing source
 discovery and project-scoped Git commits. It does not define IEC 61131-3
 language semantics.
 
+## Project initialization
+
+When the product wizard initializes Git, an existing `.git` directory or valid
+worktree `gitdir:` file means the project is already initialized. An ordinary,
+malformed, or dangling `.git` file is an error; the wizard must not silently
+report Git initialization success. Without an existing marker, initialization
+requires an available `git` command and a successful `git init` exit status.
+
 ## Source Discovery
 
 `trust-dev test` recursively discovers regular files below the selected project

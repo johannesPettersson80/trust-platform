@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: HMI scaffolding now discovers compiler project sources and
+  local dependency sources recursively with literal filesystem paths, so glob
+  metacharacters in project names no longer produce a false empty project;
+  wizard Git setup now rejects malformed or dangling `.git` file markers.
 - trust-runtime: managed-fleet manifests now reject unsafe or duplicate runtime
   names, malformed control endpoints, zero ports, and cross-role TCP port
   collisions before lifecycle mutation; fleet control-token generation now

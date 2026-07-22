@@ -96,6 +96,11 @@ Use:
 - `trust-runtime hmi update`
 - `trust-runtime hmi reset`
 
+These commands compile the project's recursive `.st`/`.pou` source set and
+resolved local dependencies before generating the scaffold. Filesystem names
+are literal, so spaces, Unicode, and glob metacharacters in a project path do
+not change which sources are discovered.
+
 ## Related
 
 - [HMI Authoring](../../develop/hmi-authoring.md)

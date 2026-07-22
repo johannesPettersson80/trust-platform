@@ -53,6 +53,16 @@ admission. (DEV-041)
 4. Run or reload the runtime
 5. Drive HMI, tests, harness scenarios, or agent workflows against the same project
 
+### 4.1 HMI scaffold source set
+
+`trust-runtime hmi init|update|reset` compiles the same recursive project source
+set as the bundle builder, including resolved local package dependencies. Source
+directory and file names are literal filesystem names; spaces, Unicode, and glob
+metacharacters do not alter discovery. Supported `.st` and `.pou` extensions are
+matched with ASCII case-insensitivity and returned in deterministic path order.
+Unreadable or invalid source paths fail the scaffold operation instead of being
+treated as an empty project.
+
 ## 5. Related Specs
 
 - `12-bytecode.md` for `program.stbc`
