@@ -473,6 +473,80 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4C7C595026E1FD708546"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/src/watchdog.rs"
+name = "watchdog_and_fault_policy_decisions_are_stable"
+command = "cargo test -p trust-runtime-core watchdog::tests::watchdog_and_fault_policy_decisions_are_stable -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+expected_result = "All three FaultPolicy values project through FaultSubsystem::decision to the exact action and safe-state flag while preserving policy, faulted state, and the recorded WatchdogTimeout."
+expected_failure_mode = "A policy maps to the wrong action or safe-state flag, decision depends on fault observations, or projection mutates policy, faulted state, or the stored error."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001.json"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_FAULT_POLICY_DECISION_HOST_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_04CF6B406AB66EB7B40B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "watchdog_and_fault_policy_decisions_are_stable"
+command = "cargo test -p trust-runtime --test runtime_core_behavior_lock watchdog_and_fault_policy_decisions_are_stable -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+expected_result = "The host-facing runtime re-export produces the exact Halt, SafeHalt, and Restart decisions and preserves each recorded fault holder observation."
+expected_failure_mode = "The host-facing decision differs from the portable contract, loses a policy case, or changes fault-holder state while projecting it."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_POLICY_DECISION_HOST_001.json"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_42530353D93187E17303"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime-core/tests/fault_policy_decision_cases.rs"
+name = "fault_policy_decision_cases"
+command = "cargo test -p trust-runtime-core --test fault_policy_decision_cases fault_policy_decision_cases -- --exact"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["RT_FAULT_POLICY_DECISION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection"
+expected_result = "All three generated policy partitions execute the exact action and safe-state result in both healthy and recorded-fault holder states, with exact before/after observations for each decision."
+expected_failure_mode = "A generated partition is not executed, any decision or holder observation differs from the reviewed table, or no same-run case artifact is emitted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001.json"
+case_file = "verification/cases/runtime_safety/RT_FAULT_POLICY_DECISION_001.toml"
+case_file_digest = "sha256:0a1b09240a7a0b3ea38a922dcaee0b09c7eb9879b08bcb7cd29087f02099354a"
+last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
 id = "TEST_CASE_TABLE_VM_SEAM_SUBRANGE_001"
 subject_kind = "case_table_artifact"
 test_class = "metadata_validation"

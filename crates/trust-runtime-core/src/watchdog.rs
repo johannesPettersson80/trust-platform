@@ -337,6 +337,43 @@ mod tests {
                 apply_safe_state: false,
             }
         );
+
+        for (policy, expected) in [
+            (
+                FaultPolicy::Halt,
+                FaultDecision {
+                    action: FaultAction::Halt,
+                    apply_safe_state: false,
+                },
+            ),
+            (
+                FaultPolicy::SafeHalt,
+                FaultDecision {
+                    action: FaultAction::SafeHalt,
+                    apply_safe_state: true,
+                },
+            ),
+            (
+                FaultPolicy::Restart,
+                FaultDecision {
+                    action: FaultAction::Restart,
+                    apply_safe_state: false,
+                },
+            ),
+        ] {
+            let mut faults = FaultSubsystem::new();
+            faults.set_policy(policy);
+            assert_eq!(faults.decision(), expected);
+            assert_eq!(faults.policy(), policy);
+            assert!(!faults.is_faulted());
+            assert_eq!(faults.last_fault(), None);
+
+            faults.record(RuntimeError::WatchdogTimeout);
+            assert_eq!(faults.decision(), expected);
+            assert_eq!(faults.policy(), policy);
+            assert!(faults.is_faulted());
+            assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+        }
     }
 
     #[test]

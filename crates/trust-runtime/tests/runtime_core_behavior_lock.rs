@@ -9,7 +9,7 @@ use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::Value;
 use trust_runtime::watchdog::{
-    FaultAction, FaultDecision, FaultPolicy, WatchdogAction, WatchdogPolicy,
+    FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, WatchdogAction, WatchdogPolicy,
 };
 use trust_runtime::{RestartMode, Runtime};
 
@@ -272,6 +272,43 @@ fn watchdog_and_fault_policy_decisions_are_stable() {
             apply_safe_state: false,
         }
     );
+
+    for (policy, expected) in [
+        (
+            FaultPolicy::Halt,
+            FaultDecision {
+                action: FaultAction::Halt,
+                apply_safe_state: false,
+            },
+        ),
+        (
+            FaultPolicy::SafeHalt,
+            FaultDecision {
+                action: FaultAction::SafeHalt,
+                apply_safe_state: true,
+            },
+        ),
+        (
+            FaultPolicy::Restart,
+            FaultDecision {
+                action: FaultAction::Restart,
+                apply_safe_state: false,
+            },
+        ),
+    ] {
+        let mut faults = FaultSubsystem::new();
+        faults.set_policy(policy);
+        assert_eq!(faults.decision(), expected);
+        assert_eq!(faults.policy(), policy);
+        assert!(!faults.is_faulted());
+        assert_eq!(faults.last_fault(), None);
+
+        faults.record(RuntimeError::WatchdogTimeout);
+        assert_eq!(faults.decision(), expected);
+        assert_eq!(faults.policy(), policy);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+    }
 
     assert!(WatchdogAction::parse("warn").is_err());
     assert!(FaultPolicy::parse("degrade").is_err());

@@ -737,9 +737,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
 name = "watchdog_and_fault_policy_decisions_are_stable"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_HOST_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_04D8D25BB63297663445"
@@ -10482,6 +10482,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_42530353D93187E17303"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime-core/tests/fault_policy_decision_cases.rs"
+name = "fault_policy_decision_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_4253FC33DB2F04694596"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/23_control_modules/tests.st"
@@ -11947,9 +11957,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/watchdog.rs"
 name = "watchdog_and_fault_policy_decisions_are_stable"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_4C7F7BF0E967926694CF"
