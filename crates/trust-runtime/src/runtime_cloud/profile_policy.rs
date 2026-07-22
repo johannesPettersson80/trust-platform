@@ -118,7 +118,8 @@ fn runtime_cloud_profile_target_denial(
             ),
         ));
     }
-    if runtime_cloud_is_write_action(action.action_type.as_str())
+    if matches!(profile, RuntimeCloudProfile::Wan)
+        && runtime_cloud_is_write_action(action.action_type.as_str())
         && runtime_cloud_is_cross_site_target(action, runtime_id)
         && !runtime_cloud_wan_allowlist_allows(
             action.action_type.as_str(),
@@ -301,6 +302,87 @@ mod tests {
     }
 
     #[test]
+    fn dev_and_plant_profiles_do_not_require_wan_write_allowlist() {
+        let action = action_fixture("cfg_apply", vec!["site-b/runtime-b"]);
+        let preflight = preflight_fixture(vec!["site-b/runtime-b"]);
+        let targets = targets_fixture("site-b/runtime-b", true);
+
+        for profile in [RuntimeCloudProfile::Dev, RuntimeCloudProfile::Plant] {
+            let report = runtime_cloud_apply_profile_policy(
+                preflight.clone(),
+                &action,
+                &targets,
+                profile,
+                &[],
+                WebAuthMode::Token,
+                true,
+            );
+            assert!(
+                report.allowed,
+                "profile '{}' must not apply the WAN write allowlist",
+                profile.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn secure_profiles_require_token_tls_and_secure_remote_metadata() {
+        for profile in [RuntimeCloudProfile::Plant, RuntimeCloudProfile::Wan] {
+            assert!(
+                runtime_cloud_profile_precondition(profile, WebAuthMode::Local, true).is_some()
+            );
+            assert!(
+                runtime_cloud_profile_precondition(profile, WebAuthMode::Token, false).is_some()
+            );
+
+            let action = action_fixture("status_read", vec!["runtime-b"]);
+            let report = runtime_cloud_apply_profile_policy(
+                preflight_fixture(vec!["runtime-b"]),
+                &action,
+                &targets_fixture("runtime-b", false),
+                profile,
+                &[],
+                WebAuthMode::Token,
+                true,
+            );
+            assert!(!report.allowed);
+            assert_eq!(report.denial_code, Some(ReasonCode::NotConfigured));
+        }
+    }
+
+    #[test]
+    fn dev_profile_allows_remote_target_without_secure_transport_metadata() {
+        let action = action_fixture("status_read", vec!["runtime-b"]);
+        let report = runtime_cloud_apply_profile_policy(
+            preflight_fixture(vec!["runtime-b"]),
+            &action,
+            &targets_fixture("runtime-b", false),
+            RuntimeCloudProfile::Dev,
+            &[],
+            WebAuthMode::Local,
+            false,
+        );
+
+        assert!(report.allowed);
+    }
+
+    #[test]
+    fn wan_read_action_does_not_require_write_allowlist() {
+        let action = action_fixture("status_read", vec!["site-b/runtime-b"]);
+        let report = runtime_cloud_apply_profile_policy(
+            preflight_fixture(vec!["site-b/runtime-b"]),
+            &action,
+            &targets_fixture("site-b/runtime-b", true),
+            RuntimeCloudProfile::Wan,
+            &[],
+            WebAuthMode::Token,
+            true,
+        );
+
+        assert!(report.allowed);
+    }
+
+    #[test]
     fn allowlist_supports_prefix_and_suffix_patterns() {
         let action = action_fixture("cfg_apply", vec!["site-b/runtime-b"]);
         let preflight = preflight_fixture(vec!["site-b/runtime-b"]);
@@ -334,6 +416,33 @@ mod tests {
             true,
         );
         assert!(suffix_report.allowed);
+    }
+
+    #[test]
+    fn allowlist_supports_global_and_exact_patterns() {
+        let action = action_fixture("cfg_apply", vec!["site-b/runtime-b"]);
+        let preflight = preflight_fixture(vec!["site-b/runtime-b"]);
+        let targets = targets_fixture("site-b/runtime-b", true);
+
+        for target in ["*", "site-b/runtime-b"] {
+            let rules = vec![RuntimeCloudWanAllowRule {
+                action: SmolStr::new("cfg_apply"),
+                target: SmolStr::new(target),
+            }];
+            let report = runtime_cloud_apply_profile_policy(
+                preflight.clone(),
+                &action,
+                &targets,
+                RuntimeCloudProfile::Wan,
+                &rules,
+                WebAuthMode::Token,
+                true,
+            );
+            assert!(
+                report.allowed,
+                "documented target pattern '{target}' must match"
+            );
+        }
     }
 
     #[test]

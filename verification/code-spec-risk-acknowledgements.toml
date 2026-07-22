@@ -22016,13 +22016,13 @@ id = "RISK_ACK_A8CACF13F880385CF20C75A08BF75EC965E9DE675BD7A0664285F2AF73A9EED5"
 code_id = "CODE_A8CACF13F880385CF20C75A08BF75EC965E9DE675BD7A0664285F2AF73A9EED5"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:93b2a4025ba648aa75a32bb49b6c43f5d8c0d277907ada551d3b0c5950d9ef57"
+body_digest = "sha256:dcfd8095eaa7fda0fb67ef23147f5bd0c2482af4d66cef8576aa8562f267e807"
 risk_signals = ["authorization", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived Runtime Cloud contract, authorization, target-routing, and state-decision risks while binding each fact to the reviewed action/profile policy and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24300,11 +24300,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:6e29b36f95929461bfee021fddc218c8a7b9d267237fe5d7a11bbdfba9f11c49"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived Runtime Cloud contract, authorization, target-routing, and state-decision risks while binding each fact to the reviewed action/profile policy and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -26764,11 +26764,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:0759e3fec2a4cf830ffcea3c055228f3db5a5572cc769e5adbf7ab7262dafbc0"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived Runtime Cloud contract, authorization, target-routing, and state-decision risks while binding each fact to the reviewed action/profile policy and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27380,11 +27380,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:e31f65fe74044a99991480d70e627cd83088b90941a96771fab4e7699b4ac951"
 risk_signals = ["authorization"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-action-preflight-and-profile-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived Runtime Cloud contract, authorization, target-routing, and state-decision risks while binding each fact to the reviewed action/profile policy and focused executable tests without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1

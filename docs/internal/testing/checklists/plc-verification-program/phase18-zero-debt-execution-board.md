@@ -382,6 +382,33 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   and staleness checks reach only the two deferred retain/restart mutation-
   provenance mismatches. `VERIF-P18-003`, assertion reachability, mutation
   sensitivity, and the final broad remote gates remain globally open.
+
+  Runtime Cloud action/profile coherent-batch progress (2026-07-22): the
+  product specification now owns action identity, unique nonempty targets,
+  preflight/dispatch correlation, role and target denials, secure profile
+  preconditions, and the `dev`/`plant`/`wan` write-policy distinction. Generated
+  semantic registration binds every live `runtime_cloud::profile_policy` and
+  `runtime_cloud::routing` fact plus the complete focused unit and HTTP
+  preflight integration set to
+  `SPEC_RUNTIME_ENGINE_001#runtime-cloud-action-preflight-and-profile-contract`
+  through `RT_RUNTIME_CLOUD_ACTION_POLICY_001`; the scoped audit rejects any
+  unrelated metadata change. Expected-red tests exposed and focused-green
+  repairs fixed WAN-only allowlist policy leaking into `dev`/`plant`, an empty
+  target list becoming an allowed no-op, blank or duplicate target acceptance,
+  and four Admin-only runtime/mesh configuration keys being classified as
+  Engineer writes. The route integration test that encoded the obsolete
+  default-`dev` denial was renamed and repaired to the documented profile
+  contract, with its old scanner identity removed automatically. Remote focused
+  proof passes the complete Runtime Cloud unit filter, the preflight route
+  filter, and the Runtime Cloud architecture suite. The changes remain inside
+  the existing profile/routing policy owners, introduce no transport or runtime
+  execution dependency, keep files below the large-file threshold, and require
+  no diagram update. The durable `prove.py` wrapper remains unable to write the
+  paired records because the two pre-existing retain/restart mutation
+  provenance mismatches fail global metadata validation; those digests were not
+  edited manually. `VERIF-P18-003`, the remaining Runtime Cloud subdomains,
+  assertion reachability, mutation sensitivity, and the final broad remote
+  gates remain globally open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

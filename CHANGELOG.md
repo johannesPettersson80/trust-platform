@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: Runtime Cloud preflight now rejects empty, blank, or duplicate
+  target lists instead of allowing an empty dispatch or repeating a target;
+  cross-site writes in `dev` and `plant` profiles no longer incorrectly require
+  a WAN allowlist, while `wan` remains explicit-allow only.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

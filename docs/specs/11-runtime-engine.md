@@ -1369,6 +1369,51 @@ Rules:
   default value.
 - TOML remains the source of truth; offline edits are supported.
 
+##### Runtime Cloud action preflight and profile contract
+
+Runtime Cloud federation is a truST product contract, not an IEC decision or
+deviation. The `/api/runtime-cloud/actions/preflight` and
+`/api/runtime-cloud/actions/dispatch` surfaces use the current `1.x` contract;
+minor-version changes within that major are additive, while another major or a
+malformed version is a contract violation.
+
+Every action request has a nonempty `request_id`, `connected_via`, `actor`, and
+`action_type`, plus at least one nonempty target runtime. A target runtime may
+occur only once in a request. `connected_via` must identify the local runtime.
+Malformed global request state is a denied preflight even when no per-target
+decision can be emitted; an empty decision list must never turn a contract
+violation into `allowed: true`. Rejecting an empty, blank, or duplicate target
+list prevents both a false successful no-op and repeated side effects against
+one runtime.
+
+Preflight is side-effect free and evaluates the complete request before
+dispatch. `status_read`, `cfg_apply`, and `cmd_invoke` are the supported action
+families; unknown actions are contract violations. Viewer may read status,
+Operator may invoke ordinary commands, Engineer may apply ordinary
+configuration, and the security/exposure keys listed in the runtime control
+authorization matrix require Admin. Stale and unreachable nonlocal targets are
+denied with stable per-target reasons. A dispatch whose `dry_run` flag is true
+returns the preflight result without performing the mapped control operation.
+
+Profile policy is applied after the common contract, role, freshness, and
+reachability checks:
+
+- `dev` does not use `runtime.cloud.wan.allow_write`; cross-site writes remain
+  governed by the ordinary role and target checks.
+- `plant` requires token-authenticated TLS and secure transport metadata for a
+  nonlocal target, but it does not use the WAN write allowlist.
+- `wan` has the same secure transport preconditions and additionally denies
+  every nonlocal `cfg_apply` or `cmd_invoke` unless an explicit
+  action-and-target `runtime.cloud.wan.allow_write` rule matches. `*`, a prefix
+  such as `site-b/*`, a suffix such as `*/runtime-b`, and exact target IDs have
+  their documented meanings; other embedded-wildcard shapes do not match.
+
+Preflight and dispatch responses retain the caller's `request_id` and
+`connected_via`. Each dispatched target produces one result for that target;
+successful target results carry the target audit correlation supplied by the
+control operation. A denied or failed target must remain visibly denied or
+failed and must not be summarized as a successful aggregate action.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:

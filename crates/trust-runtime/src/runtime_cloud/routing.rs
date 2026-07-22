@@ -2,7 +2,7 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -112,6 +112,31 @@ pub fn preflight_action(
             "target_runtimes must include at least one runtime".to_string(),
         ));
     }
+    if global_denial.is_none()
+        && request
+            .target_runtimes
+            .iter()
+            .any(|runtime_id| runtime_id.trim().is_empty())
+    {
+        global_denial = Some((
+            ReasonCode::ContractViolation,
+            "target_runtimes must not include an empty runtime".to_string(),
+        ));
+    }
+    if global_denial.is_none() {
+        let mut unique_targets = BTreeSet::new();
+        if request
+            .target_runtimes
+            .iter()
+            .map(|runtime_id| runtime_id.trim())
+            .any(|runtime_id| !unique_targets.insert(runtime_id))
+        {
+            global_denial = Some((
+                ReasonCode::ContractViolation,
+                "target_runtimes must not include duplicate runtimes".to_string(),
+            ));
+        }
+    }
 
     let mut required_role = AccessRole::Viewer;
     if global_denial.is_none() {
@@ -192,11 +217,16 @@ pub fn preflight_action(
         })
         .collect::<Vec<_>>();
 
-    let allowed = decisions.iter().all(|decision| decision.allowed);
-    let (denial_code, denial_reason) = decisions
-        .iter()
-        .find(|decision| !decision.allowed)
-        .map(|decision| (decision.denial_code, decision.denial_reason.clone()))
+    let allowed = global_denial.is_none() && decisions.iter().all(|decision| decision.allowed);
+    let (denial_code, denial_reason) = global_denial
+        .as_ref()
+        .map(|(code, reason)| (Some(*code), Some(reason.clone())))
+        .or_else(|| {
+            decisions
+                .iter()
+                .find(|decision| !decision.allowed)
+                .map(|decision| (decision.denial_code, decision.denial_reason.clone()))
+        })
         .unwrap_or((None, None));
 
     RuntimeCloudActionPreflight {
@@ -292,7 +322,11 @@ fn cfg_apply_required_role(payload: &serde_json::Value) -> AccessRole {
                     "control.auth_token"
                         | "mesh.auth_token"
                         | "control.mode"
+                        | "control.debug_enabled"
                         | "web.auth"
+                        | "mesh.role"
+                        | "mesh.zenohd_version"
+                        | "mesh.plugin_versions"
                         | "runtime_cloud.profile"
                         | "runtime_cloud.wan.allow_write"
                         | "runtime_cloud.links.transports"
@@ -413,6 +447,180 @@ mod tests {
     }
 
     #[test]
+    fn preflight_rejects_empty_blank_or_duplicate_target_lists() {
+        let mut request = request_fixture();
+        request.target_runtimes.clear();
+        let empty = preflight_action(
+            &request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &BTreeMap::new(),
+        );
+        assert!(!empty.allowed, "an empty target list must fail closed");
+        assert_eq!(empty.denial_code, Some(ReasonCode::ContractViolation));
+
+        request.target_runtimes = vec![" ".to_string()];
+        let blank = preflight_action(
+            &request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &BTreeMap::new(),
+        );
+        assert!(!blank.allowed);
+        assert_eq!(blank.denial_code, Some(ReasonCode::ContractViolation));
+
+        request.target_runtimes = vec!["runtime-b".to_string(), "runtime-b".to_string()];
+        let targets = BTreeMap::from([(
+            "runtime-b".to_string(),
+            RuntimeCloudTargetStatus {
+                reachable: true,
+                stale: false,
+                supports_secure_transport: true,
+            },
+        )]);
+        let duplicate = preflight_action(
+            &request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &targets,
+        );
+        assert!(!duplicate.allowed);
+        assert_eq!(duplicate.denial_code, Some(ReasonCode::ContractViolation));
+    }
+
+    #[test]
+    fn preflight_rejects_blank_identity_and_invalid_api_versions() {
+        let targets = BTreeMap::from([(
+            "runtime-b".to_string(),
+            RuntimeCloudTargetStatus {
+                reachable: true,
+                stale: false,
+                supports_secure_transport: true,
+            },
+        )]);
+        let context = RuntimeCloudPreflightContext {
+            local_runtime_id: "runtime-a",
+            role: AccessRole::Admin,
+        };
+
+        for mutate in [
+            |request: &mut RuntimeCloudActionRequest| request.request_id = " ".to_string(),
+            |request: &mut RuntimeCloudActionRequest| request.actor = " ".to_string(),
+            |request: &mut RuntimeCloudActionRequest| request.api_version = "1".to_string(),
+            |request: &mut RuntimeCloudActionRequest| request.api_version = "2.0".to_string(),
+        ] {
+            let mut request = request_fixture();
+            mutate(&mut request);
+            let report = preflight_action(&request, context, &targets);
+            assert!(!report.allowed);
+            assert_eq!(report.denial_code, Some(ReasonCode::ContractViolation));
+        }
+    }
+
+    #[test]
+    fn preflight_rejects_unknown_action_before_target_routing() {
+        let mut request = request_fixture();
+        request.action_type = "unknown".to_string();
+
+        let report = preflight_action(
+            &request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &BTreeMap::new(),
+        );
+
+        assert!(!report.allowed);
+        assert_eq!(report.denial_code, Some(ReasonCode::ContractViolation));
+    }
+
+    #[test]
+    fn preflight_distinguishes_stale_target_and_allows_local_target() {
+        let request = request_fixture();
+        let stale_targets = BTreeMap::from([(
+            "runtime-b".to_string(),
+            RuntimeCloudTargetStatus {
+                reachable: true,
+                stale: true,
+                supports_secure_transport: true,
+            },
+        )]);
+        let stale = preflight_action(
+            &request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &stale_targets,
+        );
+        assert!(!stale.allowed);
+        assert_eq!(stale.denial_code, Some(ReasonCode::StaleData));
+
+        let mut local_request = request;
+        local_request.target_runtimes = vec!["runtime-a".to_string()];
+        let local = preflight_action(
+            &local_request,
+            RuntimeCloudPreflightContext {
+                local_runtime_id: "runtime-a",
+                role: AccessRole::Admin,
+            },
+            &BTreeMap::new(),
+        );
+        assert!(local.allowed);
+    }
+
+    #[test]
+    fn cfg_apply_requires_admin_for_every_protected_runtime_key() {
+        let protected_keys = [
+            "control.auth_token",
+            "control.mode",
+            "control.debug_enabled",
+            "web.auth",
+            "mesh.auth_token",
+            "mesh.role",
+            "mesh.zenohd_version",
+            "mesh.plugin_versions",
+            "runtime_cloud.profile",
+            "runtime_cloud.wan.allow_write",
+            "runtime_cloud.links.transports",
+        ];
+        let targets = BTreeMap::from([(
+            "runtime-b".to_string(),
+            RuntimeCloudTargetStatus {
+                reachable: true,
+                stale: false,
+                supports_secure_transport: true,
+            },
+        )]);
+
+        for key in protected_keys {
+            let mut request = request_fixture();
+            request.payload = serde_json::json!({ "params": {} });
+            request.payload["params"][key] = serde_json::json!(true);
+            let report = preflight_action(
+                &request,
+                RuntimeCloudPreflightContext {
+                    local_runtime_id: "runtime-a",
+                    role: AccessRole::Engineer,
+                },
+                &targets,
+            );
+            assert!(
+                !report.allowed,
+                "protected configuration key '{key}' requires Admin"
+            );
+            assert_eq!(report.denial_code, Some(ReasonCode::AclDeniedCfgWrite));
+        }
+    }
+
+    #[test]
     fn cfg_apply_root_level_protected_key_requires_admin_role() {
         let mut request = request_fixture();
         request.payload = serde_json::json!({
@@ -502,6 +710,30 @@ mod tests {
             mapped.get("request_id").and_then(serde_json::Value::as_str),
             Some("req-1")
         );
+    }
+
+    #[test]
+    fn action_mapping_rejects_invalid_config_and_command_payloads() {
+        let mut request = request_fixture();
+        request.payload = serde_json::json!([]);
+        let config_error = map_action_to_control_request(&request)
+            .expect_err("cfg_apply requires object parameters");
+        assert_eq!(config_error.0, ReasonCode::ContractViolation);
+
+        request.action_type = "cmd_invoke".to_string();
+        request.payload = serde_json::json!({});
+        let command_error =
+            map_action_to_control_request(&request).expect_err("cmd_invoke requires a command");
+        assert_eq!(command_error.0, ReasonCode::ContractViolation);
+
+        request.payload = serde_json::json!({
+            "command": " restart ",
+            "params": { "warm": true }
+        });
+        let command = map_action_to_control_request(&request).expect("valid command mapping");
+        assert_eq!(command["type"], serde_json::json!("restart"));
+        assert_eq!(command["request_id"], serde_json::json!("req-1"));
+        assert_eq!(command["params"]["warm"], serde_json::json!(true));
     }
 
     #[test]
