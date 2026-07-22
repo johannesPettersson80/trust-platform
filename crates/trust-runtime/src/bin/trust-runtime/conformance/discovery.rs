@@ -16,6 +16,33 @@ fn resolve_suite_root(suite_root: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 }
 
 fn discover_cases(suite_root: &Path) -> anyhow::Result<Vec<CaseDefinition>> {
+    let cases_root = suite_root.join("cases");
+    if cases_root.is_dir() {
+        let mut categories = fs::read_dir(&cases_root)
+            .with_context(|| format!("read conformance cases root '{}'", cases_root.display()))?
+            .collect::<Result<Vec<_>, _>>()
+            .with_context(|| format!("list conformance cases root '{}'", cases_root.display()))?;
+        categories.sort_by_key(|entry| entry.file_name());
+        for entry in categories {
+            if !entry
+                .file_type()
+                .with_context(|| {
+                    format!("inspect conformance category '{}'", entry.path().display())
+                })?
+                .is_dir()
+            {
+                continue;
+            }
+            let category = entry.file_name().to_string_lossy().to_string();
+            if !CATEGORIES.contains(&category.as_str()) {
+                bail!(
+                    "unknown conformance category directory '{}'",
+                    entry.path().display()
+                );
+            }
+        }
+    }
+
     let mut cases = Vec::new();
     for category in CATEGORIES {
         let category_root = suite_root.join("cases").join(category);
@@ -35,7 +62,10 @@ fn discover_cases(suite_root: &Path) -> anyhow::Result<Vec<CaseDefinition>> {
             let case_id = entry.file_name().to_string_lossy().to_string();
             let manifest_path = path.join("manifest.toml");
             if !manifest_path.is_file() {
-                continue;
+                bail!(
+                    "conformance case directory '{}' is missing required manifest.toml",
+                    path.display()
+                );
             }
             let manifest = parse_manifest(&manifest_path)?;
             if manifest.id != case_id {

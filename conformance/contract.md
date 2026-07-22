@@ -46,6 +46,31 @@ The v2 summary contract keeps all v1 categories and adds:
 - `error`: case could not be executed or evaluated (compile/runtime/harness error).
 - `skipped`: case intentionally not executed by the runner (reserved for matrix runs).
 
+## Case Manifest Contract
+
+Every direct case directory under `cases/<category>/` must contain
+`manifest.toml`; malformed or incomplete case directories are errors, not
+silently ignored cases. The manifest `id` must exactly match its directory and
+the naming grammar in `naming.md`, including at least one non-empty behavior
+token before the three-digit sequence. The manifest category must match its
+known category directory.
+
+`sources` defaults to `program.st`. Every source path must be relative, must
+not contain a parent-directory component, and must remain inside the case
+directory. Runtime cases require `cycles > 0`; all non-empty time/input series
+must contain exactly one value per cycle, and restart directives must target a
+cycle in that range. `skip` and `_` preserve the previous input value for that
+cycle.
+
+`kind = "compile_error"` asserts that compilation fails. A source set that
+compiles successfully is a case-execution error and cannot be accepted or
+written as a new expected artifact by `--update-expected`.
+
+`kind = "connector_status_trace"` requires at least one simulated trace step.
+Its optional expected state and health values are active assertions; mismatches
+are execution errors. Connector trace cases remain offline and must not probe
+live hardware or networks.
+
 Determinism requirement:
 
 - Runner ordering is stable and deterministic (`case_id` ascending).

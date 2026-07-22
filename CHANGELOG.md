@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: the conformance runner now rejects malformed case IDs,
+  unknown category directories, case directories without manifests, source
+  paths that escape their case, and `compile_error` cases that compile
+  successfully instead of silently omitting or blessing invalid corpus entries.
 - trust-runtime: standalone `ide serve` now prioritizes an explicitly selected
   root runtime, reports malformed primary runtime configuration before binding
   the web server, and loads the selected workspace runtime's recursive,

@@ -14,8 +14,39 @@ fn execute_case(case: &CaseDefinition) -> anyhow::Result<CaseArtifact> {
 
 fn load_case_sources(case: &CaseDefinition) -> anyhow::Result<Vec<String>> {
     let mut sources = Vec::with_capacity(case.manifest.sources.len());
+    let canonical_case_dir = case
+        .dir
+        .canonicalize()
+        .with_context(|| format!("resolve case directory '{}'", case.dir.display()))?;
     for file in &case.manifest.sources {
-        let path = case.dir.join(file);
+        let relative = Path::new(file);
+        if relative.is_absolute()
+            || relative.components().any(|component| {
+                matches!(
+                    component,
+                    std::path::Component::ParentDir
+                        | std::path::Component::RootDir
+                        | std::path::Component::Prefix(_)
+                )
+            })
+        {
+            bail!(
+                "case source '{}' must remain inside '{}'",
+                file,
+                case.dir.display()
+            );
+        }
+        let path = case.dir.join(relative);
+        let resolved = path
+            .canonicalize()
+            .with_context(|| format!("resolve case source '{}'", path.display()))?;
+        if !resolved.starts_with(&canonical_case_dir) {
+            bail!(
+                "case source '{}' must remain inside '{}'",
+                file,
+                case.dir.display()
+            );
+        }
         let text = fs::read_to_string(&path)
             .with_context(|| format!("read case source '{}'", path.display()))?;
         sources.push(text);
@@ -128,9 +159,9 @@ fn execute_compile_error_case(
 ) -> anyhow::Result<CaseArtifact> {
     let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
     let compile_result = TestHarness::from_sources(&source_refs);
-    let (compiled, error) = match compile_result {
-        Ok(_) => (true, None),
-        Err(err) => (false, Some(err.to_string())),
+    let error = match compile_result {
+        Ok(_) => bail!("compile_error case '{}' compiled successfully", case.id),
+        Err(err) => err.to_string(),
     };
     Ok(CaseArtifact {
         payload: json!({
@@ -139,7 +170,7 @@ fn execute_compile_error_case(
             "category": case.category,
             "kind": "compile_error",
             "description": case.manifest.description,
-            "compiled": compiled,
+            "compiled": false,
             "error": error
         }),
         cycles: None,
