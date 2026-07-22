@@ -14414,7 +14414,7 @@ id = "RISK_ACK_2B703DB1D02FF229F8B8A89E9D97FAE762EFDDFCCFF9C63CB9474FD4FE0D354D"
 code_id = "CODE_2B703DB1D02FF229F8B8A89E9D97FAE762EFDDFCCFF9C63CB9474FD4FE0D354D"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:004ee58a23de7ac3b6ea22b826f96c59391be983dbb84d17ff309aabf093cc87"
+body_digest = "sha256:32008e49bd444ab06828bf85f5629c081b2158088df52fdc296ae5dabff6393f"
 risk_signals = ["fault_mapping", "protocol_response_or_status", "state_mutation"]
 review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
 reviewed_by = "trust-runtime"
@@ -49598,11 +49598,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:e8161e0814eb199473d077d098e027aea9115eeebde46a9c1a5b8e6b535cec19"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49934,11 +49934,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:29ab8d142bf35f280de470ee8ea8ee30bc391b8112d5165fb0493e490aec0b46"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50060,11 +50060,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:dcbebce2dab01a958df3a1c20b6176d7db966396bb2e237f4583e055a09caea7"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50242,11 +50242,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:a29e566c045e4b035343849458ab3abb264fc3c854484f9e7084650469db6330"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51838,11 +51838,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:f1037ab71c38bc3edfa9798d6dcea70514486457eaded48d98b1b9a9d4bebcf6"
 risk_signals = ["broad_error_suppression", "fault_mapping", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52734,11 +52734,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c1d02c9cc354101d7d0903b6d7c92a2cc930364a2e4c9568824aceb01326f6c3"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53728,11 +53728,11 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:603a70ed27360d95ed3cde997c4d44dbffdf94f7d4e1d9aab2e9f0ceafee23a5"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-apply-and-merge"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived merge, persistence, type projection, error, and write-capability risks to strict apply contracts and focused tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81377,20 +81377,6 @@ expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived network and route-authority risks while binding the ADS onboarding identity owner to canonical fail-closed product behavior and focused tests."
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_3DADEAFD29F40CE07253009DDDB356251F1004FA4D4A203007AAA01943E4D355"
-code_id = "CODE_3DADEAFD29F40CE07253009DDDB356251F1004FA4D4A203007AAA01943E4D355"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:2d38001f9ebf56658ba444e3d1f2439731006161400cf6aaf66346192cd2f891"
-risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-22"
-expires_on = "2026-10-22"
-rationale = "Binds scanner-derived filesystem and mutation risks to the reviewed project-confinement, collision, and generated-output preservation contract."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_AA4AF302EBA5AE01B919AF65CE940C46D96DF4F284C68543DFCF737C636A0191"
 code_id = "CODE_AA4AF302EBA5AE01B919AF65CE940C46D96DF4F284C68543DFCF737C636A0191"
 owner = "trust-runtime"
@@ -81424,6 +81410,48 @@ code_id = "CODE_45BF607F1ADD44C28413D7C49C22F857CBE524DCA084988C0C88E55B6DB29443
 owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:f5e689772c8b5dbb6f16966ebb09124d5ba564bb488943b8271b4d1045987c52"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived filesystem and mutation risks to the reviewed project-confinement, collision, and generated-output preservation contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_647833F5FE4CB3145E0BE46A84B6629EE4D762F94F6F333C03E8A58D458FE84C"
+code_id = "CODE_647833F5FE4CB3145E0BE46A84B6629EE4D762F94F6F333C03E8A58D458FE84C"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:5a2a30c03a12d71f9f7c7ba3de8dd87f81912350fd47a01d8aeaa4f07591e054"
+risk_signals = ["fault_mapping", "filesystem_or_environment"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived filesystem and mutation risks to the reviewed project-confinement, collision, and generated-output preservation contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7B6178E3246D18A2F9409CD904066954F91FB9CDEF5F5F181ACF489757427BCC"
+code_id = "CODE_7B6178E3246D18A2F9409CD904066954F91FB9CDEF5F5F181ACF489757427BCC"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:3627ad4948d3e8147af33fe6a46db045d015a26e4588af07f4f1c12ec7a30402"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Binds scanner-derived filesystem and mutation risks to the reviewed project-confinement, collision, and generated-output preservation contract."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_12E0B5481F9362AC7E89C0ED8DBC4843219ABB25AFA0E416AC7E1AD9696937A5"
+code_id = "CODE_12E0B5481F9362AC7E89C0ED8DBC4843219ABB25AFA0E416AC7E1AD9696937A5"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:02bdedf02f4efb1eb2edf37f7a9fe26a9e7264e1663ac43cc763efa2aaad8203"
 risk_signals = ["fault_mapping"]
 review_ref = "docs/specs/11-runtime-engine.md#ads-symbol-import-artifact-safety"
 reviewed_by = "trust-runtime"

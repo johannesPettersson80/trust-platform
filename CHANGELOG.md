@@ -44,8 +44,11 @@ Target release: `v0.24.54`
   embedding it in PowerShell, preventing route-name here-string breakout, and
   rejects blank one-shot credentials before calling the route wire.
 - trust-runtime: ADS server-control symbol import now confines its three
-  outputs to distinct project-relative non-symlink paths and refuses to
-  overwrite different generated ST before writing any import artifact.
+  outputs to distinct project-relative non-symlink paths, keeps snapshots in
+  the canonical import cache, and permits follow-up regeneration only when the
+  existing generated ST still matches the current ADS configuration and cached
+  snapshots. Acknowledged Write-only symbols now remain Write-only instead of
+  acquiring a remote Read capability during import.
 - trust-runtime: ADS symbol import no longer treats an empty include pattern as
   a wildcard, correctly backtracks `*` matches to anchored suffixes, and uses
   the canonical ST lexer to prevent keywords from becoming generated variables.

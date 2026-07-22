@@ -18,6 +18,8 @@ tests = [
   "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_CONNECTION_NAME_AS_SNAPSHOT_PATH_001",
   "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_PARENT_PATH_TRAVERSAL_001",
   "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_SYMLINK_PATH_ESCAPE_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_UNDISCOVERABLE_SNAPSHOT_PATH_001",
+  "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_UPDATES_VALID_CURRENT_GENERATED_SOURCE_001",
   "TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_WRITES_EXACT_SELECTED_SYMBOLS_TO_PROJECT_FILES_001",
 ]
 gates = ["pr"]
@@ -52,6 +54,15 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "Filesystem syntax that can escape or vary across platforms is rejected before any artifact write."
 
 [[behavior]]
+partition = { equals = "UNDISCOVERABLE_SNAPSHOT_DESTINATION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Snapshot output outside the canonical direct-child cache cannot become unreloadable state."
+
+[[behavior]]
 partition = { equals = "SYMLINK_PATH_COMPONENT" }
 case_family = "platform_or_filesystem_variation"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
@@ -70,13 +81,13 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "Configuration, snapshot, and generated-source roles cannot overwrite one another."
 
 [[behavior]]
-partition = { equals = "BYTE_IDENTICAL_GENERATED_SOURCE" }
+partition = { equals = "CURRENT_GENERATED_SOURCE_MATCHES_AUTHORITY" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-artifact-safety"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
-rationale = "Byte-identical generated ST is retained while the deterministic configuration and snapshot remain safe to apply."
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A byte-identical repeat or a follow-up import may retain or update generated ST after its current authority validates."
 
 [[behavior]]
 partition = { equals = "DIFFERENT_GENERATED_SOURCE" }
@@ -95,7 +106,7 @@ rationale = "Focused tests cover exact selected-symbol writes and byte-identical
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
 state = "covered"
-rationale = "Focused tests cover absolute, parent, connection-derived, and symlink path escapes."
+rationale = "Focused tests cover absolute, parent, connection-derived, symlink, and undiscoverable snapshot paths."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
@@ -105,4 +116,4 @@ rationale = "A focused regression rejects three artifact roles resolving to one 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "covered"
-rationale = "Focused tests distinguish byte-identical generated ST from protected different content."
+rationale = "Focused tests distinguish valid current generated authority from protected drifted content."

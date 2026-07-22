@@ -255,20 +255,23 @@ fn apply_import_to_project(
         name_prefix: params.name_prefix,
     };
     let mut response = build_symbol_import_response(&request, snapshot.symbols.clone());
-    if params.write_acknowledged {
-        for candidate in response
-            .candidates
-            .iter_mut()
-            .filter(|candidate| candidate.selected)
-        {
-            if candidate.descriptor.flags.contains(&SymbolFlag::Write) {
-                candidate.access = PointAccess::ReadWrite;
-            }
-        }
+    for candidate in response
+        .candidates
+        .iter_mut()
+        .filter(|candidate| candidate.selected)
+    {
+        let readable = candidate.descriptor.flags.contains(&SymbolFlag::Read);
+        let writable = candidate.descriptor.flags.contains(&SymbolFlag::Write);
+        candidate.access = import_access(readable, writable, params.write_acknowledged);
     }
     let candidate_count = response.candidates.len();
     let existing_ads_toml = read_optional_project_file(&artifact_paths.ads_toml)?;
     let existing_snapshots = load_project_snapshots(project_root)?;
+    preflight_generated_output(
+        &artifact_paths.generated,
+        existing_ads_toml.as_deref(),
+        &existing_snapshots,
+    )?;
     let artifacts = apply_symbol_import(
         existing_ads_toml.as_deref(),
         SymbolImportApplyRequest {
@@ -293,7 +296,6 @@ fn apply_import_to_project(
     let snapshot_json = imported_snapshot
         .to_deterministic_json()
         .map_err(|error| format!("serialize ADS snapshot: {error}"))?;
-    preflight_generated_output(&artifact_paths.generated, artifacts.generated_st.as_str())?;
     write_project_file(&artifact_paths.ads_toml, artifacts.ads_toml.as_str())?;
     write_project_file(&artifact_paths.snapshot, snapshot_json.as_str())?;
     write_project_file(&artifact_paths.generated, artifacts.generated_st.as_str())?;
@@ -372,6 +374,16 @@ fn selected_symbol_names(symbols: Vec<SelectedSymbol>) -> Result<Vec<String>, St
     names.sort();
     names.dedup();
     Ok(names)
+}
+
+fn import_access(readable: bool, writable: bool, write_acknowledged: bool) -> PointAccess {
+    if !write_acknowledged || !writable {
+        PointAccess::Read
+    } else if readable {
+        PointAccess::ReadWrite
+    } else {
+        PointAccess::Write
+    }
 }
 
 fn load_project_snapshots(project_root: &Path) -> Result<Vec<SymbolSnapshot>, String> {
@@ -629,15 +641,15 @@ mod tests {
         let error = apply_import_to_project(
             root.as_path(),
             import_params(json!({
-                "ads_toml_path": "generated/import.out",
-                "snapshot_path": "generated/import.out",
-                "generated_path": "generated/import.out",
+                "ads_toml_path": "ads/snapshots/import.symbols.json",
+                "snapshot_path": "ads/snapshots/import.symbols.json",
+                "generated_path": "ads/snapshots/import.symbols.json",
             })),
         )
         .expect_err("colliding artifacts must be rejected");
 
         assert!(error.contains("distinct"), "{error}");
-        assert!(!root.join("generated/import.out").exists());
+        assert!(!root.join("ads/snapshots/import.symbols.json").exists());
     }
 
     #[test]
@@ -675,6 +687,81 @@ mod tests {
                 .expect("read repeated generated source"),
             expected
         );
+    }
+
+    #[test]
+    fn import_symbols_apply_updates_valid_current_generated_source() {
+        let root = temp_dir("ads-import-generated-update");
+        apply_import_to_project(
+            root.as_path(),
+            import_params(json!({
+                "snapshot_path": "ads/snapshots/custom-line1.symbols.json",
+            })),
+        )
+        .expect("initial import with discoverable custom snapshot name");
+
+        let report = apply_import_to_project(
+            root.as_path(),
+            import_params(json!({
+                "connection_name": "line2",
+                "symbols": ["MAIN.Pressure"],
+                "snapshot": SymbolSnapshot::new(
+                    "line2",
+                    vec![real_symbol("MAIN.Pressure")],
+                ),
+            })),
+        )
+        .expect("follow-up import may update valid generated source");
+
+        assert_eq!(report.connection_name, "line2");
+        let generated = fs::read_to_string(root.join("src/generated/ads_generated.st"))
+            .expect("read updated generated source");
+        assert!(generated.contains("main_temperature : REAL;"));
+        assert!(generated.contains("main_pressure : REAL;"));
+    }
+
+    #[test]
+    fn import_symbols_apply_rejects_undiscoverable_snapshot_path() {
+        let root = temp_dir("ads-import-undiscoverable-snapshot");
+
+        let error = apply_import_to_project(
+            root.as_path(),
+            import_params(json!({
+                "snapshot_path": "cache/line1.symbols.json",
+            })),
+        )
+        .expect_err("snapshot outside canonical cache must be rejected");
+
+        assert!(error.contains("ads/snapshots"), "{error}");
+        assert!(!root.join("cache/line1.symbols.json").exists());
+        assert!(!root.join("ads.toml").exists());
+    }
+
+    #[test]
+    fn import_symbols_apply_acknowledged_write_only_symbol_as_write() {
+        let root = temp_dir("ads-import-write-only");
+        let write_only = SymbolDescriptor::new(
+            "GVL.Command",
+            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+            0x4020,
+            0,
+            4,
+        )
+        .with_flag(SymbolFlag::Write);
+
+        apply_import_to_project(
+            root.as_path(),
+            import_params(json!({
+                "symbols": ["GVL.Command"],
+                "snapshot": SymbolSnapshot::new("line1", vec![write_only]),
+                "write_acknowledged": true,
+            })),
+        )
+        .expect("acknowledged write-only symbol import");
+
+        let ads_toml = fs::read_to_string(root.join("ads.toml")).expect("read ads.toml");
+        assert!(ads_toml.contains("access = \"write\""), "{ads_toml}");
+        assert!(!ads_toml.contains("access = \"read_write\""), "{ads_toml}");
     }
 
     #[test]

@@ -1034,12 +1034,18 @@ be non-empty relative paths without parent-directory, root, or platform-prefix
 components. The default snapshot destination is available only when the
 connection name is a safe single filename component; a connection name must
 never become path syntax. The three resolved artifact destinations must be
-distinct.
+distinct. A snapshot destination must be a direct `*.symbols.json` child of
+`ads/snapshots`, because that canonical directory is the authority reloaded by
+subsequent imports; accepting an undiscoverable snapshot location is forbidden.
 
 Before writing any import artifact, server control checks an existing generated
-ST destination. Byte-identical generated content is safe to retain, but
-different existing content is rejected instead of being overwritten. A
-rejected path or overwrite preflight leaves all three artifacts unchanged.
+ST destination. Byte-identical next content is safe to retain. Different next
+content may replace the file only when the existing file still validates
+byte-for-byte against the current `ads.toml` and every canonical cached
+snapshot; this permits a legitimate follow-up import while protecting a
+drifted or operator-edited file. Missing, malformed, or inconsistent current
+authority fails closed. A rejected path or overwrite preflight leaves all three
+artifacts unchanged.
 These confinement and overwrite rules apply to the server-control authoring
 surface; the explicit filesystem paths of the local CLI remain operator-owned.
 
@@ -1059,6 +1065,29 @@ and must lex as one Structured Text identifier rather than a keyword or other
 token. A normalized keyword receives the `ads_` prefix. This follows IEC
 61131-3:2013 6.1.2 and Table 2 for identifier form and 6.1.3 for the
 case-insensitive prohibition on using keywords as variable names.
+
+Apply remains read-only unless write acknowledgement is explicit. With that
+acknowledgement, a remote symbol carrying both Read and Write capabilities maps
+to `read_write`, while a Write-only symbol maps to `write`; acknowledgement
+must not manufacture a remote Read capability that the symbol does not expose.
+
+###### ADS symbol-import apply and merge
+
+Core apply requires at least one selected candidate and parses an existing
+`ads.toml` strictly before producing replacement artifacts. It replaces only
+the imported connection with the same exact name, preserves and sorts other
+connections, pins the selected runtime-host AMS identity, canonicalizes the
+merged snapshot set, and generates one deterministic ST interface. Local point
+names and their generated quality names are unique across every connection.
+
+Imported ADS scalar descriptors project to the corresponding supported IEC
+BOOL, signed and unsigned integer, REAL/LREAL, bit-string, and STRING type
+names defined by [Data Types](05-data-types.md). STRING capacity and every
+inclusive array lower/upper bound are retained. Poll and notification modes and
+read, write, or read-write access are serialized without silently changing the
+selected capability. Malformed current configuration, missing selection,
+unacknowledged writes, invalid descriptor metadata, or generation mismatch
+fails before an artifact is returned.
 
 ##### 6.8.1b Runtime benchmark measurement and output contract
 

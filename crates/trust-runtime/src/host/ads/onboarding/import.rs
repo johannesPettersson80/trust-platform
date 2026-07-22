@@ -546,6 +546,10 @@ fn group_candidates(candidates: &[SymbolImportCandidate]) -> Vec<SymbolImportGro
         .collect()
 }
 
+#[cfg(test)]
+#[path = "import/apply_tests.rs"]
+mod apply_tests;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct AdsTomlDocument {
     #[serde(default)]

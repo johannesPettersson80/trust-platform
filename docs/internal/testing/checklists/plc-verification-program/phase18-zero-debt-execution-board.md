@@ -601,24 +601,20 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   ADS symbol-import artifact-safety coherent-batch progress (2026-07-22): the
   runtime product specification now confines server-control import outputs to
   distinct relative paths under the selected project, rejects path syntax in
-  connection-derived snapshot names and existing symlink components, and
-  protects different generated ST content before any sibling artifact write.
-  Six expected-red tests proved that absolute and parent paths wrote outside
-  their intended scope, a connection name became snapshot path syntax, a
-  project symlink redirected generated output, all three artifact roles could
-  overwrite one file, and different generated ST was replaced without an
-  explicit overwrite decision. The apply boundary now completes path and
-  generated-content preflight before mutation; byte-identical repeat imports
-  remain accepted. Remote focused proof passes all 10 server-control import
-  tests and all 5 core symbol-import tests. Deterministic semantic automation
-  binds 8 exact apply/artifact-owner facts and 8 focused tests to
-  `RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001`; the scoped audit reports 644
-  specified code facts, 14,635 remaining `spec_gap` facts, 628 mapped
-  denominator tests, and 3,536 remaining `reviewed_nonmapping` tests. The
-  artifact policy was split into a 185-line focused module, leaving the handler
-  at 790 lines; no broader ownership or execution flow changed, and no diagram
-  update is required. This is a truST product security contract outside IEC
-  61131-3, not an IEC decision or deviation. Assertion reachability, mutation
+  connection-derived snapshot names and existing symlink components, requires
+  snapshots to remain discoverable in the canonical cache, and protects
+  generated ST before any sibling artifact write. Expected-red tests proved
+  the path escapes, collisions, undiscoverable snapshot state, unsafe overwrite,
+  and legitimate follow-up-regeneration failures. The apply boundary now
+  validates existing generated ST against the current ADS configuration and
+  cached snapshots before mutation, so an authoritative prior import can be
+  updated while drifted or operator-edited source remains protected. Remote
+  focused proof covers the complete server-control and core import filters.
+  Deterministic semantic automation owns the exact code/test bindings and the
+  generated invariant record. The artifact policy remains in its focused
+  module; no broader ownership or execution flow changed, and no diagram update
+  is required. This is a truST product security contract outside IEC 61131-3,
+  not an IEC decision or deviation. Assertion reachability, mutation
   sensitivity, remaining ADS symbol-import semantics, and the final broad
   remote gates remain open.
 
@@ -642,6 +638,25 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   aligned with IEC identifier syntax, not an IEC decision or deviation.
   Assertion reachability, mutation sensitivity, remaining ADS import apply
   semantics, and the final broad remote gates remain open.
+
+  ADS symbol-import apply/merge coherent-batch progress (2026-07-22): the
+  runtime product specification now requires strict current-configuration
+  parsing, exact connection replacement with deterministic preservation of
+  other connections, canonical snapshot merging, globally collision-free
+  generated names, faithful scalar/string/array/update-mode projection, and
+  capability-faithful write acknowledgement. Expected-red tests exposed and
+  fixed three product bugs: valid follow-up imports were blocked, snapshots
+  could be persisted where future imports would not discover them, and an
+  acknowledged Write-only symbol acquired a Read capability. Focused
+  behavior-lock tests also cover malformed current TOML, STRING and array
+  projection, notification mode, and every supported scalar type. The core
+  apply tests were split into a focused test module so the production owner
+  remains below the large-file guardrail. Deterministic semantic automation
+  owns the exact code/test bindings, invariant synchronization, and live
+  accounting; the combined scoped audit passes. This is a truST ADS product
+  contract, not an IEC decision or deviation. Assertion reachability, mutation
+  sensitivity, the remaining ADS subdomains, and the final broad remote gates
+  remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

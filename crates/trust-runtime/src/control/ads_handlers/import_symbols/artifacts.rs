@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
+use trust_ads_core::SymbolSnapshot;
+
 use super::ImportSymbolsApplyControlParams;
 
 pub(super) struct ImportArtifactPaths {
@@ -28,6 +30,7 @@ impl ImportArtifactPaths {
             params.snapshot_path.as_deref().unwrap_or(&default_snapshot),
             "snapshot_path",
         )?;
+        validate_snapshot_path(project_root, &snapshot)?;
         let generated = project_artifact_path(
             project_root,
             params
@@ -50,6 +53,31 @@ impl ImportArtifactPaths {
             generated,
         })
     }
+}
+
+fn validate_snapshot_path(project_root: &Path, snapshot: &Path) -> Result<(), String> {
+    let relative = snapshot.strip_prefix(project_root).map_err(|_| {
+        "snapshot_path must be a direct *.symbols.json file under ads/snapshots".to_string()
+    })?;
+    let parts = relative
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let valid = parts.len() == 3
+        && parts[0] == "ads"
+        && parts[1] == "snapshots"
+        && parts[2].to_str().is_some_and(|name| {
+            name.len() > ".symbols.json".len() && name.ends_with(".symbols.json")
+        });
+    if !valid {
+        return Err(
+            "snapshot_path must be a direct *.symbols.json file under ads/snapshots".to_string(),
+        );
+    }
+    Ok(())
 }
 
 fn project_artifact_path(
@@ -154,13 +182,34 @@ pub(super) fn read_optional_project_file(path: &Path) -> Result<Option<String>, 
     }
 }
 
-pub(super) fn preflight_generated_output(path: &Path, expected: &str) -> Result<(), String> {
+pub(super) fn preflight_generated_output(
+    path: &Path,
+    current_ads_toml: Option<&str>,
+    current_snapshots: &[SymbolSnapshot],
+) -> Result<(), String> {
     match fs::read_to_string(path) {
-        Ok(existing) if existing == expected => Ok(()),
-        Ok(_) => Err(format!(
-            "generated ST destination {} contains different content; refusing to overwrite it",
-            path.display()
-        )),
+        Ok(existing) => {
+            let current_ads_toml = current_ads_toml.ok_or_else(|| {
+                format!(
+                    "generated ST destination {} exists without current ads.toml authority",
+                    path.display()
+                )
+            })?;
+            let config = crate::ads::parse_ads_toml(current_ads_toml).map_err(|error| {
+                format!(
+                    "generated ST destination {} cannot be verified because current ads.toml is invalid: {error}",
+                    path.display()
+                )
+            })?;
+            crate::ads::validate_ads_interface_offline(&config, current_snapshots, &existing)
+                .map_err(|error| {
+                    format!(
+                        "generated ST destination {} does not match current ads.toml and snapshots; refusing to overwrite it: {error}",
+                        path.display()
+                    )
+                })?;
+            Ok(())
+        }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(format!(
             "failed to read generated ST destination {}: {error}",
