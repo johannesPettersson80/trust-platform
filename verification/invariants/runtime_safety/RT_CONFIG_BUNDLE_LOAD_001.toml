@@ -1,0 +1,69 @@
+schema_version = 1
+id = "RT_CONFIG_BUNDLE_LOAD_001"
+title = "Runtime bundle loading is complete, path-bound, and fail closed"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Runtime bundle loading requires and validates the owning runtime, I/O, bytecode, and enabled connector sidecar files; relative sidecars resolve from the bundle root, missing enabled sidecars reject, parsed sidecar bytes determine the retained evidence hash, and execution-backend source records whether configuration supplied the value."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/config/loaders.rs"]
+tests = [
+  "TEST_RUNTIME_BUNDLE_LOADS_ADS_TOML_WHEN_ENABLED_001",
+  "TEST_RUNTIME_BUNDLE_LOADS_OPCUA_CLIENT_TOML_WHEN_ENABLED_001",
+  "TEST_RUNTIME_BUNDLE_REJECTS_MISSING_ENABLED_ADS_TOML_001",
+  "TEST_RUNTIME_BUNDLE_REJECTS_MISSING_ENABLED_OPCUA_CLIENT_TOML_001",
+  "TEST_RUNTIME_CONFIG_LOAD_DEFAULTS_EXECUTION_BACKEND_SOURCE_WHEN_OMITTED_001",
+  "TEST_RUNTIME_CONFIG_LOAD_RECORDS_EXECUTION_BACKEND_SOURCE_FROM_CONFIG_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["filesystem_read_fault_injection", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+
+[[behavior]]
+partition = { equals = "COMPLETE_BUNDLE_WITH_ENABLED_CONNECTOR_SIDECAR" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Enabled ADS and OPC UA client sidecars resolve relative to the bundle, parse into the returned bundle, and retain hashes of the exact parsed bytes."
+
+[[behavior]]
+partition = { equals = "ENABLED_CONNECTOR_WITH_MISSING_SIDECAR" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "An enabled connector cannot silently downgrade to an absent configuration or disabled runtime state."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_OR_OMITTED_EXECUTION_BACKEND" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The loaded runtime records Config for an explicit backend and Default only when the documented field is omitted."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused filesystem tests load ADS and OPC UA sidecars, assert exact parsed connection data and byte hashes, and preserve execution-backend source identity."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused filesystem tests reject enabled ADS and OPC UA client sections when their required sidecars are missing."

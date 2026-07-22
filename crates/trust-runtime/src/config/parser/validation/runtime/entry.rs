@@ -4,7 +4,11 @@ impl RuntimeToml {
 
         let bundle_version = self.bundle.version;
         let resource_name = SmolStr::new(self.resource.name);
-        let cycle_interval = Duration::from_millis(self.resource.cycle_interval_ms as i64);
+        let cycle_interval = parse_runtime_duration_millis(
+            self.resource.cycle_interval_ms,
+            1,
+            "resource.cycle_interval_ms",
+        )?;
         let tasks = parse_tasks(self.resource.tasks)?;
 
         let RuntimeSection {
@@ -51,6 +55,7 @@ impl RuntimeToml {
 
         let parsed_control = parse_control(&control)?;
         let parsed_retain_mode = parse_retain_mode(&retain)?;
+        let retain_path = parse_optional_path("runtime.retain.path", retain.path)?;
         let watchdog_action = WatchdogAction::parse(&watchdog.action)?;
         let fault_policy = FaultPolicy::parse(&fault.policy)?;
         let parsed_tls = parse_tls_section(tls)?;
@@ -85,11 +90,19 @@ impl RuntimeToml {
             control_mode: parsed_control.mode,
             log_level: SmolStr::new(log.level),
             retain_mode: parsed_retain_mode,
-            retain_path: retain.path.map(PathBuf::from),
-            retain_save_interval: Duration::from_millis(retain.save_interval_ms as i64),
+            retain_path,
+            retain_save_interval: parse_runtime_duration_millis(
+                retain.save_interval_ms,
+                1,
+                "runtime.retain.save_interval_ms",
+            )?,
             watchdog: WatchdogPolicy {
                 enabled: watchdog.enabled,
-                timeout: Duration::from_millis(watchdog.timeout_ms as i64),
+                timeout: parse_runtime_duration_millis(
+                    watchdog.timeout_ms,
+                    1,
+                    "runtime.watchdog.timeout_ms",
+                )?,
                 action: watchdog_action,
             },
             fault_policy,

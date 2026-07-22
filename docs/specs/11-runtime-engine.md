@@ -1261,6 +1261,49 @@ IEC configurations may declare multiple resources. Each resource is scheduled in
 
 Cross-resource data exchange is limited to explicitly declared globals (e.g., `VAR_GLOBAL` in configuration scope). (IEC 61131-3 Ed.3, §6.8.1; Table 62) Shared globals are synchronized under a single configuration lock: each resource cycle copies shared values in, executes ready tasks, then writes back updates before releasing the lock. This preserves deterministic ordering while serializing shared-global access.
 
+##### Runtime configuration loading and validation contract
+
+`runtime.toml`, `io.toml`, and enabled connector sidecars are truST product
+contracts, not IEC decisions or deviations. Their user-facing field reference
+is maintained under `docs/public/reference/config/`; the following rules are
+normative for parsing and activation:
+
+- Runtime and I/O TOML use closed schemas. Unknown fields, wrong shapes,
+  unsupported enum values, incomplete conditional groups, and invalid security
+  combinations fail as `InvalidConfig` before a configuration is returned.
+  Validation errors retain the owning file name. Defaults are applied only to
+  omitted documented optional fields and never replace a malformed explicit
+  endpoint, path, interface, producer path, symbol pattern, or version-map
+  entry. When any of those values is present, it must be nonempty after
+  trimming; list and map parsing must not silently discard blank entries.
+- Resource, task, retain, watchdog, ADS worker, OPC UA client polling, and
+  other millisecond values converted into the signed runtime `Duration` must
+  be representable without narrowing. The runtime duration stores signed
+  nanoseconds, so unless a field has a stronger documented minimum, its
+  accepted millisecond range is `1..=9223372036854`
+  (`i64::MAX / 1_000_000`); larger values reject instead of overflowing or
+  panicking during conversion. OPC UA client polling retains its stronger
+  minimum of 10 milliseconds.
+- `io.toml` accepts exactly one nonempty driver form: `io.driver` with table
+  parameters, or a nonempty `io.drivers` list whose names are nonempty and
+  whose parameters are tables. Safe-state values are parsed against their
+  addressed output width. BYTE, WORD, DWORD, and LWORD accept only their exact
+  unsigned ranges; narrowing, wrapping, clamping, or substitution is forbidden.
+- TCP control requires a nonempty authentication token. Enabled remote web or
+  mesh surfaces obey the configured TLS requirement. Enabled TLS requires the
+  documented certificate/key group, provisioned TLS additionally requires a
+  CA, signed deployment requires a keyring, and enabled connector/server
+  sections must satisfy their documented credential, endpoint, allowlist,
+  capacity, and explicit insecure-transport acknowledgement rules.
+- Bundle loading requires a project directory, `runtime.toml`, validated
+  project or system I/O configuration, and `program.stbc`. ADS and OPC UA
+  client sidecars are loaded only when enabled; relative sidecar paths resolve
+  against the bundle root, enabled missing sidecars fail visibly, and the
+  retained evidence hash covers the exact bytes that were parsed.
+- Loading is fail closed. No partially parsed runtime, I/O, connector sidecar,
+  or default substitute is returned after any required file read or validation
+  failure.
+
 #### 6.11 Bytecode Format (Overview)
 
 The executor consumes a stable bytecode container format emitted by the compiler. See the "ST Bytecode Format Specification" section in this document for details.

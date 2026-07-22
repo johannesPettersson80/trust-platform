@@ -12412,13 +12412,13 @@ id = "RISK_ACK_054902CF39BCD0CE736693E33E7B82EDDABCCE2C3814E433F0BFBA7E54B4139F"
 code_id = "CODE_054902CF39BCD0CE736693E33E7B82EDDABCCE2C3814E433F0BFBA7E54B4139F"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:80858399bfb3608f4e15f06ef57a36271c640350a91bebad92bef4933bc8226a"
+body_digest = "sha256:4085cdf5a5ae50ec5f5b4f1ddfa02ca3ad1b6cd76ccd4d2b8b2af682d454b2d4"
 risk_signals = ["broad_error_suppression", "fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -12596,11 +12596,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:0d76f235e9e8efed04dbaa450fba67a7c92728a75a632f31446ed111cf5fbeee"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -13014,13 +13014,13 @@ id = "RISK_ACK_1303C51A738EF5A364F2B654EB336FDFBBA3BED3672D2CF2C806C48BCB494BE9"
 code_id = "CODE_1303C51A738EF5A364F2B654EB336FDFBBA3BED3672D2CF2C806C48BCB494BE9"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:3ee2c7883240afb4703bf108974946abbde085e6902fcfdb90fb848a65f3cd98"
+body_digest = "sha256:9e366b5e66d098e8f608b10a08c54a40f7051419b38b399e87d2929600055f94"
 risk_signals = ["broad_error_suppression", "fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -13168,13 +13168,13 @@ id = "RISK_ACK_15754FCCF09C466321C0F1E1FEA06B5EDBC8DAB7B03DDEA5FC64D6C263536981"
 code_id = "CODE_15754FCCF09C466321C0F1E1FEA06B5EDBC8DAB7B03DDEA5FC64D6C263536981"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:e3c8cf700022252a2e1e8172be387ab85f93e811dc7de1c193ad52c0c82bdbc4"
+body_digest = "sha256:4879ce9842e900bb2fd50c5495d7951de6c6191d187227e9b0eef25082cd705e"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -13520,11 +13520,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:be1b8fb68ab06f2d36f02d9a67021a14230e6a6508a1c7e31de54b5060d383d7"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -14766,11 +14766,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:abf68d514103b02c5d9b3936b5b575baf459ff132818bb5657a4ed3989c726e3"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -14834,13 +14834,13 @@ id = "RISK_ACK_319166B44B4F4D9B1FC898EC2926EAAC6D87C84FC0D0E304E1427C52A6589949"
 code_id = "CODE_319166B44B4F4D9B1FC898EC2926EAAC6D87C84FC0D0E304E1427C52A6589949"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:b0f1ef89932426052fa2d6a82f9c7a85d44c5e680db71ae9864dd407e4ef9329"
+body_digest = "sha256:ff2bde793c96447f16ea41f816a198b357d54aca0b12b5247535a1aba1270654"
 risk_signals = ["broad_error_suppression", "fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -14920,11 +14920,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:fdaa45d40ef52ba2de3320084ef1102590e5d2b5efdaf9802880cd23d58cc43f"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -15914,11 +15914,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:f3d32aa431d2250772212f78293081670e20d9fe06614ed6276bbc72456339ab"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -16642,11 +16642,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:34b030c356f3c4269bd072acc077b31fcd4de8abd2ce317e3cf0dc207fbe5862"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -17816,13 +17816,13 @@ id = "RISK_ACK_634BC857E3DB01D79FCF9DAA59266C856039A2260EDBE4C38AFB27B17D92E45A"
 code_id = "CODE_634BC857E3DB01D79FCF9DAA59266C856039A2260EDBE4C38AFB27B17D92E45A"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:1a5243e2d9f8561305457d399f37c65596da2a4aa970e87cc9392a1ec264361c"
+body_digest = "sha256:8e6b3e7d920b0489c93e5eed62fd1996e284ea3bf7a3994bd11b80db79b3f661"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -18420,11 +18420,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:96119dcfcef0c5a43ae447018dd4e73fc29df072dd3de0d59ca347215db02faa"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -19664,13 +19664,13 @@ id = "RISK_ACK_838C7C4C16A88AA26083EB9835E2F12B75ABC49BA446F3AAB9B444828DA5E6C2"
 code_id = "CODE_838C7C4C16A88AA26083EB9835E2F12B75ABC49BA446F3AAB9B444828DA5E6C2"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:113c71ce95bbfe4940ea17211a108fdd20bdca8f217b1d660f15705e33d1e5cb"
+body_digest = "sha256:2f15fbb025080a13e28a8e4fcfe9ebd683a0cdfc6d5d3e92b18c1684abdf0d06"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -20952,13 +20952,13 @@ id = "RISK_ACK_977B7E2ABBB5524040EA43465FECC3CC220EB6AD5712B65FCE056472538BD74B"
 code_id = "CODE_977B7E2ABBB5524040EA43465FECC3CC220EB6AD5712B65FCE056472538BD74B"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:cb6415f1b4077385b2d963a727db76e79d7076befa5a20bc5e97d0330dc90576"
+body_digest = "sha256:a660593f0fb54e564895809727e5ad0ab3a6256dd8b1696765c864c6a6047ce9"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -21554,13 +21554,13 @@ id = "RISK_ACK_A179566B20250248D61BA07E2E3A9F674F54DA9CAFE3108665CBE6A7DE83CFDF"
 code_id = "CODE_A179566B20250248D61BA07E2E3A9F674F54DA9CAFE3108665CBE6A7DE83CFDF"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:bf0a03517bddb7a63a4314bc2a976939290d0d47b1dbd922ba4dfdb20432408c"
+body_digest = "sha256:6c3382072dd80a6adb89756e5c8698b502b5272e9d73368665f7fd1fcbc4f507"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -22646,13 +22646,13 @@ id = "RISK_ACK_AFFBF82CAD844033CB8C7D8B55E0612021C2A559EB9AD71BF1383F1E2C1A56FD"
 code_id = "CODE_AFFBF82CAD844033CB8C7D8B55E0612021C2A559EB9AD71BF1383F1E2C1A56FD"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:fe9d5adbec3aa3a6a8d37b71501cd9d318515282697a5a5ad0e79cd88c38b079"
+body_digest = "sha256:048fd1f0f84f73f3d70fc4b93218a497bdc046aee0978c2398c9bb29fc64582d"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -22704,11 +22704,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:c28bb9e9da7813bfd5b35f8d35ccff6983e845fa81953de0788ed41df061d7cc"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -23992,11 +23992,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:bf899643d0d3926dd3fe027a776d0d2e20da1f8fc24e37cff8751f962aad1155"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24312,13 +24312,13 @@ id = "RISK_ACK_C950D2B1A735237B070B88C6DB169FD55215869481581CF1ABBEDDE83B7C7AA3"
 code_id = "CODE_C950D2B1A735237B070B88C6DB169FD55215869481581CF1ABBEDDE83B7C7AA3"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:786ec6e6b902ccd87cd2333e5af8dcb544366c14c32ed4553c1797cc0ffcf468"
+body_digest = "sha256:b110ca763a67e3ed517f426421b312a14fe1b0cd79c9f7a5305b8ef63a554e22"
 risk_signals = ["persistence_retain_reload_restart"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -26526,11 +26526,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:a5155e791a1cf0cc247848f3b02b07a3d96c115bb9c8857d067437c933619cdb"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27072,11 +27072,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:38ee257cf947c907630df2e0d3c8cf5e2f663cb30e0dbbe822f912175842dfb2"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27478,11 +27478,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:1125d475d517d21993e641cf4e6dbe5f42823d63f226510239f5767f79e4f14d"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27758,11 +27758,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:8ade1befd4c844e7cb91c317195f16f5554f7d102dd46d2fe8837a7d717dde65"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-configuration-loading-and-validation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges exact scanner-derived configuration, authorization, filesystem, time, fault, and state-mutation risks; each fact remains visible and is bound to reviewed fail-closed schema, bundle-loading, or value-bound contracts without suppressing risk signals."
 
 [[acknowledgements]]
 schema_version = 1

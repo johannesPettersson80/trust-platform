@@ -59,10 +59,8 @@ fn parse_opcua_section(section: Option<OpcUaSection>) -> Result<OpcUaRuntimeConf
         .expose
         .unwrap_or_default()
         .into_iter()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(SmolStr::new)
-        .collect::<Vec<_>>();
+        .map(|value| parse_nonempty_entry(value, "runtime.opcua.expose").map(SmolStr::new))
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
     for pattern in &expose {
         Pattern::new(pattern.as_str()).map_err(|err| {
             RuntimeError::InvalidConfig(
@@ -109,15 +107,13 @@ fn parse_opcua_section(section: Option<OpcUaSection>) -> Result<OpcUaRuntimeConf
 
     let username = opcua_section
         .username
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+        .map(|value| parse_nonempty_entry(value, "runtime.opcua.username"))
+        .transpose()?
         .map(SmolStr::new);
     let password = opcua_section
         .password
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+        .map(|value| parse_nonempty_entry(value, "runtime.opcua.password"))
+        .transpose()?
         .map(SmolStr::new);
     if username.is_some() ^ password.is_some() {
         return Err(RuntimeError::InvalidConfig(

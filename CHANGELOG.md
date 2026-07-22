@@ -46,6 +46,12 @@ Target release: `v0.24.54`
   are rejected instead of wrapping to another port; and CLI setup rejects
   browser-only access, bind, port, and token-TTL options instead of silently
   ignoring them, including explicitly supplied default values.
+- trust-runtime: runtime and I/O configuration now reject millisecond values
+  that cannot fit the signed-nanosecond duration, typed safe-state integers
+  outside their addressed BYTE/WORD/DWORD width, mixed legacy and multi-driver
+  I/O forms, and blank explicit paths, credentials, scalar selectors, or
+  collection/map entries instead of panicking, wrapping, silently ignoring
+  fields, substituting defaults, or downgrading authentication/source pins.
 - trust-runtime: `play` now validates restart and simulation-scale options
   before auto-creating a selected project; runtime configuration rejects
   unknown log levels instead of silently treating them as `info`; legacy

@@ -361,6 +361,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   reach only the two deferred retain/restart mutation-digest mismatches.
   `VERIF-P18-003`, assertion reachability, mutation sensitivity, and the final
   broad remote gates remain globally open.
+
+  Runtime-configuration coherent-batch progress (2026-07-22): the closed
+  runtime/I/O schemas, connector sidecar loading, omission defaults, explicit
+  values, security groups, and value-width boundaries are now governed by
+  `SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract`
+  through `RT_CONFIG_SCHEMA_001`, `RT_CONFIG_BUNDLE_LOAD_001`, and
+  `RT_CONFIG_VALUE_BOUNDS_001`. Automation refreshed all 95 live configuration
+  code facts to `specified`, mapped all 71 historical configuration tests, and
+  registered five new focused regressions. Remote focused proof passes 77/77
+  configuration-filtered tests. Red-green repairs reject duration values that
+  previously panicked during signed-nanosecond conversion, safe-state integers
+  that previously narrowed across BYTE/WORD/DWORD widths, mixed I/O forms that
+  silently ignored legacy fields, and blank explicit paths or collection/map
+  entries and scalar credentials/selectors that previously defaulted,
+  disappeared, or downgraded authentication/source pins. The live code map now
+  has 15,304 facts: 426 `specified`, 14,843 `spec_gap`, and 35 reviewed non-gap
+  dispositions. The test denominator has 4,124 facts: 485 `catalog_mapped` and
+  3,639 `reviewed_nonmapping`; the catalog contains 493 mapped tests. Metadata
+  and staleness checks reach only the two deferred retain/restart mutation-
+  provenance mismatches. `VERIF-P18-003`, assertion reachability, mutation
+  sensitivity, and the final broad remote gates remain globally open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

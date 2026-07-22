@@ -54,6 +54,16 @@ policy = "halt"
 | `name` | string | yes | Logical resource/runtime name. Must not be empty. |
 | `cycle_interval_ms` | integer | yes | Main scan interval in milliseconds. Must be `>= 1`. |
 
+All millisecond values converted to the runtime's signed-nanosecond duration
+must also be no greater than `9223372036854` (`i64::MAX / 1_000_000`); larger
+TOML integers are rejected rather than overflowing or panicking.
+
+Documented defaults apply only when an optional field is omitted. An explicit
+path, listen/connect endpoint, interface, producer path, symbol pattern, or
+version entry must remain nonempty after trimming. Lists and maps reject blank
+entries rather than silently dropping them, and an explicit blank scalar is
+not replaced by its default.
+
 Optional task overrides:
 
 ```toml

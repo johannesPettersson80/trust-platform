@@ -186,16 +186,16 @@ fn parse_discovery_section(
                 .interfaces
                 .unwrap_or_default()
                 .into_iter()
-                .map(SmolStr::new)
-                .collect(),
-            host_group: discovery_section.host_group.and_then(|host_group| {
-                let trimmed = host_group.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(SmolStr::new(trimmed))
-                }
-            }),
+                .map(|value| {
+                    parse_nonempty_entry(value, "runtime.discovery.interfaces")
+                        .map(SmolStr::new)
+                })
+                .collect::<Result<Vec<_>, RuntimeError>>()?,
+            host_group: discovery_section
+                .host_group
+                .map(|value| parse_nonempty_entry(value, "runtime.discovery.host_group"))
+                .transpose()?
+                .map(SmolStr::new),
         },
     })
 }
@@ -234,11 +234,10 @@ fn parse_mesh_section(
         .connect
         .unwrap_or_default()
         .into_iter()
-        .filter_map(|endpoint| {
-            let trimmed = endpoint.trim();
-            (!trimmed.is_empty()).then(|| SmolStr::new(trimmed))
+        .map(|endpoint| {
+            parse_nonempty_entry(endpoint, "runtime.mesh.connect").map(SmolStr::new)
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
     let tls = mesh_section.tls.unwrap_or(false);
     if tls && !tls_mode.enabled() {
         return Err(RuntimeError::InvalidConfig(
@@ -270,41 +269,54 @@ fn parse_mesh_section(
             listen: SmolStr::new(listen),
             connect,
             tls,
-            auth_token: mesh_section.auth_token.and_then(|token| {
-                let trimmed = token.trim().to_string();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(SmolStr::new(trimmed))
-                }
-            }),
+            auth_token: mesh_section
+                .auth_token
+                .map(|value| parse_nonempty_entry(value, "runtime.mesh.auth_token"))
+                .transpose()?
+                .map(SmolStr::new),
             publish: mesh_section
                 .publish
                 .unwrap_or_default()
                 .into_iter()
-                .map(SmolStr::new)
-                .collect(),
+                .map(|value| {
+                    parse_nonempty_entry(value, "runtime.mesh.publish").map(SmolStr::new)
+                })
+                .collect::<Result<Vec<_>, RuntimeError>>()?,
             subscribe: mesh_section
                 .subscribe
                 .unwrap_or_default()
                 .into_iter()
-                .map(|(k, v)| (SmolStr::new(k), SmolStr::new(v)))
-                .collect(),
+                .map(|(source, target)| {
+                    Ok((
+                        SmolStr::new(parse_nonempty_entry(
+                            source,
+                            "runtime.mesh.subscribe",
+                        )?),
+                        SmolStr::new(parse_nonempty_entry(
+                            target,
+                            "runtime.mesh.subscribe",
+                        )?),
+                    ))
+                })
+                .collect::<Result<IndexMap<_, _>, RuntimeError>>()?,
             zenohd_version: SmolStr::new(zenohd_version),
             plugin_versions: mesh_section
                 .plugin_versions
                 .unwrap_or_default()
                 .into_iter()
-                .filter_map(|(name, version)| {
-                    let name = name.trim();
-                    let version = version.trim();
-                    if name.is_empty() || version.is_empty() {
-                        None
-                    } else {
-                        Some((SmolStr::new(name), SmolStr::new(version)))
-                    }
+                .map(|(name, version)| {
+                    Ok((
+                        SmolStr::new(parse_nonempty_entry(
+                            name,
+                            "runtime.mesh.plugin_versions",
+                        )?),
+                        SmolStr::new(parse_nonempty_entry(
+                            version,
+                            "runtime.mesh.plugin_versions",
+                        )?),
+                    ))
                 })
-                .collect(),
+                .collect::<Result<IndexMap<_, _>, RuntimeError>>()?,
         },
     })
 }

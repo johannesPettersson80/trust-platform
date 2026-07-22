@@ -6,8 +6,8 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
     };
 
     let enabled = section.enabled.unwrap_or(false);
-    let raw_path = section.path.unwrap_or_default();
-    if enabled && raw_path.trim().is_empty() {
+    let path = parse_optional_path("runtime.openot.path", section.path)?;
+    if enabled && path.is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.openot.path must not be empty when runtime.openot.enabled=true".into(),
         ));
@@ -38,17 +38,16 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
     };
     let producer_instance = section
         .producer_instance
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+        .map(|value| parse_nonempty_entry(value, "runtime.openot.producer_instance"))
+        .transpose()?
         .map(SmolStr::new);
     let configured_instances = section.producer_instances.unwrap_or_default();
     let producer_instances = configured_instances
         .into_iter()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(SmolStr::new)
-        .collect::<Vec<_>>();
+        .map(|value| {
+            parse_nonempty_entry(value, "runtime.openot.producer_instances").map(SmolStr::new)
+        })
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
 
     if producer_instance.is_some() && !producer_instances.is_empty() {
         return Err(RuntimeError::InvalidConfig(
@@ -101,7 +100,7 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
     Ok(ParsedOpenOt {
         config: OpenOtTelemetryConfig {
             enabled,
-            path: PathBuf::from(raw_path),
+            path: path.unwrap_or_default(),
             capacity,
             fence_mode,
             allow_unfenced_for_proof,

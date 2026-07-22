@@ -204,6 +204,11 @@ value = "FALSE"
 | driver `params` | must be a TOML table |
 | `io.safe_state[*].value` | must match the output type |
 
+Numeric safe-state values must fit the addressed output width exactly: BYTE is
+`0..255`, WORD is `0..65535`, DWORD is `0..4294967295`, and LWORD is the full
+unsigned 64-bit range. Out-of-range values are rejected rather than wrapped or
+clamped.
+
 ## Related
 
 - [I/O Binding Guide](../../connect/devices-and-fieldbus/io-binding.md)
