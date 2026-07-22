@@ -78,6 +78,28 @@ metadata records. The warmed target cache and checkout-local temporary
 directory were used because the builder had 27 GB free on `/home/johannes` and
 1.6 GB on `/tmp`.
 
+## Frozen slice-accounting validation
+
+The final focused accounting milestone ran in the same clean detached checkout
+at `4c2abb9cd193a2aad742e76420a0bd150cc2d419`, after the board document review
+and canonical ledger were rebound. It passed:
+
+- both exact Rust tests and `cargo fmt --all -- --check`;
+- 889-record metadata validation;
+- the canonical 15,274-code/4,042-test ledger with artifact digest
+  `sha256:3ac01c6061e6bf4448fa07ac48d898f495afb2174a6bc3eae6d4b3e2c8c5b327`;
+- the report-only P18 gate with zero contract findings;
+- full code/spec accounting with 15,274 facts, zero findings, and zero blocking
+  findings; and
+- the specification-source audit with 401 documents, 14,516 public prose
+  blocks, zero unreviewed blocks, and 125 report-only warnings.
+
+The refreshed ledger reports 15,137 remaining `spec_gap` facts, 15,134
+remaining `registered_backlog` facts, and 3,777 remaining
+`reviewed_nonmapping` test facts. No broad `clippy` or `test-all` milestone ran;
+the accepted board reserves those final gates for `VERIF-P18-016` on the one
+eventual zero-debt candidate.
+
 ## Exact risk acknowledgement
 
 `RISK_ACK_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`
