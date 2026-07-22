@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 
 use serde_json::{json, Value as JsonValue};
 
@@ -47,13 +47,62 @@ END_PROGRAM
     )
 }
 
+fn access_and_direct_io_program() -> &'static str {
+    r#"
+PROGRAM Main
+VAR
+    input : BOOL;
+    output : BOOL;
+    accessible : INT;
+END_VAR
+output := input;
+END_PROGRAM
+
+CONFIGURATION Conf
+PROGRAM P1 : Main;
+VAR_ACCESS
+    RemoteValue : P1.accessible : INT READ_WRITE;
+END_VAR
+END_CONFIGURATION
+"#
+}
+
+fn runtime_cycle_error_program() -> &'static str {
+    r#"
+PROGRAM Main
+VAR
+    result : DINT;
+END_VAR
+result := 1 / 0;
+END_PROGRAM
+"#
+}
+
 fn run_harness(requests: &[JsonValue]) -> (Vec<JsonValue>, String) {
     run_harness_with_args(&[], requests)
 }
 
 fn run_harness_with_args(args: &[&str], requests: &[JsonValue]) -> (Vec<JsonValue>, String) {
+    let lines = requests
+        .iter()
+        .map(|request| serde_json::to_string(request).expect("encode request"))
+        .collect::<Vec<_>>();
+    let (status, responses, stderr) = run_harness_lines(args, &[], &lines);
+    assert!(
+        status.success(),
+        "expected trust-harness success, stderr was:\n{stderr}"
+    );
+    (responses, stderr)
+}
+
+fn run_harness_lines(
+    args: &[&str],
+    envs: &[(&str, &str)],
+    lines: &[String],
+) -> (ExitStatus, Vec<JsonValue>, String) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_trust-harness"))
         .args(args)
+        .envs(envs.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -61,23 +110,12 @@ fn run_harness_with_args(args: &[&str], requests: &[JsonValue]) -> (Vec<JsonValu
         .expect("spawn trust-harness");
 
     let mut stdin = child.stdin.take().expect("harness stdin");
-    for request in requests {
-        writeln!(
-            stdin,
-            "{}",
-            serde_json::to_string(request).expect("encode request")
-        )
-        .expect("write request");
+    for line in lines {
+        writeln!(stdin, "{line}").expect("write request");
     }
     drop(stdin);
 
     let output = child.wait_with_output().expect("wait for trust-harness");
-    assert!(
-        output.status.success(),
-        "expected trust-harness success, stderr was:\n{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
     let stdout = String::from_utf8(output.stdout).expect("stdout utf-8");
     let responses = stdout
         .lines()
@@ -85,6 +123,7 @@ fn run_harness_with_args(args: &[&str], requests: &[JsonValue]) -> (Vec<JsonValu
         .map(|line| serde_json::from_str::<JsonValue>(line).expect("decode response"))
         .collect();
     (
+        output.status,
         responses,
         String::from_utf8(output.stderr).expect("stderr utf-8"),
     )
@@ -322,4 +361,152 @@ fn trust_harness_rejects_negative_dt_ms() {
         "expected dt_ms error, got: {}",
         responses[1]
     );
+}
+
+#[test]
+fn trust_harness_reports_line_errors_and_continues_the_session() {
+    let lines = vec![
+        "{not json".to_string(),
+        json!({"cmd": "cycle"}).to_string(),
+        json!({"cmd": "unsupported"}).to_string(),
+        json!({"cmd": "load", "source": "THIS IS NOT STRUCTURED TEXT"}).to_string(),
+        json!({"cmd": "load", "source": runtime_cycle_error_program()}).to_string(),
+        json!({"cmd": "load", "source": latch_program()}).to_string(),
+        json!({"cmd": "set_input", "name": "start"}).to_string(),
+        json!({"cmd": "snapshot", "watch": ["latched", "missing"]}).to_string(),
+    ];
+    let (status, responses, stderr) = run_harness_lines(&[], &[], &lines);
+
+    assert!(status.success(), "stderr was:\n{stderr}");
+    assert_eq!(responses.len(), lines.len(), "stderr was:\n{stderr}");
+    assert_eq!(responses[0]["error"]["kind"], json!("invalid_request"));
+    assert_eq!(responses[1]["error"]["kind"], json!("not_loaded"));
+    assert_eq!(responses[2]["error"]["kind"], json!("invalid_request"));
+    assert_eq!(responses[3]["error"]["kind"], json!("compile_error"));
+    assert_eq!(responses[4]["error"]["kind"], json!("runtime_cycle_error"));
+    assert!(responses[4]["error"]["data"]["errors"].is_array());
+    assert_eq!(responses[5]["ok"], json!(true));
+    assert_eq!(responses[6]["error"]["kind"], json!("invalid_request"));
+    assert_eq!(responses[7]["ok"], json!(true));
+    assert_eq!(
+        responses[7]["data"]["values"]["latched"],
+        json!({"status": "ok", "value": {"type": "BOOL", "value": false}})
+    );
+    assert_eq!(
+        responses[7]["data"]["values"]["missing"],
+        json!({
+            "status": "error",
+            "code": "unresolved_name",
+            "message": "boundary path 'missing' did not resolve to a declared value",
+            "path": "missing",
+            "candidates": [],
+        })
+    );
+    assert!(responses
+        .iter()
+        .all(|response| response["protocol_version"] == json!(2)));
+}
+
+#[test]
+fn trust_harness_protocol_v1_promotes_watch_errors_to_request_errors() {
+    let (responses, stderr) = run_harness_with_args(
+        &["--protocol-version=1"],
+        &[
+            json!({"cmd": "load", "source": latch_program()}),
+            json!({"cmd": "snapshot", "watch": ["latched", "missing"]}),
+        ],
+    );
+
+    assert_eq!(responses.len(), 2, "stderr was:\n{stderr}");
+    assert_eq!(responses[1]["ok"], json!(false));
+    assert_eq!(responses[1]["protocol_version"], json!(1));
+    assert_eq!(responses[1]["error"]["kind"], json!("unresolved_name"));
+    assert_eq!(responses[1]["error"]["data"]["path"], json!("missing"));
+    assert_eq!(responses[1]["error"]["data"]["candidates"], json!([]));
+}
+
+#[test]
+fn trust_harness_var_access_and_direct_io_commands_roundtrip() {
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": access_and_direct_io_program()}),
+        json!({"cmd": "bind_direct", "name": "input", "address": "%IX0.0"}),
+        json!({"cmd": "bind_direct", "name": "output", "address": "%QX0.0"}),
+        json!({
+            "cmd": "set_direct_input",
+            "address": "%IX0.0",
+            "value": {"type": "BOOL", "value": true},
+        }),
+        json!({
+            "cmd": "set_access",
+            "name": "RemoteValue",
+            "value": {"type": "INT", "value": 42},
+        }),
+        json!({"cmd": "cycle"}),
+        json!({"cmd": "get_direct_output", "address": "%QX0.0"}),
+        json!({"cmd": "get_access", "name": "RemoteValue"}),
+    ]);
+
+    assert_eq!(responses.len(), 8, "stderr was:\n{stderr}");
+    assert!(responses
+        .iter()
+        .all(|response| response["ok"] == json!(true)));
+    assert_eq!(
+        responses[6]["data"]["value"],
+        json!({"type": "BOOL", "value": true})
+    );
+    assert_eq!(
+        responses[7]["data"]["value"],
+        json!({"type": "INT", "value": 42})
+    );
+}
+
+#[test]
+fn trust_harness_snapshot_is_passive_and_restart_modes_are_explicit() {
+    let (responses, stderr) = run_harness(&[
+        json!({"cmd": "load", "source": retained_program(1)}),
+        json!({
+            "cmd": "set_input",
+            "name": "counter",
+            "value": {"type": "INT", "value": 7},
+        }),
+        json!({"cmd": "snapshot", "watch": ["counter"]}),
+        json!({"cmd": "snapshot", "watch": ["counter"]}),
+        json!({"cmd": "restart", "mode": "WARM"}),
+        json!({"cmd": "get_output", "name": "counter"}),
+        json!({"cmd": "restart", "mode": "cold"}),
+        json!({"cmd": "get_output", "name": "counter"}),
+    ]);
+
+    assert_eq!(responses.len(), 8, "stderr was:\n{stderr}");
+    assert_eq!(
+        responses[2]["data"]["cycle_count"],
+        responses[3]["data"]["cycle_count"]
+    );
+    assert_eq!(responses[4]["data"]["mode"], json!("warm"));
+    assert_eq!(
+        responses[5]["data"]["value"],
+        json!({"type": "INT", "value": 7})
+    );
+    assert_eq!(responses[6]["data"]["mode"], json!("cold"));
+    assert_eq!(
+        responses[7]["data"]["value"],
+        json!({"type": "INT", "value": 1})
+    );
+}
+
+#[test]
+fn trust_harness_cli_protocol_selection_overrides_environment_and_rejects_bad_arguments() {
+    let not_loaded = vec![json!({"cmd": "snapshot"}).to_string()];
+    let (status, responses, stderr) = run_harness_lines(
+        &["--protocol-version=2"],
+        &[("TRUST_HARNESS_PROTOCOL_VERSION", "1")],
+        &not_loaded,
+    );
+    assert!(status.success(), "stderr was:\n{stderr}");
+    assert_eq!(responses[0]["protocol_version"], json!(2));
+
+    let (status, responses, stderr) = run_harness_lines(&["--protocol-version=3"], &[], &[]);
+    assert!(!status.success());
+    assert!(responses.is_empty());
+    assert!(stderr.contains("unsupported protocol version '3'"));
 }
