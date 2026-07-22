@@ -561,24 +561,36 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
         plan = load_plan(root)
         records = build_open_records(root)
         self.assertEqual(
-            ["ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001"],
+            [
+                "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
+                "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001",
+            ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(265, len(records))
+        self.assertEqual(267, len(records))
         by_test = {record["test_id"]: record for record in records}
-        for test_id in (
-            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001",
-            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001",
-        ):
+        expected_bindings = {
+            "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001": (
+                "CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D",
+                "RT_INTEGER_I64_NORMALIZATION_001",
+            ),
+            "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001": (
+                "CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D",
+                "RT_INTEGER_I64_NORMALIZATION_001",
+            ),
+            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001": (
+                "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
+                "RT_SIGNED_INTEGER_MATERIALIZATION_001",
+            ),
+            "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001": (
+                "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
+                "RT_SIGNED_INTEGER_MATERIALIZATION_001",
+            ),
+        }
+        for test_id, (code_id, invariant_id) in expected_bindings.items():
             self.assertIn(test_id, by_test)
-            self.assertEqual(
-                ["CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"],
-                by_test[test_id]["code_ids"],
-            )
-            self.assertEqual(
-                ["RT_SIGNED_INTEGER_MATERIALIZATION_001"],
-                by_test[test_id]["invariant_ids"],
-            )
+            self.assertEqual([code_id], by_test[test_id]["code_ids"])
+            self.assertEqual([invariant_id], by_test[test_id]["invariant_ids"])
 
     def test_removed_validator_and_open_debt_cannot_pass_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

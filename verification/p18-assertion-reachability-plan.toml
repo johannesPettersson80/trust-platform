@@ -5,6 +5,39 @@ owner = "verification"
 last_reviewed = "2026-07-22"
 
 [[shards]]
+id = "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001"
+owner = "trust-runtime-core"
+code_id = "CODE_48DB0C5559CB11931C99FDD5BA0812B4045ACFFE01AF8DDB1E3BA4BA16F4087D"
+invariant_id = "RT_INTEGER_I64_NORMALIZATION_001"
+invariant_path = "verification/invariants/runtime_safety/RT_INTEGER_I64_NORMALIZATION_001.toml"
+invariant_contract_digest = "sha256:065be8ddb1d50fa817809e14f76248a86df7eb23afaa69092afbd25b6931a8e9"
+source_file = "crates/trust-runtime-core/src/numeric.rs"
+source_digest = "sha256:e21284243925f64903f2b19f0ec3ce00e8eee0e00a7482f181b649c1320af2d7"
+function = "to_i64"
+package = "trust-runtime-core"
+build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001"
+discovery_id = "DISC_69CC0C415ACEA7836310"
+path = "crates/trust-runtime-core/src/numeric.rs"
+name = "integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs"
+command = ["cargo", "test", "-p", "trust-runtime-core", "numeric::tests::integer_i64_normalization_preserves_boundaries_and_rejects_invalid_inputs", "--", "--exact"]
+
+[[shards.tests]]
+test_id = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"
+discovery_id = "DISC_4BCDECA148555EE6800D"
+path = "crates/trust-runtime-core/tests/integer_i64_normalization_cases.rs"
+name = "integer_i64_normalization_cases"
+command = ["cargo", "test", "-p", "trust-runtime-core", "--test", "integer_i64_normalization_cases", "integer_i64_normalization_cases", "--", "--exact"]
+
+[[shards.mutations]]
+id = "MUTANT_INTEGER_I64_NORMALIZATION_DELETE_ULINT"
+genre = "MatchArm"
+replacement = ""
+selector_name = "numeric.rs:70:9: delete match arm Value::ULInt(v) in to_i64"
+
+[[shards]]
 id = "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001"
 owner = "trust-runtime-core"
 code_id = "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A"
@@ -12,7 +45,7 @@ invariant_id = "RT_SIGNED_INTEGER_MATERIALIZATION_001"
 invariant_path = "verification/invariants/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml"
 invariant_contract_digest = "sha256:d707021ae336a7572912ffbb15cc4c3422dbf38a3378519312db0461d67021e6"
 source_file = "crates/trust-runtime-core/src/numeric.rs"
-source_digest = "sha256:d5ad69764b4d2f82f85b4ee4a3e6b998258ff6b331c7b2b46cee53b6bb29e63e"
+source_digest = "sha256:e21284243925f64903f2b19f0ec3ce00e8eee0e00a7482f181b649c1320af2d7"
 function = "signed_from_i128"
 package = "trust-runtime-core"
 build_command = ["cargo", "test", "-p", "trust-runtime-core", "--no-run"]
