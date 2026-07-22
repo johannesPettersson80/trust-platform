@@ -430,6 +430,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   update is required. This is a truST product contract, not an IEC decision or
   deviation. Assertion reachability, mutation sensitivity, remaining Runtime
   Cloud subdomains, and the final broad remote gates remain open.
+
+  Runtime Cloud desired-configuration coherent-batch progress (2026-07-22): a
+  product specification now owns optimistic desired revision/ETag writes and
+  immutable reconcile snapshots. Two expected-red state-machine tests exposed
+  the same in-flight race on both completion outcomes: if desired revision N+1
+  was accepted while N was applying, N success copied N+1 content into
+  `reported` under revision N and marked it in sync, while N failure changed
+  N+1 to an ineligible error state. The policy callback now receives the exact
+  apply snapshot. Success reports only that snapshot; success or failure leaves
+  a superseding revision pending and eligible for the next reconcile, with a
+  failure diagnostic retained. Generated semantic registration binds all 11
+  config-policy facts plus the single web adapter boundary and all 10 focused
+  unit, HTTP, and architecture tests to
+  `RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001`. Remote focused proof passes 3 policy
+  tests, 1 persisted-state test, all 6 config HTTP tests, and all 5 Runtime Cloud
+  architecture assertions. The web module remains an adapter to the existing
+  policy owner, no ownership or execution flow changed, both files remain below
+  the large-file threshold, and no diagram update is required. Rollout policy
+  was inspected but its multi-target authority remains insufficient for new
+  assertions, so no rollout behavior was invented or claimed. This product
+  contract is not an IEC decision or deviation. Assertion reachability,
+  mutation sensitivity, rollout and remaining Runtime Cloud subdomains, and the
+  final broad remote gates remain open.
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

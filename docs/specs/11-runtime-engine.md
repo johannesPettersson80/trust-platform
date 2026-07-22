@@ -1424,6 +1424,28 @@ blank request ID is a contract violation. The chosen control proxy request ID
 is identical in the action request and forwarded control payload so audit and
 response correlation cannot diverge.
 
+##### Runtime Cloud desired-configuration reconciliation contract
+
+Runtime Cloud desired configuration is also a truST product contract outside
+IEC 61131-3. A desired write has a nonempty actor and an object-valued merge
+patch. Optional expected revision and ETag values are optimistic-concurrency
+preconditions; a mismatch rejects the write as a revision conflict. An accepted
+write advances the desired revision, records a new ETag and writer, and becomes
+pending until the runtime control operation confirms it.
+
+Reconciliation applies an immutable snapshot containing the desired value,
+revision, and ETag. The control operation runs without holding the configuration
+state lock. If another desired write is accepted while that operation is in
+flight, the older completion may acknowledge only the snapshot it actually
+applied: it must not copy the newer desired value into `reported`, attach the
+older revision or ETag to newer content, or mark the agent in sync. The newer
+desired revision remains pending and the next reconciliation attempt applies
+it. A failed apply preserves the last confirmed reported value and revision and
+surfaces a blocked or error state with the stable reason available from the
+control failure. If that failure belongs to a superseded snapshot, its
+diagnostic remains visible but the newer desired revision stays pending and
+eligible for the next reconciliation attempt.
+
 HMI customization (implementer-specific):
 - `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
 - Project-level `hmi.toml` supports:

@@ -180,26 +180,46 @@ pub(crate) fn runtime_cloud_config_prepare_reconcile(
 
 pub(crate) fn runtime_cloud_config_apply_success(
     state: &mut RuntimeCloudConfigAgentState,
-    desired_revision: u64,
-    desired_etag: String,
+    applied: RuntimeCloudConfigApplyRequest,
     updated_at_ns: u64,
 ) {
-    state.reported = state.desired.clone();
-    state.meta.reported_revision = desired_revision;
-    state.meta.reported_etag = desired_etag;
+    let applied_is_current = state.meta.desired_revision == applied.desired_revision
+        && state.meta.desired_etag == applied.desired_etag;
+    state.reported = applied.desired;
+    state.meta.reported_revision = applied.desired_revision;
+    state.meta.reported_etag = applied.desired_etag;
     state.meta.updated_at_ns = updated_at_ns;
-    runtime_cloud_config_mark_in_sync(state);
+    if applied_is_current {
+        runtime_cloud_config_mark_in_sync(state);
+    } else {
+        state.status = ConfigStatus {
+            api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
+            state: RuntimeCloudConfigState::Pending,
+            applied_revision: state.meta.reported_revision,
+            pending_revision: Some(state.meta.desired_revision),
+            required_action: None,
+            blocked_reason: None,
+            errors: Vec::new(),
+        };
+    }
 }
 
 pub(crate) fn runtime_cloud_config_apply_failure(
     state: &mut RuntimeCloudConfigAgentState,
+    applied: &RuntimeCloudConfigApplyRequest,
     error_text: String,
 ) {
     let (state_value, blocked_reason, required_action) =
         runtime_cloud_config_error_semantics(error_text.as_str());
+    let applied_is_current = state.meta.desired_revision == applied.desired_revision
+        && state.meta.desired_etag == applied.desired_etag;
     state.status = ConfigStatus {
         api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
-        state: state_value,
+        state: if applied_is_current {
+            state_value
+        } else {
+            RuntimeCloudConfigState::Pending
+        },
         applied_revision: state.meta.reported_revision,
         pending_revision: Some(state.meta.desired_revision),
         required_action,
@@ -308,5 +328,100 @@ mod tests {
         assert_eq!(updated.meta.last_writer, "operator");
         assert_eq!(updated.status.state, RuntimeCloudConfigState::Pending);
         assert_eq!(updated.desired["runtime"]["cycle_ms"], 20);
+    }
+
+    #[test]
+    fn superseded_apply_success_keeps_newer_desired_revision_pending() {
+        let mut state = runtime_cloud_config_initial_state(1);
+        runtime_cloud_config_write_desired(
+            &mut state,
+            "operator-a",
+            &json!({ "log.level": "debug" }),
+            None,
+            None,
+            2,
+        )
+        .expect("first desired write");
+        let RuntimeCloudConfigReconcileAction::Apply(first_apply) =
+            runtime_cloud_config_prepare_reconcile(&mut state)
+        else {
+            panic!("first desired revision must be ready to apply");
+        };
+
+        runtime_cloud_config_write_desired(
+            &mut state,
+            "operator-b",
+            &json!({ "watchdog.enabled": true }),
+            Some(first_apply.desired_revision),
+            Some(first_apply.desired_etag.as_str()),
+            3,
+        )
+        .expect("newer desired write while the first apply is in flight");
+
+        runtime_cloud_config_apply_success(&mut state, first_apply.clone(), 4);
+
+        assert_eq!(
+            state.reported, first_apply.desired,
+            "reported content must be the snapshot actually applied"
+        );
+        assert_eq!(state.meta.reported_revision, 1);
+        assert_eq!(state.meta.desired_revision, 2);
+        assert_eq!(state.status.state, RuntimeCloudConfigState::Pending);
+        assert_eq!(state.status.pending_revision, Some(2));
+
+        let RuntimeCloudConfigReconcileAction::Apply(next_apply) =
+            runtime_cloud_config_prepare_reconcile(&mut state)
+        else {
+            panic!("the superseding desired revision must remain eligible to apply");
+        };
+        assert_eq!(next_apply.desired_revision, 2);
+        assert_eq!(next_apply.desired["log.level"], "debug");
+        assert_eq!(next_apply.desired["watchdog.enabled"], true);
+    }
+
+    #[test]
+    fn superseded_apply_failure_keeps_newer_desired_revision_pending() {
+        let mut state = runtime_cloud_config_initial_state(1);
+        runtime_cloud_config_write_desired(
+            &mut state,
+            "operator-a",
+            &json!({ "unknown.setting": "bad" }),
+            None,
+            None,
+            2,
+        )
+        .expect("first desired write");
+        let RuntimeCloudConfigReconcileAction::Apply(first_apply) =
+            runtime_cloud_config_prepare_reconcile(&mut state)
+        else {
+            panic!("first desired revision must be ready to apply");
+        };
+
+        runtime_cloud_config_write_desired(
+            &mut state,
+            "operator-b",
+            &json!({ "unknown.setting": "fixed" }),
+            Some(first_apply.desired_revision),
+            Some(first_apply.desired_etag.as_str()),
+            3,
+        )
+        .expect("superseding desired write");
+
+        runtime_cloud_config_apply_failure(&mut state, &first_apply, "schema mismatch".to_string());
+
+        assert_eq!(state.meta.desired_revision, 2);
+        assert_eq!(state.meta.reported_revision, 0);
+        assert_eq!(state.status.state, RuntimeCloudConfigState::Pending);
+        assert_eq!(state.status.pending_revision, Some(2));
+        assert_eq!(
+            state.status.blocked_reason,
+            Some(ReasonCode::SchemaMismatch)
+        );
+        assert_eq!(state.status.errors, vec!["schema mismatch"]);
+        assert!(matches!(
+            runtime_cloud_config_prepare_reconcile(&mut state),
+            RuntimeCloudConfigReconcileAction::Apply(request)
+                if request.desired_revision == 2
+        ));
     }
 }

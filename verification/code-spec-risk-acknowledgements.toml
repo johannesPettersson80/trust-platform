@@ -13282,11 +13282,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:635588ebb1eb50bca3b509d90296d18f46e4a9ffa264e82baaa80893e7ea6433"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -16894,11 +16894,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:4bdc54cd6e63e2d8bdadcfa99ed798f113f9202046313a0a269d793cedbd5ec8"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -22060,11 +22060,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:170dc062c89fc05bb3b28d8065e5face6612249599b6e08b77554fa938c38bcf"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -23412,20 +23412,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_BC6661B16AD319C59563B64BD7B332F4E79F378ECF7BFC8EE1D5A34C2A2F92D6"
-code_id = "CODE_BC6661B16AD319C59563B64BD7B332F4E79F378ECF7BFC8EE1D5A34C2A2F92D6"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:cc4ed7641e62e5a7a7735ad3cb437fb881f6b2eefb909e72439d68cf75e7619e"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_BC748673CEA4CA2C52B8902A1643616CBD423BC1CB721CB52A4BEA00A85C9030"
 code_id = "CODE_BC748673CEA4CA2C52B8902A1643616CBD423BC1CB721CB52A4BEA00A85C9030"
 owner = "trust-runtime"
@@ -24200,13 +24186,13 @@ id = "RISK_ACK_C7E601D5E85B1598C64105F4B564BA4AFA955470230ED60BFA7C2DAD2FC5833C"
 code_id = "CODE_C7E601D5E85B1598C64105F4B564BA4AFA955470230ED60BFA7C2DAD2FC5833C"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:f3126fdba5ce0d9f5be7a90f751f8d51fe9777a4223ccbf7d42dedaf40e73616"
+body_digest = "sha256:cedfbeaebc1f445f4f26ffee27956aa47325687d468f8729de84d47f1f5b5df7"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -24440,11 +24426,11 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:0b2944f27863e74f9a61ae11c5db324e82ea00e913ec1a8a7da0bc65bed19060"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
 
 [[acknowledgements]]
 schema_version = 1
@@ -25602,20 +25588,6 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:c4b21c3dba9a8544f43763e05c9513280d05b6d144d71a13f72fc735f8e47926"
 risk_signals = ["broad_error_suppression", "fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_DED0EF9789FBF0D024D05B745412F3A8D16B8F446B9906B7A71D57C5CBA5CB28"
-code_id = "CODE_DED0EF9789FBF0D024D05B745412F3A8D16B8F446B9906B7A71D57C5CBA5CB28"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:653fa9dd0f80f6bd5a61c5e25f849caa1ca4b9bfb63cd80aebe3aa5d7b20f215"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81338,3 +81310,30 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1B7DB54B2A4F5565357095B5C02A68B18A39D2F29385FE1BF8DC160781E9F53A"
+code_id = "CODE_1B7DB54B2A4F5565357095B5C02A68B18A39D2F29385FE1BF8DC160781E9F53A"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:fc0e39acfd1d7ef28aed145e58b36e82dd3ea2e06cf4da6a04053a6919c4ff17"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_293B46180BA3CEC5690997A0567776DFFB56710BD3AC7D6FFC5BB2C9D516BD65"
+code_id = "CODE_293B46180BA3CEC5690997A0567776DFFB56710BD3AC7D6FFC5BB2C9D516BD65"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:a70eb16caa072a8dcadf6a6c048b0b81ab5f75384cf4180ecb3108353cfe28ec"
+risk_signals = ["state_mutation"]
+review_ref = "docs/specs/11-runtime-engine.md#runtime-cloud-desired-configuration-reconciliation-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges scanner-derived desired/reported state, revision, merge, error, and adapter-boundary risks while binding the complete policy surface to the reviewed reconciliation contract and focused executable tests."

@@ -18,6 +18,10 @@ Target release: `v0.24.54`
   routing/correlation fields and incompatible I/O proxy API versions before
   preflight, returning a `400 contract_violation` instead of manufacturing an
   invalid action request.
+- trust-runtime: Runtime Cloud configuration reconciliation now records only
+  the immutable desired snapshot actually applied; a newer desired revision
+  accepted during an in-flight success or failure remains pending instead of
+  being falsely reported in sync or stranded.
 - benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
   exact `--payload-bytes` requested instead of silently capping at 256 bytes;
   T0, mesh, and dispatch reports expose the effective payload length.

@@ -1,0 +1,81 @@
+schema_version = 1
+id = "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001"
+title = "Runtime Cloud configuration reconciliation preserves revision truth"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-22"
+claim = "Runtime Cloud desired configuration applies immutable revision snapshots and cannot report newer un-applied content or strand a superseding desired revision after an older in-flight success or failure."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-runtime/src/runtime_cloud/config_policy.rs",
+  "crates/trust-runtime/src/web/runtime_cloud_state/config.rs",
+]
+tests = [
+  "TEST_CONFIG_POLICY_DESIRED_WRITE_MERGES_JSON_AND_SETS_PENDING_STATUS_001",
+  "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_FAILURE_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+  "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_SUCCESS_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECOVERS_PENDING_STATE_AFTER_RESTART_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_CONFLICT_REBASE_RETRY_APPLIES_LATEST_DESIRED_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_DESIRED_WRITE_ENFORCES_REVISION_AND_ETAG_CONFLICT_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_PARTIAL_DESIRED_SUBTREE_WRITE_KEEPS_EXISTING_KEYS_001",
+  "TEST_RUNTIME_CLOUD_CONFIG_RECONCILE_SURFACES_ERROR_STATE_FOR_INVALID_DESIRED_PAYLOAD_001",
+  "TEST_RUNTIME_CLOUD_STATE_ADAPTERS_DELEGATE_DOMAIN_STATE_TO_POLICY_MODULES_001",
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
+
+[[behavior]]
+partition = { equals = "CURRENT_APPLY_SUCCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "safe_reported" }
+rationale = "A success for the current desired snapshot makes desired and reported metadata and values identical and in sync."
+
+[[behavior]]
+partition = { equals = "SUPERSEDED_APPLY_SUCCESS" }
+case_family = "ordering_or_precedence"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "safe_reported" }
+rationale = "An older completion records only its captured snapshot and leaves the newer desired revision pending."
+
+[[behavior]]
+partition = { equals = "SUPERSEDED_APPLY_FAILURE" }
+case_family = "fault_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cloud-desired-configuration-reconciliation-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "The older error remains visible but cannot strand a newer accepted revision."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Unit and HTTP tests cover desired merge, current apply, and in-sync reporting."
+
+[[coverage.cells]]
+dimension = "ordering_or_precedence"
+state = "covered"
+rationale = "Focused expected-red tests cover both success and failure arriving after a superseding desired write."
+
+[[coverage.cells]]
+dimension = "fault_or_recovery"
+state = "covered"
+rationale = "HTTP and policy tests cover invalid apply diagnostics, restart recovery, conflicts, and superseded failure retry eligibility."
