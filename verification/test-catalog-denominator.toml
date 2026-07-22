@@ -4382,6 +4382,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1ABF2241E2ECBA3F506A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/test.rs"
+name = "test_output_args_match_trust_dev_cli"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_TEST_OUTPUT_VALUES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_1AC3BE6D73E6E539D693"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/vm/mod.rs"
@@ -5700,6 +5710,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_22DF137FCFA0A173AD86"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/docs_command.rs"
+name = "docs_alias_ignores_an_unusable_sibling_and_uses_path"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_SIBLING_FALLBACK_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_22E1E8DEC8F529228B6E"
@@ -8882,6 +8902,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_350090613B270456A44F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/docs.rs"
+name = "docs_format_args_match_trust_dev_cli"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_DOCS_FORMAT_VALUES_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_3508EFC2ACC5AC3036EC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs"
@@ -10147,9 +10177,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/commit_command.rs"
 name = "trust_runtime_commit_alias_forwards_to_trust_dev_with_deprecation_warning"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_COMMIT_FORWARD_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_3F63F41C5FE5DCAF6DCE"
@@ -14580,6 +14610,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_5B71C768B93043E28577"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/docs_command.rs"
+name = "docs_alias_reports_an_unlaunchable_explicit_trust_dev"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_LAUNCH_ERROR_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_5B7344B729E5C62F8DE3"
@@ -19337,9 +19377,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/st_test_cli_command.rs"
 name = "trust_runtime_test_alias_forwards_to_trust_dev"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_TEST_FORWARD_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_790E7CD2B51AC6800D26"
@@ -20097,9 +20137,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/docs_command.rs"
 name = "trust_runtime_docs_alias_forwards_to_trust_dev"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_DOCS_FORWARD_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_7E1CB500E92AD2FEAB80"
@@ -25342,6 +25382,16 @@ catalog_test_id = "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_9FE842F39FA6716A1DEF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/docs_command.rs"
+name = "docs_alias_maps_a_signaled_child_to_shell_status"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_SIGNAL_STATUS_001"
+last_reviewed = "2026-07-22"
+
+[[reviews]]
 discovery_id = "DISC_A007AD886E7ABB17EF37"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/device_in_the_loop.rs"
@@ -27007,9 +27057,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/agent_command/workspace_protocol.rs"
 name = "trust_runtime_agent_alias_forwards_to_trust_dev"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_AGENT_FORWARD_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_AA27235D935E99C46EEF"
@@ -39100,6 +39150,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F5E63681C6AECF48C613"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/docs_command.rs"
+name = "docs_alias_propagates_a_normal_child_exit_code"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_ALIAS_EXIT_STATUS_001"
+last_reviewed = "2026-07-22"
 
 [[reviews]]
 discovery_id = "DISC_F5E6BE8C4339D8336286"

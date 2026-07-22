@@ -54484,11 +54484,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:c066afe84352fc6cbfe631a8cdac6af85c5efddce1a3bb428e1c1031756d9737"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -54806,11 +54806,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:5109308e826fd50dc0b227d22488b15491a490aad1da58ab34d61d5dd74c2fbc"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -55912,11 +55912,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:f6e09ce8d57e5d216bc4827438ec90c1792e44cce3213c53866e4a310c12fd12"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58752,13 +58752,13 @@ id = "RISK_ACK_96D6CA0302A933D56613A224999FB556679153C7B029DB3A0C67482C75586E63"
 code_id = "CODE_96D6CA0302A933D56613A224999FB556679153C7B029DB3A0C67482C75586E63"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:66e7d9af96491533555e6ff7f3d5900d56a56253e62f9034c2032d3369669685"
+body_digest = "sha256:80af3002f1ddf2873e4ffaa80271995aa7a097f0e980c1422d983fac373d6c8d"
 risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -59860,11 +59860,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:383cf34c8b8e00b763e94b6fe0de3cc262f25395ba337ea91fb21740c918e7ee"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -62154,13 +62154,13 @@ id = "RISK_ACK_F4FAAFB54CD38AB68488158C9344DF4E03BF81A30C58A4DCFCA9CC292F5920B0"
 code_id = "CODE_F4FAAFB54CD38AB68488158C9344DF4E03BF81A30C58A4DCFCA9CC292F5920B0"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:14268198c8cf6f0ec6a0c793ba657114961beedd05c7324caba6132c520c5ff0"
+body_digest = "sha256:9f1fee67e3caa88cd4ba606799d220a798c3b6a1e8c1c12f6302b229a1f8f897"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81285,3 +81285,16 @@ reviewed_by = "verification"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges the conservative parser-derived risk signals for this exact Phase 18 assertion-reachability control-plane body. Closed schemas, exact bindings, clean-source execution, raw-output reconstruction, and report-only debt preservation remain enforced; this acknowledgement suppresses no finding."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_33670C52F155E81D45E27A4B26F58FB890CC6D4AAE71A85FE529C4AEA94B0CE6"
+code_id = "CODE_33670C52F155E81D45E27A4B26F58FB890CC6D4AAE71A85FE529C4AEA94B0CE6"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e226ff1662f7f18b02d1c788487e6ab9f566163eed4488a6d09eac0148565910"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/specs/22-developer-workflows.md#deprecated-runtime-workbench-aliases"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-22"
+expires_on = "2026-10-22"
+rationale = "Acknowledges the scanner-derived filesystem and environment risk for exact trust-dev executable eligibility; the specified mapping binds it to reviewed selection, fallback, and launch-failure tests without suppressing the risk."

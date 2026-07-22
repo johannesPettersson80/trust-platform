@@ -43,3 +43,16 @@ fn test_output_arg(output: TestOutput) -> &'static str {
         TestOutput::Json => "json",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_output_args_match_trust_dev_cli() {
+        assert_eq!(test_output_arg(TestOutput::Human), "human");
+        assert_eq!(test_output_arg(TestOutput::Junit), "junit");
+        assert_eq!(test_output_arg(TestOutput::Tap), "tap");
+        assert_eq!(test_output_arg(TestOutput::Json), "json");
+    }
+}

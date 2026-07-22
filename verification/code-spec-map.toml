@@ -199862,10 +199862,12 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_07C0C58016172FF7F387292DF6315BD6C20460874E415B41E61BAF53576C237E"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_TEST_FORWARD_001", "TEST_RUNTIME_ALIAS_TEST_OUTPUT_VALUES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -201055,10 +201057,12 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_12E262F10146ABF36B609A9A292A207014364BFB6354B6202428E6EF441963F7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_AGENT_FORWARD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -205210,10 +205214,12 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_399387AC4B4D9C520C3EB53B1C5C4EF37F002A5A939BE1EFDA56EF928B6974A0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_COMMIT_FORWARD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -213381,9 +213387,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_TEST_FORWARD_001", "TEST_RUNTIME_ALIAS_TEST_OUTPUT_VALUES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -215920,16 +215928,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/dev_forward.rs"
 qualified_symbol = "trust_runtime::dev_forward::run_trust_dev_with_warning"
 item_kind = "rust_function"
 signature_digest = "sha256:17c39f3f306cc50ce05fdba931360f55cb4b01acfcf7fb2f236e3c2b91088d8a"
-reviewed_body_digest = "sha256:66e7d9af96491533555e6ff7f3d5900d56a56253e62f9034c2032d3369669685"
+reviewed_body_digest = "sha256:80af3002f1ddf2873e4ffaa80271995aa7a097f0e980c1422d983fac373d6c8d"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
 owner_ack = "RISK_ACK_96D6CA0302A933D56613A224999FB556679153C7B029DB3A0C67482C75586E63"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_DOCS_FORWARD_001", "TEST_RUNTIME_ALIAS_SIBLING_FALLBACK_001", "TEST_RUNTIME_ALIAS_SIGNAL_STATUS_001", "TEST_RUNTIME_ALIAS_EXIT_STATUS_001", "TEST_RUNTIME_ALIAS_LAUNCH_ERROR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -219885,10 +219895,12 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_B6281694DDA7179D1B46AE0FAA1E81566123B6D1770B8583EF5B0EF42F4E7186"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_DOCS_FORWARD_001", "TEST_RUNTIME_ALIAS_DOCS_FORMAT_VALUES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -220928,9 +220940,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_AGENT_FORWARD_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -227208,9 +227222,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_DOCS_FORWARD_001", "TEST_RUNTIME_ALIAS_DOCS_FORMAT_VALUES_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -227472,16 +227488,18 @@ path = "crates/trust-runtime/src/bin/trust-runtime/dev_forward.rs"
 qualified_symbol = "trust_runtime::dev_forward::resolve_trust_dev_binary"
 item_kind = "rust_function"
 signature_digest = "sha256:9b9b2dea064d2b89e7356dd0d45cfa1117d7e172d99870c1888d2ee1adde9e17"
-reviewed_body_digest = "sha256:14268198c8cf6f0ec6a0c793ba657114961beedd05c7324caba6132c520c5ff0"
+reviewed_body_digest = "sha256:9f1fee67e3caa88cd4ba606799d220a798c3b6a1e8c1c12f6302b229a1f8f897"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_F4FAAFB54CD38AB68488158C9344DF4E03BF81A30C58A4DCFCA9CC292F5920B0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_DOCS_FORWARD_001", "TEST_RUNTIME_ALIAS_SIBLING_FALLBACK_001", "TEST_RUNTIME_ALIAS_SIGNAL_STATUS_001", "TEST_RUNTIME_ALIAS_EXIT_STATUS_001", "TEST_RUNTIME_ALIAS_LAUNCH_ERROR_001"]
+last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
@@ -272193,4 +272211,24 @@ disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#phase-18-zero-debt-substrate-contract"
 invariant_ids = ["VERIFICATION_P18_ZERO_DEBT_SUBSTRATE_001"]
 test_ids = ["TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"]
+last_reviewed = "2026-07-22"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_33670C52F155E81D45E27A4B26F58FB890CC6D4AAE71A85FE529C4AEA94B0CE6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/dev_forward.rs"
+qualified_symbol = "trust_runtime::dev_forward::is_executable_regular_file"
+item_kind = "rust_function"
+signature_digest = "sha256:53e2c56b030e2ca8a5423e3b6262f25f840b97b454c713fc13c3f9cb7fa8d498"
+reviewed_body_digest = "sha256:e226ff1662f7f18b02d1c788487e6ab9f566163eed4488a6d09eac0148565910"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_33670C52F155E81D45E27A4B26F58FB890CC6D4AAE71A85FE529C4AEA94B0CE6"
+owner_ack_expires_on = "2026-10-22"
+disposition = "specified"
+spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#deprecated-runtime-workbench-aliases"
+invariant_ids = ["RT_WORKBENCH_ALIAS_FORWARDING_001"]
+test_ids = ["TEST_RUNTIME_ALIAS_DOCS_FORWARD_001", "TEST_RUNTIME_ALIAS_SIBLING_FALLBACK_001", "TEST_RUNTIME_ALIAS_SIGNAL_STATUS_001", "TEST_RUNTIME_ALIAS_EXIT_STATUS_001", "TEST_RUNTIME_ALIAS_LAUNCH_ERROR_001"]
 last_reviewed = "2026-07-22"

@@ -72,6 +72,32 @@ the command preserves that failure and must not substitute the current
 directory as an invented project. This applies to package-registry publish and
 other optional-project workflows.
 
+## Deprecated runtime workbench aliases
+
+`trust-runtime test`, `trust-runtime docs`, `trust-runtime commit`, and
+`trust-runtime agent serve` are compatibility aliases for the identically
+named `trust-dev` workbench commands. Each alias preserves all selected paths,
+text values, flags, timeouts, and output/format choices as operating-system
+arguments. Test output values are `human`, `junit`, `tap`, or `json`; docs
+format values are `markdown`, `html`, or `both`.
+
+Before starting the child command, every alias writes a deprecation warning to
+standard error that names both commands and the removal-not-before date
+2026-10-05. Removing an alias requires a separate behavior-change release.
+
+The child executable is selected in this order: an explicit `TRUST_DEV_BIN`
+path, an executable regular-file `trust-dev` sibling of the current
+`trust-runtime` binary, then `trust-dev` from `PATH`. A directory,
+non-executable file, or other unusable sibling must not shadow a usable PATH
+command. An explicit but unlaunchable path fails with installation guidance;
+it is not silently replaced by another executable.
+
+The child inherits the alias process streams so interactive and machine
+protocols remain usable. Child success returns success, a normal non-zero exit
+status is propagated exactly, and on Unix signal termination maps to the
+conventional `128 + signal` status. A launch failure or a termination without
+a representable status is an explicit command error rather than success.
+
 ## Project-Scoped Commit
 
 `trust-dev commit --project <path>` owns only the selected project path. Before
