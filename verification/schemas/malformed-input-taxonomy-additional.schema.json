@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/malformed-input-taxonomy-additional.schema.json",
+  "title": "truST additional malformed-input taxonomy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "area",
+    "surface_id",
+    "review_doc",
+    "last_reviewed",
+    "classes"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "area": { "type": "string", "minLength": 1 },
+    "surface_id": { "type": "string", "minLength": 1 },
+    "review_doc": { "type": "string", "minLength": 1 },
+    "last_reviewed": { "type": "string", "minLength": 1 },
+    "classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/class" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "class": {
+      "type": "object",
+      "required": ["id", "title", "disposition", "rationale"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "disposition": {
+          "enum": ["required", "spec_gap", "blocked", "deferred", "not_applicable"]
+        },
+        "oracle_ref": { "type": "string", "minLength": 1 },
+        "spec_gap_ref": { "type": "string", "minLength": 1 },
+        "blocker_ref": { "type": "string", "minLength": 1 },
+        "decision_ref": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

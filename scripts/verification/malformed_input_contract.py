@@ -16,6 +16,10 @@ from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS
 
 TAXONOMY_PATH = "verification/malformed-input-taxonomy.toml"
 TAXONOMY_SCHEMA_PATH = "verification/schemas/malformed-input-taxonomy.schema.json"
+ADDITIONAL_TAXONOMY_DIR = "verification/malformed-input-taxonomies"
+ADDITIONAL_TAXONOMY_SCHEMA_PATH = (
+    "verification/schemas/malformed-input-taxonomy-additional.schema.json"
+)
 ALLOWED_DISPOSITIONS = {"required", "spec_gap", "blocked", "deferred", "not_applicable"}
 ALLOWED_MALFORMED_TEST_CLASSES = {"negative_malformed_input", "fuzz"}
 CLASS_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -42,22 +46,49 @@ def load_malformed_input_taxonomy(root: Path) -> dict[str, Any]:
     return tomllib.loads((root / TAXONOMY_PATH).read_text())
 
 
-def validate_malformed_input_contract(root: Path, taxonomy: Mapping[str, Any]) -> list[str]:
+def load_catalog_malformed_input_taxonomies(root: Path) -> list[dict[str, Any]]:
+    """Load the pilot plus every explicitly reviewed area taxonomy."""
+
+    taxonomies = [load_malformed_input_taxonomy(root)]
+    directory = root / ADDITIONAL_TAXONOMY_DIR
+    if directory.exists():
+        taxonomies.extend(
+            tomllib.loads(path.read_text())
+            for path in sorted(directory.glob("*.toml"))
+            if path.is_file() and not path.is_symlink()
+        )
+    return taxonomies
+
+
+def validate_malformed_input_contract(
+    root: Path,
+    taxonomy: Mapping[str, Any],
+    *,
+    additional: bool = False,
+) -> list[str]:
     """Validate schema, semantics, references, and review-document drift."""
 
     failures: list[str] = []
-    schema_path = root / TAXONOMY_SCHEMA_PATH
+    schema_path = root / (
+        ADDITIONAL_TAXONOMY_SCHEMA_PATH if additional else TAXONOMY_SCHEMA_PATH
+    )
     try:
         schema = json.loads(schema_path.read_text())
     except Exception as exc:
         return [f"malformed-input taxonomy schema cannot be read: {exc}"]
-    failures.extend(validate_taxonomy_schema_contract(schema))
+    if additional:
+        failures.extend(validate_additional_taxonomy_schema_contract(schema))
+    else:
+        failures.extend(validate_taxonomy_schema_contract(schema))
     failures.extend(validate_json_schema_instance(dict(taxonomy), schema))
     if set(taxonomy) != ROOT_FIELDS:
         failures.append("malformed-input taxonomy root fields drift from contract")
-    if taxonomy.get("area") != "bytecode_vm":
+    if not additional and taxonomy.get("area") != "bytecode_vm":
         failures.append("malformed-input taxonomy v1 must remain bytecode_vm-only")
-    if taxonomy.get("surface_id") != "bytecode_container_instruction_stream":
+    if (
+        not additional
+        and taxonomy.get("surface_id") != "bytecode_container_instruction_stream"
+    ):
         failures.append("malformed-input taxonomy v1 uses an unknown surface")
 
     classes = taxonomy.get("classes")
@@ -135,6 +166,62 @@ def validate_malformed_input_contract(root: Path, taxonomy: Mapping[str, Any]) -
     return failures
 
 
+def validate_additional_taxonomy_schema_contract(
+    schema: Mapping[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    check_supported_schema_keywords(dict(schema), "$", failures)
+    if schema.get("type") != "object" or schema.get("additionalProperties") is not False:
+        failures.append("additional malformed-input taxonomy schema root must be closed")
+    if set(schema.get("required", [])) != ROOT_FIELDS:
+        failures.append("additional malformed-input taxonomy schema required fields drift")
+    properties = schema.get("properties", {})
+    if not isinstance(properties, Mapping):
+        return [*failures, "additional malformed-input taxonomy schema properties are missing"]
+    if properties.get("schema_version", {}).get("const") != 1:
+        failures.append("additional malformed-input taxonomy schema version drifts")
+    for field in ("id", "area", "surface_id", "review_doc"):
+        field_schema = properties.get(field, {})
+        if field_schema.get("type") != "string" or field_schema.get("minLength") != 1:
+            failures.append(
+                f"additional malformed-input taxonomy schema {field} must be non-empty text"
+            )
+    definitions = schema.get("$defs", {})
+    class_schema = definitions.get("class", {}) if isinstance(definitions, Mapping) else {}
+    if class_schema.get("type") != "object" or class_schema.get("additionalProperties") is not False:
+        failures.append("additional malformed-input taxonomy class schema must be closed")
+    if set(class_schema.get("required", [])) != CLASS_COMMON_FIELDS:
+        failures.append("additional malformed-input taxonomy class required fields drift")
+    dispositions = class_schema.get("properties", {}).get("disposition", {}).get("enum")
+    if set(dispositions or []) != ALLOWED_DISPOSITIONS:
+        failures.append("additional malformed-input taxonomy disposition enum drifts")
+    return failures
+
+
+def validate_catalog_malformed_bindings_for_taxonomies(
+    *,
+    tests: Mapping[str, Mapping[str, Any]],
+    taxonomies: list[Mapping[str, Any]],
+) -> list[str]:
+    """Validate catalog bindings against the complete reviewed taxonomy set."""
+
+    failures: list[str] = []
+    classes: dict[str, tuple[Mapping[str, Any], Mapping[str, Any]]] = {}
+    for taxonomy in taxonomies:
+        for item in taxonomy.get("classes", []):
+            if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+                continue
+            class_id = str(item["id"])
+            if class_id in classes:
+                failures.append(
+                    f"malformed-input class {class_id} is duplicated across taxonomies"
+                )
+            else:
+                classes[class_id] = (taxonomy, item)
+    failures.extend(_validate_catalog_malformed_bindings(tests=tests, classes=classes))
+    return failures
+
+
 def validate_taxonomy_schema_contract(schema: Mapping[str, Any]) -> list[str]:
     failures: list[str] = []
     check_supported_schema_keywords(dict(schema), "$", failures)
@@ -172,13 +259,20 @@ def validate_catalog_malformed_bindings(
 ) -> list[str]:
     """Validate explicit test-to-malformed-class bindings without inference."""
 
-    failures: list[str] = []
     classes = {
-        item.get("id"): item
+        str(item.get("id")): (taxonomy, item)
         for item in taxonomy.get("classes", [])
         if isinstance(item, Mapping) and isinstance(item.get("id"), str)
     }
-    taxonomy_area = taxonomy.get("area")
+    return _validate_catalog_malformed_bindings(tests=tests, classes=classes)
+
+
+def _validate_catalog_malformed_bindings(
+    *,
+    tests: Mapping[str, Mapping[str, Any]],
+    classes: Mapping[str, tuple[Mapping[str, Any], Mapping[str, Any]]],
+) -> list[str]:
+    failures: list[str] = []
     for test_id in sorted(tests):
         record = tests[test_id]
         class_ids = record.get("malformed_input_class_ids")
@@ -206,10 +300,12 @@ def validate_catalog_malformed_bindings(
         if len(class_ids) != len(set(class_ids)):
             failures.append(f"{test_id} duplicates malformed_input_class_ids")
         for class_id in sorted(set(class_ids)):
-            malformed_class = classes.get(class_id)
-            if malformed_class is None:
+            binding = classes.get(class_id)
+            if binding is None:
                 failures.append(f"{test_id} references unknown malformed-input class {class_id}")
                 continue
+            taxonomy, malformed_class = binding
+            taxonomy_area = taxonomy.get("area")
             if record.get("area") != taxonomy_area:
                 failures.append(
                     f"{test_id} malformed-input class {class_id} area {taxonomy_area} "

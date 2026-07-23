@@ -268,6 +268,11 @@ in `verification/malformed-input-taxonomy.md`. Catalog mappings use only
 explicit `malformed_input_class_ids`; names, paths, case IDs, and mutation
 associations never create a mapping.
 
+Additional surfaces are registered as closed, same-area taxonomy documents
+under `verification/malformed-input-taxonomies/`. Each class keeps an explicit
+oracle or gap reference and a globally unique ID; the bytecode pilot report
+does not infer coverage for these additional surfaces.
+
 ### ST Source, Lexer, Parser
 
 - invalid token bytes or characters,

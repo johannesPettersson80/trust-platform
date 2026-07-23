@@ -42791,3 +42791,23 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001"
 last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_7456611EB4EFEEADE12C"
+discovery_source_kind = "gate_script"
+path = "scripts/mutation_refresh_malformed_input_gate.py"
+name = "mutation_refresh_malformed_input_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_MUTATION_REFRESH_MALFORMED_INPUT_GATE_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_85F550D306DB958D59F2"
+discovery_source_kind = "gate_script"
+path = "scripts/mutation_refresh_regression_gate.py"
+name = "mutation_refresh_regression_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_MUTATION_REFRESH_REGRESSION_GATE_001"
+last_reviewed = "2026-07-23"
