@@ -205709,25 +205709,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
-source_kind = "rust"
-path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
-qualified_symbol = "trust_runtime::runtime::ads_subsystem::route_matches_target"
-item_kind = "rust_function"
-signature_digest = "sha256:3d3d2c6679e93e093aafe84c7415a823725601c47b91ecc607e2b1482772fecf"
-reviewed_body_digest = "sha256:14b8e4706973778de4d5832a776ae913ea29bb30ab7e12cf7c0f5409cf1d9087"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_423DE7C28E6727B98ED36EC10479D633A86025479EB7CA69FBEC973EB1DC8256"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/core/scheduling.rs"
@@ -214660,23 +214641,6 @@ qualified_symbol = "trust_runtime::scheduler::automatic_restart_backoff"
 item_kind = "rust_function"
 signature_digest = "sha256:7d3b619f47e57a991bbb8d3ea3a5d60b164ec031246e7fd7e0d1ac9948f53cfb"
 reviewed_body_digest = "sha256:c46613dea1eddc1b2b265b02490227f21c49d767bae2997e8cbf9d0872989d82"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_91EBAF396F304BF39DB1E8E7A11924294311AC37CF7D2EE8A2E842220494FEF9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
-qualified_symbol = "trust_runtime::runtime::ads_subsystem::AdsSubsystem::active_device_snapshot"
-item_kind = "rust_method"
-signature_digest = "sha256:511869359f52f1a4c709e574215b595b99f36918f5be696b32d033ff39380228"
-reviewed_body_digest = "sha256:d0d3abf33f20f2e7628b0ad636c43e9eb6b53f6bb441a2880b0eec9d7c48578d"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -274603,4 +274567,43 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
 invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
 test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
+source_kind = "rust"
+path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
+qualified_symbol = "trust_runtime::runtime::ads_subsystem::route_matches_target"
+item_kind = "rust_function"
+signature_digest = "sha256:3d3d2c6679e93e093aafe84c7415a823725601c47b91ecc607e2b1482772fecf"
+reviewed_body_digest = "sha256:e8ce627705b138b5b116912f3a49209c635cd48dabd0e883ff4912f09eb79551"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+invariant_ids = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"]
+test_ids = ["TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001", "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001", "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_91EBAF396F304BF39DB1E8E7A11924294311AC37CF7D2EE8A2E842220494FEF9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
+qualified_symbol = "trust_runtime::runtime::ads_subsystem::AdsSubsystem::active_device_snapshot"
+item_kind = "rust_method"
+signature_digest = "sha256:511869359f52f1a4c709e574215b595b99f36918f5be696b32d033ff39380228"
+reviewed_body_digest = "sha256:d0d3abf33f20f2e7628b0ad636c43e9eb6b53f6bb441a2880b0eec9d7c48578d"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+invariant_ids = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"]
+test_ids = ["TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001", "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001", "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001"]
 last_reviewed = "2026-07-23"

@@ -1236,6 +1236,16 @@ never accepted merely because a later transport happens to resolve it.
 An active-device shortcut is valid only when its target IP and AMS port, plus
 the expected AMS Net ID when supplied, identify the requested Doctor endpoint.
 A mismatched snapshot fails closed without opening a second ADS connection.
+For a configured route whose host is an IP literal, runtime active-device
+lookup therefore requires that host IP and AMS port to equal the requested
+target and, when the request supplies an expected target AMS Net ID, requires
+that identity to equal the route target AMS Net ID. A route name, target
+display name, or one matching endpoint component cannot substitute for the
+complete required match. When both the configured route and request carry a
+selected local AMS identity, those identities must also be equal. Hostname
+resolution, omitted-local-identity semantics, and selection among multiple
+exact matches remain unresolved product decisions and establish no test
+authority here.
 Read-only active-device reports derive state only from the supplied live
 snapshot: a batch-read step passes only when at least one point has good quality
 with a recorded update timestamp; no points, no timestamped good point, or any

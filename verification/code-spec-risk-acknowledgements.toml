@@ -55808,20 +55808,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
-code_id = "CODE_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:14b8e4706973778de4d5832a776ae913ea29bb30ab7e12cf7c0f5409cf1d9087"
-risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_423DE7C28E6727B98ED36EC10479D633A86025479EB7CA69FBEC973EB1DC8256"
 code_id = "CODE_423DE7C28E6727B98ED36EC10479D633A86025479EB7CA69FBEC973EB1DC8256"
 owner = "trust-runtime"
@@ -81579,3 +81565,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2026-10-23"
 rationale = "Binds live ADS server Doctor orchestration and loopback parsing facts to the fail-closed evidence-truth contract and its focused tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
+code_id = "CODE_421F8C72E9A34DB4964DC375C4DF7BA11F2B89F04F01DD3A0EFD35DCBC46B326"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e8ce627705b138b5b116912f3a49209c635cd48dabd0e883ff4912f09eb79551"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS active-device selection facts to the exact IP-literal endpoint-matching contract and focused route-selection tests."

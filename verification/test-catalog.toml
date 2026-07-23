@@ -19259,3 +19259,74 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_197779F9246D3ACBFDA1"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
+name = "active_device_snapshot_matches_configured_route_without_socket_io"
+command = "cargo test -p trust-runtime --lib runtime::ads_subsystem::tests::active_device_snapshot_matches_configured_route_without_socket_io -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+expected_result = "An exact configured IP-literal route projects its live active-device snapshot without opening another ADS connection."
+expected_failure_mode = "An exact live route is rejected or requires duplicate wire activity."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_37F65E38AFD9E651B767"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
+name = "active_device_snapshot_rejects_partial_target_matches"
+command = "cargo test -p trust-runtime --lib runtime::ads_subsystem::tests::active_device_snapshot_rejects_partial_target_matches -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+expected_result = "Wrong host, wrong supplied target AMS identity, wrong AMS port, and a wrong both-present local AMS identity each reject active-device reuse."
+expected_failure_mode = "One matching endpoint component or a mismatched selected local identity is sufficient to reuse another ADS route."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D08E2DF20D6257B6BB10"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
+name = "active_device_snapshot_skips_partial_match_and_selects_later_exact_route"
+command = "cargo test -p trust-runtime --lib runtime::ads_subsystem::tests::active_device_snapshot_skips_partial_match_and_selects_later_exact_route -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+expected_result = "An earlier partial candidate is skipped and a later exact route is selected."
+expected_failure_mode = "First-match ordering allows a partial route to shadow a later exact route."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001.json"
+last_reviewed = "2026-07-23"

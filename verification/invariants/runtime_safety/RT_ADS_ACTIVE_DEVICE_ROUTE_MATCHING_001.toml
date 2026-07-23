@@ -1,0 +1,86 @@
+schema_version = 1
+id = "RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001"
+title = "ADS active-device reuse requires exact IP-literal endpoint authority"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "An IP-literal configured ADS route can supply active-device state only when its host IP and AMS port match the request together, its target AMS identity matches when supplied, and both-present local identities agree; partial endpoint matches cannot shadow a later exact route."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/runtime/ads_subsystem.rs"]
+tests = [
+  "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001",
+  "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001",
+  "TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "hostname_resolution_policy", "omitted_local_identity_policy", "duplicate_exact_endpoint_policy"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+
+[[behavior]]
+partition = { equals = "EXACT_IP_PORT_TARGET_AND_BOTH_PRESENT_LOCAL_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete exact IP-literal route may project its existing live bridge snapshot without opening a new wire connection."
+
+[[behavior]]
+partition = { equals = "ONE_OR_MORE_REQUIRED_ENDPOINT_COMPONENTS_DIFFER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "Wrong host, AMS port, supplied target AMS identity, or both-present local identity cannot identify the requested active device."
+
+[[behavior]]
+partition = { equals = "EARLIER_PARTIAL_ROUTE_PRECEDES_LATER_EXACT_ROUTE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A partial candidate is skipped so the later exact route supplies the active-device snapshot."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The existing positive lock proves exact route reuse without socket activity."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "A focused table rejects wrong host, wrong target AMS identity, and wrong AMS port partial matches."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "A focused ordering lock skips an earlier partial candidate and selects the later exact route."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Hostname resolution and canonical comparison policy remain unresolved."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "The meaning of an omitted local identity remains unresolved."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Selection or rejection among multiple exact endpoint matches remains unresolved."

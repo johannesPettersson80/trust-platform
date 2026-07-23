@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: active ADS device lookup now requires an IP-literal route's
+  host, AMS port, and supplied target AMS identity to identify the same Doctor
+  target instead of accepting a partial endpoint match.
 - trust-runtime: the ADS server Doctor now derives health from the live server
   symbol table, rejects blank external proof and zero handles, requires complete
   notification samples, and rejects response-direction or endpoint identity
