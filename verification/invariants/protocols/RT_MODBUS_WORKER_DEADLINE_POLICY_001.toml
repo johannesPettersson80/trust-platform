@@ -1,0 +1,118 @@
+schema_version = 1
+id = "RT_MODBUS_WORKER_DEADLINE_POLICY_001"
+title = "Modbus worker deadlines preserve configured error policy"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "A Modbus input or output handoff that misses its scan deadline faults and returns an error under fault policy, while warn and ignore return degraded success; faulted input does not copy a cached snapshot and timed-out output remains queued, while completed loopback and runtime safe-state handoffs remain successful controls."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/io/modbus/worker.rs"]
+tests = [
+  "TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001",
+  "TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001",
+  "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_DRIVER_READS_AND_WRITES_DEFAULT_REGISTER_FUNCTIONS_001",
+  "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001",
+  "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "broad_modbus_worker_facts", "completed_transport_failure_policy", "input_snapshot_length_and_zero_fill", "pending_output_replacement_and_result_correlation", "output_reconnect_backoff", "sequence_wrap", "worker_shutdown_join", "concurrency_and_timing_stress", "external_modbus_target"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+
+[[behavior]]
+partition = { equals = "FAULT_INPUT_REFRESH_DEADLINE_WITH_CACHE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "The timed-out call returns an error with faulted health before cached bytes can mutate the caller."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_INPUT_REFRESH_DEADLINE_WITH_CACHE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore may copy the last accepted snapshot while reporting degraded health."
+
+[[behavior]]
+partition = { equals = "FAULT_OUTPUT_HANDOFF_DEADLINE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "The timed-out call faults while the already queued asynchronous output remains pending."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_OUTPUT_HANDOFF_DEADLINE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore return degraded success while the asynchronous output remains queued."
+
+[[behavior]]
+partition = { equals = "COMPLETED_DEFAULT_REGISTER_LOOPBACK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A completed default-register input and output exchange remains the positive protocol control for deadline handling."
+
+[[behavior]]
+partition = { equals = "FAULT_COLD_START_NO_SNAPSHOT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A real worker with no first snapshot faults without inventing input bytes under fault policy."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_COLD_START_NO_SNAPSHOT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "A real worker with no first snapshot returns degraded success without inventing input bytes under warn or ignore."
+
+[[behavior]]
+partition = { equals = "COMPLETED_RUNTIME_SAFE_STATE_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The runtime-to-driver-to-loopback path confirms a completed safe-state register delivery within the scan bound."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Existing default-register loopback and runtime safe-state handoff tests retain completed transport controls."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "covered"
+rationale = "Focused input and output matrices cover fault, warn, and ignore at the scan deadline."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "External Modbus target proof remains open."

@@ -49424,20 +49424,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
-code_id = "CODE_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:518966232081d97b6f08492d011150b71b12769d39118faed0ac623a4c7b88d1"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_591D8AA983ECE21E17DDF1B76760EF0B6DC68EFA6B58ACA20E6DD92C97407178"
 code_id = "CODE_591D8AA983ECE21E17DDF1B76760EF0B6DC68EFA6B58ACA20E6DD92C97407178"
 owner = "trust-runtime"
@@ -49724,20 +49710,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:f2235b45247cde97406b7a38ef90ccf6a6dc0503f65b177a2441e5103153d13a"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
-code_id = "CODE_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:a5db336c4d3c8ff92cc5c4f58e5eb0ccbad6ff8f6d9d2347bc87c6284e3f2982"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50970,20 +50942,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:5cdeb6872963dca9d2cbfdc366373a756e72046962b2eeb9fa199c0930e066c6"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
-code_id = "CODE_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:b7ee881e0cb4bf09067025277c6a0b7d08c17b82fb93d69a2204af0c85a6a16e"
-risk_signals = ["protocol_response_or_status"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81824,3 +81782,44 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "A malformed direct address accepted as a wildcard or concrete location can bind I/O to unintended authority."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
+code_id = "CODE_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:2314de7a4ec672770287432cd4ef91ef5e3fb4191b166021e492f8af60c31ef1"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
+code_id = "CODE_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:f7139f1e64e12d6f4d5075d44fdbeea72b401cb3d2928d2a7779424db9fe01af"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
+code_id = "CODE_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:c6d76276980699fdc123319c6c11b30301926b75c62bfa749ef71da136398e62"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."

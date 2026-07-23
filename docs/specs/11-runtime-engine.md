@@ -303,6 +303,38 @@ projected through the existing `IoDriverHealth` surface rather than a parallel
 status model. Output handoff is level/latest-value semantics for `%Q`, not an
 edge or pulse delivery guarantee.
 
+##### Modbus default-fault and deadline integrity
+
+The Modbus background worker uses a fixed scan-side deadline for input refresh
+and output handoff. Missing that deadline applies the configured `on_error`
+policy at the synchronous `IoDriver` boundary:
+
+- With `fault`, an incomplete input refresh sets `Faulted`, records
+  `modbus input refresh pending`, returns `IoTransport`, and leaves the caller's
+  input bytes unchanged even when an older accepted snapshot is cached.
+- With `warn` or `ignore`, the same incomplete input refresh sets `Degraded`,
+  records the pending-refresh diagnostic, and returns success. If an accepted
+  snapshot exists, it may be copied according to the normal snapshot-shaping
+  rules; absence of a snapshot does not invent input bytes.
+- With `fault`, an output handoff that remains incomplete at the deadline sets
+  `Faulted`, records `modbus output handoff pending`, and returns `IoTransport`.
+  With `warn` or `ignore`, it sets `Degraded` and returns success.
+- A timed-out output was already accepted into the asynchronous level/latest
+  handoff. Deadline reporting does not cancel that pending or in-flight output;
+  a later worker result governs its eventual transport outcome.
+
+The positive controls for this deadline contract are a completed default
+register loopback through the worker and a runtime safe-state handoff confirmed
+by the worker and observed at the Modbus peer. Cold-start coverage must exercise
+all three policies before any first snapshot exists and must leave caller bytes
+unchanged when no accepted snapshot is available.
+
+These deadline rules do not replace the separate policy projection for a
+completed transport operation. They define only the scan-side result while the
+requested worker sequence remains incomplete. This is a truST Modbus runtime
+contract outside IEC 61131-3, so it is neither an IEC decision nor an IEC
+deviation.
+
 Driver error handling is configurable per driver:
 - `fault`: return an error and fault the resource.
 - `warn`: keep the resource running; driver health becomes **degraded**.

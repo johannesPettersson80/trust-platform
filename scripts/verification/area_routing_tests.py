@@ -116,6 +116,7 @@ class AreaRoutingTests(unittest.TestCase):
 
                 self.assertEqual(result.route_ids, ("direct_address_parser",))
                 self.assertEqual(result.area_ids, ("runtime_safety",))
+                self.assertIn("negative_malformed_input", result.required_test_classes)
                 self.assertNotIn("protocol_loopback", result.required_test_classes)
 
     def test_single_star_wildcard_does_not_cross_path_segments(self) -> None:

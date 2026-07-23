@@ -214,6 +214,16 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         self.assertIn("metadata_validation", result.required_test_classes)
         self.assertNotIn("metadata_validation", result.missing_test_classes)
 
+    def test_bugfix_does_not_invent_malformed_input_for_non_parser_surface(self) -> None:
+        result = self.planner.plan(
+            "bugfix",
+            ["crates/trust-runtime/src/io/modbus/worker.rs"],
+            None,
+            None,
+        )
+
+        self.assertNotIn("negative_malformed_input", result.required_test_classes)
+
     def test_conditional_suites_are_reported_but_not_promoted(self) -> None:
         result = self.planner.plan(
             "bugfix",

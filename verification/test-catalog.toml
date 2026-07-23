@@ -21988,3 +21988,122 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_IEC_6_5_5_2_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F71FD4244E231373CC1B"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/io/modbus/worker.rs"
+name = "input_deadline_follows_error_policy_without_fault_copy"
+command = "cargo test -p trust-runtime --lib io::modbus::worker::tests::input_deadline_follows_error_policy_without_fault_copy -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+expected_result = "Fault rejects an incomplete cached input refresh without copying bytes, while warn and ignore copy the last accepted snapshot and return degraded success."
+expected_failure_mode = "A deadline copies stale input under fault, reports false success, or loses degraded health under warn or ignore."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9A385C52E8EA2DBD2BF4"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/io/modbus/worker.rs"
+name = "output_deadline_follows_error_policy_without_cancelling_handoff"
+command = "cargo test -p trust-runtime --lib io::modbus::worker::tests::output_deadline_follows_error_policy_without_cancelling_handoff -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+expected_result = "Fault rejects an incomplete output handoff while warn and ignore return degraded success, and every policy leaves the accepted output queued."
+expected_failure_mode = "An output deadline ignores the configured policy, reports false success under fault, or cancels the accepted asynchronous handoff."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_DRIVER_READS_AND_WRITES_DEFAULT_REGISTER_FUNCTIONS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_99C2FF0BA7EA7EADF15C"
+discovery_source_kind = "rust_integration_test"
+test_class = "protocol_loopback"
+area = "protocols"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_driver_reads_and_writes_default_register_functions"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_driver_reads_and_writes_default_register_functions -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+expected_result = "The local Modbus TCP loopback exchanges default input and output registers successfully through the worker-backed driver."
+expected_failure_mode = "A completed default register read or write fails, uses the wrong wire value, or never reaches the loopback peer."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_DRIVER_READS_AND_WRITES_DEFAULT_REGISTER_FUNCTIONS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_711C040BD66EBFF93B84"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "protocols"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_cold_start_no_data_follows_on_error_policy"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_cold_start_no_data_follows_on_error_policy -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+expected_result = "Before the first snapshot, fault returns an error and Faulted health while warn and ignore return bounded degraded success without inventing input bytes."
+expected_failure_mode = "Cold-start no-data handling violates the configured policy, blocks beyond the scan bound, or invents a process-image value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_41FCECEDF690EB121E27"
+discovery_source_kind = "rust_integration_test"
+test_class = "runtime_vertical"
+area = "protocols"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+expected_result = "The runtime safe-state interface hands a Modbus output through the worker, receives confirmation within the bound, and the loopback device observes the expected register."
+expected_failure_mode = "The runtime claims completion before the worker confirms delivery, exceeds the scan bound, or the loopback device observes the wrong safe value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001.json"
+last_reviewed = "2026-07-23"

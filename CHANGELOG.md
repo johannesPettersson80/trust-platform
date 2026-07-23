@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: Modbus worker input and output deadline results now preserve
+  the configured `fault`, `warn`, or `ignore` policy; faulted stale input no
+  longer copies a cached snapshot, and timed-out output remains queued.
 - trust-runtime: direct-address parsing now rejects sized, suffixed, spaced,
   and otherwise malformed IEC wildcard forms, plus signed or non-decimal
   address components such as `%IW+1`, instead of accepting partial or

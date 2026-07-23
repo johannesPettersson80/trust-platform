@@ -233,7 +233,7 @@ match_kind = "path"
 area_ids = ["runtime_safety"]
 path_globs = ["crates/trust-runtime/src/io/addressing.rs", "crates/trust-runtime/tests/io_address.rs", "crates/trust-runtime/tests/io_hierarchy.rs"]
 intents = []
-required_test_classes = ["unit", "integration", "runtime_vertical"]
+required_test_classes = ["unit", "integration", "runtime_vertical", "negative_malformed_input"]
 suite_tiers = ["pr"]
 conditional_suite_tiers = []
 notes = "Direct-address parsing is a runtime safety boundary; malformed-input proof applies without inventing a protocol loopback."
@@ -460,7 +460,7 @@ notes = "Intent overlay; changed paths retain their owning canonical areas."
 
 [[intent_requirements]]
 intent = "bugfix"
-required_test_classes = ["failing_regression", "negative_malformed_input", "metadata_validation"]
+required_test_classes = ["failing_regression", "metadata_validation"]
 red_required = true
 lock_required = false
 
