@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -57,6 +58,29 @@ class GateInventoryTests(unittest.TestCase):
         self.assertEqual(
             {record["discovery_id"] for record in live},
             live_discovery_ids(ROOT),
+        )
+        supporting_suite = tomllib.loads(
+            (ROOT / "verification/suites/supporting-local.toml").read_text()
+        )
+        mutation_refresh_paths = {
+            "scripts/mutation_refresh_malformed_input_gate.py",
+            "scripts/mutation_refresh_regression_gate.py",
+        }
+        mutation_refresh_records = [
+            record
+            for record in records.values()
+            if record["path"] in mutation_refresh_paths
+        ]
+        self.assertEqual(
+            {record["path"] for record in mutation_refresh_records},
+            mutation_refresh_paths,
+        )
+        self.assertTrue(
+            all(record["disposition"] == "supporting" for record in mutation_refresh_records)
+        )
+        self.assertTrue(
+            {record["id"] for record in mutation_refresh_records}
+            <= set(supporting_suite["inventory_ids"])
         )
 
     def test_missing_invented_and_duplicate_live_facts_fail_closed(self) -> None:

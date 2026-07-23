@@ -11,6 +11,8 @@ environment = "local"
 commands = []
 command_bindings = []
 inventory_ids = [
+  "GATE_SCRIPT_MUTATION_REFRESH_MALFORMED_INPUT",
+  "GATE_SCRIPT_MUTATION_REFRESH_REGRESSION",
   "GATE_SCRIPT_PREPUSH_CI",
   "GATE_SCRIPT_SALSA_SPIKE",
 ]
