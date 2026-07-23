@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/test-catalog-mapping-review-selection.schema.json",
+  "title": "ID-free semantic mapping review selection",
+  "type": "object",
+  "required": ["schema_version", "proposal_queue_digest", "reviews"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "proposal_queue_digest": { "$ref": "#/$defs/digest" },
+    "reviews": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/review" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "positive_indices": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "uniqueItems": true
+    },
+    "reviewers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "review": {
+      "oneOf": [
+        { "$ref": "#/$defs/accepted" },
+        { "$ref": "#/$defs/rejected" }
+      ]
+    },
+    "accepted": {
+      "type": "object",
+      "required": [
+        "proposal_index",
+        "outcome",
+        "reviewer_ids",
+        "selected_invariant_indices",
+        "oracle_bindings",
+        "setup_assertion_indices",
+        "non_oracle_assertion_indices",
+        "confirm_generated_catalog",
+        "requires_network"
+      ],
+      "properties": {
+        "proposal_index": { "type": "integer", "minimum": 1 },
+        "outcome": { "const": "accepted" },
+        "reviewer_ids": { "$ref": "#/$defs/reviewers" },
+        "selected_invariant_indices": {
+          "$ref": "#/$defs/positive_indices",
+          "minItems": 1
+        },
+        "oracle_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/oracle_binding" },
+          "minItems": 1
+        },
+        "setup_assertion_indices": { "$ref": "#/$defs/positive_indices" },
+        "non_oracle_assertion_indices": { "$ref": "#/$defs/positive_indices" },
+        "confirm_generated_catalog": { "const": true },
+        "requires_network": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "oracle_binding": {
+      "type": "object",
+      "required": ["assertion_index", "behavior_indices"],
+      "properties": {
+        "assertion_index": { "type": "integer", "minimum": 1 },
+        "behavior_indices": {
+          "$ref": "#/$defs/positive_indices",
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "rejected": {
+      "type": "object",
+      "required": [
+        "proposal_index",
+        "outcome",
+        "reviewer_ids",
+        "rejection_reason"
+      ],
+      "properties": {
+        "proposal_index": { "type": "integer", "minimum": 1 },
+        "outcome": { "const": "rejected" },
+        "reviewer_ids": { "$ref": "#/$defs/reviewers" },
+        "rejection_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

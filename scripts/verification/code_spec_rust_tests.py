@@ -97,6 +97,9 @@ class RustAdapterTests(unittest.TestCase):
         self.assertEqual("runtime_safety", code_fact.area)
         self.assertEqual("trust-runtime", code_fact.owner)
         self.assertEqual(("example:example:lib",), inventory.cargo_bindings[code_fact.code_id])
+        self.assertEqual(path, inventory.spans[code_fact.code_id].path)
+        self.assertEqual(0, inventory.spans[code_fact.code_id].body_start)
+        self.assertEqual(len(body), inventory.spans[code_fact.code_id].body_end)
 
     def test_unsafe_fact_gets_closed_risk_signal(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

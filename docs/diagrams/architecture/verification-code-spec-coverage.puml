@@ -1,5 +1,5 @@
 @startuml
-title Phase 17 Production Code-to-Spec Coverage
+title Phase 17 Code-to-Spec Coverage + Phase 18 Test-Mapping Accelerator
 
 skinparam componentStyle rectangle
 skinparam shadowing false
@@ -31,6 +31,24 @@ package "Reviewed verification graph" {
   [exact semantic join] as Join
 }
 
+package "Live test denominator" {
+  [test scanners] as TestScanners
+  database "Stable DISC facts" as TestFacts
+}
+
+package "Execution-guided mapping accelerator" {
+  [Rust nextest + LLVM profiles] as RustTrace
+  [direct ST / conformance adapter] as DirectTrace
+  [VS Code c8 adapter] as VsCodeTrace
+  [structural explicit route] as StructuralTrace
+  database "source-bound per-test trace" as Trace
+  [deterministic candidate + demand join] as CandidateJoin
+  database "quarantined proposals\nC1 / C2 / C3" as Proposals
+  database "review decisions" as Decisions
+  [exact assertion-to-oracle review] as SemanticReview
+  [recoverable atomic catalog transaction] as CatalogTransaction
+}
+
 package "Existing enforcement path" {
   [canonical JSON + Markdown report] as Report
   [report / changed / full policy] as Policy
@@ -41,6 +59,8 @@ package "Existing enforcement path" {
 
 [full software map] as SoftwareMap
 [primary metadata validator] as MetadataGate
+[test-catalog.toml] as TestCatalog
+[test-catalog-denominator.toml] as TestDenominator
 
 RustUniverse --> RustExtractor
 TsUniverse --> TsExtractor
@@ -60,6 +80,28 @@ FragmentResolver --> Join : exact heading anchors
 VerificationGraph --> Join
 FuzzInventory --> Join : direct surface area
 AreaOwners --> Join : canonical owner for area
+TestScanners --> TestFacts
+TestFacts --> RustTrace
+TestFacts --> DirectTrace
+TestFacts --> VsCodeTrace
+TestFacts --> StructuralTrace
+RustTrace --> Trace
+DirectTrace --> Trace
+VsCodeTrace --> Trace
+StructuralTrace --> Trace
+Trace --> CandidateJoin : observed CODE identities only
+Facts --> CandidateJoin
+Map --> CandidateJoin : specified invariant joins
+Specs --> CandidateJoin : spec-gap demand
+VerificationGraph --> CandidateJoin : oracle-backed behavior rows
+CandidateJoin --> Proposals : ranking signals only
+Proposals --> SemanticReview
+Decisions --> CandidateJoin : suppress unchanged rejection
+SemanticReview --> Decisions
+SemanticReview --> CatalogTransaction : explicit accepted batch only
+CatalogTransaction --> TestCatalog
+CatalogTransaction --> TestDenominator
+CatalogTransaction --> Decisions
 Join --> Report
 Report --> Policy
 Policy --> Gate
@@ -72,6 +114,22 @@ Map --> MetadataGate : static schema validation
 RiskAcks --> MetadataGate : closed schema validation
 Debt --> MetadataGate : static schema validation
 PrivateInputs --> MetadataGate : schema + live digest
+Proposals --> MetadataGate : quarantine + staleness validation
+Decisions --> MetadataGate : closed decision schema
+TestCatalog --> VerificationGraph
+TestDenominator --> Report : reviewed live denominator
+
+note bottom of Proposals
+  Pending and rejected proposals are quarantined.
+  They do not feed catalog, coverage, debt retirement,
+  proof, claims, or zero-equation counts.
+end note
+
+note bottom of SemanticReview
+  Coverage, names, paths, and mutation kills are not semantic proof.
+  Each assertion is bound to exact oracle behavior rows;
+  high-risk mappings require two distinct reviewers.
+end note
 
 note bottom of Report
   Mapping reports carry proof_kind = none.

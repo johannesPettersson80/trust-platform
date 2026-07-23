@@ -105,6 +105,8 @@ from ..test_catalog_denominator import (
     validate_test_catalog_denominator_document,
 )
 from ..test_catalog_intent import validate_catalog_intent
+from ..test_catalog_scanner import scan_repository
+from .mapping_metadata import validate_mapping_control_plane
 from .evidence_records import validate_evidence_records
 from .integrity import (
     SPEC_GAP_RESOLUTION_STATUSES,
@@ -150,6 +152,8 @@ class Validator:
         self.runtime_anomaly_taxonomy: dict[str, Any] = {}
         self.runtime_anomaly_denominator: dict[str, Any] = {}
         self.test_catalog_denominator: dict[str, Any] = {}
+        self.test_catalog_mapping_proposals: dict[str, Any] = {}
+        self.test_catalog_mapping_decisions: dict[str, Any] = {}
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
@@ -304,6 +308,12 @@ class Validator:
             self.test_catalog_denominator = load_test_catalog_denominator(ROOT)
         except Exception as exc:
             self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, f"load failed: {exc}")
+        self.test_catalog_mapping_proposals = self.load_toml(
+            VERIFICATION / "test-catalog-proposals.toml"
+        )
+        self.test_catalog_mapping_decisions = self.load_toml(
+            VERIFICATION / "test-catalog-mapping-decisions.toml"
+        )
         try:
             self.fuzz_program = load_fuzz_program(ROOT)
         except Exception as exc:
@@ -436,6 +446,40 @@ class Validator:
             self.test_catalog_denominator, schema=denominator_schema
         ):
             self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, failure)
+        try:
+            mapping_scan = scan_repository(ROOT)
+        except Exception as exc:
+            self.fail(
+                VERIFICATION / "test-catalog-proposals.toml",
+                f"live mapping scan failed: {exc}",
+            )
+        else:
+            mapping_facts = {
+                fact.stable_id: {
+                    "discovery_id": fact.stable_id,
+                    "discovery_source_kind": fact.source_kind,
+                    "path": fact.path,
+                    "name": fact.name,
+                    "ignore_state": fact.ignore_state,
+                }
+                for fact in mapping_scan.inferred_facts
+            }
+            denominator_reviews = {
+                str(review["discovery_id"]): review
+                for review in self.test_catalog_denominator.get("reviews", [])
+                if isinstance(review, Mapping)
+                and isinstance(review.get("discovery_id"), str)
+            }
+            for failure in validate_mapping_control_plane(
+                root=ROOT,
+                proposal_document=self.test_catalog_mapping_proposals,
+                decision_document=self.test_catalog_mapping_decisions,
+                facts=mapping_facts,
+                tests=self.tests,
+                denominator_reviews=denominator_reviews,
+                invariants=self.invariants,
+            ):
+                self.fail(VERIFICATION / "test-catalog-proposals.toml", failure)
         for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_crash_registry(
@@ -1048,6 +1092,8 @@ class Validator:
             + (1 if self.runtime_anomaly_taxonomy else 0)
             + (1 if self.runtime_anomaly_denominator else 0)
             + (1 if self.test_catalog_denominator else 0)
+            + (1 if self.test_catalog_mapping_proposals else 0)
+            + (1 if self.test_catalog_mapping_decisions else 0)
             + (1 if self.fuzz_program else 0)
             + (1 if self.fuzz_crash_registry else 0)
             + (1 if self.mutation_program else 0)

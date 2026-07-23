@@ -9,7 +9,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from .code_spec_common import RISK_SIGNALS, CodeFact, sha256_digest, stable_code_id
+from .code_spec_common import (
+    RISK_SIGNALS,
+    CodeFact,
+    CodeSourceSpan,
+    sha256_digest,
+    stable_code_id,
+)
 from .code_spec_source_adapter import (
     CodeSpecSourceError,
     candidate_area_owners,
@@ -46,6 +52,7 @@ class CodeSpecTypeScriptError(ValueError):
 @dataclass(frozen=True)
 class TypeScriptInventory:
     facts: Mapping[str, CodeFact] = field(default_factory=dict)
+    spans: Mapping[str, CodeSourceSpan] = field(default_factory=dict)
     source_paths: tuple[str, ...] = ()
     source_count: int = 0
     source_counts: Mapping[str, int] = field(default_factory=dict)
@@ -192,6 +199,7 @@ def invoke_typescript_extractor(
         raise CodeSpecTypeScriptError("TypeScript scanner source census does not match requested files")
 
     facts: dict[str, CodeFact] = {}
+    spans: dict[str, CodeSourceSpan] = {}
     source_counts = {product_root: 0 for product_root in PRODUCT_ROOTS}
     source_counts["packaging_inputs"] = 0
     for source_index, source_record in enumerate(sources):
@@ -293,6 +301,12 @@ def invoke_typescript_extractor(
                 risk_signals=risk_signals,
                 line=line,
             )
+            spans[code_id] = CodeSourceSpan(
+                code_id=code_id,
+                path=path,
+                body_start=body_start,
+                body_end=body_end,
+            )
     if not facts:
         raise CodeSpecTypeScriptError("TypeScript/JavaScript parser returned zero product facts")
     zero_fact_roots = [
@@ -322,6 +336,7 @@ def invoke_typescript_extractor(
     del invented_bindings
     return TypeScriptInventory(
         facts=dict(sorted(facts.items())),
+        spans=dict(sorted(spans.items())),
         source_paths=tuple(sorted(record["path"] for record in requested_sources)),
         source_count=len(sources),
         source_counts=dict(sorted(source_counts.items())),

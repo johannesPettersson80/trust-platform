@@ -226,3 +226,13 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   clean source-bound producer at `992e8734`, its two caught signed-integer
   assertions, the 265-record semantic reconstruction, and remote render/drift
   proof at `7e9aa949`; `ARCH-VERIF-P18-01` remains open.
+- [ ] `ARCH-VERIF-P18-05` Replace per-test manual mapping discovery with a
+  focused execution-guided candidate pipeline while preserving semantic review:
+  one module owns trace observations, one ranks candidates and specification
+  demand, one validates the quarantined proposal/decision planes, and one owns
+  recoverable generated catalog transactions. Coverage and mutation remain
+  ranking signals only; no proposal reaches catalog, denominator, proof, or
+  zero-equation state before exact assertion-to-oracle confirmation. Update
+  `verification-code-spec-coverage.puml`, prove zero false accepted mappings on
+  a hidden-ground-truth shard, and retain final whole-repository execution for
+  the frozen Phase 18 candidate.

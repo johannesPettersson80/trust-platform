@@ -1113,6 +1113,70 @@ retains all raw non-catalog identities while treating only an omitted fact as
 unresolved mapping debt; a complete report therefore requires zero unreviewed
 facts.
 
+### Execution-Guided Test-Catalog Mapping
+
+The Phase 18 mapping accelerator may use focused execution coverage and
+existing mutation attribution only to rank candidate associations. Coverage,
+concentration, a unique covered invariant, and mutation kills do not create a
+catalog mapping, oracle, expected result, test class, proof level, or invariant
+coverage state. Candidate tiers use the separate `C1` through `C3` vocabulary;
+specification-only demand is a separate non-candidate route. Neither may be
+rendered as a verification proof level.
+
+`target/gate-artifacts/verification/test-coverage-trace.json` is a closed,
+source-revision-bound observation artifact. Each record binds one live
+`DISC_*` identity to the exact command attempt and any observed `CODE_*`
+identities. Rust attribution uses a nextest run wrapper that derives an
+attempt-specific profile directory from the exact nextest test identity and
+sets `LLVM_PROFILE_FILE` beneath that directory with both `%m` and `%p`.
+Profiles inherited by child processes remain grouped under the owning test
+attempt. Unsupported, failed, skipped, or structurally observed source kinds
+remain explicit and produce no covered-code association.
+
+`target/gate-artifacts/verification/mapping-candidates.json` joins trace
+observations to the committed code-spec map and invariants. It records
+deterministic ranking signals and invariant-demand counts. Name, path, command
+text, and scanner `reference_candidates` may break ranking ties only; they
+cannot introduce a candidate invariant absent from the execution/code-spec
+join. Facts whose observed code is entirely `spec_gap` produce specification
+demand, not mapping proposals.
+
+`verification/test-catalog-proposals.toml` is a quarantined generated plane.
+Pending proposals remain `reviewed_nonmapping`, are absent from
+`verification/test-catalog.toml`, and are ignored by every coverage, debt,
+proof, claim, and zero-equation counter. Suggested test class, expected result,
+and expected failure mode are non-authoritative review aids copied from exact
+oracle-backed behavior references; they are forbidden from accepted metadata
+until a reviewer confirms the test assertions against those exact references.
+Rejected proposal digests are retained in
+`verification/test-catalog-mapping-decisions.toml` and suppress identical
+candidates until their discovery identity, candidate evidence, invariant
+authority, or assertion source changes.
+
+Acceptance is an explicit per-test semantic decision that may be submitted as
+one invariant-coherent batch. The review card binds each proposal digest,
+test-source digest and assertion references, selected invariant and behavior
+references, exact executable command, and resulting catalog fields. A single
+batch confirmation covers every listed test; sampling cannot authorize
+unreviewed rows. High-risk invariants require two distinct named reviewers.
+The candidate generator is never a reviewer.
+
+The review command validates the complete proposed catalog, denominator, and
+decision documents before replacing any file. It uses an exclusive lock and a
+recovery journal containing the original bytes, writes and fsyncs all staged
+files, replaces the batch, reruns the live exact joins, and removes the journal
+only after success. An exception rolls every file back; a later invocation
+recovers an interrupted transaction before doing new work. Test IDs, record
+order, counts, review digests, provenance, and all ledger mappings are
+deterministic generated output rather than reviewer-authored metadata.
+
+During Phase 18 implementation, trace execution is limited to focused
+subsystem shards on `trust-builder`. A whole-repository coverage campaign is a
+broad test execution and remains reserved for the single frozen final
+candidate. Before scaling, a hidden-ground-truth pilot must report zero false
+accepted mappings; recall, runtime, profile volume, unsupported source kinds,
+and review time remain visible measurements rather than pass claims.
+
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,

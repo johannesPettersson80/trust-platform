@@ -64,6 +64,8 @@ REPORT_CONTRACT_PATHS = (
     "verification/schemas/unmapped-test-debt-report.schema.json",
     "verification/schemas/test-catalog-denominator.schema.json",
     "verification/test-catalog-denominator.toml",
+    "verification/test-catalog-proposals.toml",
+    "verification/schemas/test-catalog-proposals.schema.json",
 )
 
 
@@ -167,6 +169,56 @@ class UnmappedTestDebtReport:
             )
         if not self.analysis["unmapped_tests"]:
             lines.append("| none | none | none | none | none |")
+        accelerator = self.analysis["mapping_accelerator"]
+        lines.extend(
+            [
+                "",
+                "## Mapping Accelerator Queue",
+                "",
+                f"- Pending quarantined proposals: {accelerator['pending_proposals']}",
+                f"- Specification-demand tests: {accelerator['specification_demands']}",
+                f"- Unmapped live CODE facts in traced tests: {accelerator['unmapped_code_facts']}",
+                "",
+                "| Candidate tier | Pending proposals |",
+                "| --- | ---: |",
+            ]
+        )
+        for row in accelerator["by_candidate_tier"]:
+            lines.append(
+                f"| `{row['candidate_tier']}` | {row['pending_proposals']} |"
+            )
+        lines.extend(
+            [
+                "",
+                "### Specification demand ranking",
+                "",
+                "| Spec gap | Tests unblocked | CODE facts unblocked |",
+                "| --- | ---: | ---: |",
+            ]
+        )
+        for row in accelerator["demand_ranking"]:
+            lines.append(
+                f"| `{row['spec_gap_ref']}` | {row['tests_unblocked']} | "
+                f"{row['code_facts_unblocked']} |"
+            )
+        if not accelerator["demand_ranking"]:
+            lines.append("| none | 0 | 0 |")
+        lines.extend(
+            [
+                "",
+                "### Live code-map demand ranking",
+                "",
+                "| Area | Tests affected | Missing CODE facts |",
+                "| --- | ---: | ---: |",
+            ]
+        )
+        for row in accelerator["unmapped_code_demand_ranking"]:
+            lines.append(
+                f"| `{row['area']}` | {row['tests_affected']} | "
+                f"{row['code_facts_missing']} |"
+            )
+        if not accelerator["unmapped_code_demand_ranking"]:
+            lines.append("| none | 0 | 0 |")
         lines.extend(["", "## Limitations", ""])
         lines.extend(f"- {item}" for item in self.analysis["limitations"])
         return "\n".join(lines) + "\n"
@@ -177,6 +229,7 @@ def analyze_unmapped_test_debt(
     tests: Sequence[Mapping[str, Any]],
     facts: Sequence[InferredTestFact],
     denominator_review: Mapping[str, Any],
+    mapping_proposals: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Subtract exact reviewed generated-test discovery identities from scanner facts."""
 
@@ -282,8 +335,77 @@ def analyze_unmapped_test_debt(
         "summary": summary,
         "denominator_review": dict(denominator_review),
         "unmapped_tests": unmapped_rows,
+        "mapping_accelerator": mapping_accelerator_summary(
+            mapping_proposals or {
+                "proposals": [],
+                "demands": [],
+                "demand_ranking": [],
+                "unmapped_code_demand_ranking": [],
+            }
+        ),
         "limitations": list(LIMITATIONS),
     }
+
+
+def mapping_accelerator_summary(
+    proposal_document: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Reconstruct queue and demand counts without treating proposals as coverage."""
+
+    proposals = _mapping_array(
+        proposal_document.get("proposals"), "mapping proposals"
+    )
+    demands = _mapping_array(
+        proposal_document.get("demands"), "mapping demands"
+    )
+    demand_ranking = _mapping_array(
+        proposal_document.get("demand_ranking"), "mapping demand ranking"
+    )
+    unmapped_ranking = _mapping_array(
+        proposal_document.get("unmapped_code_demand_ranking"),
+        "unmapped code demand ranking",
+    )
+    tier_counts = Counter(
+        str(proposal.get("candidate_tier")) for proposal in proposals
+    )
+    unknown_tiers = sorted(set(tier_counts) - {"C1", "C2", "C3"})
+    if unknown_tiers:
+        raise ValueError(
+            f"mapping proposal queue has unknown candidate tiers {unknown_tiers}"
+        )
+    return {
+        "pending_proposals": len(proposals),
+        "by_candidate_tier": [
+            {
+                "candidate_tier": tier,
+                "pending_proposals": tier_counts[tier],
+            }
+            for tier in ("C1", "C2", "C3")
+        ],
+        "specification_demands": len(demands),
+        "unmapped_code_facts": len(
+            {
+                str(code_id)
+                for row in unmapped_ranking
+                for code_id in row.get("covered_code_ids", [])
+                if isinstance(code_id, str)
+            }
+        ),
+        "demand_ranking": [dict(row) for row in demand_ranking],
+        "unmapped_code_demand_ranking": [
+            dict(row) for row in unmapped_ranking
+        ],
+    }
+
+
+def _mapping_array(value: Any, label: str) -> list[Mapping[str, Any]]:
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes))
+        or any(not isinstance(item, Mapping) for item in value)
+    ):
+        raise ValueError(f"{label} must be an object array")
+    return list(value)
 
 
 def write_reports(

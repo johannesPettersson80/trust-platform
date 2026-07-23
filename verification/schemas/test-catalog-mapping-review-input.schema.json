@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/test-catalog-mapping-review-input.schema.json",
+  "title": "Semantic test-catalog mapping review input",
+  "type": "object",
+  "required": ["schema_version", "reviews"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "reviews": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/review" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "assertion_review": {
+      "type": "object",
+      "required": [
+        "assertion_id",
+        "disposition",
+        "behavior_refs",
+        "rationale"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^ASSERT_[A-F0-9]{24}$"
+        },
+        "disposition": {
+          "enum": [
+            "oracle_bound",
+            "setup_or_precondition",
+            "non_oracle"
+          ]
+        },
+        "behavior_refs": { "$ref": "#/$defs/strings" },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "confirmed_catalog": {
+      "type": "object",
+      "required": [
+        "test_class",
+        "area",
+        "owner",
+        "expected_result",
+        "expected_failure_mode",
+        "suite_tiers",
+        "requires_hardware",
+        "requires_network",
+        "duration_class"
+      ],
+      "properties": {
+        "test_class": { "type": "string", "minLength": 1 },
+        "area": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "expected_result": { "type": "string", "minLength": 1 },
+        "expected_failure_mode": { "type": "string", "minLength": 1 },
+        "suite_tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "requires_hardware": { "type": "boolean" },
+        "requires_network": { "type": "boolean" },
+        "duration_class": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "proposal_id",
+        "outcome",
+        "reviewer_ids",
+        "assertion_reviews",
+        "selected_invariant_ids",
+        "selected_behavior_refs",
+        "command",
+        "command_authority"
+      ],
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^MAP_CAND_[A-F0-9_]+$"
+        },
+        "outcome": { "enum": ["accepted", "rejected"] },
+        "reviewer_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "assertion_reviews": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assertion_review" }
+        },
+        "selected_invariant_ids": { "$ref": "#/$defs/strings" },
+        "selected_behavior_refs": { "$ref": "#/$defs/strings" },
+        "command": { "type": "string" },
+        "command_authority": {
+          "enum": ["verified_exact", "not_applicable"]
+        },
+        "confirmed_catalog": { "$ref": "#/$defs/confirmed_catalog" },
+        "rejection_reason": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        {
+          "required": ["confirmed_catalog"],
+          "properties": { "outcome": { "const": "accepted" } }
+        },
+        {
+          "required": ["rejection_reason"],
+          "properties": { "outcome": { "const": "rejected" } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

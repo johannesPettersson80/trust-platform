@@ -8,7 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from .code_spec_common import RISK_SIGNALS, CodeFact, sha256_digest, stable_code_id
+from .code_spec_common import (
+    RISK_SIGNALS,
+    CodeFact,
+    CodeSourceSpan,
+    sha256_digest,
+    stable_code_id,
+)
 from .code_spec_source_adapter import (
     CodeSpecSourceError,
     candidate_area_owners,
@@ -41,6 +47,7 @@ class CodeSpecRustError(ValueError):
 @dataclass(frozen=True)
 class RustInventory:
     facts: Mapping[str, CodeFact] = field(default_factory=dict)
+    spans: Mapping[str, CodeSourceSpan] = field(default_factory=dict)
     cargo_bindings: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     source_paths: tuple[str, ...] = ()
     target_count: int = 0
@@ -89,6 +96,7 @@ def rust_inventory_from_scan(
         known_bindings.add(binding)
 
     facts: dict[str, CodeFact] = {}
+    spans: dict[str, CodeSourceSpan] = {}
     fact_bindings: dict[str, tuple[str, ...]] = {}
     source_paths: set[str] = set()
     seen_sources: set[tuple[str, str]] = set()
@@ -178,6 +186,12 @@ def rust_inventory_from_scan(
                 risk_signals=risk_signals,
                 line=line,
             )
+            spans[code_id] = CodeSourceSpan(
+                code_id=code_id,
+                path=path,
+                body_start=body_start,
+                body_end=body_end,
+            )
             fact_bindings[code_id] = tuple(sorted(set(bindings)))
     if not facts:
         raise CodeSpecRustError("Rust extractor returned zero Rust facts")
@@ -186,6 +200,7 @@ def rust_inventory_from_scan(
         raise CodeSpecRustError(f"area bindings name invented code identities {invented_bindings}")
     return RustInventory(
         facts=dict(sorted(facts.items())),
+        spans=dict(sorted(spans.items())),
         cargo_bindings=dict(sorted(fact_bindings.items())),
         source_paths=tuple(sorted(source_paths)),
         target_count=len(targets),
@@ -202,6 +217,7 @@ def invoke_rust_extractor(
     *,
     area_bindings: Mapping[str, str] | None = None,
     reject_invented_area_bindings: bool = True,
+    environment: Mapping[str, str] | None = None,
 ) -> RustInventory:
     """Run the canonical xtask extractor and validate its JSON output."""
 
@@ -211,6 +227,7 @@ def invoke_rust_extractor(
         check=False,
         capture_output=True,
         text=True,
+        env=dict(environment) if environment is not None else None,
     )
     try:
         document = json.loads(completed.stdout)

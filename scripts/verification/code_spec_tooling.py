@@ -10,7 +10,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from .code_spec_common import RISK_SIGNALS, CodeFact, sha256_digest, stable_code_id
+from .code_spec_common import (
+    RISK_SIGNALS,
+    CodeFact,
+    CodeSourceSpan,
+    sha256_digest,
+    stable_code_id,
+)
 from .code_spec_rust import CodeSpecRustError, rust_inventory_from_scan
 from .code_spec_source_adapter import (
     CodeSpecSourceError,
@@ -38,6 +44,7 @@ class CodeSpecToolingError(ValueError):
 @dataclass(frozen=True)
 class ToolingInventory:
     facts: Mapping[str, CodeFact] = field(default_factory=dict)
+    spans: Mapping[str, CodeSourceSpan] = field(default_factory=dict)
     source_paths: tuple[str, ...] = ()
     source_counts: Mapping[str, int] = field(default_factory=dict)
     rust_target_count: int = 0
@@ -263,6 +270,7 @@ def invoke_tooling_extractor(
         raise CodeSpecToolingError(str(error)) from error
 
     facts = dict(rust.facts)
+    spans = dict(rust.spans)
     source_paths = set(rust.source_paths)
     counts = {"rust": rust.source_count, "python": 0, "shell": 0}
     script_sources = discover_script_sources(root)
@@ -326,8 +334,15 @@ def invoke_tooling_extractor(
                 risk_signals=_validated_risks(record, path),
                 line=int(record["line"]),
             )
+            spans[code_id] = CodeSourceSpan(
+                code_id=code_id,
+                path=path,
+                body_start=body_start,
+                body_end=body_end,
+            )
     return ToolingInventory(
         facts=dict(sorted(facts.items())),
+        spans=dict(sorted(spans.items())),
         source_paths=tuple(sorted(source_paths)),
         source_counts=dict(sorted(counts.items())),
         rust_target_count=rust.target_count,

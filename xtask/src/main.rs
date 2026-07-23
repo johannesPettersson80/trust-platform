@@ -11,6 +11,7 @@ use serde_json::json;
 mod code_spec_scan;
 mod full_map;
 mod software_map;
+mod test_assertions;
 
 use code_spec_scan::{run_rust_extract, run_rust_tooling, run_rust_universe};
 use full_map::architecture_doctor_full_map;
@@ -41,6 +42,8 @@ fn run() -> Result<()> {
         "code-spec-rust" => run_rust_extract(&root, &args.collect::<Vec<_>>()),
         "code-spec-rust-all" => run_rust_universe(&root),
         "code-spec-rust-tooling" => run_rust_tooling(&root),
+        "test-assertions" => test_assertions::run(&root, &args.collect::<Vec<_>>()),
+        "test-assertions-batch" => test_assertions::run_batch(&root, &args.collect::<Vec<_>>()),
         "-h" | "--help" | "help" => {
             print_usage();
             Ok(())
@@ -54,7 +57,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask code-spec-rust --path <repo-relative.rs> --module <qualified-module>\n  cargo xtask code-spec-rust-all\n  cargo xtask code-spec-rust-tooling"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask code-spec-rust --path <repo-relative.rs> --module <qualified-module>\n  cargo xtask code-spec-rust-all\n  cargo xtask code-spec-rust-tooling\n  cargo xtask test-assertions --path <repo-relative.rs> --name <test-name>\n  cargo xtask test-assertions-batch < request.json"
 }
 
 fn workspace_root() -> Result<PathBuf> {

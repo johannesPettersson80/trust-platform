@@ -842,6 +842,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   campaigns to equivalent executed proof contracts, or remove it with
   independently reviewed no-loss evidence. No nonmapping or inventory-only
   disposition is final.
+
+  Mapping-accelerator implementation checklist:
+
+  - [ ] Derive focused per-test execution traces on `trust-builder` with exact
+    `DISC_*` and `CODE_*` attribution; unsupported adapters remain explicit.
+  - [ ] Generate `C1` through `C3` quarantined candidates plus a separate
+    specification-demand route without turning coverage, names, paths, or
+    mutation kills into proof.
+  - [ ] Validate that pending or rejected proposals cannot affect any catalog,
+    denominator, coverage, debt, claim, proof, or zero-equation count.
+  - [ ] Require exact per-test assertion-to-oracle confirmation, with two
+    distinct reviewers for high-risk invariant mappings.
+  - [ ] Apply accepted batches through one generated, recoverable catalog and
+    denominator transaction; reviewers never author IDs, hashes, counts, or
+    ledger rows.
+  - [ ] Prove zero false accepted mappings on a hidden-ground-truth focused
+    pilot before expanding the trace adapters or running the final campaign.
+  - [ ] SOLID: keep trace execution, candidate ranking, quarantine validation,
+    semantic review, and catalog mutation in separate modules.
+  - [ ] KISS: use one canonical proposal/decision path and the existing scanner,
+    code-spec map, invariant, catalog, and denominator sources.
+  - [ ] DRY: reuse existing identity, schema, digest, live-join, and canonical
+    rendering helpers instead of duplicating verification vocabularies.
 - [ ] `VERIF-P18-006` Add every missing executable behavior test through the
   required red-green route after the owning `P18-003` authority is accepted.
   Cover success, boundary, malformed input, negative, failure mapping,

@@ -12,5 +12,6 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = "1"
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 syn = { version = "2", features = ["full", "visit"] }
 toml.workspace = true

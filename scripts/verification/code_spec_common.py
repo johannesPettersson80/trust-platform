@@ -95,6 +95,16 @@ class CodeFact:
     line: int | None = None
 
 
+@dataclass(frozen=True)
+class CodeSourceSpan:
+    """Exact source byte range retained for execution-evidence joins."""
+
+    code_id: str
+    path: str
+    body_start: int
+    body_end: int
+
+
 def stable_code_id(
     *,
     source_kind: str,

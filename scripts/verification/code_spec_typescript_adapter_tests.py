@@ -87,6 +87,13 @@ class TypeScriptAdapterTests(unittest.TestCase):
             inventory.source_paths,
         )
         self.assertEqual(5, len(inventory.facts))
+        self.assertEqual(set(inventory.facts), set(inventory.spans))
+        self.assertTrue(
+            all(
+                span.body_start < span.body_end
+                for span in inventory.spans.values()
+            )
+        )
         self.assertEqual((), inventory.unmapped_code_ids)
         self.assertTrue(all(fact.area == "editor_safety" for fact in inventory.facts.values()))
         self.assertTrue(

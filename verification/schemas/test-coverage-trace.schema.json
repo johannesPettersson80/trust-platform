@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-plc.local/schemas/test-coverage-trace.schema.json",
+  "title": "Focused per-test execution coverage trace",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "generator_version",
+    "source_commit",
+    "platform",
+    "scope",
+    "input_digest",
+    "code_inventory_digests",
+    "tests"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "const": "test-coverage-trace" },
+    "generator_version": { "type": "string", "minLength": 1 },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "platform": { "type": "string", "minLength": 1 },
+    "scope": {
+      "type": "object",
+      "required": ["mode", "requested_discovery_ids", "source_kinds"],
+      "properties": {
+        "mode": { "enum": ["focused_shard", "full_campaign"] },
+        "requested_discovery_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/discovery_id" },
+          "uniqueItems": true
+        },
+        "source_kinds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/source_kind" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "code_inventory_digests": {
+      "type": "object",
+      "properties": {
+        "rust_product": { "$ref": "#/$defs/digest" },
+        "typescript_product": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "tests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/test_record" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "discovery_id": {
+      "type": "string",
+      "pattern": "^DISC_[A-F0-9]{20}$"
+    },
+    "code_id": {
+      "type": "string",
+      "pattern": "^CODE_[A-F0-9]{64}$"
+    },
+    "source_kind": {
+      "enum": [
+        "conformance_case",
+        "fuzz_target",
+        "gate_script",
+        "github_workflow_job",
+        "rust_integration_test",
+        "rust_unit_test",
+        "structured_text_test",
+        "vscode_test"
+      ]
+    },
+    "test_record": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "command",
+        "command_authority",
+        "trace_status",
+        "attribution_kind",
+        "covered_code_ids",
+        "limitations"
+      ],
+      "properties": {
+        "discovery_id": { "$ref": "#/$defs/discovery_id" },
+        "discovery_source_kind": { "$ref": "#/$defs/source_kind" },
+        "path": { "type": "string", "pattern": "^[^/\\\\][^\\\\]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "command_authority": {
+          "enum": ["exact", "verified_synthesized", "unavailable"]
+        },
+        "trace_status": {
+          "enum": ["observed", "unsupported", "failed", "skipped"]
+        },
+        "attribution_kind": {
+          "enum": [
+            "llvm_source_coverage",
+            "istanbul_source_coverage",
+            "focused_runner_artifact",
+            "structural_only",
+            "unavailable"
+          ]
+        },
+        "attempt_id": { "type": "string", "minLength": 1 },
+        "exit_code": { "type": "integer" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "profile_digest": { "$ref": "#/$defs/digest" },
+        "covered_code_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/code_id" },
+          "uniqueItems": true
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

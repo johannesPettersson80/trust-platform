@@ -12,6 +12,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.verification.metadata_validator.constants import ROOT
+from scripts.verification.mapping_denominator import (
+    reconcile_denominator_document,
+)
 from scripts.verification.test_catalog_common import make_fact
 from scripts.verification.test_catalog_common import input_digest
 from scripts.verification.test_catalog_debt import (
@@ -145,6 +148,84 @@ class UnmappedTestDebtTests(unittest.TestCase):
                 compact_json,
                 compact_markdown,
             )
+        )
+
+    def test_mapping_accelerator_is_reported_without_changing_debt_counts(self) -> None:
+        facts, tests = _fixture_inputs()
+        baseline = _analyze(tests=tests, facts=facts)
+        accelerated = _analyze(
+            tests=tests,
+            facts=facts,
+            mapping_proposals=_mapping_proposals_fixture(),
+        )
+
+        self.assertEqual(accelerated["summary"], baseline["summary"])
+        self.assertEqual(
+            accelerated["denominator_review"], baseline["denominator_review"]
+        )
+        self.assertEqual(accelerated["unmapped_tests"], baseline["unmapped_tests"])
+        self.assertEqual(
+            accelerated["mapping_accelerator"],
+            {
+                "pending_proposals": 2,
+                "by_candidate_tier": [
+                    {"candidate_tier": "C1", "pending_proposals": 1},
+                    {"candidate_tier": "C2", "pending_proposals": 0},
+                    {"candidate_tier": "C3", "pending_proposals": 1},
+                ],
+                "specification_demands": 1,
+                "unmapped_code_facts": 2,
+                "demand_ranking": [
+                    {
+                        "spec_gap_ref": "SPEC_GAP_FIXTURE",
+                        "affected_discovery_ids": ["DISC_" + "A" * 20],
+                        "covered_code_ids": ["CODE_" + "1" * 64],
+                        "tests_unblocked": 1,
+                        "code_facts_unblocked": 1,
+                    }
+                ],
+                "unmapped_code_demand_ranking": [
+                    {
+                        "area": "runtime",
+                        "affected_discovery_ids": ["DISC_" + "B" * 20],
+                        "covered_code_ids": [
+                            "CODE_" + "2" * 64,
+                            "CODE_" + "3" * 64,
+                        ],
+                        "tests_affected": 1,
+                        "code_facts_missing": 2,
+                    }
+                ],
+            },
+        )
+
+        report = _fixture_report(mapping_proposals=_mapping_proposals_fixture())
+        rendered_json = report.to_json().encode()
+        markdown = report.to_markdown(
+            json_digest=hashlib.sha256(rendered_json).hexdigest()
+        )
+        self.assertIn("- Pending quarantined proposals: 2", markdown)
+        self.assertIn("- Specification-demand tests: 1", markdown)
+        self.assertEqual(validate_report_payload(report.to_dict()), [])
+
+    def test_mapping_accelerator_tampering_fails_closed(self) -> None:
+        payload = _fixture_report(
+            mapping_proposals=_mapping_proposals_fixture()
+        ).to_dict()
+        payload["mapping_accelerator"]["pending_proposals"] = 99
+        payload["mapping_accelerator"]["by_candidate_tier"] = list(
+            reversed(payload["mapping_accelerator"]["by_candidate_tier"])
+        )
+
+        failures = validate_report_payload(payload)
+
+        self.assertIn(
+            "mapping_accelerator.pending_proposals does not match tier totals",
+            failures,
+        )
+        self.assertIn(
+            "mapping_accelerator.by_candidate_tier must use C1, C2, C3 order",
+            failures,
         )
 
     def test_corrupt_or_tampered_report_fails_semantic_and_markdown_validation(self) -> None:
@@ -303,10 +384,17 @@ class UnmappedTestDebtTests(unittest.TestCase):
 
         validator = Validator()
         validator.load_records()
+        reconciled = reconcile_denominator_document(
+            document=denominator,
+            facts=scan.inferred_facts,
+            tests=catalog["tests"],
+            ignored_tests=validator.ignored_tests,
+            reviewed_date="2026-07-23",
+        )
         denominator_review = analyze_test_catalog_denominator(
             tests=catalog["tests"],
             facts=scan.inferred_facts,
-            reviews=denominator["reviews"],
+            reviews=reconciled["reviews"],
             ignored_tests=validator.ignored_tests,
         )
         analysis = analyze_unmapped_test_debt(
@@ -314,14 +402,30 @@ class UnmappedTestDebtTests(unittest.TestCase):
             denominator_review=denominator_review,
         )
 
-        self.assertEqual(analysis["summary"]["scanner_facts"], 4038)
-        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 261)
-        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3777)
-        self.assertEqual(len(analysis["unmapped_tests"]), 3777)
+        mapped_count = sum(
+            record.get("subject_kind") == "generated_test"
+            for record in catalog["tests"]
+        )
+        self.assertEqual(
+            analysis["summary"]["scanner_facts"],
+            len(scan.inferred_facts),
+        )
+        self.assertEqual(
+            analysis["summary"]["mapped_scanner_facts"],
+            mapped_count,
+        )
+        self.assertEqual(
+            analysis["summary"]["unmapped_scanner_facts"],
+            len(scan.inferred_facts) - mapped_count,
+        )
+        self.assertEqual(
+            len(analysis["unmapped_tests"]),
+            len(scan.inferred_facts) - mapped_count,
+        )
         self.assertEqual(analysis["denominator_review"]["summary"]["unreviewed_facts"], 0)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
-            3777,
+            len(analysis["unmapped_tests"]),
         )
 
 
@@ -359,9 +463,16 @@ def _fixture_inputs():
     return [mapped, ignored, ordinary], tests
 
 
-def _fixture_report() -> UnmappedTestDebtReport:
+def _fixture_report(
+    *,
+    mapping_proposals: dict | None = None,
+) -> UnmappedTestDebtReport:
     facts, tests = _fixture_inputs()
-    analysis = _analyze(tests=tests, facts=facts)
+    analysis = _analyze(
+        tests=tests,
+        facts=facts,
+        mapping_proposals=mapping_proposals,
+    )
     return UnmappedTestDebtReport(
         provenance=UnmappedDebtProvenance(
             command=(
@@ -386,7 +497,7 @@ def _fixture_report() -> UnmappedTestDebtReport:
     )
 
 
-def _analyze(*, tests, facts):
+def _analyze(*, tests, facts, mapping_proposals=None):
     mapped = {
         record["discovery_id"]: record["id"]
         for record in tests
@@ -425,8 +536,42 @@ def _analyze(*, tests, facts):
         ignored_tests=ignored_tests,
     )
     return analyze_unmapped_test_debt(
-        tests=tests, facts=facts, denominator_review=denominator
+        tests=tests,
+        facts=facts,
+        denominator_review=denominator,
+        mapping_proposals=mapping_proposals,
     )
+
+
+def _mapping_proposals_fixture() -> dict:
+    return {
+        "proposals": [
+            {"candidate_tier": "C3"},
+            {"candidate_tier": "C1"},
+        ],
+        "demands": [{"discovery_id": "DISC_" + "A" * 20}],
+        "demand_ranking": [
+            {
+                "spec_gap_ref": "SPEC_GAP_FIXTURE",
+                "affected_discovery_ids": ["DISC_" + "A" * 20],
+                "covered_code_ids": ["CODE_" + "1" * 64],
+                "tests_unblocked": 1,
+                "code_facts_unblocked": 1,
+            }
+        ],
+        "unmapped_code_demand_ranking": [
+            {
+                "area": "runtime",
+                "affected_discovery_ids": ["DISC_" + "B" * 20],
+                "covered_code_ids": [
+                    "CODE_" + "2" * 64,
+                    "CODE_" + "3" * 64,
+                ],
+                "tests_affected": 1,
+                "code_facts_missing": 2,
+            }
+        ],
+    }
 
 
 def _git_head() -> str:
