@@ -37,6 +37,7 @@ EXIT_MISSING_SPEC = 7
 EXIT_STALE_SPEC_REVIEW = 8
 BEHAVIOR_INTENTS = {"bugfix", "feature"}
 HIGHEST_RISK = "safety_critical"
+GLOBAL_INTENT_TEST_CLASSES = {"metadata_validation"}
 
 
 class MetadataValidationError(RuntimeError):
@@ -193,11 +194,9 @@ class Planner:
         waiver_notes: set[str] = set()
         uninventoried: list[str] = []
         intent_row = self.intent_requirements.get(intent, {})
-        global_intent_classes = (
-            set(intent_row.get("required_test_classes", []))
-            if intent == "docs"
-            else set()
-        )
+        intent_classes = set(intent_row.get("required_test_classes", []))
+        global_intent_classes = intent_classes & GLOBAL_INTENT_TEST_CLASSES
+        area_intent_classes = intent_classes - global_intent_classes
         required_classes.update(global_intent_classes)
 
         if unmapped:
@@ -233,7 +232,7 @@ class Planner:
             area_required_classes: set[str] = (
                 set()
                 if intent == "docs"
-                else set(intent_row.get("required_test_classes", []))
+                else set(area_intent_classes)
             )
             area_required_families: set[str] = set()
             if intent in BEHAVIOR_INTENTS:

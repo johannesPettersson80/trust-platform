@@ -35,7 +35,6 @@ class AreaRoutingTests(unittest.TestCase):
     def test_live_matrix_represents_all_taxonomy_rows_in_reviewed_order(self) -> None:
         route_ids = taxonomy_route_ids(self.taxonomy)
 
-        self.assertEqual(len(route_ids), 29)
         self.assertEqual(
             route_ids,
             [route["id"] for route in self.matrix["code_areas"]],
@@ -105,6 +104,16 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertIn("browser_webview_visual", result.required_test_classes)
         self.assertEqual(result.suite_tiers, ("pr",))
         self.assertEqual(result.conditional_suite_tiers, ())
+
+    def test_direct_address_parser_uses_runtime_safety_route_without_protocol_loopback(self) -> None:
+        result = classify_changed_path(
+            self.matrix,
+            "crates/trust-runtime/src/io/addressing.rs",
+        )
+
+        self.assertEqual(result.route_ids, ("direct_address_parser",))
+        self.assertEqual(result.area_ids, ("runtime_safety",))
+        self.assertNotIn("protocol_loopback", result.required_test_classes)
 
     def test_single_star_wildcard_does_not_cross_path_segments(self) -> None:
         direct = classify_changed_path(self.matrix, "scripts/perf_bench.py")

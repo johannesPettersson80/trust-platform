@@ -228,6 +228,17 @@ conditional_suite_tiers = []
 notes = "Visible Live Values behavior additionally requires journey evidence."
 
 [[code_areas]]
+id = "direct_address_parser"
+match_kind = "path"
+area_ids = ["runtime_safety"]
+path_globs = ["crates/trust-runtime/src/io/addressing.rs"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Direct-address parsing is a runtime safety boundary; malformed-input proof applies without inventing a protocol loopback."
+
+[[code_areas]]
 id = "modbus_mqtt_gpio_io"
 match_kind = "path"
 area_ids = ["protocols"]

@@ -199,6 +199,21 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         self.assertEqual(result.required_test_classes, ["metadata_validation"])
         self.assertEqual(result.missing_test_classes, [])
 
+    def test_bugfix_metadata_validation_is_repository_global_not_per_area(self) -> None:
+        self.planner.tests = tomllib.loads(
+            (ROOT / "verification/test-catalog.toml").read_text()
+        )["tests"]
+
+        result = self.planner.plan(
+            "bugfix",
+            ["crates/trust-runtime/src/io/addressing.rs"],
+            None,
+            None,
+        )
+
+        self.assertIn("metadata_validation", result.required_test_classes)
+        self.assertNotIn("metadata_validation", result.missing_test_classes)
+
     def test_conditional_suites_are_reported_but_not_promoted(self) -> None:
         result = self.planner.plan(
             "bugfix",
