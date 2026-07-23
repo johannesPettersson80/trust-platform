@@ -53358,20 +53358,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_17887ED42EEC11E6777FF59E7D3608B201C26702156AD15AC44E0D7BBDB2F07F"
-code_id = "CODE_17887ED42EEC11E6777FF59E7D3608B201C26702156AD15AC44E0D7BBDB2F07F"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:81c00cf9132ea29241171fcbf1af633c319d9eeee9c441dcaf45979ba5b39b53"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_18DE37A57B7AEE0BC7DFE79D605EDE72E4729D6C2B7D01BC0DAD1B40B6C2859D"
 code_id = "CODE_18DE37A57B7AEE0BC7DFE79D605EDE72E4729D6C2B7D01BC0DAD1B40B6C2859D"
 owner = "trust-runtime"
@@ -81817,3 +81803,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D024E9AD16F333201F1E4E4BFE9D0D65697E9CEC1B9635F5424EA2484247699B"
+code_id = "CODE_D024E9AD16F333201F1E4E4BFE9D0D65697E9CEC1B9635F5424EA2484247699B"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:1ef75ac724c558c3d185076f2c3cee632f0849665b43fcf80f1500be51683a2b"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Numeric setup and wizard prompts feed cycle, port, token-lifetime, and GPIO configuration. Parsing must preserve the full unsigned value and must not coerce malformed input into a valid configuration."

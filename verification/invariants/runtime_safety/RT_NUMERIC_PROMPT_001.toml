@@ -1,0 +1,86 @@
+schema_version = 1
+id = "RT_NUMERIC_PROMPT_001"
+title = "Numeric prompts preserve unsigned input semantics"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Numeric wizard and setup prompts preserve every explicit base-10 u64 value, select the displayed default only for an empty submission, and reject negative, non-decimal, and overflowing input with field context."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/prompt.rs"]
+tests = [
+  "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_ACCEPTS_THE_COMPLETE_U64_RANGE_001",
+  "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_REJECTS_NEGATIVE_NON_NUMERIC_AND_OVERFLOW_VALUES_001",
+  "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_WRAPPER_PRESERVES_ZERO_ORDINARY_DEFAULT_AND_ERRORS_001"
+]
+gates = ["pr"]
+evidence_refs = ["EVID_RUNTIME_NUMERIC_PROMPT_20260723"]
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+
+[[behavior]]
+partition = { equals = "EXPLICIT_UNSIGNED_DECIMAL_IN_RANGE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An explicit base-10 value from zero through u64::MAX is returned exactly without clamping or wrapping."
+
+[[behavior]]
+partition = { equals = "EMPTY_SUBMISSION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only an empty submitted line selects and parses the displayed default."
+
+[[behavior]]
+partition = { equals = "NEGATIVE_NONDECIMAL_OR_OVERFLOW" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Malformed and out-of-range text fails with the prompt label instead of coercing, wrapping, or selecting the default."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The existing parser test proves exact u64::MAX acceptance."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "covered"
+rationale = "Final focused proof exercises zero and representative values."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Existing tests accept u64::MAX and reject the next decimal value."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Existing proof rejects negative, fractional, and overflowing text with field context."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Final focused proof exercises empty-submission default forwarding."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Final focused proof executes prompt_u64 through its non-terminal input path."

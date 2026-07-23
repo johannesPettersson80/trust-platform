@@ -24454,3 +24454,74 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_WITHOUT_PROJECT_PRESERVES_BUNDLE_DETECTION_FAILURE_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_ACCEPTS_THE_COMPLETE_U64_RANGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5A0C480FA7013DC44BB0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/prompt.rs"
+name = "numeric_prompt_parser_accepts_the_complete_u64_range"
+command = "cargo test -p trust-runtime --bin trust-runtime prompt::tests::numeric_prompt_parser_accepts_the_complete_u64_range -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NUMERIC_PROMPT_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+expected_result = "The maximum unsigned 64-bit decimal value parses exactly as u64::MAX."
+expected_failure_mode = "The numeric prompt rejects, truncates, wraps, or changes the maximum in-range value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_ACCEPTS_THE_COMPLETE_U64_RANGE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_REJECTS_NEGATIVE_NON_NUMERIC_AND_OVERFLOW_VALUES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E7668414FCCCB6EB2512"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/prompt.rs"
+name = "numeric_prompt_parser_rejects_negative_non_numeric_and_overflow_values"
+command = "cargo test -p trust-runtime --bin trust-runtime prompt::tests::numeric_prompt_parser_rejects_negative_non_numeric_and_overflow_values -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NUMERIC_PROMPT_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+expected_result = "Negative, fractional, and overflowing values fail with an error that names the prompt field."
+expected_failure_mode = "Malformed or overflowing input is accepted, coerced, defaulted, or loses the prompt-field error context."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_REJECTS_NEGATIVE_NON_NUMERIC_AND_OVERFLOW_VALUES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_WRAPPER_PRESERVES_ZERO_ORDINARY_DEFAULT_AND_ERRORS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D5ADE571BA826A38AC3B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/prompt.rs"
+name = "numeric_prompt_wrapper_preserves_zero_ordinary_default_and_errors"
+command = "cargo test -p trust-runtime --bin trust-runtime prompt::tests::numeric_prompt_wrapper_preserves_zero_ordinary_default_and_errors -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NUMERIC_PROMPT_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#interactive-numeric-prompts"
+expected_result = "The numeric prompt follows the specified unsigned-value and default-selection contract."
+expected_failure_mode = "The numeric prompt accepts an unspecified value, changes the result, or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_WRAPPER_PRESERVES_ZERO_ORDINARY_DEFAULT_AND_ERRORS_001.json"
+last_reviewed = "2026-07-23"
