@@ -7,7 +7,7 @@ This guide covers the production HMI descriptor workflow using the `hmi/` direct
 Generate a deterministic descriptor scaffold from PLC sources:
 
 ```bash
-trust-runtime hmi init --root <project-root>
+trust-runtime hmi --project <project-root> init
 ```
 
 VS Code command alternative:

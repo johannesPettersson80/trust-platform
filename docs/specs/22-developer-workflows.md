@@ -96,6 +96,32 @@ the command preserves that failure and must not substitute the current
 directory as an invented project. This applies to package-registry publish and
 other optional-project workflows.
 
+## HMI scaffold command
+
+`trust-runtime hmi init|update|reset` follows the optional-project resolution
+contract above. An explicit `--project` path is authoritative; without it, the
+command uses standard bundle detection and preserves a detection failure
+instead of silently substituting the current directory.
+
+Before changing `hmi/`, the command discovers the complete recursive `.st` and
+`.pou` project source set, including resolved local dependencies, and compiles
+that source set into runtime metadata and an initial value snapshot. The
+absence of any supported source, unreadable or invalid source metadata,
+dependency-resolution failure, or compile failure aborts the command before
+scaffold files are created, replaced, or backed up.
+
+`init` creates the generated descriptor and fails on a non-empty existing
+`hmi/` directory unless `--force` is supplied. `update` preserves existing
+descriptor files and user layout while merging missing generated pages and
+signals. `reset` creates a backup snapshot of a non-empty existing descriptor
+and then regenerates scaffold-owned files. Each successful command prints the
+selected project `hmi/` path, the applied mode, and the deterministic scaffold
+summary; a failed command must not print a false success summary.
+
+These command, filesystem, and scaffold-lifecycle rules are truST product
+contracts. IEC 61131-3 does not define an HMI descriptor generator, so they are
+neither IEC decisions nor IEC deviations.
+
 ## Deprecated runtime workbench aliases
 
 `trust-runtime test`, `trust-runtime docs`, `trust-runtime commit`, and

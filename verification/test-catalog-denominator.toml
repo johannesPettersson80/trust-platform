@@ -6442,16 +6442,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_26CB71E7EB9AFB5A69B9"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_init_command"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_26D85E382B6B90BB76E6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
@@ -28042,16 +28032,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_AF455501E8518CEAB703"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_reset_command"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_AF4A9B6344EC39C3976B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/agent_command/lsp.rs"
@@ -37232,16 +37212,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_EA19A368372ED6E20DFA"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
-name = "parse_hmi_update_command"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_EA1F874941C90147ED61"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs"
@@ -43582,4 +43552,93 @@ name = "managed_runtime_lifecycle_runs_through_the_shipped_cli"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"
+last_reviewed = "2026-07-23"
+[[reviews]]
+discovery_id = "DISC_26CB71E7EB9AFB5A69B9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_init_command"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_INIT_COMMAND_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_AF455501E8518CEAB703"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_reset_command"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_RESET_COMMAND_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_EA19A368372ED6E20DFA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_update_command"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_UPDATE_COMMAND_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_EB48C89D686FD10772B0"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_applies_selected_style_and_prints_success_summary"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_APPLIES_SELECTED_STYLE_AND_PRINTS_SUCCESS_SUMMARY_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_D1E2239A588399BE3A7E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_compiles_resolved_local_dependency_sources"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_COMPILES_RESOLVED_LOCAL_DEPENDENCY_SOURCES_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_28933CC02C67F8E95D0D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_treats_glob_metacharacters_in_project_path_literally"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_TREATS_GLOB_METACHARACTERS_IN_PROJECT_PATH_LITERALLY_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_E1F5B85DF781AEBAF5BA"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_source_and_compile_failures_leave_descriptor_unchanged"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_SOURCE_AND_COMPILE_FAILURES_LEAVE_DESCRIPTOR_UNCHANGED_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_3F4D4B1B07CE925BD05D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_update_preserves_user_files_and_reset_creates_backup"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_UPDATE_PRESERVES_USER_FILES_AND_RESET_CREATES_BACKUP_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_D47F86B330EC536D554B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_without_project_preserves_bundle_detection_failure"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_WITHOUT_PROJECT_PRESERVES_BUNDLE_DETECTION_FAILURE_001"
 last_reviewed = "2026-07-23"

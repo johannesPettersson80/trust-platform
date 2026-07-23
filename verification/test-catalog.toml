@@ -24239,3 +24239,218 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_INIT_COMMAND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_26CB71E7EB9AFB5A69B9"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_init_command"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_hmi_init_command -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for parse hmi init command satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_INIT_COMMAND_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_RESET_COMMAND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AF455501E8518CEAB703"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_reset_command"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_hmi_reset_command -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for parse hmi reset command satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_RESET_COMMAND_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_UPDATE_COMMAND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EA19A368372ED6E20DFA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_hmi_update_command"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_hmi_update_command -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for parse hmi update command satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_UPDATE_COMMAND_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_APPLIES_SELECTED_STYLE_AND_PRINTS_SUCCESS_SUMMARY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EB48C89D686FD10772B0"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_applies_selected_style_and_prints_success_summary"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_init_applies_selected_style_and_prints_success_summary -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi init applies selected style and prints success summary satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_APPLIES_SELECTED_STYLE_AND_PRINTS_SUCCESS_SUMMARY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_COMPILES_RESOLVED_LOCAL_DEPENDENCY_SOURCES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D1E2239A588399BE3A7E"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_compiles_resolved_local_dependency_sources"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_init_compiles_resolved_local_dependency_sources -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi init compiles resolved local dependency sources satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_COMPILES_RESOLVED_LOCAL_DEPENDENCY_SOURCES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_TREATS_GLOB_METACHARACTERS_IN_PROJECT_PATH_LITERALLY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_28933CC02C67F8E95D0D"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_init_treats_glob_metacharacters_in_project_path_literally"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_init_treats_glob_metacharacters_in_project_path_literally -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi init treats glob metacharacters in project path literally satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_TREATS_GLOB_METACHARACTERS_IN_PROJECT_PATH_LITERALLY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_SOURCE_AND_COMPILE_FAILURES_LEAVE_DESCRIPTOR_UNCHANGED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E1F5B85DF781AEBAF5BA"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_source_and_compile_failures_leave_descriptor_unchanged"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_source_and_compile_failures_leave_descriptor_unchanged -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi source and compile failures leave descriptor unchanged satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_SOURCE_AND_COMPILE_FAILURES_LEAVE_DESCRIPTOR_UNCHANGED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_UPDATE_PRESERVES_USER_FILES_AND_RESET_CREATES_BACKUP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_3F4D4B1B07CE925BD05D"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_update_preserves_user_files_and_reset_creates_backup"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_update_preserves_user_files_and_reset_creates_backup -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi update preserves user files and reset creates backup satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_UPDATE_PRESERVES_USER_FILES_AND_RESET_CREATES_BACKUP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_WITHOUT_PROJECT_PRESERVES_BUNDLE_DETECTION_FAILURE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D47F86B330EC536D554B"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hmi_cli_command.rs"
+name = "hmi_without_project_preserves_bundle_detection_failure"
+command = "cargo test -p trust-runtime --test hmi_cli_command hmi_without_project_preserves_bundle_detection_failure -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HMI_SCAFFOLD_COMMAND_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+expected_result = "The focused assertion suite for hmi without project preserves bundle detection failure satisfies SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command."
+expected_failure_mode = "The specified RT_HMI_SCAFFOLD_COMMAND_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_WITHOUT_PROJECT_PRESERVES_BUNDLE_DETECTION_FAILURE_001.json"
+last_reviewed = "2026-07-23"

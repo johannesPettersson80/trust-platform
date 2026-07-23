@@ -55612,20 +55612,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_67682D05F7E26A7AFB2E98A3B313731F1C0AC33A23344FC7F91FAF69E7366A03"
-code_id = "CODE_67682D05F7E26A7AFB2E98A3B313731F1C0AC33A23344FC7F91FAF69E7366A03"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:af763a7f685a697edec64e317b614d149d0cdbde1eabeb3f0ddd5fdb66c45f28"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6A9C3E97CB40E4C3EC3BBACFFE62776379A409498DD803D81283802778CB4341"
 code_id = "CODE_6A9C3E97CB40E4C3EC3BBACFFE62776379A409498DD803D81283802778CB4341"
 owner = "trust-runtime"
@@ -56108,20 +56094,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:64a77ad4579d2e1c33542ee1c1cad17829e2f96c61907594ca8c1785fc7d8646"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_816501704AF6303C27616791462B12E13E3085B4868F7923FF470827644348C1"
-code_id = "CODE_816501704AF6303C27616791462B12E13E3085B4868F7923FF470827644348C1"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:dc32d758c8ca5f515ed2d8528af0d34aab34c2f4d4a0cfa3f7102f81ceb1e520"
-risk_signals = ["filesystem_or_environment"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"

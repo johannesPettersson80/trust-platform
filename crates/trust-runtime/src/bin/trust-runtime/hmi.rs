@@ -32,10 +32,7 @@ fn run_hmi_scaffold(
 ) -> anyhow::Result<()> {
     let project_root = match project {
         Some(path) => path,
-        None => match detect_bundle_path(None) {
-            Ok(path) => path,
-            Err(_) => std::env::current_dir()?,
-        },
+        None => detect_bundle_path(None)?,
     };
 
     let sources_root = resolve_sources_root(&project_root, None)?;

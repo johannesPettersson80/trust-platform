@@ -1,0 +1,82 @@
+schema_version = 1
+id = "RT_HMI_SCAFFOLD_COMMAND_001"
+title = "HMI scaffold commands resolve, compile, and mutate atomically"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "HMI init, update, and reset use the selected project, compile the complete source closure before descriptor mutation, preserve or back up user state according to mode, apply the selected style, and report success only after the scaffold operation succeeds."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/hmi.rs", "crates/trust-runtime/src/bin/trust-runtime/cli/hmi.rs"]
+tests = [
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_INIT_COMMAND_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_RESET_COMMAND_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_PARSE_HMI_UPDATE_COMMAND_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_APPLIES_SELECTED_STYLE_AND_PRINTS_SUCCESS_SUMMARY_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_COMPILES_RESOLVED_LOCAL_DEPENDENCY_SOURCES_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_INIT_TREATS_GLOB_METACHARACTERS_IN_PROJECT_PATH_LITERALLY_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_SOURCE_AND_COMPILE_FAILURES_LEAVE_DESCRIPTOR_UNCHANGED_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_UPDATE_PRESERVES_USER_FILES_AND_RESET_CREATES_BACKUP_001",
+  "TEST_RUNTIME_HMI_SCAFFOLD_COMMAND_HMI_WITHOUT_PROJECT_PRESERVES_BUNDLE_DETECTION_FAILURE_001"
+]
+gates = ["pr"]
+evidence_refs = ["EVID_RUNTIME_HMI_SCAFFOLD_COMMAND_20260723"]
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+
+[[behavior]]
+partition = { equals = "VALID_EXPLICIT_PROJECT_INIT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid explicit project compiles literal and dependency sources and produces a deterministic descriptor."
+
+[[behavior]]
+partition = { equals = "MISSING_PROJECT_SOURCE_OR_VALID_COMPILE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Bundle-detection, source-discovery, dependency, and compile failures must abort before descriptor mutation or a false success summary."
+
+[[behavior]]
+partition = { equals = "INIT_UPDATE_RESET_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Init protects existing descriptors, update preserves user files, and reset backs up before replacing scaffold-owned files."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Existing shipped-command tests cover literal project paths and resolved local dependency compilation."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused command tests reject missing project authority, no-source projects, and compile failures before descriptor mutation."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "A shipped-command lifecycle test proves update preservation and reset backup."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "The existing literal-path integration covers filesystem glob metacharacters."

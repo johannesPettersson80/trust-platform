@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard
+  bundle-detection failures instead of silently treating an undetectable
+  current directory as the selected project.
 - trust-runtime: versioned deployment now rejects invalid pointer slots before
   installation, copies enabled ADS and OPC UA client sidecars into the
   installed bundle, and rejects symbolic links in the copied bundle closure.
