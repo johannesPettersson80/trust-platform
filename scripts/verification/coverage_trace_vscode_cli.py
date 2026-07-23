@@ -158,6 +158,16 @@ def vscode_launcher_command(
     ]
 
 
+def vscode_compile_commands() -> list[list[str]]:
+    """Prepare extension tests without rebuilding tracked webview bundles."""
+
+    return [
+        ["npm", "run", "clean:out"],
+        ["npm", "exec", "--", "tsc", "-p", "./"],
+        ["npm", "run", "typecheck:webview"],
+    ]
+
+
 def run_vscode_trace(
     *,
     root: Path,
@@ -230,12 +240,13 @@ def run_vscode_trace(
             environment=environment,
             label="VS Code dependency install",
         )
-    _run(
-        ["npm", "run", "compile"],
-        cwd=root / "editors/vscode",
-        environment=environment,
-        label="VS Code compile",
-    )
+    for command in vscode_compile_commands():
+        _run(
+            command,
+            cwd=root / "editors/vscode",
+            environment=environment,
+            label="VS Code compile",
+        )
     _run(
         [
             "cargo",

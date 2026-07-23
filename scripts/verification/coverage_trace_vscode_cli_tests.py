@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from scripts.verification.coverage_trace_vscode_cli import (
     build_vscode_selection,
     validate_vscode_attempts,
+    vscode_compile_commands,
     vscode_launcher_command,
 )
 
@@ -18,6 +19,16 @@ DISCOVERY_ID = "DISC_" + "A" * 20
 
 
 class CoverageTraceVscodeCliTests(unittest.TestCase):
+    def test_compile_commands_do_not_rebuild_tracked_webview_bundles(self) -> None:
+        self.assertEqual(
+            [
+                ["npm", "run", "clean:out"],
+                ["npm", "exec", "--", "tsc", "-p", "./"],
+                ["npm", "run", "typecheck:webview"],
+            ],
+            vscode_compile_commands(),
+        )
+
     def test_selection_uses_compiled_file_and_literal_scanner_title(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

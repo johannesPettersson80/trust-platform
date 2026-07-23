@@ -9,9 +9,9 @@ from pathlib import Path
 
 from scripts.verification.test_catalog_json_schema import validate_json_schema_instance
 from scripts.verification.mapping_review import stable_decision_id
-from scripts.verification.metadata_validator.constants import (
-    SCHEMA_FILES,
-    SCHEMA_REQUIRED_FIELDS,
+from scripts.verification.metadata_validator.mapping_schema_contracts import (
+    MAPPING_SCHEMA_FILES,
+    MAPPING_SCHEMA_REQUIRED_FIELDS,
 )
 
 
@@ -34,8 +34,8 @@ class MappingContractTests(unittest.TestCase):
             "test-coverage-trace.schema.json",
         }
 
-        self.assertTrue(expected.issubset(SCHEMA_FILES))
-        self.assertTrue(expected.issubset(SCHEMA_REQUIRED_FIELDS))
+        self.assertTrue(expected.issubset(MAPPING_SCHEMA_FILES))
+        self.assertTrue(expected.issubset(MAPPING_SCHEMA_REQUIRED_FIELDS))
 
     def test_trace_schema_forbids_proof_and_requires_exact_observation_shape(self) -> None:
         record = {
