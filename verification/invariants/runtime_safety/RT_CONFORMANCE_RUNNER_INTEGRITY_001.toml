@@ -1,0 +1,103 @@
+schema_version = 1
+id = "RT_CONFORMANCE_RUNNER_INTEGRITY_001"
+title = "Runtime conformance execution is deterministic and fail-closed"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Conformance discovery accepts only the closed, self-consistent suite shape; execution enforces case-kind and typed-series contracts; and verify mode reports deterministic pass, mismatch, or execution-error outcomes without blessing false success."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/conformance/discovery.rs", "crates/trust-runtime/src/bin/trust-runtime/conformance/execution.rs", "crates/trust-runtime/src/bin/trust-runtime/conformance/models.rs", "crates/trust-runtime/src/bin/trust-runtime/conformance/runner.rs", "crates/trust-runtime/src/bin/trust-runtime/conformance/series_values.rs", "crates/trust-runtime/src/bin/trust-runtime/conformance/time_utils.rs"]
+tests = [
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_PARSE_CONFORMANCE_COMMAND_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_CASE_ID_VALIDATION_MATCHES_NAMING_RULES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_CASE_SOURCES_MUST_REMAIN_INSIDE_THE_CASE_DIRECTORY_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_COMPILE_ERROR_CASES_CANNOT_BLESS_SUCCESSFUL_COMPILATION_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_CONNECTOR_STATUS_TRACE_REJECTS_UNKNOWN_SOURCES_STATES_AND_EXPECTATIONS_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_CASE_DIRECTORIES_WITHOUT_MANIFESTS_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_MANIFEST_IDENTITY_AND_MISSING_SUITE_ROOT_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_UNKNOWN_CATEGORY_DIRECTORIES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_PARSE_TYPED_VALUES_SUPPORTS_CORE_MANIFEST_TYPES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_SERIES_RESTART_AND_STEP_VALIDATION_COVER_CLOSED_PARTITIONS_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_SUMMARY_CONTRACT_MOVES_TO_V2_FOR_EXPANDED_CATEGORIES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_SUMMARY_CONTRACT_REMAINS_V1_FOR_LEGACY_CATEGORY_ONLY_SUITES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_TYPED_VALUE_PARSER_AND_ENCODER_COVER_SUPPORTED_SCALAR_CONTRACT_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_UNIX_SPLIT_HANDLES_PRE_EPOCH_AND_LEAP_DAY_BOUNDARIES_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_UNIX_SPLIT_PRODUCES_EPOCH_001",
+  "TEST_RUNTIME_CONFORMANCE_RUNNER_CONFORMANCE_COMMAND_SUPPORTS_UPDATE_VERIFY_AND_MISMATCH_TAXONOMY_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "platform_filesystem_variation"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
+
+[[behavior]]
+partition = { equals = "VALID_DETERMINISTIC_SUITE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Valid cases execute in stable ID order and emit the reviewed canonical result and summary profile."
+
+[[behavior]]
+partition = { equals = "MALFORMED_SUITE_OR_CASE_MANIFEST" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Missing roots, unknown categories, inconsistent identities, escaping sources, invalid series, typed values, restarts, or connector tokens fail closed."
+
+[[behavior]]
+partition = { equals = "VERIFY_EXPECTATION_MISMATCH" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Verify mode distinguishes unreadable expectations, readable mismatches, and execution errors and returns non-success."
+
+[[behavior]]
+partition = { equals = "WARM_COLD_AND_ORDERED_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Cycle series, warm-like and cold-like restarts, timestamps, and summaries preserve their reviewed ordering semantics."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The focused CLI integration and the separately executed 21-case shipped suite prove deterministic successful execution."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused discovery, containment, series, typed-value, compile-error, and connector-token matrices cover malformed partitions."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Width, cycle, restart, epoch, profile, and expected-artifact boundaries have focused assertions."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Warm/cold restart aliases, stable case ordering, result taxonomy, and summary version selection are directly exercised."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "This batch proves the Linux remote-builder path; final broad platform and workspace gates remain reserved for the frozen candidate."

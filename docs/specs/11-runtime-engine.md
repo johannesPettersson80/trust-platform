@@ -1080,6 +1080,48 @@ The deprecated `config-ui serve` alias emits its deprecation warning before
 entering this same standalone-IDE validation and startup path; it does not own
 a second project-selection or server mode.
 
+##### Runtime conformance case runner
+
+`trust-runtime conformance` consumes an explicit suite directory or the
+`conformance` directory below the current working directory. The suite root
+must exist as a directory. Case discovery is deterministic and fail-closed:
+only the registered category directories are accepted; every case directory
+requires `manifest.toml`; the manifest ID and category must match their
+directory names; and IDs use
+`cfm_<category>_<nonempty-lowercase-token-sequence>_<three-digits>`.
+Manifest source paths are relative, contain no parent/root/prefix component,
+and must resolve inside their owning case directory.
+
+The runner supports three closed case kinds:
+
+- A `runtime` case requires `cycles > 0`. Every nonempty advance, named-input,
+  and direct-input series has exactly one element per cycle. Restart directives
+  target `1..=cycles`; `warm`, `hot`, and `fault` use warm retained-state
+  behavior, while `cold` and `download` use cold behavior. `skip` and `_`
+  preserve the previous step value. Typed inputs use `KIND:VALUE` for BOOL,
+  signed and unsigned integers, bit strings, REAL/LREAL, TIME/LTIME, and
+  STRING, with the declared runtime width enforced.
+- A `compile_error` case succeeds only when compilation fails. Successful
+  compilation is a case-execution error and must never be blessed as expected
+  failure output.
+- A `connector_status_trace` case requires at least one step. Its closed source
+  vocabulary is ADS connection/status, OPC UA client/server, MQTT session,
+  Modbus, EtherCAT, and generic I/O-driver health. Source and state tokens are
+  trimmed, ASCII case-insensitive, and treat hyphens as underscores. Unknown
+  tokens and expected state/health mismatches fail the case.
+
+Cases execute in ascending case-ID order. Runtime artifacts contain the
+declared observations for every cycle; connector artifacts contain every
+projected step. `--update-expected` writes canonical pretty JSON to the
+category's expected-artifact path. Verify mode distinguishes a missing or
+unreadable expectation from a readable value mismatch, writes actual mismatch
+artifacts, and emits stable reason codes. Suites containing only the six legacy
+categories use summary profile/version `trust-conformance-v1`/1; any expanded
+category selects `trust-conformance-v2`/2. The command writes and prints the
+same summary and returns an error whenever any case failed or errored. These
+runner and artifact rules are truST product behavior outside IEC 61131-3 and
+are neither an IEC decision nor an IEC deviation.
+
 ##### Runtime launcher input, validation, and startup contract
 
 `trust-runtime play --project <path>` is the product convenience entry point:
