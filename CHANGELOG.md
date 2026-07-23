@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: MQTT raw reads now select the newest payload drained for a
+  scan, while the default fault policy preserves stale-input, output-deadline,
+  and typed-output preflight failures instead of degrading them to success.
 - trust-runtime: OPC UA client configuration now rejects duplicate connection
   names, empty endpoint authorities, anonymous credential fields, and
   conflicting access aliases; client PKI operations ignore or reject symbolic

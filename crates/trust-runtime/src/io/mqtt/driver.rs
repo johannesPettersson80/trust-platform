@@ -103,7 +103,9 @@ impl MqttIoDriver {
         }
 
         if now < self.next_reconnect {
-            return Err(RuntimeError::IoTransport("mqtt reconnect backoff active".into()));
+            return Err(RuntimeError::IoTransport(
+                "mqtt reconnect backoff active".into(),
+            ));
         }
         let deadline = Instant::now() + MQTT_READY_TIMEOUT;
         let mut last_connect_error: Option<SmolStr>;
@@ -146,8 +148,10 @@ impl MqttIoDriver {
                     ));
                 }
             }
-            let detail = last_connect_error
-                .map_or_else(|| "mqtt connect timed out".to_string(), |err| err.to_string());
+            let detail = last_connect_error.map_or_else(
+                || "mqtt connect timed out".to_string(),
+                |err| err.to_string(),
+            );
             self.set_degraded(format!("mqtt connect failed: {detail}"));
             self.next_reconnect = Instant::now() + self.config.reconnect;
             return Err(RuntimeError::IoTransport(
@@ -173,8 +177,8 @@ impl MqttIoDriver {
                 return Ok(payloads);
             }
             if !connected {
-                let detail =
-                    last_error.map_or_else(|| "mqtt disconnected".to_string(), |err| err.to_string());
+                let detail = last_error
+                    .map_or_else(|| "mqtt disconnected".to_string(), |err| err.to_string());
                 self.set_degraded(&detail);
                 return Err(RuntimeError::IoFreshness(detail.into()));
             }
@@ -203,8 +207,7 @@ impl MqttIoDriver {
             .as_ref()
             .expect("sparkplug was checked above");
         let topic = sparkplug.nbirth_topic();
-        let payload =
-            encode_sparkplug_nbirth(sparkplug, &self.config.output_points, sequence);
+        let payload = encode_sparkplug_nbirth(sparkplug, &self.config.output_points, sequence);
         let result = if let Some(session) = self.session.as_mut() {
             session.publish(&topic, &payload)
         } else {
@@ -236,7 +239,7 @@ impl IoDriver for MqttIoDriver {
         };
         if self.config.input_points.is_empty() {
             let payload = &payloads
-                .first()
+                .last()
                 .expect("take_fresh_payloads only returns a non-empty vector")
                 .payload;
             inputs.fill(0);
@@ -310,9 +313,8 @@ impl IoDriver for MqttIoDriver {
                     self.session = None;
                     self.sparkplug_birth_published = false;
                     self.next_reconnect = Instant::now() + self.config.reconnect;
-                    return self.apply_error_policy(RuntimeError::IoTransport(
-                        err.to_string().into(),
-                    ));
+                    return self
+                        .apply_error_policy(RuntimeError::IoTransport(err.to_string().into()));
                 }
             }
             if session.is_connected() {

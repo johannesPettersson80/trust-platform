@@ -440,14 +440,34 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 - Runtime exchange is worker-backed: broker connect/poll/publish and
   reconnection happen on the MQTT worker, while scan-cycle reads/writes use
   bounded snapshot/handoff state.
+- When a raw `topic_in` read drains multiple payloads in one worker operation,
+  the newest drained payload is the authoritative process-image snapshot.
 - Under the default `fault` policy, disconnected or stale MQTT input reads and
   bounded reads with no available snapshot return `IoFreshness`. Completed
   connection failures retain their connection context at the worker boundary;
   they are not replaced by a generic unavailable-snapshot message.
+- The same default `fault` policy remains authoritative when a prior input
+  snapshot exists but the requested refresh misses its scan deadline, when an
+  output handoff misses its scan deadline, and when completed typed-output
+  preflight fails. Those failures set faulted health and return an error rather
+  than collapsing to degraded success. A faulted stale-input read leaves the
+  caller's input buffer unchanged. `warn` and `ignore` retain their documented
+  degraded-success behavior. The focused stale-snapshot copy lock covers
+  `warn`; an explicit `ignore` stale-copy matrix remains open.
+  An output deadline does not itself cancel the already queued asynchronous
+  output; later publication does not retroactively make the timed-out call
+  successful.
 - Reconnection is non-blocking; runtime cycle remains deterministic.
 - Security baseline rejects insecure remote brokers unless explicitly overridden.
 - Sparkplug B non-goals in this profile: command subscriptions, device-level
   DBIRTH/DDATA topics, metric aliases, templates, and store-and-forward.
+
+###### MQTT default-fault and latest-value integrity
+
+The newest raw-payload and default-fault rules above are a truST runtime product
+contract outside IEC 61131-3. Broker delivery, worker deadlines, cached
+snapshots, and output preflight are not IEC language semantics and do not
+belong in `IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
 
 3. **EtherCAT (backend v1)**
 - Driver name: `ethercat`.

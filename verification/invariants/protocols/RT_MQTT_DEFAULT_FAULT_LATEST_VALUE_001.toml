@@ -1,0 +1,123 @@
+schema_version = 1
+id = "RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001"
+title = "MQTT latest-value and default-fault projection fail closed"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "MQTT policy projection returns freshness/output errors under the default fault policy while warn and ignore remain degraded success; focused driver tests lock newest raw payload selection and completed preflight propagation."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/io/mqtt/driver.rs", "crates/trust-runtime/src/io/mqtt/worker.rs"]
+tests = [
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_CONTRACT_TEST_READS_AND_WRITES_PAYLOADS_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_TYPED_POINT_MAP_READS_JSON_TEXT_AND_BINARY_PAYLOADS_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_CYCLE_IMPACT_TEST_DRIVER_CALLS_ARE_NON_BLOCKING_WITHOUT_SESSION_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_READ_INPUTS_RETURNS_WITHIN_SCAN_BOUND_WITHOUT_FRESH_PAYLOAD_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_WRITE_OUTPUTS_RETURNS_WITHIN_SCAN_BOUND_WHILE_SESSION_CONNECTING_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_STALE_SNAPSHOT_IS_RETURNED_WITHOUT_FRESH_PAYLOAD_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_NO_FRESH_PAYLOAD_FOLLOWS_ON_ERROR_POLICY_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_ON_ERROR_IGNORE_PUBLISH_FAILURE_DEGRADES_WITHOUT_RUNTIME_ERROR_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_FAIL_CLOSED_DISCONNECTED_READ_RETURNS_FRESHNESS_ERROR_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_FAIL_CLOSED_PUBLISH_FAILURE_RETURNS_OUTPUT_ERROR_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_STALE_SNAPSHOT_WHEN_REFRESH_TIMES_OUT_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_OUTPUT_HANDOFF_TIMEOUT_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_TYPED_OUTPUT_PREFLIGHT_FAILURE_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "broad_driver_and_worker_facts", "snapshot_zero_fill_and_truncation", "ignore_stale_snapshot_copy_matrix", "pending_output_replacement_and_result_correlation", "reconnect_replay_and_queue_overflow", "multi_topic_partial_publication", "worker_session_join_and_sequence_wrap", "qos_clean_session_and_client_identity", "sparkplug_and_session_semantics", "safe_state_positive_transport_confirmation", "concurrency_and_timing_stress", "external_mqtt_broker"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+
+[[behavior]]
+partition = { equals = "MULTIPLE_RAW_PAYLOADS_IN_ONE_DRAIN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The newest drained raw payload becomes the snapshot."
+
+[[behavior]]
+partition = { equals = "DEFAULT_FAULT_STALE_INPUT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A stale input remains an error with faulted health and no caller-buffer mutation."
+
+[[behavior]]
+partition = { equals = "DEFAULT_FAULT_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Completed typed-output preflight failure remains observable without publication."
+
+[[behavior]]
+partition = { equals = "DEFAULT_FAULT_OUTPUT_HANDOFF_DEADLINE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "The timed-out call faults while its asynchronous output remains queued; later delivery cannot retroactively confirm the call."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_STALE_INPUT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore may return the cached snapshot with degraded health."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_OUTPUT_HANDOFF_DEADLINE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore return degraded success while the asynchronous output remains queued."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore return degraded success without publishing a failed typed output."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "A two-payload drain locks newest raw selection."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "covered"
+rationale = "Focused stale-input and output-deadline cases cover the default fault policy."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "A typed-output bounds failure remains observable."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "External broker proof remains open."
