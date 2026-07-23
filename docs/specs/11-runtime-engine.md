@@ -1221,10 +1221,9 @@ absent fault/realtime fields to `none`, `disabled`, and `false`. Health renders
 `ok=<bool>`. An empty task list renders `tasks=0`; otherwise each task renders
 one line containing its name, min/average/max/last milliseconds to three
 decimal places, and overrun count.
-
-The endpoint exchange, response bound, newline, and response-correlation rules
-are shared by `ctl` and ADS server-control requests; each command retains its
-own request construction and success rendering.
+For status, health, and task summaries, a missing or wrong-typed required result
+field is a command failure; it is not rendered as raw JSON or replaced with an
+invented value.
 
 ##### 6.8.1a Offline communication authoring client
 

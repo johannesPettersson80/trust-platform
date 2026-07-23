@@ -43087,6 +43087,16 @@ catalog_test_id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_P
 last_reviewed = "2026-07-23"
 
 [[reviews]]
+discovery_id = "DISC_39BCE790A562508B5117"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_returns_nonzero_for_malformed_success_results"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_MALFORMED_SUCCESS_RESULTS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
 discovery_id = "DISC_FA663B50CE268EBEFDD2"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/control_cli_command.rs"

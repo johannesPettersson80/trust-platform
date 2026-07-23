@@ -72,9 +72,7 @@ fn send_control_request(
     let request = build_request(action, target.auth_token.as_deref());
     let response = send_control_request_value(&target.endpoint, &request)?;
     ensure_control_response_ok(&response)?;
-    let rendered = serde_json::to_string(&response)?;
-    print_control_response(action, rendered.trim_end());
-    Ok(())
+    print_control_response(action, &response)
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
@@ -162,73 +160,99 @@ fn exchange_control_request<S: Write, R: BufRead>(
     Ok(response)
 }
 
-fn print_control_response(action: &ControlAction, response: &str) {
-    if response.trim().is_empty() {
-        return;
-    }
-    if matches!(action, ControlAction::Status) {
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(response) {
-            if let Some(result) = value.get("result") {
-                if let Some(state) = result.get("state").and_then(|v| v.as_str()) {
-                    let fault = result
-                        .get("fault")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("none");
-                    let rt_profile = result
-                        .get("realtime")
-                        .and_then(|v| v.get("profile"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("disabled");
-                    let rt_active = result
-                        .get("realtime")
-                        .and_then(|v| v.get("active"))
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    println!(
-                        "state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}"
-                    );
-                    return;
+fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyhow::Result<()> {
+    match action {
+        ControlAction::Status => {
+            let result = response
+                .get("result")
+                .and_then(JsonValue::as_object)
+                .context("status response missing object 'result'")?;
+            let state = result
+                .get("state")
+                .and_then(JsonValue::as_str)
+                .context("status result missing string 'state'")?;
+            let fault = match result.get("fault") {
+                Some(value) => value
+                    .as_str()
+                    .context("status result 'fault' must be a string")?,
+                None => "none",
+            };
+            let (rt_profile, rt_active) = match result.get("realtime") {
+                Some(value) => {
+                    let realtime = value
+                        .as_object()
+                        .context("status result 'realtime' must be an object")?;
+                    let profile = match realtime.get("profile") {
+                        Some(value) => value
+                            .as_str()
+                            .context("status realtime 'profile' must be a string")?,
+                        None => "disabled",
+                    };
+                    let active = match realtime.get("active") {
+                        Some(value) => value
+                            .as_bool()
+                            .context("status realtime 'active' must be a boolean")?,
+                        None => false,
+                    };
+                    (profile, active)
                 }
-            }
+                None => ("disabled", false),
+            };
+            println!(
+                "state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}"
+            );
         }
-    }
-    if matches!(action, ControlAction::Health) {
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(response) {
-            if let Some(result) = value.get("result") {
-                if let Some(ok) = result.get("ok").and_then(|v| v.as_bool()) {
-                    println!("ok={ok}");
-                    return;
-                }
-            }
+        ControlAction::Health => {
+            let ok = response
+                .get("result")
+                .and_then(|result| result.get("ok"))
+                .and_then(JsonValue::as_bool)
+                .context("health result missing boolean 'ok'")?;
+            println!("ok={ok}");
         }
-    }
-    if matches!(action, ControlAction::Stats) {
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(response) {
-            if let Some(tasks) = value
+        ControlAction::Stats => {
+            let tasks = response
                 .get("result")
                 .and_then(|result| result.get("tasks"))
-                .and_then(|value| value.as_array())
-            {
-                if tasks.is_empty() {
-                    println!("tasks=0");
-                    return;
-                }
-                for task in tasks {
-                    let name = task.get("name").and_then(|v| v.as_str()).unwrap_or("task");
-                    let min = task.get("min_ms").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let avg = task.get("avg_ms").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let max = task.get("max_ms").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let last = task.get("last_ms").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let overruns = task.get("overruns").and_then(|v| v.as_u64()).unwrap_or(0);
-                    println!(
-                        "task={name} min_ms={min:.3} avg_ms={avg:.3} max_ms={max:.3} last_ms={last:.3} overruns={overruns}"
-                    );
-                }
-                return;
+                .and_then(JsonValue::as_array)
+                .context("stats result missing array 'tasks'")?;
+            if tasks.is_empty() {
+                println!("tasks=0");
+                return Ok(());
+            }
+            for task in tasks {
+                let name = task
+                    .get("name")
+                    .and_then(JsonValue::as_str)
+                    .context("task result missing string 'name'")?;
+                let min = task
+                    .get("min_ms")
+                    .and_then(JsonValue::as_f64)
+                    .context("task result missing numeric 'min_ms'")?;
+                let avg = task
+                    .get("avg_ms")
+                    .and_then(JsonValue::as_f64)
+                    .context("task result missing numeric 'avg_ms'")?;
+                let max = task
+                    .get("max_ms")
+                    .and_then(JsonValue::as_f64)
+                    .context("task result missing numeric 'max_ms'")?;
+                let last = task
+                    .get("last_ms")
+                    .and_then(JsonValue::as_f64)
+                    .context("task result missing numeric 'last_ms'")?;
+                let overruns = task
+                    .get("overruns")
+                    .and_then(JsonValue::as_u64)
+                    .context("task result missing non-negative integer 'overruns'")?;
+                println!(
+                    "task={name} min_ms={min:.3} avg_ms={avg:.3} max_ms={max:.3} last_ms={last:.3} overruns={overruns}"
+                );
             }
         }
+        _ => println!("{}", serde_json::to_string(response)?),
     }
-    println!("{response}");
+    Ok(())
 }
 
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {

@@ -22828,6 +22828,30 @@ last_reviewed = "2026-07-23"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_MALFORMED_SUCCESS_RESULTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_39BCE790A562508B5117"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_returns_nonzero_for_malformed_success_results"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_returns_nonzero_for_malformed_success_results -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl returns nonzero for malformed success results satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_MALFORMED_SUCCESS_RESULTS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_FA663B50CE268EBEFDD2"

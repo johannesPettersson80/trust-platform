@@ -180,6 +180,49 @@ fn ctl_returns_nonzero_when_control_response_omits_ok() {
 }
 
 #[test]
+fn ctl_returns_nonzero_for_malformed_success_results() {
+    let cases = [
+        (
+            "status",
+            json!({"id": 1, "ok": true, "result": {}}),
+            "status result missing string 'state'",
+        ),
+        (
+            "health",
+            json!({"id": 1, "ok": true, "result": {"ok": "yes"}}),
+            "health result missing boolean 'ok'",
+        ),
+        (
+            "stats",
+            json!({
+                "id": 1,
+                "ok": true,
+                "result": {"tasks": [{"name": "Main"}]}
+            }),
+            "task result missing numeric 'min_ms'",
+        ),
+    ];
+
+    for (action, response, expected_error) in cases {
+        let (endpoint, request_rx, server) = spawn_control_server(response);
+        let output = run_ctl(&["--endpoint", &endpoint, action]);
+        let _request = request_rx.recv().expect("captured malformed-result request");
+        server.join().expect("malformed-result control server");
+
+        assert!(
+            !output.status.success(),
+            "{action} malformed success result must fail: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(expected_error),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
     let project = unique_temp_dir("ctl-target-precedence");
     let (project_endpoint, project_request_rx, project_server) =

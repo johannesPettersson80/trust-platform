@@ -17,6 +17,7 @@ tests = [
   "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001",
   "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001",
   "TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_PROJECT_TOKEN_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_MALFORMED_SUCCESS_RESULTS_001",
   "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001",
   "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001",
   "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001",
@@ -80,7 +81,7 @@ rationale = "Unit, TCP CLI integration, and Unix-socket tests cover every regist
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "covered"
-rationale = "Focused tests reject missing targets, empty, malformed, oversized, or mismatched-ID JSON, rejected responses, and absent or non-Boolean ok fields."
+rationale = "Focused tests reject missing targets, empty, malformed, oversized, or mismatched-ID JSON, rejected responses, absent or non-Boolean ok fields, and malformed successful results."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
